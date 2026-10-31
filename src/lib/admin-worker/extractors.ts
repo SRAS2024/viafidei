@@ -690,20 +690,51 @@ const SAINT_TYPE_ENUM = new Set([
 ]);
 
 /**
+ * "Blessed" and "Saint" also open titles that name no one whose cause the
+ * Church has judged: Our Lady's titles (the Blessed Virgin, the Blessed
+ * Mother, Blessed Mary ever Virgin), the Blessed Sacrament and the Blessed
+ * Trinity, blessing formulas ("Blessed be God", "Blessed are the poor") and
+ * sacramentals ("Blessed salt").
+ */
+const NOT_A_PERSON =
+  /^(?:virgin|lady|sacrament|eucharist|trinity|be|are|is|art|palms?|salt|water|oils?|candles?|ashes|bread|objects?|sacramentals?)\b|^mother(?:$|\s+of\b|\s+mary\b)|^mary(?:$|\s*,|\s+(?:ever|mother|most)\b)/i;
+
+/**
+ * Things called after a saint: a day, a church, a medal, a prayer — usually
+ * written with a possessive ("St. Patrick's Day", "St. Peter's Basilica").
+ */
+const NAMED_AFTER_A_SAINT =
+  /['’]s\b|\b(?:day|eve|feast|novena|chaplet|litany|prayers?|medals?|scapulars?|church|basilica|cathedral|chapel|parish|school|college|university|hospital|shrine|abbey|monastery|convent|seminary|oratory|academy|society|foundation|cent(?:er|re)|institute|bible|altar|cemetery)$/i;
+
+/** True when what follows an honorific reads as a person's name. */
+function namesAPerson(rest: string): boolean {
+  // The entity is the title's first segment ("Saint Patrick - Saint of the Day").
+  const name = rest.split(/\s+[-–—|:]\s+/)[0].trim();
+  if (!/^\p{Lu}/u.test(name)) return false;
+  return !NOT_A_PERSON.test(name) && !NAMED_AFTER_A_SAINT.test(name);
+}
+
+/**
  * Canonization status a source's own honorific states ("Blessed X" → beatified,
  * "Venerable X" → venerable, "Servant of God X" → servant_of_god, "Saint X" /
  * "St. X" → canonized). The status MUST be sourced, and the page title is the
- * source's statement; a bare name yields undefined (never guessed).
+ * source's statement — but only when the honorific is followed by a person's
+ * name. "Blessed Virgin Mary", "Blessed Sacrament" or "St. Patrick's Day" name
+ * no one beatified or canonized, and a bare name states no status: all of these
+ * yield undefined (never guessed), so the SAINT payload is refused.
  */
 export function canonizationStatusFromHonorific(
   name: string | undefined,
 ): "canonized" | "beatified" | "venerable" | "servant_of_god" | undefined {
-  const n = (name ?? "").trim();
-  if (/^servant of god\b/i.test(n)) return "servant_of_god";
-  if (/^(venerable|ven\.)\s/i.test(n)) return "venerable";
-  if (/^(blessed|bl\.)\s/i.test(n)) return "beatified";
-  if (/^(saint|st\.?)\s/i.test(n)) return "canonized";
-  return undefined;
+  const m = /^(servant of god|venerable|ven\.|blessed|bl\.|saint|st\.?)\s+(.+)$/i.exec(
+    (name ?? "").trim(),
+  );
+  if (!m || !namesAPerson(m[2])) return undefined;
+  const honorific = m[1].toLowerCase();
+  if (honorific === "servant of god") return "servant_of_god";
+  if (honorific.startsWith("ven")) return "venerable";
+  if (honorific.startsWith("bl")) return "beatified";
+  return "canonized";
 }
 
 /**

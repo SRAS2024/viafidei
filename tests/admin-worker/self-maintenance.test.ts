@@ -492,10 +492,15 @@ describe("REPAIR: lane wedge + stale cursor", () => {
   });
 
   it("rewinds a cursor that walked past the end of its corpus, keeping its dampener", async () => {
+    // The ingest module's own record that the last page at this offset came
+    // back EMPTY is the only end-of-corpus evidence.
     const prisma = makePrisma({
       ...healthyOpts(),
       cursors: [
-        { memoryKey: "structured-cursor:saints", memoryValue: { offset: 9000, zeroStreak: 7 } },
+        {
+          memoryKey: "structured-cursor:saints",
+          memoryValue: { offset: 9000, zeroStreak: 7, lastPageSize: 0 },
+        },
       ],
     });
     const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
@@ -527,6 +532,41 @@ describe("REPAIR: lane wedge + stale cursor", () => {
     const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
     expect(r.conditions.map((c) => c.name)).not.toContain("CURSOR_OUT_OF_RANGE");
     expect(prisma.__memory.get("structured-cursor:popes")).toMatchObject({ offset: 9000 });
+  });
+
+  /**
+   * The 2026-10-31 SAINT livelock. Offsets 1100-1400 were Martyrology-only
+   * entities with no article (`no_wikipedia_article` 100 of 100), which left
+   * `zeroStreak` at 4 — and the streak only resets on a publish. Every
+   * 15-minute SENSE then read `offset > 0 && zeroStreak >= 3` as "past the
+   * end", rewound the cursor to 0, and the ingest re-walked pages 0-700 (all
+   * live or rejected) forever: 55 saints in a burst, then nothing for hours.
+   */
+  it("never rewinds a cursor that is walking through BARREN pages mid-corpus", async () => {
+    const prisma = makePrisma({
+      ...healthyOpts(),
+      cursors: [
+        // Mid-corpus after a barren run: full pages, nothing publishable.
+        {
+          memoryKey: "structured-cursor:wikidata-saints",
+          memoryValue: { offset: 1500, zeroStreak: 4, lastPageSize: 200 },
+        },
+        // The production row as the old ingest wrote it (no lastPageSize).
+        {
+          memoryKey: "structured-cursor:wikidata-church-documents",
+          memoryValue: { offset: 200, zeroStreak: 4 },
+        },
+      ],
+    });
+    const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
+    expect(r.conditions.map((c) => c.name)).not.toContain("CURSOR_OUT_OF_RANGE");
+    expect(r.repairs.find((x) => x.repair === "reset_cursor")).toBeUndefined();
+    expect(prisma.__memory.get("structured-cursor:wikidata-saints")).toMatchObject({
+      offset: 1500,
+    });
+    expect(prisma.__memory.get("structured-cursor:wikidata-church-documents")).toMatchObject({
+      offset: 200,
+    });
   });
 });
 
@@ -620,6 +660,41 @@ describe("REPAIR: parked artifacts", () => {
       data: Record<string, unknown>;
     };
     expect(call.data.status).toBe("BUILD_READY");
+  });
+
+  // A research hold re-checks itself on its own 7 → 90 day backoff (the drain
+  // requeues it when due). The blanket weekly requeue must leave it alone or it
+  // would undo that backoff; and the filter must keep rows whose gateDiagnosis
+  // is NULL, which `NOT: { gateDiagnosis: x }` silently drops.
+  it("never requeues research holds, and keeps NULL-diagnosis rows eligible", async () => {
+    const prisma = makePrisma({
+      ...healthyOpts(),
+      parkedArtifacts: 40,
+      parkedRows: [{ id: "a1" }],
+    });
+    await runSelfMaintenance(prisma, { now: NOW, force: true, limit: 2 });
+    // Research holds and strict-QA review-band holds are deliberately held.
+    const eligible = {
+      OR: [
+        { gateDiagnosis: null },
+        {
+          gateDiagnosis: {
+            notIn: ["requeued_by_self_maintenance", "NEEDS_RESEARCH", "STRICT_QA_REVIEW_BAND"],
+          },
+        },
+      ],
+    };
+    const findWhere = vi
+      .mocked(prisma.adminWorkerPackageArtifact.findMany)
+      .mock.calls.at(-1)?.[0] as {
+      where: Record<string, unknown>;
+    };
+    expect(findWhere.where).toMatchObject(eligible);
+    const countWheres = vi
+      .mocked(prisma.adminWorkerPackageArtifact.count)
+      .mock.calls.map((c) => (c[0] as { where: Record<string, unknown> }).where);
+    expect(countWheres.length).toBeGreaterThan(0);
+    for (const w of countWheres) expect(w).toMatchObject(eligible);
   });
 });
 

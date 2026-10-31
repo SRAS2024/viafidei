@@ -57,18 +57,20 @@ const OUTPUT_LANG: Partial<Record<Locale, string>> = { zh: "zh-Hans" };
 
 /**
  * A prayer's language variants as the reader sees them (its own page, and the
- * prayers of a guide or a novena). When the prayer's text was machine-
- * translated for the reader, the vernacular variant holds that translation:
- * it is labelled with the reader's language and marked up as it (`lang`),
- * never as the English it was translated from. The Latin and Greek variants
- * are always the stored texts.
+ * prayers of a guide, novena, devotion, practice or Marian title). When the
+ * prayer's text was machine-translated for the reader, the vernacular variant
+ * holds that translation: it is labelled with the reader's language and marked
+ * up as it (`lang`), never as the English it was translated from. The Latin and
+ * Greek variants are always the stored texts. `variantsOf` builds the variants
+ * of a payload; the pages pass `publishedPrayerVariants` (data/prayer-sets),
+ * which also withdraws a stale `unofficial` flag.
  */
-export function displayPrayerVariants(item: {
-  title: string;
-  payload: Record<string, unknown>;
-}): PrayerVariant[] {
+export function displayPrayerVariants(
+  item: { title: string; payload: Record<string, unknown> },
+  variantsOf: (payload: Record<string, unknown>) => PrayerVariant[] = buildPrayerVariants,
+): PrayerVariant[] {
   const shown = displayItem(item);
-  const variants = buildPrayerVariants(shown.payload);
+  const variants = variantsOf(shown.payload);
   const overlay = displayOverlay(item);
   const first = variants[0];
   if (!overlay || !first || first.preserve) return variants;

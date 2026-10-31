@@ -65,6 +65,16 @@ published. Pin a working model in `src/lib/translation/engine/models.ts`
   models do this), the Hail Mary as weather hail (Polish) — is rejected and
   stays English (`distortsCatholicTerms` in `text.ts`). Prayer texts shown in
   the reader's language are labelled with that language, never as "English".
+- **A page keeps its layout in every language.** What a page shows, in what
+  order and what it leaves out is decided on the stored English; only the
+  text is swapped in (`displayItem`). The prayers a devotion's instructions or
+  a novena's days name are found by their English names, then shown in the
+  reader's language with one lookup for the prayers shown (`listedPrayer`,
+  `localizePrayers`). The short lines a page writes itself under a title (a
+  saint's patronage and feast day, a novena's start, a devotion's length) are
+  built from the stored record and stay as they are rather than mix two
+  languages in one line, and a composed saint biography loses its closing
+  source pointer before it is localized.
 
 ## How it runs
 

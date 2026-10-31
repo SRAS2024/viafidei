@@ -4,11 +4,12 @@ import { useState } from "react";
 
 import { ParishCard } from "@/components/ui/ParishCard";
 import {
-  deviceMeasurementSystem,
   formatDistanceAway,
   formatRadius,
+  navigatorLocales,
   parishDistanceMiles,
-  type MeasurementSystem,
+  resolveDistanceDisplay,
+  type DistanceDisplay,
 } from "@/lib/content-shared/distance";
 import type { ParishListItem } from "@/lib/data/published";
 
@@ -20,8 +21,11 @@ type Located = {
   items: ParishListItem[];
   /** The visitor's own fix, kept only to label distances in this render. */
   origin: { latitude: number; longitude: number };
-  /** Imperial or metric, decided once from the DEVICE's locale. */
-  units: MeasurementSystem;
+  /**
+   * Units and wording, decided once from the site language and the browser's
+   * own language list: metric outside English, and miles only for US English.
+   */
+  display: DistanceDisplay;
   requestedRadiusMiles: number;
   /** The radius that actually answered; null when the search was unlimited. */
   radiusMiles: number | null;
@@ -43,11 +47,12 @@ function locatedMessage(s: Located): string {
   if (s.items.length === 0) {
     return "We don't have any parishes in the directory yet. Check back soon.";
   }
-  const asked = formatRadius(s.requestedRadiusMiles, s.units) ?? `${s.requestedRadiusMiles} miles`;
+  const units = s.display.system;
+  const asked = formatRadius(s.requestedRadiusMiles, units) ?? `${s.requestedRadiusMiles} miles`;
   if (!s.widened) return `The parishes nearest you, within ${asked}.`;
   const lead = `No parishes within ${asked} yet.`;
   if (s.radiusMiles === null) return `${lead} Here are the nearest ones we have.`;
-  const widened = formatRadius(s.radiusMiles, s.units) ?? `${s.radiusMiles} miles`;
+  const widened = formatRadius(s.radiusMiles, units) ?? `${s.radiusMiles} miles`;
   return `${lead} Here are the nearest ones, within ${widened}.`;
 }
 
@@ -64,7 +69,19 @@ function locatedMessage(s: Located): string {
  * else, is never written down, and is held in this component's state only for
  * as long as the "near me" view is on screen.
  */
-export function ParishLocator({ parishes, total }: { parishes: ParishListItem[]; total?: number }) {
+export function ParishLocator({
+  parishes,
+  total,
+  locale,
+  awayTemplate,
+}: {
+  parishes: ParishListItem[];
+  total?: number;
+  /** The site language (`vf_locale` cookie, else Accept-Language); English if absent. */
+  locale?: string;
+  /** The dictionary's `parishes.distanceAway` phrase in that language. */
+  awayTemplate?: string;
+}) {
   const [state, setState] = useState<LocateState>({ kind: "idle" });
 
   const located = state.kind === "located" ? state : null;
@@ -77,7 +94,7 @@ export function ParishLocator({ parishes, total }: { parishes: ParishListItem[];
     }
     // Read once, here rather than at render: the component is server-rendered
     // too, and there is no navigator on the server to hydrate against.
-    const units = deviceMeasurementSystem(navigator);
+    const display = resolveDistanceDisplay(locale, navigatorLocales(navigator));
     setState({ kind: "locating" });
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -100,7 +117,7 @@ export function ParishLocator({ parishes, total }: { parishes: ParishListItem[];
               kind: "located",
               items: data.items ?? [],
               origin,
-              units,
+              display,
               requestedRadiusMiles: data.requestedRadiusMiles ?? REQUESTED_RADIUS_MILES,
               radiusMiles:
                 data.radiusMiles === undefined ? REQUESTED_RADIUS_MILES : data.radiusMiles,
@@ -169,19 +186,21 @@ export function ParishLocator({ parishes, total }: { parishes: ParishListItem[];
         {shown.map((p) => {
           // Only ever shown once the visitor has located themselves — the plain
           // directory has no origin to measure from and no distance to claim.
-          const away = located ? distanceAway(located, p) : null;
+          const away = located ? distanceAway(located, p, awayTemplate) : null;
           return (
             <li key={p.id}>
               <ParishCard
                 name={p.title}
                 href={`/parishes/${p.slug}`}
+                designation={p.designation}
                 address={p.address}
+                postalCode={p.postalCode}
                 city={p.city}
                 state={p.state}
                 country={p.country}
+                countryCode={p.countryCode}
                 latitude={p.latitude}
                 longitude={p.longitude}
-                website={p.website}
                 distanceSlot={
                   away ? <span className="font-serif text-sm text-ink-soft">{away}</span> : null
                 }
@@ -195,17 +214,17 @@ export function ParishLocator({ parishes, total }: { parishes: ParishListItem[];
 }
 
 /**
- * "0.1 miles away" / "150 metres away", recomputed by haversine from the
+ * "800 ft away" / "A 2,4 km de distância", recomputed by haversine from the
  * visitor's own fix. The API's SQL distance is the fallback for a row whose
  * stored coordinate did not come back with the projection.
  */
-function distanceAway(state: Located, p: ParishListItem): string | null {
+function distanceAway(state: Located, p: ParishListItem, template?: string): string | null {
   const miles =
     parishDistanceMiles(state.origin, {
       latitude: p.latitude ?? undefined,
       longitude: p.longitude ?? undefined,
     }) ?? p.distanceMiles;
-  return formatDistanceAway(miles, state.units);
+  return formatDistanceAway(miles, state.display, template);
 }
 
 function LocationIcon() {

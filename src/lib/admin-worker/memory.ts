@@ -231,56 +231,113 @@ export function decayedConfidence(opts: {
   };
 }
 
+/** Rows read per page by `decayMemory`. */
+const DECAY_PAGE_SIZE = 500;
+/** A row is decayed once it has been idle this long. */
+const DECAY_MIN_AGE_DAYS = 7;
+/** A row idle this long with (almost) no signal left is pruned. */
+const PRUNE_MIN_AGE_DAYS = 180;
+/** A stored confidence this close to the decayed one is left as it is. */
+const CONFIDENCE_EPSILON = 0.01;
+
 /**
- * Walk every memory row and persist the decayed counts. Run this
- * weekly so stale rows fade rather than persist forever. Spec §15:
- * "Add memory decay so old outcomes matter less than recent
- * outcomes."
+ * Persist the decayed counts of the rows that carry a learning signal, and
+ * prune the rows with none left. Run this weekly so stale rows fade rather
+ * than persist forever. Spec §15: "Add memory decay so old outcomes matter
+ * less than recent outcomes."
+ *
+ * Bounded by what can actually change. It used to load EVERY row in the
+ * table and issue one UPDATE per row idle over a week, changed or not, on
+ * every MAINTENANCE dispatch — the floor action and the usual safe-degraded
+ * stage. Most rows carry no counts at all (cursors, skip markers, up to
+ * 50,000 Wikidata rejection memos); they have nothing to decay, so they are
+ * never read here, and past the prune age they go in one statement, exactly
+ * as the per-row rule pruned them before. The rows with a signal are read a
+ * page at a time, and one whose rounded counts and confidence would not move
+ * is not written (the read path decays at read time anyway).
  */
 export async function decayMemory(
   prisma: PrismaClient,
-  opts: { now?: Date } = {},
+  opts: { now?: Date; pageSize?: number } = {},
 ): Promise<{ decayed: number; pruned: number }> {
   const now = opts.now ?? new Date();
-  const rows = await prisma.adminWorkerMemory.findMany({
-    select: {
-      id: true,
-      successCount: true,
-      failureCount: true,
-      lastUsedAt: true,
-      confidence: true,
-    },
-  });
+  const dayMs = 24 * 60 * 60 * 1000;
   let decayed = 0;
   let pruned = 0;
-  for (const row of rows) {
-    const d = decayedConfidence({
-      successCount: row.successCount,
-      failureCount: row.failureCount,
-      lastUsedAt: row.lastUsedAt,
-      now,
+
+  // No signal and idle past the prune age: the per-row rule below would
+  // delete each of these (0 effective counts < 0.25), so delete them at once.
+  const signalFree = await prisma.adminWorkerMemory
+    .deleteMany({
+      where: {
+        successCount: 0,
+        failureCount: 0,
+        lastUsedAt: { lt: new Date(now.getTime() - PRUNE_MIN_AGE_DAYS * dayMs) },
+      },
+    })
+    .catch(() => ({ count: 0 }));
+  pruned += signalFree.count;
+
+  const idleBefore = new Date(now.getTime() - DECAY_MIN_AGE_DAYS * dayMs);
+  const pageSize = Math.max(1, opts.pageSize ?? DECAY_PAGE_SIZE);
+  let afterId: string | null = null;
+  for (;;) {
+    const rows: Array<{
+      id: string;
+      successCount: number;
+      failureCount: number;
+      lastUsedAt: Date | null;
+      confidence: number;
+    }> = await prisma.adminWorkerMemory.findMany({
+      where: {
+        lastUsedAt: { lt: idleBefore },
+        OR: [{ successCount: { gt: 0 } }, { failureCount: { gt: 0 } }],
+        ...(afterId ? { id: { gt: afterId } } : {}),
+      },
+      orderBy: { id: "asc" },
+      take: pageSize,
+      select: {
+        id: true,
+        successCount: true,
+        failureCount: true,
+        lastUsedAt: true,
+        confidence: true,
+      },
     });
-    // Prune rows that have completely decayed AND have no
-    // significant signal — they would only add noise to future
-    // confidence calculations.
-    if (d.ageDays > 180 && d.effectiveSuccess + d.effectiveFailure < 0.25) {
-      await prisma.adminWorkerMemory.delete({ where: { id: row.id } }).catch(() => undefined);
-      pruned += 1;
-      continue;
-    }
-    if (d.ageDays > 7) {
+    for (const row of rows) {
+      const d = decayedConfidence({
+        successCount: row.successCount,
+        failureCount: row.failureCount,
+        lastUsedAt: row.lastUsedAt,
+        now,
+      });
+      // Prune rows that have completely decayed AND have no
+      // significant signal — they would only add noise to future
+      // confidence calculations.
+      if (d.ageDays > PRUNE_MIN_AGE_DAYS && d.effectiveSuccess + d.effectiveFailure < 0.25) {
+        await prisma.adminWorkerMemory.delete({ where: { id: row.id } }).catch(() => undefined);
+        pruned += 1;
+        continue;
+      }
+      const successCount = Math.round(d.effectiveSuccess);
+      const failureCount = Math.round(d.effectiveFailure);
+      if (
+        successCount === row.successCount &&
+        failureCount === row.failureCount &&
+        Math.abs(d.confidence - row.confidence) < CONFIDENCE_EPSILON
+      ) {
+        continue;
+      }
       await prisma.adminWorkerMemory
         .update({
           where: { id: row.id },
-          data: {
-            successCount: Math.round(d.effectiveSuccess),
-            failureCount: Math.round(d.effectiveFailure),
-            confidence: d.confidence,
-          },
+          data: { successCount, failureCount, confidence: d.confidence },
         })
         .catch(() => undefined);
       decayed += 1;
     }
+    if (rows.length < pageSize) break;
+    afterId = rows[rows.length - 1].id;
   }
   return { decayed, pruned };
 }

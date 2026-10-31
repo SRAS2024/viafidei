@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  articleProse,
   cleanInfoboxValue,
   extractInfoboxBlock,
   parseInfobox,
@@ -79,6 +80,23 @@ describe("parseInfobox", () => {
 
   it("returns {} for wikitext without an infobox", () => {
     expect(parseInfobox("no box here")).toEqual({});
+  });
+
+  it("reads the one-line {{Saint}} redirect to Infobox saint (Edward Colman)", () => {
+    const box = parseInfobox(
+      "{{Short description|English Catholic courtier and martyr}}\n" +
+        "{{Saint|name=Edward Coleman|titles=Layman|death_date=3 December 1678 (aged 42)" +
+        "|feast_day=3 December|honored_in=[[Roman Catholic Church]]" +
+        "|beatified_date=15 December 1929 by [[Pope Pius XI]]|honorific-prefix=Blessed}}" +
+        "Edward Colman was a courtier.",
+    );
+    expect(box.feast_day).toBe("3 December");
+    expect(box.honored_in).toBe("Roman Catholic Church");
+    expect(box.honorific_prefix).toBe("Blessed");
+    expect(box.beatified_date).toContain("15 December 1929");
+    // Only the whole template name: a template that merely starts with
+    // "Saint" is not an infobox.
+    expect(parseInfobox("{{Saints of the day|feast_day=1 May}}")).toEqual({});
   });
 });
 
@@ -162,5 +180,20 @@ describe("parseInfobox — a wrapped value is a PRESENT value", () => {
     expect(box.feast_day).toContain("26 August");
     expect(box.patronage).toBe("Farmers; Bakers");
     expect(box.canonized_date).toBe("1997-10-19");
+  });
+});
+
+describe("articleProse — the body the feast-wording check reads", () => {
+  it("drops the infobox and keeps the running text, links as their labels", () => {
+    const prose = articleProse(
+      `${WIKITEXT}\n\n== Veneration ==\nHer [[feast day|feast]] is kept on 23 August.<ref>Martyrology</ref>`,
+    );
+    expect(prose).toContain("Rose of Lima was a Peruvian Dominican tertiary.");
+    expect(prose).toContain("Veneration.");
+    expect(prose).toContain("Her feast is kept on 23 August.");
+    // The infobox is judged by its own rule, never as prose.
+    expect(prose).not.toContain("canonized_by");
+    expect(prose).not.toContain("Pope Clement X");
+    expect(prose).not.toContain("Martyrology");
   });
 });

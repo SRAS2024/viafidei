@@ -40,6 +40,7 @@ export const es: Dict = {
   "auth.mismatch": "Las contraseñas no coinciden.",
   "auth.weakPassword":
     "La contraseña debe tener al menos 12 caracteres e incluir una letra mayúscula, una letra minúscula, un número y un carácter especial.",
+  "parishes.distanceAway": "A {distance} de distancia",
   "admin.loading.greeting": "¡Bienvenido!",
   "admin.login.title": "Inicio de sesión del administrador",
   "admin.login.subtitle":

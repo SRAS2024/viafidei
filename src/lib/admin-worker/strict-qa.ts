@@ -46,6 +46,15 @@ const WEIGHTS = {
 
 const REVIEW_FLOOR = 0.5;
 
+/**
+ * Reason code + gateDiagnosis of an artifact parked because its strict-QA
+ * score landed in the review band (complete, no zero dimension, under the
+ * type's threshold). Deterministic for the stored package, so it is held —
+ * never requeued to be re-scored to the same band — until another source of
+ * the same entity heals it with fresh fields.
+ */
+export const STRICT_QA_REVIEW_BAND = "STRICT_QA_REVIEW_BAND";
+
 export interface StrictQAInputs {
   packageArtifactId: string;
   contentType: string;
@@ -163,16 +172,35 @@ export async function getStrictQAResult(
   prisma: PrismaClient,
   packageArtifactId: string,
 ): Promise<StrictQAOutcome | null> {
-  const row = await prisma.adminWorkerStrictQAResult
-    .findUnique({ where: { packageArtifactId } })
-    .catch(() => null);
-  if (!row) return null;
+  return (await readStrictQAResult(prisma, packageArtifactId)).result;
+}
+
+/**
+ * Like getStrictQAResult, but tells "there is no row" apart from "the row
+ * could not be read". The publish gate refuses both, but only the first is a
+ * verdict about the artifact: a database error is transient and must be
+ * retried, never turned into a terminal REJECTED.
+ */
+export async function readStrictQAResult(
+  prisma: PrismaClient,
+  packageArtifactId: string,
+): Promise<{ result: StrictQAOutcome | null; error: boolean }> {
+  let row: Awaited<ReturnType<typeof prisma.adminWorkerStrictQAResult.findUnique>>;
+  try {
+    row = await prisma.adminWorkerStrictQAResult.findUnique({ where: { packageArtifactId } });
+  } catch {
+    return { result: null, error: true };
+  }
+  if (!row) return { result: null, error: false };
   return {
-    packageArtifactId,
-    status: row.status as StrictQAOutcome["status"],
-    finalScore: row.finalScore,
-    blockingReasons: row.blockingReasons,
-    repairSuggestions: row.repairSuggestions,
-    recordId: row.id,
+    result: {
+      packageArtifactId,
+      status: row.status as StrictQAOutcome["status"],
+      finalScore: row.finalScore,
+      blockingReasons: row.blockingReasons,
+      repairSuggestions: row.repairSuggestions,
+      recordId: row.id,
+    },
+    error: false,
   };
 }

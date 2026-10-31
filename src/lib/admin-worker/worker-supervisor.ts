@@ -7,22 +7,28 @@
  * 2026-07-12 audit (the worker process died "cleanly between passes" and never
  * restarted).
  *
- * Two layers, both effect-injected so they can be driven deterministically in
+ * Three layers, all effect-injected so they can be driven deterministically in
  * tests without real timers, a real Prisma client, or a real process:
  *
  *   1. installProcessSafetyNet — converts a process-level `uncaughtException`/
  *      `unhandledRejection` (e.g. an `'error'` event on the resident Python
  *      brain's stdio, or a stray fire-and-forget rejection) from a FATAL,
- *      SILENT exit into a loud, survivable event: log, audit, throttled email —
- *      then KEEP THE PROCESS ALIVE. Safe because every pass re-reads all state
- *      from Postgres and is independently isolated; there is no in-memory
- *      invariant a single stray throw can corrupt across passes.
+ *      SILENT exit into a loud, survivable event: log, audit (deduplicated),
+ *      throttled email — then KEEP THE PROCESS ALIVE. Safe because every pass
+ *      re-reads all state from Postgres and is independently isolated; there is
+ *      no in-memory invariant a single stray throw can corrupt across passes.
+ *      The one error it never keeps alive on is a broken log pipe: that means
+ *      the host is gone, and logging it is what used to loop.
  *
  *   2. runLoopSupervised — in continuous mode, RE-ENTERS the loop after a
  *      bounded backoff if the loop machinery itself throws, so the worker
  *      self-heals in-process rather than exiting the container (whose restart
  *      policy may back off or give up). One-shot / bounded runs (tests + manual
  *      triggers) run exactly once and propagate as before.
+ *
+ *   3. watchSupervisingHost — the child's parent watchdog: when the local host
+ *      that supervises it is gone, the worker stops instead of running on as
+ *      an orphan nobody can switch off.
  */
 
 export function sleep(ms: number): Promise<void> {
@@ -31,12 +37,20 @@ export function sleep(ms: number): Promise<void> {
 
 export type ProcessSafetyEvent = "unhandledRejection" | "uncaughtException";
 
+/** How many identical events were folded into one audited event. */
+export interface SafetyEventRepeats {
+  /** Identical events (same signature) inside the dedupe window that were not re-logged. */
+  repeats: number;
+  /** Events of any signature dropped by the per-window cap since the last logged one. */
+  overCap: number;
+}
+
 export interface SafetyNetOptions {
   workerId: string;
   /** Register a process-level handler (wraps `process.on` in production). */
   register: (event: ProcessSafetyEvent, handler: (arg: unknown) => void) => void;
-  /** Best-effort audit write for every caught event. */
-  onEvent: (kind: string, detail: string) => void | Promise<void>;
+  /** Best-effort audit write for every caught event that is not a repeat. */
+  onEvent: (kind: string, detail: string, repeats: SafetyEventRepeats) => void | Promise<void>;
   /** Throttled developer alert (email) for caught events. */
   onAlert: (kind: string, detail: string) => void | Promise<void>;
   /** Console error sink (injected in tests). */
@@ -45,6 +59,35 @@ export interface SafetyNetOptions {
   now?: () => number;
   /** Minimum gap between alert emails. Default 15 minutes. */
   alertThrottleMs?: number;
+  /**
+   * True when the error means the worker's own log pipe is gone (EPIPE /
+   * ERR_STREAM_DESTROYED on stdout/stderr). Such an error is never logged:
+   * logging it writes to the same dead pipe, which raises it again — the loop
+   * that once spun a supervisor at 100% CPU for 8 days.
+   */
+  isBrokenPipe?: (err: unknown) => boolean;
+  /** Called once, instead of logging, the first time a broken log pipe reaches the net. */
+  onBrokenPipe?: (kind: string) => void;
+  /**
+   * An event with the same signature (kind, error code, first message line)
+   * inside this window is counted, not logged again. Default 60 s.
+   */
+  dedupeWindowMs?: number;
+  /** At most this many events are logged per window across all signatures. Default 20. */
+  maxEventsPerWindow?: number;
+}
+
+/**
+ * What makes two process-level events "the same": the kind, the error code and
+ * the first line of the message with every digit run collapsed, so a storm of
+ * one failure that differs only in ports, pids or counters folds into one row.
+ * Exported for the tests.
+ */
+export function errorSignature(kind: string, err: unknown): string {
+  const code = (err as { code?: unknown } | null)?.code;
+  const message = err instanceof Error ? err.message : String(err);
+  const firstLine = (message.split("\n").find((line) => line.trim() !== "") ?? "").trim();
+  return `${kind}|${typeof code === "string" ? code : ""}|${firstLine.replace(/\d+/g, "#").slice(0, 200)}`;
 }
 
 /**
@@ -53,6 +96,13 @@ export interface SafetyNetOptions {
  * `NEXT_RUNTIME === "nodejs"`) never load here. Without our own net, ANY
  * process-level throw terminates the worker by Node's default with no catchable
  * error and no auto-restart — exactly how the service went dark for ~28h.
+ *
+ * Every event is still audited, but not every OCCURRENCE: before this, each
+ * one wrote an unsampled ERROR row, so a failure that repeats in a tight loop
+ * (a reproduced closed-pipe storm made 213,085 handler calls in 3 s) became a
+ * flood of identical production rows. Identical events inside the dedupe
+ * window are counted and the count rides on the next row of that signature,
+ * and a per-window cap bounds the total.
  */
 export function installProcessSafetyNet(opts: SafetyNetOptions): void {
   // Logging is owned by the composition root (run-worker.ts, in scripts/);
@@ -60,13 +110,55 @@ export function installProcessSafetyNet(opts: SafetyNetOptions): void {
   const errorLog = opts.errorLog ?? (() => undefined);
   const now = opts.now ?? (() => Date.now());
   const throttleMs = opts.alertThrottleMs ?? 15 * 60 * 1000;
+  const windowMs = opts.dedupeWindowMs ?? 60_000;
+  const maxPerWindow = opts.maxEventsPerWindow ?? 20;
   let lastAlertMs = 0;
+  let brokenPipeSeen = false;
+  const lastLogged = new Map<string, { at: number; repeats: number }>();
+  let windowStart = Number.NEGATIVE_INFINITY;
+  let windowCount = 0;
+  let overCap = 0;
 
   const handle = (kind: string, err: unknown) => {
-    const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
-    errorLog(`[admin-worker:${opts.workerId}] ${kind} — kept alive:\n${detail}`);
-    void Promise.resolve(opts.onEvent(kind, detail)).catch(() => undefined);
+    if (opts.isBrokenPipe?.(err)) {
+      if (!brokenPipeSeen) {
+        brokenPipeSeen = true;
+        opts.onBrokenPipe?.(kind);
+      }
+      return;
+    }
     const t = now();
+    const signature = errorSignature(kind, err);
+    const previous = lastLogged.get(signature);
+    if (previous && t - previous.at < windowMs) {
+      previous.repeats += 1;
+      return;
+    }
+    if (t - windowStart >= windowMs) {
+      windowStart = t;
+      windowCount = 0;
+    }
+    if (windowCount >= maxPerWindow) {
+      overCap += 1;
+      return;
+    }
+    windowCount += 1;
+    const repeats = { repeats: previous?.repeats ?? 0, overCap };
+    overCap = 0;
+    lastLogged.set(signature, { at: t, repeats: 0 });
+    if (lastLogged.size > 500) {
+      for (const [key, entry] of lastLogged) {
+        if (t - entry.at >= windowMs) lastLogged.delete(key);
+      }
+    }
+
+    const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+    const folded =
+      repeats.repeats + repeats.overCap > 0
+        ? ` (${repeats.repeats} identical and ${repeats.overCap} other event(s) since the last logged one were not logged)`
+        : "";
+    errorLog(`[admin-worker:${opts.workerId}] ${kind} — kept alive${folded}:\n${detail}`);
+    void Promise.resolve(opts.onEvent(kind, detail, repeats)).catch(() => undefined);
     if (t - lastAlertMs > throttleMs) {
       lastAlertMs = t;
       void Promise.resolve(opts.onAlert(kind, detail)).catch(() => undefined);
@@ -75,6 +167,53 @@ export function installProcessSafetyNet(opts: SafetyNetOptions): void {
 
   opts.register("unhandledRejection", (reason) => handle("unhandled_rejection", reason));
   opts.register("uncaughtException", (err) => handle("uncaught_exception", err));
+}
+
+export interface SupervisingHostWatchOptions {
+  /** The local host's pid, handed to the child as VIAFIDEI_HOST_PID. */
+  hostPid: number;
+  /** True while a process with this pid exists (`process.kill(pid, 0)` in production). */
+  isAlive: (pid: number) => boolean;
+  /** This process's current parent pid (`process.ppid` in production). */
+  parentPid: () => number;
+  /** Called once, with the reason, when the host is found gone. */
+  onGone: (reason: string) => void;
+  /** Check cadence. Default 5 s. */
+  intervalMs?: number;
+  /** Timer impl (injected in tests). Must return something `clearInterval` accepts. */
+  setIntervalImpl?: (fn: () => void, ms: number) => ReturnType<typeof setInterval>;
+}
+
+/**
+ * The worker child's parent watchdog. The host spawns the worker detached, in
+ * its own process group, through the tsx launcher — so when the host dies
+ * (SIGKILL, native crash, the app's kill path) nothing tells the worker: its
+ * own parent is the tsx wrapper, which outlives the host, and under the host
+ * the worker neither renews nor checks the lease. An orphan kept working
+ * (and, once a relaunched host's lease landed, double-executing) until its
+ * first log write failed — or forever if it stayed quiet. This polls for the
+ * host pid itself and for adoption by launchd (ppid 1), and reports the first
+ * miss. Returns a function that stops the watch.
+ */
+export function watchSupervisingHost(opts: SupervisingHostWatchOptions): () => void {
+  const every = opts.setIntervalImpl ?? ((fn, ms) => setInterval(fn, ms));
+  let reported = false;
+  const timer = every(() => {
+    if (reported) return;
+    let reason: string | null = null;
+    if (!opts.isAlive(opts.hostPid)) {
+      reason = `the supervising host (pid ${opts.hostPid}) is gone`;
+    } else if (opts.parentPid() === 1) {
+      reason = "adopted by launchd (parent pid 1): the supervising host is gone";
+    }
+    if (reason) {
+      reported = true;
+      clearInterval(timer);
+      opts.onGone(reason);
+    }
+  }, opts.intervalMs ?? 5_000);
+  (timer as { unref?: () => void }).unref?.();
+  return () => clearInterval(timer);
 }
 
 export interface SupervisedLoopOptions {

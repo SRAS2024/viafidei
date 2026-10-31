@@ -15,7 +15,7 @@ import { prisma } from "@/lib/db/client";
 import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
 import {
   compareSaintsChronologically,
-  formatFeastDay,
+  saintCardDetails,
   type SaintCardDetails,
 } from "@/lib/content-shared/saints";
 import { categorizePrayer, prayerCategoryLabel } from "@/lib/content-shared/prayer-categories";
@@ -95,6 +95,36 @@ export async function getPublishedBySlug(
     where: { contentType, slug, isPublished: true },
   });
   return deserialize(row);
+}
+
+/**
+ * Several published items of one type, by slug, in ONE query — returned in the
+ * order the slugs were given, with unknown or unpublished slugs dropped and
+ * duplicates collapsed. The pages that list a set of prayers (a guide's, a
+ * novena's, a devotion's) used to issue one query per prayer.
+ *
+ * Memoised on the list tier: the same handful of sets (the Rosary's prayers,
+ * the building-block prayers every prayer page checks) is requested on every
+ * view, and the publish path flushes the memo.
+ */
+export async function listPublishedBySlugs(
+  contentType: ChecklistContentType,
+  slugs: ReadonlyArray<string>,
+): Promise<PublishedItem[]> {
+  const wanted = [...new Set(slugs.filter((s) => typeof s === "string" && s.trim()))];
+  if (wanted.length === 0) return [];
+  const items = await memo(
+    `published:by-slugs:${contentType}:${wanted.join(",")}`,
+    MEMO_TTL.list,
+    async () => {
+      const rows = await prisma.publishedContent.findMany({
+        where: { contentType, slug: { in: wanted }, isPublished: true },
+      });
+      return rows.map((row) => deserialize(row)!).filter(Boolean);
+    },
+  );
+  const bySlug = new Map(items.map((item) => [item.slug, item]));
+  return wanted.map((slug) => bySlug.get(slug)).filter((i): i is PublishedItem => i != null);
 }
 
 /**
@@ -470,34 +500,10 @@ export async function listSaintCardDetails(
                 WHERE "id" = ANY(${[...ids]})
                   AND "contentType" = 'SAINT'::"ChecklistContentType"`,
   );
-  for (const row of rows) {
-    out.set(row.id, { patronages: saintPatronages(row), feast: saintFeast(row) });
-  }
+  // The same reading the saint's own page applies to its full payload, so the
+  // card and the page can never disagree about a patronage or a feast.
+  for (const row of rows) out.set(row.id, saintCardDetails(row));
   return out;
-}
-
-function saintPatronages(row: SaintCardRow): string[] {
-  const list = Array.isArray(row.patronages)
-    ? row.patronages
-        .filter((p): p is string => typeof p === "string")
-        .map((p) => p.trim())
-        .filter(Boolean)
-    : [];
-  if (list.length > 0) return list;
-  // Legacy payloads carried a single `patronage` string.
-  const legacy = row.patronage?.trim();
-  return legacy ? [legacy] : [];
-}
-
-function saintFeast(row: SaintCardRow): string | null {
-  const { feastMonth: month, feastDayOfMonth: day } = row;
-  if (month != null && day != null) {
-    const mmdd = `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return formatFeastDay(mmdd) ?? null;
-  }
-  // A row whose indexed columns were never backfilled, or a movable feast kept
-  // as prose ("The Tuesday after Pentecost"), which passes through as written.
-  return formatFeastDay(row.feastDay) ?? null;
 }
 
 /**
@@ -554,11 +560,15 @@ export interface ParishListItem {
   location: string;
   /** Street address on its own — the card prints the place parts separately. */
   address: string | null;
+  /** Postal code, when the record has one; the card places it by country. */
+  postalCode: string | null;
   /** Parish website, when the record has one. */
   website: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
+  /** ISO 3166-1 alpha-2 code, when the record has one. */
+  countryCode: string | null;
   latitude: number | null;
   longitude: number | null;
   href: string;
@@ -575,9 +585,11 @@ type ParishRow = {
   latitude: number | null;
   longitude: number | null;
   address: string | null;
+  postalCode?: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
+  countryCode?: string | null;
   website: string | null;
   distance_miles?: number | null;
 };
@@ -601,10 +613,12 @@ function toParishItem(row: ParishRow): ParishListItem {
     designation,
     location,
     address: row.address ?? null,
+    postalCode: row.postalCode ?? null,
     website: row.website ?? null,
     city: row.city,
     state: row.state,
     country: row.country,
+    countryCode: row.countryCode ?? null,
     latitude: row.latitude,
     longitude: row.longitude,
     href: publicRouteFor("PARISH", row.slug).slugPath,
@@ -615,11 +629,13 @@ function toParishItem(row: ParishRow): ParishListItem {
 /** The projected columns every parish list query returns. */
 const PARISH_COLUMNS = Prisma.sql`
   "id", "slug", "title", "subtitle", "subtype", "latitude", "longitude",
-  payload->>'address' AS "address",
-  payload->>'city'    AS "city",
-  payload->>'state'   AS "state",
-  payload->>'country' AS "country",
-  payload->>'website' AS "website"
+  payload->>'address'     AS "address",
+  payload->>'postalCode'  AS "postalCode",
+  payload->>'city'        AS "city",
+  payload->>'state'       AS "state",
+  payload->>'country'     AS "country",
+  payload->>'countryCode' AS "countryCode",
+  payload->>'website'     AS "website"
 `;
 
 /**

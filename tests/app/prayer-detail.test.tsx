@@ -6,11 +6,12 @@
  *
  * The audit found /prayers/our-father printing the Our Father twice — once as
  * an "Official prayer" grey box, then again as the main text — because
- * `officialPrayer` is usually the body flattened onto one line. It also showed
- * no source, no occasions and no related saints at all.
+ * `officialPrayer` is usually the body flattened onto one line. The owner then
+ * asked for the title and the prayer and nothing else, so the official-text
+ * box, occasions, related saints, sources, subtitle and summary are all gone.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { PublishedItem } from "@/lib/data/published";
 
 const published = new Map<string, PublishedItem>();
@@ -31,11 +32,16 @@ vi.mock("@/lib/data/published", async (importOriginal) => {
     ...actual,
     getPublishedBySlug: async (contentType: string, slug: string) =>
       published.get(`${contentType}:${slug}`) ?? null,
+    listPublishedBySlugs: async (contentType: string, slugs: string[]) =>
+      slugs
+        .map((slug) => published.get(`${contentType}:${slug}`))
+        .filter((item): item is PublishedItem => item != null),
     buildPublishedMetadata: () => ({}),
   };
 });
 
 import PrayerDetailPage from "@/app/prayers/[slug]/page";
+import { prayerKnowledge } from "@/lib/checklist/knowledge/prayers";
 
 const OUR_FATHER_BODY = "Our Father, who art in heaven,\nhallowed be thy name;\nthy kingdom come.";
 /** Exactly what the payloads store: the same prayer, flattened to one line. */
@@ -89,65 +95,79 @@ describe("prayer detail page", () => {
     expect(occurrences).toBe(1);
   });
 
-  it("still shows the official text when it is genuinely a different text", async () => {
-    seed({
-      body: OUR_FATHER_BODY,
-      officialPrayer: "Pater noster, qui es in caelis, sanctificetur nomen tuum.",
-      prayerType: "general",
-      category: "general",
-    });
-    await renderPrayer();
-    expect(screen.getByText("Official text")).toBeInTheDocument();
-    expect(screen.getByText(/Pater noster/)).toBeInTheDocument();
-  });
-
-  it("shows citations as source links", async () => {
-    seed({
-      body: OUR_FATHER_BODY,
-      prayerType: "general",
-      category: "general",
-      citations: ["https://www.usccb.org/prayers/our-father", "not-a-url"],
-    });
-    await renderPrayer();
-    expect(screen.getByText("Sources")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: /usccb.org/ });
-    expect(link).toHaveAttribute("href", "https://www.usccb.org/prayers/our-father");
-    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
-  });
-
-  it("shows the occasions the prayer is prayed on", async () => {
-    seed({
-      body: OUR_FATHER_BODY,
-      prayerType: "general",
-      category: "general",
-      occasions: ["Every Mass", "Each decade of the Rosary"],
-    });
-    await renderPrayer();
-    expect(screen.getByRole("heading", { name: "When it is prayed" })).toBeInTheDocument();
-    expect(screen.getByText("Every Mass")).toBeInTheDocument();
-  });
-
-  it("resolves related saints to titled links, never slugs", async () => {
+  it("shows the title and the prayer, and nothing else the payload carries", async () => {
+    // The owner: "for prayer just the prayer title and then its actual prayer".
     seed(
       {
         body: OUR_FATHER_BODY,
+        officialPrayer: "O God, Who by the life, death, and resurrection of Thy only-begotten Son",
+        summary: "The prayer Christ himself taught the disciples.",
         prayerType: "general",
         category: "general",
-        relatedSaints: ["st-teresa-of-avila", "not-published"],
+        occasions: ["three-oclock-hour", "Every Mass"],
+        relatedSaints: ["st-teresa-of-avila"],
+        citations: ["https://www.usccb.org/prayers/our-father"],
       },
       [["SAINT:st-teresa-of-avila", "st-teresa-of-avila", "Saint Teresa of Ávila"]],
     );
+    published.get("PRAYER:our-father")!.subtitle = "Catholic prayer · Latin text";
     const { container } = await renderPrayer();
-    expect(screen.getByRole("link", { name: "Saint Teresa of Ávila" })).toHaveAttribute(
-      "href",
-      "/saints/st-teresa-of-avila",
-    );
-    // The unpublished reference simply disappears — no dead link, no slug.
-    expect(container.textContent).not.toContain("not-published");
-    expect(container.textContent).not.toContain("st-teresa-of-avila");
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Our Father");
+    expect(screen.getByText(/hallowed be thy name/)).toBeInTheDocument();
+    const text = container.textContent ?? "";
+    for (const gone of [
+      "Official text",
+      "O God, Who by the life",
+      "The prayer Christ himself taught",
+      "Catholic prayer · Latin text",
+      "When it is prayed",
+      "three-oclock-hour",
+      "Saint Teresa of Ávila",
+      "Sources",
+      "usccb.org",
+    ]) {
+      expect(text, gone).not.toContain(gone);
+    }
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
-  it("uses the prayer's canonical category as the eyebrow, never a stored raw string", async () => {
+  it("opens the prayers a Rosary or chaplet prayer names, in place, with their Latin", async () => {
+    seed({ body: OUR_FATHER_BODY, latin: "Pater noster, qui es in caelis." });
+    published.set("PRAYER:rosary-opening-prayers", {
+      id: "p2",
+      contentType: "PRAYER",
+      slug: "rosary-opening-prayers",
+      title: "Opening Prayers of the Rosary",
+      subtitle: "",
+      authorityLevel: "USCCB",
+      version: 1,
+      payload: { body: "3. On the single bead, pray the Our Father.", prayerType: "rosary" },
+    } as unknown as PublishedItem);
+    render(await PrayerDetailPage({ params: Promise.resolve({ slug: "rosary-opening-prayers" }) }));
+
+    const name = screen.getByRole("button", { name: /Our Father/ });
+    fireEvent.click(name);
+    expect(screen.getByText(/hallowed be thy name/)).toBeInTheDocument();
+    // The opened prayer's title follows the page's h1 as an h2, never an h3.
+    expect(screen.getAllByRole("heading").map((h) => `${h.tagName}:${h.textContent}`)).toEqual([
+      "H1:Opening Prayers of the Rosary",
+      "H2:Our Father",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Latin" }));
+    expect(screen.getByText("Pater noster, qui es in caelis.")).toHaveAttribute("translate", "no");
+  });
+
+  it("never links a prayer's own name inside its text", async () => {
+    seed({ body: OUR_FATHER_BODY, latin: "Pater noster, qui es in caelis." });
+    await renderPrayer();
+    // Only the Share control carries the name; the prayer text has no link.
+    expect(screen.getAllByRole("button", { name: /Our Father/ })).toEqual([
+      screen.getByRole("button", { name: "Share Our Father" }),
+    ]);
+  });
+
+  it("shows the title and the prayer — no category eyebrow, never a stored raw string", async () => {
     seed({
       body: OUR_FATHER_BODY,
       prayerType: "general",
@@ -155,5 +175,61 @@ describe("prayer detail page", () => {
     });
     const { container } = await renderPrayer();
     expect(container.textContent).not.toContain("dominical");
+    // "General" over the Our Father said nothing; the title opens the page.
+    expect(container.querySelector(".vf-eyebrow")).toBeNull();
+    expect(container.textContent).not.toContain("General");
+    expect(container.querySelector("header")?.firstElementChild?.textContent).toMatch(
+      /^Our Father/,
+    );
+  });
+
+  it("says when a language is a machine translation rather than the liturgical text", async () => {
+    seed({
+      body: OUR_FATHER_BODY,
+      latin: "Pater noster, qui es in caelis.",
+      greek: "Πάτερ ἡμῶν ὁ ἐν τοῖς οὐρανοῖς.",
+      // The June 2026 machine fills are marked; this prayer's Greek is one.
+      machineTranslated: ["greek"],
+    });
+    await renderPrayer();
+    const note = /Unofficial translation/;
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Latin" }));
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Greek" }));
+    expect(screen.getByText("Πάτερ ἡμῶν ὁ ἐν τοῖς οὐρανοῖς.")).toBeInTheDocument();
+    expect(screen.getByText(note)).toBeInTheDocument();
+  });
+
+  it("never calls the curated Latin unofficial under a marker that outlived the fill", async () => {
+    // The live Litany of Saint Joseph: the curated seed wrote the Holy See's
+    // Latin over the June 2026 machine fill and kept the marker, which still
+    // names both languages. Only the Greek is a machine fill.
+    const curated = prayerKnowledge.find((p) => p.slug === "litany-of-saint-joseph")!;
+    published.clear();
+    published.set("PRAYER:litany-of-saint-joseph", {
+      id: "p3",
+      contentType: "PRAYER",
+      slug: "litany-of-saint-joseph",
+      title: "Litany of Saint Joseph",
+      subtitle: "",
+      authorityLevel: "VATICAN",
+      version: 1,
+      payload: {
+        body: curated.payload.body,
+        latin: curated.payload.latin,
+        greek: "Κύριε, ελέησον.",
+        machineTranslated: ["latin", "greek"],
+      },
+    } as unknown as PublishedItem);
+    const { container } = render(
+      await PrayerDetailPage({ params: Promise.resolve({ slug: "litany-of-saint-joseph" }) }),
+    );
+    const note = /Unofficial translation/;
+    fireEvent.click(screen.getByRole("button", { name: "Latin" }));
+    expect(container.textContent).toContain("Sancte Ioseph, ora pro nobis.");
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Greek" }));
+    expect(screen.getByText(note)).toBeInTheDocument();
   });
 });

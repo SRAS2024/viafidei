@@ -44,8 +44,8 @@ export const DEFAULT_GOAL_SEEDS: readonly ContentGoalSeed[] = [
   // content becomes available. No hard maximum.
   { contentType: "PRAYER", targetGoal: 1000, canonicalMax: null, priority: 10 },
   { contentType: "POPE", targetGoal: 267, canonicalMax: null, priority: 15 },
-  { contentType: "SAINT", targetGoal: 10000, canonicalMax: null, priority: 20 },
-  { contentType: "DOCTOR", targetGoal: 37, canonicalMax: null, priority: 25 },
+  { contentType: "SAINT", targetGoal: 4500, canonicalMax: null, priority: 20 },
+  { contentType: "DOCTOR", targetGoal: 38, canonicalMax: null, priority: 25 },
   { contentType: "DEVOTION", targetGoal: 100, canonicalMax: null, priority: 30 },
   { contentType: "NOVENA", targetGoal: 100, canonicalMax: null, priority: 40 },
   { contentType: "MARIAN_TITLE", targetGoal: 50, canonicalMax: null, priority: 50 },
@@ -283,8 +283,57 @@ export function contentGoalStatusLabel(status: ContentGoalStatus | string): stri
   }
 }
 
+/**
+ * Consecutive discovery decisions a SURGING campaign type gets before one pick
+ * goes to the normal rotation (env `ADMIN_WORKER_CAMPAIGN_SURGE_STREAK`). At 2
+ * the campaign keeps two of every three targeted discovery picks.
+ */
+export function surgeStreak(): number {
+  const n = Number((process.env.ADMIN_WORKER_CAMPAIGN_SURGE_STREAK ?? "").trim());
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 2;
+}
+
+/**
+ * True when the last `surgeStreak()` DISCOVERY decisions (or the caller's own
+ * recent targets) all targeted `contentType`, i.e. the campaign has had its run
+ * and this pick belongs to the rotation. Fail-open to false (the campaign keeps
+ * the pick), exactly as before interleaving existed.
+ */
+async function surgeTurnIsOver(
+  prisma: PrismaClient,
+  contentType: string,
+  recentTypes?: readonly string[],
+): Promise<boolean> {
+  const streak = surgeStreak();
+  try {
+    const recent = recentTypes
+      ? recentTypes.slice(0, streak)
+      : (
+          await prisma.adminWorkerDecision.findMany({
+            where: { missionStage: "DISCOVERY", contentType: { not: null } },
+            orderBy: { createdAt: "desc" },
+            take: streak,
+            select: { contentType: true },
+          })
+        ).map((r) => r.contentType);
+    return recent.length >= streak && recent.every((t) => t === contentType);
+  } catch {
+    return false;
+  }
+}
+
 export async function nextPriorityContentType(
   prisma: PrismaClient,
+  opts: {
+    /**
+     * The caller's own most recent targets, newest first. When given, the SURGE
+     * interleave and the rotation use them instead of the brain's DISCOVERY
+     * decisions — for a caller that targets on its own cadence (the always-on
+     * web discovery lane), so it rotates even while the brain rarely picks
+     * DISCOVERY.
+     */
+    recentTypes?: readonly string[];
+  } = {},
 ): Promise<{ contentType: string; gap: number } | null> {
   const allGoals = await prisma.contentGoal.findMany({
     where: { gapCount: { gt: 0 } },
@@ -313,15 +362,21 @@ export async function nextPriorityContentType(
   if (goals.length === 0) return null;
 
   // Major-goal campaign: when a big goal is SURGING, focus the mission target
-  // ENTIRELY on it (overriding the de-rank + rotation below) so the worker
-  // throws everything at completing that one goal before moving to the next
-  // biggest. DRAIN/NORMAL phases fall through to the normal ranking. Fail-open.
+  // on it (overriding the de-rank + rotation below) so the worker throws its
+  // weight at completing that one goal before moving to the next biggest —
+  // but interleaved: once the last SURGE_STREAK discovery decisions were all
+  // the campaign type, this pick goes to the normal rotation, so the other
+  // web-only types (PRAYER, NOVENA, …) keep a share of targeted discovery
+  // during a long campaign. DRAIN/NORMAL phases fall through to the normal
+  // ranking. Fail-open.
   try {
     const { evaluateMajorGoalCampaign } = await import("./major-goal-campaign");
     const campaign = await evaluateMajorGoalCampaign(prisma);
     if (campaign.phase === "SURGE" && campaign.majorType) {
       const target = goals.find((g) => g.contentType === campaign.majorType);
-      if (target) return { contentType: target.contentType, gap: target.gapCount };
+      if (target && !(await surgeTurnIsOver(prisma, target.contentType, opts.recentTypes))) {
+        return { contentType: target.contentType, gap: target.gapCount };
+      }
     }
   } catch {
     // fall through to normal ranking
@@ -376,14 +431,19 @@ export async function nextPriorityContentType(
   // Defensive: tolerate a prisma client without the decision model (tests /
   // degraded) — fall back to no rotation rather than throwing.
   let recentTypes = new Set<string | null>();
+  const rotationDepth = Math.max(0, Math.min(3, ranked.length - 1));
   try {
-    const recent = await prisma.adminWorkerDecision.findMany({
-      where: { missionStage: "DISCOVERY", contentType: { not: null } },
-      orderBy: { createdAt: "desc" },
-      take: Math.max(0, Math.min(3, ranked.length - 1)),
-      select: { contentType: true },
-    });
-    recentTypes = new Set(recent.map((r) => r.contentType));
+    const recent = opts.recentTypes
+      ? opts.recentTypes.slice(0, rotationDepth)
+      : (
+          await prisma.adminWorkerDecision.findMany({
+            where: { missionStage: "DISCOVERY", contentType: { not: null } },
+            orderBy: { createdAt: "desc" },
+            take: rotationDepth,
+            select: { contentType: true },
+          })
+        ).map((r) => r.contentType);
+    recentTypes = new Set(recent);
   } catch {
     recentTypes = new Set();
   }

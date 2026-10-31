@@ -2,6 +2,7 @@ import type { CuratedEntry } from "./index";
 
 import { churchDocumentGroupOne } from "./church-documents/group-1";
 import { churchDocumentGroupTwo } from "./church-documents/group-2";
+import { churchDocumentGroupThree } from "./church-documents/group-3";
 
 const VATICAN = "https://www.vatican.va/";
 
@@ -633,4 +634,5 @@ export const churchDocumentKnowledge: CuratedEntry[] = [
   ...LEGACY,
   ...churchDocumentGroupOne,
   ...churchDocumentGroupTwo,
+  ...churchDocumentGroupThree,
 ];

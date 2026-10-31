@@ -9,16 +9,30 @@
  * It never waits for a model and never throws: anything not translated yet is
  * shown as published.
  *
+ * `localizePrayers` does the same for the prayers a page lists, once the page
+ * has chosen and ordered them from the stored English (`listedPrayer`).
+ *
  * `localizeParishes` applies rule (b) to parish names for EVERY visitor,
  * English included: a name in a script the visitor does not read is shown
  * transliterated, always with the original beside it. It is pure — no cache
  * lookup, no model — so the directory and the near-me API pay nothing for it.
  */
 
+import {
+  buildPrayerVariants,
+  type PrayerVariant,
+  type PrayerWithVariants,
+} from "@/lib/content-shared/prayer-language";
 import { getDictionary } from "@/lib/i18n/translator";
 import type { Locale } from "@/lib/i18n/locales";
 
-import { attachDisplay, type DisplayOverlay } from "./display";
+import {
+  attachDisplay,
+  displayItem,
+  displayOverlay,
+  displayPrayerVariants,
+  type DisplayOverlay,
+} from "./display";
 import { hasContentModel, isMtLocale, isSiteLocale, type MtLocale } from "./languages";
 import { romanize } from "./romanize";
 import { decideParishName, isPersonContentType, verifyProtectedSpans, withOriginal } from "./rules";
@@ -138,6 +152,62 @@ export async function localizeItem<T extends PlannableItem>(
 }
 
 /* ------------------------------------------------------------------ */
+/*  Prayer lists                                                      */
+/* ------------------------------------------------------------------ */
+
+type PrayerSource = PlannableItem & { slug: string; payload: Record<string, unknown> };
+type VariantsOf = (payload: Record<string, unknown>) => PrayerVariant[];
+
+const PRAYER_SOURCES = new WeakMap<object, { item: PrayerSource; variantsOf: VariantsOf }>();
+
+/**
+ * A published prayer as a prayer list holds it while the page works out which
+ * prayers a devotion's instructions or a novena's days name, and in what order:
+ * the stored English title and variants, which the mention matcher reads. The
+ * item it came from rides along invisibly (a WeakMap entry, like an overlay)
+ * for `localizePrayers`. `variantsOf` builds a payload's variants; the prayer
+ * lists pass `publishedPrayerVariants` (data/prayer-sets).
+ */
+export function listedPrayer(
+  item: PrayerSource,
+  variantsOf: VariantsOf = buildPrayerVariants,
+): PrayerWithVariants {
+  const prayer = { slug: item.slug, title: item.title, variants: variantsOf(item.payload) };
+  PRAYER_SOURCES.set(prayer, { item, variantsOf });
+  return prayer;
+}
+
+/**
+ * The prayers a page shows, as the reader sees them: each title and vernacular
+ * text in the reader's language where the cache has it (`displayPrayerVariants`
+ * labels and marks it up as that language), in one lookup for the whole list
+ * and only for the prayers actually shown, never the candidates a matcher
+ * passed over. A prayer that did not come from `listedPrayer`, and every prayer
+ * for an English or Latin reader, is returned as it is. Never throws.
+ */
+export async function localizePrayers(
+  prayers: readonly PrayerWithVariants[],
+  opts: LocalizeOptions = {},
+): Promise<PrayerWithVariants[]> {
+  const sources = prayers.map((prayer) => PRAYER_SOURCES.get(prayer));
+  const items = sources.flatMap((source) => (source ? [source.item] : []));
+  if (items.length === 0) return [...prayers];
+  const localized = await localizeItems(items, opts);
+  let next = 0;
+  return prayers.map((prayer, i) => {
+    const source = sources[i];
+    if (!source) return prayer;
+    const item = localized[next++] ?? source.item;
+    if (!displayOverlay(item)) return prayer;
+    return {
+      slug: prayer.slug,
+      title: displayItem(item).title,
+      variants: displayPrayerVariants(item, source.variantsOf),
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /*  Parishes                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -230,7 +300,10 @@ function countryOf(item: ParishLike): string | null {
  * is shown "Transliteration (Original)" when its script can be transliterated
  * letter by letter, and as written otherwise — never machine-translated (see
  * `decideParishName`). A top-level `country` is shown in the reader's
- * language. Returns copies; the input items are never changed.
+ * language; an item that had no `countryCode` then carries the code its English
+ * name stood for, because the card places the postal code by country
+ * (`parishAddressLines`) and reads an uncoded country by its English name.
+ * Returns copies; the input items are never changed.
  */
 export async function localizeParishes<T extends ParishLike>(
   items: readonly T[],
@@ -244,7 +317,9 @@ export async function localizeParishes<T extends ParishLike>(
       const code = countryOf(item);
       if (typeof item.country === "string") {
         const country = localCountryName(item.country, locale, code);
-        if (country !== item.country) copy = { ...copy, country };
+        if (country !== item.country) {
+          copy = { ...copy, country, ...(!item.countryCode && code ? { countryCode: code } : {}) };
+        }
       }
       const title = item.title ?? "";
       if (decideParishName(title, locale).action !== "transliterate") return copy;

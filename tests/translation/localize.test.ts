@@ -301,6 +301,17 @@ describe("localizeParishes (rule b)", () => {
     expect(db.$executeRaw).not.toHaveBeenCalled();
   });
 
+  it("keeps the code of a country it names in the reader's language, for the address", async () => {
+    // The card places a postal code by country, and reads an uncoded country
+    // by its English name: "Estados Unidos" alone would read as nowhere.
+    const chicago = { title: "St. Turibius", country: "United States", countryCode: null };
+    const [es, s] = await localizeParishes([chicago, seoul], { locale: "es" });
+    expect(es).toEqual({ ...chicago, country: "Estados Unidos", countryCode: "US" });
+    expect(s!.countryCode).toBe("KR");
+    const [en] = await localizeParishes([chicago], { locale: "en" });
+    expect(en).toBe(chicago);
+  });
+
   it("keeps a Japanese name with kanji as written (a half-romanized name is worse)", async () => {
     const [j] = await localizeParishes([{ title: "カトリック浦上教会", country: "Japan" }], {
       locale: "fr",

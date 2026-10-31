@@ -29,6 +29,7 @@ export const fr: Dict = {
   "auth.invalid": "Courriel ou mot de passe incorrect.",
   "auth.adminNotice":
     "Cette connexion est réservée aux membres. Les administrateurs doivent utiliser le portail dédié.",
+  "parishes.distanceAway": "À {distance}",
   "admin.loading.greeting": "Bienvenue !",
   "admin.login.title": "Connexion administrateur",
   "admin.login.subtitle":

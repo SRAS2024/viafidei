@@ -8,6 +8,7 @@ export const vi: Dict = {
   "nav.prayers": "Kinh nguyện",
   "nav.saints": "Các Thánh & Đức Mẹ",
   "nav.login": "Đăng nhập",
+  "parishes.distanceAway": "Cách {distance}",
   "admin.loading.greeting": "Chào mừng!",
   "admin.login.title": "Đăng nhập quản trị",
   "admin.login.submit": "Vào",

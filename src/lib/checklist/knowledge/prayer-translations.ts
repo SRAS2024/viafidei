@@ -24,6 +24,18 @@ export interface PrayerTranslation {
   greek?: string;
 }
 
+/**
+ * Veni, Sancte Spiritus with the versicle Emitte Spiritum and the Pentecost
+ * collect Deus, qui corda fidelium. The catalogue holds this one prayer in two
+ * English wordings, the modern "Come, Holy Spirit" (prayer-to-the-holy-spirit)
+ * and the older "Come, Holy Ghost" (come-holy-spirit, batch-2), and both
+ * translate this Latin, versicle, response and collect alike.
+ */
+const VENI_SANCTE_SPIRITUS: PrayerTranslation = {
+  latin:
+    "Veni, Sancte Spiritus, reple tuorum corda fidelium,\net tui amoris in eis ignem accende.\nV. Emitte Spiritum tuum et creabuntur;\nR. Et renovabis faciem terrae.\nOremus. Deus, qui corda fidelium Sancti Spiritus illustratione docuisti,\nda nobis in eodem Spiritu recta sapere,\net de eius semper consolatione gaudere.\nPer Christum Dominum nostrum.\nAmen.",
+};
+
 export const PRAYER_TRANSLATIONS: Record<string, PrayerTranslation> = {
   "our-father": {
     latin:
@@ -142,10 +154,8 @@ export const PRAYER_TRANSLATIONS: Record<string, PrayerTranslation> = {
     latin:
       "O mi Iesu, dimitte nobis debita nostra,\nlibera nos ab igne inferni,\nconduc in caelum omnes animas,\npraesertim illas quae maxime indigent misericordia tua.\nAmen.",
   },
-  "prayer-to-the-holy-spirit": {
-    latin:
-      "Veni, Sancte Spiritus, reple tuorum corda fidelium,\net tui amoris in eis ignem accende.\nV. Emitte Spiritum tuum et creabuntur;\nR. Et renovabis faciem terrae.\nOremus. Deus, qui corda fidelium Sancti Spiritus illustratione docuisti,\nda nobis in eodem Spiritu recta sapere,\net de eius semper consolatione gaudere.\nPer Christum Dominum nostrum.\nAmen.",
-  },
+  "prayer-to-the-holy-spirit": VENI_SANCTE_SPIRITUS,
+  "come-holy-spirit": VENI_SANCTE_SPIRITUS,
   "prayer-before-a-crucifix": {
     latin:
       "En ego, o bone et dulcissime Iesu,\nante conspectum tuum genibus me provolvo,\nac maximo animi ardore te oro atque obtestor,\nut meum in cor vividos fidei, spei et caritatis sensus,\natque veram peccatorum meorum paenitentiam,\neaque emendandi firmissimam voluntatem velis imprimere;\ndum magno animi affectu et dolore tua quinque vulnera mecum ipse considero,\nac mente contemplor, illud prae oculis habens,\nquod iam in ore ponebat tuo David propheta de te, o bone Iesu:\nFoderunt manus meas et pedes meos;\ndinumeraverunt omnia ossa mea.\nAmen.",
@@ -160,4 +170,29 @@ export const PRAYER_TRANSLATIONS: Record<string, PrayerTranslation> = {
 /** Slugs that intentionally carry no curated Latin/Greek yet (need a curator). */
 export function hasCuratedTranslation(slug: string): boolean {
   return PRAYER_TRANSLATIONS[slug] != null;
+}
+
+/**
+ * A curated PRAYER entry with its translation from PRAYER_TRANSLATIONS merged
+ * into the payload (an entry here wins over an inline `latin` / `greek`).
+ *
+ * Every curated prayer registry runs its entries through this — the legacy
+ * list in `./prayers.ts`, each `./prayers/batch-N` file and `./litanies.ts`.
+ * The merge used to cover the legacy list only, so a translation added here
+ * for a batch or litany slug (the Litany of Loreto lives in batch-1) was
+ * silently never published and never reached the Admin Worker's translator.
+ */
+export function withCuratedTranslation<
+  T extends { slug: string; payload: Record<string, unknown> },
+>(entry: T): T {
+  const t = PRAYER_TRANSLATIONS[entry.slug];
+  if (!t) return entry;
+  return {
+    ...entry,
+    payload: {
+      ...entry.payload,
+      ...(t.latin ? { latin: t.latin } : {}),
+      ...(t.greek ? { greek: t.greek } : {}),
+    },
+  };
 }

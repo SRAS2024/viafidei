@@ -56,6 +56,7 @@ export {
   callBrain,
   isBrainEnabled,
   probeBrain,
+  brainQueueStatus,
   brainStatus,
   resetBrainStatus,
   resolveBrainRoot,

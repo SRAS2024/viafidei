@@ -6,13 +6,20 @@
  *   0 — the loop stopped on purpose (the master switch read OFF);
  *   3 — refused at boot: the switch was OFF, or another runtime already held
  *       the execution lease;
- *   4 — the database could not be read at boot (outage, not a crash);
- *   5 — the execution lease was taken by another runtime mid-run.
+ *   4 — the database failed at boot, reading the switch or reading/writing
+ *       the lease (an outage, not a crash);
+ *   5 — the execution lease was taken by another runtime mid-run;
+ *   6 — the worker lost its supervisor: its log pipe closed or the host pid
+ *       vanished, so it stopped rather than run on as an orphan.
  * Anything else is a crash. The host used to treat 0 and 3 as crashes (a
  * clean OFF rendered as "crashed", and a lease held by another Mac burned
  * the five-restart budget in ~30 s and ended in "gave up"), and 5 as a plain
- * crash. Only a genuine crash — or a DB outage, deferred — may restart.
+ * crash. Only a genuine crash, a lost supervisor — or a DB outage, deferred —
+ * may restart.
  */
+
+/** Exit code the worker uses when its log pipe or its host went away. */
+export const WORKER_EXIT_SUPERVISOR_LOST = 6;
 
 export type WorkerExitKind =
   | "stopped"
@@ -20,6 +27,7 @@ export type WorkerExitKind =
   | "refused"
   | "db_unreachable"
   | "lease_taken"
+  | "supervisor_lost"
   | "crashed";
 
 export type WorkerExitRunState = "off" | "crashed" | "failed";
@@ -88,6 +96,18 @@ export function interpretWorkerExit(input: {
       leaseHeldElsewhere: true,
     };
   }
+  if (code === WORKER_EXIT_SUPERVISOR_LOST) {
+    // The worker saw its log pipe close (or the host pid vanish). If this host
+    // is reading the exit, it is alive after all — a restart gives the worker
+    // fresh pipes, under the same backoff as a crash.
+    return {
+      kind: "supervisor_lost",
+      restart: true,
+      runState: "crashed",
+      failureReason: null,
+      leaseHeldElsewhere: false,
+    };
+  }
   if (code === 3) {
     // Refused at boot. With the switch OFF that is the operator's own stop
     // (nothing to report); with it ON (or unreadable) the only other refusal
@@ -118,6 +138,61 @@ export function interpretWorkerExit(input: {
   };
 }
 
+/**
+ * Why scripts/run-worker.ts declined to run, as a value. The exit code is
+ * derived from it (refusalExitCode), never from the wording of a message.
+ */
+export type WorkerRefusal =
+  /** Started without `--origin local` (and without the remote override). */
+  | "not_local"
+  /** The master switch reads OFF. */
+  | "switch_off"
+  /** Another runtime holds a live execution lease. */
+  | "lease_held_elsewhere"
+  /** The switch or the lease could not be read or written: an outage. */
+  | "db_unreachable";
+
+/**
+ * 4 for an outage — the host waits for the database and restarts the worker —
+ * and 3 for every refusal that is an answer (switch OFF, lease elsewhere).
+ * A database error while claiming the lease used to exit 3, which the host
+ * reads as "another computer is executing" and never retries.
+ */
+export function refusalExitCode(refusal: WorkerRefusal): 3 | 4 {
+  return refusal === "db_unreachable" ? 4 : 3;
+}
+
+/**
+ * Exit 3 again, once the host has tried to read the switch. Read OFF: the
+ * operator's own stop. Read ON: another runtime holds the lease. NOT read: the
+ * database is failing right now, so nothing is known about the lease either —
+ * wait for it and retry, exactly as for exit 4, instead of parking the runtime
+ * as "lease held elsewhere" until an operator re-arms it.
+ */
+export function refineRefusedExit(input: {
+  switchKnown: boolean;
+  switchOn: boolean;
+  databaseHost?: string | null;
+}): WorkerExitPlan {
+  if (!input.switchKnown) {
+    return {
+      kind: "db_unreachable",
+      restart: true,
+      runState: "crashed",
+      failureReason:
+        `The worker declined to start and the database at ${input.databaseHost ?? "?"} cannot be ` +
+        `read to say why — it will be retried when the database answers again.`,
+      leaseHeldElsewhere: false,
+    };
+  }
+  return interpretWorkerExit({
+    code: 3,
+    signal: null,
+    wasStopping: false,
+    switchOn: input.switchOn,
+  });
+}
+
 /** Short operator-facing phrase for the host log line. */
 export function describeWorkerExitKind(kind: WorkerExitKind): string {
   switch (kind) {
@@ -131,6 +206,8 @@ export function describeWorkerExitKind(kind: WorkerExitKind): string {
       return "database unreachable";
     case "lease_taken":
       return "execution lease taken by another runtime";
+    case "supervisor_lost":
+      return "it lost its log pipe or its host and stopped";
     case "crashed":
       return "crashed";
   }

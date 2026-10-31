@@ -15,6 +15,7 @@ vi.mock("@/lib/admin-worker/structured/wikidata", async (orig) => {
 });
 vi.mock("@/lib/admin-worker/structured/wikipedia", () => ({
   fetchSummaryForArticleUrl: vi.fn(),
+  fetchIntroForArticleUrl: vi.fn(async () => null),
 }));
 
 import { prisma } from "@/lib/db/client";

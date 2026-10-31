@@ -122,6 +122,27 @@ describe("PublishedList — full rows", () => {
     expect(screen.getByText("An hour before the Blessed Sacrament.")).toBeInTheDocument();
   });
 
+  it("leaves the summary off a card whose lines already say what it should", () => {
+    render(
+      <PublishedList
+        items={[
+          full("saint-wolfgang", {
+            summary: "Saint Wolfgang, bishop of Regensburg and reformer of monasteries.",
+          }),
+        ]}
+        baseHref="/saints"
+        showSummary={false}
+        detailLinesFor={() => ["Patron of carpenters", "Feast day: October 31"]}
+      />,
+    );
+    const card = screen.getByRole("article");
+    expect(Array.from(card.querySelectorAll("h2, p")).map((el) => el.textContent)).toEqual([
+      "saint-wolfgang",
+      "Patron of carpenters",
+      "Feast day: October 31",
+    ]);
+  });
+
   it("humanises a payload enum eyebrow (G-08: no `lent_preparation` / `rcia` on a card)", () => {
     render(
       <PublishedList

@@ -31,6 +31,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { withoutQueryTimeouts } from "@/lib/db/client";
 import { sendAdminWorkerMonthlyReport } from "@/lib/email/admin-send";
 import { workerExecutionAllowed } from "./execution-context";
 import { isLastDayOfMonth, buildMonthlySummary } from "./report-generator";
@@ -180,8 +181,13 @@ export async function runMonthlyReportJobIfDue(
 
   const { start: monthStart, end: monthEnd } = target;
   try {
-    const summary = await buildMonthlySummary(prisma, monthStart, monthEnd);
-    const pdf = await generateMonthlyAdminWorkerReportPdf(prisma, monthStart, monthEnd);
+    // A whole month of log rows over the public proxy is the one read in the
+    // worker that can legitimately outlast its statement timeout, so the
+    // report is built on a connection without the query timeouts.
+    const { summary, pdf } = await withoutQueryTimeouts(prisma, async (db) => ({
+      summary: await buildMonthlySummary(db, monthStart, monthEnd),
+      pdf: await generateMonthlyAdminWorkerReportPdf(db, monthStart, monthEnd),
+    }));
     const pdfBase64 = pdf.toString("base64");
 
     const result = await sendAdminWorkerMonthlyReport({

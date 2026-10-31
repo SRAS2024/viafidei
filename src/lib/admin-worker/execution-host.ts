@@ -242,35 +242,61 @@ export async function setMasterSwitch(
 /* execution lease                                                     */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Why a claim was refused, as a value callers can branch on. Only
+ * `held_elsewhere` / `claimed_concurrently` say anything about another
+ * runtime; `db_unreachable` is an outage, and treating it as "someone else is
+ * executing" parked a healthy Mac until an operator re-armed it.
+ */
+export type LeaseRefusal = "held_elsewhere" | "claimed_concurrently" | "db_unreachable";
+
 export interface LeaseClaim {
   acquired: boolean;
   lease: ExecutionLease | null;
-  /** Set when the claim was refused because someone else holds a live lease. */
+  /** Set when the claim was refused; one operator-facing sentence. */
   refusedBecause?: string;
+  /** Set when the claim was refused; the structured reason. */
+  refusal?: LeaseRefusal;
+}
+
+function unreachableClaim(err: unknown): LeaseClaim {
+  return {
+    acquired: false,
+    lease: null,
+    refusal: "db_unreachable",
+    refusedBecause: `The database could not be reached to claim the execution lease: ${describeDbError(err)}`,
+  };
+}
+
+interface LeaseClaimInput {
+  runtimeId: string;
+  origin: WorkerExecutionOrigin;
+  host: ExecutionHostInfo;
+  workerVersion?: string | null;
 }
 
 /**
  * Claim sole execution authority. Uses optimistic concurrency on the memory
  * row's `updatedAt` so two runtimes racing for the lease cannot both win.
+ * Never throws: a database error is a refusal with `refusal: "db_unreachable"`.
  */
 export async function acquireExecutionLease(
   prisma: PrismaClient,
-  input: {
-    runtimeId: string;
-    origin: WorkerExecutionOrigin;
-    host: ExecutionHostInfo;
-    workerVersion?: string | null;
-  },
+  input: LeaseClaimInput,
+): Promise<LeaseClaim> {
+  return claimLease(prisma, input, 1);
+}
+
+async function claimLease(
+  prisma: PrismaClient,
+  input: LeaseClaimInput,
+  retriesLeft: number,
 ): Promise<LeaseClaim> {
   let existingRow: RawRow | null;
   try {
     existingRow = await readRow(prisma, LEASE_KEY);
   } catch (err) {
-    return {
-      acquired: false,
-      lease: null,
-      refusedBecause: `The database could not be reached to claim the execution lease: ${describeDbError(err)}`,
-    };
+    return unreachableClaim(err);
   }
   const existing = parseLease(existingRow?.memoryValue);
   const age = leaseAge(existing);
@@ -279,6 +305,7 @@ export async function acquireExecutionLease(
     return {
       acquired: false,
       lease: existing,
+      refusal: "held_elsewhere",
       refusedBecause:
         `Another Admin Worker runtime holds the execution lease ` +
         `(${existing.runtimeId} on ${existing.host.label}, renewed ${Math.round(age / 1000)}s ago).`,
@@ -299,29 +326,61 @@ export async function acquireExecutionLease(
   if (existingRow) {
     // Optimistic take-over: only succeed if nobody else wrote the row since we
     // read it. Prevents two simultaneous claims from both "winning".
-    const updated = await prisma.adminWorkerMemory.updateMany({
-      where: {
-        memoryType: MEMORY_TYPE,
-        memoryKey: LEASE_KEY,
-        updatedAt: existingRow.updatedAt,
-      },
-      data: { memoryValue: lease as never, lastUsedAt: new Date() },
-    });
+    let updated: { count: number };
+    try {
+      updated = await prisma.adminWorkerMemory.updateMany({
+        where: {
+          memoryType: MEMORY_TYPE,
+          memoryKey: LEASE_KEY,
+          updatedAt: existingRow.updatedAt,
+        },
+        data: { memoryValue: lease as never, lastUsedAt: new Date() },
+      });
+    } catch (err) {
+      return unreachableClaim(err);
+    }
     if (updated.count === 0) {
-      const nowRow = await readRow(prisma, LEASE_KEY).catch(() => null);
+      // The row changed between the read and the write, so NOTHING of ours
+      // was written; only a fresh read says who holds the lease now. That read
+      // failing used to fall through to "acquired" — a claim that was never
+      // written, with the real holder unknown.
+      let nowRow: RawRow | null;
+      try {
+        nowRow = await readRow(prisma, LEASE_KEY);
+      } catch (err) {
+        return unreachableClaim(err);
+      }
       const holder = parseLease(nowRow?.memoryValue);
-      if (holder && holder.runtimeId !== input.runtimeId) {
+      // This runtime's own write landed in between (the host renewing the
+      // lease its worker child is claiming): the row names us, so it is ours.
+      if (holder?.runtimeId === input.runtimeId) return { acquired: true, lease: holder };
+      if (holder) {
         return {
           acquired: false,
           lease: holder,
+          refusal: "claimed_concurrently",
           refusedBecause: `Execution lease was claimed concurrently by ${holder.runtimeId}.`,
         };
       }
+      // Released (or rewritten unreadably) under us: claim it afresh, once. A
+      // second race is a refusal, never a claim nobody wrote.
+      if (retriesLeft > 0) return claimLease(prisma, input, retriesLeft - 1);
+      return {
+        acquired: false,
+        lease: null,
+        refusal: "claimed_concurrently",
+        refusedBecause:
+          "The execution lease changed twice while it was being claimed; nothing was written.",
+      };
     }
     return { acquired: true, lease };
   }
 
-  await writeRow(prisma, LEASE_KEY, lease);
+  try {
+    await writeRow(prisma, LEASE_KEY, lease);
+  } catch (err) {
+    return unreachableClaim(err);
+  }
   return { acquired: true, lease };
 }
 

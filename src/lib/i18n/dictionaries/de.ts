@@ -13,6 +13,7 @@ export const de: Dict = {
   "nav.search": "Suche",
   "nav.login": "Anmelden",
   "nav.profile": "Profil",
+  "parishes.distanceAway": "{distance} entfernt",
   "admin.loading.greeting": "Willkommen!",
   "admin.login.title": "Administrator-Anmeldung",
   "admin.login.submit": "Anmelden",

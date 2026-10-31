@@ -25,6 +25,7 @@ import {
   runParishAddressMaintenance,
 } from "@/lib/admin-worker/parish-refresh";
 import { inspectParishWebsite } from "@/lib/admin-worker/communion-verifier";
+import { writeAdminWorkerLog } from "@/lib/admin-worker/logs";
 import {
   sendAdminWorkerParishRefreshReport,
   sendCriticalFailureAlert,
@@ -35,10 +36,16 @@ const mockedReport = vi.mocked(sendAdminWorkerParishRefreshReport);
 const mockedAlert = vi.mocked(sendCriticalFailureAlert);
 
 /** A prisma stub with a working AdminWorkerMemory store so state persists across
- * runs (the cursor + monthly counters live there). */
-function makePrisma(rows: Array<Record<string, unknown>>) {
+ * runs (the cursor + monthly counters live there). `keepers` answer the shared
+ * duplicate rule's address-key probe (published rows by key, earlier ids). */
+function makePrisma(
+  rows: Array<Record<string, unknown>>,
+  keepers: Array<Record<string, unknown>> = [],
+) {
   const store = new Map<string, { memoryValue: unknown; lastUsedAt: Date }>();
   const updates: Array<{ id: string; data: Record<string, unknown> }> = [];
+  /** What another lane wrote after the batch was read (id → payload). */
+  const fresh = new Map<string, unknown>();
   const prisma = {
     adminWorkerMemory: {
       findUnique: vi.fn(
@@ -64,8 +71,18 @@ function makePrisma(rows: Array<Record<string, unknown>>) {
       ),
     },
     publishedContent: {
-      findMany: vi.fn(async () => rows),
+      findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+        if (where.addressKey === undefined) return rows;
+        const id = (where.id ?? {}) as { lt?: string };
+        return keepers.filter(
+          (k) => k.addressKey === where.addressKey && (!id.lt || String(k.id) < id.lt),
+        );
+      }),
       findFirst: vi.fn(async () => null),
+      findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
+        const row = rows.find((r) => r.id === where.id);
+        return row ? { payload: fresh.get(where.id) ?? row.payload } : null;
+      }),
       update: vi.fn(
         async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
           updates.push({ id: where.id, data });
@@ -74,7 +91,7 @@ function makePrisma(rows: Array<Record<string, unknown>>) {
       ),
     },
   } as unknown as PrismaClient;
-  return { prisma, updates, store };
+  return { prisma, updates, store, fresh };
 }
 
 const IN_WINDOW = new Date(2026, 6, 26); // 26 July 2026 (last 7 days of a 31-day month)
@@ -178,30 +195,271 @@ describe("runParishMonthlyRefresh", () => {
 });
 
 describe("runParishAddressMaintenance", () => {
-  it("unpublishes a parish whose address duplicates an earlier one", async () => {
-    const { prisma, updates } = makePrisma([
-      { id: "z2", slug: "b", title: "Dup", payload: { address: "1 Main St", city: "X" } },
-    ]);
-    // An EARLIER published parish already sits at this address.
-    (prisma.publishedContent.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "z1" });
+  const NOW = Date.UTC(2026, 9, 31, 12);
+  const KEY = "1 main st x";
 
-    const out = await runParishAddressMaintenance(prisma, { force: true });
+  it("unpublishes a parish at the same address within 250 m of an earlier one, saying why", async () => {
+    const { prisma, updates } = makePrisma(
+      [
+        {
+          id: "z2",
+          slug: "b",
+          title: "Dup",
+          latitude: 41.8899,
+          longitude: 12.4824,
+          addressKey: KEY,
+          payload: {
+            address: "1 Main St",
+            city: "X",
+            _meta: { websiteVerification: { status: "unknown" } },
+          },
+        },
+      ],
+      [
+        {
+          id: "z1",
+          slug: "a",
+          title: "Keeper",
+          addressKey: KEY,
+          latitude: 41.89,
+          longitude: 12.4825,
+        },
+      ],
+    );
+
+    const out = await runParishAddressMaintenance(prisma, { force: true, now: () => NOW });
 
     expect(out.duplicatesRemoved).toBe(1);
+    expect(updates[0]?.id).toBe("z2");
     expect(updates[0]?.data).toMatchObject({ isPublished: false });
+    const payload = updates[0]?.data.payload as { _meta: Record<string, unknown> };
+    expect(payload._meta.dedup).toEqual({
+      keeperId: "z1",
+      keeperSlug: "a",
+      key: KEY,
+      rule: "address-key+within-250m",
+      at: NOW,
+      distanceM: 14,
+    });
+    // Existing provenance is kept alongside.
+    expect(payload._meta.websiteVerification).toEqual({ status: "unknown" });
+    expect(updates[0]?.data.contentChecksum).toEqual(expect.any(String));
+    // The log names keeper and victim.
+    const log = vi.mocked(writeAdminWorkerLog).mock.calls.at(-1)![1] as {
+      safeMetadata: { pairs: Array<Record<string, string>> };
+    };
+    expect(log.safeMetadata.pairs).toEqual([
+      {
+        victimId: "z2",
+        victimSlug: "b",
+        keeperId: "z1",
+        keeperSlug: "a",
+        rule: "address-key+within-250m",
+      },
+    ]);
+  });
+
+  it("keeps a same-key parish that is 3 km from the earlier one", async () => {
+    const { prisma, updates } = makePrisma(
+      [
+        {
+          id: "z2",
+          slug: "b",
+          title: "Other",
+          latitude: 41.8899,
+          longitude: 12.4824,
+          addressKey: KEY,
+          payload: { address: "1 Main St", city: "X", addressKey: KEY },
+        },
+      ],
+      [
+        {
+          id: "z1",
+          slug: "a",
+          title: "Keeper",
+          addressKey: KEY,
+          latitude: 41.9029,
+          longitude: 12.4534,
+        },
+      ],
+    );
+
+    const out = await runParishAddressMaintenance(prisma, { force: true, now: () => NOW });
+
+    expect(out.duplicatesRemoved).toBe(0);
+    expect(updates).toHaveLength(0);
+  });
+
+  it("keeps two different churches 90 m apart on one square without a house number", async () => {
+    // Nominatim's parent street: the key names the Kirchplatz, not a building.
+    const key = "kirchplatz 82496 bayern";
+    const square = {
+      address: "Kirchplatz",
+      postalCode: "82496",
+      state: "Bayern",
+      countryCode: "DE",
+    };
+    const { prisma, updates } = makePrisma(
+      [
+        {
+          id: "z2",
+          slug: "pfarrkirche-st-georg",
+          title: "Pfarrkirche St. Georg",
+          latitude: 47.5701,
+          longitude: 11.0002,
+          addressKey: key,
+          payload: { ...square, addressKey: key },
+        },
+      ],
+      [
+        {
+          id: "z1",
+          slug: "friedhofskapelle-st-michael",
+          title: "Friedhofskapelle St. Michael",
+          addressKey: key,
+          latitude: 47.5709,
+          longitude: 11.0002,
+        },
+      ],
+    );
+
+    const out = await runParishAddressMaintenance(prisma, { force: true, now: () => NOW });
+
+    expect(out.duplicatesRemoved).toBe(0);
+    expect(updates).toHaveLength(0);
+  });
+
+  it("still unpublishes the same church mapped twice on that square", async () => {
+    const key = "kirchplatz 82496 bayern";
+    const { prisma, updates } = makePrisma(
+      [
+        {
+          id: "z2",
+          slug: "st-georg",
+          title: "St. Georg",
+          latitude: 47.5701,
+          longitude: 11.0002,
+          addressKey: key,
+          payload: { address: "Kirchplatz", postalCode: "82496", state: "Bayern", addressKey: key },
+        },
+      ],
+      [
+        {
+          id: "z1",
+          slug: "pfarrkirche-st-georg",
+          title: "Pfarrkirche St. Georg",
+          addressKey: key,
+          latitude: 47.5702,
+          longitude: 11.0002,
+        },
+      ],
+    );
+
+    const out = await runParishAddressMaintenance(prisma, { force: true, now: () => NOW });
+
+    expect(out.duplicatesRemoved).toBe(1);
+    expect(
+      (updates[0]?.data.payload as { _meta: { dedup: { rule: string } } })._meta.dedup.rule,
+    ).toBe("street-key+same-name-within-250m");
+  });
+
+  it("uses the name when a row has no coordinates", async () => {
+    const { prisma, updates } = makePrisma(
+      [{ id: "z2", slug: "b", title: "St. Mary", payload: { address: "1 Main St", city: "X" } }],
+      [
+        {
+          id: "z1",
+          slug: "a",
+          title: "Saint Mary Church",
+          addressKey: KEY,
+          latitude: 1,
+          longitude: 1,
+        },
+      ],
+    );
+    const out = await runParishAddressMaintenance(prisma, { force: true, now: () => NOW });
+    expect(out.duplicatesRemoved).toBe(1);
+    expect(
+      (updates[0]?.data.payload as { _meta: { dedup: { rule: string } } })._meta.dedup.rule,
+    ).toBe("address-key+same-name");
+  });
+
+  it("clears a stale city-only key instead of deduping on it (the Rome case)", async () => {
+    const { prisma, updates } = makePrisma(
+      [
+        {
+          id: "z2",
+          slug: "chiesa",
+          title: "Chiesa",
+          addressKey: "rome",
+          latitude: 41.89,
+          longitude: 12.48,
+          payload: { city: "Rome", addressKey: "rome" },
+        },
+      ],
+      [
+        {
+          id: "z1",
+          slug: "first",
+          title: "First",
+          addressKey: "rome",
+          latitude: 41.89,
+          longitude: 12.48,
+        },
+      ],
+    );
+
+    const out = await runParishAddressMaintenance(prisma, { force: true, now: () => NOW });
+
+    expect(out.duplicatesRemoved).toBe(0);
+    expect(out.keyed).toBe(1);
+    expect(updates[0]?.data).toMatchObject({ addressKey: null });
+    expect(updates[0]?.data.isPublished).toBeUndefined();
+    expect((updates[0]?.data.payload as Record<string, unknown>).addressKey).toBeUndefined();
+  });
+
+  it("writes onto the row as it is now, and skips one whose address changed meanwhile", async () => {
+    const { prisma, updates, fresh } = makePrisma([
+      { id: "z1", slug: "a", title: "A", payload: { address: "1 Main St", city: "X" } },
+      { id: "z2", slug: "b", title: "B", payload: { address: "2 Main St", city: "X" } },
+    ]);
+    // Another lane filled a phone on z1, and a different street on z2.
+    fresh.set("z1", { address: "1 Main St", city: "X", phone: "+1 555 0100" });
+    fresh.set("z2", { address: "2 High St", city: "X" });
+
+    const out = await runParishAddressMaintenance(prisma, { force: true, now: () => NOW });
+
+    expect(out.keyed).toBe(1);
+    expect(updates.map((u) => u.id)).toEqual(["z1"]);
+    expect(updates[0]!.data.payload).toMatchObject({ phone: "+1 555 0100", addressKey: KEY });
   });
 
   it("stamps a missing addressKey when there is no duplicate", async () => {
     const { prisma, updates } = makePrisma([
       { id: "z1", slug: "a", title: "A", payload: { address: "1 Main St", city: "X" } },
     ]);
-    (prisma.publishedContent.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-    const out = await runParishAddressMaintenance(prisma, { force: true });
+    const out = await runParishAddressMaintenance(prisma, { force: true, now: () => NOW });
 
     expect(out.keyed).toBe(1);
     expect(out.duplicatesRemoved).toBe(0);
     const payload = updates[0]?.data.payload as Record<string, unknown>;
-    expect(payload.addressKey).toBeTruthy();
+    expect(payload.addressKey).toBe(KEY);
+    expect(updates[0]?.data.addressKey).toBe(KEY);
+  });
+
+  it("restarts its walk under a new cursor key now that keys changed meaning", async () => {
+    const { prisma, store } = makePrisma([]);
+    store.set("parish-address-maint", {
+      memoryValue: { cursorId: "m500" },
+      lastUsedAt: new Date(),
+    });
+    await runParishAddressMaintenance(prisma, { force: true, now: () => NOW });
+    const where = vi.mocked(prisma.publishedContent.findMany).mock.calls[0]![0]!.where as Record<
+      string,
+      unknown
+    >;
+    expect(where.id).toBeUndefined();
+    expect(store.has("parish-address-maint-v2")).toBe(true);
   });
 });

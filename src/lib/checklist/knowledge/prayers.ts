@@ -8,7 +8,8 @@ import { prayerBatch5 } from "./prayers/batch-5";
 import { prayerBatch6 } from "./prayers/batch-6";
 import { prayerBatch7 } from "./prayers/batch-7";
 import { prayerBatch8 } from "./prayers/batch-8";
-import { PRAYER_TRANSLATIONS } from "./prayer-translations";
+import { prayerBatch10 } from "./prayers/batch-10";
+import { withCuratedTranslation } from "./prayer-translations";
 
 const VATICAN_CCC_PRAYERS = "https://www.vatican.va/archive/ENG0015/__P9.HTM";
 const USCCB_PRAYERS = "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/prayers";
@@ -753,33 +754,19 @@ const RAW_PRAYERS: CuratedEntry[] = [
 ];
 
 /**
- * Merge the curated liturgical (Latin/Greek) translations into each prayer's
- * payload so the worker publishes them and the language toggle renders them.
- * Prayers without a curated translation are left as-is (a content-custody check
- * flags them for a curator).
- */
-const LEGACY: CuratedEntry[] = RAW_PRAYERS.map((entry) => {
-  const t = PRAYER_TRANSLATIONS[entry.slug];
-  if (!t) return entry;
-  return {
-    ...entry,
-    payload: {
-      ...entry.payload,
-      ...(t.latin ? { latin: t.latin } : {}),
-      ...(t.greek ? { greek: t.greek } : {}),
-    },
-  };
-});
-
-/**
  * The PRAYER registry: the canonical prayers above plus every authored batch
  * under `./prayers/`. The batches are imported by their full explicit path
  * (`./prayers/batch-1`, …) so the bare `./prayers` specifier keeps resolving
  * to THIS file and never to the `prayers/` directory — see the
  * module-resolution note in `./guides.ts`.
+ *
+ * Every entry, batches included, gets its curated liturgical (Latin/Greek)
+ * translation merged in, so the worker publishes it and the language toggle
+ * renders it. Prayers without a curated translation are left as-is (a
+ * content-custody check flags them for a curator).
  */
 export const prayerKnowledge: CuratedEntry[] = [
-  ...LEGACY,
+  ...RAW_PRAYERS,
   ...prayerBatch1,
   ...prayerBatch2,
   ...prayerBatch3,
@@ -788,4 +775,5 @@ export const prayerKnowledge: CuratedEntry[] = [
   ...prayerBatch6,
   ...prayerBatch7,
   ...prayerBatch8,
-];
+  ...prayerBatch10,
+].map(withCuratedTranslation);

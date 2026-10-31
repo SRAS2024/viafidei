@@ -84,6 +84,7 @@ import { buildContentPackage } from "@/lib/admin-worker/content-builder";
 import { recordStrictQA } from "@/lib/admin-worker/strict-qa";
 import { recordQualityScore, thresholdFor } from "@/lib/admin-worker/quality";
 import { runPublishOrchestrator } from "@/lib/admin-worker/publish-orchestrator";
+import { buildWebPublishPayload } from "@/lib/admin-worker/web-publish-payloads";
 import {
   verifySearchIndex,
   verifySitemap,
@@ -255,13 +256,24 @@ describe("admin-worker:proof:content — one PRAYER through every stage", () => 
     });
     expect(quality.finalScore).toBeGreaterThanOrEqual(thresholdFor("PRAYER"));
 
-    // 12. Publish orchestrator — REAL orchestrator publishes.
+    // 12. Publish orchestrator — REAL orchestrator publishes the REAL schema
+    //     payload the web path builds from the package's display fields.
+    const mapped = buildWebPublishPayload("PRAYER", {
+      fields: pkg.displayFields,
+      title: TITLE,
+      slug: SLUG,
+      host: HOST,
+      sourceUrl: URL,
+    });
+    expect(mapped.ok).toBe(true);
+    if (!mapped.ok) return;
+    expect(mapped.payload).toMatchObject({ slug: SLUG, citations: [URL] });
     const result = await runPublishOrchestrator(fake as unknown as P, {
       contentType: "PRAYER",
       contentId: artifactId,
       title: TITLE,
       slug: SLUG,
-      payload: { title: TITLE, prayerText: PRAYER_TEXT },
+      payload: mapped.payload as never,
       authorityLevel: "VATICAN",
       finalScore: quality.finalScore,
       qaPassed: true,

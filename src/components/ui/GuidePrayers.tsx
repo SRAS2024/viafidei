@@ -1,32 +1,55 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
-import type { PrayerVariant } from "@/lib/content-shared/prayer-language";
+import {
+  resolvePrayerLanguage,
+  type PrayerWithVariants,
+} from "@/lib/content-shared/prayer-language";
 import { Disclosure } from "./Disclosure";
+import {
+  PrayerLanguageChips,
+  UnofficialTranslationNote,
+  usePrayerLanguage,
+  type LanguageOption,
+} from "./PrayerLanguageChips";
 
 /**
- * The prayers of a guide, rendered at the bottom in the order they are prayed,
- * each as a dropdown (so the full text is readily available), with a single
- * UNIVERSAL language toggle (English / Latin / Greek) that switches every
- * dropdown at once. Latin / Greek text is marked translate="no" so it is never
- * auto-translated.
+ * The prayers of a guide, novena, devotion or chaplet, each as a dropdown (so
+ * the full text is readily available), with one UNIVERSAL set of language
+ * chips (Latin / Greek / …) that switches every dropdown at once. It is the
+ * same session-wide choice as the prayer page's chips (`usePrayerLanguage`),
+ * so Latin picked anywhere opens here in Latin; a prayer without the chosen
+ * language shows its vernacular text. Latin / Greek text is marked
+ * translate="no" so it is never auto-translated, and a machine translation
+ * says so under the text.
+ *
+ * An `ordered` list is the sequence in which the prayers are prayed, so each
+ * is numbered ("Prayer 1"). A set that is not a sequence (a Marian title's
+ * prayers, which are alternatives) is listed without numbers or that claim.
  */
-export interface GuidePrayerData {
-  slug: string;
-  title: string;
-  /** Ordered variants (vernacular first, then Latin / Greek / …). */
-  variants: PrayerVariant[];
-}
+export type GuidePrayerData = PrayerWithVariants;
 
-const LANG_ORDER = ["en", "la", "el"];
+const LANG_ORDER = ["la", "el"];
 
-export function GuidePrayers({ prayers }: { prayers: GuidePrayerData[] }) {
-  // Union of the languages available across all the guide's prayers.
-  const languages = useMemo(() => {
+export function GuidePrayers({
+  prayers,
+  heading = "Prayers of this guide",
+  ordered = true,
+}: {
+  prayers: GuidePrayerData[];
+  /** Section heading ("Prayers of this novena", "Prayers of this devotion", …). */
+  heading?: string;
+  /** The list is the order in which the prayers are prayed (default). */
+  ordered?: boolean;
+}) {
+  // Every language some prayer offers beyond its own vernacular — the chips.
+  const languages = useMemo<LanguageOption[]>(() => {
     const map = new Map<string, string>();
     for (const p of prayers) {
-      for (const v of p.variants) if (!map.has(v.code)) map.set(v.code, v.label);
+      for (const v of resolvePrayerLanguage(p.variants, null).alternates) {
+        if (!map.has(v.code)) map.set(v.code, v.label);
+      }
     }
     return [...map.entries()]
       .map(([code, label]) => ({ code, label }))
@@ -37,52 +60,49 @@ export function GuidePrayers({ prayers }: { prayers: GuidePrayerData[] }) {
       });
   }, [prayers]);
 
-  const [lang, setLang] = useState<string>("en");
+  const { language, toggle } = usePrayerLanguage();
 
   if (prayers.length === 0) return null;
 
-  const variantFor = (p: GuidePrayerData): PrayerVariant | null =>
-    p.variants.find((v) => v.code === lang) ?? p.variants[0] ?? null;
+  // The chip that reads as pressed is the chosen language, when this list offers it.
+  const activeCode = language && languages.some((l) => l.code === language) ? language : null;
 
   return (
     <section className="mx-auto max-w-3xl px-4 pb-12">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="font-display text-2xl text-ink">Prayers of this guide</h2>
-        {languages.length > 1 ? (
-          <div role="group" aria-label="Prayer language" className="flex flex-wrap gap-2">
-            {languages.map((l) => (
-              <button
-                key={l.code}
-                type="button"
-                aria-pressed={lang === l.code}
-                onClick={() => setLang(l.code)}
-                className={`vf-btn !px-3 !py-1 text-xs ${
-                  lang === l.code ? "vf-btn-primary" : "vf-btn-ghost"
-                }`}
-              >
-                {l.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        <h2 className="font-display text-2xl text-ink">{heading}</h2>
+        <PrayerLanguageChips
+          options={languages}
+          active={activeCode}
+          onSelect={(code) => toggle(code, activeCode)}
+        />
       </div>
       <p className="mt-1 font-serif text-sm text-ink-soft">
-        In the order they are prayed — tap a prayer to reveal its full text
-        {languages.length > 1 ? " in the chosen language" : ""}.
+        {ordered ? "In the order they are prayed — tap" : "Tap"} a prayer to reveal its full text
+        {languages.length > 0 ? " in the chosen language" : ""}.
       </p>
       <div className="mt-4 space-y-3">
         {prayers.map((p, i) => {
-          const v = variantFor(p);
+          const { shown } = resolvePrayerLanguage(p.variants, language);
           return (
-            <Disclosure key={p.slug} eyebrow={`Prayer ${i + 1}`} title={p.title}>
-              {v ? (
-                <p
-                  className="whitespace-pre-line"
-                  translate={v.preserve ? "no" : undefined}
-                  lang={v.lang ?? v.code}
-                >
-                  {v.text}
-                </p>
+            <Disclosure
+              key={p.slug}
+              eyebrow={ordered ? `Prayer ${i + 1}` : undefined}
+              title={p.title}
+            >
+              {shown ? (
+                <>
+                  <p
+                    className="whitespace-pre-line"
+                    translate={shown.preserve ? "no" : undefined}
+                    // The reader's language when the vernacular holds their
+                    // translation (src/lib/translation), never "en".
+                    lang={shown.lang ?? shown.code}
+                  >
+                    {shown.text}
+                  </p>
+                  <UnofficialTranslationNote variant={shown} className="mt-2" />
+                </>
               ) : (
                 <p className="text-ink-faint">Text not available.</p>
               )}

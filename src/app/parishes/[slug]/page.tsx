@@ -23,15 +23,16 @@ function text(payload: Record<string, unknown>, key: string): string | null {
 }
 
 /**
- * The parish page shows the name, the Diocese line, the address with
- * directions, and the website — and nothing else.
+ * A church's page — parish, cathedral, basilica, shrine or chapel — shows the
+ * name, what the church is ("Minor Basilica"), and its address with directions,
+ * and nothing else.
  *
- * It no longer goes through PublishedDetail: that renderer prints every
- * remaining payload key, which is exactly the wall of designation / phone /
- * mass times / confession times / background / summary the card is being cut
- * down from. Those fields are still in the payload and still published; this
- * page simply stops displaying them, so all 9,731 parishes changed the instant
- * this file did — no migration, no backfill, no worker republish.
+ * It does not go through PublishedDetail: that renderer is for content with
+ * prose, and a church's card is the shared ParishCard. Phone, Mass and
+ * confession times, the website, background and summary are still in the
+ * payload and still published; this page simply does not display them, so every
+ * published parish changed the instant this file did — no migration, no
+ * backfill, no worker republish.
  */
 export default async function ParishDetailPage({ params }: Props) {
   const { slug } = await params;
@@ -40,9 +41,16 @@ export default async function ParishDetailPage({ params }: Props) {
 
   const payload = item.payload as Record<string, unknown>;
   // The name and country as this reader should see them (rule b: a name in
-  // another script is transliterated, with the original beside it).
+  // another script is transliterated, with the original beside it), in memory:
+  // no cache lookup, no model. A country named in the reader's language keeps
+  // its code, which places the postal code in the address.
   const [shown] = await localizeParishes([
-    { title: item.title, country: text(payload, "country"), payload },
+    {
+      title: item.title,
+      country: text(payload, "country"),
+      countryCode: text(payload, "countryCode"),
+      payload,
+    },
   ]);
   const latitude = typeof payload.latitude === "number" ? payload.latitude : null;
   const longitude = typeof payload.longitude === "number" ? payload.longitude : null;
@@ -51,13 +59,15 @@ export default async function ParishDetailPage({ params }: Props) {
     <ParishCard
       variant="detail"
       name={shown!.title}
+      designation={text(payload, "designation")}
       address={text(payload, "address")}
+      postalCode={text(payload, "postalCode")}
       city={text(payload, "city")}
       state={text(payload, "state")}
       country={shown!.country}
+      countryCode={shown!.countryCode}
       latitude={latitude}
       longitude={longitude}
-      website={text(payload, "website")}
       // Controls, not parish information: saving and sharing stay available.
       action={
         <>

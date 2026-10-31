@@ -261,6 +261,140 @@ export function feastMentionIndexLocalized(
 }
 
 /**
+ * Every place the (month, day) feast is stated in `text` written in `lang`:
+ * `[start, end)` character spans of each date mention, in document order.
+ * Same matchers as `feastMentionIndexLocalized`, but global — the wording test
+ * below must look at EVERY mention, because the first one is usually a birth
+ * or death date and a later one ("her feast is kept on 23 August") the feast.
+ */
+export function feastMentionSpans(
+  month: number,
+  day: number,
+  text: string,
+  lang: string,
+): Array<[number, number]> {
+  if (!text) return [];
+  const t = text.toLowerCase();
+  const d = String(day);
+  const patterns: RegExp[] = [];
+  if (lang === "en") {
+    const name = monthName(month).toLowerCase();
+    if (!name) return [];
+    patterns.push(
+      new RegExp(`\\b${name}\\s+${d}(?:st|nd|rd|th)?\\b`, "g"),
+      new RegExp(`\\b${d}(?:st|nd|rd|th)?\\s+(?:of\\s+)?${name}\\b`, "g"),
+    );
+  } else {
+    const months = LOCALIZED_MONTHS[lang]?.[month - 1];
+    if (!months) return [];
+    for (const name of months) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      patterns.push(
+        new RegExp(`(?<!\\d)${d}(?:\\.|er|º|°)?(?:\\s+de)?\\s+${escaped}(?![a-zà-ž])`, "gu"),
+        new RegExp(`(?<![a-zà-ž])${escaped}\\s+${d}(?!\\d)`, "gu"),
+      );
+    }
+  }
+  const spans: Array<[number, number]> = [];
+  for (const rx of patterns) {
+    for (const m of t.matchAll(rx)) {
+      if (m.index !== undefined) spans.push([m.index, m.index + m[0].length]);
+    }
+  }
+  return spans.sort((a, b) => a[0] - b[0]);
+}
+
+/**
+ * Words that make a date in running prose a FEAST rather than a birth, death,
+ * ordination or canonization date, per language. Deliberately narrow: "feast",
+ * "memorial", "commemorated", "liturgical" (and their equivalents). "Saint" /
+ * "święty" are NOT here — they are on every line of a saint's article.
+ */
+const FEAST_WORDING: Record<string, RegExp> = {
+  en: /\bfeast|\bmemorial\b|\bmemoria\b|\bcommemorat|\bliturgic|\bsolemnity\b/u,
+  it: /\bfesta\b|\bfeste\b|\bmemoria\b|\bcommemora|\bliturgi|\bricorrenza\b|\bsolennità/u,
+  es: /\bfiesta\b|\bmemoria\b|\bconmemora|\blit[uú]rgi|\bfestividad\b|\bsolemnidad\b/u,
+  fr: /(?<![\p{L}])f[êe]te(?![\p{L}])|(?<![\p{L}])m[ée]moire(?![\p{L}])|comm[ée]mor|(?<![\p{L}])liturgi|(?<![\p{L}])solennit[ée]/u,
+  de: /(?<![\p{L}])(?:fest|festtag|gedenktag|gedenken|hochfest)(?![\p{L}])|(?<![\p{L}])liturgi/u,
+  pl: /wspomnieni|(?<![\p{L}])święto(?![\p{L}])|(?<![\p{L}])liturgi|(?<![\p{L}])obchod/u,
+};
+
+/** How close (in characters, either side) feast wording must be to the date. */
+export const FEAST_WORDING_WINDOW = 80;
+
+/**
+ * Prose corroboration: is the (month, day) feast stated in `text` WITH feast
+ * wording within `window` characters of the date?
+ *
+ * WHY THE WORDING. "Does the article mention 23 August?" passed seven of
+ * thirty sampled saints whose own infobox gives a DIFFERENT feast (Kolping,
+ * Redi, Goupil, Schelingová, Eugendus, Beltrame Quattrocchi, Montegallo,
+ * measured 2026-10-31): Wikidata's P841 is often the death date, and the
+ * abstract names the death date. A date only corroborates a feast when the
+ * sentence around it is about the feast.
+ *
+ * Polish note: "święty" / "święta" (Saint, as in "święta Faustyna") is on every
+ * line of a saint's article, so only the noun "święto" (feast) counts.
+ */
+export function feastStatedWithWording(
+  month: number,
+  day: number,
+  text: string,
+  lang: string,
+  window: number = FEAST_WORDING_WINDOW,
+): boolean {
+  const wording = FEAST_WORDING[lang];
+  if (!wording || !text) return false;
+  const t = text.toLowerCase();
+  for (const [start, end] of feastMentionSpans(month, day, t, lang)) {
+    // A date WITH a year is an event — a birth, a death, a translation of
+    // relics — not a day kept every year. René Goupil "was killed on the
+    // Feast of St. Michael the Archangel, 29 September 1642": feast wording
+    // right beside Wikidata's date, and not his feast at all.
+    if (DATED_EVENT_RE.test(t.slice(end, end + 8))) continue;
+    const lo = Math.max(0, start - window);
+    const around = t.slice(lo, Math.min(t.length, end + window));
+    if (!wording.test(around)) continue;
+    // A second calendar day kept every year in the same window means the
+    // sentence is about TWO dates, and the prose cannot say which one is the
+    // feast today: Ansfried of Utrecht's article reads "His feast day was
+    // 3 May but was later moved to 11 May", and Wikidata still says 3 May.
+    if (competingDayIn(around, [start - lo, end - lo], month, day, lang)) continue;
+    return true;
+  }
+  return false;
+}
+
+/** A year right after a day-and-month: "29 September 1642", "14 luglio, 1614". */
+const DATED_EVENT_RE = /^\s*,?\s*\d{3,4}(?!\d)/;
+
+/**
+ * Does `text` name a calendar day OTHER than (month, day), outside `own` (the
+ * span of the date being tested)? A dated event ("beatified on 3 May 1990")
+ * is not a competing day: it happened once.
+ */
+function competingDayIn(
+  text: string,
+  own: [number, number],
+  month: number,
+  day: number,
+  lang: string,
+): boolean {
+  // Cheap pre-filter: no other digit, no other date.
+  if (!/\d/.test(text.slice(0, own[0]) + text.slice(own[1]))) return false;
+  for (let m = 1; m <= 12; m += 1) {
+    for (let d = 1; d <= 31; d += 1) {
+      if (m === month && d === day) continue;
+      for (const [s, e] of feastMentionSpans(m, d, text, lang)) {
+        if (s < own[1] && e > own[0]) continue; // overlaps the tested date itself
+        if (!DATED_EVENT_RE.test(text.slice(e, e + 8))) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * The FIRST calendar day named anywhere in `text`, in `lang` (null when none).
  *
  * WHY THIS EXISTS. An `{{Infobox saint}}` feast parameter leads with the date

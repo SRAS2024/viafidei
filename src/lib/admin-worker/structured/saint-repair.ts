@@ -24,10 +24,14 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import { FEASTLESS_CANONIZATION_STATUSES } from "@/lib/checklist/schemas/saint";
+import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
+
 import { applyProtectedContentUpdate } from "../content-protection";
 import { fileHumanReview } from "../human-review";
 import { writeAdminWorkerLog } from "../logs";
-import { chooseCorroboratedFeast, parseFeastCandidates } from "./ingestors";
+import type { SourceReadLedger } from "./http";
+import { articleStageConflict, chooseCorroboratedFeast, parseFeastCandidates } from "./ingestors";
 import {
   SAINT_FACTS_PATTERNS,
   SAINT_FACTS_SELECT,
@@ -116,6 +120,81 @@ export function publishedSaintQid(row: {
     if (m) return m[1];
   }
   return null;
+}
+
+/**
+ * Unpublish one structured saint — never delete — with a recorded reason: the
+ * row is flagged `isPublished = false`, a WARN `structured_saint_unpublished`
+ * AdminWorkerLog row says why, and an always-queued HumanReviewQueue row lets
+ * an operator restore it with one click. Shared by the repair lane and the
+ * operator cleanup (scripts/booster/saint-cleanup.ts), so both leave the same
+ * trail. Never throws.
+ */
+export async function unpublishStructuredSaint(
+  prisma: PrismaClient,
+  input: {
+    row: { id: string; slug: string; title: string; payload: unknown };
+    qid: string;
+    reason: string;
+    facts?: Pick<SaintFacts, "statuses" | "religions" | "religionLabels"> | null;
+    /** What the review row calls the action ("unpublish (structured saint repair)"). */
+    proposedAction: string;
+    /** Extra evidence for the log + review payloads (article, infobox fields, …). */
+    evidence?: Record<string, unknown>;
+    passId?: string;
+  },
+): Promise<{ ok: boolean; error?: string }> {
+  const { row, qid, reason, facts } = input;
+  try {
+    await prisma.publishedContent.update({
+      where: { id: row.id },
+      data: { isPublished: false, unpublishedAt: new Date() },
+    });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  const structured = facts
+    ? { statuses: facts.statuses, religions: facts.religions, religionLabels: facts.religionLabels }
+    : {};
+  await writeAdminWorkerLog(prisma, {
+    passId: input.passId,
+    category: "CLEANUP",
+    severity: "WARN",
+    eventName: "structured_saint_unpublished",
+    contentType: "SAINT",
+    relatedEntityId: row.id,
+    sourceUrl: wikidataEntityUrl(qid),
+    message: `Unpublished SAINT "${row.title}" (${row.slug}): ${reason}`,
+    safeMetadata: {
+      contentId: row.id,
+      slug: row.slug,
+      wikidataQid: qid,
+      ...structured,
+      ...(input.evidence ?? {}),
+    } as Prisma.InputJsonValue,
+  }).catch(() => undefined);
+  await fileHumanReview(prisma, {
+    contentType: "SAINT",
+    contentTitle: row.title,
+    proposedAction: input.proposedAction,
+    reason,
+    confidence: 0.92,
+    sourceEvidence: {
+      wikidata: wikidataEntityUrl(qid),
+      ...structured,
+      ...(input.evidence ?? {}),
+    } as Prisma.InputJsonValue,
+    currentVersion: (row.payload ?? {}) as Prisma.InputJsonValue,
+    blockingGate: "catholic-accuracy",
+    neededAction:
+      "Confirm the person is not venerated by the Catholic Church. If they are (a pre-schism saint Wikidata tags only as Orthodox), set isPublished back to true and add the Catholic status on Wikidata.",
+    repairSuggestion:
+      "Restore the row (PublishedContent.isPublished = true) if Catholic veneration is documented.",
+    nextAutomatedAction:
+      "none — the worker will not republish this record without a Catholic status on Wikidata.",
+    alwaysQueue: true,
+  }).catch(() => undefined);
+  return { ok: true };
 }
 
 /** One SPARQL for a batch of QIDs, projected exactly like the ingestor. */
@@ -232,63 +311,22 @@ export async function runStructuredSaintRepair(
 
     // ── Non-Catholic veneration proven by the structured record → unpublish ─
     if (isProvenNonCatholic(facts)) {
-      try {
-        await prisma.publishedContent.update({
-          where: { id: row.id },
-          data: { isPublished: false, unpublishedAt: new Date() },
-        });
-      } catch (err) {
-        out.errors.push(
-          `${row.slug}: unpublish failed (${err instanceof Error ? err.message : String(err)})`,
-        );
-        continue;
-      }
-      out.unpublished += 1;
       const reason =
         `Wikidata ${qid} records this saint with a non-Catholic canonization status / religion ` +
         `(statuses: ${facts.statuses.join(", ") || "none"}; religions: ${
           facts.religionLabels.join(", ") || facts.religions.join(", ") || "none"
         }) and no Catholic status or religion. The record was published by the earlier label-based ` +
         `status mapping and cannot be shown as a Catholic saint.`;
-      await writeAdminWorkerLog(prisma, {
-        passId: opts.passId,
-        category: "CLEANUP",
-        severity: "WARN",
-        eventName: "structured_saint_unpublished",
-        contentType: "SAINT",
-        relatedEntityId: row.id,
-        sourceUrl: wikidataEntityUrl(qid),
-        message: `Unpublished SAINT "${row.title}" (${row.slug}): ${reason}`,
-        safeMetadata: {
-          contentId: row.id,
-          slug: row.slug,
-          wikidataQid: qid,
-          statuses: facts.statuses,
-          religions: facts.religions,
-          religionLabels: facts.religionLabels,
-        },
-      }).catch(() => undefined);
-      await fileHumanReview(prisma, {
-        contentType: "SAINT",
-        contentTitle: row.title,
-        proposedAction: "unpublish (structured saint repair)",
+      const r = await unpublishStructuredSaint(prisma, {
+        row,
+        qid,
         reason,
-        confidence: 0.92,
-        sourceEvidence: {
-          wikidata: wikidataEntityUrl(qid),
-          statuses: facts.statuses,
-          religions: facts.religions,
-        },
-        currentVersion: payload as Prisma.InputJsonValue,
-        blockingGate: "catholic-accuracy",
-        neededAction:
-          "Confirm the person is not venerated by the Catholic Church. If they are (a pre-schism saint Wikidata tags only as Orthodox), set isPublished back to true and add the Catholic status on Wikidata.",
-        repairSuggestion:
-          "Restore the row (PublishedContent.isPublished = true) if Catholic veneration is documented.",
-        nextAutomatedAction:
-          "none — the worker will not republish this record without a Catholic status on Wikidata.",
-        alwaysQueue: true,
-      }).catch(() => undefined);
+        facts,
+        proposedAction: "unpublish (structured saint repair)",
+        passId: opts.passId,
+      });
+      if (r.ok) out.unpublished += 1;
+      else out.errors.push(`${row.slug}: unpublish failed (${r.error})`);
       continue;
     }
 
@@ -311,19 +349,40 @@ export async function runStructuredSaintRepair(
     if (typeof payload.wikidataQid !== "string") proposed.wikidataQid = qid;
 
     // The infobox (enwiki only) supplies the `titles` signal for virgin /
-    // confessor and disambiguates a multi-feast saint. Fail-open.
+    // confessor, disambiguates a multi-feast saint and checks the stage.
     const article = enwikiCitation(payload);
+    const reads: SourceReadLedger = { unread: [] };
     const infobox: Record<string, string> = article
-      ? await fetchArticleInfobox(article).catch(() => ({}))
+      ? await fetchArticleInfobox(article, { ledger: reads }).catch(() => ({}))
       : {};
+    // Wikidata's P411 lags the causes in both directions: Richard Henkes
+    // (beatified 2019), Teresio Olivelli and Moisés Lira are still "Venerable"
+    // there, Nikola Tavelić (canonized 1970) resolves to "Venerable" too, and
+    // Józef Cebula is a "Catholic saint" beside his 1999 beatification. When the
+    // article contradicts the stage — or could not be read to tell — neither
+    // source proves it, so the row is left alone: no re-status, and above all no
+    // feast stripped from a Blessed on the strength of a stale "Venerable".
+    if (reads.unread.length > 0 || articleStageConflict(status, infobox)) {
+      out.unresolved += 1;
+      continue;
+    }
     const provenance = payload.provenance as { biography?: string } | undefined;
     const abstract =
       provenance?.biography === "structured-facts" ? undefined : String(payload.biography ?? "");
     const saintType = deriveSaintType(facts, { abstract, infoboxTitles: infobox.titles });
     if (saintType !== payload.saintType) proposed.saintType = saintType;
 
+    // A Venerable / Servant of God has no liturgical feast (the SAINT schema
+    // refuses one): a row whose proven stage is one of those loses its feast,
+    // and the multi-feast re-check below must never hand it one back.
+    const feastless = FEASTLESS_CANONIZATION_STATUSES.has(status);
+    if (feastless) {
+      delete proposed.feastDay;
+      delete proposed.feastMonth;
+      delete proposed.feastDayOfMonth;
+    }
     const candidates = parseFeastCandidates(facts.feasts);
-    if (candidates.length > 1 && Object.keys(infobox).length > 0) {
+    if (!feastless && candidates.length > 1 && Object.keys(infobox).length > 0) {
       const feast = chooseCorroboratedFeast({
         candidates,
         abstract: abstract ?? "",
@@ -348,6 +407,14 @@ export async function runStructuredSaintRepair(
       contentId: row.id,
       proposedPayload: proposed,
       proposedTitle: title,
+      // The stored subtitle repeats the stage and the feast ("Venerable ·
+      // Bishop · Feast December 9"): rewrite it with them, or a stripped feast
+      // would still be printed under the title.
+      proposedSubtitle: generateContentSubtitle({
+        contentType: "SAINT",
+        title,
+        fields: proposed,
+      }),
       reason: "structured saint repair",
       allowReplace: true,
       qualityScore: 0.92,

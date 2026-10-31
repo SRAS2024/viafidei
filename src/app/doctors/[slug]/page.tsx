@@ -14,6 +14,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildPublishedMetadata(await getPublishedBySlug("DOCTOR", slug));
 }
 
+/**
+ * A Doctor of the Church: the name, the subtitle ("Bishop · Doctor of the
+ * Church — Universal Doctor · Feast November 15", which already carries the
+ * title and the feast), then the life. The summary restated the subtitle and
+ * was printed twice; "Feast month: 11", "Feast day of month: 15" and
+ * "Ecclesial role: bishop" are gone.
+ */
 export default async function DoctorDetailPage({ params }: Props) {
   const { slug } = await params;
   const item = await localizeItem(await getPublishedBySlug("DOCTOR", slug));
@@ -21,8 +28,9 @@ export default async function DoctorDetailPage({ params }: Props) {
   return (
     <PublishedDetail
       item={item}
-      primaryFields={["background", "summary"]}
-      secondaryFields={["doctorTitle", "feastDay"]}
+      lede={false}
+      primaryFields={["background"]}
+      headings={{ background: null }}
     />
   );
 }

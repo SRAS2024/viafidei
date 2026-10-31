@@ -25,6 +25,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   );
 }
 
+/**
+ * A liturgical entry or a Church document. Both keep their stored subtitle —
+ * "Memorial · October 7 · Ordinary Time", "Encyclical of Pope Pius XII (1954)"
+ * — which already says what the rank / season / date and the document type /
+ * authority / year sections used to repeat (down to "Rank: n/a"). A liturgical
+ * entry is its text, its readings and the saints it keeps; a document is its
+ * summary, excerpt and key themes, with a button to the full text. The related
+ * documents were printed as raw slugs and are gone.
+ */
 export default async function LiturgyHistoryDetailPage({ params }: Props) {
   const { slug } = await params;
   const liturgy = await localizeItem(await getPublishedBySlug("LITURGICAL", slug));
@@ -34,15 +43,8 @@ export default async function LiturgyHistoryDetailPage({ params }: Props) {
     return (
       <PublishedDetail
         item={liturgy}
-        primaryFields={["body"]}
-        secondaryFields={[
-          "kind",
-          "rank",
-          "season",
-          "feastDate",
-          "movableFeast",
-          "associatedReadings",
-        ]}
+        primaryFields={["body", "associatedReadings"]}
+        headings={{ body: null, associatedReadings: "Readings" }}
         footer={
           saints.length > 0 ? (
             <div className="w-full">
@@ -55,19 +57,22 @@ export default async function LiturgyHistoryDetailPage({ params }: Props) {
   }
   const document = await localizeItem(await getPublishedBySlug("CHURCH_DOCUMENT", slug));
   if (document) {
-    // The canonical URL is the document ON vatican.va — a link, not a line of
-    // text under a "Canonical Url" heading.
+    // The canonical URL is the document ON vatican.va — the text itself, as a
+    // button, not a line of text under a "Canonical Url" heading.
     const canonicalUrl =
       typeof document.payload.canonicalUrl === "string" ? document.payload.canonicalUrl : null;
     return (
       <PublishedDetail
         item={document}
         primaryFields={["bodyExcerpt", "keyThemes"]}
-        secondaryFields={["documentType", "issuingAuthority", "issuedDate", "relatedDocuments"]}
         footer={
           canonicalUrl ? (
             <div className="w-full">
-              <OfficialSourceLink url={canonicalUrl} label="Read the full document" />
+              <OfficialSourceLink
+                url={canonicalUrl}
+                label="Read the full document"
+                caption={null}
+              />
             </div>
           ) : null
         }

@@ -275,6 +275,143 @@ describe("runStructuredSaintRepair", () => {
     });
   });
 
+  it("removes the feast of a proven Venerable and never hands one back", async () => {
+    // A Venerable has no liturgical feast; the multi-feast re-check must not
+    // re-add the P841 date to a row whose proven stage is venerable.
+    const rows = [
+      saintRow("a-sheen", "Q463048", {
+        canonicalName: "Fulton J. Sheen",
+        title: "Venerable Fulton J. Sheen",
+        canonizationStatus: "venerable",
+        saintType: "bishop",
+        feastDay: "12-09",
+        feastMonth: 12,
+        feastDayOfMonth: 9,
+      }),
+    ];
+    mockedSparql.mockResolvedValue([
+      binding({
+        s: `${WD}Q463048`,
+        label: "Fulton J. Sheen",
+        statuses: `${WD}Q51619`,
+        religions: `${WD}Q9592`,
+        positions: `${WD}Q29182`,
+        feasts: "9 December||10 December",
+      }),
+    ]);
+    mockedInfobox.mockResolvedValue({ feast_day: "9 December" });
+    const { prisma } = makePrisma(rows);
+
+    await runStructuredSaintRepair(prisma);
+
+    const proposed = mockedUpdate.mock.calls[0][1].proposedPayload;
+    expect(proposed.canonizationStatus).toBe("venerable");
+    expect(proposed).not.toHaveProperty("feastDay");
+    expect(proposed).not.toHaveProperty("feastMonth");
+    expect(proposed).not.toHaveProperty("feastDayOfMonth");
+    expect(mockedUpdate.mock.calls[0][1].allowReplace).toBe(true);
+    // The subtitle under the title is rewritten with it: no feast left there.
+    const subtitle = mockedUpdate.mock.calls[0][1].proposedSubtitle;
+    expect(subtitle).toMatch(/^Venerable · Bishop/);
+    expect(subtitle).not.toMatch(/feast/i);
+  });
+
+  it("never strips the feast of a Blessed that Wikidata still calls Venerable", async () => {
+    // Richard Henkes was beatified in 2019; Wikidata still carries only
+    // "Venerable" (Q51619). His article dates the beatification, so neither
+    // source proves the stage and the row is left exactly as it is.
+    const rows = [
+      saintRow("henkes", "Q71226", {
+        canonicalName: "Richard Henkes",
+        title: "Venerable Richard Henkes",
+        canonizationStatus: "venerable",
+        feastDay: "02-22",
+        feastMonth: 2,
+        feastDayOfMonth: 22,
+      }),
+    ];
+    mockedSparql.mockResolvedValue([
+      binding({
+        s: `${WD}Q71226`,
+        label: "Richard Henkes",
+        statuses: `${WD}Q51619`,
+        religions: `${WD}Q9592`,
+        feasts: "22 February",
+      }),
+    ]);
+    mockedInfobox.mockResolvedValue({
+      beatified_date: "15 September 2019",
+      feast_day: "22 February",
+    });
+    const { prisma } = makePrisma(rows);
+
+    const out = await runStructuredSaintRepair(prisma);
+
+    expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(out.unresolved).toBe(1);
+    expect(out.repaired).toBe(0);
+  });
+
+  it("never re-statuses a Cebula: Wikidata 'Catholic saint', article beatification only", async () => {
+    const rows = [
+      saintRow("cebula", "Q475873", {
+        canonicalName: "Józef Cebula",
+        title: "Blessed Józef Cebula",
+        canonizationStatus: "beatified",
+        feastDay: "04-28",
+        feastMonth: 4,
+        feastDayOfMonth: 28,
+      }),
+    ];
+    mockedSparql.mockResolvedValue([
+      binding({
+        s: `${WD}Q475873`,
+        label: "Józef Cebula",
+        statuses: `${WD}Q2369287||${WD}Q3464126`,
+        religions: `${WD}Q9592`,
+        feasts: "28 April",
+      }),
+    ]);
+    mockedInfobox.mockResolvedValue({ beatified_date: "13 June 1999", feast_day: "April 28" });
+    const { prisma } = makePrisma(rows);
+
+    const out = await runStructuredSaintRepair(prisma);
+
+    expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(out.unresolved).toBe(1);
+  });
+
+  it("leaves a row alone when its article could not be read", async () => {
+    const rows = [
+      saintRow("sheen", "Q463048", {
+        canonicalName: "Fulton J. Sheen",
+        canonizationStatus: "venerable",
+        feastDay: "12-09",
+        feastMonth: 12,
+        feastDayOfMonth: 9,
+      }),
+    ];
+    mockedSparql.mockResolvedValue([
+      binding({
+        s: `${WD}Q463048`,
+        label: "Fulton J. Sheen",
+        statuses: `${WD}Q51619`,
+        religions: `${WD}Q9592`,
+      }),
+    ]);
+    // A 429 / timeout: the helper answers {} and records the read as unread.
+    mockedInfobox.mockImplementation(async (url, opts) => {
+      opts?.ledger?.unread.push(url);
+      return {};
+    });
+    const { prisma } = makePrisma(rows);
+
+    const out = await runStructuredSaintRepair(prisma);
+
+    expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(out.unresolved).toBe(1);
+  });
+
   it("holds the cursor and changes nothing when the structured source fails", async () => {
     mockedSparql.mockResolvedValue(null);
     const { prisma, update, upsert } = makePrisma([saintRow("a", "Q1", {})], {

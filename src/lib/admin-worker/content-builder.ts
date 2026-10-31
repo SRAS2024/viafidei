@@ -75,8 +75,15 @@ export const REQUIRED_FIELDS: Record<string, string[]> = {
 };
 
 /**
- * Fields the verifier must cross-check before publishing. Mirrors
- * SENSITIVE_FIELDS in verifier.ts.
+ * Fields the verifier must cross-check before publishing: the doctrinal facts
+ * SENSITIVE_FIELDS in verifier.ts lists, and, for a type whose schema wants a
+ * second citation (or whose publish needs an independent agreement) that no
+ * other fact supplies, its name. Cross-source verification then looks for an
+ * independent page naming the item, and its stored MATCH is that second
+ * witness. DEVOTION, LITURGICAL and SPIRITUAL_PRACTICE require two citations
+ * and POPE an agreement for its proof, and without a need nothing ever looked:
+ * every one of them was refused for one citation, held for research, re-checked
+ * and refused again.
  */
 const VALIDATION_NEEDS: Record<string, string[]> = {
   SAINT: ["feastDay", "feastMonth", "feastDayNumber"],
@@ -85,17 +92,30 @@ const VALIDATION_NEEDS: Record<string, string[]> = {
   SACRAMENT: ["sacramentKey"],
   NOVENA: ["duration"],
   ROSARY: ["mysterySets"],
+  DEVOTION: ["devotionTitle"],
+  LITURGICAL: ["liturgyTitle"],
+  SPIRITUAL_PRACTICE: ["title"],
+  POPE: ["popeName"],
 };
+
+/** The validation needs a package of this type is built with. */
+export function validationNeedsFor(contentType: string): string[] {
+  return [...(VALIDATION_NEEDS[contentType] ?? [])];
+}
 
 /**
  * Optional fields the extractor may normalise but the publish gate
  * does not require.
  */
 const OPTIONAL_FIELDS: Record<string, string[]> = {
-  PRAYER: ["liturgicalSeason", "patron", "audience"],
+  // `language` is the page language detected at extraction (PR-15); without it
+  // here the display fields dropped it and every web prayer published as "en".
+  PRAYER: ["liturgicalSeason", "patron", "audience", "language"],
   SAINT: ["birthDate", "deathDate", "birthplace", "patronage", "canonizationYear"],
   APPARITION: ["seers", "approvalCitation"],
-  NOVENA: ["intentions", "litanicalContext"],
+  // `days` holds the nine day prayers the NOVENA schema requires; it was
+  // dropped here, so no web novena could ever carry its own text.
+  NOVENA: ["intentions", "litanicalContext", "days"],
   ROSARY: ["history", "indulgences"],
   DEVOTION: ["origin", "audience"],
   CONSECRATION: ["intentions", "approvalCitation"],

@@ -112,6 +112,12 @@ const guidance: Dict = {
   "guidance.searchPlaceholder": "City, region, or postal code",
 };
 
+const parishes: Dict = {
+  // Under each parish name once "Use my location" has sorted the list.
+  // {distance} is already localised: "800 ft", "2.4 km", "2,4 km", "2.4公里".
+  "parishes.distanceAway": "{distance} away",
+};
+
 const liturgy: Dict = {
   "liturgy.title": "Liturgy & History",
   "liturgy.subtitle":
@@ -486,6 +492,7 @@ export const en: Dict = {
   ...devotions,
   ...spiritualLife,
   ...guidance,
+  ...parishes,
   ...liturgy,
   ...saints,
   ...search,

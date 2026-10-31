@@ -319,7 +319,7 @@ describe("generateContentSubtitle over the curated registry", () => {
 
   it("never calls a non-bishop Doctor of the Church a Bishop", () => {
     const doctors = ALL_CURATED_ENTRIES.filter((e) => e.contentType === "DOCTOR");
-    expect(doctors.length).toBe(37);
+    expect(doctors.length).toBe(38);
     for (const d of doctors) {
       const subtitle = generateContentSubtitle({ contentType: "DOCTOR", fields: d.payload });
       const role = d.payload.ecclesialRole;

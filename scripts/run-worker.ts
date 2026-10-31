@@ -79,10 +79,22 @@ import {
 } from "../src/lib/admin-worker/intelligence";
 import { reapStaleRunningPasses } from "../src/lib/admin-worker/passes";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
+import { guardStdio, isClosedPipe, silenceStdio } from "../src/lib/admin-worker/supervised-host";
+import {
+  refusalExitCode,
+  WORKER_EXIT_SUPERVISOR_LOST,
+  type WorkerRefusal,
+} from "../src/lib/admin-worker/worker-exit";
 import {
   installProcessSafetyNet,
   runLoopSupervised,
+  watchSupervisingHost,
 } from "../src/lib/admin-worker/worker-supervisor";
+import {
+  formatProgressLine,
+  reportProgress,
+  setProgressSink,
+} from "../src/lib/admin-worker/worker-progress";
 import { prisma } from "../src/lib/db/client";
 
 function parseArgs(argv: string[]): {
@@ -120,17 +132,20 @@ function parseArgs(argv: string[]): {
 
 /**
  * Durable-state gate (spec §4, §5, §25): the master switch must be ON, and this
- * runtime must hold the single execution lease. Returns false when the process
- * should exit instead of running.
+ * runtime must hold the single execution lease. Returns the structured reason
+ * when the process should exit instead of running; the exit code comes from
+ * that reason (worker-exit.ts), never from the wording of a message.
  */
-async function claimExecutionAuthority(args: ReturnType<typeof parseArgs>): Promise<boolean> {
+async function claimExecutionAuthority(
+  args: ReturnType<typeof parseArgs>,
+): Promise<{ ok: true } | { ok: false; refusal: WorkerRefusal }> {
   if (!args.local && !args.forceRemote) {
     console.error(
       "[admin-worker] refusing to run: the Admin Worker executes on the operator's MacBook.\n" +
         "               Start it from the Via Fidei application (or run `npm run worker:local`).\n" +
         "               Cloud execution requires the deliberate --force-remote-execution flag.",
     );
-    return false;
+    return { ok: false, refusal: "not_local" };
   }
 
   const master = await readMasterSwitch(prisma);
@@ -138,8 +153,7 @@ async function claimExecutionAuthority(args: ReturnType<typeof parseArgs>): Prom
     console.error(
       `[admin-worker] refusing to run: the database could not be reached (${master.error ?? "error"}).`,
     );
-    process.exitCode = 4;
-    return false;
+    return { ok: false, refusal: "db_unreachable" };
   }
   if (!master.on) {
     if (args.switchOn) {
@@ -150,11 +164,11 @@ async function claimExecutionAuthority(args: ReturnType<typeof parseArgs>): Prom
         "[admin-worker] refusing to run: the Admin Worker master switch is OFF.\n" +
           "               Turn it on in the Via Fidei application, or pass --switch-on.",
       );
-      return false;
+      return { ok: false, refusal: "switch_off" };
     }
   }
 
-  if (await holdsExecutionLease(prisma, args.workerId)) return true;
+  if (await holdsExecutionLease(prisma, args.workerId)) return { ok: true };
 
   const claim = await acquireExecutionLease(prisma, {
     runtimeId: args.workerId,
@@ -169,29 +183,27 @@ async function claimExecutionAuthority(args: ReturnType<typeof parseArgs>): Prom
   });
   if (!claim.acquired) {
     console.error(`[admin-worker] refusing to run: ${claim.refusedBecause}`);
-    return false;
+    // A database error is an outage, not an answer about who executes.
+    return {
+      ok: false,
+      refusal: claim.refusal === "db_unreachable" ? "db_unreachable" : "lease_held_elsewhere",
+    };
   }
-  return true;
+  return { ok: true };
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
-  if (!(await claimExecutionAuthority(args))) {
-    await prisma.$disconnect().catch(() => undefined);
-    // Exit NON-ZERO. Refusing to run is a failure from the caller's point of
-    // view: a cron entry, deploy hook or script wrapping `npm run worker` must
-    // be able to notice that no work happened instead of reading success.
-    // Exit 4 (set above) means "database unreachable" — a different problem
-    // from "switch OFF / lease held" (3), and the host treats it differently.
-    if (process.exitCode !== 4) process.exitCode = 3;
-    return;
-  }
-
   // Reuse the shared, connection-pool-capped client so the worker and the web
   // service don't exhaust Postgres (P2037 "too many clients already").
+  //
+  // Defined before anything else so every way out — a signal, a lost
+  // supervisor — runs the same bounded cleanup. `exitCode` is 0 for a signal
+  // (the host's normal stop) and WORKER_EXIT_SUPERVISOR_LOST when the host is
+  // gone, so a host that is in fact still reading restarts the worker.
   let shuttingDown = false;
-  const shutdown = (signal: string) => {
+  const shutdown = (signal: string, exitCode = 0) => {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`[admin-worker:${args.workerId}] received ${signal}; exiting...`);
@@ -199,18 +211,65 @@ async function main() {
     // fixed 1s skipped the `finally` below, so every operator stop left the
     // in-flight pass RUNNING, the lease row in place and the brain to the
     // process-group kill. Do the cleanup here, bounded to 3s so a dead database
-    // can never hold the stop hostage, then exit 0.
+    // can never hold the stop hostage, then exit.
+    const passReason = exitCode === 0 ? "stopped by operator" : `worker stopped: ${signal}`;
     const cleanup = (async () => {
-      await abandonCurrentPass(prisma, "stopped by operator").catch(() => false);
+      await abandonCurrentPass(prisma, passReason).catch(() => false);
       shutdownBrain();
       await releaseExecutionLease(prisma, args.workerId).catch(() => undefined);
       await prisma.$disconnect().catch(() => undefined);
     })();
     const deadline = new Promise<void>((resolve) => setTimeout(resolve, 3_000).unref());
-    void Promise.race([cleanup, deadline]).then(() => process.exit(0));
+    void Promise.race([cleanup, deadline]).then(() => process.exit(exitCode));
   };
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+  // The host is our only reader and our only supervisor. When it goes away —
+  // our log pipe breaks, or its pid vanishes — stop: never log the broken pipe
+  // (that write fails too, and every failure used to raise another uncaught
+  // EPIPE and an ERROR row, in a loop), and never run on as an orphan that
+  // nothing can switch off. Installed before the first console write.
+  const supervisorLost = (reason: string) => {
+    silenceStdio();
+    shutdown(reason, WORKER_EXIT_SUPERVISOR_LOST);
+  };
+  guardStdio(supervisorLost);
+  const hostPid = Number(process.env.VIAFIDEI_HOST_PID ?? "");
+  if (Number.isInteger(hostPid) && hostPid > 1) {
+    // Under a host: report progress at pass and lane boundaries on stdout, so
+    // the host can restart this worker if a pass hangs (worker-progress.ts).
+    setProgressSink((progress) => {
+      process.stdout.write(`${formatProgressLine(progress)}\n`);
+    });
+    reportProgress("boot");
+    watchSupervisingHost({
+      hostPid,
+      isAlive: (pid) => {
+        try {
+          process.kill(pid, 0);
+          return true;
+        } catch {
+          // ESRCH: gone. EPERM: the pid now belongs to another user's process.
+          return false;
+        }
+      },
+      parentPid: () => process.ppid,
+      onGone: supervisorLost,
+    });
+  }
+
+  const authority = await claimExecutionAuthority(args);
+  if (!authority.ok) {
+    await prisma.$disconnect().catch(() => undefined);
+    // Exit NON-ZERO. Refusing to run is a failure from the caller's point of
+    // view: a cron entry, deploy hook or script wrapping `npm run worker` must
+    // be able to notice that no work happened instead of reading success.
+    // Exit 4 means "database unreachable" — an outage the host waits out and
+    // retries — and 3 is an answer (switch OFF / lease held elsewhere).
+    process.exitCode = refusalExitCode(authority.refusal);
+    return;
+  }
 
   // Install the process-level safety net BEFORE anything else runs, so a stray
   // throw during startup or in the loop can never silently kill the worker.
@@ -220,12 +279,20 @@ async function main() {
     workerId: args.workerId,
     register: (event, handler) => process.on(event, handler as never),
     errorLog: (m) => console.error(m),
-    onEvent: (kind, detail) =>
+    isBrokenPipe: isClosedPipe,
+    onBrokenPipe: () => supervisorLost("parent-exit (log pipe closed)"),
+    onEvent: (kind, detail, folded) =>
       writeAdminWorkerLog(prisma, {
         category: "ERROR",
         severity: "ERROR",
         eventName: `worker_${kind}`,
-        message: `Process-level ${kind} caught; worker kept alive: ${detail.slice(0, 480)}`,
+        message:
+          `Process-level ${kind} caught; worker kept alive` +
+          (folded.repeats + folded.overCap > 0
+            ? ` (+${folded.repeats} identical, +${folded.overCap} other since the last row)`
+            : "") +
+          `: ${detail.slice(0, 480)}`,
+        safeMetadata: { repeats: folded.repeats, overCap: folded.overCap },
       }).then(() => undefined),
     onAlert: (kind, detail) =>
       import("../src/lib/email/admin-send").then(({ sendCriticalFailureAlert }) =>
@@ -391,6 +458,7 @@ async function main() {
     // Supervised: in continuous mode the loop is re-entered after a bounded
     // backoff if its machinery ever throws, so the worker self-heals in-process
     // rather than exiting the container (whose restart policy may back off).
+    reportProgress("loop_start");
     const maxPasses = args.maxJobs ?? Infinity;
     const supervised = await runLoopSupervised({
       workerId: args.workerId,

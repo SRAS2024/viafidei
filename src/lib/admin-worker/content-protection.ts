@@ -33,8 +33,10 @@ import { computeContentChecksum } from "./cache-freshness";
 import { writeAdminWorkerLog } from "./logs";
 
 /** Meta keys that are not user-facing content — changes to them never count as
- * destructive (they carry provenance, e.g. which fields were machine-filled). */
-const META_FIELDS = new Set(["machineTranslated", "_meta", "provenance"]);
+ * destructive (they carry provenance, e.g. which fields were machine-filled).
+ * `addressKey` is a parish's dedup fingerprint, re-derived from its address
+ * fields: filling a street re-keys the row, and that must stay an enrichment. */
+const META_FIELDS = new Set(["machineTranslated", "_meta", "provenance", "addressKey"]);
 
 /** Thresholds for allowing a DESTRUCTIVE (replace/shrink) automated change. */
 const REPLACE_QUALITY_FLOOR = 0.8;

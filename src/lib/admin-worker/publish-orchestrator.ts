@@ -32,6 +32,8 @@ import { resolveContentSubtype } from "./content-subtype";
 import { isBrainEnabled } from "./intelligence";
 import { writeAdminWorkerLog } from "./logs";
 import { publicRouteFor } from "./public-routes";
+import { validatePayload } from "@/lib/checklist/schemas";
+import { authorityLevelForHost } from "@/lib/checklist/sources/authority-registry";
 import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
 import { derivedColumnsFor } from "@/lib/content-shared/derived-columns";
 import { evaluatePublishGate } from "./publisher";
@@ -39,6 +41,7 @@ import { evaluatePublishSafety, type SafetyBlockReason } from "./publish-safety"
 import { recordReasoningEdge } from "./reasoning-graph";
 import type { QualityInputs } from "./quality";
 import type { VerifierOutcome } from "./verifier";
+import { citationSourceKey } from "./web-extraction-helpers";
 
 export interface PublishOrchestratorInput {
   contentType: string;
@@ -53,6 +56,13 @@ export interface PublishOrchestratorInput {
   isDoctrinallySensitive: boolean;
   confidence: number;
   verifier?: VerifierOutcome;
+  /**
+   * Independent pages (another source than the item's own) whose stored
+   * cross-source evidence confirmed the item — the web artifact's corroborating
+   * citations. Each is an agreement for the proof packet, and its registry
+   * authority joins the proof's authority evidence.
+   */
+  corroboratingSources?: string[];
   /** Spec §5: when supplied, gate requires status="PASSED". */
   strictQAArtifactId?: string;
   /**
@@ -93,7 +103,19 @@ export type OrchestratorResult =
       route: string;
       reason: string;
     }
-  | { kind: "blocked"; reason: string; gate?: string; blockedBy: string }
+  | {
+      kind: "blocked";
+      reason: string;
+      gate?: string;
+      blockedBy: string;
+      /**
+       * True when the block is a transient infrastructure failure (a database
+       * error reading the strict-QA row, writing the quality score, or
+       * persisting the row) rather than a verdict about the content. The
+       * caller retries these with backoff instead of rejecting the item.
+       */
+      retryable?: boolean;
+    }
   // Spec §6: "repair" is distinct from "review". A repairable failure
   // (e.g. strict QA NEEDS_REPAIR, quality score just below threshold)
   // goes to repair first; "review" is reserved for genuinely
@@ -111,12 +133,27 @@ export async function runPublishOrchestrator(
   // unless the AdminWorkerStrictQAResult row exists with status =
   // "PASSED".
   if (input.strictQAArtifactId) {
-    const { getStrictQAResult } = await import("./strict-qa");
-    const qa = await getStrictQAResult(prisma, input.strictQAArtifactId);
-    if (!qa) {
+    const { readStrictQAResult } = await import("./strict-qa");
+    const { result: qa, error: qaUnreadable } = await readStrictQAResult(
+      prisma,
+      input.strictQAArtifactId,
+    );
+    if (qaUnreadable) {
+      // A database error is not a verdict on the artifact: retry it.
       return {
         kind: "blocked",
         blockedBy: "strict-qa",
+        retryable: true,
+        reason: "strict-QA result could not be read (database error)",
+      };
+    }
+    if (!qa) {
+      // The artifact reached the publish queue without a persisted strict-QA
+      // row (the upsert failed while its status still advanced). That is a
+      // pipeline gap, not a content verdict: the caller re-queues it for QA.
+      return {
+        kind: "blocked",
+        blockedBy: "strict-qa-missing",
         reason: "no AdminWorkerStrictQAResult row for this artifact",
       };
     }
@@ -187,6 +224,36 @@ export async function runPublishOrchestrator(
       },
     }).catch(() => undefined);
     return { kind: "repair", reason };
+  }
+
+  if (input.strictQAArtifactId) {
+    // 0'. Schema (R1). A web artifact publishes the payload its content schema
+    // defines, validated here at the single publish writer — the dispatcher
+    // maps and validates first, so this is the backstop for any other caller
+    // that publishes an artifact. The zod defaults are applied; keys outside
+    // the schema (sourceUrl, latin/greek, …) are kept. A refused payload goes
+    // to repair: re-extraction heals the artifact only if its fresh fields map.
+    const schema = validatePublishPayload(input.contentType, input.payload);
+    if (!schema.ok) {
+      const reason = `SCHEMA_FIELDS_MISSING: ${input.contentType} payload failed schema validation: ${schema.errors
+        .slice(0, 3)
+        .join("; ")}`;
+      await logBlocked(prisma, input, reason);
+      const { filePlan } = await import("./repair-plans");
+      await filePlan(prisma, {
+        kind: "EXTRACT_FAILED",
+        failedEntity: input.strictQAArtifactId,
+        repairAction: `Re-extract ${input.contentType}/${input.slug}: ${reason}`,
+        metadata: {
+          artifactId: input.strictQAArtifactId,
+          contentType: input.contentType,
+          origin: "schema_payload",
+          errors: schema.errors.slice(0, 10),
+        },
+      }).catch(() => undefined);
+      return { kind: "repair", reason };
+    }
+    input = { ...input, payload: schema.payload as Prisma.InputJsonValue };
   }
 
   // 0b. Proof-based publishing for sensitive Catholic content (spec). When the
@@ -449,8 +516,8 @@ export async function runPublishOrchestrator(
       .findUnique({ where: { packageArtifactId: input.strictQAArtifactId } })
       .catch(() => null);
     if (qa && qaRow) {
-      // Source-authority factor: VATICAN=1.0, CONFERENCE/MAGISTERIUM=0.95,
-      // DIOCESAN=0.88, PARISH/COMMUNITY=0.78.
+      // Source-authority factor: VATICAN=1.0, CATECHISM/LITURGICAL_BOOK/USCCB
+      // =0.95, DIOCESAN=0.88, order/publisher/academic=0.85, COMMUNITY=0.78.
       const authorityFactor = sourceAuthorityFactor(input.authorityLevel);
       // Verification-evidence-strength factor: when a verifier outcome
       // is supplied, missing required fields drag validation down even
@@ -509,7 +576,22 @@ export async function runPublishOrchestrator(
     packageConsistencyScore: input.qaPassed ? 1 : 0.8,
   };
   const { recordQualityScore, thresholdFor } = await import("./quality");
-  const qualityScore = await recordQualityScore(prisma, qualityFinal).catch(() => null);
+  let qualityWriteFailed = false;
+  const qualityScore = await recordQualityScore(prisma, qualityFinal).catch(() => {
+    qualityWriteFailed = true;
+    return null;
+  });
+  // A failed ContentQualityScore write is a database error, not a low score.
+  // It used to fall into the QUALITY_SCORE_FAILED repair below with a "missing"
+  // score, which discarded a complete, QA-passed package; retry it instead.
+  if (qualityWriteFailed) {
+    return {
+      kind: "blocked",
+      blockedBy: "quality-score",
+      retryable: true,
+      reason: "ContentQualityScore could not be recorded (database error)",
+    };
+  }
   // Spec: publishing must use the FULL stored quality score. `passed`
   // already folds in the per-content-type threshold.
   if (!qualityScore || !qualityScore.passed) {
@@ -666,15 +748,15 @@ export async function runPublishOrchestrator(
         reason: "PublishedContent already exists for this (contentType, slug)",
       };
     }
+    let repubError: unknown = null;
     const repub = await prisma.publishedContent
       .update({ where: { id: existing.id }, data: republishData })
-      .catch(() => null);
+      .catch((e) => {
+        repubError = e;
+        return null;
+      });
     if (!repub) {
-      return {
-        kind: "blocked",
-        blockedBy: "persist",
-        reason: "failed to update existing row to published",
-      };
+      return persistBlocked("failed to update existing row to published", repubError);
     }
     if (!input.skipPostPublishSideEffects) {
       await postPublishSideEffects(prisma, input, repub.id, route);
@@ -736,15 +818,15 @@ export async function runPublishOrchestrator(
       if (upd.blocked) {
         return { kind: "blocked", blockedBy: "protection", reason: upd.reason };
       }
+      let renameError: unknown = null;
       const renamed = await prisma.publishedContent
         .update({ where: { id: byItem.id }, data: { slug: input.slug } })
-        .catch(() => null);
+        .catch((e) => {
+          renameError = e;
+          return null;
+        });
       if (!renamed) {
-        return {
-          kind: "blocked",
-          blockedBy: "persist",
-          reason: `failed to rename ${liveKey} to slug ${input.slug}`,
-        };
+        return persistBlocked(`failed to rename ${liveKey} to slug ${input.slug}`, renameError);
       }
       await writeAdminWorkerLog(prisma, {
         category: "PUBLISHING",
@@ -767,15 +849,15 @@ export async function runPublishOrchestrator(
     }
     // Unpublished row under the old slug: republish it under the requested
     // slug — no live URL is affected and the (contentType, slug) pair is free.
+    let repubError: unknown = null;
     const repub = await prisma.publishedContent
       .update({ where: { id: byItem.id }, data: { ...republishData, slug: input.slug } })
-      .catch(() => null);
+      .catch((e) => {
+        repubError = e;
+        return null;
+      });
     if (!repub) {
-      return {
-        kind: "blocked",
-        blockedBy: "persist",
-        reason: `failed to republish ${liveKey} under slug ${input.slug}`,
-      };
+      return persistBlocked(`failed to republish ${liveKey} under slug ${input.slug}`, repubError);
     }
     if (!input.skipPostPublishSideEffects) {
       await postPublishSideEffects(prisma, input, repub.id, route);
@@ -791,6 +873,7 @@ export async function runPublishOrchestrator(
 
   // 5. Persist a new PublishedContent row. The descriptive subtitle is generated
   // and stored at publish time (rendered under the title on the public page).
+  let createError: unknown = null;
   const created = await prisma.publishedContent
     .create({
       data: {
@@ -809,6 +892,7 @@ export async function runPublishOrchestrator(
       },
     })
     .catch((e) => {
+      createError = e;
       void writeAdminWorkerLog(prisma, {
         category: "PUBLISHING",
         severity: "ERROR",
@@ -820,11 +904,7 @@ export async function runPublishOrchestrator(
     });
 
   if (!created) {
-    return {
-      kind: "blocked",
-      blockedBy: "persist",
-      reason: "PublishedContent create() failed",
-    };
+    return persistBlocked("PublishedContent create() failed", createError);
   }
 
   if (!input.skipPostPublishSideEffects) {
@@ -973,6 +1053,87 @@ const HARD_SAFETY_REASONS: ReadonlySet<SafetyBlockReason> = new Set<SafetyBlockR
   "donation_page",
 ]);
 
+/**
+ * Validate a payload against its content schema and return it with the zod
+ * defaults applied. Keys the schema does not declare are kept (zod strips
+ * them from the parsed copy only). A type with no registered schema fails.
+ */
+function validatePublishPayload(
+  contentType: string,
+  payload: unknown,
+): { ok: true; payload: Record<string, unknown> } | { ok: false; errors: string[] } {
+  try {
+    const v = validatePayload(contentType as ChecklistContentType, payload);
+    if (!v.ok) return { ok: false, errors: v.errors };
+    const base =
+      payload && typeof payload === "object" && !Array.isArray(payload)
+        ? (payload as Record<string, unknown>)
+        : {};
+    return { ok: true, payload: { ...base, ...v.data } };
+  } catch {
+    return { ok: false, errors: [`no content schema for ${contentType}`] };
+  }
+}
+
+/**
+ * Prisma error codes that are a verdict about the write itself: a unique /
+ * foreign-key / null / length constraint the row breaks. Retrying the same
+ * write reproduces them, so they are permanent. Everything else (connection
+ * loss, pool or statement timeout, a serialization conflict, an unknown error)
+ * is treated as transient: the cost of a bounded retry is one more attempt,
+ * while a wrong REJECTED discards a complete, QA-passed package for good.
+ */
+const PERMANENT_DB_ERROR_CODES: ReadonlySet<string> = new Set([
+  "P2000", // value too long for the column
+  "P2002", // unique constraint
+  "P2003", // foreign key constraint
+  "P2004", // database constraint
+  "P2005", // invalid stored value for the field type
+  "P2006", // invalid value for the field
+  "P2007", // data validation error
+  "P2011", // null constraint
+  "P2012", // missing required value
+]);
+
+export function isPermanentDbError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === "string" && PERMANENT_DB_ERROR_CODES.has(code);
+}
+
+/** A failed PublishedContent write, classified transient or permanent. */
+function persistBlocked(reason: string, err: unknown): OrchestratorResult {
+  const permanent = isPermanentDbError(err);
+  const code = (err as { code?: unknown } | null)?.code;
+  return {
+    kind: "blocked",
+    blockedBy: "persist",
+    retryable: !permanent,
+    reason: permanent && typeof code === "string" ? `${reason} (${code})` : reason,
+  };
+}
+
+/**
+ * Typed reason code for a publish the orchestrator refused for good, keyed by
+ * `blockedBy`. The dispatcher stamps it on the REJECTED artifact so a rejection
+ * can be counted and filtered by cause rather than by free text.
+ */
+const PUBLISH_REJECTION_CODES: Readonly<Record<string, string>> = {
+  "strict-qa": "STRICT_QA_FAILED",
+  safety: "PUBLISH_SAFETY",
+  proof: "PROOF_CONFLICT",
+  verifier: "VERIFIER_BLOCKED",
+  gate: "PUBLISH_GATE",
+  "quality-score": "QUALITY_SCORE_BELOW_THRESHOLD",
+  route: "NO_PUBLIC_ROUTE",
+  canonical_max: "CANONICAL_MAX",
+  protection: "PROTECTED_UPDATE_REFUSED",
+  persist: "PERSIST_CONSTRAINT",
+};
+
+export function publishRejectionCode(blockedBy: string): string {
+  return PUBLISH_REJECTION_CODES[blockedBy] ?? "PUBLISH_BLOCKED";
+}
+
 /** Run a query that may not exist on a partial client; a throw is `null`. */
 async function safeQuery<T>(fn: () => Promise<T>): Promise<T | null> {
   try {
@@ -1019,22 +1180,81 @@ function payloadBodyText(payload: Record<string, unknown> | null): string | unde
 /**
  * Evidence for the brain's proof packet, built from what the package actually
  * carries. Agreements come from the cross-source verifier (one per stored
- * verification row, or one for a plain sign-off); a verifier conflict is the
- * one unresolved contradiction the proof must see.
+ * verification row, or one for a plain sign-off) or, for a type published
+ * without one, from the independent pages that confirmed it (one per source);
+ * a verifier conflict is the one unresolved contradiction the proof must see.
+ * The authorities are the item's own source's and each corroborating page's
+ * registry level — a host trusted only by name-pattern inference counts as
+ * COMMUNITY. Without the corroboration a proof-gated type with no verifier
+ * (DEVOTION, LITURGICAL, POPE) always had 0 agreements and only its own host's
+ * authority, so its proof could never hold however well it was sourced.
  */
 export function buildProofEvidence(
-  input: Pick<PublishOrchestratorInput, "authorityLevel" | "verifier">,
+  input: Pick<PublishOrchestratorInput, "authorityLevel" | "verifier" | "corroboratingSources">,
   citations: string[],
 ): NonNullable<import("./proof-publishing").SensitivePublishInput["evidence"]> {
   const rows = input.verifier?.verificationRowIds?.length ?? 0;
-  const agreements = input.verifier ? Math.max(rows, input.verifier.publishAllowed ? 1 : 0) : 0;
+  const verified = input.verifier ? Math.max(rows, input.verifier.publishAllowed ? 1 : 0) : 0;
+  // One agreement per corroborating SOURCE (two pages of one site are one).
+  const corroboratingHosts = new Map<string, string>();
+  for (const url of input.corroboratingSources ?? []) {
+    const key = citationSourceKey(url);
+    if (!key || corroboratingHosts.has(key)) continue;
+    corroboratingHosts.set(key, new URL(url).hostname.toLowerCase());
+  }
+  const authorities = [
+    brainAuthorityLevel(input.authorityLevel),
+    ...[...corroboratingHosts.values()].map((host) =>
+      brainAuthorityLevel(authorityLevelForHost(host) ?? "COMMUNITY"),
+    ),
+  ];
   return {
     sources: citations,
-    authorities: [input.authorityLevel],
+    authorities: [...new Set(authorities)],
     citations,
-    agreements,
+    agreements: Math.max(verified, corroboratingHosts.size),
     conflicts: input.verifier?.hasConflict ? ["cross-source verifier reported a conflict"] : [],
   };
+}
+
+/**
+ * The brain's proof ladder (intelligence/operations/proof.py) names the
+ * liturgical-book rung "LITURGICAL"; SourceAuthorityLevel calls it
+ * LITURGICAL_BOOK (icel.org). Sent unmapped it ranked -1 — below COMMUNITY —
+ * so Roman-Missal-sourced content always failed the proof's authority
+ * condition. Every other level shares its name on both sides.
+ */
+function brainAuthorityLevel(level: string): string {
+  return level === "LITURGICAL_BOOK" ? "LITURGICAL" : level;
+}
+
+/**
+ * Distinct sources among the citations, and how many of them are TRUSTED — a
+ * host on the approved authority registry (or the Holy See's .va domain) at a
+ * level above COMMUNITY. A host trusted only by name-pattern inference is not
+ * counted. The doctrinal invariant (≥2 trusted sources) used to be fed the raw
+ * citation count: any two URLs passed it, and a web artifact — whose source
+ * URL lived on the source read, not in the payload — always counted zero.
+ */
+export function countCitedSources(citations: string[]): { sources: number; trusted: number } {
+  const keys = new Map<string, string>();
+  for (const c of citations) {
+    const key = citationSourceKey(c);
+    if (!key || keys.has(key)) continue;
+    let host = key;
+    try {
+      host = new URL(c).hostname.toLowerCase();
+    } catch {
+      // keep the key
+    }
+    keys.set(key, host);
+  }
+  let trusted = 0;
+  for (const host of keys.values()) {
+    const level = authorityLevelForHost(host);
+    if (level !== null && level !== "COMMUNITY") trusted += 1;
+  }
+  return { sources: keys.size, trusted };
 }
 
 /** Field state for the brain's logic-rule invariants. */
@@ -1052,13 +1272,14 @@ export function buildInvariantState(
     (typeof payload?.kind === "string" && payload.kind) ||
     (typeof payload?.contentSubtype === "string" && payload.contentSubtype) ||
     undefined;
+  const counted = countCitedSources(citations);
   return {
     contentType: input.contentType,
     sensitive: input.isDoctrinallySensitive,
     title: input.title,
     authority: input.authorityLevel,
-    trustedSourceCount: citations.length,
-    sourceCount: citations.length,
+    trustedSourceCount: counted.trusted,
+    sourceCount: counted.sources,
     citation: citations[0],
     sourceUrl: sourceUrl ?? citations[0],
     route: publicRouteFor(input.contentType, input.slug).slugPath,
@@ -1070,23 +1291,30 @@ export function buildInvariantState(
 /**
  * Spec §6: source-authority factor used to bias sourceAuthorityScore
  * by where the content was sourced. VATICAN is the unconditional
- * baseline (1.0); conference / magisterium sources are slightly
- * deboosted; diocesan / parish / community sources are deboosted
- * further so the geometric mean reflects the actual authority of the
- * sources backing the publish.
+ * baseline (1.0); magisterial texts and the bishops' conference are
+ * slightly deboosted; diocesan, then publisher / order / academic, then
+ * community sources are deboosted further so the geometric mean reflects
+ * the actual authority of the sources backing the publish.
+ *
+ * Keyed on the real SourceAuthorityLevel values. It used to switch on
+ * MAGISTERIUM / CONFERENCE / PARISH, which are not enum values, so USCCB,
+ * CATECHISM and LITURGICAL_BOOK fell to the 0.85 default — below DIOCESAN
+ * (0.88) — and doctrinal content from usccb.org or the Catechism that
+ * passed strict QA could still fail the ContentQualityScore.
  */
-function sourceAuthorityFactor(authorityLevel: string): number {
+export function sourceAuthorityFactor(authorityLevel: string): number {
   switch (authorityLevel) {
     case "VATICAN":
       return 1.0;
-    case "MAGISTERIUM":
-    case "CONFERENCE":
+    case "CATECHISM":
+    case "LITURGICAL_BOOK":
+    case "USCCB":
       return 0.95;
     case "DIOCESAN":
       return 0.88;
-    case "PARISH":
     case "COMMUNITY":
       return 0.78;
+    // RELIGIOUS_ORDER, TRUSTED_PUBLISHER, ACADEMIC.
     default:
       return 0.85;
   }

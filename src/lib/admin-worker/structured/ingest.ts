@@ -19,6 +19,10 @@
  *     slug / name) BEFORE any Wikipedia fetch, and a page that is entirely live
  *     is skipped straight to the next page, so a re-sweep costs one SPARQL call
  *     per page and no Wikipedia traffic;
+ *   - an entity rejected for a reason that describes IT (its article, its
+ *     status, its type) is remembered per QID and treated like a live row until
+ *     its backoff expires (`reject-memory.ts`), so a re-sweep does not re-map
+ *     the same rejections;
  *   - the same memory row accumulates success/failure counts — a learning
  *     signal the worker uses to favour the productive ingestors.
  *
@@ -37,11 +41,11 @@ import { runPublishOrchestrator } from "../publish-orchestrator";
 import { writeAdminWorkerLog } from "../logs";
 import { lastSparqlFailure, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
 import { structuredNetworkEnabled } from "./http";
+import { mapSourceRowDetailed, type MappedRow } from "./map-row";
 import { fetchSourcePage } from "./source-page";
 import {
   formatRejections,
   isRejection,
-  reject,
   tallyRejection,
   topRejections,
   totalRejections,
@@ -49,7 +53,14 @@ import {
   type RejectionCode,
   type RejectionHistogram,
 } from "./reject";
+import {
+  pruneRejectionMemos,
+  readRejectionMemos,
+  recordRejectionOutcomes,
+  type RejectionMemo,
+} from "./reject-memory";
 import { persistSourceCooldown, readSourceCooldownMs } from "./source-cooldown";
+import { activeIngestorLeases, readIngestorLease } from "./lease";
 import {
   STRUCTURED_INGESTORS,
   ingestorFor,
@@ -70,14 +81,65 @@ function envInt(name: string, fallback: number): number {
  * few seconds regardless of page size (the aggregation runs over the whole
  * corpus), so a bigger page halves the number of Query-Service calls a sweep
  * needs — and already-live rows on the page cost nothing (no Wikipedia fetch).
+ * One content type can be given its own page size with
+ * `ADMIN_WORKER_STRUCTURED_BATCH_<TYPE>` (see `structuredBatchFor`).
  */
 export const DEFAULT_STRUCTURED_BATCH = envInt("ADMIN_WORKER_STRUCTURED_BATCH", 100);
 /**
  * Max NEW publishes per pass. Env-tunable (`ADMIN_WORKER_STRUCTURED_LIMIT`).
- * 40 by default — the Wikipedia REST + parse APIs tolerate it comfortably at
- * 8-way concurrency, and the SAINT goal gap is measured in thousands.
+ * 40 by default — the SAINT goal gap is measured in thousands, and a page with
+ * more publishable rows than this is simply finished on the next pass.
  */
 export const DEFAULT_STRUCTURED_LIMIT = envInt("ADMIN_WORKER_STRUCTURED_LIMIT", 40);
+
+/**
+ * Wall-clock budget of one pass, from its start (env
+ * `ADMIN_WORKER_STRUCTURED_BUDGET_MS`). Rows are mapped ONE AT A TIME — each
+ * costs a Wikipedia REST summary and an Action API parse, and Wikimedia's API
+ * etiquette asks for serial requests — so a 200-row page of fresh entities can
+ * take minutes. Four minutes keeps a pass inside the lane's six-minute
+ * watchdog with room for the last row and the bookkeeping; a page cut short
+ * holds the cursor and the next pass finishes it (its published rows are live
+ * by then and its rejections remembered, so nothing is fetched twice).
+ */
+export const DEFAULT_STRUCTURED_BUDGET_MS = envInt(
+  "ADMIN_WORKER_STRUCTURED_BUDGET_MS",
+  4 * 60 * 1000,
+);
+
+/**
+ * Consecutive rows rejected while one of their source reads did NOT complete
+ * (no response, timeout, 429, 5xx — see map-row.ts) after which a pass stops
+ * mapping and holds its page: Wikipedia is down or throttling us, and walking
+ * on would only spend the budget on timeouts — and, worse, judge a page as
+ * barren that was never actually read.
+ *
+ * Judged on the read ledger, never on the rejection code alone. A REST
+ * summary that answered 404 (a dead sitelink) or came back empty also ends in
+ * `wikipedia_fetch_failed`, and that code is never remembered; counting it
+ * would hold a page with five such entities in a row on every pass, forever —
+ * the very livelock the cursor fix exists to end.
+ */
+export const WIKIPEDIA_FAILURE_STREAK_LIMIT = 5;
+
+/** True when a mapped row was REJECTED while one of its sources did not answer. */
+function sourceDidNotAnswer(mapped: MappedRow): boolean {
+  return isRejection(mapped.result) && mapped.unreadSources > 0;
+}
+
+/**
+ * The page size for one ingestor: the explicit `batch`, else
+ * `ADMIN_WORKER_STRUCTURED_BATCH_<CONTENT_TYPE>` (e.g.
+ * `ADMIN_WORKER_STRUCTURED_BATCH_SAINT=200`), else the global default — always
+ * clamped to what the ingestor can actually process in one page
+ * (`maxPageSize`; 200 for SAINT, the hydration ceiling). Read at call time so
+ * an operator script can set it without a module reload.
+ */
+export function structuredBatchFor(ingestor: StructuredIngestor, explicit?: number): number {
+  const perType = envInt(`ADMIN_WORKER_STRUCTURED_BATCH_${ingestor.contentType}`, 0);
+  const requested = explicit ?? (perType > 0 ? perType : DEFAULT_STRUCTURED_BATCH);
+  return Math.max(1, Math.min(requested, ingestor.maxPageSize ?? Number.MAX_SAFE_INTEGER));
+}
 
 /** Pages of entirely-live rows an ingestor may skip through in ONE pass. */
 export const MAX_SKIP_PAGES_PER_PASS = 10;
@@ -107,9 +169,6 @@ export const MAX_CONSECUTIVE_SOURCE_FAILURES = envInt("ADMIN_WORKER_STRUCTURED_M
 export const UNUSABLE_SOURCE_RETRY_MS = 6 * 60 * 60 * 1000;
 
 const CURSOR_PREFIX = "structured-cursor:";
-
-/** Map concurrency for the per-row Wikipedia fetches. */
-const MAP_CONCURRENCY = 8;
 
 /** Example `code: detail` strings kept per pass for the log payload. */
 const MAX_SKIP_SAMPLES = 10;
@@ -145,8 +204,37 @@ export interface StructuredIngestResult {
   discoveredSources: number;
   /** Pages of entirely-live rows skipped without any Wikipedia traffic. */
   pagesSkipped: number;
+  /**
+   * Rows NOT mapped because the entity was rejected on an earlier sweep and its
+   * backoff has not expired (see reject-memory.ts) — counted like live rows.
+   */
+  rejectionsDeferred: number;
+  /** Rejections written to the per-entity memory this pass. */
+  rejectionsRemembered: number;
   /** True when the source is fully ingested (nothing new produced this pass). */
   exhausted: boolean;
+  /**
+   * True when this pass read the LAST page of the corpus and wrapped the cursor
+   * (whether or not it published) — what a booster sweep stops on.
+   */
+  endOfCorpus: boolean;
+  /** Where the cursor points after this pass (null when it was not written). */
+  nextOffset: number | null;
+  /**
+   * True when the pass stopped mapping before the end of its page — the time
+   * budget ran out or Wikipedia kept failing — and held the cursor so the next
+   * pass finishes the page.
+   */
+  pageHeld: boolean;
+  /** Why the page was held: the pass budget ran out, or source reads kept failing. */
+  pageHeldReason: "budget" | "source_failures" | null;
+  /** Set when the ingestor is leased to another process (see lease.ts); nothing ran. */
+  leasedTo: string | null;
+  /**
+   * Set when the cursor is resting after a full sweep (epoch ms the rest ends);
+   * nothing ran. A booster reads it as "already swept".
+   */
+  restingUntil: number | null;
   /** True when the pass was skipped because the source is cooling down. */
   sourceCooling: boolean;
   /** Set when the SPARQL source failed (cursor left unchanged). */
@@ -214,8 +302,27 @@ interface CursorState {
    * second page for the same episode; cleared as soon as a page succeeds.
    */
   escalatedAt: number | null;
+  /**
+   * Epoch ms of the last run that published at least one record — what tells
+   * the major-goal campaign this type has a productive structured channel (see
+   * `productiveStructuredTypes`). Stamped by `writeCursor`.
+   */
+  lastPublishedAt: number | null;
+  /**
+   * Entities the ENUMERATION returned for the last page read successfully
+   * (null before the first one). This, not `zeroStreak`, is the only evidence
+   * that a cursor sits past the end of its corpus: self-maintenance rewinds a
+   * cursor only when its last page at a non-zero offset came back EMPTY. A
+   * barren page — rows came back, none publishable — is the middle of a
+   * corpus, and rewinding on it is what livelocked the SAINT sweep.
+   */
+  lastPageSize: number | null;
 }
 
+/**
+ * Memory key of a cursor. A booster sweeping on its own cursor passes a
+ * `cursorId` ("wikidata-saints@booster") so it never moves the worker's.
+ */
 function cursorKey(id: string): string {
   return `${CURSOR_PREFIX}${id}`;
 }
@@ -231,6 +338,8 @@ function parseCursor(value: unknown): CursorState {
     exhaustedUntil: num(v.exhaustedUntil),
     failures: Math.max(0, num(v.failures) ?? 0),
     escalatedAt: num(v.escalatedAt),
+    lastPublishedAt: num(v.lastPublishedAt),
+    lastPageSize: num(v.lastPageSize),
   };
 }
 
@@ -267,6 +376,8 @@ async function writeCursor(
     exhaustedUntil: next.exhaustedUntil,
     failures: next.failures,
     escalatedAt: next.escalatedAt,
+    lastPublishedAt: counters.published > 0 ? Date.now() : next.lastPublishedAt,
+    lastPageSize: next.lastPageSize,
   };
   await prisma.adminWorkerMemory
     .upsert({
@@ -287,6 +398,99 @@ async function writeCursor(
       },
     })
     .catch(() => undefined);
+}
+
+/** Where a structured cursor stands — an operator booster's progress line. */
+export interface StructuredCursorPosition {
+  offset: number;
+  exhaustedUntil: number | null;
+  lastFullSweepAt: number | null;
+  lastPageSize: number | null;
+}
+
+/** Read a structured cursor (a fresh one reads as offset 0). */
+export async function readStructuredCursor(
+  prisma: PrismaClient,
+  cursorId: string,
+): Promise<StructuredCursorPosition> {
+  const s = await readCursor(prisma, cursorId);
+  return {
+    offset: s.offset,
+    exhaustedUntil: s.exhaustedUntil,
+    lastFullSweepAt: s.lastFullSweepAt,
+    lastPageSize: s.lastPageSize,
+  };
+}
+
+/**
+ * Point a BOOSTER cursor (`<ingestor>@<holder>`, see `StructuredIngestOptions.
+ * cursorId`) back at the start of its corpus and end its rest, so the next
+ * pass sweeps again: an operator's `--restart`. With `keepOffset` only the rest
+ * ends (`--wake`, after the source was declared unusable mid-sweep). The
+ * worker's own cursors are the ingest's alone to move, so any other id is
+ * refused.
+ */
+export async function rewindStructuredCursor(
+  prisma: PrismaClient,
+  cursorId: string,
+  opts: { keepOffset?: boolean } = {},
+): Promise<void> {
+  if (!cursorId.includes("@")) {
+    throw new Error(`refusing to move the worker's own cursor "${cursorId}"`);
+  }
+  const state = await readCursor(prisma, cursorId);
+  await writeCursor(
+    prisma,
+    cursorId,
+    opts.keepOffset
+      ? { ...state, exhaustedUntil: null, failures: 0, escalatedAt: null }
+      : {
+          ...state,
+          offset: 0,
+          exhaustedUntil: null,
+          failures: 0,
+          escalatedAt: null,
+          lastPageSize: null,
+        },
+    { published: 0, failed: 0 },
+  );
+}
+
+/**
+ * How recently an ingestor must have published for its type to count as having
+ * a productive structured channel. Longer than RESWEEP_INTERVAL_MS, so the rest
+ * after a productive full sweep does not flip the answer back and forth.
+ */
+export const STRUCTURED_PRODUCTIVE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The content types whose structured (Wikidata) ingestor published something
+ * within STRUCTURED_PRODUCTIVE_WINDOW_MS — i.e. a channel that is closing the
+ * gap on its own, so a web campaign on that type is mostly wasted effort. One
+ * read of the cursor rows; fail-open to "none" (no type gets discounted).
+ */
+export async function productiveStructuredTypes(
+  prisma: PrismaClient,
+  nowMs: number = Date.now(),
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  try {
+    const rows = await prisma.adminWorkerMemory.findMany({
+      where: {
+        memoryType: "GENERIC",
+        memoryKey: { in: STRUCTURED_INGESTORS.map((i) => cursorKey(i.id)) },
+      },
+      select: { memoryKey: true, memoryValue: true },
+    });
+    const byKey = new Map(rows.map((r) => [r.memoryKey, parseCursor(r.memoryValue)]));
+    for (const ing of STRUCTURED_INGESTORS) {
+      const at = byKey.get(cursorKey(ing.id))?.lastPublishedAt;
+      if (at != null && nowMs - at < STRUCTURED_PRODUCTIVE_WINDOW_MS) out.add(ing.contentType);
+    }
+  } catch {
+    // fail-open: no channel discount
+  }
+  return out;
 }
 
 /** The display name an entry should dedup on (title / canonicalName / slug). */
@@ -314,6 +518,24 @@ function entryQid(entry: CuratedEntry): string | undefined {
 }
 
 /**
+ * Maintenance floor: an ingestor that has not run for this long is picked
+ * ahead of the gap ranking (env `ADMIN_WORKER_STRUCTURED_FLOOR_MS`). Without
+ * it, a type at or over its target scores 0 and is never picked while any
+ * other ingestor has a gap (RITE, MARIAN_TITLE, SPIRITUAL_PRACTICE and DOCTOR
+ * are at or over target while SAINT's gap is in the thousands), although open
+ * types are meant to keep growing past target and a newly elected pope must
+ * still arrive. The curated-set types (DOCTOR, RITE) are re-checked too, but a
+ * run of theirs publishes nothing: an entity it cannot match to a curated row
+ * is held for curation (`StructuredIngestor.curatedSet`). One run per floor
+ * interval per ingestor costs a handful of passes a day next to SAINT's
+ * hundreds.
+ */
+export const INGESTOR_MAINTENANCE_FLOOR_MS = envInt(
+  "ADMIN_WORKER_STRUCTURED_FLOOR_MS",
+  6 * 60 * 60 * 1000,
+);
+
+/**
  * Pick the ingestor whose content type is furthest from its goal (by gap
  * fraction), so the worker focuses where the headroom actually is — but DAMPENED
  * by recent productivity so it can never get starved. An ingestor that keeps
@@ -325,12 +547,28 @@ function entryQid(entry: CuratedEntry): string | undefined {
  * ingestors. The dampening decays as
  * soon as an ingestor produces again (its streak resets to 0). An ingestor
  * resting after a full sweep (`exhaustedUntil` in the future) is not picked.
+ *
+ * Every ingestor also has a maintenance floor: one that has not run for
+ * INGESTOR_MAINTENANCE_FLOOR_MS (its cursor row's `lastUsedAt`, stamped by every
+ * run, failed ones included) goes first, whatever its gap, so a type at its
+ * target is still swept for new entities. Overdue ingestors are ordered among
+ * themselves by the same score, and the rest by the gap ranking above.
+ *
+ * An ingestor leased to another process (an operator booster sweeping the same
+ * corpus, see lease.ts) is not picked, so the lane serves the others meanwhile.
  */
 async function pickIngestor(prisma: PrismaClient): Promise<StructuredIngestor | undefined> {
-  if (STRUCTURED_INGESTORS.length <= 1) return STRUCTURED_INGESTORS[0];
   const now = Date.now();
-  const scored: Array<{ ing: StructuredIngestor; score: number; lastUsed: number }> = [];
-  for (const ing of STRUCTURED_INGESTORS) {
+  const leases = await activeIngestorLeases(prisma, now);
+  const eligible = STRUCTURED_INGESTORS.filter((ing) => !leases.has(ing.id));
+  if (eligible.length <= 1) return eligible[0];
+  const scored: Array<{
+    ing: StructuredIngestor;
+    score: number;
+    lastUsed: number;
+    overdue: boolean;
+  }> = [];
+  for (const ing of eligible) {
     const live = await prisma.publishedContent
       .count({ where: { isPublished: true, contentType: ing.contentType } })
       .catch(() => 0);
@@ -354,9 +592,12 @@ async function pickIngestor(prisma: PrismaClient): Promise<StructuredIngestor | 
     // full gap score; one that has produced nothing for N passes is divided by
     // N + 1, so it can't monopolise the worker just because its goal gap is big.
     const score = gap / (1 + Math.max(0, state.zeroStreak));
-    scored.push({ ing, score, lastUsed });
+    const overdue = now - lastUsed >= INGESTOR_MAINTENANCE_FLOOR_MS;
+    scored.push({ ing, score, lastUsed, overdue });
   }
-  scored.sort((a, b) => b.score - a.score || a.lastUsed - b.lastUsed);
+  scored.sort(
+    (a, b) => Number(b.overdue) - Number(a.overdue) || b.score - a.score || a.lastUsed - b.lastUsed,
+  );
   return scored[0]?.ing;
 }
 
@@ -531,17 +772,42 @@ function identify(ingestor: StructuredIngestor, row: SparqlBinding): RowIdentity
   }
 }
 
+/** Options for one structured-ingestion pass. */
+export interface StructuredIngestOptions {
+  passId?: string;
+  /** Run this content type's ingestor instead of picking by goal gap. */
+  contentType?: string;
+  /** Max NEW publishes this pass (default DEFAULT_STRUCTURED_LIMIT). */
+  limit?: number;
+  /** Page size (default `structuredBatchFor`, clamped to the ingestor's maxPageSize). */
+  batch?: number;
+  /** Wall-clock budget of the pass in ms (default DEFAULT_STRUCTURED_BUDGET_MS). */
+  budgetMs?: number;
+  /**
+   * Walk a cursor of this id instead of the ingestor's own — an operator
+   * booster sweeping the corpus must not move the worker's cursor.
+   */
+  cursorId?: string;
+  /**
+   * The lease holder this pass acts for (see lease.ts). A pass WITHOUT one
+   * yields to any unexpired lease on its ingestor.
+   */
+  leaseHolder?: string;
+}
+
 /**
  * Run one structured-ingestion pass. Picks an ingestor (the one with the most
  * headroom, unless `contentType` is given), fetches a page at the saved
- * cursor, skips through pages that are entirely already-live, publishes up to
- * `limit` not-yet-live entries from the first page that has any, advances the
- * cursor, and records the learning counters.
+ * cursor, skips through pages that are entirely already-live, maps and
+ * publishes the first page that has work — one row at a time, up to `limit`
+ * new publishes and within the pass budget — advances the cursor, and records
+ * the learning counters.
  */
 export async function runStructuredIngest(
   prisma: PrismaClient,
-  opts: { passId?: string; contentType?: string; limit?: number; batch?: number } = {},
+  opts: StructuredIngestOptions = {},
 ): Promise<StructuredIngestResult> {
+  const passStartedAt = Date.now();
   const out: StructuredIngestResult = {
     ingestorId: null,
     contentType: null,
@@ -554,7 +820,15 @@ export async function runStructuredIngest(
     skipSamples: [],
     discoveredSources: 0,
     pagesSkipped: 0,
+    rejectionsDeferred: 0,
+    rejectionsRemembered: 0,
     exhausted: true,
+    endOfCorpus: false,
+    nextOffset: null,
+    pageHeld: false,
+    pageHeldReason: null,
+    leasedTo: null,
+    restingUntil: null,
     sourceCooling: false,
     sourceFailure: null,
     sourceUnusable: false,
@@ -577,23 +851,33 @@ export async function runStructuredIngest(
   out.ingestorId = ingestor.id;
   out.contentType = ingestor.contentType;
 
+  // Another process (an operator booster) is sweeping this corpus: step aside
+  // rather than double the Wikipedia traffic and race it entity by entity.
+  const lease = await readIngestorLease(prisma, ingestor.id);
+  if (lease && lease.holder !== opts.leaseHolder) {
+    out.leasedTo = lease.holder;
+    out.exhausted = false;
+    return out;
+  }
+
   // Never ask for a page wider than the ingestor can actually process. The
   // cursor advances by the ENUMERATED page size, so a two-phase ingestor whose
   // hydration binds fewer entities than were enumerated would step over the
-  // remainder and lose them silently — reachable today by raising
-  // ADMIN_WORKER_STRUCTURED_BATCH above the saint hydration ceiling.
-  const batch = Math.max(
-    1,
-    Math.min(
-      opts.batch ?? DEFAULT_STRUCTURED_BATCH,
-      ingestor.maxPageSize ?? Number.MAX_SAFE_INTEGER,
-    ),
-  );
+  // remainder and lose them silently — reachable by raising the batch above
+  // the saint hydration ceiling.
+  const batch = structuredBatchFor(ingestor, opts.batch);
   const limit = opts.limit ?? DEFAULT_STRUCTURED_LIMIT;
-  const state = await readCursor(prisma, ingestor.id);
+  const budgetMs = opts.budgetMs ?? DEFAULT_STRUCTURED_BUDGET_MS;
+  const cursorId = opts.cursorId ?? ingestor.id;
+  // Every log row of a booster's pass names its cursor, so a booster's own row
+  // can never read as the WORKER running this ingestor (sweep.ts looks for
+  // exactly that to warn about a worker that ignores the lease).
+  const via = cursorId !== ingestor.id ? ` via ${cursorId}` : "";
+  const state = await readCursor(prisma, cursorId);
   const now = Date.now();
   if (state.exhaustedUntil != null && state.exhaustedUntil > now) {
     // Fully swept recently — rest rather than re-walk thousands of live rows.
+    out.restingUntil = state.exhaustedUntil;
     return out;
   }
 
@@ -605,6 +889,10 @@ export async function runStructuredIngest(
   let rows: SparqlBinding[] | null = null;
   let pageSize = 0;
   let candidates: SparqlBinding[] = [];
+  // The QID of each candidate (from the cheap identity), and the rejection
+  // memos read for them — what the outcome bookkeeping below extends or clears.
+  let candidateQids: Array<string | undefined> = [];
+  let priorRejections: ReadonlyMap<string, RejectionMemo> = new Map();
   for (let page = 0; page < MAX_SKIP_PAGES_PER_PASS; page += 1) {
     pageStart = offset;
     const fetched = await fetchSourcePage(ingestor, batch, offset);
@@ -612,7 +900,7 @@ export async function runStructuredIngest(
     if (rows === null) break;
     pageSize = fetched.size;
     out.fetched += rows.length;
-    const toMap: SparqlBinding[] = [];
+    const toMap: Array<{ row: SparqlBinding; qid?: string }> = [];
     for (const row of rows) {
       const id = identify(ingestor, row);
       if (id && liveMatch(live, id) === "live") {
@@ -621,12 +909,30 @@ export async function runStructuredIngest(
         // official website); it costs no Wikipedia traffic.
         out.discoveredSources += await enqueueDiscoveredSources(prisma, ingestor, row);
       } else {
-        toMap.push(row);
+        toMap.push({ row, qid: id?.qid });
       }
     }
+    // An entity rejected on an earlier sweep waits out its backoff exactly like
+    // a live row: no mapping, no Wikipedia fetch — and a page left with nothing
+    // else is skipped like an entirely-live one.
+    const memos = await readRejectionMemos(
+      prisma,
+      ingestor.id,
+      toMap.flatMap((t) => (t.qid ? [t.qid] : [])),
+    );
+    const due = toMap.filter((t) => {
+      const memo = t.qid ? memos.get(t.qid) : undefined;
+      if (memo && memo.nextAttemptAt > now) {
+        out.rejectionsDeferred += 1;
+        return false;
+      }
+      return true;
+    });
     offset += pageSize;
-    if (toMap.length > 0 || pageSize < batch) {
-      candidates = toMap;
+    if (due.length > 0 || pageSize < batch) {
+      candidates = due.map((t) => t.row);
+      candidateQids = due.map((t) => t.qid);
+      priorRejections = memos;
       break;
     }
     out.pagesSkipped += 1;
@@ -659,14 +965,15 @@ export async function runStructuredIngest(
       exhaustedUntil: unusable ? Date.now() + UNUSABLE_SOURCE_RETRY_MS : state.exhaustedUntil,
       escalatedAt: unusable ? (state.escalatedAt ?? Date.now()) : state.escalatedAt,
     };
-    await writeCursor(prisma, ingestor.id, next, { published: 0, failed: 0 });
+    out.nextOffset = next.offset;
+    await writeCursor(prisma, cursorId, next, { published: 0, failed: 0 });
     if (networkReal) {
       await writeAdminWorkerLog(prisma, {
         passId: opts.passId,
         category: "CONTENT_BUILD",
         severity: unusable ? "ERROR" : "WARN",
         eventName: "structured_knowledge_ingest",
-        message: `Structured-knowledge ingest (${ingestor.id}): the structured source FAILED (${out.sourceFailure}) ${failures} consecutive time(s) with no successful page; cursor held at offset ${pageStart}${cooldownUntil ? `, source cooling until ${new Date(cooldownUntil).toISOString()}` : ""}.${unusable ? ` Declared UNUSABLE — backing ${ingestor.id} off until ${new Date(next.exhaustedUntil ?? 0).toISOString()} instead of retrying every pass; the other ingestors continue normally.` : ""} If this persists, either the query itself cannot be executed by the Query Service within its 60s cap, or the deployment's network egress does not allow query.wikidata.org / en.wikipedia.org, or the Query Service is throttling this client.`,
+        message: `Structured-knowledge ingest (${ingestor.id}${via}): the structured source FAILED (${out.sourceFailure}) ${failures} consecutive time(s) with no successful page; cursor held at offset ${pageStart}${cooldownUntil ? `, source cooling until ${new Date(cooldownUntil).toISOString()}` : ""}.${unusable ? ` Declared UNUSABLE — backing ${ingestor.id} off until ${new Date(next.exhaustedUntil ?? 0).toISOString()} instead of retrying every pass; the other ingestors continue normally.` : ""} If this persists, either the query itself cannot be executed by the Query Service within its 60s cap, or the deployment's network egress does not allow query.wikidata.org / en.wikipedia.org, or the Query Service is throttling this client.`,
         safeMetadata: {
           ingestorId: ingestor.id,
           contentType: ingestor.contentType,
@@ -706,27 +1013,15 @@ export async function runStructuredIngest(
   // that enumerated a full batch is never the end of the corpus.
   const endOfCorpus = pageSize < batch;
 
-  // ── Map the candidates (bounded concurrency) ─────────────────────────────
-  // Each map() does one or two Wikipedia REST fetches (summary + infobox);
-  // running them concurrently turns a ~40-50s page into a few seconds.
-  // Downstream dedup + publish stay strictly sequential (below).
-  // A mapper answers `MapResult` — an entry, or an ATTRIBUTED rejection. A
-  // thrown mapper is itself a reason (`map_threw`), so even the fail-open path
-  // is counted instead of vanishing.
-  const mapped: MapResult[] = new Array<MapResult>(candidates.length).fill(reject("map_threw"));
-  for (let start = 0; start < candidates.length; start += MAP_CONCURRENCY) {
-    const slice = candidates.slice(start, start + MAP_CONCURRENCY);
-    const results = await Promise.all(
-      slice.map((row) =>
-        ingestor
-          .map(row, {} as Record<string, never>)
-          .catch((err) => reject("map_threw", err instanceof Error ? err.message : String(err))),
-      ),
-    );
-    results.forEach((e, i) => {
-      mapped[start + i] = e;
-    });
-  }
+  /**
+   * Map one candidate (map-row.ts). A mapper answers `MapResult` — an entry, or
+   * an ATTRIBUTED rejection. A thrown mapper is itself a reason (`map_threw`),
+   * so even the fail-open path is counted instead of vanishing, and a rejection
+   * reached after a source read that did not complete is `source_read_failed`,
+   * which the rejection memory never defers. The reads that did not complete
+   * ride along for the outage streak below.
+   */
+  const mapOne = (row: SparqlBinding): Promise<MappedRow> => mapSourceRowDetailed(ingestor, row);
 
   /**
    * Record one discard. Never throws and never touches the network: attributing
@@ -740,27 +1035,58 @@ export async function runStructuredIngest(
     }
   };
 
-  // ── Dedup + publish ───────────────────────────────────────────────────────
+  // ── Map, dedup + publish — ONE ROW AT A TIME ───────────────────────────────
+  // Serial on purpose. Each map() costs a Wikipedia REST summary and an Action
+  // API parse, and Wikimedia's API etiquette asks for serial requests; the
+  // worker used to map eight rows at once. Mapping lazily also means a pass
+  // that reaches its publish limit (or its time budget) stops fetching instead
+  // of mapping the whole page and throwing most of it away.
+  // Per-entity outcomes for the rejection memory: what to remember, what to clear.
+  const rejectedEntities: Array<{ qid: string; code: RejectionCode; detail?: string }> = [];
+  const clearedEntities: string[] = [];
   const seenSlugs = new Set<string>();
   const seenNames = new Map<string, string | undefined>();
   let leftovers = false;
+  let fetchFailureStreak = 0;
   for (let idx = 0; idx < candidates.length; idx += 1) {
+    // Unprocessed candidates remain on this page: hold the cursor at the page
+    // start so the next pass picks them up (the published ones will be
+    // recognised as live and the rejected ones remembered — both cost nothing).
     if (out.published >= limit) {
-      // Unprocessed candidates remain on this page: hold the cursor at the
-      // page start so the next pass picks them up (the published ones will be
-      // recognised as live and cost nothing).
       leftovers = true;
       break;
     }
+    if (Date.now() - passStartedAt >= budgetMs) {
+      leftovers = true;
+      out.pageHeld = true;
+      out.pageHeldReason = "budget";
+      out.errors.push(`pass budget of ${Math.round(budgetMs / 1000)}s spent; page held`);
+      break;
+    }
+    if (fetchFailureStreak >= WIKIPEDIA_FAILURE_STREAK_LIMIT) {
+      leftovers = true;
+      out.pageHeld = true;
+      out.pageHeldReason = "source_failures";
+      out.errors.push(`${fetchFailureStreak} source reads failed in a row; page held`);
+      break;
+    }
     const row = candidates[idx];
-    const result = mapped[idx];
+    const mapped = await mapOne(row);
+    const result: MapResult = mapped.result;
+    const rowQid = candidateQids[idx];
     if (isRejection(result)) {
+      // Only a source that did not ANSWER extends the streak: a dead article
+      // (404, empty summary) answered, so Wikipedia is up and the page walks on.
+      fetchFailureStreak = sourceDidNotAnswer(mapped) ? fetchFailureStreak + 1 : 0;
       out.skipped += 1;
       note(result.code, result.detail);
+      if (rowQid) rejectedEntities.push({ qid: rowQid, code: result.code, detail: result.detail });
       continue;
     }
+    fetchFailureStreak = 0;
     let entry: CuratedEntry = result;
     const qid = entryQid(entry);
+    const memoQid = rowQid ?? qid;
     const name = normalizeName(entryDisplayName(entry));
 
     // Same-batch dedup: the same entity twice → skip; a DIFFERENT entity with
@@ -787,14 +1113,29 @@ export async function runStructuredIngest(
     const match = liveMatch(live, { qid, slug: entry.slug, name: entryDisplayName(entry) });
     if (match === "live") {
       out.alreadyPublished += 1;
+      if (memoQid) clearedEntities.push(memoQid);
       continue;
     }
     if (match === "collision" && qid) {
       entry = withSlug(entry, disambiguatedSlug(entry.slug, qid));
       if (live.bySlug.has(entry.slug)) {
         out.alreadyPublished += 1;
+        if (memoQid) clearedEntities.push(memoQid);
         continue;
       }
+    }
+    // A curated-set type (DOCTOR, RITE) never grows from Wikidata: an entity no
+    // live row matched is far more often a curated member under a different
+    // label than a new member, so it is held — counted, sampled in the log and
+    // remembered per QID — for a curator to add, never published.
+    if (ingestor.curatedSet) {
+      out.skipped += 1;
+      const held = `${entryDisplayName(entry)} (${qid ?? "no QID"})`;
+      note("curated_set_unmatched", held);
+      if (memoQid) {
+        rejectedEntities.push({ qid: memoQid, code: "curated_set_unmatched", detail: held });
+      }
+      continue;
     }
     try {
       const r = await publishStructuredEntry(prisma, entry);
@@ -802,10 +1143,13 @@ export async function runStructuredIngest(
         out.published += 1;
         live.bySlug.set(entry.slug, qid ? wikidataEntityUrl(qid) : null);
         if (qid) live.refs.add(wikidataEntityUrl(qid));
+        if (memoQid) clearedEntities.push(memoQid);
       } else {
         out.skipped += 1;
-        note(r.code ?? "publish_rejected", `${entry.slug}: ${r.reason ?? ""}`);
+        const code = r.code ?? "publish_rejected";
+        note(code, `${entry.slug}: ${r.reason ?? ""}`);
         if (r.reason) out.errors.push(`${entry.contentType}/${entry.slug}: ${r.reason}`);
+        if (memoQid) rejectedEntities.push({ qid: memoQid, code, detail: r.reason });
       }
     } catch (err) {
       out.failed += 1;
@@ -815,17 +1159,45 @@ export async function runStructuredIngest(
     }
   }
 
+  // ── Remember this pass's rejections, clear the entities that published ────
+  out.rejectionsRemembered = await recordRejectionOutcomes(prisma, ingestor.id, {
+    rejected: rejectedEntities,
+    cleared: clearedEntities,
+    prior: priorRejections,
+    nowMs: now,
+  });
+  await pruneRejectionMemos(prisma, { nowMs: now });
+
   // ── Advance the cursor ────────────────────────────────────────────────────
-  const barren = out.fetched > 0 && out.alreadyPublished === 0 && out.published === 0;
+  // A deferred rejection is a KNOWN outcome, like a live row: a page of them is
+  // not barren, so walking past remembered rejections never demotes the ingestor.
+  // A HELD page (budget spent, Wikipedia failing) was never fully read, so it
+  // says nothing about whether the page is barren.
+  const barren =
+    !out.pageHeld &&
+    out.fetched > 0 &&
+    out.alreadyPublished === 0 &&
+    out.rejectionsDeferred === 0 &&
+    out.published === 0;
   const zeroStreak = out.published > 0 ? 0 : barren ? state.zeroStreak + 1 : state.zeroStreak;
   let next: CursorState;
   // A page came back: the source is usable again — clear the consecutive-failure
   // count AND the "already escalated" stamp, so a future outage pages afresh.
+  // `lastPageSize` records what the enumeration returned, which is the only
+  // thing self-maintenance may read as "past the end of the corpus".
   if (leftovers) {
-    next = { ...state, offset: pageStart, zeroStreak, failures: 0, escalatedAt: null };
+    next = {
+      ...state,
+      offset: pageStart,
+      zeroStreak,
+      failures: 0,
+      escalatedAt: null,
+      lastPageSize: pageSize,
+    };
   } else if (endOfCorpus) {
     // Wrap to 0 for the next sweep, but rest first: at most one re-sweep per
     // RESWEEP_INTERVAL, so a finished corpus is not re-walked every pass.
+    out.endOfCorpus = true;
     next = {
       offset: 0,
       zeroStreak,
@@ -833,12 +1205,22 @@ export async function runStructuredIngest(
       exhaustedUntil: now + RESWEEP_INTERVAL_MS,
       failures: 0,
       escalatedAt: null,
+      lastPublishedAt: state.lastPublishedAt,
+      lastPageSize: pageSize,
     };
   } else {
-    next = { ...state, offset, zeroStreak, failures: 0, escalatedAt: null };
+    next = {
+      ...state,
+      offset,
+      zeroStreak,
+      failures: 0,
+      escalatedAt: null,
+      lastPageSize: pageSize,
+    };
   }
-  out.exhausted = out.published === 0 && endOfCorpus;
-  await writeCursor(prisma, ingestor.id, next, {
+  out.exhausted = out.published === 0 && endOfCorpus && !leftovers;
+  out.nextOffset = next.offset;
+  await writeCursor(prisma, cursorId, next, {
     published: out.published,
     failed: out.skipped + out.failed,
   });
@@ -883,7 +1265,7 @@ export async function runStructuredIngest(
       category: "CONTENT_BUILD",
       severity: "INFO",
       eventName: "structured_knowledge_ingest",
-      message: `Structured-knowledge ingest (${ingestor.id}): published ${out.published} new ${ingestor.contentType} record(s) from Wikidata + Wikipedia (fetched ${out.fetched}, ${out.alreadyPublished} already live, ${out.skipped} skipped, ${out.pagesSkipped} live page(s) skipped).${reasons ? ` Dropped ${rejected}: ${reasons}.` : ""}`,
+      message: `Structured-knowledge ingest (${ingestor.id}${via}): published ${out.published} new ${ingestor.contentType} record(s) from Wikidata + Wikipedia (fetched ${out.fetched}, ${out.alreadyPublished} already live, ${out.rejectionsDeferred} known rejection(s) waiting out their backoff, ${out.skipped} skipped, ${out.pagesSkipped} live page(s) skipped).${reasons ? ` Dropped ${rejected}: ${reasons}.` : ""}${out.pageHeld ? ` Page at offset ${pageStart} held for the next pass (${out.errors[out.errors.length - 1] ?? "stopped early"}).` : ""}`,
       safeMetadata: {
         ingestorId: ingestor.id,
         contentType: ingestor.contentType,
@@ -898,6 +1280,10 @@ export async function runStructuredIngest(
         skipSamples: out.skipSamples,
         discoveredSources: out.discoveredSources,
         pagesSkipped: out.pagesSkipped,
+        rejectionsDeferred: out.rejectionsDeferred,
+        rejectionsRemembered: out.rejectionsRemembered,
+        cursorId,
+        pageHeld: out.pageHeld,
         nextOffset: next.offset,
         exhaustedUntil: next.exhaustedUntil,
       },

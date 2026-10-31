@@ -57,6 +57,8 @@ import { eventBudgetPerHour, eventCooldownMs, suppressWorkerEvent } from "./even
 import { fileHumanReview } from "./human-review";
 import { writeAdminWorkerLog } from "./logs";
 import { evaluatePublishSafety } from "./publish-safety";
+import { RESEARCH_HOLD_DIAGNOSIS } from "./research-holds";
+import { STRICT_QA_REVIEW_BAND } from "./strict-qa";
 
 /**
  * The event sampler moved to ./event-sampler so `writeAdminWorkerLog` can
@@ -268,10 +270,31 @@ export const STUCK_EVENTS_THRESHOLD = 20;
 export const LANE_WEDGE_MS = 30 * MINUTE;
 /** Identical lane outcomes across this many sweeps with no progress = wedged. */
 export const LANE_IDENTICAL_OUTCOME_LIMIT = 3;
-/** A structured cursor that has swept this many times finding nothing has wrapped. */
-export const CURSOR_ZERO_STREAK_LIMIT = 3;
 /** An artifact parked in a non-terminal state longer than this is stuck. */
 export const ARTIFACT_PARKED_MS = 7 * DAY;
+
+/**
+ * The parked artifacts the 7-day requeue may touch: every one NOT deliberately
+ * held. A research hold re-checks itself on its own, longer backoff (the
+ * BUILD_READY drain requeues it when due), so a blanket weekly requeue would
+ * undo that backoff; a strict-QA review-band hold would only be re-scored to
+ * the same band (its forward path is another source healing it); an artifact
+ * this repair already requeued is never requeued twice. Written null-safe —
+ * `NOT: { gateDiagnosis: x }` also drops rows whose gateDiagnosis is NULL.
+ * SENSE, REPAIR and VERIFY all count this same population.
+ */
+function parkedRequeueEligible(): Record<string, unknown> {
+  return {
+    OR: [
+      { gateDiagnosis: null },
+      {
+        gateDiagnosis: {
+          notIn: [REQUEUE_MARKER, RESEARCH_HOLD_DIAGNOSIS, STRICT_QA_REVIEW_BAND],
+        },
+      },
+    ],
+  };
+}
 
 /**
  * The telemetry tables SENSE measures. Same allow-list, same order and same
@@ -546,19 +569,33 @@ export function laneWedgeState(
 }
 
 /**
- * A structured-ingest cursor that has walked past the end of its corpus:
- * sweeping from a non-zero offset and finding nothing, N times running.
+ * A structured-ingest cursor that has walked past the end of its corpus: the
+ * ingest module recorded that the last page it read at a non-zero offset came
+ * back EMPTY (`lastPageSize === 0`).
  *
- * A cursor the INGEST MODULE has already parked is NOT stale. structured/
- * ingest.ts owns the end-of-corpus case itself: on `endOfCorpus` it wraps the
- * offset to 0 and sets `exhaustedUntil = now + RESWEEP_INTERVAL_MS` so the
- * ingestor rests. Rewinding one of those from outside would throw away real
- * page progress and re-walk entities that were just processed.
+ * `zeroStreak` is NOT that evidence, and reading it as such livelocked the
+ * SAINT corpus on 2026-10-31. The streak counts BARREN pages — rows came back,
+ * none of them publishable — and it only resets on a publish, so one run of
+ * Martyrology-only entities (offsets 1100-1400, `no_wikipedia_article` 100 of
+ * 100) left it at 4 for good. From then on every 15-minute SENSE saw
+ * `offset > 0 && zeroStreak >= 3`, rewound the cursor to 0, and the ingest
+ * re-walked pages 0-700 (all live or rejected) instead of ever reaching the
+ * unswept half of the corpus: 55 saints in one burst, then none for hours.
+ * A barren page is the middle of a corpus, not its end.
+ *
+ * A cursor the INGEST MODULE has already parked is NOT stale either. structured/
+ * ingest.ts owns the end-of-corpus case itself: a short page wraps the offset
+ * to 0 and sets `exhaustedUntil = now + RESWEEP_INTERVAL_MS` so the ingestor
+ * rests. Rewinding one of those from outside would throw away real page
+ * progress and re-walk entities that were just processed. A cursor written
+ * before `lastPageSize` existed is left alone: its next page answers the
+ * question (an empty page wraps it), so there is nothing to repair from here.
  */
 function isStaleCursor(state: Record<string, unknown>, now: number): boolean {
   const exhaustedUntil = num(state.exhaustedUntil);
   if (exhaustedUntil > now) return false;
-  return num(state.offset) > 0 && num(state.zeroStreak) >= CURSOR_ZERO_STREAK_LIMIT;
+  if (num(state.offset) <= 0) return false;
+  return typeof state.lastPageSize === "number" && state.lastPageSize === 0;
 }
 
 /** Everything SENSE gathered, kept so DIAGNOSE and the repairs can reuse it. */
@@ -837,6 +874,7 @@ export async function senseSelfHealth(
       where: {
         status: { in: ["NEEDS_REVIEW", "NEEDS_REPAIR"] },
         updatedAt: { lt: new Date(now - ARTIFACT_PARKED_MS) },
+        ...parkedRequeueEligible(),
       },
     },
     0,
@@ -1158,9 +1196,9 @@ async function repairWedgedLanes(ctx: RepairContext): Promise<Omit<RepairAction,
 }
 
 /**
- * A cursor that has swept from a non-zero offset and found nothing N times has
- * walked past the end of its corpus. Resetting the offset to 0 is safe: the
- * ingestors are idempotent and dedupe against live content.
+ * A cursor whose last page at a non-zero offset came back empty has walked past
+ * the end of its corpus (see `isStaleCursor`). Resetting the offset to 0 is
+ * safe: the ingestors are idempotent and dedupe against live content.
  *
  * `zeroStreak` is deliberately PRESERVED. structured/ingest.ts's `pickIngestor`
  * scores candidates as `gap / (1 + zeroStreak)`, so the streak is the dampener
@@ -1206,7 +1244,7 @@ async function repairParkedArtifacts(ctx: RepairContext): Promise<Omit<RepairAct
       where: {
         status: { in: ["NEEDS_REVIEW", "NEEDS_REPAIR"] },
         updatedAt: { lt: new Date(ctx.now - ARTIFACT_PARKED_MS) },
-        NOT: { gateDiagnosis: REQUEUE_MARKER },
+        ...parkedRequeueEligible(),
       },
       select: { id: true },
       take: ctx.limit,
@@ -1504,7 +1542,7 @@ async function reSense(
         where: {
           status: { in: ["NEEDS_REVIEW", "NEEDS_REPAIR"] },
           updatedAt: { lt: new Date(now - ARTIFACT_PARKED_MS) },
-          NOT: { gateDiagnosis: REQUEUE_MARKER },
+          ...parkedRequeueEligible(),
         },
       },
       0,

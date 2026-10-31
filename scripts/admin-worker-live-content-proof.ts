@@ -27,6 +27,7 @@ import { buildContentPackage } from "../src/lib/admin-worker/content-builder";
 import { recordStrictQA } from "../src/lib/admin-worker/strict-qa";
 import { runPublishOrchestrator } from "../src/lib/admin-worker/publish-orchestrator";
 import { getReasoningChain } from "../src/lib/admin-worker/reasoning-graph";
+import { buildWebPublishPayload } from "../src/lib/admin-worker/web-publish-payloads";
 
 const TITLE = "The Memorare";
 const URL = "https://www.vatican.va/content/vatican/en/prayers/the-memorare.html";
@@ -120,13 +121,26 @@ async function main(): Promise<number> {
     if (qa.status !== "PASSED") return 1;
 
     // 4 + 5. Publish orchestrator — records ContentQualityScore + the
-    // PublishedContent row + the PUBLISH_ALLOWED_BECAUSE reasoning edge.
+    // PublishedContent row + the PUBLISH_ALLOWED_BECAUSE reasoning edge. A
+    // web artifact publishes its PRAYER schema payload (the orchestrator
+    // validates it), built exactly as the publish stage builds it.
+    const mapped = buildWebPublishPayload("PRAYER", {
+      fields: pkg.displayFields,
+      title: TITLE,
+      slug: pkg.normalizedSlug,
+      host: HOST,
+      sourceUrl: URL,
+    });
+    if (!mapped.ok) {
+      console.error("Schema payload refused:", mapped.errors);
+      return 1;
+    }
     const result = await runPublishOrchestrator(prisma, {
       contentType: "PRAYER",
       contentId: artifact.id,
       title: TITLE,
       slug: pkg.normalizedSlug,
-      payload: { title: TITLE, prayerText: PRAYER_TEXT, ...pkg.displayFields } as never,
+      payload: mapped.payload as never,
       authorityLevel: "VATICAN",
       finalScore: 0.95,
       qaPassed: true,

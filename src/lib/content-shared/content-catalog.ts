@@ -75,7 +75,7 @@ export const CONTENT_CATALOG: CatalogCategory[] = [
     predicate: isLitany,
     note: "Prayers categorised as litanies",
   },
-  { key: "saints", label: "Saints", page: "/saints", types: ["SAINT"], target: 10000 },
+  { key: "saints", label: "Saints", page: "/saints", types: ["SAINT"], target: 4_500 },
   {
     key: "our-lady",
     label: "Our Lady",
@@ -89,7 +89,7 @@ export const CONTENT_CATALOG: CatalogCategory[] = [
     label: "Doctors of the Church",
     page: "/doctors",
     types: ["DOCTOR"],
-    target: 37,
+    target: 38,
   },
   { key: "popes", label: "Popes", page: "/popes", types: ["POPE"], target: 267 },
   {

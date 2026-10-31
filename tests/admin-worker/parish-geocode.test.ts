@@ -80,6 +80,17 @@ describe("reverseLookupCity", () => {
     expect((store.get(budgetKey())!.memoryValue as { reverseUsed: number }).reverseUsed).toBe(1);
   });
 
+  it("charges each of two concurrent lookups inside the shared slot (no lost update)", async () => {
+    const { prisma, store } = makePrisma();
+    const budget = { remaining: 5 };
+    await Promise.all([
+      reverseLookupCity(prisma, 1, 1, budget, { fetchImpl: ok({ city: "A" }) as never }),
+      reverseLookupCity(prisma, 2, 2, budget, { fetchImpl: ok({ city: "B" }) as never }),
+    ]);
+    expect((store.get(budgetKey())!.memoryValue as { reverseUsed: number }).reverseUsed).toBe(2);
+    expect(budget.remaining).toBe(3);
+  });
+
   it("never promotes a county/state to a city", async () => {
     const fetchImpl = ok({ county: "Suffolk County", state: "Massachusetts" });
     const { prisma } = makePrisma();
@@ -102,6 +113,24 @@ describe("reverseLookupCity", () => {
     ).toBeNull();
     process.env.ADMIN_WORKER_OSM_REVERSE_DAILY_BUDGET = "5";
     store.set(budgetKey(), { memoryValue: { reverseUsed: 5 }, lastUsedAt: new Date() });
+    expect(
+      (await reverseLookupCity(prisma, 1, 1, { remaining: 3 }, { fetchImpl: fetchImpl as never }))
+        .city,
+    ).toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("shares the Nominatim cooldown: a 429 starts it, and no reverse lookup runs during it", async () => {
+    const { prisma, store } = makePrisma();
+    const refused = vi.fn(async () => ({ ok: false, status: 429, json: async () => ({}) }));
+    expect(
+      (await reverseLookupCity(prisma, 1, 1, { remaining: 3 }, { fetchImpl: refused as never }))
+        .city,
+    ).toBeNull();
+    const cooldown = store.get("nominatim-cooldown")?.memoryValue as { until: number };
+    expect(cooldown.until).toBeGreaterThan(Date.now());
+
+    const fetchImpl = ok({ city: "X" });
     expect(
       (await reverseLookupCity(prisma, 1, 1, { remaining: 3 }, { fetchImpl: fetchImpl as never }))
         .city,

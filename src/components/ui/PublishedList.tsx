@@ -47,6 +47,12 @@ export interface PublishedListProps {
    */
   eyebrowField?: string;
   summaryField?: string;
+  /**
+   * Show `summaryField` from a full row as the card body (default). Off for a
+   * card whose lines say everything it should — a saint's name, patronage and
+   * feast day, never a clipped biography beneath them.
+   */
+  showSummary?: boolean;
   /** Optional comparator to order items (payload rows only; SQL orders the rest). */
   sortItems?: (a: PublishedItem, b: PublishedItem) => number;
   /** Optional computed eyebrow; overrides `eyebrowField` when provided. */
@@ -71,6 +77,7 @@ export function PublishedList({
   emptyMessage,
   eyebrowField,
   summaryField = "summary",
+  showSummary = true,
   sortItems,
   eyebrowFor,
   showSubtitle = false,
@@ -108,11 +115,13 @@ export function PublishedList({
       : typeof rawEyebrow === "string" && rawEyebrow.trim()
         ? formatEnumValue(eyebrowField ?? "", rawEyebrow)
         : undefined;
-    const summary = shownPayload
-      ? ((shownPayload[summaryField] as string | undefined) ?? "")
-      : showSubtitle
-        ? shown.subtitle
-        : "";
+    const summary = !showSummary
+      ? ""
+      : shownPayload
+        ? ((shownPayload[summaryField] as string | undefined) ?? "")
+        : showSubtitle
+          ? shown.subtitle
+          : "";
     const details = (detailLinesFor?.(item) ?? []).filter((line) => line.trim());
     return (
       <Link key={item.id} href={`${baseHref}/${item.slug}`} className="block h-full">

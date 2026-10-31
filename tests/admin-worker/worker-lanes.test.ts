@@ -3,7 +3,8 @@
  * design rests on so a future edit can't silently break them:
  *   - lane names are unique (lane-state is keyed by name),
  *   - ALL_LANE_NAMES is exactly the union of both groups,
- *   - every CONTENT lane is activeOnly (they publish/grow public content),
+ *   - only the web-funnel discovery lanes are activeOnly (the deterministic
+ *     ingests and enrichments keep running while the brain is degraded),
  *   - the ops lanes that must NOT gate on active mode still run every pass,
  *   - all Python-brain-calling work stays in the single `intelligence` lane,
  *   - the coarse pre-split lanes are gone (fine-grained decomposition landed).
@@ -32,19 +33,26 @@ describe("worker lane set", () => {
     expect(OPS_LANES.length).toBeGreaterThanOrEqual(10);
   });
 
-  it("every content lane is activeOnly EXCEPT the deterministic parish lane", () => {
-    // Content lanes gate on the Python brain (safe-degraded contract) — with one
-    // deliberate exception: `discover-parish-osm` grows parishes deterministically
-    // (OSM roman_catholic tag + communion verifier + strict schema + publish
-    // orchestrator, no brain judgement), so it keeps publishing even when the
-    // brain is degraded. That is required so a Python outage never stalls the
-    // parish directory (the EXTRACTING_WITHOUT_PUBLISHING failure mode).
-    for (const lane of CONTENT_LANES) {
-      if (lane.name === "discover-parish-osm") {
-        expect(lane.activeOnly).toBeFalsy();
-      } else {
-        expect(lane.activeOnly).toBe(true);
-      }
+  it("gates only the web-funnel discovery lanes on the Python brain", () => {
+    // Brain gating is per lane, by what the lane needs. The curated, structured
+    // and liturgical ingests publish with skipBrainScreens (identical gates in
+    // both modes), the enrichments are deterministic maintenance, and OSM
+    // parishes never had a brain step — so a Python outage must not stop them
+    // (it used to halt 14 of the 15 content types). Only the lanes that feed the
+    // WEB funnel wait for the brain: nothing consumes their candidates until the
+    // brain is back to choose the fetch/extract stages and screen the publish.
+    const gated = CONTENT_LANES.filter((l) => l.activeOnly).map((l) => l.name);
+    expect(gated.sort()).toEqual(["discover-structured", "discover-web"]);
+    for (const name of [
+      "ingest-curated",
+      "ingest-structured",
+      "ingest-liturgical",
+      "enrich-translations",
+      "enrich-reviews",
+      "enrich-pope-cleanup",
+      "discover-parish-osm",
+    ]) {
+      expect(CONTENT_LANES.find((l) => l.name === name)?.activeOnly, name).toBeFalsy();
     }
   });
 
@@ -102,9 +110,13 @@ describe("worker lane set", () => {
   });
 
   it("has the deterministic custodial lanes that keep published content honest", () => {
-    // Both are deterministic (no brain judgement) and UNPUBLISH rather than
+    // All are deterministic (no brain judgement) and UNPUBLISH rather than
     // delete, so the catalog stays honest even while the brain is degraded.
-    for (const name of ["repair-structured-saints", "verify-parish-websites"]) {
+    for (const name of [
+      "repair-structured-saints",
+      "verify-parish-websites",
+      "research-parish-addresses",
+    ]) {
       const lane = OPS_LANES.find((l) => l.name === name);
       expect(lane, name).toBeDefined();
       expect(lane!.activeOnly).toBeFalsy();
@@ -120,10 +132,21 @@ describe("worker lane set", () => {
       "ingest-structured",
       "repair-structured-saints",
       "verify-parish-websites",
+      "research-parish-addresses",
     ]) {
       const lane = all.find((l) => l.name === name);
       expect(lane!.watchdogMs, name).toBeGreaterThanOrEqual(6 * 60 * 1000);
     }
+  });
+
+  it("runs parish address research as a deterministic ops lane inside a 6-minute watchdog", () => {
+    // Its own run budget (4 min) keeps it inside the watchdog; it must keep
+    // running when the brain is degraded, like the other parish upkeep lanes.
+    const lane = OPS_LANES.find((l) => l.name === "research-parish-addresses");
+    expect(lane).toBeDefined();
+    expect(CONTENT_LANES.some((l) => l.name === "research-parish-addresses")).toBe(false);
+    expect(lane!.activeOnly).toBeFalsy();
+    expect(lane!.watchdogMs).toBeLessThanOrEqual(6 * 60 * 1000);
   });
 
   it("documents the brain bridge honestly: it does NOT queue", () => {

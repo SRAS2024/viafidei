@@ -63,6 +63,35 @@ function makePrisma(opts: {
 }
 
 describe("runChecklistAndCitationOrchestrator (spec §9 follow-on)", () => {
+  // R2: a heal (EXTRACT_FAILED repair, duplicate read) resets an artifact to
+  // CHECKLIST_READY but keeps the checklist item it was bridged to. The bridge
+  // used to select only `checklistItemId: null`, so healed artifacts stranded.
+  it("re-promotes a healed CHECKLIST_READY artifact that keeps its checklist item", async () => {
+    const healed = { ...ARTIFACT_WITH_PROVENANCE, checklistItemId: "ci-existing" };
+    const prisma = makePrisma({
+      artifacts: [healed],
+      existing: { id: "ci-existing", approvalStatus: "SOURCE_VERIFIED" },
+    });
+    const out = await runChecklistAndCitationOrchestrator(prisma);
+    const p = prisma as unknown as {
+      adminWorkerPackageArtifact: {
+        findMany: ReturnType<typeof vi.fn>;
+        update: ReturnType<typeof vi.fn>;
+      };
+      checklistItem: { findUnique: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
+    };
+    expect(p.adminWorkerPackageArtifact.findMany.mock.calls[0][0].where).toEqual({
+      status: "CHECKLIST_READY",
+    });
+    expect(p.checklistItem.findUnique.mock.calls[0][0].where).toEqual({ id: "ci-existing" });
+    expect(p.checklistItem.create).not.toHaveBeenCalled();
+    expect(out[0]).toMatchObject({ status: "updated", checklistItemId: "ci-existing" });
+    expect(p.adminWorkerPackageArtifact.update).toHaveBeenCalledWith({
+      where: { id: "art-1" },
+      data: { status: "BUILD_READY", checklistItemId: "ci-existing" },
+    });
+  });
+
   it("creates a new checklist item when none exists", async () => {
     const prisma = makePrisma({ existing: null });
     const out = await runChecklistAndCitationOrchestrator(prisma);

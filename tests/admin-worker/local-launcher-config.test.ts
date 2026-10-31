@@ -71,7 +71,9 @@ describe("local host — database preflight", () => {
     expect(host).toContain('case "POST /api/switch"');
     expect(host).toContain('error: "database_unavailable"');
     expect(host).toContain("cfg.blockingReason || !probe.reachable");
-    expect(host).toContain("bootConfig.blockingReason || !bootConfig.database.reachable");
+    // The boot resume decides from the same structured fields (planBootResume).
+    expect(host).toContain("blockingReason: bootConfig.blockingReason,");
+    expect(host).toContain("databaseReachable: bootConfig.database.reachable,");
     expect(host).not.toMatch(/private network\|LOCAL database\|No database\|not answering/);
   });
 

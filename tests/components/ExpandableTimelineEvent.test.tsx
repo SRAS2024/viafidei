@@ -19,7 +19,6 @@ describe("ExpandableTimelineEvent", () => {
         location="Nicaea"
         context="Convened by Constantine."
         significance="Defined the Son as consubstantial with the Father."
-        citation="https://en.wikipedia.org/wiki/First_Council_of_Nicaea"
         links={[
           { href: "/liturgy-history/first-council-of-nicaea", label: "Read the document" },
           { href: "https://www.vatican.va/x", label: "Official text", external: true },
@@ -46,14 +45,14 @@ describe("ExpandableTimelineEvent", () => {
     expect(anchors[1]).toHaveAttribute("rel", "noopener noreferrer");
     expect(anchors[2]).toHaveAttribute("href", "/popes/pope-saint-sylvester-i");
 
-    const source = screen.getByRole("link", { name: "en.wikipedia.org" });
-    expect(source).toHaveAttribute("href", "https://en.wikipedia.org/wiki/First_Council_of_Nicaea");
+    // The event's source is not shown: a reader's page shows no sources.
+    expect(screen.queryByText(/Source:/)).not.toBeInTheDocument();
+    expect(region).not.toHaveTextContent("wikipedia");
     expect(document.getElementById("history-event-nicaea")).not.toBeNull();
   });
 
-  it("omits the Related row and source when there are none", () => {
+  it("omits the Related row when there are none", () => {
     render(<ExpandableTimelineEvent title="Pentecost" date="c. 33" initiallyOpen />);
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Source:/)).not.toBeInTheDocument();
   });
 });

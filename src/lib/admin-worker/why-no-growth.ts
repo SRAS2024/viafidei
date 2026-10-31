@@ -75,6 +75,20 @@ export interface WhyNoGrowthReport {
 }
 
 /**
+ * What a degraded Python brain stops — the WEB funnel, and only that. The
+ * curated, structured, liturgical and OSM lanes are deterministic and keep
+ * publishing in safe-degraded mode (worker-lanes.ts), so the diagnosis must not
+ * claim that growth as a whole has stopped.
+ */
+const BRAIN_DEGRADED_DIAGNOSIS = {
+  blockerExplanation:
+    "The worker is live but the Python final brain is unavailable, so it is in safe-degraded mode and the WEB funnel is paused: web and structured-seeder discovery, the brain-chosen fetch / read / extract stages and the brain-screened publish wait for it. Curated, structured (Wikidata), liturgical and OSM parish growth continue in safe-degraded mode, so a type those channels cover can still grow.",
+  exactTable: "AdminWorkerLog(eventName=brain_decided).safeMetadata.finalBrain",
+  nextRepair:
+    "Restore the Python intelligence service so the final brain returns to active (PYTHON_FINAL_BRAIN_ACTIVE).",
+};
+
+/**
  * Run the diagnostic. When `contentType` is omitted, picks the
  * content type with the largest gap as the focus.
  */
@@ -117,14 +131,20 @@ export async function diagnoseWhyNoGrowth(
   const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  // 0. The worker itself must be RUNNING, UNPAUSED, and in ACTIVE (non-degraded)
-  //    brain mode. Every publishing path — curated ingest, structured ingest,
-  //    AND the fetcher chain below — is gated on all three, so when one of them
-  //    is the cause, the pipeline walk underneath can't see it and would mislead.
-  //    These are the most common reason a worker that WAS growing suddenly
-  //    plateaus, so they are checked first. (Skipped only when a minimal test
-  //    harness stubs a prisma without the worker-state model; production always
-  //    has it.)
+  // Set by the brain check below. It pauses the WEB funnel only, so it is not a
+  // blocker on the spot: the walk goes on, and it becomes the blocker where the
+  // funnel stops on the brain (the fetcher) or when nothing else is found.
+  let brainDegraded = false;
+
+  // 0. The worker itself must be RUNNING and UNPAUSED: every publishing path —
+  //    curated ingest, structured ingest, AND the fetcher chain below — is gated
+  //    on both, so when one of them is the cause, the pipeline walk underneath
+  //    can't see it and would mislead. These are the most common reason a
+  //    worker that WAS growing suddenly plateaus, so they are checked first. The
+  //    brain mode is read here too, but only the web funnel waits on it (the
+  //    curated, structured, liturgical and OSM lanes run in safe-degraded mode;
+  //    see worker-lanes.ts). (Skipped only when a minimal test harness stubs a
+  //    prisma without the worker-state model; production always has it.)
   const stateModel = (prisma as { adminWorkerState?: { findFirst?: unknown } }).adminWorkerState;
   if (typeof stateModel?.findFirst === "function") {
     const state = await prisma.adminWorkerState.findFirst().catch(() => null);
@@ -215,24 +235,20 @@ export async function diagnoseWhyNoGrowth(
         .catch(() => null);
       const finalBrain =
         (latestBrain?.safeMetadata as { finalBrain?: string } | null)?.finalBrain ?? null;
-      const degraded = finalBrain != null && finalBrain !== "python";
+      brainDegraded = finalBrain != null && finalBrain !== "python";
       checks.push({
         stage: "BRAIN_DEGRADED",
-        label: "Python final brain active (publishing allowed)",
-        ok: !degraded,
+        label: "Python final brain active (web funnel running)",
+        ok: !brainDegraded,
         count: 0,
         detail: finalBrain
-          ? `Latest finalBrain = ${finalBrain}.`
+          ? `Latest finalBrain = ${finalBrain}.${
+              brainDegraded
+                ? " The web funnel waits for the brain; curated, structured, liturgical and OSM growth continue."
+                : ""
+            }`
           : "No brain decision recorded yet.",
       });
-      if (degraded) {
-        blocker = "BRAIN_DEGRADED";
-        blockerExplanation =
-          "The worker is live but the Python final brain is unavailable, so it is in safe-degraded mode: it runs diagnostics / security / maintenance but does NOT publish new content. Every publishing path (curated, structured, fetched) is gated on the brain being active.";
-        exactTable = "AdminWorkerLog(eventName=brain_decided).safeMetadata.finalBrain";
-        nextRepair =
-          "Restore the Python intelligence service so the final brain returns to active (PYTHON_FINAL_BRAIN_ACTIVE).";
-      }
     }
   }
 
@@ -337,10 +353,17 @@ export async function diagnoseWhyNoGrowth(
     detail: `${recentFetches} fetch attempt(s) in the last 24h.`,
   });
   if (blocker === "NONE" && recentFetches === 0 && prioritizedCount > 0) {
-    blocker = "FETCH_NOT_RUNNING";
-    blockerExplanation = "Prioritized candidates exist but no fetches have happened in 24h.";
-    exactTable = "AdminWorkerFetchResult";
-    nextRepair = "Run the SOURCE_FETCH mission stage; check worker heartbeat.";
+    if (brainDegraded) {
+      // The fetch / read / extract stages are chosen by the brain, so with it
+      // degraded "no fetches" is its symptom, not a fetcher fault to repair.
+      blocker = "BRAIN_DEGRADED";
+      ({ blockerExplanation, exactTable, nextRepair } = BRAIN_DEGRADED_DIAGNOSIS);
+    } else {
+      blocker = "FETCH_NOT_RUNNING";
+      blockerExplanation = "Prioritized candidates exist but no fetches have happened in 24h.";
+      exactTable = "AdminWorkerFetchResult";
+      nextRepair = "Run the SOURCE_FETCH mission stage; check worker heartbeat.";
+    }
   }
   checks.push({
     stage: "FETCH_FAILING",
@@ -621,6 +644,13 @@ export async function diagnoseWhyNoGrowth(
     nextRepair = "Investigate cache/sitemap/search refreshes; re-run the post-publish probe.";
   }
 
+  // The funnel itself looks healthy, but its web stages cannot run until the
+  // brain is back: that is what stands between the focus type and web growth.
+  if (blocker === "NONE" && brainDegraded) {
+    blocker = "BRAIN_DEGRADED";
+    ({ blockerExplanation, exactTable, nextRepair } = BRAIN_DEGRADED_DIAGNOSIS);
+  }
+
   // Spec §14: surface the exact count for the blocking stage so the
   // operator sees "0 candidate URLs", "0 structured blocks", etc.
   if (blocker !== "NONE") {
@@ -696,7 +726,9 @@ export async function diagnoseWhyNoGrowth(
     nextWorkerDecision:
       blocker === "NONE"
         ? "Continue normal maintenance + growth passes."
-        : `Run the dispatcher; brain will choose the action that fixes "${blocker}".`,
+        : blocker === "BRAIN_DEGRADED"
+          ? "Keep running the curated, structured, liturgical and OSM lanes in safe-degraded mode; resume the web funnel when the Python final brain is active again."
+          : `Run the dispatcher; brain will choose the action that fixes "${blocker}".`,
     checks,
   };
 }

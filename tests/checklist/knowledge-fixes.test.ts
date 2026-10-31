@@ -48,9 +48,9 @@ describe("curated knowledge fixes", () => {
     }
   });
 
-  it("gives all 37 Doctors a MM-DD feast, feastMonth/feastDayOfMonth, and an ecclesialRole", () => {
+  it("gives all 38 Doctors a MM-DD feast, feastMonth/feastDayOfMonth, and an ecclesialRole", () => {
     const doctors = ALL_CURATED_ENTRIES.filter((e) => e.contentType === "DOCTOR");
-    expect(doctors).toHaveLength(37);
+    expect(doctors).toHaveLength(38);
     const roles = new Set(["pope", "bishop", "priest", "deacon", "religious", "lay"]);
     for (const d of doctors) {
       const feast = String(d.payload.feastDay);
@@ -61,11 +61,11 @@ describe("curated knowledge fixes", () => {
       expect(roles.has(String(d.payload.ecclesialRole)), d.slug).toBe(true);
       expect(validatePayload("DOCTOR", d.payload).ok).toBe(true);
     }
-    // Sixteen of the thirty-seven were not bishops.
+    // Seventeen of the thirty-eight were not bishops (Newman, the 38th, was a priest).
     const nonBishops = doctors.filter(
       (d) => d.payload.ecclesialRole !== "bishop" && d.payload.ecclesialRole !== "pope",
     );
-    expect(nonBishops).toHaveLength(16);
+    expect(nonBishops).toHaveLength(17);
     expect(findCuratedEntry("DOCTOR", "doctor-ephrem-the-syrian")!.payload.ecclesialRole).toBe(
       "deacon",
     );

@@ -38,11 +38,135 @@ export interface SeedCuratedResult {
   updated: number;
   skipped: number;
   failed: number;
+  /** Not-yet-live entries left alone because their last failure is still backing off. */
+  deferred?: number;
+  /**
+   * Entries that were attempted THIS run and did not publish, with the reason
+   * and when they will be tried again. An entry appears here once per backoff
+   * window, which is what lets the caller log every failing entry without
+   * repeating it every pass.
+   */
+  failures?: CuratedEntryFailure[];
   byType: Record<string, number>;
   errors: string[];
 }
 
+// Type aliases (not interfaces) so these JSON shapes are assignable to the
+// Prisma Json columns they are stored in and logged to.
+export type CuratedEntryFailure = {
+  contentType: string;
+  slug: string;
+  reason: string;
+  /** Consecutive failed attempts, this one included. */
+  attempts: number;
+  /** Epoch ms before which the entry is not attempted again. */
+  nextAttemptAt: number;
+};
+
 const FINGERPRINT_KEY = "curated-knowledge-fingerprint";
+
+/**
+ * Per-entry failure memory for curated entries that do not publish (an invalid
+ * payload, a safety or quality refusal, a slug owned by another row, a thrown
+ * error). One GENERIC memory row holds every failing entry, so its size is
+ * bounded by the curated corpus itself and a steady-state pass reads it once.
+ */
+export const CURATED_FAILURES_KEY = "curated-ingest-failures";
+/** First wait after a failure; doubles per consecutive failure. */
+export const CURATED_RETRY_BASE_MS = 60 * 60 * 1000;
+/** Longest wait, so a cause outside the corpus (a freed slug) is still retried daily. */
+export const CURATED_RETRY_MAX_MS = 24 * 60 * 60 * 1000;
+
+type CuratedFailureMemo = {
+  reason: string;
+  attempts: number;
+  nextAttemptAt: number;
+  firstFailedAt: number;
+};
+
+type CuratedFailureMemory = {
+  /** Corpus fingerprint the memos were recorded against; a new corpus resets them. */
+  fingerprint: string | null;
+  entries: Record<string, CuratedFailureMemo>;
+};
+
+/** Wait before the next attempt of an entry that has failed `attempts` times in a row. */
+export function curatedRetryDelayMs(attempts: number): number {
+  return Math.min(CURATED_RETRY_MAX_MS, CURATED_RETRY_BASE_MS * 2 ** Math.max(0, attempts - 1));
+}
+
+function entryKey(entry: Pick<CuratedEntry, "contentType" | "slug">): string {
+  return `${entry.contentType}:${entry.slug}`;
+}
+
+async function readCuratedFailures(prisma: PrismaClient): Promise<CuratedFailureMemory> {
+  try {
+    const row = await prisma.adminWorkerMemory.findUnique({
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: CURATED_FAILURES_KEY } },
+      select: { memoryValue: true },
+    });
+    const v = (row?.memoryValue ?? {}) as Partial<CuratedFailureMemory>;
+    const entries: Record<string, CuratedFailureMemo> = {};
+    for (const [key, memo] of Object.entries(v.entries ?? {})) {
+      if (memo && typeof memo.nextAttemptAt === "number" && typeof memo.attempts === "number") {
+        entries[key] = memo;
+      }
+    }
+    return { fingerprint: typeof v.fingerprint === "string" ? v.fingerprint : null, entries };
+  } catch {
+    return { fingerprint: null, entries: {} };
+  }
+}
+
+async function writeCuratedFailures(
+  prisma: PrismaClient,
+  memory: CuratedFailureMemory,
+): Promise<void> {
+  const memoryValue = { fingerprint: memory.fingerprint, entries: memory.entries };
+  try {
+    await prisma.adminWorkerMemory.upsert({
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: CURATED_FAILURES_KEY } },
+      update: { memoryValue, lastUsedAt: new Date() },
+      create: {
+        memoryType: "GENERIC",
+        memoryKey: CURATED_FAILURES_KEY,
+        memoryValue,
+        lastUsedAt: new Date(),
+      },
+    });
+  } catch {
+    // Bookkeeping only: the worst case is one extra attempt of a failing entry.
+  }
+}
+
+/**
+ * Which curated entries are already live, asking only for the curated slugs of
+ * each type (one indexed query) instead of every published row: the parish
+ * directory alone is heading for 200k rows, and the curated corpus is ~1,200.
+ */
+async function loadLiveCuratedKeys(
+  prisma: PrismaClient,
+  entries: readonly CuratedEntry[],
+): Promise<Set<string>> {
+  const slugsByType = new Map<string, string[]>();
+  for (const e of entries) {
+    slugsByType.set(e.contentType, [...(slugsByType.get(e.contentType) ?? []), e.slug]);
+  }
+  if (slugsByType.size === 0) return new Set();
+  const rows = await prisma.publishedContent
+    .findMany({
+      where: {
+        isPublished: true,
+        OR: [...slugsByType].map(([contentType, slugs]) => ({
+          contentType: contentType as never,
+          slug: { in: slugs },
+        })),
+      },
+      select: { contentType: true, slug: true },
+    })
+    .catch(() => [] as Array<{ contentType: string; slug: string }>);
+  return new Set(rows.map((r) => `${r.contentType}:${r.slug}`));
+}
 
 /** Stable hash of the whole curated corpus — changes exactly when the shipped knowledge changes. */
 export function curatedKnowledgeFingerprint(entries: readonly CuratedEntry[]): string {
@@ -251,10 +375,29 @@ export async function syncCuratedUpdates(
 /**
  * Publish curated content through the real pipeline. Idempotent: re-running
  * re-publishes the same slugs (PublishedContent is keyed by checklistItemId).
+ *
+ * An entry that does not publish is remembered with its reason and retried on
+ * a doubling backoff (1 h → 24 h) instead of on every pass; a new corpus
+ * fingerprint (the entry may have been fixed) gives every one a fresh attempt.
+ * The worker lane honours the backoff (`honorBackoff`); the operator's
+ * `seed:content` run attempts everything and only records the outcome.
  */
 export async function seedCuratedContent(
   prisma: PrismaClient,
-  opts: { limit?: number; contentType?: string } = {},
+  opts: {
+    limit?: number;
+    contentType?: string;
+    /**
+     * Seed + refresh the content-goal rows at the end (default true). The
+     * worker passes false: its loop already refreshes goals once per pass.
+     */
+    finalizeGoals?: boolean;
+    /** Skip entries whose last failure is still backing off (default false). */
+    honorBackoff?: boolean;
+    /** The corpus to seed (defaults to the shipped knowledge base; tests inject one). */
+    entries?: readonly CuratedEntry[];
+    nowMs?: number;
+  } = {},
 ): Promise<SeedCuratedResult> {
   const out: SeedCuratedResult = {
     attempted: 0,
@@ -263,13 +406,17 @@ export async function seedCuratedContent(
     updated: 0,
     skipped: 0,
     failed: 0,
+    deferred: 0,
+    failures: [],
     byType: {},
     errors: [],
   };
+  const now = opts.nowMs ?? Date.now();
 
   // `?? []` keeps this safe when @/lib/checklist is module-mocked (unit tests)
   // or the registry is otherwise unavailable: the seed becomes a clean no-op.
-  let entries = [...(ALL_CURATED_ENTRIES ?? [])];
+  const corpus = [...(opts.entries ?? ALL_CURATED_ENTRIES ?? [])];
+  let entries = corpus;
   if (opts.contentType) entries = entries.filter((e) => e.contentType === opts.contentType);
   // `opts.limit` caps the number of NEW publishes (enforced in the loop), not a
   // slice of the entry list: this lets the worker call it with a small per-pass
@@ -278,18 +425,63 @@ export async function seedCuratedContent(
 
   // Idempotency: skip items already live (avoids the per-item dedup gate on
   // re-runs, so a second `seed:content` is fast and a no-op).
-  const live = new Set(
-    (
-      await prisma.publishedContent
-        .findMany({ where: { isPublished: true }, select: { contentType: true, slug: true } })
-        .catch(() => [] as Array<{ contentType: string; slug: string }>)
-    ).map((r) => `${r.contentType}:${r.slug}`),
-  );
+  const live = await loadLiveCuratedKeys(prisma, entries);
+
+  // Failure memory. Memos are dropped when the corpus changes (the entry may
+  // have been fixed), when the entry went live, and when it left the corpus.
+  const fingerprint = curatedKnowledgeFingerprint(corpus);
+  const failures = await readCuratedFailures(prisma);
+  let failuresDirty = false;
+  if (failures.fingerprint !== fingerprint) {
+    failuresDirty = failures.fingerprint !== null || Object.keys(failures.entries).length > 0;
+    failures.fingerprint = fingerprint;
+    failures.entries = {};
+  }
+  const corpusKeys = new Set(corpus.map(entryKey));
+  for (const key of Object.keys(failures.entries)) {
+    if (!corpusKeys.has(key)) {
+      delete failures.entries[key];
+      failuresDirty = true;
+    }
+  }
+  const recordFailure = (entry: CuratedEntry, reason: string): void => {
+    const key = entryKey(entry);
+    const prior = failures.entries[key];
+    const attempts = (prior?.attempts ?? 0) + 1;
+    const nextAttemptAt = now + curatedRetryDelayMs(attempts);
+    failures.entries[key] = {
+      reason: reason.slice(0, 240),
+      attempts,
+      nextAttemptAt,
+      firstFailedAt: prior?.firstFailedAt ?? now,
+    };
+    failuresDirty = true;
+    out.failures?.push({
+      contentType: entry.contentType,
+      slug: entry.slug,
+      reason: reason.slice(0, 240),
+      attempts,
+      nextAttemptAt,
+    });
+  };
+  const clearFailure = (entry: CuratedEntry): void => {
+    const key = entryKey(entry);
+    if (failures.entries[key]) {
+      delete failures.entries[key];
+      failuresDirty = true;
+    }
+  };
 
   for (const entry of entries) {
     out.attempted += 1;
-    if (live.has(`${entry.contentType}:${entry.slug}`)) {
+    if (live.has(entryKey(entry))) {
       out.alreadyPublished += 1;
+      clearFailure(entry);
+      continue;
+    }
+    const memo = failures.entries[entryKey(entry)];
+    if (opts.honorBackoff && memo && memo.nextAttemptAt > now) {
+      out.deferred = (out.deferred ?? 0) + 1;
       continue;
     }
     try {
@@ -298,6 +490,7 @@ export async function seedCuratedContent(
       if (!validation.ok) {
         out.skipped += 1;
         out.errors.push(`${entry.contentType}/${entry.slug}: invalid payload`);
+        recordFailure(entry, "invalid payload (fails the strict content schema)");
         continue;
       }
 
@@ -367,25 +560,32 @@ export async function seedCuratedContent(
       if (result.kind === "published") {
         out.published += 1;
         out.byType[entry.contentType] = (out.byType[entry.contentType] ?? 0) + 1;
+        clearFailure(entry);
         // Bounded per-call growth: stop once we've published `limit` new items.
         if (opts.limit && out.published >= opts.limit) break;
       } else {
         out.skipped += 1;
         out.errors.push(`${entry.contentType}/${entry.slug}: ${result.kind} (${result.reason})`);
+        recordFailure(entry, `${result.kind}: ${result.reason}`);
       }
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       out.failed += 1;
-      out.errors.push(
-        `${entry.contentType}/${entry.slug}: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      out.errors.push(`${entry.contentType}/${entry.slug}: ${message}`);
+      recordFailure(entry, `threw: ${message}`);
     }
   }
+
+  if (failuresDirty) await writeCuratedFailures(prisma, failures);
 
   // Already-live entries whose curated text changed since the last sync are
   // re-published in place (versioned + reversible). No-op when the corpus is
   // unchanged, so this costs nothing on a steady-state pass.
   if (!opts.contentType) {
-    const sync = await syncCuratedUpdates(prisma, { limit: opts.limit ?? 25 }).catch(() => null);
+    const sync = await syncCuratedUpdates(prisma, {
+      limit: opts.limit ?? 25,
+      entries: corpus,
+    }).catch(() => null);
     if (sync) {
       out.updated += sync.updated;
       out.errors.push(...sync.errors);
@@ -397,8 +597,12 @@ export async function seedCuratedContent(
   // content-goals table reflects the real published totals after seeding.
   // The per-item post-publish refresh is intentionally skipped above to keep
   // the bulk seed O(n); this single pass brings the console fully up to date.
-  await seedContentGoals(prisma).catch(() => undefined);
-  await refreshContentGoals(prisma).catch(() => undefined);
+  // The worker lane opts out: its loop refreshes goals once per pass already,
+  // and seeding the 15 rows here on every pass undid that saving.
+  if (opts.finalizeGoals ?? true) {
+    await seedContentGoals(prisma).catch(() => undefined);
+    await refreshContentGoals(prisma).catch(() => undefined);
+  }
 
   return out;
 }

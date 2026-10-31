@@ -87,7 +87,9 @@ vi.mock("@/lib/admin-worker/extractors", () => ({
     fields: {
       prayerTitle: "Our Father",
       prayerType: "Lord's Prayer",
-      prayerText: "Our Father. Amen.",
+      // Long enough to be a PRAYER schema body (≥20 chars): extraction now
+      // refuses up front a package that could never publish.
+      prayerText: "Our Father, who art in heaven, hallowed be thy name. Amen.",
       category: "essential",
     },
     missingFields: [],

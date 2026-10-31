@@ -215,7 +215,10 @@ function makePrisma(over: Record<string, unknown> = {}): Prisma {
       create: vi.fn(async () => ({ id: "art-new" })),
       update: vi.fn(async () => ({})),
     },
-    adminWorkerCrossSourceVerification: { count: vi.fn(async () => 0) },
+    adminWorkerCrossSourceVerification: {
+      count: vi.fn(async () => 0),
+      findMany: vi.fn(async () => []),
+    },
     adminWorkerRepairPlan: { count: vi.fn(async () => 0) },
     adminWorkerStrictQAResult: {
       findUnique: vi.fn(async () => null),
@@ -648,7 +651,10 @@ describe("CROSS_SOURCE_VERIFICATION gives up after a bounded number of rounds (W
         update,
       },
       // Evidence rows already exist (an earlier round), none of them a MATCH.
-      adminWorkerCrossSourceVerification: { count: vi.fn(async () => 0) },
+      adminWorkerCrossSourceVerification: {
+        count: vi.fn(async () => 0),
+        findMany: vi.fn(async () => []),
+      },
       adminWorkerRepairPlan: { count: vi.fn(async () => priorPlans) },
     });
     return { prisma, update };

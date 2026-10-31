@@ -2,6 +2,7 @@ import { FilterChips, LIST_PAGE_SIZE, PageHero, Pagination, parsePageParam } fro
 import { countPublishedBySubtype, listParishPage } from "@/lib/data/published";
 import { localizeParishes } from "@/lib/translation/localize";
 import { PARISH_FILTERS, resolveParishFilter } from "@/lib/content-shared/parish";
+import { getTranslator } from "@/lib/i18n/server";
 
 import { ParishLocator } from "./ParishLocator";
 
@@ -11,13 +12,17 @@ export const metadata = { title: "Parishes" };
 /**
  * The stored `designation` values behind each classification chip. The
  * directory filters and counts on the indexed `subtype` column, which carries
- * the designation verbatim, so "Basilicas" has to name both stored forms.
+ * the designation verbatim, so "Basilicas" has to name both stored forms and
+ * "Chapels" takes the oratories too (`classifyParish` files them there): with
+ * no chip naming "oratory", the 2,241 published oratories were reachable from
+ * "All" alone.
  */
 const PARISH_FILTER_SUBTYPES: Readonly<Record<string, readonly string[]>> = {
   parish: ["parish"],
   cathedral: ["cathedral"],
   basilica: ["major-basilica", "minor-basilica", "basilica"],
   shrine: ["shrine"],
+  chapel: ["chapel", "oratory"],
 };
 
 export default async function ParishesPage({
@@ -28,6 +33,9 @@ export default async function ParishesPage({
   const { class: classParam, q: rawQuery, page: pageParam } = await searchParams;
   const active = resolveParishFilter(classParam);
   const query = (rawQuery ?? "").trim();
+  // The "near me" distance line speaks the site language, and outside English
+  // that language alone settles the units; the browser's region does the rest.
+  const { t, locale } = await getTranslator();
 
   // One page of the directory, filtered and counted in SQL. The page used to
   // load every published parish and hand the whole array to a client
@@ -60,7 +68,7 @@ export default async function ParishesPage({
       <PageHero
         eyebrow="Find a parish"
         title="Parishes"
-        subtitle="Catholic parishes, shrines, cathedrals, and basilicas — use your location to find the nearest."
+        subtitle="Catholic parishes, chapels, shrines, cathedrals, and basilicas — use your location to find the nearest."
       />
 
       {/* A plain GET form: searching is a real URL, so a result page can be
@@ -101,7 +109,14 @@ export default async function ParishesPage({
         </div>
       ) : (
         <>
-          <ParishLocator parishes={await localizeParishes(result.items)} total={result.total} />
+          <ParishLocator
+            // Names in another script transliterated and countries named in
+            // the reader's language (rule b), in memory: no cache lookup.
+            parishes={await localizeParishes(result.items, { locale })}
+            total={result.total}
+            locale={locale}
+            awayTemplate={t("parishes.distanceAway")}
+          />
           <Pagination
             basePath="/parishes"
             page={result.page}

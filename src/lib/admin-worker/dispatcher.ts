@@ -32,17 +32,19 @@ import { WEB_EXTRACTION_CONTENT_TYPES, isExtractableContentType } from "./conten
 import { writeAdminWorkerLog } from "./logs";
 import { reportQueryError } from "./schema-integrity";
 import { recordStageOutcome, toStageOutcome } from "./stage-outcomes";
+import { STRICT_QA_REVIEW_BAND } from "./strict-qa";
 import {
   MAX_TRANSIENT_FETCH_ATTEMPTS,
   MAX_VERIFICATION_ROUNDS,
-  buildPrayerPublishPayload,
   candidateFetchEligibility,
   classifyFetchFailure,
   cleanSourceTitle,
+  corroboratingCitations,
   deriveDocumentTitle,
   derivedParentField,
   detectReadLanguage,
   entityHintFor,
+  evaluateValidationNeeds,
   expectedValueVariants,
   extractionCursorWhere,
   extractorFieldTitle,
@@ -352,6 +354,7 @@ async function loadVerifierFromStoredEvidence(
   prisma: PrismaClient,
   artifactId: string,
   validationNeeds: string[],
+  contentType = "",
 ): Promise<{
   evidence: never[];
   hasConflict: boolean;
@@ -379,30 +382,12 @@ async function loadVerifierFromStoredEvidence(
       select: { id: true, fieldName: true, matchResult: true },
     })
     .catch(() => [] as Array<{ id: string; fieldName: string; matchResult: string }>);
-  const byField = new Map<string, string[]>();
-  for (const r of rows) {
-    const arr = byField.get(r.fieldName) ?? [];
-    arr.push(r.matchResult);
-    byField.set(r.fieldName, arr);
-  }
-  const missingRequired: string[] = [];
-  const blockingSensitiveFields: string[] = [];
-  let hasConflict = false;
-  for (const need of needs) {
-    const results = byField.get(need) ?? [];
-    if (results.length === 0) {
-      missingRequired.push(need);
-      continue;
-    }
-    if (results.some((r) => r === "MISMATCH")) {
-      blockingSensitiveFields.push(need);
-      hasConflict = true;
-      continue;
-    }
-    if (!results.some((r) => r === "MATCH" || r === "PASS")) {
-      blockingSensitiveFields.push(need);
-    }
-  }
+  // The same predicate the verification stage promoted on (shared helper), so
+  // the two can never disagree about whether a need is confirmed.
+  const verdict = evaluateValidationNeeds(contentType, needs, rows);
+  const missingRequired = verdict.missing;
+  const blockingSensitiveFields = [...verdict.conflicted, ...verdict.unconfirmed];
+  const hasConflict = verdict.conflicted.length > 0;
   const publishAllowed =
     missingRequired.length === 0 && blockingSensitiveFields.length === 0 && !hasConflict;
   const summary = publishAllowed
@@ -889,6 +874,11 @@ async function runSourceFetchRead(
   if (suppressedPrefixes.size > 0) {
     await retireSuppressedCandidates(prisma, passId, suppressedPrefixes);
   }
+  // Junk URL shapes (Cloudflare challenge endpoints, CMS endpoints, login /
+  // cart / search pages) are no longer enqueued; this retires the ones queued
+  // before that filter existed. Throttled inside, fail-open.
+  const { retireJunkShapedCandidates } = await import("./candidate-url-hygiene");
+  await retireJunkShapedCandidates(prisma, { passId }).catch(() => undefined);
   const notSuppressed =
     suppressedPrefixes.size > 0
       ? {
@@ -1501,12 +1491,46 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
   const candidate = await prisma.candidateSourceUrl
     .findFirst({ where: { discoveredUrl: read.sourceUrl } })
     .catch(() => null);
+  // Fail fast on a package that can never become its schema payload (R1): a
+  // novena without per-day meditations, a Church document without an issuing
+  // authority. It would otherwise spend cross-source verification fetches and
+  // strict QA only to be refused at publish. It stays EXTRACTED with the
+  // schema's reason and takes the EXTRACT_FAILED path below. A citation
+  // shortfall is not a gap here: verification is what adds the second witness.
+  const { buildWebPublishPayload, fieldsNeverExtracted, webPublishType } =
+    await import("./web-publish-payloads");
+  const preview =
+    pkg.rejectionReasons.length === 0 && pkg.missingFields.length === 0
+      ? buildWebPublishPayload(detected, {
+          fields: pkg.displayFields,
+          title: pkg.normalizedTitle,
+          slug: pkg.normalizedSlug,
+          host: read.sourceHost,
+          sourceUrl: read.sourceUrl,
+        })
+      : null;
+  const schemaGaps =
+    preview && !preview.ok && preview.code === "SCHEMA_FIELDS_MISSING"
+      ? preview.errors.filter((e) => !e.startsWith("citations"))
+      : [];
   const status =
     pkg.rejectionReasons.length > 0
       ? "REJECTED"
-      : pkg.missingFields.length === 0
+      : pkg.missingFields.length === 0 && schemaGaps.length === 0
         ? "CHECKLIST_READY"
         : "EXTRACTED";
+  // Say when the gap is the TYPE's (its extractor never reads a required
+  // field), so nobody reads the refusal as this page's fault: no other source
+  // of the type can close it, and none is rerouted to.
+  const neverExtracted = fieldsNeverExtracted(detected);
+  const schemaGapReason =
+    schemaGaps.length > 0
+      ? `SCHEMA_FIELDS_MISSING: ${webPublishType(detected)} schema refuses this page's fields${
+          neverExtracted.length > 0
+            ? ` (the ${detected} extractor never reads ${neverExtracted.join(", ")})`
+            : ""
+        }: ${schemaGaps.slice(0, 3).join("; ")}`.slice(0, 480)
+      : null;
 
   // Artifacts are unique on (contentType, normalizedSlug, packageChecksum) —
   // effectively (type, normalized title). The SAME entity routinely arrives via
@@ -1538,7 +1562,13 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
   let existing = await prisma.adminWorkerPackageArtifact
     .findUnique({
       where: { contentType_normalizedSlug_packageChecksum: duplicateKey },
-      select: { id: true, status: true, sourceReadId: true, missingFields: true },
+      select: {
+        id: true,
+        status: true,
+        sourceReadId: true,
+        missingFields: true,
+        gateDiagnosis: true,
+      },
     })
     .catch((err) => {
       reportQueryError("extraction.duplicateLookup", err);
@@ -1562,7 +1592,7 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
           confidenceScore: pkg.confidenceByPackage,
           packageChecksum: pkg.duplicateKeys.titleHash,
           status,
-          rejectionReason: pkg.rejectionReasons[0] ?? null,
+          rejectionReason: pkg.rejectionReasons[0] ?? schemaGapReason,
           repairSuggestions: pkg.repairSuggestions,
         },
       });
@@ -1573,7 +1603,13 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
         existing = await prisma.adminWorkerPackageArtifact
           .findUnique({
             where: { contentType_normalizedSlug_packageChecksum: duplicateKey },
-            select: { id: true, status: true, sourceReadId: true, missingFields: true },
+            select: {
+              id: true,
+              status: true,
+              sourceReadId: true,
+              missingFields: true,
+              gateDiagnosis: true,
+            },
           })
           .catch(() => null);
       }
@@ -1607,8 +1643,16 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
     //    or past the funnel (CHECKLIST_READY → PUBLISHED, NEEDS_REVIEW) are
     //    never touched.
     await consumeDuplicateRead();
-    const healable = ["EXTRACTED", "NEEDS_REPAIR", "REJECTED"].includes(existing.status);
-    const newIsComplete = pkg.rejectionReasons.length === 0 && pkg.missingFields.length === 0;
+    // A strict-QA review-band hold is healable too: its score is a fixed
+    // function of the stored package, so a second source's fresh fields are
+    // its only way forward (strict QA re-scores a healed artifact).
+    const healable =
+      ["EXTRACTED", "NEEDS_REPAIR", "REJECTED"].includes(existing.status) ||
+      (existing.status === "NEEDS_REVIEW" && existing.gateDiagnosis === STRICT_QA_REVIEW_BAND);
+    const newIsComplete =
+      pkg.rejectionReasons.length === 0 &&
+      pkg.missingFields.length === 0 &&
+      schemaGaps.length === 0;
     let healed = false;
     if (healable && newIsComplete) {
       healed = Boolean(
@@ -1637,6 +1681,11 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
             return null;
           }),
       );
+      // The healed artifact carries NEW field values: its old strict-QA row
+      // and cross-source evidence judged the OLD ones, so they must not carry
+      // over (a stored MATCH for last week's feast day would otherwise
+      // "confirm" a different one, and a PASSED row would skip re-scoring).
+      if (healed) await clearJudgementsFor(prisma, existing.id);
     }
     await writeAdminWorkerLog(prisma, {
       passId,
@@ -1704,6 +1753,31 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
       missingFields: pkg.missingFields,
     }).catch(() => undefined);
   }
+  if (schemaGaps.length > 0 && artifact) {
+    // Complete by the extractor's own list, but not a valid schema payload:
+    // the artifact-keyed EXTRACT_FAILED path (origin schema_payload) re-extracts
+    // it once and closes it with this reason if the fields still do not map;
+    // discovery moves on to another source of the type — unless the gap is
+    // the type's own (fieldsNeverExtracted), which the reroute declines.
+    const { filePlan } = await import("./repair-plans");
+    await filePlan(prisma, {
+      kind: "EXTRACT_FAILED",
+      failedEntity: artifact.id,
+      repairAction: `Re-extract ${read.sourceUrl}: ${schemaGapReason}`,
+      metadata: {
+        artifactId: artifact.id,
+        sourceReadId: read.id,
+        contentType: detected,
+        origin: "schema_payload",
+        errors: schemaGaps.slice(0, 10),
+      },
+    }).catch(() => undefined);
+    const { rerouteToAlternateSource } = await import("./repair");
+    await rerouteToAlternateSource(prisma, {
+      contentType: detected,
+      failedHost: read.sourceHost,
+    }).catch(() => undefined);
+  }
 
   await writeAdminWorkerLog(prisma, {
     passId,
@@ -1732,13 +1806,33 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
           : "repair-planned",
     summary: `Extraction materialised package artifact ${artifact?.id ?? "(?)"} (${status}).`,
     rejected: status === "REJECTED" ? 1 : 0,
-    repairsPlanned: status === "EXTRACTED" && pkg.missingFields.length > 0 ? 1 : 0,
+    repairsPlanned:
+      status === "EXTRACTED" && (pkg.missingFields.length > 0 || schemaGaps.length > 0) ? 1 : 0,
     metadata: {
       artifactId: artifact?.id ?? null,
       status,
       missingFields: pkg.missingFields,
+      ...(schemaGaps.length > 0 ? { schemaGaps: schemaGaps.slice(0, 10) } : {}),
     },
   };
+}
+
+/**
+ * Forget the strict-QA verdict and cross-source evidence recorded for an
+ * artifact whose fields were just replaced by a heal, so verification and
+ * strict QA judge the fields it now carries. Best-effort.
+ */
+export async function clearJudgementsFor(prisma: PrismaClient, artifactId: string): Promise<void> {
+  await Promise.resolve()
+    .then(() =>
+      prisma.adminWorkerCrossSourceVerification.deleteMany({ where: { contentId: artifactId } }),
+    )
+    .catch(() => undefined);
+  await Promise.resolve()
+    .then(() =>
+      prisma.adminWorkerStrictQAResult.deleteMany({ where: { packageArtifactId: artifactId } }),
+    )
+    .catch(() => undefined);
 }
 
 /**
@@ -2114,11 +2208,17 @@ export async function runCrossSourceVerification(
           // disagreeing value, otherwise an unreachable approved source
           // would wrongly block a field that another source confirmed.
           if (e.matchStatus === "MISSING_EVIDENCE") continue;
-          // MATCH → store the comparable string we confirmed; MISMATCH →
+          // MATCH → store the candidate's own comparable string, the one the
+          // verifier compares it against below: the source confirmed that
+          // fact (in one of its printable forms). Storing the probe's primary
+          // form instead recorded a confirmed "February 11 1858", "15 May
+          // 1891" or ISO date as a MISMATCH against "February 11, 1858" /
+          // "May 15, 1891", which compare() does not equate. MISMATCH →
           // store the differing value the source actually carried. Using
           // the derived string (not the raw array/object) lets the
           // verifier compare like-for-like rather than on array length.
-          const validationFieldValue = e.matchStatus === "MATCH" ? expectedValue : (e.found ?? "");
+          const validationFieldValue =
+            e.matchStatus === "MATCH" ? rawExpectedValue : (e.found ?? "");
           if (!validationFieldValue) continue;
           const entry = byHost.get(e.host) ?? { url: e.url, fields: {} };
           entry.fields[field] = validationFieldValue;
@@ -2137,12 +2237,19 @@ export async function runCrossSourceVerification(
       for (const field of fieldsToVerify) {
         if (field in fields) comparableFields[field] = verifiableExpectedString(fields[field]);
       }
+      // Compare + record EVERY field fetched above, not only REQUIRED_FACTS:
+      // a validation need outside that table (APPARITION apparitionDate,
+      // CHURCH_DOCUMENT dateOrEra) used to be fetched, never compared, never
+      // stored — and the publish gate, which demands a row per need, routed
+      // the artifact to repair on every attempt.
       const result = await runVerifier(prisma, {
         contentType: artifact.contentType,
         contentId: artifact.id,
         packageChecksum: artifact.packageChecksum,
         fields: comparableFields,
         validationSources,
+        requiredFacts: fieldsToVerify,
+        validationNeeds: artifact.validationNeeds,
       }).catch(() => null);
       blockingFields = result?.blockingSensitiveFields ?? [];
 
@@ -2240,10 +2347,28 @@ export async function runCrossSourceVerification(
       }
     }
 
-    // Recount MATCH/PASS evidence after any fetch this pass.
-    const matchCount = await prisma.adminWorkerCrossSourceVerification
-      .count({ where: { ...evidenceWhere, matchResult: { in: ["MATCH", "PASS"] } } })
-      .catch(() => 0);
+    // Re-read the stored evidence after any fetch this pass. The same rows
+    // feed the publish gate's stored-evidence verifier, so judging the
+    // validation needs from them here means nothing is promoted that the
+    // publish gate would bounce back to repair.
+    const storedRows = await prisma.adminWorkerCrossSourceVerification
+      .findMany({ where: evidenceWhere, select: { fieldName: true, matchResult: true } })
+      .catch(() => [] as Array<{ fieldName: string; matchResult: string }>);
+    const matchCount = storedRows.filter(
+      (r) => r.matchResult === "MATCH" || r.matchResult === "PASS",
+    ).length;
+    const needsVerdict = evaluateValidationNeeds(
+      artifact.contentType,
+      artifact.validationNeeds,
+      storedRows,
+    );
+    for (const need of [
+      ...needsVerdict.missing,
+      ...needsVerdict.unconfirmed,
+      ...needsVerdict.conflicted,
+    ]) {
+      if (!blockingFields.includes(need)) blockingFields.push(need);
+    }
 
     // Verification is by CROSS-SOURCE evidence only — no external AI confirmation.
     // An artifact clears when independent approved sources agree on its sensitive
@@ -2253,12 +2378,13 @@ export async function runCrossSourceVerification(
     verifiedFieldCount = matchCount;
 
     // The artifact MUST leave BUILD_READY on this pass so the brain stops
-    // re-selecting it and the pipeline never stalls. Promote only on real
-    // MATCH evidence with no blocking sensitive field; otherwise file a
-    // VALIDATION_EVIDENCE_MISSING repair and park in NEEDS_REPAIR —
-    // sensitive content never publishes without stored evidence
-    // (spec §246, §258).
-    if (matchCount > 0 && blockingFields.length === 0) {
+    // re-selecting it and the pipeline never stalls. Promote only when EVERY
+    // validation need has a confirming match and no sensitive field is
+    // blocked; otherwise file a VALIDATION_EVIDENCE_MISSING repair and park in
+    // NEEDS_REPAIR — sensitive content never publishes without stored evidence
+    // (spec §246, §258). A single title MATCH used to promote an apparition
+    // whose date no source had confirmed.
+    if (matchCount > 0 && blockingFields.length === 0 && needsVerdict.allConfirmed) {
       await prisma.adminWorkerPackageArtifact
         .update({ where: { id: artifact.id }, data: { status: "VERIFICATION_READY" } })
         .catch(() => undefined);
@@ -2388,6 +2514,9 @@ export async function runStrictQA(prisma: PrismaClient, passId: string): Promise
   let passed = 0;
   let heldForReview = 0;
   let rejected = 0;
+  // Scored, but the strict-QA row did not persist (database error): left in
+  // place for the next pass instead of advancing without a row.
+  let deferred = 0;
 
   for (const artifact of candidates) {
     if (!artifact) continue;
@@ -2488,6 +2617,16 @@ export async function runStrictQA(prisma: PrismaClient, passId: string): Promise
       publicReadinessScore,
     });
 
+    // The publish gate refuses any artifact without a persisted strict-QA row.
+    // recordStrictQA swallows a failed upsert and still returns the computed
+    // status, and advancing on that status sent a QA_PASSED artifact with no
+    // row to the publish gate, which rejected it for good. Leave the artifact
+    // where it is instead; the next pass scores it again.
+    if (qa.recordId === null) {
+      deferred += 1;
+      continue;
+    }
+
     // A strict-QA NEEDS_REPAIR means the finalScore landed in the review
     // band [REVIEW_FLOOR, threshold) with NO zero dimension — the content
     // is structurally complete and provenance-backed but didn't clear the
@@ -2498,6 +2637,14 @@ export async function runStrictQA(prisma: PrismaClient, passId: string): Promise
     // the Developer Audit / command center) rather than NEEDS_REPAIR, which
     // the repair orchestrator would bounce back to EXTRACTED and strand
     // (runExtraction only (re)processes reads that have no artifact yet).
+    //
+    // The hold used to carry no reason at all (rejectionReason null), so
+    // nothing could tell it from any other review, and the weekly
+    // self-maintenance requeue re-scored it — deterministically, to the same
+    // band — forever. It now records why (STRICT_QA_REVIEW_BAND with the
+    // score and threshold) and a gateDiagnosis that keeps the generic requeue
+    // off it. Its forward path is another source: a later read of the same
+    // entity heals the artifact with fresh fields, and strict QA scores those.
     const nextStatus =
       qa.status === "PASSED"
         ? "QA_PASSED"
@@ -2511,7 +2658,17 @@ export async function runStrictQA(prisma: PrismaClient, passId: string): Promise
         data: {
           status: nextStatus,
           rejectionReason:
-            nextStatus === "REJECTED" ? `strict QA failed: ${qa.blockingReasons.join("; ")}` : null,
+            nextStatus === "REJECTED"
+              ? `strict QA failed: ${qa.blockingReasons.join("; ")}`
+              : nextStatus === "NEEDS_REVIEW"
+                ? `${STRICT_QA_REVIEW_BAND}: ${qa.blockingReasons.join("; ") || `finalScore ${qa.finalScore.toFixed(2)} in the review band`}`.slice(
+                    0,
+                    480,
+                  )
+                : null,
+          ...(nextStatus === "NEEDS_REVIEW"
+            ? { gateDiagnosis: STRICT_QA_REVIEW_BAND, gateCheckedAt: new Date() }
+            : {}),
         },
       })
       .catch(() => undefined);
@@ -2559,10 +2716,12 @@ export async function runStrictQA(prisma: PrismaClient, passId: string): Promise
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "QA",
-    severity: rejected > 0 ? "WARN" : "INFO",
+    severity: rejected > 0 || deferred > 0 ? "WARN" : "INFO",
     eventName: "strict_qa_pass",
-    message: `Strict QA processed ${processed} artifact(s): ${passed} passed, ${heldForReview} held for review, ${rejected} rejected.`,
-    safeMetadata: { processed, passed, heldForReview, rejected },
+    message: `Strict QA processed ${processed} artifact(s): ${passed} passed, ${heldForReview} held for review, ${rejected} rejected${
+      deferred > 0 ? `, ${deferred} deferred (strict-QA row not persisted; retried next pass)` : ""
+    }.`,
+    safeMetadata: { processed, passed, heldForReview, rejected, deferred },
   });
 
   return {
@@ -2624,7 +2783,12 @@ export async function runPersistAndPublish(
     // validationSources: []. For doctrinal content, missing evidence
     // routes to repair via VALIDATION_EVIDENCE_MISSING.
     const verifier = isDoctrinal
-      ? await loadVerifierFromStoredEvidence(prisma, artifact.id, artifact.validationNeeds)
+      ? await loadVerifierFromStoredEvidence(
+          prisma,
+          artifact.id,
+          artifact.validationNeeds,
+          artifact.contentType,
+        )
       : undefined;
 
     // The authoritative quality signal for the publish gate is the
@@ -2667,61 +2831,53 @@ export async function runPersistAndPublish(
     const sourceHost = sourceRead?.sourceHost ?? null;
     const authorityLevel = sourceHost ? hostAuthorityLevel(sourceHost) : "COMMUNITY";
 
-    // PRAYER: publish the SCHEMA payload, not the raw extractor fields. A web
-    // prayer used to persist as {prayerTitle, prayerType, prayerText, category:
-    // "PRAYER"} — no body, no slug, no citations, no language, and the literal
-    // "PRAYER" printed as its category on the public rails — and it never went
-    // through validatePayload, so schema rules (body length, ≥1 citation) were
-    // bypassed on this path only (PR-04). A payload the schema refuses is NOT
-    // published: it routes to repair like any other incomplete package.
-    let publishPayload = artifact.extractedFields as Record<string, unknown>;
-    if (publishableType === "PRAYER") {
-      const prayerPayload = buildPrayerPublishPayload({
-        fields: publishPayload,
-        title: artifact.normalizedTitle,
+    // Publish the SCHEMA payload, not the raw extractor fields. Every web type
+    // except PRAYER used to persist its extractor shape ({saintName,
+    // background, …}): no slug, no citations, schema rules (≥2 citations, an
+    // MM-DD feast, an approvedStatus value, nine novena days) never checked,
+    // and the same type stored in a different shape than curated/structured
+    // rows (PR-04 fixed PRAYER only). The registry maps each type onto its
+    // schema without inventing a value; the citations are the source page plus
+    // independent pages whose stored evidence confirmed the artifact.
+    const { buildWebPublishPayload } = await import("./web-publish-payloads");
+    // Fail-open (a missing citation only means fewer witnesses, never a crash).
+    const evidenceRows = await Promise.resolve()
+      .then(() =>
+        prisma.adminWorkerCrossSourceVerification.findMany({
+          where: { contentId: artifact.id, matchResult: { in: ["MATCH", "PASS"] } },
+          select: { matchResult: true, validationSourceUrl: true },
+        }),
+      )
+      .catch(() => [] as Array<{ matchResult: string; validationSourceUrl: string | null }>);
+    const corroborating = corroboratingCitations(evidenceRows, sourceRead?.sourceUrl ?? null);
+    const mapped = buildWebPublishPayload(artifact.contentType, {
+      fields: (artifact.extractedFields as Record<string, unknown>) ?? {},
+      title: artifact.normalizedTitle,
+      slug: artifact.normalizedSlug,
+      host: sourceHost,
+      sourceUrl: sourceRead?.sourceUrl ?? null,
+      corroboratingUrls: corroborating,
+    });
+    if (!mapped.ok) {
+      return refuseWebPayload(prisma, passId, {
+        artifactId: artifact.id,
+        artifactType: artifact.contentType,
+        publishableType,
         slug: artifact.normalizedSlug,
-        host: sourceHost,
-        sourceUrl: sourceRead?.sourceUrl ?? null,
+        sourceReadId: artifact.sourceReadId,
+        validationNeeds: artifact.validationNeeds ?? [],
+        code: mapped.code,
+        errors: mapped.errors,
       });
-      if (!prayerPayload.ok) {
-        const reason = `prayer payload failed schema validation: ${prayerPayload.errors.slice(0, 3).join("; ")}`;
-        await prisma.adminWorkerPackageArtifact
-          .update({
-            where: { id: artifact.id },
-            data: { status: "NEEDS_REPAIR", rejectionReason: reason.slice(0, 480) },
-          })
-          .catch(() => undefined);
-        const { filePlan } = await import("./repair-plans");
-        await filePlan(prisma, {
-          kind: "EXTRACT_FAILED",
-          failedEntity: artifact.id,
-          repairAction: `Re-extract PRAYER/${artifact.normalizedSlug} from another approved source: ${reason}`,
-          metadata: { artifactId: artifact.id, errors: prayerPayload.errors.slice(0, 10) },
-        }).catch(() => undefined);
-        await writeAdminWorkerLog(prisma, {
-          passId,
-          category: "PUBLISHING",
-          severity: "WARN",
-          eventName: "prayer_payload_invalid",
-          message: `Refused to publish PRAYER/${artifact.normalizedSlug}: ${reason}`,
-          contentType: "PRAYER",
-          safeMetadata: { artifactId: artifact.id, errors: prayerPayload.errors.slice(0, 10) },
-        }).catch(() => undefined);
-        return {
-          stage: "PUBLIC_PUBLISH",
-          kind: "repair-planned",
-          summary: reason,
-          repairsPlanned: 1,
-          metadata: { artifactId: artifact.id, reason: "prayer_payload_invalid" },
-        };
-      }
-      publishPayload = prayerPayload.payload;
     }
+    const publishPayload = mapped.payload;
 
     const result = await runPublishOrchestrator(prisma, {
       contentType: publishableType,
       contentId: artifact.checklistItemId ?? artifact.id,
-      title: artifact.normalizedTitle,
+      // The display title the payload names (the page title cleaned of its
+      // site suffix); the slug stays the artifact's publish identity.
+      title: mapped.title,
       slug: artifact.normalizedSlug,
       payload: publishPayload as never,
       authorityLevel,
@@ -2733,6 +2889,10 @@ export async function runPersistAndPublish(
       isDoctrinallySensitive: isDoctrinal,
       confidence: qualitySignal,
       verifier,
+      // The independent pages whose stored evidence confirmed the item: each
+      // is an agreement, and its authority counts, in the proof packet that
+      // proof-gated types (DEVOTION, LITURGICAL, POPE, …) must pass.
+      corroboratingSources: corroborating,
       // Spec §6: pass the artifact id so the orchestrator can refuse
       // publishing when no passing AdminWorkerStrictQAResult exists.
       strictQAArtifactId: artifact.id,
@@ -2741,8 +2901,11 @@ export async function runPersistAndPublish(
     // Spec §19: source reputation updates after the publishing stage
     // (which also gates on the quality score). A host whose artifact
     // publishes gains reputation; a blocked/repair outcome loses it.
+    // A transient database failure says nothing about the source, so it never
+    // costs the host reputation.
     const pubHost = sourceHost;
-    if (pubHost) {
+    const transientBlock = result.kind === "blocked" && result.retryable === true;
+    if (pubHost && !transientBlock) {
       const { pushReputation } = await import("./source-reputation-hooks");
       await pushReputation(prisma, {
         sourceHost: pubHost,
@@ -2754,6 +2917,7 @@ export async function runPersistAndPublish(
 
     // Update the artifact based on the outcome.
     let reviewRouted: ReviewRouting = "terminal";
+    let blockedRouted: "retry" | "terminal" | "requeued" | null = null;
     if (result.kind === "published") {
       await prisma.adminWorkerPackageArtifact
         .update({
@@ -2763,13 +2927,46 @@ export async function runPersistAndPublish(
         .catch(() => undefined);
       const { clearRetryBudget } = await import("./human-review");
       await clearRetryBudget(prisma, "review", artifact.id);
+      const { clearResearchFlag } = await import("./research-holds");
+      await clearResearchFlag(prisma, artifact.id);
     } else if (result.kind === "blocked") {
-      await prisma.adminWorkerPackageArtifact
-        .update({
-          where: { id: artifact.id },
-          data: { status: "REJECTED", rejectionReason: result.reason },
-        })
-        .catch(() => undefined);
+      if (result.retryable) {
+        // A database error is not a verdict on the content. It used to REJECT a
+        // complete, QA-passed package for good (only a later duplicate read
+        // could ever revive it); retry it with backoff instead.
+        blockedRouted = await routeTransientPublishFailure(prisma, {
+          artifactId: artifact.id,
+          reason: `TRANSIENT_PUBLISH_FAILURE (${result.blockedBy}): ${result.reason}`,
+        });
+      } else if (result.blockedBy === "strict-qa-missing") {
+        // QA_PASSED without a persisted strict-QA row is a pipeline gap (the
+        // QA upsert failed while the status advanced), not a content verdict:
+        // send it back through strict QA.
+        await prisma.adminWorkerPackageArtifact
+          .update({
+            where: { id: artifact.id },
+            data: {
+              status: "BUILD_READY",
+              rejectionReason: "STRICT_QA_ROW_MISSING: re-queued for strict QA",
+            },
+          })
+          .catch(() => undefined);
+        blockedRouted = "requeued";
+      } else {
+        const { publishRejectionCode } = await import("./publish-orchestrator");
+        await prisma.adminWorkerPackageArtifact
+          .update({
+            where: { id: artifact.id },
+            data: {
+              status: "REJECTED",
+              rejectionReason: `${publishRejectionCode(result.blockedBy)}: ${result.reason}`.slice(
+                0,
+                480,
+              ),
+            },
+          })
+          .catch(() => undefined);
+      }
     } else if (result.kind === "repair") {
       // Spec §6: repairable — send the artifact back for re-extraction
       // (the QUALITY_SCORE_FAILED / STRICT_QA_FAILED repair plan the
@@ -2811,13 +3008,17 @@ export async function runPersistAndPublish(
     }
 
     const reviewIsRepair = result.kind === "review" && reviewRouted === "repair";
+    // A retried (transient) or re-queued block is not a rejection.
+    const blockedIsRetry = blockedRouted !== null;
     return {
       stage: "PUBLIC_PUBLISH",
       kind:
         result.kind === "published"
           ? "advanced"
           : result.kind === "blocked"
-            ? "rejected"
+            ? blockedIsRetry
+              ? "repair-planned"
+              : "rejected"
             : result.kind === "duplicate"
               ? "idle"
               : result.kind === "repair" || reviewIsRepair
@@ -2826,16 +3027,23 @@ export async function runPersistAndPublish(
       summary: `Publish orchestrator: ${result.kind} (${result.reason})${
         result.kind === "review" && reviewRouted !== "terminal"
           ? ` → autonomous ${reviewRouted}`
-          : ""
+          : blockedRouted
+            ? ` → ${blockedRouted === "requeued" ? "re-queued for strict QA" : `transient, ${blockedRouted}`}`
+            : ""
       }.`,
       built: result.kind === "published" ? 1 : 0,
       published: result.kind === "published" ? 1 : 0,
-      rejected: result.kind === "blocked" || (result.kind === "review" && !reviewIsRepair) ? 1 : 0,
-      repairsPlanned: result.kind === "repair" || reviewIsRepair ? 1 : 0,
+      rejected:
+        (result.kind === "blocked" && !blockedIsRetry) ||
+        (result.kind === "review" && !reviewIsRepair)
+          ? 1
+          : 0,
+      repairsPlanned: result.kind === "repair" || reviewIsRepair || blockedIsRetry ? 1 : 0,
       metadata: {
         artifactId: artifact.id,
         kind: result.kind,
         reviewRouted: result.kind === "review" ? reviewRouted : undefined,
+        blockedRouted: blockedRouted ?? undefined,
       },
     };
   }
@@ -2859,13 +3067,181 @@ export async function runPersistAndPublish(
   );
 }
 
-type ReviewRouting = "repair" | "retry" | "terminal";
+type ReviewRouting = "repair" | "retry" | "terminal" | "research";
+
+/**
+ * Refuse a web artifact whose fields do not make a schema-valid payload.
+ *   - Only the citation count short (every field present, one witness where
+ *     the schema wants two): another source, not another extraction, clears
+ *     it. An artifact built before its type carried the validation need that
+ *     finds that source (DEVOTION, LITURGICAL, SPIRITUAL_PRACTICE, POPE) is
+ *     sent through cross-source verification with the need added; one that
+ *     has been through it is held for research.
+ *   - A required field missing or invalid: NEEDS_REPAIR plus an EXTRACT_FAILED
+ *     plan tagged origin "schema_payload", whose handler re-extracts the read
+ *     and heals the artifact only if the fresh fields map; otherwise it closes
+ *     the artifact terminally with this reason.
+ * One WARN per refusal (prayer_payload_invalid keeps its old name).
+ */
+async function refuseWebPayload(
+  prisma: PrismaClient,
+  passId: string,
+  input: {
+    artifactId: string;
+    artifactType: string;
+    publishableType: string;
+    slug: string;
+    sourceReadId: string | null;
+    validationNeeds: string[];
+    code: "SCHEMA_FIELDS_MISSING" | "INSUFFICIENT_CITATIONS" | "NO_SCHEMA_MAPPING";
+    errors: string[];
+  },
+): Promise<DispatchOutcome> {
+  const key = `${input.publishableType}/${input.slug}`;
+  const detail = `${input.publishableType} schema refused the web payload: ${input.errors
+    .slice(0, 3)
+    .join("; ")}`;
+  if (input.code === "INSUFFICIENT_CITATIONS") {
+    // Built without the need that looks for the second witness, so nothing
+    // has ever looked: a research hold would re-check it every 7–90 days and
+    // refuse it for the same single citation forever. Add the need and let
+    // verification search for the independent page (its stale evidence, if
+    // any, cleared so every need is fetched afresh). Once it has been through
+    // verification with the need, a shortfall is a real evidence gap.
+    const { validationNeedsFor } = await import("./content-builder");
+    const addedNeeds = validationNeedsFor(input.artifactType).filter(
+      (need) => !input.validationNeeds.includes(need),
+    );
+    if (addedNeeds.length > 0) {
+      await prisma.adminWorkerCrossSourceVerification
+        .deleteMany({ where: { contentId: input.artifactId } })
+        .catch(() => undefined);
+      await prisma.adminWorkerPackageArtifact
+        .update({
+          where: { id: input.artifactId },
+          data: {
+            validationNeeds: [...input.validationNeeds, ...addedNeeds],
+            status: "BUILD_READY",
+            rejectionReason: null,
+            gateDiagnosis: null,
+          },
+        })
+        .catch(() => undefined);
+      await writeAdminWorkerLog(prisma, {
+        passId,
+        category: "PUBLISHING",
+        severity: "INFO",
+        eventName: "web_payload_needs_witness",
+        message: `${key} has one citation where its schema wants two; sent to cross-source verification for ${addedNeeds.join(", ")}.`,
+        contentType: input.publishableType,
+        relatedEntityId: input.artifactId,
+        safeMetadata: { artifactId: input.artifactId, addedNeeds },
+      }).catch(() => undefined);
+      return {
+        stage: "PUBLIC_PUBLISH",
+        kind: "repair-planned",
+        summary: `${key}: one citation where the schema wants two — verifying ${addedNeeds.join(", ")} for an independent page.`,
+        repairsPlanned: 1,
+        metadata: { artifactId: input.artifactId, reason: "INSUFFICIENT_CITATIONS", addedNeeds },
+      };
+    }
+    const { holdForResearch } = await import("./research-holds");
+    const hold = await holdForResearch(prisma, {
+      artifactId: input.artifactId,
+      contentType: input.publishableType,
+      slug: input.slug,
+      code: "INSUFFICIENT_CITATIONS",
+      detail,
+      missing: ["an independent page confirming this item (a second citation)"],
+      passId,
+    });
+    return {
+      stage: "PUBLIC_PUBLISH",
+      kind: "rejected",
+      summary: `Held ${key} for research (hold ${hold.attempts}): ${detail}`,
+      rejected: 1,
+      metadata: { artifactId: input.artifactId, reason: "INSUFFICIENT_CITATIONS" },
+    };
+  }
+  const reason = `${input.code}: ${detail}`.slice(0, 480);
+  await prisma.adminWorkerPackageArtifact
+    .update({
+      where: { id: input.artifactId },
+      data: { status: "NEEDS_REPAIR", rejectionReason: reason },
+    })
+    .catch(() => undefined);
+  const { filePlan } = await import("./repair-plans");
+  await filePlan(prisma, {
+    kind: "EXTRACT_FAILED",
+    failedEntity: input.artifactId,
+    repairAction: `Re-extract ${key}; its fields do not make a valid ${input.publishableType} payload: ${detail}`,
+    metadata: {
+      artifactId: input.artifactId,
+      sourceReadId: input.sourceReadId,
+      contentType: input.artifactType,
+      origin: "schema_payload",
+      errors: input.errors.slice(0, 10),
+    },
+  }).catch(() => undefined);
+  await writeAdminWorkerLog(prisma, {
+    passId,
+    category: "PUBLISHING",
+    severity: "WARN",
+    eventName:
+      input.publishableType === "PRAYER" ? "prayer_payload_invalid" : "web_payload_invalid",
+    message: `Refused to publish ${key}: ${reason}`,
+    contentType: input.publishableType,
+    safeMetadata: {
+      artifactId: input.artifactId,
+      code: input.code,
+      errors: input.errors.slice(0, 10),
+    },
+  }).catch(() => undefined);
+  return {
+    stage: "PUBLIC_PUBLISH",
+    kind: "repair-planned",
+    summary: reason,
+    repairsPlanned: 1,
+    metadata: { artifactId: input.artifactId, reason: input.code },
+  };
+}
+
+/**
+ * Route a publish the orchestrator blocked for a TRANSIENT reason (a database
+ * error reading the strict-QA row, writing the quality score or persisting the
+ * row). The artifact parks in NEEDS_REVIEW with a TRANSIENT_PUBLISH_FAILURE
+ * reason; the build-ready drain re-queues it as QA_PASSED once the per-artifact
+ * backoff (10 → 20 → 40 minutes) has passed, within the shared retry budget.
+ * Once the budget is spent it stays parked with the reason recorded, and the
+ * weekly self-maintenance requeue gives it one more try.
+ */
+async function routeTransientPublishFailure(
+  prisma: PrismaClient,
+  input: { artifactId: string; reason: string },
+): Promise<"retry" | "terminal"> {
+  const { consumeRetryBudget } = await import("./human-review");
+  const budget = await consumeRetryBudget(prisma, "review", input.artifactId, {
+    reason: input.reason,
+  });
+  const rejectionReason = budget.allowed
+    ? input.reason
+    : `${input.reason} [retry budget spent after ${budget.attempts - 1} autonomous attempts]`;
+  await prisma.adminWorkerPackageArtifact
+    .update({
+      where: { id: input.artifactId },
+      data: { status: "NEEDS_REVIEW", rejectionReason: rejectionReason.slice(0, 480) },
+    })
+    .catch(() => undefined);
+  return budget.allowed ? "retry" : "terminal";
+}
 
 /**
  * Autonomous routing for a publish outcome of "review" (finding: review
  * outcomes were terminal). Returns how the artifact was routed:
  *   - "repair": QUALITY_SCORE_FAILED plan filed + NEEDS_REPAIR (re-extraction)
  *   - "retry":  NEEDS_REVIEW with a backed-off retry the drain will honour
+ *   - "research": NEEDS_REVIEW on a research hold (an evidence gap the proof
+ *                 gate found), re-checked only after a long backoff
  *   - "terminal": NEEDS_REVIEW, left for a person (human-review mode, a
  *                 non-recoverable reason, or the retry budget is spent)
  */
@@ -2892,6 +3268,29 @@ async function routeReviewOutcome(
   if (requireHumanReview()) {
     await park(input.reason);
     return "terminal";
+  }
+
+  // An evidence gap the proof gate found — fewer trusted sources than a
+  // sensitive type needs, or support below the required authority — does not
+  // change between attempts minutes apart. These were retried on the review
+  // backoff (logging a "Publish blocked" WARN each time) and re-armed weekly
+  // by the self-maintenance requeue. Hold them for research instead: a typed
+  // reason, a research flag, and a re-check only after a long backoff.
+  const { researchHoldCodeFor, holdForResearch } = await import("./research-holds");
+  const researchCode = researchHoldCodeFor(input.reason);
+  if (researchCode) {
+    await holdForResearch(prisma, {
+      artifactId: input.artifactId,
+      contentType: input.contentType,
+      slug: input.slug,
+      code: researchCode,
+      detail: input.reason,
+      missing:
+        researchCode === "BELOW_REQUIRED_AUTHORITY"
+          ? ["a corroborating source at the authority this content type requires"]
+          : ["a second independent trusted source confirming this item"],
+    });
+    return "research";
   }
 
   const { classifyReviewReason, consumeRetryBudget } = await import("./human-review");

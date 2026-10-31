@@ -40,9 +40,20 @@
 import type { LaneDef } from "./lanes";
 
 /**
- * CONTENT lanes — publish or grow public content, so they only run when the
- * Python final brain is active (safe-degraded contract). One lane per
- * workstream, all touching disjoint domains → safe to run concurrently.
+ * CONTENT lanes — publish or grow public content. One lane per workstream, all
+ * touching disjoint domains → safe to run concurrently.
+ *
+ * Brain gating (safe-degraded contract) is per lane, by what the lane actually
+ * needs. A lane that never consults the brain AND whose output passes only
+ * deterministic gates keeps running while the Python brain is degraded: the
+ * curated, structured and liturgical ingests (they publish with
+ * `skipBrainScreens`, so the orchestrator runs the same gates in both modes),
+ * the translation backfill, review auto-resolve and pope cleanup (deterministic
+ * maintenance; nothing new is published), and OSM parishes. Only the discovery
+ * lanes that feed the WEB funnel stay `activeOnly`: their candidates can only
+ * advance through brain-chosen stages and brain-screened publishes, so running
+ * them while degraded would spend network and query budget on a queue nothing
+ * consumes.
  */
 export const CONTENT_LANES: LaneDef[] = [
   // ── Ingestion: curated, structured, and liturgical ingest each publish a
@@ -50,7 +61,6 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "ingest-curated",
     capacity: 4,
-    activeOnly: true,
     growth: true,
     async run({ prisma, passId }) {
       const { runCuratedIngest } = await import("./curated-ingest");
@@ -65,7 +75,6 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "ingest-structured",
     capacity: 4,
-    activeOnly: true,
     growth: true,
     // A run walks a Wikidata page AND fetches one Wikipedia extract per
     // candidate (15s × up to 3 attempts each); a slow source pushed it past the
@@ -81,7 +90,6 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "ingest-liturgical",
     capacity: 1,
-    activeOnly: true,
     async run({ prisma }) {
       const { runLiturgicalCalendarIngest } = await import("./liturgical-calendar-ingest");
       const published = (await runLiturgicalCalendarIngest(prisma)).published;
@@ -94,7 +102,6 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "enrich-translations",
     capacity: 2,
-    activeOnly: true,
     async run({ prisma }) {
       const { runPrayerTranslationBackfill } = await import("./prayer-translation-backfill");
       await runPrayerTranslationBackfill(prisma);
@@ -104,7 +111,6 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "enrich-reviews",
     capacity: 2,
-    activeOnly: true,
     async run({ prisma }) {
       const { runReviewAutoResolve } = await import("./human-review");
       await runReviewAutoResolve(prisma);
@@ -114,7 +120,6 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "enrich-pope-cleanup",
     capacity: 1,
-    activeOnly: true,
     async run({ prisma }) {
       const { pruneAntipopeRecords, pruneDuplicatePopeRecords } = await import("./pope-cleanup");
       await pruneAntipopeRecords(prisma);
@@ -390,6 +395,29 @@ export const OPS_LANES: LaneDef[] = [
       return {
         advanced: r.checked,
         detail: r.detail || `parish websites: ${r.checked} checked, ${r.unpublished} unpublished`,
+      };
+    },
+  },
+  {
+    // Address research for published OSM parishes still missing a street,
+    // locality, postal code or country: Nominatim lookups by OSM id (50 per
+    // request, ≤ 10 per run, a shared 1.1 s slot, a daily budget, a 15-minute
+    // cooldown on refusal). Fills blanks only (enrich-only, versioned), fixes a
+    // disagreeing tile-fallback country on evidence, unpublishes what is not a
+    // parish, and restores parishes the old city-only address key unpublished.
+    // Deterministic (no brain judgement), self-throttled (~2 min) and bounded
+    // by its own 4-minute budget inside this watchdog; idle under
+    // ADMIN_WORKER_SKIP_NETWORK.
+    name: "research-parish-addresses",
+    capacity: 1,
+    activeOnly: false,
+    watchdogMs: 6 * 60 * 1000,
+    async run({ prisma, passId }) {
+      const { runParishAddressResearch } = await import("./parish-address-research");
+      const r = await runParishAddressResearch(prisma, { passId });
+      return {
+        advanced: r.completed + r.partial + r.restored,
+        detail: r.detail,
       };
     },
   },

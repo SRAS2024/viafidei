@@ -204,3 +204,77 @@ describe("PublishedDetail — slug and URL fields are references, not prose", ()
     expect(screen.queryByText("VATICAN_APPROVED")).not.toBeInTheDocument();
   });
 });
+
+describe("PublishedDetail — the title and what matters (owner's formatting pass)", () => {
+  const withSubtitle = (payload: Record<string, unknown>) =>
+    ({ ...makeItem(payload, "SAINT"), subtitle: "Religious · Feast April 11" }) as PublishedItem;
+
+  it("puts the page's fact lines directly under the title, in order, as sentences", () => {
+    const { container } = render(
+      <PublishedDetail
+        item={withSubtitle({ biography: "She was abbess of Noyon." })}
+        showSubtitle={false}
+        facts={["Patron of Noyon", null, "Feast day: April 11", "640 – 670"]}
+        primaryFields={["biography"]}
+        headings={{ biography: null }}
+      />,
+    );
+    const lines = Array.from(container.querySelectorAll("header p")).map((p) => p.textContent);
+    expect(lines).toEqual(["Saint", "Patron of Noyon", "Feast day: April 11", "640 – 670"]);
+    // The subtitle that repeated them is gone, and the biography has no label.
+    expect(screen.queryByText("Religious · Feast April 11")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+    expect(screen.getByText("She was abbess of Noyon.")).toBeInTheDocument();
+  });
+
+  it("keeps the subtitle by default — for most types it is the compact fact line", () => {
+    render(<PublishedDetail item={withSubtitle({})} />);
+    expect(screen.getByText("Religious · Feast April 11")).toBeInTheDocument();
+  });
+
+  it("does not repeat a summary that a shown field already says", () => {
+    // A sacrament's summary is the first sentence of its overview.
+    const overview = "Baptism is the basis of the whole Christian life. It is the gateway.";
+    render(
+      <PublishedDetail
+        item={makeItem({ summary: "Baptism is the basis of the whole Christian life.", overview })}
+        primaryFields={["overview"]}
+      />,
+    );
+    expect(screen.getAllByText(/basis of the whole Christian life/)).toHaveLength(1);
+  });
+
+  it("shows the summary as the lede otherwise, and not at all when the page turns it off", () => {
+    const item = makeItem({ summary: "A one-line lede.", background: "The history." });
+    const { unmount } = render(<PublishedDetail item={item} primaryFields={["background"]} />);
+    expect(screen.getByText("A one-line lede.")).toBeInTheDocument();
+    unmount();
+    render(<PublishedDetail item={item} primaryFields={["background"]} lede={false} />);
+    expect(screen.queryByText("A one-line lede.")).not.toBeInTheDocument();
+  });
+
+  it("lets a page rename a heading", () => {
+    render(
+      <PublishedDetail
+        item={makeItem({ faithfulEstimate: "Roughly four hundred thousand." })}
+        primaryFields={["faithfulEstimate"]}
+        headings={{ faithfulEstimate: "Faithful" }}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Faithful" })).toBeInTheDocument();
+  });
+
+  it("never prints sources, even when a page lists them", () => {
+    const { container } = render(
+      <PublishedDetail
+        item={makeItem({
+          catechismReferences: ["CCC 1499-1532"],
+          sources: ["https://www.vatican.va/"],
+          relatedDocuments: ["quas-primas"],
+        })}
+        primaryFields={["catechismReferences", "sources", "relatedDocuments"]}
+      />,
+    );
+    expect(container.textContent).not.toMatch(/CCC 1499|vatican\.va|quas-primas/);
+  });
+});

@@ -14,16 +14,20 @@
  * the caller skips rather than guesses.
  */
 
-import { fetchJson, structuredNetworkEnabled } from "./http";
+import { fetchJson, noteUnreadSource, type SourceReadLedger } from "./http";
 import { parseWikipediaArticleUrl } from "./wikipedia-url";
 
 /**
  * Template names that act as a person/saint infobox across the language
- * editions the ingest reads: enwiki `{{Infobox saint}}`, itwiki `{{Santo}}` /
- * `{{Bio}}`, eswiki `{{Ficha de santo}}`, frwiki `{{Infobox Saint}}`, plwiki
- * `{{Święty infobox}}`, dewiki `{{Infobox …}}` (rare for persons).
+ * editions the ingest reads: enwiki `{{Infobox saint}}` and its redirect
+ * `{{Saint}}`, itwiki `{{Santo}}` / `{{Bio}}`, eswiki `{{Ficha de santo}}`,
+ * frwiki `{{Infobox Saint}}`, plwiki `{{Święty infobox}}`, dewiki
+ * `{{Infobox …}}` (rare for persons). `{{Saint}}` is matched only as the
+ * whole template name: Edward Colman's and Humphrey Middlemore's articles
+ * state their feasts in one, and missing it sent both to the weaker prose rule.
  */
-const INFOBOX_START_RE = /\{\{\s*(?:Infobox|Ficha de|Santo\b|Bio\b|Święty infobox|Personendaten)/i;
+const INFOBOX_START_RE =
+  /\{\{\s*(?:Infobox|Ficha de|Santo\b|Bio\b|Święty infobox|Personendaten|Saint\s*(?=\||\n|\}\}))/i;
 
 /** Extract the first `{{Infobox …}}` block from wikitext (brace-balanced). */
 export function extractInfoboxBlock(wikitext: string): string | null {
@@ -129,10 +133,19 @@ export function splitTopLevelPipes(inner: string): string[] {
  * a template we cannot read is not evidence of anything.
  */
 const UNWRAP_TEMPLATES: ReadonlySet<string> = new Set([
-  // List wrappers.
+  // List wrappers. `{{cslist}}` is how René Goupil's infobox writes "26
+  // September (Canada) | 19 October (United States)"; dropping it left his
+  // feast parameter empty and the ingest fell back to prose.
   "unbulleted list",
   "ubl",
   "ublist",
+  "cslist",
+  "comma separated list",
+  "comma-separated list",
+  "sslist",
+  "semicolon separated list",
+  "andlist",
+  "ordered list",
   "plainlist",
   "plain list",
   "flatlist",
@@ -174,7 +187,7 @@ function debullet(arg: string): string {
  * positional arguments (joined with "; "), drop everything else. Bounded passes
  * so deeply nested markup can never spin.
  */
-function resolveTemplates(text: string): string {
+function resolveTemplates(text: string, unwrapAll = false): string {
   let v = text;
   for (let pass = 0; pass < 6 && /\{\{/.test(v); pass += 1) {
     let changed = false;
@@ -187,7 +200,7 @@ function resolveTemplates(text: string): string {
         .trim()
         .toLowerCase()
         .replace(/[\s_]+/g, " ");
-      if (!UNWRAP_TEMPLATES.has(name)) return " ";
+      if (!unwrapAll && !UNWRAP_TEMPLATES.has(name)) return " ";
       const args = parts
         .slice(1)
         // Drop named parameters (`class=…`, `title=…`): chrome, not content.
@@ -201,8 +214,13 @@ function resolveTemplates(text: string): string {
   return v;
 }
 
-/** Clean one infobox value: refs, links, templates, markup → plain text. */
-export function cleanInfoboxValue(raw: string): string {
+/**
+ * Clean one infobox value: refs, links, templates, markup → plain text.
+ * `unwrapAll` unwraps EVERY template to its positional arguments instead of
+ * dropping the unrecognised ones — the fallback for a feast parameter that
+ * would otherwise clean to nothing (see `parseInfoboxBlock`).
+ */
+export function cleanInfoboxValue(raw: string, opts: { unwrapAll?: boolean } = {}): string {
   let v = raw;
   // Drop references and HTML comments entirely.
   v = v.replace(/<ref[^>]*\/>/gi, "");
@@ -217,7 +235,7 @@ export function cleanInfoboxValue(raw: string): string {
     (_m, y: string, mo: string, d: string) => `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`,
   );
   // Wrapper templates hold the value; anything unrecognised is dropped.
-  v = resolveTemplates(v);
+  v = resolveTemplates(v, opts.unwrapAll === true);
   // Links: [[target|label]] → label, [[target]] → target.
   v = v.replace(/\[\[(?:[^\]|]*\|)?([^\]|]*)\]\]/g, "$1");
   // External links: [url label] → label.
@@ -247,11 +265,31 @@ function parseInfoboxBlock(block: string): Record<string, string> {
       .toLowerCase()
       .replace(/[\s-]+/g, "_");
     if (!key) continue;
-    const value = cleanInfoboxValue(part.slice(eq + 1));
+    const raw = part.slice(eq + 1);
+    let value = cleanInfoboxValue(raw);
+    // A feast parameter must never vanish because it sits in a wrapper we do
+    // not know: an absent infobox feast sends the ingest to the prose rule,
+    // which is the weaker one. Read its template arguments instead.
+    if (!value && FEAST_KEYS.has(key) && raw.trim()) {
+      value = cleanInfoboxValue(raw, { unwrapAll: true });
+    }
     if (value) out[key] = value;
   }
   return out;
 }
+
+/** Infobox parameters that state a feast day, across the editions we read. */
+const FEAST_KEYS: ReadonlySet<string> = new Set([
+  "feast_day",
+  "feast",
+  "feastday",
+  "ricorrenza",
+  "festividad",
+  "fête",
+  "fete",
+  "gedenktag",
+  "wspomnienie",
+]);
 
 /**
  * Parse the infoboxes of a page into ONE key → cleaned-value map. Parameter
@@ -271,18 +309,32 @@ export function parseInfobox(wikitext: string): Record<string, string> {
 
 interface ParseApiResponse {
   parse?: { wikitext?: string };
+  /** A MediaWiki API error — returned with HTTP 200, so `fetchJson` succeeds. */
+  error?: { code?: string };
 }
+
+/**
+ * API errors that ANSWER the question — the page does not exist or cannot be
+ * one — as opposed to a server that could not answer it this time
+ * (`internal_api_error_*`, `ratelimited`, `readonly`, …).
+ */
+const ABSENT_PAGE_ERRORS: ReadonlySet<string> = new Set([
+  "missingtitle",
+  "invalidtitle",
+  "pagecannotexist",
+]);
 
 /**
  * Fetch the raw wikitext of a Wikipedia article URL (any language edition).
  * Returns null when offline/disabled, the URL isn't an article, or the fetch
  * fails. Bounded to `maxChars` so a huge article never becomes a huge payload.
+ * A read that failed transiently — including an API error that is not about
+ * the page — is recorded in `opts.ledger`.
  */
 export async function fetchArticleWikitext(
   articleUrl: string,
-  opts: { maxChars?: number } = {},
+  opts: { maxChars?: number; ledger?: SourceReadLedger } = {},
 ): Promise<string | null> {
-  if (!structuredNetworkEnabled()) return null;
   const parsed = parseWikipediaArticleUrl(articleUrl);
   if (!parsed) return null;
   let title: string;
@@ -294,7 +346,11 @@ export async function fetchArticleWikitext(
   const api =
     `https://${parsed.lang}.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(title)}` +
     `&prop=wikitext&format=json&formatversion=2&redirects=1`;
-  const data = await fetchJson<ParseApiResponse>(api);
+  // `fetchJson` is also the network gate: offline it answers null (and records
+  // the read as unread) without a request.
+  const data = await fetchJson<ParseApiResponse>(api, { ledger: opts.ledger });
+  const apiError = data?.error?.code;
+  if (apiError && !ABSENT_PAGE_ERRORS.has(apiError)) noteUnreadSource(opts.ledger, api);
   const wikitext = data?.parse?.wikitext;
   if (!wikitext) return null;
   const max = opts.maxChars ?? 400_000;
@@ -303,14 +359,82 @@ export async function fetchArticleWikitext(
 
 /**
  * Fetch and parse the infoboxes of a Wikipedia article URL. Returns {} when
- * offline/disabled, the article has no infobox, or anything fails.
+ * offline/disabled, the article has no infobox, or anything fails — so a
+ * caller whose verdict depends on the difference passes `opts.ledger`, where a
+ * read that did not complete is recorded.
  */
-export async function fetchArticleInfobox(articleUrl: string): Promise<Record<string, string>> {
-  const wikitext = await fetchArticleWikitext(articleUrl);
+export async function fetchArticleInfobox(
+  articleUrl: string,
+  opts: { ledger?: SourceReadLedger } = {},
+): Promise<Record<string, string>> {
+  const wikitext = await fetchArticleWikitext(articleUrl, { ledger: opts.ledger });
   if (!wikitext) return {};
   try {
     return parseInfobox(wikitext);
   } catch {
     return {};
   }
+}
+
+/** Longest article body kept for the prose checks. */
+const PROSE_MAX_CHARS = 200_000;
+
+/**
+ * The article's running text as plain prose: the wikitext with its infoboxes
+ * removed and refs, templates, links and markup cleaned the same way an
+ * infobox value is. Used for the feast-wording corroboration, which must see
+ * the body ("His feast is kept on 23 August" is rarely in the lead) but never
+ * the infobox, whose dates are judged by their own, stricter rule.
+ */
+export function articleProse(wikitext: string): string {
+  let body = wikitext;
+  for (const block of extractInfoboxBlocks(wikitext)) body = body.replace(block, " ");
+  // Section headings carry no dates worth reading, but keep their words.
+  body = body.replace(/^=+\s*(.*?)\s*=+\s*$/gm, "$1.");
+  const prose = cleanInfoboxValue(body);
+  return prose.length > PROSE_MAX_CHARS ? prose.slice(0, PROSE_MAX_CHARS) : prose;
+}
+
+/** What one Action API parse call yields: the infobox fields and the body prose. */
+export interface ArticleSource {
+  infobox: Record<string, string>;
+  /** Plain-text article body without its infoboxes ("" when unavailable). */
+  prose: string;
+  /**
+   * False when the parse call did NOT complete (no response, timeout, 429,
+   * 5xx, an API error that is not about the page, network gate closed): the
+   * empty parts then say nothing about the article. True when Wikipedia
+   * answered — including "no such page".
+   */
+  read: boolean;
+}
+
+/**
+ * Fetch an article's wikitext ONCE and return both its infobox and its body
+ * prose. Returns empty parts when offline/disabled or anything fails, with
+ * `read` saying whether the article was actually read; a read that did not
+ * complete is also recorded in `opts.ledger` when one is passed.
+ */
+export async function fetchArticleSource(
+  articleUrl: string,
+  opts: { ledger?: SourceReadLedger } = {},
+): Promise<ArticleSource> {
+  const own: SourceReadLedger = { unread: [] };
+  const wikitext = await fetchArticleWikitext(articleUrl, { ledger: own });
+  for (const url of own.unread) noteUnreadSource(opts.ledger, url);
+  const read = own.unread.length === 0;
+  if (!wikitext) return { infobox: {}, prose: "", read };
+  let infobox: Record<string, string> = {};
+  let prose = "";
+  try {
+    infobox = parseInfobox(wikitext);
+  } catch {
+    infobox = {};
+  }
+  try {
+    prose = articleProse(wikitext);
+  } catch {
+    prose = "";
+  }
+  return { infobox, prose, read };
 }

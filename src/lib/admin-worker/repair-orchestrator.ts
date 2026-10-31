@@ -546,6 +546,27 @@ async function terminalizeStuckArtifacts(
 }
 
 /**
+ * Why a freshly re-extracted package still cannot become its schema payload —
+ * the same registry the publish stage uses. Empty when it maps, or when the
+ * only shortfall is the citation count (an evidence matter, not extraction).
+ */
+async function schemaPayloadGaps(
+  read: RepairSourceRead,
+  pkg: { displayFields: Record<string, unknown>; normalizedTitle: string; normalizedSlug: string },
+): Promise<string[]> {
+  const { buildWebPublishPayload } = await import("./web-publish-payloads");
+  const mapped = buildWebPublishPayload(read.detectedContentType ?? "", {
+    fields: pkg.displayFields,
+    title: pkg.normalizedTitle,
+    slug: pkg.normalizedSlug,
+    host: read.sourceHost,
+    sourceUrl: read.sourceUrl,
+  });
+  if (mapped.ok || mapped.code === "INSUFFICIENT_CITATIONS") return [];
+  return mapped.errors;
+}
+
+/**
  * Resolve the source read a CLASSIFY/EXTRACT repair should re-run against.
  * Prefers the `sourceReadId` recorded on the plan's metadata; falls back to
  * the artifact recorded on the metadata (`artifactId` — the shape the
@@ -965,21 +986,65 @@ async function executePlan(
           // same fields "succeeded", deleted the artifact, the stage rebuilt
           // the identical broken artifact, and a fresh plan was filed —
           // success/refile churn forever with nothing actually repaired.
+          // A plan filed because the artifact's fields did not make a valid
+          // schema payload (origin "schema_payload") is repaired only when the
+          // FRESH fields map. A complete package is not enough: it was already
+          // complete when the payload was refused, so healing it on that test
+          // alone sent it round verify → QA → publish → refuse → heal forever.
+          // A citation shortfall is not an extraction gap (another source
+          // clears it, and the publish path holds it for research), so it does
+          // not block the heal.
+          const schemaGaps =
+            pkg.rejectionReasons.length === 0 &&
+            pkg.missingFields.length === 0 &&
+            readPlanMetaString(plan, "origin") === "schema_payload"
+              ? await schemaPayloadGaps(read, pkg)
+              : [];
+          if (schemaGaps.length > 0) {
+            const { rememberFailurePattern } = await import("./memory");
+            await rememberFailurePattern(prisma, {
+              patternKey: `${plan.kind}|schema_payload|${read.detectedContentType}`,
+              details: { plan: plan.id, errors: schemaGaps.slice(0, 5) },
+            }).catch(() => undefined);
+            const closed = await terminalizeStuckArtifacts(
+              prisma,
+              plan,
+              read,
+              `SCHEMA_FIELDS_MISSING: ${schemaGaps.slice(0, 3).join("; ")}`,
+            );
+            return {
+              ok: true,
+              reason: `re-extraction still cannot fill the ${read.detectedContentType} schema (${schemaGaps
+                .slice(0, 3)
+                .join(
+                  "; ",
+                )}) — repair closed terminally${closed > 0 ? `; ${closed} artifact(s) rejected` : ""}.`,
+            };
+          }
           if (pkg.rejectionReasons.length === 0 && pkg.missingFields.length === 0) {
             // Recovered — heal the broken artifact IN PLACE to CHECKLIST_READY
             // (no delete/rebuild churn; identity keys stay stable). Only
             // pre-funnel broken statuses are touched.
+            const healWhere = {
+              status: { in: ["EXTRACTED", "NEEDS_REPAIR", "REJECTED"] },
+              OR: [
+                { sourceReadId: read.id },
+                ...(readPlanMetaString(plan, "artifactId")
+                  ? [{ id: readPlanMetaString(plan, "artifactId") as string }]
+                  : []),
+              ],
+            };
+            const healIds = await Promise.resolve()
+              .then(() =>
+                prisma.adminWorkerPackageArtifact.findMany({
+                  where: healWhere,
+                  select: { id: true },
+                }),
+              )
+              .catch(() => [] as Array<{ id: string }>);
             const healed = await prisma.adminWorkerPackageArtifact
               .updateMany({
-                where: {
-                  status: { in: ["EXTRACTED", "NEEDS_REPAIR", "REJECTED"] },
-                  OR: [
-                    { sourceReadId: read.id },
-                    ...(readPlanMetaString(plan, "artifactId")
-                      ? [{ id: readPlanMetaString(plan, "artifactId") as string }]
-                      : []),
-                  ],
-                },
+                where: healWhere,
                 data: {
                   extractedFields: pkg.displayFields as never,
                   fieldProvenance: pkg.fieldProvenance as never,
@@ -994,6 +1059,12 @@ async function executePlan(
                 },
               })
               .catch(() => ({ count: 0 }));
+            // The healed fields are judged afresh: a stale strict-QA verdict
+            // or stored evidence for the previous values must not carry over.
+            if (healed.count > 0 && healIds.length > 0) {
+              const { clearJudgementsFor } = await import("./dispatcher");
+              for (const { id } of healIds) await clearJudgementsFor(prisma, id);
+            }
             return {
               ok: true,
               reason: `re-extracted ${read.detectedContentType} from ${read.sourceUrl} complete → ${healed.count} artifact(s) healed to CHECKLIST_READY`,
@@ -1034,35 +1105,58 @@ async function executePlan(
     case "QA_MISSING_FIELDS": {
       return { ok: true, reason: "QA gap recorded for review" };
     }
-    case "STRICT_QA_FAILED": {
-      // Spec §3 + §9: a NEEDS_REPAIR / REJECTED artifact's strict-QA
-      // failure is logged; if the artifact ID is on the plan, mark it
-      // for re-extraction so a new pass can repair it.
-      if (plan.failedEntity) {
-        await prisma.adminWorkerPackageArtifact
-          .updateMany({
-            where: { id: plan.failedEntity, status: "NEEDS_REPAIR" },
-            data: { status: "EXTRACTED" },
-          })
-          .catch(() => undefined);
-        return { ok: true, reason: "artifact marked for re-extraction + strict-QA retry" };
-      }
-      return { ok: true, reason: "strict-QA failure logged for review" };
-    }
+    case "STRICT_QA_FAILED":
     case "QUALITY_SCORE_FAILED": {
-      // Spec §4 + §9: a low quality score on a published row triggers
-      // a refresh attempt; on a pre-publish artifact, mark for
-      // re-extraction so the next pass can repair it.
-      if (plan.failedEntity) {
-        await prisma.adminWorkerPackageArtifact
-          .updateMany({
-            where: { id: plan.failedEntity },
-            data: { status: "EXTRACTED" },
-          })
-          .catch(() => undefined);
-        return { ok: true, reason: "artifact reset for re-scoring" };
+      // Both scores are deterministic functions of the stored package, its
+      // evidence and its source's authority, so re-extracting the SAME read
+      // reproduces them. These handlers used to reset the artifact to
+      // EXTRACTED and report success — but nothing re-processes an EXTRACTED
+      // artifact whose read already has one (extraction only picks reads
+      // without an artifact; the bridge and drain never look at EXTRACTED), so
+      // every QA-passed package that missed its ContentQualityScore, and every
+      // review-band repair, stranded there with health reading green.
+      //
+      // Close it terminally instead, with a typed reason, and point discovery
+      // at another source of the type. The forward path is a different source:
+      // a later read of the same entity heals a REJECTED artifact in place.
+      if (!plan.failedEntity) {
+        return { ok: true, reason: `${plan.kind} logged for review (no artifact on the plan)` };
       }
-      return { ok: true, reason: "quality-score failure logged for review" };
+      const code =
+        plan.kind === "STRICT_QA_FAILED" ? "STRICT_QA_FAILED" : "QUALITY_BELOW_THRESHOLD";
+      const why =
+        readPlanMetaString(plan, "reason") ?? plan.repairAction ?? `${plan.kind} on ${plan.id}`;
+      const artifact = await prisma.adminWorkerPackageArtifact
+        .findUnique({
+          where: { id: plan.failedEntity },
+          select: { id: true, contentType: true, sourceReadId: true },
+        })
+        .catch(() => null);
+      const closed = await prisma.adminWorkerPackageArtifact
+        .updateMany({
+          where: { id: plan.failedEntity, status: { in: ["NEEDS_REPAIR", "EXTRACTED"] } },
+          data: { status: "REJECTED", rejectionReason: `${code}: ${why}`.slice(0, 480) },
+        })
+        .catch(() => ({ count: 0 }));
+      if (closed.count > 0 && artifact) {
+        const read = artifact.sourceReadId
+          ? await prisma.adminWorkerSourceRead
+              .findUnique({ where: { id: artifact.sourceReadId }, select: { sourceHost: true } })
+              .catch(() => null)
+          : null;
+        const { rerouteToAlternateSource } = await import("./repair");
+        await rerouteToAlternateSource(prisma, {
+          contentType: artifact.contentType,
+          failedHost: read?.sourceHost ?? "",
+        }).catch(() => undefined);
+      }
+      return {
+        ok: true,
+        reason:
+          closed.count > 0
+            ? `${code}: deterministic score — artifact closed terminally; discovery rerouted to another source`
+            : `${code}: artifact already moved on (healed, published or closed) — nothing to do`,
+      };
     }
     case "BUILD_REPEATED_FAILURE": {
       // Pause the source so it stops drowning the queue.

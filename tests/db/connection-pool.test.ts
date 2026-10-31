@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { databaseUrlWithPool } from "@/lib/db/client";
+import {
+  databaseUrlWithPool,
+  queryTimeoutsConfigured,
+  withoutQueryTimeouts,
+} from "@/lib/db/client";
 
 const ORIG = { ...process.env };
 afterEach(() => {
@@ -30,6 +34,78 @@ describe("databaseUrlWithPool (caps the Prisma pool to avoid P2037)", () => {
   it("returns undefined for a missing URL and passes through a non-URL DSN", () => {
     expect(databaseUrlWithPool(undefined)).toBeUndefined();
     expect(databaseUrlWithPool("not a url")).toBe("not a url");
+  });
+});
+
+describe("databaseUrlWithPool (query timeouts, opt-in per process)", () => {
+  it("adds none unless the process asks: the web service and scripts are unchanged", () => {
+    delete process.env.PRISMA_STATEMENT_TIMEOUT;
+    delete process.env.PRISMA_SOCKET_TIMEOUT;
+    const url = new URL(databaseUrlWithPool("postgresql://u:p@host:5432/db")!);
+    expect(url.searchParams.has("options")).toBe(false);
+    expect(url.searchParams.has("socket_timeout")).toBe(false);
+    expect(queryTimeoutsConfigured()).toBe(false);
+  });
+
+  it("turns PRISMA_STATEMENT_TIMEOUT into a server-side statement_timeout and PRISMA_SOCKET_TIMEOUT into socket_timeout", () => {
+    process.env.PRISMA_STATEMENT_TIMEOUT = "120";
+    process.env.PRISMA_SOCKET_TIMEOUT = "150";
+    const out = databaseUrlWithPool("postgresql://u:p@shinkansen.proxy.rlwy.net:12345/railway")!;
+    const url = new URL(out);
+    // Verified against Postgres 16 through Prisma 5.22: URLSearchParams' "+"
+    // decodes to a space and SHOW statement_timeout reads back "2min".
+    expect(url.searchParams.get("options")).toBe("-c statement_timeout=120s");
+    expect(url.searchParams.get("socket_timeout")).toBe("150");
+    expect(queryTimeoutsConfigured()).toBe(true);
+  });
+
+  it("treats blank, zero and junk as 'no timeout'", () => {
+    for (const raw of ["", "0", "-1", "soon"]) {
+      process.env.PRISMA_STATEMENT_TIMEOUT = raw;
+      process.env.PRISMA_SOCKET_TIMEOUT = raw;
+      const url = new URL(databaseUrlWithPool("postgresql://u:p@host:5432/db")!);
+      expect(url.searchParams.has("options"), raw).toBe(false);
+      expect(url.searchParams.has("socket_timeout"), raw).toBe(false);
+    }
+  });
+
+  it("keeps explicit URL parameters, appending to existing options", () => {
+    process.env.PRISMA_STATEMENT_TIMEOUT = "120";
+    process.env.PRISMA_SOCKET_TIMEOUT = "150";
+    const explicit = new URL(
+      databaseUrlWithPool(
+        "postgresql://u:p@host:5432/db?options=-c%20statement_timeout%3D5s&socket_timeout=9",
+      )!,
+    );
+    expect(explicit.searchParams.get("options")).toBe("-c statement_timeout=5s");
+    expect(explicit.searchParams.get("socket_timeout")).toBe("9");
+    const appended = new URL(
+      databaseUrlWithPool("postgresql://u:p@host:5432/db?options=-c%20search_path%3Dapp")!,
+    );
+    expect(appended.searchParams.get("options")).toBe(
+      "-c search_path=app -c statement_timeout=120s",
+    );
+  });
+
+  it("can build an untimed URL for the long statements that must not be cut off", () => {
+    process.env.PRISMA_STATEMENT_TIMEOUT = "120";
+    process.env.PRISMA_SOCKET_TIMEOUT = "150";
+    const url = new URL(
+      databaseUrlWithPool("postgresql://u:p@host:5432/db", {
+        timeouts: false,
+        connectionLimit: 2,
+      })!,
+    );
+    expect(url.searchParams.has("options")).toBe(false);
+    expect(url.searchParams.has("socket_timeout")).toBe(false);
+    expect(url.searchParams.get("connection_limit")).toBe("2");
+  });
+
+  it("withoutQueryTimeouts hands back the shared client when no timeout is configured", async () => {
+    delete process.env.PRISMA_STATEMENT_TIMEOUT;
+    delete process.env.PRISMA_SOCKET_TIMEOUT;
+    const shared = { tag: "shared" } as never;
+    await expect(withoutQueryTimeouts(shared, async (db) => db)).resolves.toBe(shared);
   });
 });
 

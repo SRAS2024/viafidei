@@ -2,15 +2,15 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import {
-  parishDioceseLine,
+  parishAddressLines,
+  parishDesignationLabel,
   parishDirectionsAddress,
-  parishWebsite,
 } from "@/lib/content-shared/parish";
 
 import { MapsAddressLink } from "./MapsAddressLink";
 
 export type ParishCardProps = {
-  /** The parish name — the only thing rendered in title type. */
+  /** The church's name — the only thing rendered in title type. */
   name: string;
   /**
    * Where the name links (directory cards). Omitted on the detail page, where
@@ -19,18 +19,25 @@ export type ParishCardProps = {
    * HTML and swallows the directions tap.
    */
   href?: string | null;
-  /** Street address only — city/state/country belong on the Diocese line. */
+  /**
+   * Stored designation: parish, cathedral, shrine, chapel, oratory,
+   * minor-basilica, major-basilica.
+   */
+  designation?: string | null;
+  /** The street line ("6135 South Austin Avenue"). */
   address?: string | null;
+  postalCode?: string | null;
   city?: string | null;
   state?: string | null;
   country?: string | null;
+  /** ISO 3166-1 alpha-2; decides whether the postal code leads or follows the town. */
+  countryCode?: string | null;
   latitude?: number | null;
   longitude?: number | null;
-  website?: string | null;
   /**
-   * Rendered directly under the name, before the Diocese line. This is the
-   * distance slot the locator fills in ("0.4 mi from you"); this component
-   * neither computes nor formats a distance.
+   * Rendered under the name and designation. This is the distance slot the
+   * locator fills in ("0.4 mi from you"); this component neither computes nor
+   * formats a distance.
    */
   distanceSlot?: ReactNode;
   /** Controls beside the name (Share / Save). Not parish information. */
@@ -41,38 +48,46 @@ export type ParishCardProps = {
 };
 
 /**
- * The one and only parish presentation.
+ * The one and only church presentation — parish, cathedral, basilica, shrine,
+ * chapel or oratory, on its own page and on the directory.
  *
- * The parish card used to carry designation, phone, mass and confession times,
- * background, summary and a separate row per place field. It now shows the
- * name, a "Diocese" line, the postal address with directions, and the website
- * — nothing else. Because this is rendering and not data, every published
- * parish changed the moment this component did: no migration, no backfill, no
- * worker pass over 9,731 rows.
- *
- * The other fields are untouched in the payload; they simply stop being shown.
+ * It shows what the owner asked for and nothing else: the name, then what the
+ * church is ("Minor Basilica" — a basilica always says minor or major), then
+ * its address (street, postal code, town, region, country, as the record has
+ * them) with Get directions. The website and the "Diocese" label (which sat on
+ * a line that was really the town) are gone. Directions aim at the record's
+ * coordinates when it has them, so a church with no street (most of them) can
+ * still be reached; the street address is the fallback destination. Because
+ * this is rendering and not data, every published parish changes the moment
+ * this component does: no migration, no backfill, no worker pass. Phone, Mass
+ * and confession times, the website and the rest stay in the payload; they
+ * are simply not shown.
  */
 export function ParishCard({
   name,
   href,
+  designation,
   address,
+  postalCode,
   city,
   state,
   country,
+  countryCode,
   latitude,
   longitude,
-  website,
   distanceSlot,
   action,
   variant = "list",
   className,
 }: ParishCardProps) {
   const detail = variant === "detail";
-  const place = { city, state, country };
-  const diocese = parishDioceseLine(place);
+  const parts = { address, postalCode, city, state, country, countryCode };
+  const kind = parishDesignationLabel(designation);
+  const lines = parishAddressLines(parts);
   const street = typeof address === "string" && address.trim() ? address.trim() : null;
-  const destination = parishDirectionsAddress({ ...place, address: street });
-  const site = parishWebsite(website);
+  const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
+  // A town alone is no destination; a street or the exact coordinates are.
+  const directions = street != null || hasCoordinates;
 
   // The directory card sits in a list under the page's h1, so it is an h2
   // there and an h1 on the parish's own page.
@@ -81,7 +96,7 @@ export function ParishCard({
     <Heading
       className={
         detail
-          ? "font-display text-4xl text-ink"
+          ? "break-words font-display text-4xl text-ink"
           : "break-words font-display text-xl text-ink sm:text-2xl"
       }
     >
@@ -107,43 +122,35 @@ export function ParishCard({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           {heading}
+          {kind ? <p className="mt-1 font-serif text-ink-soft">{kind}</p> : null}
           {distanceSlot ? <div className="mt-1">{distanceSlot}</div> : null}
         </div>
         {action ? <div className="flex shrink-0 items-center gap-2 pt-1">{action}</div> : null}
       </div>
 
-      {/* Omitted entirely when the record has no city/state/country — the
-          common case — so the card never shows an empty labelled row. */}
-      {diocese ? (
-        <p className="mt-3 font-serif leading-relaxed text-ink">
-          <span className="vf-eyebrow mr-2">Diocese</span> {diocese}
-        </p>
-      ) : null}
-
-      {street ? (
+      {/* Omitted entirely when there is neither an address part nor a place
+          to aim directions at, so the card never shows an empty row. */}
+      {lines.length > 0 || directions ? (
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <p className="font-serif leading-relaxed text-ink">{street}</p>
-          <MapsAddressLink
-            variant="block"
-            address={destination || street}
-            latitude={latitude ?? undefined}
-            longitude={longitude ?? undefined}
-            className="vf-btn vf-btn-ghost inline-flex shrink-0 items-center gap-2 self-start !px-3 !py-1.5 text-sm"
-          />
+          {lines.length > 0 ? (
+            <address className="font-serif not-italic leading-relaxed text-ink">
+              {lines.map((line, i) => (
+                <span key={i} className="block break-words">
+                  {line}
+                </span>
+              ))}
+            </address>
+          ) : null}
+          {directions ? (
+            <MapsAddressLink
+              variant="block"
+              address={parishDirectionsAddress(parts) || name}
+              latitude={hasCoordinates ? (latitude as number) : undefined}
+              longitude={hasCoordinates ? (longitude as number) : undefined}
+              className="vf-btn vf-btn-ghost inline-flex shrink-0 items-center gap-2 self-start !px-3 !py-1.5 text-sm"
+            />
+          ) : null}
         </div>
-      ) : null}
-
-      {site ? (
-        <p className="mt-3 font-serif leading-relaxed">
-          <a
-            href={site.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="break-words text-liturgical-blue underline-offset-2 hover:underline"
-          >
-            {site.label}
-          </a>
-        </p>
       ) : null}
     </article>
   );

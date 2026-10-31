@@ -1,10 +1,17 @@
 /**
  * The "why no content growth" diagnostic must FIRST report the worker-level
  * gates that turn off every publishing path (curated, structured, AND the
- * fetcher chain): the worker process not running, the worker paused, and the
- * Python final brain being in safe-degraded mode. These are the most common
- * reason a worker that was growing suddenly plateaus, and the pipeline walk
- * underneath can't see them — so the diagnostic would otherwise mislead.
+ * fetcher chain): the worker process not running and the worker paused. These
+ * are the most common reason a worker that was growing suddenly plateaus, and
+ * the pipeline walk underneath can't see them — so the diagnostic would
+ * otherwise mislead.
+ *
+ * A degraded Python brain is NOT such a gate any more: the curated,
+ * structured, liturgical and OSM lanes keep publishing in safe-degraded mode
+ * (worker-lanes.ts), and only the web funnel waits for the brain. The walk
+ * therefore records it, keeps going so a real funnel blocker (no candidates,
+ * failing fetches) is still named, and reports BRAIN_DEGRADED where the funnel
+ * stops on the brain — with an explanation that says what keeps growing.
  */
 import { describe, expect, it } from "vitest";
 
@@ -18,7 +25,13 @@ function prismaWith(opts: {
   finalBrain?: string | null;
   /** Master switch row; undefined → the memory model is absent (switch unreadable). */
   masterSwitchOn?: boolean;
+  /** Candidate URLs (all of them prioritized). Default 600. */
+  candidates?: number;
+  /** Fetch attempts in the last 24h, and how many succeeded. Default 0. */
+  recentFetches?: number;
+  successfulFetches?: number;
 }): PrismaClient {
+  const recentFetches = opts.recentFetches ?? 0;
   return {
     ...(opts.masterSwitchOn === undefined
       ? {}
@@ -37,8 +50,21 @@ function prismaWith(opts: {
     // Downstream funnel models: 600 prioritized candidates and nothing fetched,
     // so a walk that wrongly continues past an OFF worker lands on
     // FETCH_NOT_RUNNING.
-    candidateSourceUrl: { count: async () => 600 },
-    adminWorkerFetchResult: { count: async () => 0 },
+    candidateSourceUrl: { count: async () => opts.candidates ?? 600 },
+    adminWorkerFetchResult: {
+      count: async ({ where }: { where?: { succeeded?: boolean } } = {}) =>
+        where?.succeeded ? (opts.successfulFetches ?? recentFetches) : recentFetches,
+    },
+    // A healthy funnel past the fetcher, so a walk that gets that far reports
+    // what is really left.
+    adminWorkerSourceRead: { count: async () => 10 },
+    adminWorkerSourceBlock: { count: async () => 40 },
+    adminWorkerPackageArtifact: { count: async () => 5 },
+    adminWorkerCrossSourceVerification: { count: async () => 3 },
+    adminWorkerStrictQAResult: { findMany: async () => [] },
+    contentQualityScore: { findMany: async () => [] },
+    publishedContent: { count: async () => 5 },
+    postPublishVerification: { count: async () => 0 },
     contentGoal: {
       findFirst: async () => ({ contentType: "SAINT", gapCount: 100 }),
       count: async () => 15,
@@ -83,12 +109,14 @@ describe("why-no-growth worker gates", () => {
     expect(r.blockerExplanation).toContain("maintenance");
   });
 
-  it("reports BRAIN_DEGRADED when live + unpaused but the brain is degraded", async () => {
+  it("reports BRAIN_DEGRADED where the funnel stops on the brain (no fetches)", async () => {
     const r = await diagnoseWhyNoGrowth(
       prismaWith({ lastHeartbeatAt: minsAgo(1), finalBrain: "degraded" }),
     );
     expect(r.blocker).toBe("BRAIN_DEGRADED");
     expect(r.blockerExplanation).toContain("safe-degraded");
+    // No fetches is the brain's symptom, not a fetcher fault to repair.
+    expect(r.nextAutomaticRepair).toMatch(/Python intelligence service/);
   });
 
   it("passes all worker gates when live, unpaused, and brain active (python)", async () => {
@@ -135,5 +163,44 @@ describe("why-no-growth: intentionally OFF worker", () => {
   it("does not treat an unreadable switch as OFF (falls back to the heartbeat evidence)", async () => {
     const r = await diagnoseWhyNoGrowth(prismaWith({ lastHeartbeatAt: minsAgo(20) }));
     expect(r.blocker).toBe("WORKER_NOT_RUNNING");
+  });
+});
+
+describe("why-no-growth: a degraded brain pauses the web funnel only", () => {
+  const degraded = (over: Parameters<typeof prismaWith>[0]) =>
+    diagnoseWhyNoGrowth(
+      prismaWith({ lastHeartbeatAt: minsAgo(1), finalBrain: "degraded", ...over }),
+    );
+
+  it("says what keeps growing instead of claiming every publishing path stopped", async () => {
+    const r = await degraded({ lastHeartbeatAt: minsAgo(1), recentFetches: 10 });
+    // Healthy funnel, recent fetches: nothing but the brain stands in the way.
+    expect(r.blocker).toBe("BRAIN_DEGRADED");
+    expect(r.blockerExplanation).toMatch(/WEB funnel is paused/);
+    expect(r.blockerExplanation).toMatch(
+      /Curated, structured \(Wikidata\), liturgical and OSM parish growth continue/,
+    );
+    expect(r.blockerExplanation).not.toMatch(/does NOT publish|Every publishing path/);
+    expect(r.nextWorkerDecision).toMatch(/safe-degraded/);
+    const brain = r.checks.find((c) => c.stage === "BRAIN_DEGRADED");
+    expect(brain?.ok).toBe(false);
+    expect(brain?.label).toMatch(/web funnel/);
+    // The walk went on past the brain check.
+    expect(r.checks.some((c) => c.stage === "POST_PUBLISH_FAILING")).toBe(true);
+  });
+
+  it("still names a real funnel blocker upstream of the brain: no candidate URLs", async () => {
+    const r = await degraded({ lastHeartbeatAt: minsAgo(1), candidates: 0 });
+    expect(r.blocker).toBe("NO_CANDIDATE_URLS");
+    expect(r.checks.find((c) => c.stage === "BRAIN_DEGRADED")?.ok).toBe(false);
+  });
+
+  it("still names failing fetches", async () => {
+    const r = await degraded({
+      lastHeartbeatAt: minsAgo(1),
+      recentFetches: 10,
+      successfulFetches: 2,
+    });
+    expect(r.blocker).toBe("FETCH_FAILING");
   });
 });
