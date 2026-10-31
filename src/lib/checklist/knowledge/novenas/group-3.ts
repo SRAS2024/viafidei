@@ -1070,6 +1070,114 @@ const LINGS_PAUL_NOVENA_PRAYER = [
 const LINGS_FIRST_COMMUNION_NOVENA_PRAYER =
   'Lord, hear my prayer and let the cry of my heart come to Thee. O my God, Thou dost love children; thou dost protect them in a special manner. Listen to me who invoke Thee, that I may be prepared for my First Communion. Fill my young heart with the unction of Thy grace, and place in my soul all the sentiments of piety and recollection which so august a sacrament demands of those who are to partake of it. O Lord, Thou hast given me in Baptism the treasure of innocence. Thou hast honored me with the character and the name of a child of God. Complete in me the work by giving me the grace to receive Thee worthily in a well-disposed heart. From my birth Thou hast had great consideration for my soul\'s eternal salvation. Thou hast given me an angel who is to devote all his attention to my welfare. So far Thou hast favored me with many means of sanctification. Grant me, O Lord, the fulness of all Thy heavenly benedictions in permitting me to partake in a most holy and fervent manner of the sacred bread of angels. My heart has not always been innocent; perhaps Satan has succeeded in making me commit sin and tarnish the beauty of my soul; but, O Lord, Thy mercies are infinite and Thou lovest to pardon. Purify, then, this heart, O God of mercy, give it back its perfect innocence, inspire it with sentiments of true contrition and the firm purpose of amendment necessary for the Sacrament of Penance. May Thy goodness receive it tenderly with the words: "I am thy salvation." At the same time increase its intelligence, fill it with Thy celestial light, that the spirit may conform and that the heart may feel how delicious and adorable is the banquet to which Thou invitest holy souls, and how advantageous it is to receive Jesus Christ in the Sacrament of the Altar. Jesus, have pity on me. Mary, who didst give so much care to the Infant Jesus, pray for me. Glorious St. Joseph, faithful guardian and foster-father, pray for me. St. Aloysius Gonzaga, pray for me. Grant me one more grace, O Lord: that after my First Communion I may preserve all the good sentiments with which Thou hast inspired me. Assure me of Thy friendship. May my conduct, my Christian life, so attach me to Thee that my soul may be agreeable to Thee all through life, and that Thou mayst bring me after my death into eternal glory. Amen.';
 
+const LINGS_BLESSED_VIRGIN =
+  "https://archive.org/details/ourfavoritenoven0000revd/page/150/mode/1up";
+const LINGS_VISITATION = "https://archive.org/details/ourfavoritenoven0000revd/page/176/mode/1up";
+const LINGS_PRESENTATION = "https://archive.org/details/ourfavoritenoven0000revd/page/193/mode/1up";
+const LINGS_FESTIVALS_OF_OUR_LADY =
+  "https://archive.org/details/ourfavoritenoven0000revd/page/195/mode/1up";
+const LINGS_OUR_LADY_OF_SORROWS =
+  "https://archive.org/details/ourfavoritenoven0000revd/page/209/mode/1up";
+const LINGS_QUEEN_OF_MARTYRS =
+  "https://archive.org/details/ourfavoritenoven0000revd/page/211/mode/1up";
+const LINGS_LOURDES = "https://archive.org/details/ourfavoritenoven0000revd/page/237/mode/1up";
+const LINGS_PATRON_SAINT = "https://archive.org/details/ourfavoritenoven0000revd/page/290/mode/1up";
+const LINGS_TERESA = "https://archive.org/details/ourfavoritenoven0000revd/page/397/mode/1up";
+const CE_BLESSED_VIRGIN_MARY = "https://www.newadvent.org/cathen/15464b.htm";
+const CE_VISITATION = "https://www.newadvent.org/cathen/15480a.htm";
+const CE_PRESENTATION_OF_MARY = "https://www.newadvent.org/cathen/12400a.htm";
+const CE_PATRON_SAINTS = "https://www.newadvent.org/cathen/11562a.htm";
+
+/** The prayer of the novena in honour of the Blessed Virgin in Lings's Our Favorite Novenas, said on each of the nine days. */
+const LINGS_BLESSED_VIRGIN_NOVENA_PRAYER =
+  "Holy Mary, immaculate Mother of God! the most pure and holy of all creatures, in union with all the saints in heaven and the just on earth and with the most heartfelt ardor, I consecrate my heart to thee, and implore of thee to receive my homage of respect, love, and confidence. I come to thee, O refuge of sinners, in my present distress, and implore of thee to exert in my behalf the full measure of thy influence in heaven. Present my earnest petition to God and obtain for me [here name your request]. Protect me, O sacred and immaculate Mother of God, watch over me, pray for me, love me, now and forever. Amen.";
+
+/** The prayer of the novena for the feast of the Visitation in Our Favorite Novenas. */
+const LINGS_VISITATION_NOVENA_PRAYER =
+  'O holy Virgin, spotless mirror of humility, great was thy charity which moved thee to visit thy holy cousin St. Elizabeth, and exceeding thy joy when that venerable matron, inspired by the Holy Ghost, exclaimed on seeing thee: "Blessed art thou among women, and blessed is the fruit of thy womb. And whence is this to me that the Mother of my Lord should come to me?" O dear Mother, I beseech thee, by this thy joy, to obtain for me the favors I petition in this novena [name them], and grant that our hearts may be visited by thy divine Son, so that, being free from all sin, we may praise Him and give Him thanks forever. Amen.';
+
+/** The rubric and prayer of the novena for the feast of the Presentation in Our Favorite Novenas. */
+const LINGS_PRESENTATION_NOVENA_PRAYER = [
+  "Recite daily nine times the Hail Mary; then say the following prayer:",
+  'O beloved Mother of God, most amiable child Mary, thou didst present thyself in the Temple, and with promptitude and without reserve didst consecrate thyself to the glory and love of God; could I but offer thee this day the first years of my life, to devote myself without reserve to thy service, my holy and most sweet Lady! But it is now too late to do this; for, unfortunate creature that I am, I have lost many years in the service of the world and my own caprices, and have lived in almost entire forgetfulness of thee and of God. "Woe to that time in which I did not love thee!" But it is better to begin late than not at all. Behold, O Mary, I this day present myself to thee, and I offer myself without reserve to thy service for the long or short time that I still have to live in this world; and, in union with thee, I renounce all creatures, and devote myself entirely to the love of my Creator. I consecrate my mind to thee, O Queen! that it may always dwell on the love that thou deservest; my tongue, that it may praise thee; my heart, that it may love thee. Do thou accept, O most holy Virgin! the offering which this miserable sinner now makes thee; accept it, I beseech thee, by the consolation that thy heart experienced when thou didst give thyself to God in the Temple. But, since I enter thy service late, it is reasonable that I should redouble my acts of homage and love, thereby to compensate for lost time. Do thou help my weakness with thy powerful intercession, O Mother of mercy! by obtaining me perseverance from thy Jesus and strength to be always faithful to thee until death, that, thus always serving thee in life, I may praise thee in paradise for all eternity. Amen.',
+].join("\n\n");
+
+/** The salutation, the twelvefold salutation and the offering of the novena for festivals of the Blessed Virgin in Our Favorite Novenas. */
+const LINGS_FESTIVALS_NOVENA_PRAYER = [
+  "I salute thee, O ever-blessed Virgin, Mother of God, abyss of grace, miracle of almighty power! I salute thee, O sanctuary of the Most Holy Trinity and Queen of the universe, Mother of mercy and assured refuge of sinners! O ever-faithful Virgin, ever-amiable and admirable Virgin! attracted by thy beauty and sweetness, by the odor of thy sanctity, the plenitude of thy graces, and the abundance of thy mercies, I presume to address thee, miserable as I am, and beseech thee to obtain for me of thy dear Son the grant of the petitions I present thee in this novena. [Here specify your requests.] Obtain for me likewise, O Queen of heaven! the most lively contrition for my multiplied sins, and the grace to imitate faithfully those virtues which were exemplified in thy sacred life, particularly thy profound humility, angelic purity, and perfect obedience. Above all, I beseech thee to be my mother and protectress, to receive me into the number of thine adopted children, and to guide, conduct, and govern me from that high throne of glory to which thou art now exalted. Vouchsafe to hear my sighs and my desires; reject not my petitions, O Mother of mercy! and let it not be said that of all who had recourse to thee I was the first thou didst ever forsake. O most amiable, pure, and immaculate Virgin! have compassion on me, and do not abandon me during life or at the awful moment of my death.",
+  "Repeat the following salutation twelve times, and add, Glory be to the Father, etc., to every third repetition.",
+  "Hail, daughter of the eternal Father! Hail, Mother of the eternal Son! Hail, spouse of the most Holy Spirit! Hail, temple of the adorable Trinity!\n\nO most tender heart of Mary, asylum of the poor and solid hope of sinners! penetrated with the most lively respect, love, and gratitude, I devote myself irrevocably to thy service, and offer thee my heart with all that I am and all belongs to me.\n\nAccept this offering, august Queen of heaven and earth, and obtain for me of thy dear Son, Jesus Christ, the favors I have presumed to demand through thy intercession in this novena, together with a tender, generous, constant love of God, perfect submission to His ever-adorable will, the true spirit of a Christian, and the grace of final perseverance. Amen.",
+].join("\n\n");
+
+/** The prayer to Our Desolate Mother, the act of reparation and the three Hail Marys of the novena to Our Lady of Sorrows in Our Favorite Novenas. */
+const LINGS_OUR_LADY_OF_SORROWS_NOVENA_PRAYER = [
+  "O most desolate of mothers, what sword most terrible hath penetrated thy soul! Each blow which Jesus received in His passion reached thy heart. Ah! His sorrows depressed thee, especially His last words from the cross, O Mother of grief and love! I come to entreat thy intercession, through thy griefs and sorrows, to obtain for me the intention of this novena. [Here name your request.] Remember, O Queen of heaven and earth, that thou art the help of Christians, and refuse not to aid me in my present necessities. O Mary, conceived without sin, pray for us who have recourse to thee. Amen.",
+  "Most glorious Virgin Mary, Mother of God and our Mother, cast a glance of pity upon us, poor sinners, who, afflicted by the many evils which surround us in this life, feel our hearts wounded by the atrocities, injuries, and blasphemies which we are frequently compelled to hear pronounced against thee, immaculate Virgin. Oh, how offensive is such language to the infinite majesty of God and to His only Son, Jesus Christ! how it provokes His wrath, and causes us to fear the terrible effects of His vengeance! If the sacrifice of our life would avail anything to prevent such outrages and blasphemies, gladly would we offer it; for, most holy Mother, we desire to love and honor thee with all our hearts, such being the will of God. Because we do love thee we will do whatever is in our power that thou mayest be loved and honored by all. Do thou meanwhile, Mother full of pity, sovereign consoler of the afflicted, accept this act of reparation which we offer thee in our own names, and in those of all our families, even of such as, not knowing what they say, impiously blaspheme thee. By obtaining their conversion from God render yet more manifest and glorious thy pity, thy power, and thy great mercy, and they will unite with us in proclaiming thee blessed among women, the immaculate Virgin and the merciful Mother of God. Amen.",
+  "Hail Mary, three times.",
+].join("\n\n");
+
+/** The prayer of the novena to Our Lady, Queen of Martyrs, in Our Favorite Novenas. */
+const LINGS_QUEEN_OF_MARTYRS_NOVENA_PRAYER =
+  "O most holy and afflicted Virgin, Queen of martyrs! thou who didst stand motionless beneath the cross, witnessing the agony of thy expiring Son: through the sword of grief which pierced thee then, through the unceasing suffering of thy life of sorrow, and the bliss which now more than amply repays thee for thy past trials, look down with a mother's pity and tenderness on me who kneel before thee to venerate thy sacred dolors and to place thy requests with filial confidence in the sanctuary of thy wounded heart. Present, I beseech thee, on my behalf to Jesus Christ the merits of His own most sacred death and passion, together with thy sufferings at the foot of the cross, and through the united efficacy of both obtain the grant of my present petitions.\n\nTo whom shall I recur in my wants and miseries if not to thee, O Mother of mercy who, having drunk so deeply of the chalice of thy Son, canst compassionate the woes of those who are still doomed to sigh in this land of exile? Offer for me to my Saviour one drop of the blood which flowed from His sacred veins, one of the tears which trickled from His divine eyes, one of the pangs which rent His adorable heart.\n\nO refuge of sinners and hope of the whole world, do not reject my earnest prayer, but graciously obtain the grant of my requests. Amen.";
+
+/** The prayer, versicles and responses of the novena to Our Lady of Lourdes in Our Favorite Novenas. */
+const LINGS_LOURDES_NOVENA_PRAYER = [
+  "O ever-immaculate Virgin, Mother of mercy, health of the sick, refuge of sinners, comfort of the afflicted, thou knowest my wants, my troubles, my sufferings, deign to cast upon me a look of mercy. By appearing in the grotto of Lourdes thou wert pleased to make it a privileged sanctuary, whence thou dispensest thy favors, and already many sufferers have obtained the cure of their infirmities, both spiritual and corporal. I come, therefore, with the most unbounded confidence to implore thy maternal intercession. Obtain, O loving Mother, the granting of my requests. Through gratitude for thy favors I will endeavor to imitate thy virtues, that I may one day share thy glory. Amen.",
+  "V. O Mary conceived without sin.\nR. Pray for us who have recourse to thee.\nV. Blessed be the holy and immaculate conception of the Virgin Mary.\nR. Forever and ever. Amen.",
+].join("\n\n");
+
+/** The prayers of the novena for the feast of St. Teresa in Our Favorite Novenas. */
+const LINGS_TERESA_NOVENA_PRAYER = [
+  "Holy St. Teresa, most pure virgin, by that extraordinary favor which Almighty God conferred on thee in preserving thee from the snares of the devil during thy stay in this life, I most humbly beseech thee to obtain for me by thy prayers the grace of doing true and solid penance for all my sins, and of never offending the Divine Majesty during the remainder of my life, through Christ Jesus, Our Lord. Amen.",
+  "O blessed Teresa, faithful teacher of the art of loving God above all things, by that abundance of celestial light with which His divine majesty filled thy happy mind, obtain for us through thy powerful intercession that we may imitate thy virtues. Pray for us, I beseech thee, O glorious Teresa; and as thou hadst a sincere love for Jesus, and Jesus always loved thee, obtain for us the incomparable advantage of living faithful to Jesus and of dying in His divine love. Obtain for me also, great saint, ——. [Name your request.] Teresa of Jesus, hear and help us.",
+].join("\n\n");
+
+/** The day prayers and rubrics of the novena to one's patron saint in Our Favorite Novenas; the book leaves a blank for the saint's name. */
+const PATRON_SAINT_NOVENA_DAY_1 = [
+  "O holy patron, St. ——, I am about to make this novena in thy honor and for my spiritual benefit. During the coming nine days I will thank Almighty God for the many graces He has given thee. Thou hast been faithful to all thy duties, and therefore wert so pleasing to God that He became thy great friend. He added grace upon grace, and thou, O holy patron, wert more and more faithful to them, until thou didst attain eminent sanctity, and after thy glorious death didst obtain a high place in heaven.\n\nWe should be friends; I ought to know thee better, have more confidence in thee, be more familiar with thee, so that under all circumstances I may quickly think of thee and take my refuge in thee; then the purpose for which God intended thee will be more easily obtained, when I co-operate with God's favors and graces.",
+  "The Memorare.",
+].join("\n\n");
+
+const PATRON_SAINT_NOVENA_DAY_2 = [
+  "Dearest patron, St. ——, in Baptism I received thy name and promised to be faithful to God's love forever. When I was an outcast and under the curse of original sin God called me to be His particular friend. The blood of Jesus Christ, our Saviour, was poured over my head, and I became again an heir of the kingdom of God. I was entrusted to thy care, and thy life was placed before me for my imitation and encouragement. If I follow thee I will certainly arrive in heaven.",
+  "Litany of your patron saint if there be any, or the Litany of the Saints.",
+].join("\n\n");
+
+const PATRON_SAINT_NOVENA_DAY_3 = [
+  "My dear patron, St. ——, my life so far has not been what it ought to be. Instead of following God and fulfilling His holy law I have resisted His grace, so that I must have grieved thee very often, my dear patron. But now is the time of grace and blessing, now Almighty God will second thy efforts in my behalf. I will turn from my bad habits and lead a better life. Thou, O my patron, art certainly interested in my eternal welfare. Show me light in my path through this life. It is not always through malice that I commit sin, but frequently from ignorance. If I had the light I would, with the grace of God, do better. Then, O my patron, obtain it for me.",
+  "Litany of the Blessed Virgin in honor of your patron.",
+].join("\n\n");
+
+const PATRON_SAINT_NOVENA_DAY_4 = [
+  "Pray for me, O holy patron, that I may make a good confession. Having bewailed my sins and past transgressions, I beg of thee to obtain from God a real true conversion, that I may be a new man and a man of God. Almighty God according to His ordinances expects that I shall make a good confession, that I shall tell my sins plainly to a priest, so that the shame added to my contrition may the more certainly obtain the forgiveness of my sins. Effect in me a firm purpose of amendment, so that beginning once more a new life I may persevere to the end.",
+  "Litany of the Blessed Virgin.",
+].join("\n\n");
+
+const PATRON_SAINT_NOVENA_DAY_5 = [
+  "My holy patron, St. ——, I wish to beg of thee help to make a good communion during this novena and ever afterwards to make good and holy communions. I am about to approach the Lord in the Holy Sacrament. I have prayed to thee, my patron, and my heart is inflamed with love of thee; but I must love above all my dear Lord Jesus, Whom I am going to receive, that I may be strengthened in piety and holiness by His sacred presence. I will thank Jesus in the Blessed Sacrament for the many graces He has given thee, my patron, which have enabled thee to lead a holy life, and for the glory which has been a reward for thy faithfulness. Then I will beg Jesus in holy communion to give me strength and perseverance, that I may make great progress in the difficult affair of my salvation and obtain everlasting happiness.",
+  "Make a visit of thirty minutes to the Blessed Sacrament.",
+].join("\n\n");
+
+const PATRON_SAINT_NOVENA_DAY_6 = [
+  "My dear patron, St. ——, on this day obtain for me the love of the Blessed Virgin; prostrate thyself at the throne of Mary, and tell her of a poor client of thine here on earth who wishes to obtain her love. Give her my homage; she is the Mother of my dear Jesus, and I have received so many signs of love from her that I know I am dear to her heart. What would I be without her love, where would my wickedness end? O my patron, gain this love for me.",
+  "Litany of the Holy Angels.",
+].join("\n\n");
+
+const PATRON_SAINT_NOVENA_DAY_7 = [
+  "My dear patron, St. ——, one day I shall enjoy the company of all the saints and angels in heaven. I must now cultivate their friendship if I wish to share their happiness. The Church wishes us to venerate the saints of God, who have been such friends of His. They have fought the good fight and conquered. Introduce me to the angels, especially my guardian angel; he is singularly close to you, my patron; the duty of both is nearly the same. Unite your efforts for my welfare here on earth, but more especially obtain that I may enjoy with you the happiness of heaven.",
+  "Litany of the Blessed Virgin.",
+].join("\n\n");
+
+const PATRON_SAINT_NOVENA_DAY_8 = [
+  "My dear patron, St. ——, I beg of thee the virtues of humility and purity of heart. Humility is the foundation of all virtues. I often think I am gaining in sanctity, but as I so often fail in humility I must acknowledge that I am far from being pleasing to God. I am self-willed, self-sufficient, and independent; these are all vices of pride, and Thou, O my God, dost hate the proud and dost give Thy grace to the meek and humble of heart. Dear patron, thou wast humble, and for that reason God raised thee to a high degree of sanctity, for God has promised to exalt the humble. Dearest St. ——, also obtain for me purity of heart, for without this virtue I will never enjoy the beatific vision of God.",
+  "Litany of St. Joseph.",
+].join("\n\n");
+
+const PATRON_SAINT_NOVENA_DAY_9 = [
+  'My dear patron, St. ——, how thou dost love God in heaven! what a burning furnace of love art thou! Nothing engrosses thy mind but the love of God. Why not extend thy care to me, and obtain that I too may love God with the same ardor? Thou wilt gain this favor for me if I am only willing to co-operate with the grace of God. I should also burn with zeal for His glory, zeal for my own salvation, and zeal for the conversion of sinners. "All for the honor and glory of God" should be my watchword.',
+  "Five Our Fathers and Hail Marys.",
+].join("\n\n");
+
 function repeatedPrayerDays(
   prayerText: string,
   subjects: Array<{ title: string; meditation: string; intentionPrompt: string }>,
@@ -4265,6 +4373,692 @@ export const novenaGroupThree: CuratedEntry[] = [
       structure: "nine_days",
       typicalStartDate: "The nine days before a child's First Communion",
       citations: [LINGS_FIRST_COMMUNION, CE_COMMUNION_OF_CHILDREN],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-blessed-virgin-mary",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_BLESSED_VIRGIN, CE_BLESSED_VIRGIN_MARY],
+    payload: {
+      slug: "novena-blessed-virgin-mary",
+      title: "Novena in Honor of the Blessed Virgin",
+      summary:
+        "A general novena to the Blessed Virgin Mary for any time of need. Its single prayer consecrates the heart to the immaculate Mother of God with homage of respect, love and confidence, asks her as refuge of sinners to exert the full measure of her influence in heaven, and closes, 'watch over me, pray for me, love me, now and forever.'",
+      background:
+        "The novena opens the second part of the book, given to the Blessed Virgin, and has no fixed dates; it may be made whenever her help is sought. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayer is said on each of the nine days; the day meditations are editorial introductions, and the indulgence notes are omitted.",
+      intentionTheme:
+        "the petition entrusted to the Blessed Virgin, and her protection now and forever",
+      days: repeatedPrayerDays(LINGS_BLESSED_VIRGIN_NOVENA_PRAYER, [
+        {
+          title: "The Most Pure of Creatures",
+          meditation:
+            "The prayer greets Mary as the immaculate Mother of God, the most pure and holy of all creatures.",
+          intentionPrompt: "How do I honour Mary's purity in my own life?",
+        },
+        {
+          title: "In Union with All the Saints",
+          meditation:
+            "We pray in union with all the saints in heaven and the just on earth; no novena is made alone.",
+          intentionPrompt: "Whom will I join to my prayer today?",
+        },
+        {
+          title: "I Consecrate My Heart",
+          meditation: "The heart is consecrated to Mary, so that she may give it to her Son.",
+          intentionPrompt: "What in my heart do I still keep back?",
+        },
+        {
+          title: "Respect, Love and Confidence",
+          meditation:
+            "We ask her to receive our homage of respect, love and confidence, the three things a child owes a good mother.",
+          intentionPrompt: "Which of the three is weakest in me?",
+        },
+        {
+          title: "Refuge of Sinners",
+          meditation: "We come to her as refuge of sinners, in our present distress.",
+          intentionPrompt: "What distress do I bring to her today?",
+        },
+        {
+          title: "Her Influence in Heaven",
+          meditation:
+            "The prayer asks her to exert in our behalf the full measure of her influence in heaven.",
+          intentionPrompt: "Do I really believe in the power of her intercession?",
+        },
+        {
+          title: "Our Earnest Petition",
+          meditation: "She is asked to present our petition to God and obtain what we ask.",
+          intentionPrompt: "Is what I ask for good for my soul?",
+        },
+        {
+          title: "Protect Me",
+          meditation: "The closing words ask her to protect us and watch over us.",
+          intentionPrompt: "Where do I most need her protection?",
+        },
+        {
+          title: "Love Me Now and Forever",
+          meditation:
+            "The prayer ends with a child's simple request: pray for me, love me, now and forever.",
+          intentionPrompt: "How will I show her my love in return?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedMarianTitleSlug: "mother-of-god",
+      typicalStartDate: "Any time; the book gives no fixed dates",
+      citations: [LINGS_BLESSED_VIRGIN, CE_BLESSED_VIRGIN_MARY],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-visitation-of-our-lady",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_VISITATION, CE_VISITATION],
+    payload: {
+      slug: "novena-visitation-of-our-lady",
+      title: "Novena for the Feast of the Visitation",
+      summary:
+        "A novena for the feast of the Visitation, when Mary, carrying the Word made flesh, went to serve her cousin Elizabeth. Its prayer praises her charity and Elizabeth's greeting, and asks by her joy for the favours sought and that our hearts may be visited by her divine Son.",
+      background:
+        "The visit is told in Luke 1:39-56. The feast was adopted by the Franciscan chapter of 1263 on the advice of St. Bonaventure and extended to the whole Church by Urban VI in 1389; it was then kept on 2 July and is now kept on 31 May. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayer is said on each of the nine days; the day meditations are editorial introductions, and the indulgence notes are omitted.",
+      intentionTheme: "charity like Mary's, and hearts visited by Christ",
+      days: repeatedPrayerDays(LINGS_VISITATION_NOVENA_PRAYER, [
+        {
+          title: "In Haste to the Hill Country",
+          meditation:
+            "After the Annunciation Mary went with haste into the hill country of Judea to her cousin Elizabeth.",
+          intentionPrompt: "Whom am I being asked to visit?",
+        },
+        {
+          title: "The Charity of Mary",
+          meditation: "The prayer praises the great charity that moved her to make the journey.",
+          intentionPrompt: "What act of service have I been putting off?",
+        },
+        {
+          title: "The Child Leaps for Joy",
+          meditation:
+            "At her greeting the child leapt in Elizabeth's womb; the Church has seen in it the sanctifying of John the Baptist by the Saviour's presence.",
+          intentionPrompt: "Do I let Christ's presence reach others through me?",
+        },
+        {
+          title: "Blessed Art Thou among Women",
+          meditation:
+            "Elizabeth, filled with the Holy Ghost, cried out, 'Blessed art thou among women, and blessed is the fruit of thy womb.'",
+          intentionPrompt: "How often do I bless God for Mary?",
+        },
+        {
+          title: "Whence Is This to Me",
+          meditation: "Elizabeth wondered that the Mother of her Lord should come to her.",
+          intentionPrompt: "Do I receive God's gifts with wonder or as my due?",
+        },
+        {
+          title: "The Magnificat",
+          meditation: "Mary answered with her canticle of praise, 'My soul doth magnify the Lord.'",
+          intentionPrompt: "What has God done for me that I have not thanked Him for?",
+        },
+        {
+          title: "Three Months of Service",
+          meditation:
+            "Mary stayed with Elizabeth about three months, serving her before the birth of John.",
+          intentionPrompt: "Am I faithful in long, unseen service?",
+        },
+        {
+          title: "Visited by Her Son",
+          meditation: "We ask that our own hearts may be visited by her divine Son.",
+          intentionPrompt: "Is my heart ready for Him to visit?",
+        },
+        {
+          title: "Free from All Sin",
+          meditation:
+            "The prayer ends asking that, free from all sin, we may praise Him and give Him thanks forever.",
+          intentionPrompt: "What sin must I put away to praise Him freely?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      typicalStartDate:
+        "22 May, ending on the eve of the feast of the Visitation, 31 May; the book, following the calendar of its day, has 23 June to 1 July",
+      relatedFeastSlug: "feast-visitation-of-the-blessed-virgin-mary",
+      citations: [LINGS_VISITATION, CE_VISITATION],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-presentation-of-our-lady",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_PRESENTATION, CE_PRESENTATION_OF_MARY],
+    payload: {
+      slug: "novena-presentation-of-our-lady",
+      title: "Novena for the Feast of the Presentation of Our Lady",
+      summary:
+        "A novena for the feast of the Presentation of the Blessed Virgin in the Temple, kept from 12 to 20 November. Each day nine Hail Marys are said, then a prayer that regrets the years not given to God, offers the rest of life to Mary's service, and consecrates mind, tongue and heart to her.",
+      background:
+        "Apocryphal writings relate that Mary was brought to the Temple as a child to be educated there. The feast arose in the East, was celebrated at Avignon before Gregory XI in 1372, was struck from the calendar by Pius V and restored by Sixtus V in 1585; it is kept on 21 November. The prayer is a version of the one that closes St. Alphonsus Liguori's discourse on the Presentation in 'The Glories of Mary'. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayer is said on each of the nine days; the day meditations are editorial introductions, and the indulgence notes are omitted.",
+      intentionTheme: "a late but wholehearted offering of oneself to God through Mary",
+      days: repeatedPrayerDays(LINGS_PRESENTATION_NOVENA_PRAYER, [
+        {
+          title: "Presented in the Temple",
+          meditation:
+            "Tradition tells that Mary was brought to the Temple as a child and gave herself wholly to God.",
+          intentionPrompt: "When did I first give myself to God?",
+        },
+        {
+          title: "Promptitude",
+          meditation:
+            "The prayer praises the promptness with which she consecrated herself, without reserve.",
+          intentionPrompt: "Do I answer God promptly or put Him off?",
+        },
+        {
+          title: "The First Years",
+          meditation: "We regret that we cannot offer her the first years of our life.",
+          intentionPrompt: "What years or months have I given to the world rather than to God?",
+        },
+        {
+          title: "Better Late than Never",
+          meditation:
+            "'Woe to that time in which I did not love thee!' But it is better to begin late than not at all.",
+          intentionPrompt: "What will I begin today?",
+        },
+        {
+          title: "I Present Myself",
+          meditation:
+            "We present ourselves to her service for the long or short time that remains.",
+          intentionPrompt: "How much time do I think I have left?",
+        },
+        {
+          title: "Mind, Tongue and Heart",
+          meditation:
+            "We consecrate our mind to dwell on her love, our tongue to praise her and our heart to love her.",
+          intentionPrompt: "Which of the three needs consecrating most?",
+        },
+        {
+          title: "The Consolation of Her Heart",
+          meditation:
+            "We ask her to accept our offering by the consolation she felt in giving herself to God in the Temple.",
+          intentionPrompt: "Can my offering console her heart?",
+        },
+        {
+          title: "Redoubled Love",
+          meditation:
+            "Since we come late to her service, we should redouble our acts of homage and love.",
+          intentionPrompt: "How can I make up for lost time?",
+        },
+        {
+          title: "Faithful until Death",
+          meditation:
+            "The prayer asks perseverance from her Son, and strength to be faithful until death.",
+          intentionPrompt: "What would help me persevere?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      typicalStartDate:
+        "12 November, ending on the eve of the memorial of the Presentation, 21 November",
+      relatedFeastSlug: "memorial-presentation-of-the-blessed-virgin-mary",
+      citations: [LINGS_PRESENTATION, CE_PRESENTATION_OF_MARY],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-for-feasts-of-our-lady",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_FESTIVALS_OF_OUR_LADY, CE_BLESSED_VIRGIN_MARY],
+    payload: {
+      slug: "novena-for-feasts-of-our-lady",
+      title: "Novena for Festivals of the Blessed Virgin",
+      summary:
+        "A novena that may be made before any feast of Our Lady. Each day a long salutation honours her as Mother of God, sanctuary of the Trinity and refuge of sinners and asks for contrition and her virtues; a short salutation is said twelve times, with a Glory be after every third, and the day ends with an offering of the heart.",
+      background:
+        "The novena has no fixed dates and is meant for any of the festivals of the Blessed Virgin through the year. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayer is said on each of the nine days; the day meditations are editorial introductions, and the indulgence notes are omitted.",
+      intentionTheme: "contrition, the virtues of Mary, and the petition presented to her",
+      days: repeatedPrayerDays(LINGS_FESTIVALS_NOVENA_PRAYER, [
+        {
+          title: "Mother of God",
+          meditation:
+            "The salutation begins by greeting Mary as Mother of God, abyss of grace and miracle of almighty power.",
+          intentionPrompt: "What does it mean to me that Mary is Mother of God?",
+        },
+        {
+          title: "Sanctuary of the Trinity",
+          meditation:
+            "She is greeted as sanctuary of the Most Holy Trinity and Queen of the universe.",
+          intentionPrompt: "How do I honour the Trinity dwelling in my soul?",
+        },
+        {
+          title: "Refuge of Sinners",
+          meditation:
+            "She is Mother of mercy and assured refuge of sinners, to whom even the most miserable may speak.",
+          intentionPrompt: "What keeps me from going to her?",
+        },
+        {
+          title: "Contrition",
+          meditation: "We ask her for the most lively contrition for our many sins.",
+          intentionPrompt: "Which sin do I most need to grieve over?",
+        },
+        {
+          title: "Humility, Purity, Obedience",
+          meditation:
+            "We ask to imitate her profound humility, angelic purity and perfect obedience.",
+          intentionPrompt: "Which of these virtues will I practise today?",
+        },
+        {
+          title: "Our Adopted Mother",
+          meditation:
+            "Above all we ask her to be our mother and protectress and to count us among her adopted children.",
+          intentionPrompt: "Do I live as Mary's child?",
+        },
+        {
+          title: "Never Forsaken",
+          meditation:
+            "Let it not be said that of all who had recourse to her we were the first she forsook.",
+          intentionPrompt: "When have I felt her help?",
+        },
+        {
+          title: "Daughter, Mother, Spouse and Temple",
+          meditation:
+            "The short salutation greets her as daughter of the Father, Mother of the Son, spouse of the Holy Spirit and temple of the Trinity.",
+          intentionPrompt: "Will I say it slowly today, word by word?",
+        },
+        {
+          title: "The Offering of the Heart",
+          meditation:
+            "The novena ends with an irrevocable offering of the heart to the most tender heart of Mary and a prayer for final perseverance.",
+          intentionPrompt: "What do I offer her as this feast comes?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      typicalStartDate: "The nine days before any feast of the Blessed Virgin",
+      citations: [LINGS_FESTIVALS_OF_OUR_LADY, CE_BLESSED_VIRGIN_MARY],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-our-lady-of-sorrows-lings",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_OUR_LADY_OF_SORROWS, CE_SEVEN_SORROWS],
+    payload: {
+      slug: "novena-our-lady-of-sorrows-lings",
+      title: "Novena to Our Lady of Sorrows (Our Favorite Novenas)",
+      summary:
+        "A novena to Our Lady of Sorrows from Lings's Our Favorite Novenas, distinct from Hammer's Seven Sorrows novena. Each day joins a prayer to the most desolate of mothers, an act of reparation for blasphemies against the Blessed Virgin, and three Hail Marys.",
+      background:
+        "The book keeps the feast of Our Lady of Dolours on the third Sunday of September, as it then was; the memorial of Our Lady of Sorrows is now kept on 15 September. The act of reparation was indulgenced by Leo XIII in 1885. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayer is said on each of the nine days; the day meditations are editorial introductions, and the indulgence notes are omitted.",
+      intentionTheme:
+        "compassion with the sorrowful Mother and reparation for the insults offered her",
+      days: repeatedPrayerDays(LINGS_OUR_LADY_OF_SORROWS_NOVENA_PRAYER, [
+        {
+          title: "The Sword of Sorrow",
+          meditation:
+            "Simeon foretold that a sword would pierce her soul; the prayer asks what sword most terrible pierced it.",
+          intentionPrompt: "Where is a sword piercing my own soul?",
+        },
+        {
+          title: "Every Blow of the Passion",
+          meditation: "Each blow that Jesus received in His Passion reached His Mother's heart.",
+          intentionPrompt: "Do my sins still wound Him?",
+        },
+        {
+          title: "His Last Words",
+          meditation:
+            "His last words from the Cross above all grieved her, and among them He gave her to us as Mother.",
+          intentionPrompt: "Which of the Seven Last Words speaks to me now?",
+        },
+        {
+          title: "Mother of Grief and Love",
+          meditation:
+            "Her grief was the measure of her love; we ask her intercession through her griefs and sorrows.",
+          intentionPrompt: "Can I love without being willing to suffer?",
+        },
+        {
+          title: "Help of Christians",
+          meditation:
+            "The prayer reminds her that she is the help of Christians and asks her aid in our present needs.",
+          intentionPrompt: "What present need will I name to her?",
+        },
+        {
+          title: "Reparation",
+          meditation:
+            "The act of reparation grieves over the blasphemies uttered against her and offers to make amends.",
+          intentionPrompt: "Have I ever spoken lightly of holy things?",
+        },
+        {
+          title: "For Our Families",
+          meditation: "The act is offered in our own names and in those of all our families.",
+          intentionPrompt: "Whom in my family will I pray for today?",
+        },
+        {
+          title: "For Those Who Blaspheme",
+          meditation:
+            "It prays for the conversion of those who, not knowing what they say, blaspheme her.",
+          intentionPrompt: "Will I pray for someone who mocks the faith?",
+        },
+        {
+          title: "Blessed among Women",
+          meditation:
+            "The novena hopes that all will one day join in proclaiming her blessed among women and merciful Mother of God.",
+          intentionPrompt: "How will I honour Mary publicly?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedMarianTitleSlug: "our-lady-of-sorrows",
+      typicalStartDate:
+        "6 September, ending on the eve of the memorial of Our Lady of Sorrows, 15 September",
+      relatedFeastSlug: "memorial-our-lady-of-sorrows",
+      citations: [LINGS_OUR_LADY_OF_SORROWS, CE_SEVEN_SORROWS],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-our-lady-queen-of-martyrs",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_QUEEN_OF_MARTYRS, CE_SEVEN_SORROWS],
+    payload: {
+      slug: "novena-our-lady-queen-of-martyrs",
+      title: "Novena to Our Lady, Queen of Martyrs",
+      summary:
+        "A novena to Our Lady as Queen of Martyrs, who stood beneath the Cross. Its prayer asks her, through the sword of grief and the bliss that now repays her, to present to Jesus the merits of His Passion together with her own sufferings, and to offer for us one drop of His blood, one of His tears and one of the pangs of His heart.",
+      background:
+        "Mary is called Queen of Martyrs in the Litany of Loreto because her sufferings at the Cross made her the first and greatest of those who suffered with Christ. The book gives no fixed dates for this novena. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayer is said on each of the nine days; the day meditations are editorial introductions, and the indulgence notes are omitted.",
+      intentionTheme: "the petitions placed in the wounded heart of the Queen of Martyrs",
+      days: repeatedPrayerDays(LINGS_QUEEN_OF_MARTYRS_NOVENA_PRAYER, [
+        {
+          title: "Motionless beneath the Cross",
+          meditation: "She stood beneath the Cross, watching the agony of her dying Son.",
+          intentionPrompt: "Can I stay with Christ's suffering rather than look away?",
+        },
+        {
+          title: "A Life of Sorrow",
+          meditation: "Her whole life was marked by sorrow, from Simeon's prophecy to the burial.",
+          intentionPrompt: "How have my own sorrows drawn me nearer to God?",
+        },
+        {
+          title: "Bliss that Repays",
+          meditation: "The bliss she now enjoys more than repays her past trials.",
+          intentionPrompt: "Do I believe that heaven will repay every trial?",
+        },
+        {
+          title: "A Mother's Pity",
+          meditation: "We ask her to look on us with a mother's pity and tenderness.",
+          intentionPrompt: "Where do I need her tenderness?",
+        },
+        {
+          title: "Her Wounded Heart",
+          meditation:
+            "We place our requests with filial confidence in the sanctuary of her wounded heart.",
+          intentionPrompt: "What request will I place there?",
+        },
+        {
+          title: "His Merits and Her Sufferings",
+          meditation:
+            "She is asked to present the merits of His Passion together with her sufferings at the foot of the Cross.",
+          intentionPrompt: "What suffering of mine can I unite to His?",
+        },
+        {
+          title: "Mother of Mercy",
+          meditation:
+            "Having drunk so deeply of her Son's chalice, she can feel for all who still sigh in this land of exile.",
+          intentionPrompt: "Whom do I know who needs her compassion?",
+        },
+        {
+          title: "One Drop, One Tear, One Pang",
+          meditation:
+            "We ask her to offer for us one drop of His blood, one of His tears, one of the pangs of His heart.",
+          intentionPrompt: "How precious is one drop of His blood to me?",
+        },
+        {
+          title: "Refuge of Sinners",
+          meditation:
+            "The prayer ends by calling her refuge of sinners and hope of the whole world.",
+          intentionPrompt: "What will I ask of her for the whole world?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedMarianTitleSlug: "our-lady-of-sorrows",
+      typicalStartDate: "Any time; the book gives no fixed dates",
+      citations: [LINGS_QUEEN_OF_MARTYRS, CE_SEVEN_SORROWS],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-our-lady-of-lourdes-lings",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_LOURDES, CE_LOURDES],
+    payload: {
+      slug: "novena-our-lady-of-lourdes-lings",
+      title: "Novena to Our Lady of Lourdes (Our Favorite Novenas)",
+      summary:
+        "A novena to Our Lady of Lourdes, distinct from the novena for the sick printed elsewhere in this catalogue. Its prayer calls on the ever-immaculate Virgin as health of the sick, refuge of sinners and comfort of the afflicted, recalls the cures obtained at her sanctuary, and promises to imitate her virtues; versicles honouring the Immaculate Conception follow.",
+      background:
+        "The first of eighteen apparitions of the Blessed Virgin to Bernadette Soubirous, then fourteen, took place in the grotto of Massabielle at Lourdes on 11 February 1858, and in 1862 the bishop of the diocese declared the faithful justified in believing in them. The memorial of Our Lady of Lourdes is kept on 11 February. The book gives no fixed dates for this novena. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayer is said on each of the nine days; the day meditations are editorial introductions, and the indulgence notes are omitted.",
+      intentionTheme: "healing of body and soul through the intercession of Our Lady of Lourdes",
+      days: repeatedPrayerDays(LINGS_LOURDES_NOVENA_PRAYER, [
+        {
+          title: "The Grotto of Massabielle",
+          meditation:
+            "On 11 February 1858 a lady appeared to Bernadette Soubirous in the hollow of the rock of Massabielle.",
+          intentionPrompt: "Am I open to God speaking through the little and the poor?",
+        },
+        {
+          title: "Health of the Sick",
+          meditation: "The prayer calls on Mary as health of the sick.",
+          intentionPrompt: "Whom that is ill will I pray for by name?",
+        },
+        {
+          title: "Refuge of Sinners",
+          meditation:
+            "She is also refuge of sinners; the healing of the soul matters more than the healing of the body.",
+          intentionPrompt: "What sin needs healing in me?",
+        },
+        {
+          title: "Comfort of the Afflicted",
+          meditation: "She knows our wants, troubles and sufferings.",
+          intentionPrompt: "What trouble will I tell her about today?",
+        },
+        {
+          title: "A Privileged Sanctuary",
+          meditation:
+            "By appearing in the grotto she made Lourdes a sanctuary from which she dispenses her favours.",
+          intentionPrompt: "Where are the holy places in my life?",
+        },
+        {
+          title: "Cures of Body and Soul",
+          meditation:
+            "Many sufferers have obtained there the cure of their infirmities, both spiritual and bodily.",
+          intentionPrompt: "Do I pray for healing with faith?",
+        },
+        {
+          title: "Unbounded Confidence",
+          meditation: "We come with unbounded confidence to implore her maternal intercession.",
+          intentionPrompt: "What holds back my confidence?",
+        },
+        {
+          title: "Imitating Her Virtues",
+          meditation: "In gratitude for her favours we promise to imitate her virtues.",
+          intentionPrompt: "Which virtue of Mary will I imitate this week?",
+        },
+        {
+          title: "The Immaculate Conception",
+          meditation:
+            "The versicles bless her immaculate conception, the name by which the lady of the grotto made herself known.",
+          intentionPrompt: "How will I thank God for Mary's purity?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedMarianTitleSlug: "our-lady-of-lourdes",
+      typicalStartDate:
+        "2 February, ending on the eve of the memorial of Our Lady of Lourdes, 11 February",
+      relatedFeastSlug: "optional-memorial-our-lady-of-lourdes",
+      citations: [LINGS_LOURDES, CE_LOURDES],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-to-our-patron-saint",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_PATRON_SAINT, CE_PATRON_SAINTS],
+    payload: {
+      slug: "novena-to-our-patron-saint",
+      title: "Novena to Our Patron Saint",
+      summary:
+        "A novena to the saint whose name one received in Baptism, with a different prayer for each of the nine days: thanksgiving for the saint's graces and friendship, the baptismal name, amendment of life, a good confession, a good Communion, love of the Blessed Virgin, the company of saints and angels, humility and purity, and zeal for God's glory. The book leaves a blank for the saint's name.",
+      background:
+        "The Catholic Encyclopedia explains that a patron is a saint chosen as a special intercessor and advocate, and the faithful have long taken the saint whose name they bear as their own. The book's instruction to this novena says that the patron saint should be a particular friend for life, whose feast we should know and keep with a novena and whose virtues we should imitate, and it warns against making a novena merely for some temporal advantage. Each day's prayer ends with a rubric, the Memorare, a litany, a visit to the Blessed Sacrament or the Our Father and Hail Mary. The novena is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897); the day meditations are editorial.",
+      intentionTheme: "friendship with one's patron saint and the grace to imitate his virtues",
+      days: [
+        {
+          day: 1,
+          title: "A Friend of God",
+          meditation:
+            "The first prayer thanks God for the graces given to our patron, who was faithful until he became God's great friend, and asks for a closer friendship with him.",
+          prayerText: PATRON_SAINT_NOVENA_DAY_1,
+          intentionPrompt: "What do I know of my patron saint's life?",
+        },
+        {
+          day: 2,
+          title: "My Baptismal Name",
+          meditation:
+            "In Baptism we received our patron's name and were made heirs of the kingdom; his life was set before us as an example.",
+          prayerText: PATRON_SAINT_NOVENA_DAY_2,
+          intentionPrompt: "Do I know why I was given my name?",
+        },
+        {
+          day: 3,
+          title: "Light for a Better Life",
+          meditation:
+            "We admit that our life has not been what it ought to be, and ask for light to turn from bad habits.",
+          prayerText: PATRON_SAINT_NOVENA_DAY_3,
+          intentionPrompt: "Which bad habit will I turn from?",
+        },
+        {
+          day: 4,
+          title: "A Good Confession",
+          meditation:
+            "The fourth prayer asks for a true conversion, a plain confession and a firm purpose of amendment.",
+          prayerText: PATRON_SAINT_NOVENA_DAY_4,
+          intentionPrompt: "When will I next go to confession?",
+        },
+        {
+          day: 5,
+          title: "A Good Communion",
+          meditation:
+            "We ask help to make a good Communion during the novena, and to thank Jesus for the graces given to our patron; the day closes with a visit to the Blessed Sacrament.",
+          prayerText: PATRON_SAINT_NOVENA_DAY_5,
+          intentionPrompt: "Can I make a visit to the Blessed Sacrament today?",
+        },
+        {
+          day: 6,
+          title: "The Love of Mary",
+          meditation:
+            "Our patron is asked to tell the Blessed Virgin of a poor client on earth who wishes to obtain her love.",
+          prayerText: PATRON_SAINT_NOVENA_DAY_6,
+          intentionPrompt: "How have I received Mary's love?",
+        },
+        {
+          day: 7,
+          title: "Saints and Angels",
+          meditation:
+            "We ask to be introduced to the angels, especially our guardian angel, whose task is so like our patron's.",
+          prayerText: PATRON_SAINT_NOVENA_DAY_7,
+          intentionPrompt: "Do I ever speak to my guardian angel?",
+        },
+        {
+          day: 8,
+          title: "Humility and Purity",
+          meditation:
+            "The eighth prayer asks for humility, the foundation of all virtues, and for purity of heart.",
+          prayerText: PATRON_SAINT_NOVENA_DAY_8,
+          intentionPrompt: "Where do pride and self-will show in me?",
+        },
+        {
+          day: 9,
+          title: "A Burning Furnace of Love",
+          meditation:
+            "Our patron's mind is filled with the love of God; we ask for the same ardour and for zeal for God's glory, our salvation and the conversion of sinners.",
+          prayerText: PATRON_SAINT_NOVENA_DAY_9,
+          intentionPrompt: "What will I do for the honour and glory of God?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      typicalStartDate: "The nine days before the feast of one's patron saint",
+      citations: [LINGS_PATRON_SAINT, CE_PATRON_SAINTS],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-teresa-of-avila-lings",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_TERESA, CE_TERESA_OF_AVILA],
+    payload: {
+      slug: "novena-saint-teresa-of-avila-lings",
+      title: "Novena for the Feast of St. Teresa (Our Favorite Novenas)",
+      summary:
+        "A short novena for the feast of St. Teresa of Jesus, kept from 6 to 14 October. Its two prayers recall that God preserved her from the snares of the devil, ask for true and solid penance, and, calling her the faithful teacher of the art of loving God above all things, ask to live faithful to Jesus and die in His love.",
+      background:
+        "Teresa was born at Avila in 1515, entered the Carmelite convent of the Incarnation and in 1562 founded St. Joseph's at Avila, the first house of her reform; she died at Alba de Tormes in October 1582 and her feast is kept on 15 October. This is a different text from the 1852 novena to St. Teresa of Jesus in this catalogue. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayer is said on each of the nine days; the day meditations are editorial introductions, and the indulgence notes are omitted.",
+      intentionTheme: "true penance and the love of God, through St. Teresa of Jesus",
+      days: repeatedPrayerDays(LINGS_TERESA_NOVENA_PRAYER, [
+        {
+          title: "Born at Avila",
+          meditation:
+            "Teresa was born at Avila in 1515 and as a young woman entered the Carmelite convent of the Incarnation there.",
+          intentionPrompt: "How did God first draw me to Himself?",
+        },
+        {
+          title: "Preserved from the Snares of the Devil",
+          meditation:
+            "The prayer recalls the extraordinary favour by which God preserved her from the snares of the devil.",
+          intentionPrompt: "Which temptation do I need protection from?",
+        },
+        {
+          title: "True and Solid Penance",
+          meditation: "We ask for the grace of true and solid penance for all our sins.",
+          intentionPrompt: "What does solid penance look like in my life?",
+        },
+        {
+          title: "Never to Offend God Again",
+          meditation: "We ask never to offend the Divine Majesty for the rest of our life.",
+          intentionPrompt: "What occasion of sin must I avoid?",
+        },
+        {
+          title: "Teacher of the Art of Loving God",
+          meditation:
+            "The second prayer calls her the faithful teacher of the art of loving God above all things.",
+          intentionPrompt: "Do I love anything more than God?",
+        },
+        {
+          title: "Celestial Light",
+          meditation:
+            "God filled her mind with an abundance of heavenly light, which shines in her writings on prayer.",
+          intentionPrompt: "Will I read a page of St. Teresa this week?",
+        },
+        {
+          title: "Her Reform",
+          meditation:
+            "In 1562 she founded St. Joseph's at Avila, the first convent of her reform, and many more followed.",
+          intentionPrompt: "What in my life needs reforming?",
+        },
+        {
+          title: "Faithful to Jesus",
+          meditation:
+            "As she loved Jesus sincerely and He always loved her, we ask to live faithful to Him.",
+          intentionPrompt: "How will I keep faith with Jesus today?",
+        },
+        {
+          title: "Dying in His Love",
+          meditation:
+            "She died at Alba de Tormes in 1582; we ask to die, as she did, in the love of God.",
+          intentionPrompt: "Am I ready to die in His love?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-teresa-of-avila",
+      typicalStartDate: "6 October, ending on the eve of her feast, 15 October",
+      citations: [LINGS_TERESA, CE_TERESA_OF_AVILA],
     },
   },
 ];
