@@ -938,6 +938,61 @@ describe("runOsmParishDiscovery", () => {
     expect(mockedPublish.mock.calls[0]![1].slug).toBe("st-mary-chicago-60614");
   });
 
+  it("falls back to the OSM id when the postcode suffix is taken too (a third same-named chapel)", async () => {
+    // Barangay chapels repeat a dedication within one municipality and ZIP:
+    // the postcode suffix is not unique, the OSM id is.
+    const chapel = (id: number) => ({
+      type: "node",
+      id,
+      lat: 14.08,
+      lon: 121.15,
+      tags: {
+        name: "San Isidro Labrador Chapel",
+        religion: "christian",
+        denomination: "roman_catholic",
+        "addr:city": "Tanauan",
+        "addr:postcode": "4232",
+        "addr:country": "PH",
+      },
+    });
+    const holder = (id: string, slug: string, ref: string) => ({
+      id,
+      slug,
+      title: "San Isidro Labrador Chapel",
+      isPublished: true,
+      sourceRef: ref,
+      latitude: 14.11,
+      longitude: 121.12,
+      payload: {},
+    });
+    const base = "san-isidro-labrador-chapel-tanauan";
+    global.fetch = stubOverpass([chapel(333)]);
+    const third = makePrisma({
+      rows: [holder("c1", base, "osm:node/111"), holder("c2", `${base}-4232`, "osm:node/222")],
+    });
+    const out = await runOsmParishDiscovery(third.prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+    expect(out.published).toBe(1);
+    expect(out.duplicates).toBe(0);
+    expect(mockedPublish.mock.calls[0]![1].slug).toBe(`${base}-333`);
+
+    // …and to the whole typed id when even the short id suffix is held.
+    mockedPublish.mockClear();
+    global.fetch = stubOverpass([chapel(98761234)]);
+    const fourth = makePrisma({
+      rows: [
+        holder("c1", base, "osm:node/111"),
+        holder("c2", `${base}-4232`, "osm:node/222"),
+        holder("c3", `${base}-1234`, "osm:node/551234"),
+      ],
+    });
+    await runOsmParishDiscovery(fourth.prisma, { brainActive: true, force: true, maxQueries: 1 });
+    expect(mockedPublish.mock.calls[0]![1].slug).toBe(`${base}-n98761234`);
+  });
+
   it("republishes a row that was unpublished (rollback) instead of skipping it forever", async () => {
     global.fetch = stubOverpass([
       { type: "node", id: 10, lat: 42.34, lon: -71.07, tags: FULL_TAGS },

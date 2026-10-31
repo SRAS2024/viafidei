@@ -774,10 +774,23 @@ interface RunContext {
   lookups?: Map<string, NominatimPlace | null>;
 }
 
-/** Stable, source-derived suffix for a slug collision (postcode, else OSM id). */
-function collisionSuffix(candidate: OsmCandidate): string {
-  const pc = candidate.postcode ? slugify(candidate.postcode) : "";
-  return pc || String(candidate.osmId).slice(-4);
+/**
+ * Stable, source-derived slugs for a collision, in the order they are tried:
+ * the postcode, the OSM id's last four digits, then the whole typed OSM id.
+ * The postcode alone is not unique — the lookup gives most candidates one,
+ * and barangay chapels or frazioni repeat a dedication within one locality
+ * and postcode — so the last option is the one only this element can hold.
+ */
+function collisionSlugs(candidate: OsmCandidate): string[] {
+  const withSuffix = (suffix: string) =>
+    `${candidate.slugBase.slice(0, Math.min(74, 79 - suffix.length))}-${suffix}`;
+  const id = String(candidate.osmId);
+  const options = [
+    candidate.postcode ? slugify(candidate.postcode) : "",
+    id.slice(-4),
+    `${candidate.osmType.charAt(0)}${id}`,
+  ].filter(Boolean);
+  return [...new Set(options.map(withSuffix))];
 }
 
 /**
@@ -876,8 +889,9 @@ export async function processOsmCandidate(
 
   // 4. Slug. Its own row may exist unpublished (a rollback): republish it under
   //    its slug — the orchestrator's update branch flips it live again. Else a
-  //    live collision with a DIFFERENT parish gets a stable suffix instead of
-  //    a silent skip, while an unpublished row with no other source is reused.
+  //    live collision with a DIFFERENT parish gets the first free stable
+  //    suffix instead of a silent skip, while an unpublished row with no other
+  //    source is reused.
   let slug = candidate.slugBase;
   if (bySource && !bySource.isPublished) {
     slug = bySource.slug;
@@ -885,8 +899,16 @@ export async function processOsmCandidate(
     const taken = (row: ExistingRow | null) =>
       Boolean(row && (row.isPublished || (row.sourceRef && row.sourceRef !== candidate.placeId)));
     if (taken(await findBySlug(prisma, slug))) {
-      slug = `${slug.slice(0, 74)}-${collisionSuffix(candidate)}`;
-      if (taken(await findBySlug(prisma, slug))) return "duplicate";
+      let free: string | null = null;
+      for (const option of collisionSlugs(candidate)) {
+        if (!taken(await findBySlug(prisma, option))) {
+          free = option;
+          break;
+        }
+      }
+      // Even the whole OSM id is held by another source: nothing stable is left.
+      if (!free) return "duplicate";
+      slug = free;
     }
   }
   if (await readSkip(prisma, slug)) return "skipped";
