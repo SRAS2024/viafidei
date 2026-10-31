@@ -40,22 +40,37 @@ vi.mock("@/lib/admin-worker/schema-integrity", () => ({
 }));
 
 import { executeMissionStage } from "@/lib/admin-worker/dispatcher";
+import { filePlan } from "@/lib/admin-worker/repair-plans";
 import { reportQueryError } from "@/lib/admin-worker/schema-integrity";
 
-// A body the real CHURCH_DOCUMENT extractor turns into a COMPLETE package
-// (missing=0) — the production loop URL was exactly this shape.
-const BODY = `Populorum Progressio. Encyclical of Pope Paul VI on the development of peoples, 26 March 1967.
-On the Development of Peoples. The development of peoples has the Church's close attention, particularly the
-development of those peoples who are striving to escape from hunger, misery, endemic diseases and ignorance.
-The progressive development of peoples is an object of deep interest and concern to the Church.`;
-
-const READ = {
+// A page the real PRAYER extractor turns into a COMPLETE package that is also
+// a valid PRAYER schema payload — so a duplicate read of it can heal.
+const PRAYER_READ = {
   id: "read-2",
-  sourceUrl: "https://www.vatican.va/holy_father/paul_vi/populorum-mirror.html",
+  sourceUrl: "https://www.vatican.va/prayers/the-memorare-mirror.html",
   sourceHost: "www.vatican.va",
   checksum: "chk-2",
+  extractedTitle: "The Memorare",
+  extractedText:
+    "Remember, O most gracious Virgin Mary, that never was it known that anyone who fled to thy protection, implored thy help, or sought thy intercession was left unaided. Inspired by this confidence, I fly unto thee, O Virgin of virgins, my Mother. Amen.",
+  extractedHeadings: ["The Memorare"],
+  detectedContentType: "PRAYER",
+};
+
+// A body the real CHURCH_DOCUMENT extractor turns into a COMPLETE package
+// (missing=0) — the production loop URL was exactly this shape. Its schema
+// also needs an issuing authority and key themes no extractor reads, so it can
+// never be published from the web.
+const CHURCH_DOCUMENT_READ = {
+  id: "read-3",
+  sourceUrl: "https://www.vatican.va/holy_father/paul_vi/populorum-mirror.html",
+  sourceHost: "www.vatican.va",
+  checksum: "chk-3",
   extractedTitle: "Populorum Progressio",
-  extractedText: BODY,
+  extractedText: `Populorum Progressio. Encyclical of Pope Paul VI on the development of peoples, 26 March 1967.
+On the Development of Peoples. The development of peoples has the Church's close attention, particularly the
+development of those peoples who are striving to escape from hunger, misery, endemic diseases and ignorance.
+The progressive development of peoples is an object of deep interest and concern to the Church.`,
   extractedHeadings: ["Populorum Progressio"],
   detectedContentType: "CHURCH_DOCUMENT",
 };
@@ -66,7 +81,7 @@ function decision() {
     chosenPriority: "CONTENT_GOAL",
     chosenTaskType: "BUILD_CONTENT",
     passType: "CONTENT_GOAL",
-    contentType: "CHURCH_DOCUMENT",
+    contentType: "PRAYER",
     sourceTarget: null,
     expectedResult: "t",
     confidenceScore: 0.9,
@@ -88,7 +103,9 @@ function decision() {
 function makePrisma(opts: {
   existing?: { id: string; status: string; gateDiagnosis?: string | null } | null;
   createError?: { code?: string; message?: string } | null;
+  read?: typeof PRAYER_READ;
 }) {
+  const READ = opts.read ?? PRAYER_READ;
   const artifactUpdate = vi.fn(async (args: unknown) => args);
   const readUpdate = vi.fn(async (args: unknown) => args);
   const evidenceDeletes = vi.fn(async () => ({ count: 2 }));
@@ -253,5 +270,37 @@ describe("EXTRACTION duplicate handling (pre-publish wedge fix)", () => {
     expect(out.kind).toBe("advanced");
     expect(out.summary).toMatch(/art-new/);
     expect(out.summary).toMatch(/CHECKLIST_READY/);
+  });
+
+  // R1: a package complete by its extractor's list but not a valid schema
+  // payload used to spend cross-source verification fetches and strict QA only
+  // to be refused at publish. It now stays EXTRACTED with the schema's reason
+  // and goes straight to the artifact-keyed EXTRACT_FAILED path.
+  it("a Church document the schema can never accept stays EXTRACTED with the reason", async () => {
+    vi.mocked(filePlan).mockClear();
+    const { prisma } = makePrisma({ existing: null, read: CHURCH_DOCUMENT_READ });
+    const create = (
+      prisma as unknown as { adminWorkerPackageArtifact: { create: ReturnType<typeof vi.fn> } }
+    ).adminWorkerPackageArtifact.create;
+    const out = await executeMissionStage({
+      prisma,
+      workerId: "w",
+      passId: "p",
+      decision: decision(),
+    });
+    expect(out.kind).toBe("repair-planned");
+    const data = (create.mock.calls[0] as unknown as [{ data: Record<string, unknown> }])[0].data;
+    expect(data.status).toBe("EXTRACTED");
+    expect(String(data.rejectionReason)).toMatch(
+      /^SCHEMA_FIELDS_MISSING: CHURCH_DOCUMENT schema refuses this page's fields: .*issuingAuthority/,
+    );
+    expect(vi.mocked(filePlan)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        kind: "EXTRACT_FAILED",
+        failedEntity: "art-new",
+        metadata: expect.objectContaining({ origin: "schema_payload", sourceReadId: "read-3" }),
+      }),
+    );
   });
 });

@@ -1486,12 +1486,39 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
   const candidate = await prisma.candidateSourceUrl
     .findFirst({ where: { discoveredUrl: read.sourceUrl } })
     .catch(() => null);
+  // Fail fast on a package that can never become its schema payload (R1): a
+  // novena without per-day meditations, a Church document without an issuing
+  // authority. It would otherwise spend cross-source verification fetches and
+  // strict QA only to be refused at publish. It stays EXTRACTED with the
+  // schema's reason and takes the EXTRACT_FAILED path below. A citation
+  // shortfall is not a gap here: verification is what adds the second witness.
+  const { buildWebPublishPayload, webPublishType } = await import("./web-publish-payloads");
+  const preview =
+    pkg.rejectionReasons.length === 0 && pkg.missingFields.length === 0
+      ? buildWebPublishPayload(detected, {
+          fields: pkg.displayFields,
+          title: pkg.normalizedTitle,
+          slug: pkg.normalizedSlug,
+          host: read.sourceHost,
+          sourceUrl: read.sourceUrl,
+        })
+      : null;
+  const schemaGaps =
+    preview && !preview.ok && preview.code === "SCHEMA_FIELDS_MISSING"
+      ? preview.errors.filter((e) => !e.startsWith("citations"))
+      : [];
   const status =
     pkg.rejectionReasons.length > 0
       ? "REJECTED"
-      : pkg.missingFields.length === 0
+      : pkg.missingFields.length === 0 && schemaGaps.length === 0
         ? "CHECKLIST_READY"
         : "EXTRACTED";
+  const schemaGapReason =
+    schemaGaps.length > 0
+      ? `SCHEMA_FIELDS_MISSING: ${webPublishType(detected)} schema refuses this page's fields: ${schemaGaps
+          .slice(0, 3)
+          .join("; ")}`.slice(0, 480)
+      : null;
 
   // Artifacts are unique on (contentType, normalizedSlug, packageChecksum) —
   // effectively (type, normalized title). The SAME entity routinely arrives via
@@ -1553,7 +1580,7 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
           confidenceScore: pkg.confidenceByPackage,
           packageChecksum: pkg.duplicateKeys.titleHash,
           status,
-          rejectionReason: pkg.rejectionReasons[0] ?? null,
+          rejectionReason: pkg.rejectionReasons[0] ?? schemaGapReason,
           repairSuggestions: pkg.repairSuggestions,
         },
       });
@@ -1610,7 +1637,10 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
     const healable =
       ["EXTRACTED", "NEEDS_REPAIR", "REJECTED"].includes(existing.status) ||
       (existing.status === "NEEDS_REVIEW" && existing.gateDiagnosis === STRICT_QA_REVIEW_BAND);
-    const newIsComplete = pkg.rejectionReasons.length === 0 && pkg.missingFields.length === 0;
+    const newIsComplete =
+      pkg.rejectionReasons.length === 0 &&
+      pkg.missingFields.length === 0 &&
+      schemaGaps.length === 0;
     let healed = false;
     if (healable && newIsComplete) {
       healed = Boolean(
@@ -1711,6 +1741,30 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
       missingFields: pkg.missingFields,
     }).catch(() => undefined);
   }
+  if (schemaGaps.length > 0 && artifact) {
+    // Complete by the extractor's own list, but not a valid schema payload:
+    // the artifact-keyed EXTRACT_FAILED path (origin schema_payload) re-extracts
+    // it once and closes it with this reason if the fields still do not map;
+    // discovery moves on to another source of the type.
+    const { filePlan } = await import("./repair-plans");
+    await filePlan(prisma, {
+      kind: "EXTRACT_FAILED",
+      failedEntity: artifact.id,
+      repairAction: `Re-extract ${read.sourceUrl}: ${schemaGapReason}`,
+      metadata: {
+        artifactId: artifact.id,
+        sourceReadId: read.id,
+        contentType: detected,
+        origin: "schema_payload",
+        errors: schemaGaps.slice(0, 10),
+      },
+    }).catch(() => undefined);
+    const { rerouteToAlternateSource } = await import("./repair");
+    await rerouteToAlternateSource(prisma, {
+      contentType: detected,
+      failedHost: read.sourceHost,
+    }).catch(() => undefined);
+  }
 
   await writeAdminWorkerLog(prisma, {
     passId,
@@ -1739,11 +1793,13 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
           : "repair-planned",
     summary: `Extraction materialised package artifact ${artifact?.id ?? "(?)"} (${status}).`,
     rejected: status === "REJECTED" ? 1 : 0,
-    repairsPlanned: status === "EXTRACTED" && pkg.missingFields.length > 0 ? 1 : 0,
+    repairsPlanned:
+      status === "EXTRACTED" && (pkg.missingFields.length > 0 || schemaGaps.length > 0) ? 1 : 0,
     metadata: {
       artifactId: artifact?.id ?? null,
       status,
       missingFields: pkg.missingFields,
+      ...(schemaGaps.length > 0 ? { schemaGaps: schemaGaps.slice(0, 10) } : {}),
     },
   };
 }
