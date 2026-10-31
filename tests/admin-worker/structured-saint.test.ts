@@ -11,9 +11,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/admin-worker/structured/wikipedia", () => ({
   fetchSummaryForArticleUrl: vi.fn(),
 }));
-vi.mock("@/lib/admin-worker/structured/wikipedia-infobox", () => ({
-  fetchArticleInfobox: vi.fn(async () => ({})),
-}));
+vi.mock("@/lib/admin-worker/structured/wikipedia-infobox", () => {
+  const fetchArticleInfobox = vi.fn(async (_url: string): Promise<Record<string, string>> => ({}));
+  return {
+    fetchArticleInfobox,
+    // The ingest reads the infobox and the body prose from ONE parse call; the
+    // tests drive the infobox through `fetchArticleInfobox` and the prose
+    // through `globalThis.__saintProse`.
+    fetchArticleSource: vi.fn(async (url: string) => ({
+      infobox: await fetchArticleInfobox(url),
+      prose: (globalThis as { __saintProse?: string }).__saintProse ?? "",
+    })),
+  };
+});
 
 import { validatePayload } from "@/lib/checklist";
 import { ingestorFor } from "@/lib/admin-worker/structured/ingestors";
@@ -43,7 +53,13 @@ beforeEach(() => {
   mockedSummary.mockReset();
   mockedInfobox.mockReset();
   mockedInfobox.mockResolvedValue({});
+  setProse("");
 });
+
+/** The article body prose the mocked parse call returns. */
+function setProse(text: string): void {
+  (globalThis as { __saintProse?: string }).__saintProse = text;
+}
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -168,11 +184,11 @@ describe("SAINT ingestor — infobox corroboration + enrichment", () => {
     expect(validatePayload("SAINT", entry!.payload).ok).toBe(true);
   });
 
-  it("still SKIPS when the infobox feast disagrees with Wikidata", async () => {
+  it("SKIPS as contradicted when the infobox feast disagrees with Wikidata", async () => {
     mockedSummary.mockResolvedValue({ extract: PROSE_NO_FEAST, url: FULL.art });
     mockedInfobox.mockResolvedValue({ feast_day: "30 August" });
 
-    expect(rejectionOf(await saintMap(row(FULL)))?.code).toBe("feast_uncorroborated");
+    expect(rejectionOf(await saintMap(row(FULL)))?.code).toBe("feast_contradicted");
   });
 
   it("multi-feast saint: publishes ONLY the day the infobox lists first, else skips", async () => {

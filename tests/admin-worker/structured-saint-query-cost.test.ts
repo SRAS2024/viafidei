@@ -40,9 +40,19 @@ vi.mock("@/lib/admin-worker/structured/wikidata", async (importOriginal) => {
 vi.mock("@/lib/admin-worker/structured/wikipedia", () => ({
   fetchSummaryForArticleUrl: vi.fn(async () => null),
 }));
-vi.mock("@/lib/admin-worker/structured/wikipedia-infobox", () => ({
-  fetchArticleInfobox: vi.fn(async () => ({})),
-}));
+vi.mock("@/lib/admin-worker/structured/wikipedia-infobox", () => {
+  const fetchArticleInfobox = vi.fn(async (_url: string): Promise<Record<string, string>> => ({}));
+  return {
+    fetchArticleInfobox,
+    // The ingest reads the infobox and the body prose from ONE parse call; the
+    // tests drive the infobox through `fetchArticleInfobox` and the prose
+    // through `globalThis.__saintProse`.
+    fetchArticleSource: vi.fn(async (url: string) => ({
+      infobox: await fetchArticleInfobox(url),
+      prose: (globalThis as { __saintProse?: string }).__saintProse ?? "",
+    })),
+  };
+});
 vi.mock("@/lib/admin-worker/publish-orchestrator", () => ({
   runPublishOrchestrator: vi.fn(async () => ({ kind: "published" })),
 }));

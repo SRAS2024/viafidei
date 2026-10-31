@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  articleProse,
   cleanInfoboxValue,
   extractInfoboxBlock,
   parseInfobox,
@@ -162,5 +163,20 @@ describe("parseInfobox — a wrapped value is a PRESENT value", () => {
     expect(box.feast_day).toContain("26 August");
     expect(box.patronage).toBe("Farmers; Bakers");
     expect(box.canonized_date).toBe("1997-10-19");
+  });
+});
+
+describe("articleProse — the body the feast-wording check reads", () => {
+  it("drops the infobox and keeps the running text, links as their labels", () => {
+    const prose = articleProse(
+      `${WIKITEXT}\n\n== Veneration ==\nHer [[feast day|feast]] is kept on 23 August.<ref>Martyrology</ref>`,
+    );
+    expect(prose).toContain("Rose of Lima was a Peruvian Dominican tertiary.");
+    expect(prose).toContain("Veneration.");
+    expect(prose).toContain("Her feast is kept on 23 August.");
+    // The infobox is judged by its own rule, never as prose.
+    expect(prose).not.toContain("canonized_by");
+    expect(prose).not.toContain("Pope Clement X");
+    expect(prose).not.toContain("Martyrology");
   });
 });

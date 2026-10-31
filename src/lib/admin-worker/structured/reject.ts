@@ -104,13 +104,29 @@ export const REJECTION_CODES = [
   "no_catholic_religion",
   /** Infobox carries no canonization/beatification date, so no status. */
   "no_canonization_date",
+  /**
+   * Wikidata's stage and the article's disagree: P411 says canonized but the
+   * article records only a beatification (Józef Cebula), or the article
+   * records a later stage than Wikidata does.
+   */
+  "status_contradicted",
+  /** A Venerable / Servant of God stage the article itself never states. */
+  "status_uncorroborated",
   /** No P841 value parsed into a real calendar day. */
   "feast_unparseable",
-  /** The one feast day is not stated by the article's prose or infobox. */
+  /**
+   * The feast day is not stated by the article: its infobox gives none, and no
+   * date in its prose sits next to feast / memorial / liturgical wording.
+   */
   "feast_uncorroborated",
+  /** The article's infobox names a different feast day than Wikidata (P841). */
+  "feast_contradicted",
   /** Several feast days and nothing to say which the calendar uses. */
   "feast_ambiguous",
-  /** Non-English article and the composed English biography was too thin. */
+  /**
+   * No English article to quote: the biography is the English lead, verbatim
+   * and attributed, and template biographies are no longer composed.
+   */
   "biography_unavailable",
 
   /* ── Orchestration: recorded by ingest.ts, not by a mapper ─────────────── */

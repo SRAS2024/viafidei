@@ -275,6 +275,43 @@ describe("runStructuredSaintRepair", () => {
     });
   });
 
+  it("removes the feast of a proven Venerable and never hands one back", async () => {
+    // A Venerable has no liturgical feast; the multi-feast re-check must not
+    // re-add the P841 date to a row whose proven stage is venerable.
+    const rows = [
+      saintRow("a-sheen", "Q463048", {
+        canonicalName: "Fulton J. Sheen",
+        title: "Venerable Fulton J. Sheen",
+        canonizationStatus: "venerable",
+        saintType: "bishop",
+        feastDay: "12-09",
+        feastMonth: 12,
+        feastDayOfMonth: 9,
+      }),
+    ];
+    mockedSparql.mockResolvedValue([
+      binding({
+        s: `${WD}Q463048`,
+        label: "Fulton J. Sheen",
+        statuses: `${WD}Q51619`,
+        religions: `${WD}Q9592`,
+        positions: `${WD}Q29182`,
+        feasts: "9 December||10 December",
+      }),
+    ]);
+    mockedInfobox.mockResolvedValue({ feast_day: "9 December" });
+    const { prisma } = makePrisma(rows);
+
+    await runStructuredSaintRepair(prisma);
+
+    const proposed = mockedUpdate.mock.calls[0][1].proposedPayload;
+    expect(proposed.canonizationStatus).toBe("venerable");
+    expect(proposed).not.toHaveProperty("feastDay");
+    expect(proposed).not.toHaveProperty("feastMonth");
+    expect(proposed).not.toHaveProperty("feastDayOfMonth");
+    expect(mockedUpdate.mock.calls[0][1].allowReplace).toBe(true);
+  });
+
   it("holds the cursor and changes nothing when the structured source fails", async () => {
     mockedSparql.mockResolvedValue(null);
     const { prisma, update, upsert } = makePrisma([saintRow("a", "Q1", {})], {

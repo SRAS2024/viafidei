@@ -129,10 +129,19 @@ export function splitTopLevelPipes(inner: string): string[] {
  * a template we cannot read is not evidence of anything.
  */
 const UNWRAP_TEMPLATES: ReadonlySet<string> = new Set([
-  // List wrappers.
+  // List wrappers. `{{cslist}}` is how René Goupil's infobox writes "26
+  // September (Canada) | 19 October (United States)"; dropping it left his
+  // feast parameter empty and the ingest fell back to prose.
   "unbulleted list",
   "ubl",
   "ublist",
+  "cslist",
+  "comma separated list",
+  "comma-separated list",
+  "sslist",
+  "semicolon separated list",
+  "andlist",
+  "ordered list",
   "plainlist",
   "plain list",
   "flatlist",
@@ -174,7 +183,7 @@ function debullet(arg: string): string {
  * positional arguments (joined with "; "), drop everything else. Bounded passes
  * so deeply nested markup can never spin.
  */
-function resolveTemplates(text: string): string {
+function resolveTemplates(text: string, unwrapAll = false): string {
   let v = text;
   for (let pass = 0; pass < 6 && /\{\{/.test(v); pass += 1) {
     let changed = false;
@@ -187,7 +196,7 @@ function resolveTemplates(text: string): string {
         .trim()
         .toLowerCase()
         .replace(/[\s_]+/g, " ");
-      if (!UNWRAP_TEMPLATES.has(name)) return " ";
+      if (!unwrapAll && !UNWRAP_TEMPLATES.has(name)) return " ";
       const args = parts
         .slice(1)
         // Drop named parameters (`class=…`, `title=…`): chrome, not content.
@@ -201,8 +210,13 @@ function resolveTemplates(text: string): string {
   return v;
 }
 
-/** Clean one infobox value: refs, links, templates, markup → plain text. */
-export function cleanInfoboxValue(raw: string): string {
+/**
+ * Clean one infobox value: refs, links, templates, markup → plain text.
+ * `unwrapAll` unwraps EVERY template to its positional arguments instead of
+ * dropping the unrecognised ones — the fallback for a feast parameter that
+ * would otherwise clean to nothing (see `parseInfoboxBlock`).
+ */
+export function cleanInfoboxValue(raw: string, opts: { unwrapAll?: boolean } = {}): string {
   let v = raw;
   // Drop references and HTML comments entirely.
   v = v.replace(/<ref[^>]*\/>/gi, "");
@@ -217,7 +231,7 @@ export function cleanInfoboxValue(raw: string): string {
     (_m, y: string, mo: string, d: string) => `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`,
   );
   // Wrapper templates hold the value; anything unrecognised is dropped.
-  v = resolveTemplates(v);
+  v = resolveTemplates(v, opts.unwrapAll === true);
   // Links: [[target|label]] → label, [[target]] → target.
   v = v.replace(/\[\[(?:[^\]|]*\|)?([^\]|]*)\]\]/g, "$1");
   // External links: [url label] → label.
@@ -247,11 +261,31 @@ function parseInfoboxBlock(block: string): Record<string, string> {
       .toLowerCase()
       .replace(/[\s-]+/g, "_");
     if (!key) continue;
-    const value = cleanInfoboxValue(part.slice(eq + 1));
+    const raw = part.slice(eq + 1);
+    let value = cleanInfoboxValue(raw);
+    // A feast parameter must never vanish because it sits in a wrapper we do
+    // not know: an absent infobox feast sends the ingest to the prose rule,
+    // which is the weaker one. Read its template arguments instead.
+    if (!value && FEAST_KEYS.has(key) && raw.trim()) {
+      value = cleanInfoboxValue(raw, { unwrapAll: true });
+    }
     if (value) out[key] = value;
   }
   return out;
 }
+
+/** Infobox parameters that state a feast day, across the editions we read. */
+const FEAST_KEYS: ReadonlySet<string> = new Set([
+  "feast_day",
+  "feast",
+  "feastday",
+  "ricorrenza",
+  "festividad",
+  "fête",
+  "fete",
+  "gedenktag",
+  "wspomnienie",
+]);
 
 /**
  * Parse the infoboxes of a page into ONE key → cleaned-value map. Parameter
@@ -336,4 +370,56 @@ export async function fetchArticleInfobox(
   } catch {
     return {};
   }
+}
+
+/** Longest article body kept for the prose checks. */
+const PROSE_MAX_CHARS = 200_000;
+
+/**
+ * The article's running text as plain prose: the wikitext with its infoboxes
+ * removed and refs, templates, links and markup cleaned the same way an
+ * infobox value is. Used for the feast-wording corroboration, which must see
+ * the body ("His feast is kept on 23 August" is rarely in the lead) but never
+ * the infobox, whose dates are judged by their own, stricter rule.
+ */
+export function articleProse(wikitext: string): string {
+  let body = wikitext;
+  for (const block of extractInfoboxBlocks(wikitext)) body = body.replace(block, " ");
+  // Section headings carry no dates worth reading, but keep their words.
+  body = body.replace(/^=+\s*(.*?)\s*=+\s*$/gm, "$1.");
+  const prose = cleanInfoboxValue(body);
+  return prose.length > PROSE_MAX_CHARS ? prose.slice(0, PROSE_MAX_CHARS) : prose;
+}
+
+/** What one Action API parse call yields: the infobox fields and the body prose. */
+export interface ArticleSource {
+  infobox: Record<string, string>;
+  /** Plain-text article body without its infoboxes ("" when unavailable). */
+  prose: string;
+}
+
+/**
+ * Fetch an article's wikitext ONCE and return both its infobox and its body
+ * prose. Returns empty parts when offline/disabled or anything fails; a read
+ * that did not complete is recorded in `opts.ledger` when one is passed.
+ */
+export async function fetchArticleSource(
+  articleUrl: string,
+  opts: { ledger?: SourceReadLedger } = {},
+): Promise<ArticleSource> {
+  const wikitext = await fetchArticleWikitext(articleUrl, { ledger: opts.ledger });
+  if (!wikitext) return { infobox: {}, prose: "" };
+  let infobox: Record<string, string> = {};
+  let prose = "";
+  try {
+    infobox = parseInfobox(wikitext);
+  } catch {
+    infobox = {};
+  }
+  try {
+    prose = articleProse(wikitext);
+  } catch {
+    prose = "";
+  }
+  return { infobox, prose };
 }

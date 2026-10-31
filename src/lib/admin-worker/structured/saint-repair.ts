@@ -24,6 +24,8 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import { FEASTLESS_CANONIZATION_STATUSES } from "@/lib/checklist/schemas/saint";
+
 import { applyProtectedContentUpdate } from "../content-protection";
 import { fileHumanReview } from "../human-review";
 import { writeAdminWorkerLog } from "../logs";
@@ -322,8 +324,17 @@ export async function runStructuredSaintRepair(
     const saintType = deriveSaintType(facts, { abstract, infoboxTitles: infobox.titles });
     if (saintType !== payload.saintType) proposed.saintType = saintType;
 
+    // A Venerable / Servant of God has no liturgical feast (the SAINT schema
+    // refuses one): a row whose proven stage is one of those loses its feast,
+    // and the multi-feast re-check below must never hand it one back.
+    const feastless = FEASTLESS_CANONIZATION_STATUSES.has(status);
+    if (feastless) {
+      delete proposed.feastDay;
+      delete proposed.feastMonth;
+      delete proposed.feastDayOfMonth;
+    }
     const candidates = parseFeastCandidates(facts.feasts);
-    if (candidates.length > 1 && Object.keys(infobox).length > 0) {
+    if (!feastless && candidates.length > 1 && Object.keys(infobox).length > 0) {
       const feast = chooseCorroboratedFeast({
         candidates,
         abstract: abstract ?? "",
