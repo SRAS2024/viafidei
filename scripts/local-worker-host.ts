@@ -32,7 +32,7 @@ import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { cpus } from "node:os";
+import { cpus, homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -126,6 +126,12 @@ import {
   watchSupervisor,
 } from "../src/lib/admin-worker/supervised-host";
 import { installProcessSafetyNet } from "../src/lib/admin-worker/worker-supervisor";
+import {
+  hostLogPath,
+  RotatingLogFile,
+  secretsFromEnv,
+  teeStderrTo,
+} from "../src/lib/admin-worker/host-log-file";
 import { appConfig } from "../src/lib/config";
 import { prisma } from "../src/lib/db/client";
 
@@ -137,6 +143,21 @@ const RUNTIME_ID = `local-macbook-${process.pid}-${Date.now().toString(36)}`;
 const CONTROL_TOKEN = randomBytes(32).toString("hex");
 const MAX_BODY_BYTES = MAX_FILE_BYTES + 1024;
 const LOG_RING_SIZE = 800;
+
+/**
+ * The persistent runtime log (host-log-file.ts): every host line, the worker
+ * child's output and this process's stderr, rotated at 10 MB × 4 files. The
+ * ring below is only the last 800 lines in memory, and the app sends this
+ * process's console to /dev/null — before this, a crash left no trace on disk.
+ * Redacted for the control token and every secret-looking variable.
+ */
+const HOST_LOG_PATH = hostLogPath();
+const hostLog = HOST_LOG_PATH
+  ? new RotatingLogFile(HOST_LOG_PATH, { secrets: [CONTROL_TOKEN, ...secretsFromEnv()] })
+  : null;
+if (hostLog) teeStderrTo(hostLog);
+/** The log path as operator-facing text (home shortened to ~, so rows never carry a username). */
+const HOST_LOG_HINT = HOST_LOG_PATH ? HOST_LOG_PATH.replace(homedir(), "~") : null;
 
 /* ------------------------------------------------------------------ */
 /* supervisor state                                                     */
@@ -298,12 +319,24 @@ function invalidateExecutionCache(): void {
   executionCache = { value: null, at: 0, inFlight: null };
 }
 
+/** Set once the log file has failed, so the failure is reported exactly once. */
+let hostLogFailureReported = false;
+
 function pushLog(stream: "worker" | "host", line: string): void {
   const entry = { at: new Date().toISOString(), stream, line: line.slice(0, 2000) };
   logRing.push(entry);
   if (logRing.length > LOG_RING_SIZE) logRing.splice(0, logRing.length - LOG_RING_SIZE);
   broadcast("log", entry);
+  // Written directly, not through the console: the file must keep the last
+  // lines of a host whose console pipe is already gone (silenceStdio).
+  hostLog?.write(stream, entry.line);
   if (stream === "host") console.log(`[local-host] ${line}`);
+  if (hostLog?.failure && !hostLogFailureReported) {
+    hostLogFailureReported = true;
+    const failure = `runtime log file ${hostLog.path} switched off: ${hostLog.failure}`;
+    logRing.push({ at: new Date().toISOString(), stream: "host", line: failure });
+    console.log(`[local-host] ${failure}`);
+  }
 }
 
 function broadcast(event: string, data: unknown): void {
@@ -432,6 +465,7 @@ async function restartAfterCrash(exit: {
         code: exit.code,
         signal: exit.signal,
         nextDelayMs: delayMs,
+        logHint: HOST_LOG_HINT,
       })
     : null;
   pushLog(
@@ -1318,6 +1352,8 @@ function statusPayload() {
       nextAttemptAt: host.nextRestartAt ? new Date(host.nextRestartAt).toISOString() : null,
       backoffMaxMs: RESTART_BACKOFF.maxMs,
     },
+    // Where the persistent runtime log is (null when switched off or failed).
+    logFile: hostLog && !hostLog.failure ? hostLog.path : null,
     // Progress, not just existence: the hung-pass watchdog's view.
     progress: {
       lastAt: host.lastProgressAt ? new Date(host.lastProgressAt).toISOString() : null,
@@ -1997,6 +2033,12 @@ async function main(): Promise<void> {
     })();
   };
   installProcessGuards(shutdown);
+  pushLog(
+    "host",
+    HOST_LOG_HINT
+      ? `local worker host ${RUNTIME_ID} starting; runtime log: ${HOST_LOG_HINT}`
+      : `local worker host ${RUNTIME_ID} starting; runtime log file switched off`,
+  );
 
   // Never die silently: the parent application is watching stdout, so a listen
   // failure has to be said out loud or the operator just sees a blank console.
