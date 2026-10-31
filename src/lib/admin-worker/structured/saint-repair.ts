@@ -121,6 +121,81 @@ export function publishedSaintQid(row: {
   return null;
 }
 
+/**
+ * Unpublish one structured saint — never delete — with a recorded reason: the
+ * row is flagged `isPublished = false`, a WARN `structured_saint_unpublished`
+ * AdminWorkerLog row says why, and an always-queued HumanReviewQueue row lets
+ * an operator restore it with one click. Shared by the repair lane and the
+ * operator cleanup (scripts/booster/saint-cleanup.ts), so both leave the same
+ * trail. Never throws.
+ */
+export async function unpublishStructuredSaint(
+  prisma: PrismaClient,
+  input: {
+    row: { id: string; slug: string; title: string; payload: unknown };
+    qid: string;
+    reason: string;
+    facts?: Pick<SaintFacts, "statuses" | "religions" | "religionLabels"> | null;
+    /** What the review row calls the action ("unpublish (structured saint repair)"). */
+    proposedAction: string;
+    /** Extra evidence for the log + review payloads (article, infobox fields, …). */
+    evidence?: Record<string, unknown>;
+    passId?: string;
+  },
+): Promise<{ ok: boolean; error?: string }> {
+  const { row, qid, reason, facts } = input;
+  try {
+    await prisma.publishedContent.update({
+      where: { id: row.id },
+      data: { isPublished: false, unpublishedAt: new Date() },
+    });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  const structured = facts
+    ? { statuses: facts.statuses, religions: facts.religions, religionLabels: facts.religionLabels }
+    : {};
+  await writeAdminWorkerLog(prisma, {
+    passId: input.passId,
+    category: "CLEANUP",
+    severity: "WARN",
+    eventName: "structured_saint_unpublished",
+    contentType: "SAINT",
+    relatedEntityId: row.id,
+    sourceUrl: wikidataEntityUrl(qid),
+    message: `Unpublished SAINT "${row.title}" (${row.slug}): ${reason}`,
+    safeMetadata: {
+      contentId: row.id,
+      slug: row.slug,
+      wikidataQid: qid,
+      ...structured,
+      ...(input.evidence ?? {}),
+    } as Prisma.InputJsonValue,
+  }).catch(() => undefined);
+  await fileHumanReview(prisma, {
+    contentType: "SAINT",
+    contentTitle: row.title,
+    proposedAction: input.proposedAction,
+    reason,
+    confidence: 0.92,
+    sourceEvidence: {
+      wikidata: wikidataEntityUrl(qid),
+      ...structured,
+      ...(input.evidence ?? {}),
+    } as Prisma.InputJsonValue,
+    currentVersion: (row.payload ?? {}) as Prisma.InputJsonValue,
+    blockingGate: "catholic-accuracy",
+    neededAction:
+      "Confirm the person is not venerated by the Catholic Church. If they are (a pre-schism saint Wikidata tags only as Orthodox), set isPublished back to true and add the Catholic status on Wikidata.",
+    repairSuggestion:
+      "Restore the row (PublishedContent.isPublished = true) if Catholic veneration is documented.",
+    nextAutomatedAction:
+      "none — the worker will not republish this record without a Catholic status on Wikidata.",
+    alwaysQueue: true,
+  }).catch(() => undefined);
+  return { ok: true };
+}
+
 /** One SPARQL for a batch of QIDs, projected exactly like the ingestor. */
 function factsSparqlFor(qids: string[]): string {
   return `SELECT ${SAINT_FACTS_SELECT} WHERE {
@@ -235,63 +310,22 @@ export async function runStructuredSaintRepair(
 
     // ── Non-Catholic veneration proven by the structured record → unpublish ─
     if (isProvenNonCatholic(facts)) {
-      try {
-        await prisma.publishedContent.update({
-          where: { id: row.id },
-          data: { isPublished: false, unpublishedAt: new Date() },
-        });
-      } catch (err) {
-        out.errors.push(
-          `${row.slug}: unpublish failed (${err instanceof Error ? err.message : String(err)})`,
-        );
-        continue;
-      }
-      out.unpublished += 1;
       const reason =
         `Wikidata ${qid} records this saint with a non-Catholic canonization status / religion ` +
         `(statuses: ${facts.statuses.join(", ") || "none"}; religions: ${
           facts.religionLabels.join(", ") || facts.religions.join(", ") || "none"
         }) and no Catholic status or religion. The record was published by the earlier label-based ` +
         `status mapping and cannot be shown as a Catholic saint.`;
-      await writeAdminWorkerLog(prisma, {
-        passId: opts.passId,
-        category: "CLEANUP",
-        severity: "WARN",
-        eventName: "structured_saint_unpublished",
-        contentType: "SAINT",
-        relatedEntityId: row.id,
-        sourceUrl: wikidataEntityUrl(qid),
-        message: `Unpublished SAINT "${row.title}" (${row.slug}): ${reason}`,
-        safeMetadata: {
-          contentId: row.id,
-          slug: row.slug,
-          wikidataQid: qid,
-          statuses: facts.statuses,
-          religions: facts.religions,
-          religionLabels: facts.religionLabels,
-        },
-      }).catch(() => undefined);
-      await fileHumanReview(prisma, {
-        contentType: "SAINT",
-        contentTitle: row.title,
-        proposedAction: "unpublish (structured saint repair)",
+      const r = await unpublishStructuredSaint(prisma, {
+        row,
+        qid,
         reason,
-        confidence: 0.92,
-        sourceEvidence: {
-          wikidata: wikidataEntityUrl(qid),
-          statuses: facts.statuses,
-          religions: facts.religions,
-        },
-        currentVersion: payload as Prisma.InputJsonValue,
-        blockingGate: "catholic-accuracy",
-        neededAction:
-          "Confirm the person is not venerated by the Catholic Church. If they are (a pre-schism saint Wikidata tags only as Orthodox), set isPublished back to true and add the Catholic status on Wikidata.",
-        repairSuggestion:
-          "Restore the row (PublishedContent.isPublished = true) if Catholic veneration is documented.",
-        nextAutomatedAction:
-          "none — the worker will not republish this record without a Catholic status on Wikidata.",
-        alwaysQueue: true,
-      }).catch(() => undefined);
+        facts,
+        proposedAction: "unpublish (structured saint repair)",
+        passId: opts.passId,
+      });
+      if (r.ok) out.unpublished += 1;
+      else out.errors.push(`${row.slug}: unpublish failed (${r.error})`);
       continue;
     }
 

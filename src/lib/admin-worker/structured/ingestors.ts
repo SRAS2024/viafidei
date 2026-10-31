@@ -343,7 +343,7 @@ export function parseFeastCandidates(raw: string[]): ParsedFeast[] {
 }
 
 /** Infobox feast parameter, across the language editions we corroborate in. */
-function infoboxFeastValue(infobox: Record<string, string>): string {
+export function infoboxFeastValue(infobox: Record<string, string>): string {
   for (const key of [
     "feast_day",
     "feast",
