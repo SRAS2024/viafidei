@@ -40,8 +40,9 @@ function seed() {
             },
           },
           {
-            slug: "rerum-novarum",
-            title: "Rerum Novarum",
+            // A document no static event claims, so it becomes its own row.
+            slug: "an-unlisted-labour-encyclical",
+            title: "An Unlisted Labour Encyclical",
             payload: {
               documentType: "encyclical",
               issuedDate: "1891-05-15",
