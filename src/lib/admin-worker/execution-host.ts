@@ -268,6 +268,13 @@ function unreachableClaim(err: unknown): LeaseClaim {
   };
 }
 
+interface LeaseClaimInput {
+  runtimeId: string;
+  origin: WorkerExecutionOrigin;
+  host: ExecutionHostInfo;
+  workerVersion?: string | null;
+}
+
 /**
  * Claim sole execution authority. Uses optimistic concurrency on the memory
  * row's `updatedAt` so two runtimes racing for the lease cannot both win.
@@ -275,12 +282,15 @@ function unreachableClaim(err: unknown): LeaseClaim {
  */
 export async function acquireExecutionLease(
   prisma: PrismaClient,
-  input: {
-    runtimeId: string;
-    origin: WorkerExecutionOrigin;
-    host: ExecutionHostInfo;
-    workerVersion?: string | null;
-  },
+  input: LeaseClaimInput,
+): Promise<LeaseClaim> {
+  return claimLease(prisma, input, 1);
+}
+
+async function claimLease(
+  prisma: PrismaClient,
+  input: LeaseClaimInput,
+  retriesLeft: number,
 ): Promise<LeaseClaim> {
   let existingRow: RawRow | null;
   try {
@@ -330,9 +340,21 @@ export async function acquireExecutionLease(
       return unreachableClaim(err);
     }
     if (updated.count === 0) {
-      const nowRow = await readRow(prisma, LEASE_KEY).catch(() => null);
+      // The row changed between the read and the write, so NOTHING of ours
+      // was written; only a fresh read says who holds the lease now. That read
+      // failing used to fall through to "acquired" — a claim that was never
+      // written, with the real holder unknown.
+      let nowRow: RawRow | null;
+      try {
+        nowRow = await readRow(prisma, LEASE_KEY);
+      } catch (err) {
+        return unreachableClaim(err);
+      }
       const holder = parseLease(nowRow?.memoryValue);
-      if (holder && holder.runtimeId !== input.runtimeId) {
+      // This runtime's own write landed in between (the host renewing the
+      // lease its worker child is claiming): the row names us, so it is ours.
+      if (holder?.runtimeId === input.runtimeId) return { acquired: true, lease: holder };
+      if (holder) {
         return {
           acquired: false,
           lease: holder,
@@ -340,6 +362,16 @@ export async function acquireExecutionLease(
           refusedBecause: `Execution lease was claimed concurrently by ${holder.runtimeId}.`,
         };
       }
+      // Released (or rewritten unreadably) under us: claim it afresh, once. A
+      // second race is a refusal, never a claim nobody wrote.
+      if (retriesLeft > 0) return claimLease(prisma, input, retriesLeft - 1);
+      return {
+        acquired: false,
+        lease: null,
+        refusal: "claimed_concurrently",
+        refusedBecause:
+          "The execution lease changed twice while it was being claimed; nothing was written.",
+      };
     }
     return { acquired: true, lease };
   }
