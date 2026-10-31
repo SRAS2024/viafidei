@@ -32,6 +32,7 @@ import { WEB_EXTRACTION_CONTENT_TYPES, isExtractableContentType } from "./conten
 import { writeAdminWorkerLog } from "./logs";
 import { reportQueryError } from "./schema-integrity";
 import { recordStageOutcome, toStageOutcome } from "./stage-outcomes";
+import { STRICT_QA_REVIEW_BAND } from "./strict-qa";
 import {
   MAX_TRANSIENT_FETCH_ATTEMPTS,
   MAX_VERIFICATION_ROUNDS,
@@ -1522,7 +1523,13 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
   let existing = await prisma.adminWorkerPackageArtifact
     .findUnique({
       where: { contentType_normalizedSlug_packageChecksum: duplicateKey },
-      select: { id: true, status: true, sourceReadId: true, missingFields: true },
+      select: {
+        id: true,
+        status: true,
+        sourceReadId: true,
+        missingFields: true,
+        gateDiagnosis: true,
+      },
     })
     .catch((err) => {
       reportQueryError("extraction.duplicateLookup", err);
@@ -1557,7 +1564,13 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
         existing = await prisma.adminWorkerPackageArtifact
           .findUnique({
             where: { contentType_normalizedSlug_packageChecksum: duplicateKey },
-            select: { id: true, status: true, sourceReadId: true, missingFields: true },
+            select: {
+              id: true,
+              status: true,
+              sourceReadId: true,
+              missingFields: true,
+              gateDiagnosis: true,
+            },
           })
           .catch(() => null);
       }
@@ -1591,7 +1604,12 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
     //    or past the funnel (CHECKLIST_READY → PUBLISHED, NEEDS_REVIEW) are
     //    never touched.
     await consumeDuplicateRead();
-    const healable = ["EXTRACTED", "NEEDS_REPAIR", "REJECTED"].includes(existing.status);
+    // A strict-QA review-band hold is healable too: its score is a fixed
+    // function of the stored package, so a second source's fresh fields are
+    // its only way forward (strict QA re-scores a healed artifact).
+    const healable =
+      ["EXTRACTED", "NEEDS_REPAIR", "REJECTED"].includes(existing.status) ||
+      (existing.status === "NEEDS_REVIEW" && existing.gateDiagnosis === STRICT_QA_REVIEW_BAND);
     const newIsComplete = pkg.rejectionReasons.length === 0 && pkg.missingFields.length === 0;
     let healed = false;
     if (healable && newIsComplete) {
@@ -1621,6 +1639,11 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
             return null;
           }),
       );
+      // The healed artifact carries NEW field values: its old strict-QA row
+      // and cross-source evidence judged the OLD ones, so they must not carry
+      // over (a stored MATCH for last week's feast day would otherwise
+      // "confirm" a different one, and a PASSED row would skip re-scoring).
+      if (healed) await clearJudgementsFor(prisma, existing.id);
     }
     await writeAdminWorkerLog(prisma, {
       passId,
@@ -1723,6 +1746,24 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
       missingFields: pkg.missingFields,
     },
   };
+}
+
+/**
+ * Forget the strict-QA verdict and cross-source evidence recorded for an
+ * artifact whose fields were just replaced by a heal, so verification and
+ * strict QA judge the fields it now carries. Best-effort.
+ */
+export async function clearJudgementsFor(prisma: PrismaClient, artifactId: string): Promise<void> {
+  await Promise.resolve()
+    .then(() =>
+      prisma.adminWorkerCrossSourceVerification.deleteMany({ where: { contentId: artifactId } }),
+    )
+    .catch(() => undefined);
+  await Promise.resolve()
+    .then(() =>
+      prisma.adminWorkerStrictQAResult.deleteMany({ where: { packageArtifactId: artifactId } }),
+    )
+    .catch(() => undefined);
 }
 
 /**
@@ -2521,6 +2562,14 @@ export async function runStrictQA(prisma: PrismaClient, passId: string): Promise
     // the Developer Audit / command center) rather than NEEDS_REPAIR, which
     // the repair orchestrator would bounce back to EXTRACTED and strand
     // (runExtraction only (re)processes reads that have no artifact yet).
+    //
+    // The hold used to carry no reason at all (rejectionReason null), so
+    // nothing could tell it from any other review, and the weekly
+    // self-maintenance requeue re-scored it — deterministically, to the same
+    // band — forever. It now records why (STRICT_QA_REVIEW_BAND with the
+    // score and threshold) and a gateDiagnosis that keeps the generic requeue
+    // off it. Its forward path is another source: a later read of the same
+    // entity heals the artifact with fresh fields, and strict QA scores those.
     const nextStatus =
       qa.status === "PASSED"
         ? "QA_PASSED"
@@ -2534,7 +2583,17 @@ export async function runStrictQA(prisma: PrismaClient, passId: string): Promise
         data: {
           status: nextStatus,
           rejectionReason:
-            nextStatus === "REJECTED" ? `strict QA failed: ${qa.blockingReasons.join("; ")}` : null,
+            nextStatus === "REJECTED"
+              ? `strict QA failed: ${qa.blockingReasons.join("; ")}`
+              : nextStatus === "NEEDS_REVIEW"
+                ? `${STRICT_QA_REVIEW_BAND}: ${qa.blockingReasons.join("; ") || `finalScore ${qa.finalScore.toFixed(2)} in the review band`}`.slice(
+                    0,
+                    480,
+                  )
+                : null,
+          ...(nextStatus === "NEEDS_REVIEW"
+            ? { gateDiagnosis: STRICT_QA_REVIEW_BAND, gateCheckedAt: new Date() }
+            : {}),
         },
       })
       .catch(() => undefined);

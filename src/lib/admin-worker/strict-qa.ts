@@ -46,6 +46,15 @@ const WEIGHTS = {
 
 const REVIEW_FLOOR = 0.5;
 
+/**
+ * Reason code + gateDiagnosis of an artifact parked because its strict-QA
+ * score landed in the review band (complete, no zero dimension, under the
+ * type's threshold). Deterministic for the stored package, so it is held —
+ * never requeued to be re-scored to the same band — until another source of
+ * the same entity heals it with fresh fields.
+ */
+export const STRICT_QA_REVIEW_BAND = "STRICT_QA_REVIEW_BAND";
+
 export interface StrictQAInputs {
   packageArtifactId: string;
   contentType: string;

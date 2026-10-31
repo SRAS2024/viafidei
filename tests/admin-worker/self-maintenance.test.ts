@@ -633,10 +633,15 @@ describe("REPAIR: parked artifacts", () => {
       parkedRows: [{ id: "a1" }],
     });
     await runSelfMaintenance(prisma, { now: NOW, force: true, limit: 2 });
+    // Research holds and strict-QA review-band holds are deliberately held.
     const eligible = {
       OR: [
         { gateDiagnosis: null },
-        { gateDiagnosis: { notIn: ["requeued_by_self_maintenance", "NEEDS_RESEARCH"] } },
+        {
+          gateDiagnosis: {
+            notIn: ["requeued_by_self_maintenance", "NEEDS_RESEARCH", "STRICT_QA_REVIEW_BAND"],
+          },
+        },
       ],
     };
     const findWhere = vi

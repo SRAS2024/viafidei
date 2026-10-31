@@ -86,13 +86,19 @@ function decision() {
 }
 
 function makePrisma(opts: {
-  existing?: { id: string; status: string } | null;
+  existing?: { id: string; status: string; gateDiagnosis?: string | null } | null;
   createError?: { code?: string; message?: string } | null;
 }) {
   const artifactUpdate = vi.fn(async (args: unknown) => args);
   const readUpdate = vi.fn(async (args: unknown) => args);
+  const evidenceDeletes = vi.fn(async () => ({ count: 2 }));
+  const qaDeletes = vi.fn(async () => ({ count: 1 }));
   return {
+    evidenceDeletes,
+    qaDeletes,
     prisma: {
+      adminWorkerCrossSourceVerification: { deleteMany: evidenceDeletes },
+      adminWorkerStrictQAResult: { deleteMany: qaDeletes },
       adminWorkerSourceRead: {
         findMany: vi.fn(async () => [READ]),
         update: readUpdate,
@@ -152,6 +158,54 @@ describe("EXTRACTION duplicate handling (pre-publish wedge fix)", () => {
         data: expect.objectContaining({ status: "CHECKLIST_READY", rejectionReason: null }),
       }),
     );
+  });
+
+  // A heal replaces the artifact's field values, so the strict-QA verdict and
+  // cross-source evidence recorded for the OLD values must not carry over: a
+  // stored MATCH for a previous date would "confirm" a different one, and a
+  // PASSED row would skip re-scoring the new fields.
+  it("a heal clears the artifact's stale strict-QA verdict and evidence", async () => {
+    const { prisma, evidenceDeletes, qaDeletes } = makePrisma({
+      existing: { id: "art-old", status: "REJECTED" },
+    });
+    await executeMissionStage({ prisma, workerId: "w", passId: "p", decision: decision() });
+    expect(evidenceDeletes).toHaveBeenCalledWith({ where: { contentId: "art-old" } });
+    expect(qaDeletes).toHaveBeenCalledWith({ where: { packageArtifactId: "art-old" } });
+  });
+
+  // R2: a strict-QA review-band hold is deterministic for its stored package;
+  // another source of the same entity is its only way forward.
+  it("duplicate of a strict-QA review-band hold → healed for re-scoring", async () => {
+    const { prisma, artifactUpdate } = makePrisma({
+      existing: { id: "art-band", status: "NEEDS_REVIEW", gateDiagnosis: "STRICT_QA_REVIEW_BAND" },
+    });
+    const out = await executeMissionStage({
+      prisma,
+      workerId: "w",
+      passId: "p",
+      decision: decision(),
+    });
+    expect(out.summary).toMatch(/healed artifact art-band/);
+    expect(artifactUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "art-band" },
+        data: expect.objectContaining({ status: "CHECKLIST_READY", gateDiagnosis: null }),
+      }),
+    );
+  });
+
+  it("any other NEEDS_REVIEW artifact (e.g. a research hold) is left alone", async () => {
+    const { prisma, artifactUpdate } = makePrisma({
+      existing: { id: "art-held", status: "NEEDS_REVIEW", gateDiagnosis: "NEEDS_RESEARCH" },
+    });
+    const out = await executeMissionStage({
+      prisma,
+      workerId: "w",
+      passId: "p",
+      decision: decision(),
+    });
+    expect(out.kind).toBe("skipped");
+    expect(artifactUpdate).not.toHaveBeenCalled();
   });
 
   it("duplicate of a HEALTHY artifact → read consumed, artifact untouched, truthful 'skipped'", async () => {

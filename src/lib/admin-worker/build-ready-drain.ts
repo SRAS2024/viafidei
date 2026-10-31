@@ -243,6 +243,8 @@ export interface DrainResult {
   recovered: number;
   /** Research holds whose backoff expired, sent back through verification. */
   researchRequeued: number;
+  /** QA-passed artifacts the old quality repair stranded at EXTRACTED, re-queued. */
+  qualityResetRecovered: number;
 }
 
 /**
@@ -322,6 +324,57 @@ async function recoverRetryableReviews(prisma: PrismaClient, limit: number): Pro
   return recovered;
 }
 
+/**
+ * Return artifacts the old QUALITY_SCORE_FAILED repair stranded at EXTRACTED.
+ *
+ * That handler reset a QA-passed artifact that missed its ContentQualityScore
+ * (or landed in the publish gate's review band) to EXTRACTED and reported
+ * success — and nothing re-processes an EXTRACTED artifact whose read already
+ * has one. The handler now closes such artifacts terminally with a typed
+ * reason; this sweep gives the ones it already stranded the same treatment by
+ * sending them back to BUILD_READY: verification re-judges their stored
+ * evidence under the current rules, strict QA keeps its PASSED verdict, and
+ * the publish gates (with the corrected source-authority factor) decide again
+ * — publishing them, or closing them with a recorded reason. Identified by the
+ * reason the publish stage stamped on them; bounded; fail-open. Once the
+ * backlog is cleared the query returns nothing.
+ */
+async function recoverQualityResetArtifacts(prisma: PrismaClient, limit: number): Promise<number> {
+  try {
+    const stranded = await prisma.adminWorkerPackageArtifact.findMany({
+      where: {
+        status: "EXTRACTED",
+        missingFields: { isEmpty: true },
+        OR: [
+          { rejectionReason: { startsWith: "ContentQualityScore" } },
+          { rejectionReason: { startsWith: "finalScore " } },
+          { rejectionReason: { startsWith: "confidence " } },
+        ],
+      },
+      orderBy: { updatedAt: "asc" },
+      take: limit,
+      select: { id: true },
+    });
+    let recovered = 0;
+    for (const a of stranded) {
+      const qa = await prisma.adminWorkerStrictQAResult
+        .findUnique({ where: { packageArtifactId: a.id }, select: { status: true } })
+        .catch(() => null);
+      if (qa?.status !== "PASSED") continue;
+      const moved = await prisma.adminWorkerPackageArtifact
+        .updateMany({
+          where: { id: a.id, status: "EXTRACTED" },
+          data: { status: "BUILD_READY", rejectionReason: null, gateDiagnosis: null },
+        })
+        .catch(() => ({ count: 0 }));
+      recovered += moved.count;
+    }
+    return recovered;
+  } catch {
+    return 0;
+  }
+}
+
 const REPAIR_KIND_BY_GATE: Partial<
   Record<GateKind, "EXTRACT_FAILED" | "VALIDATION_EVIDENCE_MISSING">
 > = {
@@ -354,6 +407,7 @@ export async function runBuildReadyDrain(
     rejectedDuplicate: 0,
     recovered: 0,
     researchRequeued: 0,
+    qualityResetRecovered: 0,
   };
   const limit = opts.limit ?? 100;
   const driveRounds = opts.driveRounds ?? 6;
@@ -370,6 +424,7 @@ export async function runBuildReadyDrain(
     // read, so they are triaged and driven this same pass.
     const { requeueDueResearchHolds } = await import("./research-holds");
     out.researchRequeued = await requeueDueResearchHolds(prisma, { limit: 10 }).catch(() => 0);
+    out.qualityResetRecovered = await recoverQualityResetArtifacts(prisma, 25);
 
     const stuck = await prisma.adminWorkerPackageArtifact.findMany({
       where: { status: { in: ["BUILD_READY", "VERIFICATION_READY", "QA_PASSED"] } },
@@ -614,7 +669,7 @@ export async function runBuildReadyDrain(
       category: "VALIDATION",
       severity: "INFO",
       eventName: "build_ready_drain",
-      message: `BUILD_READY drain: ${out.recovered} recovered from misrouted review, ${out.researchRequeued} research hold(s) re-checked, ${out.bridged} bridged from CHECKLIST_READY, ${out.stuck} stuck triaged → ${out.published} published, ${out.advanced} QA-advanced, ${out.repaired} repaired, ${out.reviewed} to review, ${out.rejectedDuplicate} duplicate. Gates: ${Object.entries(
+      message: `BUILD_READY drain: ${out.recovered} recovered from misrouted review, ${out.researchRequeued} research hold(s) re-checked, ${out.qualityResetRecovered} quality-reset artifact(s) re-queued, ${out.bridged} bridged from CHECKLIST_READY, ${out.stuck} stuck triaged → ${out.published} published, ${out.advanced} QA-advanced, ${out.repaired} repaired, ${out.reviewed} to review, ${out.rejectedDuplicate} duplicate. Gates: ${Object.entries(
         out.byGate,
       )
         .map(([g, n]) => `${g}=${n}`)
@@ -625,6 +680,7 @@ export async function runBuildReadyDrain(
         byOutcome: out.byOutcome,
         recovered: out.recovered,
         researchRequeued: out.researchRequeued,
+        qualityResetRecovered: out.qualityResetRecovered,
         bridged: out.bridged,
         published: out.published,
         advanced: out.advanced,

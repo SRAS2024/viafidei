@@ -58,6 +58,7 @@ import { fileHumanReview } from "./human-review";
 import { writeAdminWorkerLog } from "./logs";
 import { evaluatePublishSafety } from "./publish-safety";
 import { RESEARCH_HOLD_DIAGNOSIS } from "./research-holds";
+import { STRICT_QA_REVIEW_BAND } from "./strict-qa";
 
 /**
  * The event sampler moved to ./event-sampler so `writeAdminWorkerLog` can
@@ -278,16 +279,21 @@ export const ARTIFACT_PARKED_MS = 7 * DAY;
  * The parked artifacts the 7-day requeue may touch: every one NOT deliberately
  * held. A research hold re-checks itself on its own, longer backoff (the
  * BUILD_READY drain requeues it when due), so a blanket weekly requeue would
- * undo that backoff; an artifact this repair already requeued is never
- * requeued twice. Written null-safe — `NOT: { gateDiagnosis: x }` also drops
- * rows whose gateDiagnosis is NULL. SENSE, REPAIR and VERIFY all count this
- * same population.
+ * undo that backoff; a strict-QA review-band hold would only be re-scored to
+ * the same band (its forward path is another source healing it); an artifact
+ * this repair already requeued is never requeued twice. Written null-safe —
+ * `NOT: { gateDiagnosis: x }` also drops rows whose gateDiagnosis is NULL.
+ * SENSE, REPAIR and VERIFY all count this same population.
  */
 function parkedRequeueEligible(): Record<string, unknown> {
   return {
     OR: [
       { gateDiagnosis: null },
-      { gateDiagnosis: { notIn: [REQUEUE_MARKER, RESEARCH_HOLD_DIAGNOSIS] } },
+      {
+        gateDiagnosis: {
+          notIn: [REQUEUE_MARKER, RESEARCH_HOLD_DIAGNOSIS, STRICT_QA_REVIEW_BAND],
+        },
+      },
     ],
   };
 }
