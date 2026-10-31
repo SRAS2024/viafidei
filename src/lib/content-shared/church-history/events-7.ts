@@ -642,4 +642,607 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
       "Rome's open rejection of imperial iconoclasm deepens the estrangement between the popes and Byzantium.",
     citation: `${NA}06789a.htm`,
   },
+  // ------------------------------------------- Boniface and the Frankish Church
+  {
+    slug: "death-of-saint-bede",
+    title: "Death of St Bede the Venerable",
+    year: 735,
+    precision: "year",
+    era: "early-medieval",
+    kind: "saint",
+    tags: ["doctor", "monastic"],
+    location: "Jarrow",
+    context:
+      "On the eve of the Ascension, Bede dies in his monastery at Jarrow, still dictating an English translation of St John's Gospel to the last.",
+    significance:
+      "Scholar of Scripture, time-reckoning and history, he was given the title of Doctor of the Church by Leo XIII in 1899.",
+    citation: `${NA}02384a.htm`,
+    links: {
+      saints: ["saint-bede-the-venerable"],
+      doctors: ["doctor-bede-the-venerable"],
+    },
+  },
+  {
+    slug: "concilium-germanicum",
+    title: "Concilium Germanicum",
+    year: 742,
+    precision: "circa",
+    era: "early-medieval",
+    kind: "council",
+    tags: ["reform"],
+    context:
+      "Called by Carloman and presided over by Boniface on 21 April 742 or 743, the synod orders yearly councils, forbids clergy to bear arms or hunt and makes the Rule of St Benedict binding on every monastery.",
+    significance:
+      "The first of the synods by which Boniface, as papal legate, set about reforming the Church in the eastern Frankish lands.",
+    citation: `${W}Concilium_Germanicum`,
+    links: { saints: ["saint-boniface"] },
+  },
+  {
+    slug: "founding-of-fulda",
+    title: "Foundation of Fulda",
+    year: 744,
+    date: "0744-03-12",
+    precision: "day",
+    era: "early-medieval",
+    kind: "order",
+    tags: ["monastic"],
+    location: "Fulda, Hesse",
+    context:
+      "Sturm, Boniface's disciple and its first abbot, takes possession of land obtained from Carloman and raises the cross to found the abbey.",
+    significance:
+      "Placed directly under the Holy See in 751 and later the school of Rabanus Maurus, Fulda became a chief centre of learning in Germany and keeps Boniface's tomb.",
+    citation: `${NA}06313b.htm`,
+    links: { saints: ["saint-boniface"] },
+  },
+  {
+    slug: "donation-of-constantine-forged",
+    title: "The Donation of Constantine is forged",
+    year: 750,
+    precision: "circa",
+    era: "early-medieval",
+    kind: "document",
+    tags: ["papacy"],
+    context:
+      "A forged decree is composed in which Emperor Constantine supposedly hands Pope Sylvester authority over Rome and the western half of the empire.",
+    significance:
+      "Taken as genuine for centuries and invoked by popes from Leo IX on, it was exposed as a forgery by Lorenzo Valla around 1440.",
+    citation: `${W}Donation_of_Constantine`,
+  },
+  {
+    slug: "pepin-made-king-with-papal-sanction",
+    title: "Pepin made king with Pope Zachary's sanction",
+    year: 751,
+    precision: "year",
+    era: "early-medieval",
+    kind: "event",
+    tags: ["papacy"],
+    location: "Soissons",
+    context:
+      "Told by Pope Zachary that the man who wields royal power should bear the royal title, the Franks depose the last Merovingian, Childeric III, and elect Pepin, who is anointed at Soissons.",
+    significance:
+      "Papal approval of the new Carolingian dynasty begins the alliance between the popes and the Frankish kings.",
+    citation: `${W}Pepin_the_Short`,
+    links: { popes: ["pope-saint-zachary"] },
+  },
+  {
+    slug: "stephen-ii-anoints-pepin",
+    title: "Stephen II anoints Pepin at Saint-Denis",
+    year: 754,
+    precision: "year",
+    era: "early-medieval",
+    kind: "event",
+    tags: ["papacy"],
+    location: "Abbey of Saint-Denis",
+    context:
+      "Seeking Frankish help against the Lombards, Pope Stephen II travels to Francia and in midsummer anoints Pepin and his sons Charles and Carloman, naming Pepin Patrician of the Romans.",
+    significance:
+      "The Frankish king becomes protector of the Roman Church, and his campaigns against the Lombards lead to the Donation of 756.",
+    citation: `${W}Pepin_the_Short`,
+  },
+  {
+    slug: "council-of-hieria",
+    title: "Iconoclast Council of Hieria",
+    year: 754,
+    precision: "year",
+    era: "early-medieval",
+    kind: "council",
+    location: "Hieria, near Chalcedon",
+    context:
+      "Emperor Constantine V gathers 338 bishops at his palace of Hieria; with no patriarch and no envoy of the pope present, they condemn the making and veneration of icons as idolatry.",
+    significance: "The Second Council of Nicaea reversed nearly all of its rulings in 787.",
+    citation: `${W}Council_of_Hieria`,
+  },
+  {
+    slug: "lateran-council-of-769",
+    title: "Lateran Council of 769",
+    year: 769,
+    date: "0769-04-12",
+    precision: "day",
+    era: "early-medieval",
+    kind: "council",
+    tags: ["papacy"],
+    location: "Lateran Basilica, Rome",
+    context:
+      "Pope Stephen III, joined by twelve Frankish bishops, condemns the usurper Constantine II, bars laymen from the papacy and from papal elections, and upholds the veneration of icons.",
+    significance:
+      "After years of factional violence it limits the papacy to the cardinal priests and deacons, and it rejects the iconoclast council of Hieria.",
+    citation: `${W}Lateran_Council_(769)`,
+  },
+  // ------------------------------------------------ The Carolingian Church
+  {
+    slug: "alcuin-joins-charlemagne",
+    title: "Alcuin joins Charlemagne's court",
+    year: 782,
+    precision: "year",
+    era: "early-medieval",
+    kind: "event",
+    location: "Frankish royal court",
+    context:
+      "Alcuin of York, whom Charlemagne had met at Parma in 781, enters the king's service and takes charge of the Palace School.",
+    significance:
+      "The leading mind of the Carolingian revival of learning, he revised the text of the Vulgate and led a reform of the liturgy.",
+    citation: `${NA}01276a.htm`,
+  },
+  {
+    slug: "capitulatio-de-partibus-saxoniae",
+    title: "Capitulary for Saxony: baptism under pain of death",
+    year: 782,
+    precision: "circa",
+    era: "early-medieval",
+    kind: "document",
+    location: "Saxony",
+    context:
+      "Charlemagne's law for the conquered Saxons makes refusing baptism, like burning a church, a crime punishable by death.",
+    significance:
+      "A stark instance of forced conversion during the Saxon Wars; a capitulary of 797 replaced its harshest measures with gentler means.",
+    citation: `${W}Capitulatio_de_partibus_Saxoniae`,
+  },
+  {
+    slug: "baptism-of-widukind",
+    title: "Baptism of Widukind",
+    year: 785,
+    precision: "year",
+    era: "early-medieval",
+    kind: "mission",
+    context:
+      "After years of war, including the mass execution of Saxon captives at Verden, the Saxon leader Widukind submits and is baptised with Charlemagne as his godfather.",
+    significance:
+      "His submission ends the resistance he had led, though the Saxons' conversion was imposed largely by force.",
+    citation: `${W}Widukind`,
+  },
+  {
+    slug: "admonitio-generalis",
+    title: "Admonitio generalis",
+    year: 789,
+    precision: "year",
+    era: "early-medieval",
+    kind: "document",
+    tags: ["reform"],
+    context:
+      "Charlemagne issues a capitulary of 82 chapters calling clergy and people to amend their lives and ordering monasteries and cathedrals to keep schools.",
+    significance:
+      "Drawing on the Dionysio-Hadriana collection of canon law, it laid a foundation for the Carolingian Renaissance.",
+    citation: `${W}Admonitio_generalis`,
+  },
+  {
+    slug: "viking-raid-on-lindisfarne",
+    title: "Vikings raid Lindisfarne",
+    year: 793,
+    precision: "year",
+    era: "early-medieval",
+    kind: "event",
+    location: "Lindisfarne",
+    context:
+      "Norse raiders plunder the monastery of Lindisfarne and kill members of its community; from Charlemagne's court Alcuin writes that Britain has never known such terror.",
+    significance:
+      "Often taken as the start of the Viking Age; in 875 the monks abandoned the island, carrying St Cuthbert's body with them.",
+    citation: `${W}Lindisfarne`,
+  },
+  {
+    slug: "council-of-frankfurt",
+    title: "Council of Frankfurt",
+    year: 794,
+    precision: "year",
+    era: "early-medieval",
+    kind: "council",
+    tags: ["dogma"],
+    location: "Frankfurt",
+    context:
+      "Charlemagne's synod, attended by legates of Pope Adrian I, condemns the Adoptionism of Archbishop Elipandus of Toledo and Bishop Felix of Urgell.",
+    significance:
+      "Relying on the Frankish Libri Carolini, it also rejected the Second Council of Nicaea's decrees on images, which Pope Adrian had approved.",
+    citation: `${W}Council_of_Frankfurt`,
+    links: { popes: ["pope-adrian-i"] },
+  },
+  {
+    slug: "theodore-the-studite-at-stoudios",
+    title: "Theodore the Studite takes charge of Stoudios",
+    year: 798,
+    precision: "circa",
+    era: "early-medieval",
+    kind: "order",
+    tags: ["monastic"],
+    location: "Constantinople",
+    context:
+      "Empress Irene entrusts the monk Theodore with the ancient monastery of Stoudios, where he writes a rule and gathers a large congregation of dependent houses.",
+    significance:
+      "The Studite reform shaped Byzantine monastic life, and Theodore became a leading champion of the icons during the second iconoclasm.",
+    citation: `${W}Theodore_the_Studite`,
+  },
+  {
+    slug: "book-of-kells",
+    title: "The Book of Kells",
+    year: 800,
+    precision: "circa",
+    era: "early-medieval",
+    kind: "document",
+    tags: ["scripture"],
+    location: "Iona and Kells",
+    context:
+      "Columban monks, probably beginning on Iona and finishing at Kells, produce a lavishly illuminated Latin Gospel book.",
+    significance:
+      "Regarded as the summit of Insular illumination, it is kept at Trinity College Dublin.",
+    citation: `${W}Book_of_Kells`,
+  },
+  {
+    slug: "council-of-aachen-809",
+    title: "Council of Aachen and Leo III on the Filioque",
+    year: 809,
+    precision: "year",
+    era: "early-medieval",
+    kind: "council",
+    tags: ["dogma"],
+    location: "Aachen",
+    context:
+      "A Frankish council at Aachen favours singing the Creed with the Filioque; Pope Leo III approves the doctrine but advises against adding the words to the Creed.",
+    significance:
+      "Rome kept the Creed unaltered for two more centuries, until the Filioque was adopted there around 1014.",
+    citation: `${NA}06073a.htm`,
+    links: { popes: ["pope-saint-leo-iii"] },
+  },
+  {
+    slug: "tomb-of-saint-james-at-compostela",
+    title: "The tomb of St James at Compostela",
+    year: 814,
+    precision: "circa",
+    era: "early-medieval",
+    kind: "event",
+    location: "Santiago de Compostela, Galicia",
+    context:
+      "According to tradition the hermit Pelagius finds a tomb held to be that of St James the Greater; Bishop Theodemir of Iria proclaims it, and King Alfonso II of Asturias builds a chapel over it.",
+    significance:
+      "Compostela grows into one of the great pilgrimage goals of medieval Christendom, the end of the Way of St James.",
+    citation: `${W}Santiago_de_Compostela_Cathedral`,
+    links: { saints: ["saint-james-the-greater"] },
+  },
+  {
+    slug: "second-iconoclasm",
+    title: "Second Iconoclasm begins",
+    year: 815,
+    precision: "year",
+    era: "early-medieval",
+    kind: "event",
+    location: "Constantinople",
+    context:
+      "Emperor Leo V the Armenian has Patriarch Nicephorus deposed, and a synod under his successor Theodotus condemns the Second Council of Nicaea and returns to the iconoclast decrees of 754.",
+    significance:
+      "Icons are banned again and their defenders, Theodore the Studite among them, are exiled until the restoration of 843.",
+    citation: `${NA}07620a.htm`,
+  },
+  {
+    slug: "aachen-monastic-reform",
+    title: "Benedict of Aniane's monastic reform at Aachen",
+    year: 817,
+    precision: "year",
+    era: "early-medieval",
+    kind: "order",
+    tags: ["monastic", "reform"],
+    location: "Aachen",
+    context:
+      "Under Emperor Louis the Pious, a council of abbots led by Benedict of Aniane adopts a common code of regulations binding the monasteries of the empire.",
+    significance:
+      "Remembered as the 'second Benedict', he worked to bring the empire's monks back to the first strictness of their Rule.",
+    citation: `${W}Benedict_of_Aniane`,
+  },
+  {
+    slug: "ansgar-mission-to-birka",
+    title: "Ansgar's mission to Sweden",
+    year: 829,
+    precision: "year",
+    era: "early-medieval",
+    kind: "mission",
+    location: "Birka, Sweden",
+    context:
+      "When the Swedish king Björn asks for missionaries, the Frankish monk Ansgar, back from a mission to Denmark, goes to preach at the trading town of Birka.",
+    significance:
+      "Christianity's first foothold among the Swedes; in 831 Ansgar is made archbishop of Hamburg for the northern mission.",
+    citation: `${W}Ansgar`,
+  },
+  {
+    slug: "paschasius-radbertus-on-the-eucharist",
+    title: "Paschasius Radbertus writes on the Eucharist",
+    year: 831,
+    precision: "circa",
+    era: "early-medieval",
+    kind: "document",
+    tags: ["dogma"],
+    location: "Corbie",
+    context:
+      "Paschasius Radbertus, a monk of Corbie, writes De corpore et sanguine Domini, teaching that the Eucharist is truly Christ's own historical body.",
+    significance:
+      "The first full treatise on the Eucharist in the West; Ratramnus's figurative reply opened a debate that the Church later settled in favour of Christ's substantial presence.",
+    citation: `${W}Paschasius_Radbertus`,
+  },
+  {
+    slug: "all-saints-on-1-november",
+    title: "All Saints' Day fixed on 1 November in the Frankish realm",
+    year: 835,
+    precision: "year",
+    era: "early-medieval",
+    kind: "event",
+    tags: ["liturgy"],
+    location: "Frankish Empire",
+    context:
+      "At the urging of Pope Gregory IV and with the bishops' assent, Emperor Louis the Pious makes 1 November a holy day of obligation throughout the Frankish Empire.",
+    significance: "Fixes the date on which the Western Church still keeps the feast of All Saints.",
+    citation: `${W}All_Saints%27_Day`,
+  },
+  {
+    slug: "triumph-of-orthodoxy",
+    title: "Triumph of Orthodoxy",
+    year: 843,
+    date: "0843-03-11",
+    precision: "day",
+    era: "early-medieval",
+    kind: "event",
+    tags: ["dogma", "liturgy"],
+    location: "Constantinople",
+    context:
+      "On the first Sunday of Lent a synod summoned by the regent Theodora for the young Michael III, with Patriarch Methodios, restores the veneration of icons.",
+    significance:
+      "Iconoclasm ends for good, and the Eastern Churches still keep the day each year as the Sunday of Orthodoxy.",
+    citation: `${W}Feast_of_Orthodoxy`,
+  },
+  {
+    slug: "arab-raid-on-rome",
+    title: "Arab raiders sack St Peter's and St Paul's",
+    year: 846,
+    precision: "year",
+    era: "early-medieval",
+    kind: "event",
+    location: "Rome",
+    context:
+      "Muslim raiders from the sea plunder the outskirts of Rome, desecrating the basilicas of St Peter and St Paul, which stood outside the city walls.",
+    significance: "The shock moves Pope Leo IV to enclose the Vatican hill within a new wall.",
+    citation: `${W}Arab_raid_against_Rome`,
+  },
+  {
+    slug: "gottschalk-condemned-at-quierzy",
+    title: "Gottschalk condemned at Quierzy",
+    year: 849,
+    precision: "year",
+    era: "early-medieval",
+    kind: "council",
+    tags: ["grace"],
+    location: "Quierzy",
+    context:
+      "Already condemned at Mainz in 848 for teaching double predestination, the monk Gottschalk of Orbais is condemned again at Quierzy before Archbishop Hincmar of Reims, flogged and confined at Hautvillers.",
+    significance:
+      "He remained a prisoner until his death around 868, and the dispute over grace and predestination drew in the leading churchmen of the age.",
+    citation: `${W}Gottschalk_of_Orbais`,
+  },
+  {
+    slug: "pseudo-isidorian-decretals",
+    title: "The False Decretals",
+    year: 850,
+    precision: "circa",
+    era: "early-medieval",
+    kind: "document",
+    tags: ["canon", "papacy"],
+    location: "Province of Reims",
+    context:
+      "A forger in the province of Reims compiles a vast canon-law collection that mixes genuine texts with more than ninety forged papal decretals.",
+    significance:
+      "Meant to shield accused bishops and widen papal jurisdiction, they were copied throughout the Middle Ages until David Blondel proved them forgeries in 1628.",
+    citation: `${W}Pseudo-Isidore`,
+  },
+  {
+    slug: "leonine-wall-completed",
+    title: "Leo IV completes the Leonine Wall",
+    year: 852,
+    precision: "year",
+    era: "early-medieval",
+    kind: "event",
+    tags: ["papacy"],
+    location: "Vatican, Rome",
+    context:
+      "After four years' work, Pope Leo IV blesses the new fortifications around St Peter's, called the Leonine City after him; a Saracen fleet had been destroyed off Ostia in 849.",
+    significance:
+      "St Peter's, which lay outside Rome's ancient walls, is at last protected from raiders from the sea.",
+    citation: `${NA}09159a.htm`,
+    links: { popes: ["pope-saint-leo-iv"] },
+  },
+  {
+    slug: "martyrdom-of-saint-eulogius-of-cordoba",
+    title: "Martyrdom of St Eulogius of Córdoba",
+    year: 859,
+    date: "0859-03-11",
+    precision: "day",
+    era: "early-medieval",
+    kind: "martyrdom",
+    tags: ["persecution"],
+    location: "Córdoba",
+    context:
+      "Eulogius, the priest who recorded the deaths of the forty-eight martyrs of Córdoba from 850 onward, is himself beheaded for sheltering a young convert.",
+    significance:
+      "The martyrs, executed for publicly denouncing Islam or for apostasy, witness to the pressures on Christians in Muslim Spain, where some church leaders urged compromise with the emirs.",
+    citation: `${W}Martyrs_of_C%C3%B3rdoba`,
+  },
+  // ------------------------------------------- Nicholas I and the Slavic mission
+  {
+    slug: "nicholas-i-upholds-teutbergas-marriage",
+    title: "Nicholas I upholds Teutberga's marriage",
+    year: 863,
+    precision: "year",
+    era: "early-medieval",
+    kind: "pope",
+    tags: ["papacy"],
+    location: "Rome",
+    context:
+      "When King Lothair II casts off Queen Teutberga for his mistress Waldrada with the backing of a synod at Metz, a Lateran synod in October annuls its decision and deposes the archbishops of Cologne and Trier.",
+    significance: "The pope defends the bond of marriage against a king and his compliant bishops.",
+    citation: `${W}Pope_Nicholas_I`,
+    links: { popes: ["pope-saint-nicholas-i"] },
+  },
+  {
+    slug: "baptism-of-boris-of-bulgaria",
+    title: "Baptism of Boris I of Bulgaria",
+    year: 864,
+    precision: "year",
+    era: "early-medieval",
+    kind: "mission",
+    location: "Pliska",
+    context:
+      "Late in 864 a mission sent by the patriarch of Constantinople baptises Khan Boris I, who takes the Christian name Michael after the Byzantine emperor.",
+    significance:
+      "Bulgaria becomes a Christian nation, and Boris's dealings with both Rome and Constantinople make it a prize in their rivalry.",
+    citation: `${W}Christianization_of_Bulgaria`,
+  },
+  {
+    slug: "death-of-saint-ansgar",
+    title: "Death of St Ansgar",
+    year: 865,
+    date: "0865-02-03",
+    precision: "day",
+    era: "early-medieval",
+    kind: "saint",
+    tags: ["mission"],
+    location: "Bremen",
+    context:
+      "Ansgar, archbishop of Hamburg-Bremen and papal legate for the northern lands, dies at Bremen after decades of missions to the Danes and Swedes.",
+    significance: "Remembered as the Apostle of the North.",
+    citation: `${W}Ansgar`,
+  },
+  {
+    slug: "responsa-ad-consulta-bulgarorum",
+    title: "Nicholas I answers the Bulgarians",
+    year: 866,
+    precision: "year",
+    era: "early-medieval",
+    kind: "document",
+    tags: ["papacy"],
+    location: "Rome",
+    context:
+      "Answering an embassy from Boris I, Pope Nicholas I replies point by point to the Bulgarians' questions on Christian faith and life and sends missionaries under the legate Formosus.",
+    significance:
+      "A model of pastoral moderation: indifferent customs, down to the wearing of trousers, are left free, while faith and morals are taught firmly.",
+    citation: `${W}Pope_Nicholas_I`,
+    links: { popes: ["pope-saint-nicholas-i"] },
+  },
+  {
+    slug: "death-of-saint-cyril",
+    title: "Death of St Cyril in Rome",
+    year: 869,
+    date: "0869-02-14",
+    precision: "day",
+    era: "early-medieval",
+    kind: "saint",
+    tags: ["mission", "liturgy"],
+    location: "Rome",
+    context:
+      "Constantine-Cyril, who with his brother Methodius had given the Slavs the liturgy in their own tongue, dies in Rome and is buried in the Basilica of San Clemente.",
+    significance:
+      "Pope Adrian II had formally authorised the brothers' Slavonic liturgy; Methodius carried their work on as archbishop.",
+    citation: `${W}Saints_Cyril_and_Methodius`,
+  },
+  {
+    slug: "baptism-of-guthrum",
+    title: "Baptism of Guthrum",
+    year: 878,
+    precision: "year",
+    era: "early-medieval",
+    kind: "mission",
+    location: "Aller, Somerset",
+    context:
+      "Defeated by King Alfred at Edington, the Danish leader Guthrum is baptised at Aller, taking the name Æthelstan.",
+    significance:
+      "A treaty fixes the bounds between the two kingdoms, and East Anglia passes to a Danish king who is now a Christian.",
+    citation: `${W}Guthrum`,
+  },
+  {
+    slug: "council-of-constantinople-879",
+    title: "Council of Constantinople restores Photius",
+    year: 879,
+    precision: "year",
+    era: "early-medieval",
+    kind: "council",
+    tags: ["schism"],
+    location: "Constantinople",
+    context:
+      "In the presence of legates of Pope John VIII, a council sitting into 880 confirms Photius as the rightful patriarch and reads the Creed without the Filioque.",
+    significance:
+      "Many Orthodox count it the Eighth Ecumenical Council; the Catholic Church gives that place to the council of 869–870 instead.",
+    citation: `${W}Fourth_Council_of_Constantinople_(Eastern_Orthodox)`,
+  },
+  {
+    slug: "death-of-saint-methodius",
+    title: "Death of St Methodius",
+    year: 885,
+    date: "0885-04-06",
+    precision: "day",
+    era: "early-medieval",
+    kind: "saint",
+    tags: ["mission", "liturgy"],
+    location: "Great Moravia",
+    context:
+      "Methodius, archbishop for the Slavs, dies after naming his disciple Gorazd as successor; Pope John VIII had upheld the Slavonic liturgy, with the Gospel read first in Latin.",
+    significance:
+      "With Cyril he is honoured as Apostle of the Slavs; their liturgy and letters outlived the expulsion of their disciples from Moravia.",
+    citation: `${NA}04592a.htm`,
+  },
+  {
+    slug: "ohrid-literary-school",
+    title: "Clement founds the Ohrid Literary School",
+    year: 886,
+    precision: "year",
+    era: "early-medieval",
+    kind: "mission",
+    tags: ["liturgy"],
+    location: "Ohrid",
+    context:
+      "At the order of Boris I, Clement founds a school at Ohrid to form a Slavonic-speaking clergy, later handing it on to Naum.",
+    significance:
+      "With Preslav, one of the two great centres of Slavonic Christian letters in the First Bulgarian Empire.",
+    citation: `${W}Ohrid_Literary_School`,
+  },
+  {
+    slug: "council-of-preslav",
+    title: "Council of Preslav adopts Slavonic",
+    year: 893,
+    precision: "year",
+    era: "early-medieval",
+    kind: "council",
+    tags: ["liturgy"],
+    location: "Preslav",
+    context:
+      "A council under Boris I replaces his son Vladimir with Simeon, moves the capital to Preslav, sends away the Byzantine clergy and makes Slavonic the language of Church and state.",
+    significance:
+      "Bulgaria's Church gains its own clergy and liturgical tongue, opening a golden age of Slavonic letters.",
+    citation: `${W}Council_of_Preslav`,
+  },
+  {
+    slug: "cadaver-synod",
+    title: "The Cadaver Synod",
+    year: 897,
+    precision: "year",
+    era: "early-medieval",
+    kind: "event",
+    tags: ["papacy"],
+    location: "Lateran Basilica, Rome",
+    context:
+      "Pope Stephen VI has the corpse of his predecessor-but-one, Pope Formosus, exhumed, put on trial, declared unworthy and finally thrown into the Tiber.",
+    significance:
+      "A low point of the papacy's capture by Roman factions: a revolt soon deposed Stephen, who was strangled in prison, and later synods annulled the trial.",
+    citation: `${W}Cadaver_Synod`,
+  },
 ];
