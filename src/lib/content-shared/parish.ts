@@ -58,35 +58,64 @@ export function parishMatchesFilter(designation: unknown, filter: ParishFilter):
  * database write and no republish. Nothing here reads or reshapes stored data.
  */
 
-/** The parts of a parish record the "Diocese" line is built from. */
+/** The parts of a parish record its place line is built from. */
 export type ParishPlaceParts = {
   city?: string | null;
   state?: string | null;
   country?: string | null;
+  postalCode?: string | null;
+  /** ISO-3166 alpha-2: decides where the postal code goes. */
+  countryCode?: string | null;
 };
 
 function trimmed(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/** Countries that write the postal code AFTER the locality ("Springfield, IL 62701"). */
+const POSTCODE_AFTER_LOCALITY: ReadonlySet<string> = new Set([
+  "US",
+  "CA",
+  "GB",
+  "IE",
+  "AU",
+  "NZ",
+  "IN",
+  "PH",
+  "ZA",
+  "SG",
+]);
+
 /**
- * The value for the card's "Diocese" line: city, state and country joined with
- * ", " ("Denver, Colorado, United States"), with missing parts dropped.
+ * The place line under the street: postal code, locality, state and country
+ * in the country's usual order — "00153 Roma, Lazio, Italy", "Springfield,
+ * Illinois 62701, United States" — with missing parts dropped.
  *
- * Returns null when the record has none of the three. That is the COMMON case
- * — only about a third of published parishes carry a city — so the caller must
- * omit the whole labelled line rather than print "Diocese" with nothing after
- * it, which reads as a broken empty row.
+ * This is a LOCATION, not a diocese (the card used to label it "Diocese";
+ * only `payload.diocese` names one). Returns null when the record has none of
+ * the parts, so the caller omits the line rather than printing an empty row.
  */
-export function parishDioceseLine(parts: ParishPlaceParts): string | null {
-  const joined = [parts.city, parts.state, parts.country].map(trimmed).filter(Boolean).join(", ");
+export function parishPlaceLine(parts: ParishPlaceParts): string | null {
+  const postal = trimmed(parts.postalCode);
+  const city = trimmed(parts.city);
+  const state = trimmed(parts.state);
+  const country = trimmed(parts.country);
+  let segments: string[];
+  if (POSTCODE_AFTER_LOCALITY.has(trimmed(parts.countryCode).toUpperCase())) {
+    segments = state
+      ? [city, [state, postal].filter(Boolean).join(" ")]
+      : [[city, postal].filter(Boolean).join(" ")];
+  } else {
+    segments = [[postal, city].filter(Boolean).join(" "), state];
+  }
+  const joined = [...segments, country].filter(Boolean).join(", ");
   return joined || null;
 }
 
 /**
  * The street address out of a projected directory row. `ParishListItem.location`
- * is "address, city, state" already joined, but the card prints city/state on
- * the "Diocese" line, so the trailing place parts are stripped here instead of
+ * is "address, city, state" already joined, but the card prints the place on
+ * its own line, so the trailing place parts are stripped here instead of
  * being repeated one line apart. Returns null when nothing but the place is
  * left (the record has no postal address at all).
  */
@@ -114,7 +143,7 @@ export function parishStreetAddress(
 export function parishDirectionsAddress(
   parts: ParishPlaceParts & { address?: string | null },
 ): string {
-  return [trimmed(parts.address), parishDioceseLine(parts) ?? ""].filter(Boolean).join(", ");
+  return [trimmed(parts.address), parishPlaceLine(parts) ?? ""].filter(Boolean).join(", ");
 }
 
 /**

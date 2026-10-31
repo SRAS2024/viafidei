@@ -22,8 +22,8 @@ function text(payload: Record<string, unknown>, key: string): string | null {
 }
 
 /**
- * The parish page shows the name, the Diocese line, the address with
- * directions, and the website — and nothing else.
+ * The parish page shows the name, the diocese (when the record names one),
+ * the full address with directions, and the website — and nothing else.
  *
  * It no longer goes through PublishedDetail: that renderer prints every
  * remaining payload key, which is exactly the wall of designation / phone /
@@ -49,6 +49,9 @@ export default async function ParishDetailPage({ params }: Props) {
       city={text(payload, "city")}
       state={text(payload, "state")}
       country={text(payload, "country")}
+      postalCode={text(payload, "postalCode")}
+      countryCode={text(payload, "countryCode")}
+      diocese={text(payload, "diocese")}
       latitude={latitude}
       longitude={longitude}
       website={text(payload, "website")}

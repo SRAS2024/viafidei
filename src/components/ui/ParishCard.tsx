@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import {
-  parishDioceseLine,
   parishDirectionsAddress,
+  parishPlaceLine,
   parishWebsite,
 } from "@/lib/content-shared/parish";
 
@@ -19,16 +19,22 @@ export type ParishCardProps = {
    * HTML and swallows the directions tap.
    */
   href?: string | null;
-  /** Street address only — city/state/country belong on the Diocese line. */
+  /** Street line only — postal code, city, state and country render below it. */
   address?: string | null;
   city?: string | null;
   state?: string | null;
   country?: string | null;
+  /** Postal code as the country writes it. */
+  postalCode?: string | null;
+  /** ISO-3166 alpha-2: decides whether the postal code precedes the city. */
+  countryCode?: string | null;
+  /** The diocese, only when the record names one (`payload.diocese`). */
+  diocese?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   website?: string | null;
   /**
-   * Rendered directly under the name, before the Diocese line. This is the
+   * Rendered directly under the name, before the address. This is the
    * distance slot the locator fills in ("0.4 mi from you"); this component
    * neither computes nor formats a distance.
    */
@@ -43,14 +49,15 @@ export type ParishCardProps = {
 /**
  * The one and only parish presentation.
  *
- * The parish card used to carry designation, phone, mass and confession times,
- * background, summary and a separate row per place field. It now shows the
- * name, a "Diocese" line, the postal address with directions, and the website
- * — nothing else. Because this is rendering and not data, every published
- * parish changed the moment this component did: no migration, no backfill, no
- * worker pass over 9,731 rows.
- *
- * The other fields are untouched in the payload; they simply stop being shown.
+ * The card shows the name, the diocese when the record names one, the full
+ * postal address (street, then postal code / city / state / country in the
+ * country's order) with directions, and the website — nothing else. The
+ * place line used to be labelled "Diocese" although it was city/state/country;
+ * a diocese is now shown only from `payload.diocese`. Directions are offered
+ * from the street address, or from the coordinates when there is no street —
+ * every parish has coordinates, most have no street. Because this is
+ * rendering and not data, every published parish changes the moment this
+ * component does: no migration, no backfill, no worker pass.
  */
 export function ParishCard({
   name,
@@ -59,6 +66,9 @@ export function ParishCard({
   city,
   state,
   country,
+  postalCode,
+  countryCode,
+  diocese,
   latitude,
   longitude,
   website,
@@ -68,10 +78,12 @@ export function ParishCard({
   className,
 }: ParishCardProps) {
   const detail = variant === "detail";
-  const place = { city, state, country };
-  const diocese = parishDioceseLine(place);
+  const parts = { city, state, country, postalCode, countryCode };
+  const place = parishPlaceLine(parts);
   const street = typeof address === "string" && address.trim() ? address.trim() : null;
-  const destination = parishDirectionsAddress({ ...place, address: street });
+  const dioceseName = typeof diocese === "string" && diocese.trim() ? diocese.trim() : null;
+  const hasCoordinates = typeof latitude === "number" && typeof longitude === "number";
+  const destination = parishDirectionsAddress({ ...parts, address: street });
   const site = parishWebsite(website);
 
   // The directory card sits in a list under the page's h1, so it is an h2
@@ -112,24 +124,32 @@ export function ParishCard({
         {action ? <div className="flex shrink-0 items-center gap-2 pt-1">{action}</div> : null}
       </div>
 
-      {/* Omitted entirely when the record has no city/state/country — the
-          common case — so the card never shows an empty labelled row. */}
-      {diocese ? (
+      {dioceseName ? (
         <p className="mt-3 font-serif leading-relaxed text-ink">
-          <span className="vf-eyebrow mr-2">Diocese</span> {diocese}
+          <span className="vf-eyebrow mr-2">Diocese</span> {dioceseName}
         </p>
       ) : null}
 
-      {street ? (
+      {/* Omitted entirely when there is nothing to show, so the card never
+          prints an empty row. Directions need a street or coordinates: a city
+          alone is no destination. */}
+      {street || place || hasCoordinates ? (
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <p className="font-serif leading-relaxed text-ink">{street}</p>
-          <MapsAddressLink
-            variant="block"
-            address={destination || street}
-            latitude={latitude ?? undefined}
-            longitude={longitude ?? undefined}
-            className="vf-btn vf-btn-ghost inline-flex shrink-0 items-center gap-2 self-start !px-3 !py-1.5 text-sm"
-          />
+          {street || place ? (
+            <p className="font-serif leading-relaxed text-ink">
+              {street ? <span className="block">{street}</span> : null}
+              {place ? <span className="block">{place}</span> : null}
+            </p>
+          ) : null}
+          {street || hasCoordinates ? (
+            <MapsAddressLink
+              variant="block"
+              address={destination || name}
+              latitude={latitude ?? undefined}
+              longitude={longitude ?? undefined}
+              className="vf-btn vf-btn-ghost inline-flex shrink-0 items-center gap-2 self-start !px-3 !py-1.5 text-sm"
+            />
+          ) : null}
         </div>
       ) : null}
 

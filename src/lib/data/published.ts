@@ -559,6 +559,10 @@ export interface ParishListItem {
   city: string | null;
   state: string | null;
   country: string | null;
+  postalCode: string | null;
+  countryCode: string | null;
+  /** Only when the record names its diocese. */
+  diocese: string | null;
   latitude: number | null;
   longitude: number | null;
   href: string;
@@ -578,6 +582,9 @@ type ParishRow = {
   city: string | null;
   state: string | null;
   country: string | null;
+  postalCode?: string | null;
+  countryCode?: string | null;
+  diocese?: string | null;
   website: string | null;
   distance_miles?: number | null;
 };
@@ -605,6 +612,9 @@ function toParishItem(row: ParishRow): ParishListItem {
     city: row.city,
     state: row.state,
     country: row.country,
+    postalCode: row.postalCode ?? null,
+    countryCode: row.countryCode ?? null,
+    diocese: row.diocese ?? null,
     latitude: row.latitude,
     longitude: row.longitude,
     href: publicRouteFor("PARISH", row.slug).slugPath,
@@ -619,6 +629,9 @@ const PARISH_COLUMNS = Prisma.sql`
   payload->>'city'    AS "city",
   payload->>'state'   AS "state",
   payload->>'country' AS "country",
+  payload->>'postalCode'  AS "postalCode",
+  payload->>'countryCode' AS "countryCode",
+  payload->>'diocese' AS "diocese",
   payload->>'website' AS "website"
 `;
 

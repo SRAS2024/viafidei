@@ -179,6 +179,9 @@ export function ParishLocator({ parishes, total }: { parishes: ParishListItem[];
                 city={p.city}
                 state={p.state}
                 country={p.country}
+                postalCode={p.postalCode}
+                countryCode={p.countryCode}
+                diocese={p.diocese}
                 latitude={p.latitude}
                 longitude={p.longitude}
                 website={p.website}
