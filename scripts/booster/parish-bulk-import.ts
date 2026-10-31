@@ -207,6 +207,29 @@ const GENERIC_NAMES = new Set([
   "parroquia",
   "paroisse",
   "parafia",
+  // Descriptors that name a kind of chapel, not a particular place.
+  "kaplica domowa",
+  "kaplica szpitalna",
+  "kaplica dojazdowa",
+  "kaplica cmentarna",
+  "kaplica zakonna",
+  "kaplica publiczna",
+  "kaplica prywatna",
+  "kaplica filialna",
+  "hauskapelle",
+  "krankenhauskapelle",
+  "schulkapelle",
+  "klosterkapelle",
+  "chapelle de l'hôpital",
+  "chapelle de l'hopital",
+  "chapelle privée",
+  "hospital chapel",
+  "house chapel",
+  "private chapel",
+  "convent chapel",
+  "capilla del hospital",
+  "cappella dell'ospedale",
+  "cappella privata",
 ]);
 const CHAPEL_RE =
   /(\b(chapel|chapelle|capilla|cappella|kaplica|capela|k[áa]polna|kaple|kaplnka|kapela)\b)|kapel(le)?\b/i;
@@ -216,8 +239,25 @@ function lowerTag(tags: Record<string, string>, k: string): string {
   return (tags[k] ?? "").trim().toLowerCase();
 }
 
-function classify(name: string, tags: Record<string, string>): Designation {
-  const base = designationFor(name, tags) as Designation;
+/** The four papal (major) basilicas all stand in Rome / Vatican City. */
+function inRome(lat: number, lon: number): boolean {
+  return lat > 41.79 && lat < 41.99 && lon > 12.35 && lon < 12.62;
+}
+
+function classify(
+  name: string,
+  tags: Record<string, string>,
+  lat: number,
+  lon: number,
+): Designation {
+  let base = designationFor(name, tags) as Designation;
+  // A church elsewhere that shares a papal basilica's dedication ("Santa Maria
+  // Maggiore", "San Giovanni in Laterano") is not a major basilica.
+  if (base === "major-basilica" && !inRome(lat, lon)) {
+    base = /\bbasilic|bas[ií]lica|basilika|bazylika|basilique|bazilika/i.test(name)
+      ? "minor-basilica"
+      : "parish";
+  }
   if (base !== "parish") return base;
   if (lowerTag(tags, "place_of_worship") === "oratory" || ORATORY_RE.test(name)) return "oratory";
   if (
@@ -281,7 +321,7 @@ function toCandidate(el: OsmElement): Candidate | string {
     lat,
     lon,
     denomination,
-    designation: classify(name, tags),
+    designation: classify(name, tags, lat, lon),
     full: (tags["addr:full"] ?? "").trim(),
     street: (tags["addr:street"] ?? "").trim(),
     place: (tags["addr:place"] ?? "").trim(),
