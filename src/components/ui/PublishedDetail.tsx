@@ -97,19 +97,27 @@ export interface PublishedDetailProps {
  * every leaf string comes from `presentValue`, so nothing here can print a
  * camelCase key, a raw enum, or "[object Object]" — a value that cannot be
  * presented arrives as `null` and the caller drops the section entirely.
+ *
+ * `layout` is the same field as stored. The page is laid out by it and only the
+ * text comes from `value`, so a page in the reader's language
+ * (src/lib/translation) keeps the stored layout: a translated theme longer than
+ * a chip does not turn the row of chips into a bulleted list for that reader.
  */
-function renderPresented(value: PresentedValue, depth = 0): React.ReactNode {
+function renderPresented(
+  value: PresentedValue,
+  depth = 0,
+  layout: PresentedValue = value,
+): React.ReactNode {
   if (value.kind === "text") {
-    return value.multiline ? (
-      <p className="whitespace-pre-line">{value.text}</p>
-    ) : (
-      <p>{value.text}</p>
-    );
+    const multiline = layout.kind === "text" ? layout.multiline : value.multiline;
+    return multiline ? <p className="whitespace-pre-line">{value.text}</p> : <p>{value.text}</p>;
   }
   if (value.kind === "list") {
+    const shape =
+      layout.kind === "list" && layout.items.length === value.items.length ? layout : value;
     // Short single-line entries (patronages, "what you need") read better as
     // chips than as a bulleted column.
-    if (isChipList(value)) {
+    if (isChipList(shape)) {
       return (
         <ul className="flex flex-wrap gap-2">
           {value.items.map((item, i) => (
@@ -123,23 +131,25 @@ function renderPresented(value: PresentedValue, depth = 0): React.ReactNode {
         </ul>
       );
     }
-    const ListTag = value.ordered ? "ol" : "ul";
+    const ListTag = shape.ordered ? "ol" : "ul";
     return (
-      <ListTag className={`ml-6 ${value.ordered ? "list-decimal" : "list-disc"}`}>
+      <ListTag className={`ml-6 ${shape.ordered ? "list-decimal" : "list-disc"}`}>
         {value.items.map((item, i) => (
           <li key={i} className="mt-2">
-            {renderPresented(item, depth + 1)}
+            {renderPresented(item, depth + 1, shape.items[i])}
           </li>
         ))}
       </ListTag>
     );
   }
+  const shape =
+    layout.kind === "pairs" && layout.pairs.length === value.pairs.length ? layout : value;
   return (
     <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1">
-      {value.pairs.map((pair) => (
+      {value.pairs.map((pair, i) => (
         <div key={pair.label} className="contents">
           <dt className="font-medium text-ink-soft">{pair.label}</dt>
-          <dd>{renderPresented(pair.value, depth + 1)}</dd>
+          <dd>{renderPresented(pair.value, depth + 1, shape.pairs[i]?.value)}</dd>
         </div>
       ))}
     </dl>
@@ -338,9 +348,12 @@ export function PublishedDetail({
     }
     // Everything else goes through the presenter layer; a value it cannot
     // present honestly returns null and the whole section is dropped rather
-    // than printing "[object Object]" or a bare flag.
-    const presented = presentValue(key, value);
-    if (!presented) return null;
+    // than printing "[object Object]" or a bare flag. Whether it is shown, and
+    // how it is laid out, is decided on the stored value; the text is the
+    // reader's.
+    const layout = presentValue(key, stored);
+    if (!layout) return null;
+    const presented = value === stored ? layout : (presentValue(key, value) ?? layout);
     return section(
       key,
       <div className="mt-2 font-serif leading-relaxed text-ink">
@@ -348,7 +361,7 @@ export function PublishedDetail({
           // Instructions name prayers in running prose ("pray the Our Father").
           <PrayerLinkedText text={presented.text} prayers={linked} headingLevel={panelLevel(key)} />
         ) : (
-          renderPresented(presented)
+          renderPresented(presented, 0, layout)
         )}
       </div>,
     );

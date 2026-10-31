@@ -66,8 +66,9 @@ published. Pin a working model in `src/lib/translation/engine/models.ts`
   stays English (`distortsCatholicTerms` in `text.ts`). Prayer texts shown in
   the reader's language are labelled with that language, never as "English".
 - **A page keeps its layout in every language.** What a page shows, in what
-  order and what it leaves out is decided on the stored English; only the
-  text is swapped in (`displayItem`). The prayers a devotion's instructions or
+  order, how it lays a field out (a row of chips or a list) and what it leaves
+  out is decided on the stored English; only the text is swapped in
+  (`displayItem`). The prayers a devotion's instructions or
   a novena's days name are found by their English names, then shown in the
   reader's language with one lookup for the prayers shown (`listedPrayer`,
   `localizePrayers`). The short lines a page writes itself under a title (a

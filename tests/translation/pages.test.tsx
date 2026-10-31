@@ -59,6 +59,10 @@ vi.mock("@/lib/data/published", async (importOriginal) => {
 });
 
 import DevotionDetailPage from "@/app/devotions/[slug]/page";
+import GuideDetailPage from "@/app/guides/[slug]/page";
+import LiturgyHistoryDetailPage from "@/app/liturgy-history/[slug]/page";
+import NovenaDetailPage from "@/app/novenas/[slug]/page";
+import OurLadyDetailPage from "@/app/our-lady/[slug]/page";
 import ParishDetailPage from "@/app/parishes/[slug]/page";
 import PrayerDetailPage from "@/app/prayers/[slug]/page";
 import SaintDetailPage from "@/app/saints/[slug]/page";
@@ -354,6 +358,197 @@ describe("a church's page in Spanish", () => {
     const lines = [...document.querySelectorAll("address span")].map((s) => s.textContent);
     expect(lines).toEqual(["5646 S Karlov Ave", "Chicago, IL 60629", "Estados Unidos"]);
   });
+});
+
+describe("a Church document in Spanish", () => {
+  it("keeps its key themes as chips when a translation is longer than a chip", async () => {
+    // 32 characters, a chip in English; its 34-character Spanish used to turn
+    // the whole row into a bulleted list for Spanish readers alone.
+    const theme = "Preferential option for the poor";
+    const encyclical = put(
+      "CHURCH_DOCUMENT",
+      "on-human-work",
+      "On Human Work",
+      { keyThemes: ["Fraternity", theme], summary: "An encyclical on work." },
+      "Encyclical",
+    );
+    spanishCache([
+      [encyclical, "Fraternity", "Fraternidad"],
+      [encyclical, theme, "Opción preferencial por los pobres"],
+    ]);
+    render(await LiturgyHistoryDetailPage(params("on-human-work")));
+
+    const themes = screen.getByRole("heading", { name: "Key themes" }).closest("section")!;
+    const list = within(themes).getByRole("list");
+    expect(list.className).toContain("flex-wrap");
+    expect(
+      within(list)
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual(["Fraternidad", "Opción preferencial por los pobres"]);
+  });
+});
+
+describe("the other prayer-bearing pages in Spanish", () => {
+  /**
+   * Every unit of every published item "translated" into capitals: all the
+   * text changes, while a prayer's name reads the same in its title and in
+   * the text that names it, so only the layout is left to compare.
+   */
+  function everyUnitTranslated() {
+    const byHash = new Map<string, string>();
+    for (const item of published.values()) {
+      for (const unit of planItem(item).units) {
+        byHash.set(unitHash("es", unit), unit.source.toUpperCase());
+      }
+    }
+    setTranslationDb({
+      $queryRaw: vi.fn(async (sql: { values: unknown[] }) => {
+        const [lang, hashes] = sql.values as [string, string[]];
+        return lang === "es"
+          ? hashes
+              .filter((h) => byHash.has(h))
+              .map((h) => ({ sourceHash: h, text: byHash.get(h)! }))
+          : [];
+      }),
+      $executeRaw: vi.fn(async () => 1),
+    } as unknown as Db);
+  }
+
+  /** Every element and its classes, in order: what the page shows, without the words. */
+  function layout(): string[] {
+    return [...document.body.querySelectorAll("*")].map((el) =>
+      [
+        el.tagName,
+        ...[...el.attributes]
+          .filter((a) => !["id", "lang", "href", "aria-label", "aria-controls"].includes(a.name))
+          .map((a) => `${a.name}=${a.value}`)
+          .sort(),
+      ].join(" "),
+    );
+  }
+
+  type Page = (props: ReturnType<typeof params>) => Promise<React.ReactElement>;
+
+  async function inBothLanguages(page: Page, slug: string) {
+    locale = "en";
+    render(await page(params(slug)));
+    const english = { layout: layout(), text: pageText() };
+    cleanup();
+    locale = "es";
+    resetTranslationStoreState();
+    everyUnitTranslated();
+    render(await page(params(slug)));
+    return { english, spanish: { layout: layout(), text: pageText() } };
+  }
+
+  beforeEach(() => {
+    put("PRAYER", "our-father", "Our Father", {
+      language: "en",
+      body: "Our Father, who art in heaven, hallowed be thy name.",
+      latin: "Pater noster, qui es in caelis, sanctificetur nomen tuum.",
+    });
+    put("PRAYER", "glory-be", "Glory Be", {
+      language: "en",
+      body: "Glory be to the Father.",
+      greek: "Δόξα Πατρὶ.",
+      machineTranslated: ["greek"],
+    });
+    put(
+      "GUIDE",
+      "how-to-pray-the-chaplet",
+      "How to Pray the Chaplet",
+      {
+        kind: "rosary",
+        summary: "A short guide to the chaplet.",
+        intro: "The chaplet is prayed on ordinary rosary beads.",
+        whatYouNeed: ["Rosary beads", "A quiet place"],
+        whenToPray: "At three in the afternoon.",
+        steps: [
+          { order: 1, title: "Begin", body: "Pray one Our Father." },
+          { order: 2, title: "Close", body: "End with the Glory Be." },
+        ],
+        tips: ["Pray slowly."],
+        relatedPrayers: ["our-father", "glory-be"],
+        relatedSaints: ["saint-faustina"],
+        durationMinutes: 20,
+      },
+      "Guide · 2 steps",
+    );
+    put(
+      "NOVENA",
+      "novena-to-the-holy-spirit",
+      "Novena to the Holy Spirit",
+      {
+        background: "This novena is prayed before Pentecost.",
+        purpose: "To ask for the gifts of the Spirit.",
+        typicalStartDate: "Friday after Ascension",
+        days: [
+          { day: 1, title: "The gift of wisdom", body: "Pray one Our Father." },
+          { day: 2, title: "The gift of counsel", body: "Pray one Glory Be." },
+        ],
+        structure: "nine_days",
+      },
+      "Nine days · Begins Friday after Ascension",
+    );
+    put(
+      "MARIAN_TITLE",
+      "our-lady-of-lourdes",
+      "Our Lady of Lourdes",
+      {
+        feastDay: "02-11",
+        origin: "The title comes from the apparitions at Lourdes.",
+        theologicalSignificance: "Mary named herself the Immaculate Conception.",
+        iconographyNotes: "She is shown in white with a blue sash.",
+        associatedPrayers: ["our-father", "glory-be"],
+        associatedApparitionSlug: "lourdes",
+        summary: "A title of the Blessed Virgin Mary.",
+      },
+      "Title of the Blessed Virgin Mary",
+    );
+    put(
+      "APPARITION",
+      "lourdes",
+      "Lourdes",
+      {
+        feastDay: "02-11",
+        background: "Mary appeared to Bernadette in 1858.",
+        messageHighlights: ["Penance", "Prayer for sinners"],
+        associatedMarianTitleSlug: "our-lady-of-lourdes",
+        approvalStatus: "APPROVED",
+      },
+      "Church-approved Marian apparition · Lourdes, France, 1858",
+    );
+    put(
+      "SPIRITUAL_PRACTICE",
+      "the-examen",
+      "The Examen",
+      {
+        instructions: "Pray one Our Father, then review the day.",
+        background: "Saint Ignatius taught the examen.",
+        frequency: "Daily, in the evening",
+        durationMinutes: 15,
+        relatedPrayers: ["glory-be"],
+        sources: ["https://example.org/examen"],
+      },
+      "Ignatian prayer",
+    );
+  });
+
+  it.each([
+    ["a guide", GuideDetailPage, "how-to-pray-the-chaplet"],
+    ["a novena", NovenaDetailPage, "novena-to-the-holy-spirit"],
+    ["a Marian title", OurLadyDetailPage, "our-lady-of-lourdes"],
+    ["an apparition", OurLadyDetailPage, "lourdes"],
+    ["a spiritual practice", SpiritualLifeDetailPage, "the-examen"],
+  ] as Array<[string, Page, string]>)(
+    "%s is laid out as for an English reader",
+    async (_name, page, slug) => {
+      const { english, spanish } = await inBothLanguages(page, slug);
+      expect(spanish.text).not.toBe(english.text);
+      expect(spanish.layout).toEqual(english.layout);
+    },
+  );
 });
 
 describe("an old guide link under /spiritual-life", () => {
