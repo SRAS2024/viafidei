@@ -59,7 +59,12 @@ interface RaccoltaInput {
  * of that edition (University of Toronto copy), opened at the printed page
  * where the prayer begins, followed by any page it runs on to. Every body is copied
  * character for character from those pages, and every `latin` value is the
- * Latin printed alongside the English there. Nothing is paraphrased,
+ * Latin printed alongside the English there. A `latin` value is given only
+ * where the book prints the whole prayer in Latin: the Stations of the Cross,
+ * the Seven Words, the Chaplet of the Precious Blood and St Benedict Joseph
+ * Labre's prayer carry none, because the book gives only their versicles,
+ * collects or opening litany in Latin and the site would show that fragment
+ * as the prayer's Latin text. Nothing is paraphrased,
  * shortened or merged with another version, and prayers already in the
  * catalogue (the Suscipe, the Anima Christi, the Adoro te and the like) are
  * left out rather than repeated in the Raccolta's wording.
@@ -152,9 +157,6 @@ function raccolta(input: RaccoltaInput): CuratedEntry {
   };
 }
 
-const ST_JOHN = "Text from the 1910 English Raccolta of Ambrose St John.";
-const ST_JOHN_1857 = "Text from the 1857 first edition of Ambrose St John's English Raccolta.";
-
 export const prayerBatch9: CuratedEntry[] = [
   // ── I. The Holy Trinity ──────────────────────────────────────────────────
   raccolta({
@@ -181,7 +183,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "trinitarian",
     occasions: ["trinity-sunday", "marian-feasts", "thanksgiving"],
-    summary: `Seven acts of thanksgiving to the Blessed Trinity for the graces given to Our Lady in her Immaculate Conception, Nativity, Presentation, Annunciation, Visitation, Purification and Assumption, each followed by three Glory Bes and a Hail Mary, then a prayer to the Blessed Virgin, the Salve Regina and the collect of the Holy Trinity. The Raccolta (no. 3) gives them as the prayers said by priest and people after a votive Mass of the Holy Trinity, a devotion that began at the church of Our Lady of Loreto by Trajan's Forum in Rome and was indulgenced by Pius VII in 1815. ${ST_JOHN}`,
+    summary: `Seven acts of thanksgiving to the Blessed Trinity for the graces given to Our Lady in her Immaculate Conception, Nativity, Presentation, Annunciation, Visitation, Purification and Assumption, each followed by three Glory Bes and a Hail Mary, then a prayer to the Blessed Virgin, the Salve Regina and the collect of the Holy Trinity. The Raccolta (no. 3) gives them as the prayers said by priest and people after a votive Mass of the Holy Trinity, a devotion that began at the church of Our Lady of Loreto by Trajan's Forum in Rome and was indulgenced by Pius VII in 1815.`,
   }),
   raccolta({
     slug: "thanksgiving-to-the-trinity-for-our-ladys-assumption",
@@ -207,7 +209,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "trinitarian",
     occasions: ["assumption", "august-15", "marian-feasts"],
-    summary: `Thanksgiving to each Person of the Blessed Trinity in turn for the graces given to the Blessed Virgin in her Assumption, each act preceded by an Our Father, Hail Mary and Glory Be; it goes on to an invocation of Our Lady and all the saints, a prayer of self-offering to Mary, a stanza of the Ave maris stella, and a closing collect and blessing. Raccolta no. 5, indulgenced by Pius VII in 1822. ${ST_JOHN}`,
+    summary: `Thanksgiving to each Person of the Blessed Trinity in turn for the graces given to the Blessed Virgin in her Assumption, each act preceded by an Our Father, Hail Mary and Glory Be; it goes on to an invocation of Our Lady and all the saints, a prayer of self-offering to Mary, a stanza of the Ave maris stella, and a closing collect and blessing. Raccolta no. 5, indulgenced by Pius VII in 1822.`,
   }),
   raccolta({
     slug: "three-offerings-to-the-trinity-for-a-good-death",
@@ -221,7 +223,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "trinitarian",
     occasions: ["preparation-for-death", "daily", "trinity-sunday"],
-    summary: `Three offerings to the Most Holy Trinity of the merits of Jesus Christ — in thanksgiving for the Blood He shed in the garden, for his death on the Cross and for his Incarnation — asking pardon of sin, remission of the punishment due to it, and the glory of heaven after death; each is followed by an Our Father, Hail Mary and Glory Be. Raccolta no. 6, indulgenced by Leo XII in 1823 and by Pius IX in 1876. ${ST_JOHN}`,
+    summary: `Three offerings to the Most Holy Trinity of the merits of Jesus Christ — in thanksgiving for the Blood He shed in the garden, for his death on the Cross and for his Incarnation — asking pardon of sin, remission of the punishment due to it, and the glory of heaven after death; each is followed by an Our Father, Hail Mary and Glory Be. Raccolta no. 6, indulgenced by Leo XII in 1823 and by Pius IX in 1876.`,
   }),
   raccolta({
     slug: "omnipotence-of-the-father-prayer",
@@ -240,7 +242,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "trinitarian",
     occasions: ["morning", "daily", "trinity-sunday"],
-    summary: `A short threefold prayer asking the power of the Father to help human frailty, the wisdom of the Son to direct every thought, word and action, and the love of the Holy Spirit to be the source of all the soul's works. The Raccolta (no. 10) prints it in Latin and English; Leo XIII indulgenced it in 1890. ${ST_JOHN}`,
+    summary: `A short threefold prayer asking the power of the Father to help human frailty, the wisdom of the Son to direct every thought, word and action, and the love of the Holy Spirit to be the source of all the soul's works. The Raccolta (no. 10) prints it in Latin and English; Leo XIII indulgenced it in 1890.`,
   }),
   raccolta({
     slug: "acts-of-adoration-and-thanksgiving-to-the-blessed-trinity",
@@ -255,7 +257,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "trinitarian",
     occasions: ["trinity-sunday", "adoration", "thanksgiving"],
-    summary: `Acts of adoration and thanksgiving addressed to the Father for the gift of his Son in the Eucharist, to the Word made flesh as Priest and Victim, and to the Holy Spirit as author of the Incarnation, each closed with a Glory Be; the last asks the Spirit's gifts for the Church, the Pope, the bishops and all priests. Raccolta no. 11, indulgenced by Pius X in 1905. ${ST_JOHN}`,
+    summary: `Acts of adoration and thanksgiving addressed to the Father for the gift of his Son in the Eucharist, to the Word made flesh as Priest and Victim, and to the Holy Spirit as author of the Incarnation, each closed with a Glory Be; the last asks the Spirit's gifts for the Church, the Pope, the bishops and all priests. Raccolta no. 11, indulgenced by Pius X in 1905.`,
   }),
   raccolta({
     slug: "prayer-to-the-holy-trinity-i-adore-thee",
@@ -267,7 +269,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "trinitarian",
     occasions: ["trinity-sunday", "morning", "daily"],
-    summary: `An act of adoration, praise and love of the one God in three Persons, made in union with Christ and with Mary Immaculate, asking the Holy Spirit's guidance in the way of the commandments until we glorify God in heaven. Raccolta no. 12, indulgenced by Pius X in 1906. ${ST_JOHN}`,
+    summary: `An act of adoration, praise and love of the one God in three Persons, made in union with Christ and with Mary Immaculate, asking the Holy Spirit's guidance in the way of the commandments until we glorify God in heaven. Raccolta no. 12, indulgenced by Pius X in 1906.`,
   }),
 
   // ── II. Almighty God ─────────────────────────────────────────────────────
@@ -286,7 +288,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "theological-virtue",
     occasions: ["daily", "morning", "act-of-love"],
-    summary: `The Acts of Faith, Hope and Charity in the form the Raccolta prints (no. 14): faith in the Trinity, the Incarnation, the Redemption and the judgement, believed on the authority of God who has revealed them; hope of eternal life through the merits of Christ's Passion; and love of God above all things and of one's neighbour for his sake. The acts were indulgenced by Benedict XIII in 1728 and Benedict XIV in 1756, and the Raccolta notes that any form of words may be used that expresses the motive proper to each virtue; this is a different text from the catalogue's modern Acts of Faith, Hope and Love. ${ST_JOHN}`,
+    summary: `The Acts of Faith, Hope and Charity in the form the Raccolta prints (no. 14): faith in the Trinity, the Incarnation, the Redemption and the judgement, believed on the authority of God who has revealed them; hope of eternal life through the merits of Christ's Passion; and love of God above all things and of one's neighbour for his sake. The acts were indulgenced by Benedict XIII in 1728 and Benedict XIV in 1756, and the Raccolta notes that any form of words may be used that expresses the motive proper to each virtue; this is a different text from the catalogue's modern Acts of Faith, Hope and Love.`,
   }),
   raccolta({
     slug: "chaplet-of-acts-of-the-love-of-god",
@@ -304,7 +306,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "chaplet",
     category: "chaplet",
     occasions: ["daily", "act-of-love"],
-    summary: `Fifty acts of the love of God in five decades of ten, each decade closed with a Glory Be, and the whole concluded with the collect Deus, qui diligentibus te. The acts move from sorrow at having loved God too late, through the desire that all creatures should love Him, to the wish to love Him with the love of the saints, of Our Lady and of Christ himself. Raccolta no. 15, indulgenced by Pius VII in 1818. ${ST_JOHN}`,
+    summary: `Fifty acts of the love of God in five decades of ten, each decade closed with a Glory Be, and the whole concluded with the collect Deus, qui diligentibus te. The acts move from sorrow at having loved God too late, through the desire that all creatures should love Him, to the wish to love Him with the love of the saints, of Our Lady and of Christ himself. Raccolta no. 15, indulgenced by Pius VII in 1818.`,
   }),
   raccolta({
     slug: "loosen-o-lord-the-bonds-of-our-sins",
@@ -316,7 +318,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["daily", "saturday", "for-the-church"],
-    summary: `A comprehensive petition asking, through the intercession of Our Lady, St Joseph, Sts Peter and Paul and all the saints, for forgiveness, holiness and virtue for ourselves and our families, for peace and health, for friends and enemies, for the Pope and the whole Christian people, and for eternal rest for the faithful departed. Raccolta no. 16, indulgenced by Leo XII in 1828. ${ST_JOHN}`,
+    summary: `A comprehensive petition asking, through the intercession of Our Lady, St Joseph, Sts Peter and Paul and all the saints, for forgiveness, holiness and virtue for ourselves and our families, for peace and health, for friends and enemies, for the Pope and the whole Christian people, and for eternal rest for the faithful departed. Raccolta no. 16, indulgenced by Leo XII in 1828.`,
   }),
   raccolta({
     slug: "prayer-for-peace-da-pacem",
@@ -335,7 +337,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "peace",
     occasions: ["peace", "times-of-trouble", "vespers"],
-    summary: `The antiphon Da pacem, Domine with its versicle, followed by the collect for peace Deus, a quo sancta desideria that the Roman Missal uses in the votive Mass for peace. The Raccolta (no. 18) prints it in Latin and English; Pius IX indulgenced it in 1848. ${ST_JOHN}`,
+    summary: `The antiphon Da pacem, Domine with its versicle, followed by the collect for peace Deus, a quo sancta desideria that the Roman Missal uses in the votive Mass for peace. The Raccolta (no. 18) prints it in Latin and English; Pius IX indulgenced it in 1848.`,
   }),
   raccolta({
     slug: "offering-of-the-masses-of-the-world-at-the-beginning-of-the-day",
@@ -347,7 +349,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "morning",
     category: "eucharistic",
     occasions: ["morning", "daily", "mass"],
-    summary: `A morning offering, made in the name of all creatures, of every Mass being celebrated, already celebrated and yet to be celebrated throughout the world, to honour God, make satisfaction for sin, give thanks and implore mercy for the living and the dead, for the Church and for the Pope. With the offering during Mass that follows it in the Raccolta (no. 19), it was indulgenced by Pius IX in 1860. ${ST_JOHN}`,
+    summary: `A morning offering, made in the name of all creatures, of every Mass being celebrated, already celebrated and yet to be celebrated throughout the world, to honour God, make satisfaction for sin, give thanks and implore mercy for the living and the dead, for the Church and for the Pope. With the offering during Mass that follows it in the Raccolta (no. 19), it was indulgenced by Pius IX in 1860.`,
   }),
   raccolta({
     slug: "offering-of-the-holy-sacrifice-during-mass",
@@ -361,7 +363,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["mass", "before-mass"],
-    summary: `An offering to the Father, made during Mass (or by a priest before it), of the sacrifice of the Cross renewed on the altar together with every Mass in the world, for the ends of the sacrifice — adoration, thanksgiving, satisfaction for sin and petition — and for the Church, the world and the souls in purgatory. Raccolta no. 19, indulgenced by Pius IX in 1860. ${ST_JOHN}`,
+    summary: `An offering to the Father, made during Mass (or by a priest before it), of the sacrifice of the Cross renewed on the altar together with every Mass in the world, for the ends of the sacrifice — adoration, thanksgiving, satisfaction for sin and petition — and for the Church, the world and the souls in purgatory. Raccolta no. 19, indulgenced by Pius IX in 1860.`,
   }),
   raccolta({
     slug: "offering-of-the-blood-passion-and-death-of-jesus",
@@ -373,7 +375,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "general",
     occasions: ["daily", "all-souls", "precious-blood"],
-    summary: `A short offering to the Eternal Father of the Blood, Passion and Death of Christ and of the sorrows of Our Lady and St Joseph, in payment for sin, for the holy souls, for the needs of the Church and for the conversion of sinners. Raccolta no. 20, indulgenced by Pius IX in 1860. ${ST_JOHN}`,
+    summary: `A short offering to the Eternal Father of the Blood, Passion and Death of Christ and of the sorrows of Our Lady and St Joseph, in payment for sin, for the holy souls, for the needs of the Church and for the conversion of sinners. Raccolta no. 20, indulgenced by Pius IX in 1860.`,
   }),
   raccolta({
     slug: "morning-offering-of-the-days-works-eternal-god",
@@ -385,7 +387,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "morning",
     category: "general",
     occasions: ["morning", "daily", "all-souls"],
-    summary: `A morning offering of the day's thoughts, words and works, made in union with the intention of Jesus and Mary and of the saints, with the resolve to avoid all mortal sin and to assist in spirit at every Mass of the day on behalf of the holy souls in purgatory. Raccolta no. 21, indulgenced by Pius IX in 1867. ${ST_JOHN}`,
+    summary: `A morning offering of the day's thoughts, words and works, made in union with the intention of Jesus and Mary and of the saints, with the resolve to avoid all mortal sin and to assist in spirit at every Mass of the day on behalf of the holy souls in purgatory. Raccolta no. 21, indulgenced by Pius IX in 1867.`,
   }),
   raccolta({
     slug: "act-of-faith-immaculate-conception-and-infallibility",
@@ -397,7 +399,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "theological-virtue",
     occasions: ["daily", "december-8"],
-    summary: `An act of faith in all that God has revealed, naming in particular the divine motherhood and virginity of Mary, her freedom from all actual sin and her Immaculate Conception, and the infallibility of the Roman Pontiff speaking ex cathedra as the First Vatican Council defined it in 1870. Pius IX indulgenced it in January 1871; Raccolta no. 22. ${ST_JOHN}`,
+    summary: `An act of faith in all that God has revealed, naming in particular the divine motherhood and virginity of Mary, her freedom from all actual sin and her Immaculate Conception, and the infallibility of the Roman Pontiff speaking ex cathedra as the First Vatican Council defined it in 1870. Pius IX indulgenced it in January 1871; Raccolta no. 22.`,
   }),
   raccolta({
     slug: "prayer-of-saint-bonaventure-domine-sancte",
@@ -414,7 +416,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "general",
     occasions: ["daily", "lent", "passion"],
     relatedSaints: ["saint-bonaventure", "saint-francis-of-assisi"],
-    summary: `A prayer the Raccolta gives as St Bonaventure's, asking, through the Passion of Christ, the holiness of his Mother and the merits of St Francis and all the saints, to love God alone and thirst always for his love, to keep the Passion in the heart, and to be saddened by nothing but sin. The Raccolta (no. 23) prints it in Latin and English; Pius IX indulgenced it in 1874. ${ST_JOHN}`,
+    summary: `A prayer the Raccolta gives as St Bonaventure's, asking, through the Passion of Christ, the holiness of his Mother and the merits of St Francis and all the saints, to love God alone and thirst always for his love, to keep the Passion in the heart, and to be saddened by nothing but sin. The Raccolta (no. 23) prints it in Latin and English; Pius IX indulgenced it in 1874.`,
   }),
   raccolta({
     slug: "prayer-to-remain-faithful-unto-death",
@@ -426,7 +428,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "general",
     occasions: ["trust", "suffering", "daily"],
-    summary: `A short petition to the Lord who draws good out of evil, asking for faithfulness until death and, through Mary's intercession, the strength always to conform ourselves to his will. Raccolta no. 24, indulgenced by Pius IX in 1862 and by Leo XIII in 1879. ${ST_JOHN}`,
+    summary: `A short petition to the Lord who draws good out of evil, asking for faithfulness until death and, through Mary's intercession, the strength always to conform ourselves to his will. Raccolta no. 24, indulgenced by Pius IX in 1862 and by Leo XIII in 1879.`,
   }),
   raccolta({
     slug: "prayer-for-peace-thou-seest-o-lord",
@@ -438,7 +440,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "peace",
     occasions: ["peace", "times-of-trouble"],
-    summary: `A prayer asking the Lord, who alone commands the winds and the waves, to restore to mankind the peace that comes of good order — love of God, justice and charity toward one's neighbour, and self-control — and closing with words of St Augustine on Psalm 32 about God's help in the warfare of life. Raccolta no. 26, indulgenced by Leo XIII in January 1889. ${ST_JOHN}`,
+    summary: `A prayer asking the Lord, who alone commands the winds and the waves, to restore to mankind the peace that comes of good order — love of God, justice and charity toward one's neighbour, and self-control — and closing with words of St Augustine on Psalm 32 about God's help in the warfare of life. Raccolta no. 26, indulgenced by Leo XIII in January 1889.`,
   }),
   raccolta({
     slug: "prayer-on-the-transfiguration",
@@ -450,7 +452,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "general",
     occasions: ["transfiguration", "august-6", "lent"],
-    summary: `A prayer recalling how, at the Transfiguration, the Father's voice from the cloud confirmed our adoption as his sons, and asking that we may become co-heirs of the King of Glory. Raccolta no. 27, indulgenced by Leo XIII in December 1889. ${ST_JOHN}`,
+    summary: `A prayer recalling how, at the Transfiguration, the Father's voice from the cloud confirmed our adoption as his sons, and asking that we may become co-heirs of the King of Glory. Raccolta no. 27, indulgenced by Leo XIII in December 1889.`,
   }),
   raccolta({
     slug: "prayer-for-the-supreme-pontiff",
@@ -462,7 +464,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["for-the-church", "daily"],
-    summary: `A prayer for the Pope offered in union with the faithful throughout the world, asking that their prayers be joined to his and that, when he gives the peace of the Lord over the chalice at Mass, God's peace may descend on all nations. Raccolta no. 28, indulgenced by Leo XIII in 1896. ${ST_JOHN}`,
+    summary: `A prayer for the Pope offered in union with the faithful throughout the world, asking that their prayers be joined to his and that, when he gives the peace of the Lord over the chalice at Mass, God's peace may descend on all nations. Raccolta no. 28, indulgenced by Leo XIII in 1896.`,
   }),
   raccolta({
     slug: "fiat-ejaculation-of-resignation-to-the-will-of-god",
@@ -477,7 +479,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "general",
     occasions: ["trust", "suffering", "preparation-for-death"],
-    summary: `A one-sentence act of conformity to the will of God, Fiat, laudetur, atque in aeternum superexaltetur, which the Raccolta (no. 29) prints in Latin and English as an "ejaculation of resignation" and connects in particular with accepting death from God's hands. Pius VII indulgenced it in 1818. ${ST_JOHN}`,
+    summary: `A one-sentence act of conformity to the will of God, Fiat, laudetur, atque in aeternum superexaltetur, which the Raccolta (no. 29) prints in Latin and English as an "ejaculation of resignation" and connects in particular with accepting death from God's hands. Pius VII indulgenced it in 1818.`,
   }),
 
   // ── III. The Holy Ghost ──────────────────────────────────────────────────
@@ -494,7 +496,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "trinitarian",
     occasions: ["pentecost", "for-the-church"],
-    summary: `A prayer to the Holy Spirit, the Creator, to make the Church strong against her enemies and to renew in charity and grace the spirit of his anointed servants, so that they may glorify the Father and the Son. The Raccolta (no. 39) prints it in Latin and English; Leo XIII indulgenced it in 1889. ${ST_JOHN}`,
+    summary: `A prayer to the Holy Spirit, the Creator, to make the Church strong against her enemies and to renew in charity and grace the spirit of his anointed servants, so that they may glorify the Father and the Son. The Raccolta (no. 39) prints it in Latin and English; Leo XIII indulgenced it in 1889.`,
   }),
   raccolta({
     slug: "prayer-for-the-propagation-of-the-faith-spirit-of-truth",
@@ -509,7 +511,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "trinitarian",
     occasions: ["pentecost", "missions", "for-the-church"],
-    summary: `A brief prayer to the Spirit of Truth to shed the brightness of his light on all nations, so that they may be one in faith and pleasing to God. The Raccolta (no. 40) prints it in Latin and English; Leo XIII indulgenced it in 1897. ${ST_JOHN}`,
+    summary: `A brief prayer to the Spirit of Truth to shed the brightness of his light on all nations, so that they may be one in faith and pleasing to God. The Raccolta (no. 40) prints it in Latin and English; Leo XIII indulgenced it in 1897.`,
   }),
   raccolta({
     slug: "chaplet-of-the-holy-spirit-prayers",
@@ -532,7 +534,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "chaplet",
     category: "chaplet",
     occasions: ["pentecost", "confirmation", "novena"],
-    summary: `The full text of the Chaplet of the Holy Spirit as the Raccolta gives it (no. 42): an act of contrition, the Veni Creator, the versicle and collect of the Holy Spirit, and five mysteries — the Incarnation, the Baptism of Christ, the temptation in the desert, Pentecost, and the Spirit's indwelling in the just — each with a meditation from Scripture, a practical application, an Our Father, a Hail Mary and seven Glory Bes, ending with the Creed. Leo XIII indulgenced it by brief in 1902. ${ST_JOHN}`,
+    summary: `The full text of the Chaplet of the Holy Spirit as the Raccolta gives it (no. 42): an act of contrition, the Veni Creator, the versicle and collect of the Holy Spirit, and five mysteries — the Incarnation, the Baptism of Christ, the temptation in the desert, Pentecost, and the Spirit's indwelling in the just — each with a meditation from Scripture, a practical application, an Our Father, a Hail Mary and seven Glory Bes, ending with the Creed. Leo XIII indulgenced it by brief in 1902.`,
   }),
   raccolta({
     slug: "prayer-to-the-holy-spirit-divine-spirit-of-light-and-love",
@@ -544,7 +546,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "consecration",
     category: "trinitarian",
     occasions: ["pentecost", "confirmation", "daily"],
-    summary: `A consecration of understanding, heart and will to the Holy Spirit, asking that the mind be submissive to his inspirations and to the teaching of the Church, the heart inflamed with love of God and neighbour, and the whole life an imitation of Christ. Raccolta no. 43, indulgenced by Pius X in 1908. ${ST_JOHN}`,
+    summary: `A consecration of understanding, heart and will to the Holy Spirit, asking that the mind be submissive to his inspirations and to the teaching of the Church, the heart inflamed with love of God and neighbour, and the whole life an imitation of Christ. Raccolta no. 43, indulgenced by Pius X in 1908.`,
   }),
 
   // ── IV. Jesus Christ ─────────────────────────────────────────────────────
@@ -563,7 +565,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "chaplet",
     category: "chaplet",
     occasions: ["daily", "rosary", "all-souls"],
-    summary: `The chaplet of the Camaldolese monks: thirty-three Our Fathers in remembrance of the thirty-three years of Christ's life on earth and five Hail Marys in honour of his five wounds, each Our Father joined to a short mystery of his birth, hidden life, ministry, Passion and Resurrection, ending with the Creed in honour of the Apostles. The Raccolta (no. 44) records indulgences granted for it by Clement X in 1674 and Leo XII in 1824. ${ST_JOHN}`,
+    summary: `The chaplet of the Camaldolese monks: thirty-three Our Fathers in remembrance of the thirty-three years of Christ's life on earth and five Hail Marys in honour of his five wounds, each Our Father joined to a short mystery of his birth, hidden life, ministry, Passion and Resurrection, ending with the Creed in honour of the Apostles. The Raccolta (no. 44) records indulgences granted for it by Clement X in 1674 and Leo XII in 1824.`,
   }),
   raccolta({
     slug: "prayer-for-a-holy-death-divine-jesus",
@@ -578,7 +580,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "general",
     occasions: ["preparation-for-death", "good-friday", "for-the-dying"],
-    summary: `A prayer for the hour of death built on the seven last words of Christ from the Cross, asking Him to speak them over the dying soul — the Father's forgiveness, his Mother's care, the promise of Paradise — and ending with the commendation of the spirit into his hands. The Raccolta (no. 47) prints it in Latin and English; Pius IX indulgenced it in 1856. ${ST_JOHN}`,
+    summary: `A prayer for the hour of death built on the seven last words of Christ from the Cross, asking Him to speak them over the dying soul — the Father's forgiveness, his Mother's care, the promise of Paradise — and ending with the commendation of the spirit into his hands. The Raccolta (no. 47) prints it in Latin and English; Pius IX indulgenced it in 1856.`,
   }),
   raccolta({
     slug: "o-jesus-living-in-mary",
@@ -593,7 +595,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "general",
     occasions: ["daily", "marian-consecration"],
-    summary: `A prayer of the seventeenth-century French school of spirituality, long said in the seminaries of Saint-Sulpice founded by Jean-Jacques Olier, asking Jesus who lives in Mary to come and live in his servants by his Spirit, his virtues and his mysteries. The Raccolta (no. 48) prints it in Latin and English; Pius IX indulgenced it in 1859. ${ST_JOHN}`,
+    summary: `A prayer of the seventeenth-century French school of spirituality, long said in the seminaries of Saint-Sulpice founded by Jean-Jacques Olier, asking Jesus who lives in Mary to come and live in his servants by his Spirit, his virtues and his mysteries. The Raccolta (no. 48) prints it in Latin and English; Pius IX indulgenced it in 1859.`,
   }),
   raccolta({
     slug: "prayer-o-most-compassionate-jesus",
@@ -608,7 +610,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "general",
     occasions: ["trust", "suffering", "sacred-heart"],
-    summary: `A short prayer to Jesus, our salvation, life and resurrection, asking Him not to forsake us in our needs and afflictions, through the agony of his Sacred Heart and the sorrows of his Mother. The Raccolta (no. 49) prints it in Latin and English; Pius IX indulgenced it in 1870. ${ST_JOHN}`,
+    summary: `A short prayer to Jesus, our salvation, life and resurrection, asking Him not to forsake us in our needs and afflictions, through the agony of his Sacred Heart and the sorrows of his Mother. The Raccolta (no. 49) prints it in Latin and English; Pius IX indulgenced it in 1870.`,
   }),
   raccolta({
     slug: "prayer-to-the-holy-name-o-good-jesu",
@@ -620,7 +622,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "general",
     occasions: ["holy-name-of-jesus", "january", "daily"],
-    summary: `A prayer of invocation of the Holy Name that begs Jesus, by his Precious Blood, to wash away sin and to be, according to his Name, a Saviour — "what meaneth the Name of Jesus but Saviour?" — and asks for grace, wisdom, charity, chastity and humility. Raccolta no. 50, indulgenced by Pius IX in 1876. ${ST_JOHN}`,
+    summary: `A prayer of invocation of the Holy Name that begs Jesus, by his Precious Blood, to wash away sin and to be, according to his Name, a Saviour — "what meaneth the Name of Jesus but Saviour?" — and asks for grace, wisdom, charity, chastity and humility. Raccolta no. 50, indulgenced by Pius IX in 1876.`,
   }),
   raccolta({
     slug: "prayer-of-saint-thomas-aquinas-concede-mihi",
@@ -649,7 +651,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "general",
     occasions: ["before-study", "study", "daily", "january-28"],
     relatedSaints: ["saint-thomas-aquinas"],
-    summary: `St Thomas Aquinas's prayer Concede mihi, misericors Deus: to desire, seek, know and fulfil whatever pleases God, to be neither lifted up by prosperity nor cast down by adversity, to be given a watchful, noble, upright, firm and free heart, and at the last a hope that embraces God. The Raccolta prints it in Latin and English as the "Prayer of St Thomas Aquinas for grace to lead a holy life" (no. 455), indulgenced by Leo XIII in 1888; its opening sentence alone appears earlier in the book as a prayer before study (no. 51). ${ST_JOHN}`,
+    summary: `St Thomas Aquinas's prayer Concede mihi, misericors Deus: to desire, seek, know and fulfil whatever pleases God, to be neither lifted up by prosperity nor cast down by adversity, to be given a watchful, noble, upright, firm and free heart, and at the last a hope that embraces God. The Raccolta prints it in Latin and English as the "Prayer of St Thomas Aquinas for grace to lead a holy life" (no. 455), indulgenced by Leo XIII in 1888; its opening sentence alone appears earlier in the book as a prayer before study (no. 51).`,
   }),
   raccolta({
     slug: "petitions-of-saint-augustine",
@@ -665,7 +667,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "general",
     occasions: ["daily", "humility", "lent"],
     relatedSaints: ["saint-augustine-of-hippo"],
-    summary: `The petitions Noverim me, noverim te, which the Raccolta gives as St Augustine's: a chain of short requests to know oneself and to know Christ, to die to self and live in Him, and to enjoy Him for ever. The Raccolta (no. 53) prints them in Latin and English; Leo XIII indulgenced them in 1883. ${ST_JOHN}`,
+    summary: `The petitions Noverim me, noverim te, which the Raccolta gives as St Augustine's: a chain of short requests to know oneself and to know Christ, to die to self and live in Him, and to enjoy Him for ever. The Raccolta (no. 53) prints them in Latin and English; Leo XIII indulgenced them in 1883.`,
   }),
   raccolta({
     slug: "prayer-for-grace-to-do-the-will-of-god",
@@ -680,7 +682,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "general",
     occasions: ["daily", "discernment", "trust"],
-    summary: `A prayer drawn from the Imitation of Christ (Book III, chapter 15) asking Jesus for grace to abide and persevere with us, and for a will so united with his that we can will nothing but what He wills. Raccolta no. 57, indulgenced by Leo XIII in 1886. ${ST_JOHN}`,
+    summary: `A prayer drawn from the Imitation of Christ (Book III, chapter 15) asking Jesus for grace to abide and persevere with us, and for a will so united with his that we can will nothing but what He wills. Raccolta no. 57, indulgenced by Leo XIII in 1886.`,
   }),
   raccolta({
     slug: "prayer-for-the-preservation-of-faith",
@@ -692,7 +694,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["for-the-church", "times-of-trouble"],
-    summary: `An urgent prayer to Christ the Redeemer, author and finisher of our faith, not to let the light of faith be put out among his people, but to keep them within the bark of Peter, faithful to the Pope, and to give the Church peace and unity. Raccolta no. 58, indulgenced by Leo XIII in 1888. ${ST_JOHN}`,
+    summary: `An urgent prayer to Christ the Redeemer, author and finisher of our faith, not to let the light of faith be put out among his people, but to keep them within the bark of Peter, faithful to the Pope, and to give the Church peace and unity. Raccolta no. 58, indulgenced by Leo XIII in 1888.`,
   }),
   raccolta({
     slug: "prayer-for-the-love-of-god-o-my-jesus",
@@ -704,7 +706,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "general",
     occasions: ["daily", "act-of-love"],
-    summary: `A short act of love asking Jesus, who knows that we love Him but not enough, to kindle in the heart the divine fire that consumes the saints and transforms them into Him. Raccolta no. 59, indulgenced by Leo XIII in 1893. ${ST_JOHN}`,
+    summary: `A short act of love asking Jesus, who knows that we love Him but not enough, to kindle in the heart the divine fire that consumes the saints and transforms them into Him. Raccolta no. 59, indulgenced by Leo XIII in 1893.`,
   }),
   raccolta({
     slug: "prayer-in-honour-of-the-holy-family",
@@ -720,7 +722,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "general",
     occasions: ["holy-family", "families", "preparation-for-death"],
     relatedSaints: ["saint-joseph"],
-    summary: `A prayer to imitate the example of the Holy Family, so as to be received into the eternal tabernacles at death in the company of Our Lady and St Joseph; it echoes the postcommunion of the Mass of the Holy Family. The Raccolta (no. 60) prints it in Latin and English; Leo XIII indulgenced it in 1897. ${ST_JOHN}`,
+    summary: `A prayer to imitate the example of the Holy Family, so as to be received into the eternal tabernacles at death in the company of Our Lady and St Joseph; it echoes the postcommunion of the Mass of the Holy Family. The Raccolta (no. 60) prints it in Latin and English; Leo XIII indulgenced it in 1897.`,
   }),
   raccolta({
     slug: "prayer-to-jesus-our-redeemer-reparation",
@@ -732,7 +734,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "general",
     occasions: ["reparation", "holy-name-of-jesus", "for-the-church"],
-    summary: `An act of reparation to Christ for blasphemies against his Name, outrages against the Blessed Sacrament, irreverence to his Mother and calumnies against the Church, joined to a prayer for those in danger of losing the faith. Raccolta no. 68, indulgenced by Leo XIII in 1903. ${ST_JOHN}`,
+    summary: `An act of reparation to Christ for blasphemies against his Name, outrages against the Blessed Sacrament, irreverence to his Mother and calumnies against the Church, joined to a prayer for those in danger of losing the faith. Raccolta no. 68, indulgenced by Leo XIII in 1903.`,
   }),
   raccolta({
     slug: "prayer-for-the-conversion-of-sinners-most-merciful-saviour",
@@ -744,7 +746,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["conversion", "sacred-heart", "lent"],
-    summary: `A short prayer through the Sacred Heart that all wandering sheep may return to Christ, the Shepherd and Bishop of souls (1 Peter 2:25). Raccolta no. 70, indulgenced by Pius X in 1905. ${ST_JOHN}`,
+    summary: `A short prayer through the Sacred Heart that all wandering sheep may return to Christ, the Shepherd and Bishop of souls (1 Peter 2:25). Raccolta no. 70, indulgenced by Pius X in 1905.`,
   }),
   raccolta({
     slug: "prayer-for-students-of-the-sciences-uncreated-word",
@@ -756,7 +758,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "general",
     occasions: ["study", "before-study", "november-15"],
-    summary: `A prayer that recalls the learning of Albert the Great (then Blessed Albert; canonized in 1931) and asks to see the bond that unites the human sciences in the service of the one truth, and to hasten the day when all learning is placed at the service of the faith. Raccolta no. 71, indulgenced by Pius X in 1907. ${ST_JOHN}`,
+    summary: `A prayer that recalls the learning of Albert the Great (then Blessed Albert; canonized in 1931) and asks to see the bond that unites the human sciences in the service of the one truth, and to hasten the day when all learning is placed at the service of the faith. Raccolta no. 71, indulgenced by Pius X in 1907.`,
   }),
   raccolta({
     slug: "prayer-of-catechists-to-jesus-friend-of-children",
@@ -768,7 +770,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["catechesis", "children", "teachers"],
-    summary: `A prayer for catechists to Jesus, the friend of children, asking for the respect, affection and skill in teaching Christian doctrine that He gave to Peter Canisius (then Blessed; canonized in 1925), the model of catechists. Raccolta no. 72, indulgenced by Pius X in 1906. ${ST_JOHN}`,
+    summary: `A prayer for catechists to Jesus, the friend of children, asking for the respect, affection and skill in teaching Christian doctrine that He gave to Peter Canisius (then Blessed; canonized in 1925), the model of catechists. Raccolta no. 72, indulgenced by Pius X in 1906.`,
   }),
 
   // ── V. The Child Jesus ───────────────────────────────────────────────────
@@ -801,7 +803,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "chaplet",
     category: "devotional",
     occasions: ["christmas", "christmastide", "twenty-fifth-of-the-month"],
-    summary: `Twelve invocations of the "sweetest Child" Jesus, from his coming down from the Father to his finding in the Temple, each answered by "Have mercy on us, Infant Jesus" and a Hail Mary, in three groups divided by an Our Father and a doxology, with proper versicles for Christmas and the Epiphany and a closing collect. The Raccolta (no. 75) attaches it in particular to the twenty-fifth of every month; Pius VII indulgenced it in 1819. ${ST_JOHN}`,
+    summary: `Twelve invocations of the "sweetest Child" Jesus, from his coming down from the Father to his finding in the Temple, each answered by "Have mercy on us, Infant Jesus" and a Hail Mary, in three groups divided by an Our Father and a doxology, with proper versicles for Christmas and the Epiphany and a closing collect. The Raccolta (no. 75) attaches it in particular to the twenty-fifth of every month; Pius VII indulgenced it in 1819.`,
   }),
   raccolta({
     slug: "five-offerings-in-honour-of-the-nativity",
@@ -821,7 +823,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["christmas", "advent", "novena"],
-    summary: `Five offerings to the Eternal Father of the mysteries of the Nativity — the Birth itself, the journey to Bethlehem, the stable and the manger, the Circumcision, and the virtues of the Child Jesus — each with a Glory Be, followed by a versicle and a closing collect. The Raccolta (no. 76) gives them for a novena on the nine days before the twenty-fifth of any month; Pius IX indulgenced it in 1846. ${ST_JOHN}`,
+    summary: `Five offerings to the Eternal Father of the mysteries of the Nativity — the Birth itself, the journey to Bethlehem, the stable and the manger, the Circumcision, and the virtues of the Child Jesus — each with a Glory Be, followed by a versicle and a closing collect. The Raccolta (no. 76) gives them for a novena on the nine days before the twenty-fifth of any month; Pius IX indulgenced it in 1846.`,
   }),
   raccolta({
     slug: "prayer-before-the-crib",
@@ -833,7 +835,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["christmas", "christmastide", "advent"],
-    summary: `An act of adoration of the Word made flesh and of veneration of the manger that received Him, made with the simplicity of the shepherds, the faith of Joseph and the love of Mary, and asking peace and goodwill for the whole world. The Raccolta (no. 77) gives a greater indulgence when it is said in the Basilica of St Mary Major in Rome, where relics of the manger are kept; Pius IX indulgenced it in 1861. ${ST_JOHN}`,
+    summary: `An act of adoration of the Word made flesh and of veneration of the manger that received Him, made with the simplicity of the shepherds, the faith of Joseph and the love of Mary, and asking peace and goodwill for the whole world. The Raccolta (no. 77) gives a greater indulgence when it is said in the Basilica of St Mary Major in Rome, where relics of the manger are kept; Pius IX indulgenced it in 1861.`,
   }),
   raccolta({
     slug: "prayer-to-the-infant-jesus-most-dear-lord",
@@ -845,7 +847,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["christmas", "christmastide", "epiphany"],
-    summary: `A prayer to the Infant Christ, born in a cave to free us from the darkness of sin, choosing Him as King and Lord and offering Him the affections of our hearts as tribute. Raccolta no. 78, indulgenced by Leo XIII in 1894. ${ST_JOHN}`,
+    summary: `A prayer to the Infant Christ, born in a cave to free us from the darkness of sin, choosing Him as King and Lord and offering Him the affections of our hearts as tribute. Raccolta no. 78, indulgenced by Leo XIII in 1894.`,
   }),
 
   // ── VI. The Blessed Sacrament ────────────────────────────────────────────
@@ -862,7 +864,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "eucharistic",
     occasions: ["corpus-christi", "before-communion", "adoration"],
-    summary: `The prayer for frequent and daily Communion issued under Pius X, asking Jesus, who gives Himself in the Eucharist as remedy and food, to pour out his Spirit so that sinners may return to the life of grace and the faithful approach his table daily. The Raccolta prints it in Latin and English (no. 82) to be said after the sermon on each day of the Corpus Christi triduo, and gives a second English rendering of the same prayer as no. 111; Pius X indulgenced it in 1905 and 1907. ${ST_JOHN}`,
+    summary: `The prayer for frequent and daily Communion issued under Pius X, asking Jesus, who gives Himself in the Eucharist as remedy and food, to pour out his Spirit so that sinners may return to the life of grace and the faithful approach his table daily. The Raccolta prints it in Latin and English (no. 82) to be said after the sermon on each day of the Corpus Christi triduo, and gives a second English rendering of the same prayer as no. 111; Pius X indulgenced it in 1905 and 1907.`,
   }),
   raccolta({
     slug: "prayers-before-the-blessed-sacrament-to-the-three-divine-persons",
@@ -879,7 +881,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["adoration", "thursday", "visit-to-the-blessed-sacrament"],
-    summary: `Acts of adoration and thanksgiving before the Blessed Sacrament addressed in turn to the Eternal Father, who sent his Son to be our food, to the Son, who instituted the Sacrament, and to the Holy Spirit, who formed his Body in the Virgin's womb; each is followed by an Our Father, Hail Mary and Glory Be, and the whole closes with the Tantum ergo. Raccolta no. 88, indulgenced by Pius VI in 1796. ${ST_JOHN}`,
+    summary: `Acts of adoration and thanksgiving before the Blessed Sacrament addressed in turn to the Eternal Father, who sent his Son to be our food, to the Son, who instituted the Sacrament, and to the Holy Spirit, who formed his Body in the Virgin's womb; each is followed by an Our Father, Hail Mary and Glory Be, and the whole closes with the Tantum ergo. Raccolta no. 88, indulgenced by Pius VI in 1796.`,
   }),
   raccolta({
     slug: "acts-of-adoration-and-reparation-to-the-blessed-sacrament",
@@ -896,7 +898,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "eucharistic",
     occasions: ["adoration", "reparation", "holy-hour"],
-    summary: `Five acts of adoration of Christ in the Blessed Sacrament, each offering the Blood of one of his five wounds in reparation for a particular neglect — coldness before the tabernacle, indifference when the Sacrament is carried to the sick, profanation of churches, irreverence at Mass, and sacrilegious Communions — and each ending "Blessed and praised every moment be the most holy and divine Sacrament!" Raccolta no. 89, indulgenced by Pius VII in 1814. ${ST_JOHN}`,
+    summary: `Five acts of adoration of Christ in the Blessed Sacrament, each offering the Blood of one of his five wounds in reparation for a particular neglect — coldness before the tabernacle, indifference when the Sacrament is carried to the sick, profanation of churches, irreverence at Mass, and sacrilegious Communions — and each ending "Blessed and praised every moment be the most holy and divine Sacrament!" Raccolta no. 89, indulgenced by Pius VII in 1814.`,
   }),
   raccolta({
     slug: "prayer-behold-my-most-loving-jesus",
@@ -908,7 +910,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["after-communion", "adoration", "sacred-heart"],
-    summary: `A short prayer of wonder at the love that moved Christ to give his own Flesh and Blood as our food, asking to be received into the wound of his Heart, that school of charity. Raccolta no. 93, indulgenced by Pius VII in 1818. ${ST_JOHN}`,
+    summary: `A short prayer of wonder at the love that moved Christ to give his own Flesh and Blood as our food, asking to be received into the wound of his Heart, that school of charity. Raccolta no. 93, indulgenced by Pius VII in 1818.`,
   }),
   raccolta({
     slug: "prayer-dear-jesus-present-in-the-sacrament",
@@ -920,7 +922,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["adoration", "visit-to-the-blessed-sacrament"],
-    summary: `A prayer of thanks and praise to Jesus present on the altar, recalling his Incarnation, scourging and death, and asking strength to overcome every evil passion, to bless Him in affliction, to fulfil every duty and so to become a saint. Raccolta no. 97, indulgenced by Pius IX in 1866. ${ST_JOHN}`,
+    summary: `A prayer of thanks and praise to Jesus present on the altar, recalling his Incarnation, scourging and death, and asking strength to overcome every evil passion, to bless Him in affliction, to fulfil every duty and so to become a saint. Raccolta no. 97, indulgenced by Pius IX in 1866.`,
   }),
   raccolta({
     slug: "prayer-for-a-visit-look-down-holy-father",
@@ -932,7 +934,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "eucharistic",
     occasions: ["visit-to-the-blessed-sacrament", "adoration", "for-the-church"],
-    summary: `A prayer for a visit to the Blessed Sacrament that offers the Father the Victim of the altar, whose Blood cries to Him from the Cross, and begs mercy for "this city and thy people", closing with a versicle for the city's protection. Raccolta no. 99, indulgenced by Pius IX in 1877. ${ST_JOHN}`,
+    summary: `A prayer for a visit to the Blessed Sacrament that offers the Father the Victim of the altar, whose Blood cries to Him from the Cross, and begs mercy for "this city and thy people", closing with a versicle for the city's protection. Raccolta no. 99, indulgenced by Pius IX in 1877.`,
   }),
   raccolta({
     slug: "prayer-during-the-elevation-salve-salutaris-victima",
@@ -951,7 +953,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["mass", "elevation", "precious-blood"],
-    summary: `Three short salutations for the elevation at Mass: to the saving Victim offered on the Cross, to the Precious Blood that washes away the sins of the world, and a plea to be remembered as one redeemed by that Blood. The Raccolta (no. 102) prints them in Latin and English; Leo XIII indulgenced them in 1893. ${ST_JOHN}`,
+    summary: `Three short salutations for the elevation at Mass: to the saving Victim offered on the Cross, to the Precious Blood that washes away the sins of the world, and a plea to be remembered as one redeemed by that Blood. The Raccolta (no. 102) prints them in Latin and English; Leo XIII indulgenced them in 1893.`,
   }),
   raccolta({
     slug: "act-of-homage-to-christ-our-god-and-king",
@@ -966,7 +968,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "eucharistic",
     occasions: ["christ-the-king", "adoration", "benediction"],
-    summary: `An act of homage to be said by priest and people together during exposition of the Blessed Sacrament, asking Christ the King to regenerate a society that has turned away from Him, to enlighten rulers and nations, to set free his Vicar (written while the popes regarded themselves as prisoners in the Vatican after 1870) and to gather all under one shepherd. Raccolta no. 105, indulgenced by Leo XIII in 1895. ${ST_JOHN}`,
+    summary: `An act of homage to be said by priest and people together during exposition of the Blessed Sacrament, asking Christ the King to regenerate a society that has turned away from Him, to enlighten rulers and nations, to set free his Vicar (written while the popes regarded themselves as prisoners in the Vatican after 1870) and to gather all under one shepherd. Raccolta no. 105, indulgenced by Leo XIII in 1895.`,
   }),
   raccolta({
     slug: "prayer-after-communion-how-full-of-delight",
@@ -978,7 +980,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["after-communion", "thanksgiving", "confession"],
-    summary: `A thanksgiving after Communion that rejoices in the peace of a soul reconciled to God — "our hearts are made for Thee" — and resolves to flee sin and its occasions and to dwell in the divine Heart. Raccolta no. 107, indulgenced by Leo XIII in 1896. ${ST_JOHN}`,
+    summary: `A thanksgiving after Communion that rejoices in the peace of a soul reconciled to God — "our hearts are made for Thee" — and resolves to flee sin and its occasions and to dwell in the divine Heart. Raccolta no. 107, indulgenced by Leo XIII in 1896.`,
   }),
   raccolta({
     slug: "prayer-to-our-lady-of-the-blessed-sacrament",
@@ -990,7 +992,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "marian",
     category: "marian",
     occasions: ["corpus-christi", "marian-devotion", "adoration"],
-    summary: `A short prayer to the Virgin under the title Our Lady of the Blessed Sacrament, asking her to awaken in all the faithful a devotion to the Eucharist that makes them worthy to receive it daily. Raccolta no. 112, indulgenced by Pius X in 1907. ${ST_JOHN}`,
+    summary: `A short prayer to the Virgin under the title Our Lady of the Blessed Sacrament, asking her to awaken in all the faithful a devotion to the Eucharist that makes them worthy to receive it daily. Raccolta no. 112, indulgenced by Pius X in 1907.`,
   }),
   raccolta({
     slug: "prayer-to-our-lord-in-the-blessed-sacrament-our-sins",
@@ -1002,7 +1004,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["adoration", "before-communion", "confession"],
-    summary: `A prayer of repentance and hope to Christ in the Blessed Sacrament, promising to receive Him as often as possible and to praise Him without human respect, and asking Him to draw all to daily Communion. Raccolta no. 113, indulgenced by Pius X in 1906. ${ST_JOHN}`,
+    summary: `A prayer of repentance and hope to Christ in the Blessed Sacrament, promising to receive Him as often as possible and to praise Him without human respect, and asking Him to draw all to daily Communion. Raccolta no. 113, indulgenced by Pius X in 1906.`,
   }),
   raccolta({
     slug: "prayers-during-a-procession-of-the-blessed-sacrament",
@@ -1016,7 +1018,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["corpus-christi", "procession", "adoration"],
-    summary: `A short devotion for processions of the Blessed Sacrament: an Our Father, Hail Mary and Glory Be, then ten times the versicle "Let us every moment praise the most holy Sacrament" with its response, the whole repeated as often as needed. Raccolta no. 114, indulgenced by Pius X in 1906. ${ST_JOHN}`,
+    summary: `A short devotion for processions of the Blessed Sacrament: an Our Father, Hail Mary and Glory Be, then ten times the versicle "Let us every moment praise the most holy Sacrament" with its response, the whole repeated as often as needed. Raccolta no. 114, indulgenced by Pius X in 1906.`,
   }),
   raccolta({
     slug: "prayer-at-the-beginning-of-mass-with-our-lady-of-sorrows",
@@ -1028,7 +1030,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["mass", "before-mass", "september-15"],
-    summary: `An offering of the sacrifice of the Mass at its beginning, made in union with Our Lady of Sorrows on Calvary, for the four ends of the sacrifice: adoration, thanksgiving, satisfaction for sin, and petition for the living and the dead. Raccolta no. 115, indulgenced by Pius X in 1904. ${ST_JOHN}`,
+    summary: `An offering of the sacrifice of the Mass at its beginning, made in union with Our Lady of Sorrows on Calvary, for the four ends of the sacrifice: adoration, thanksgiving, satisfaction for sin, and petition for the living and the dead. Raccolta no. 115, indulgenced by Pius X in 1904.`,
   }),
 
   // ── VII. Jesus Crucified ─────────────────────────────────────────────────
@@ -1057,16 +1059,10 @@ export const prayerBatch9: CuratedEntry[] = [
       "God, who by the Precious Blood of thy only-begotten Son didst sanctify the standard of the Cross; grant, we beseech Thee, that all those who rejoice in the glory of the same Holy Cross may at all times and places feel the gladness of thy protection. Through the same Christ our Lord. R. Amen.",
       "End with one Pater, Ave, and Gloria for the intention of the Sovereign Pontiff.",
     ],
-    latin: [
-      "V. Adoramus te, Christe, et benedicimus tibi.\nR. Quia per sanctam Crucem tuam redemisti mundum.",
-      "V. Miserere nostri, Domine.\nR. Miserere nostri.",
-      "Oremus.",
-      "Deus, qui Unigeniti Filii tui pretioso sanguine vivificæ crucis vexillum sanctificare voluisti; concede, quæsumus, eos, qui ejusdem sanctæ crucis gaudent honore, tua quoque ubique protectione gaudere. Per eundem Christum Dominum nostrum. R. Amen.",
-    ],
     prayerType: "general",
     category: "devotional",
     occasions: ["stations-of-the-cross", "lent", "good-friday", "friday"],
-    summary: `The short prayers for each of the fourteen Stations of the Cross printed in the Raccolta (no. 117), each with the versicle Adoramus te, an Our Father and Hail Mary, and the Miserere nostri, with a verse of the Stabat Mater sung between the stations and the collect of the Holy Cross at the end. The Raccolta notes that any other devotions may be used for the Stations; the Latin given here is the versicles and collect the book prints beside the English. ${ST_JOHN}`,
+    summary: `The short prayers for each of the fourteen Stations of the Cross printed in the Raccolta (no. 117), each with the versicle Adoramus te, an Our Father and Hail Mary, and the Miserere nostri, with a verse of the Stabat Mater sung between the stations and the collect of the Holy Cross at the end. The Raccolta notes that any other devotions may be used for the Stations.`,
   }),
   raccolta({
     slug: "devotion-to-the-five-wounds-raccolta",
@@ -1088,7 +1084,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["lent", "passiontide", "friday", "exaltation-of-the-holy-cross"],
-    summary: `An act of contrition before the crucifix followed by five prayers of adoration, compassion, thanksgiving and offering to each of the wounds of Christ — the left foot, the right foot, the left hand, the right hand and the side — each with an Our Father, Hail Mary and Glory Be and a verse of the Stabat Mater, then a prayer to the Mother of Sorrows and two closing collects. Raccolta no. 121, indulgenced by Pius VII in 1807, in particular for Passiontide. ${ST_JOHN}`,
+    summary: `An act of contrition before the crucifix followed by five prayers of adoration, compassion, thanksgiving and offering to each of the wounds of Christ — the left foot, the right foot, the left hand, the right hand and the side — each with an Our Father, Hail Mary and Glory Be and a verse of the Stabat Mater, then a prayer to the Mother of Sorrows and two closing collects. Raccolta no. 121, indulgenced by Pius VII in 1807, in particular for Passiontide.`,
   }),
   raccolta({
     slug: "devotion-of-the-seven-words",
@@ -1110,18 +1106,10 @@ export const prayerBatch9: CuratedEntry[] = [
       "God, who for the salvation of the human race hast, in the most bitter death of thy Son, made for us both an example and a refuge; grant, we beseech Thee, that in the last peril, at the hour of our death, we may merit to obtain the full effect of his great charity, and be made partakers of our Redeemer's glory. Through the same Jesus Christ our Lord. Amen.",
       "End with the three ejaculations,\nJesus, Mary, and Joseph, I give you my heart and my soul.\nJesus, Mary, and Joseph, assist me in my last agony.\nJesus, Mary, and Joseph, may I breathe forth my soul with you in peace.",
     ],
-    latin: [
-      "V. Deus, in adjutorium meum intende.\nR. Domine, ad adjuvandum me festina.\nV. Gloria Patri, etc.",
-      "V. Adoramus te, Christe, et benedicimus tibi.\nR. Quia per sanctam crucem tuam redemisti mundum.\nMiserere nostri, Domine, miserere nostri.",
-      "Maria, mater gratiæ,\nMater misericordiæ,\nTu nos ab hoste protege,\nEt mortis hora suscipe.",
-      "V. A subitanea et improvisa morte,\nR. Libera nos, Domine.\nV. Ab insidiis diaboli,\nR. Libera nos, Domine.\nV. A morte perpetua,\nR. Libera nos, Domine.",
-      "Oremus.",
-      "Deus, qui ad humani generis salutem in dolorosissima Filii tui morte exemplum et subsidium constituisti; concede, quæsumus, ut in extremo mortis nostræ periculo tantæ charitatis effectum consequi et ipsius Redemptoris gloriæ consociari mereamur. Per eundem Christum Dominum nostrum. R. Amen.",
-    ],
     prayerType: "general",
     category: "devotional",
     occasions: ["good-friday", "lent", "for-the-dying", "preparation-for-death"],
-    summary: `A meditation on each of the seven last words of Christ from the Cross, every one closing with a prayer for all who are in their last agony and for oneself at the hour of death, three Glory Bes, and acts of faith, hope, love and contrition; it ends with a prayer to the Mother of Sorrows, the verse Maria, mater gratiae, versicles against sudden death and the three invocations of Jesus, Mary and Joseph. Raccolta no. 122, indulgenced by Leo XIII in 1897; the Latin is that of the versicles, verse and collect the book prints beside the English. ${ST_JOHN}`,
+    summary: `A meditation on each of the seven last words of Christ from the Cross, every one closing with a prayer for all who are in their last agony and for oneself at the hour of death, three Glory Bes, and acts of faith, hope, love and contrition; it ends with a prayer to the Mother of Sorrows, the verse Maria, mater gratiae, versicles against sudden death and the three invocations of Jesus, Mary and Joseph. Raccolta no. 122, indulgenced by Leo XIII in 1897.`,
   }),
   raccolta({
     slug: "deus-qui-pro-redemptione-mundi",
@@ -1133,7 +1121,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["lent", "good-friday", "passion"],
-    summary: `The old prayer Deus, qui pro redemptione mundi, which recounts the sufferings of Christ from his birth and circumcision to the lance, and asks by them to be freed from the pains of hell and brought to Paradise like the good thief; it is followed by five Our Fathers, Hail Marys and Glory Bes. Raccolta no. 125, indulgenced by Pius VII in 1820. ${ST_JOHN}`,
+    summary: `The old prayer Deus, qui pro redemptione mundi, which recounts the sufferings of Christ from his birth and circumcision to the lance, and asks by them to be freed from the pains of hell and brought to Paradise like the good thief; it is followed by five Our Fathers, Hail Marys and Glory Bes. Raccolta no. 125, indulgenced by Pius VII in 1820.`,
   }),
   raccolta({
     slug: "five-credos-of-saint-pius-v",
@@ -1149,7 +1137,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["lent", "friday", "passion"],
-    summary: `Five short petitions to Christ crucified — to open his ears, his eyes, his mouth, his arms and his Heart to the one who prays — each followed by the Apostles' Creed; the Raccolta (no. 128) says they are known as the Five Credos of St Pius V. Pius IX indulgenced them in 1859. ${ST_JOHN}`,
+    summary: `Five short petitions to Christ crucified — to open his ears, his eyes, his mouth, his arms and his Heart to the one who prays — each followed by the Apostles' Creed; the Raccolta (no. 128) says they are known as the Five Credos of St Pius V. Pius IX indulgenced them in 1859.`,
   }),
   raccolta({
     slug: "invocation-of-saint-thomas-aquinas-to-the-cross",
@@ -1165,7 +1153,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "devotional",
     occasions: ["exaltation-of-the-holy-cross", "lent", "protection"],
     relatedSaints: ["saint-thomas-aquinas"],
-    summary: `Four short acclamations of the Cross as salvation, object of adoration, companion and refuge, which the Raccolta (no. 129) gives as an invocation of St Thomas Aquinas and prints in Latin and English. Pius IX indulgenced it in 1874. ${ST_JOHN}`,
+    summary: `Four short acclamations of the Cross as salvation, object of adoration, companion and refuge, which the Raccolta (no. 129) gives as an invocation of St Thomas Aquinas and prints in Latin and English. Pius IX indulgenced it in 1874.`,
   }),
   raccolta({
     slug: "prayers-of-saint-clare-to-the-five-wounds",
@@ -1185,7 +1173,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "devotional",
     occasions: ["lent", "friday", "august-11", "passion"],
     relatedSaints: ["saint-clare-of-assisi"],
-    summary: `Five prayers of praise to the wounds of Christ in his hands, feet and side, which the Raccolta (no. 130) gives as St Clare of Assisi's, asking pardon, perseverance, a good death with the last sacraments, and faith, hope and charity, each with an Our Father and Hail Mary and closing with a collect of the Five Wounds. Leo XIII indulgenced them in 1885. ${ST_JOHN}`,
+    summary: `Five prayers of praise to the wounds of Christ in his hands, feet and side, which the Raccolta (no. 130) gives as St Clare of Assisi's, asking pardon, perseverance, a good death with the last sacraments, and faith, hope and charity, each with an Our Father and Hail Mary and closing with a collect of the Five Wounds. Leo XIII indulgenced them in 1885.`,
   }),
   raccolta({
     slug: "prayer-to-our-lord-scourged-at-the-pillar",
@@ -1200,7 +1188,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["lent", "passion", "penance"],
-    summary: `A meditation turned into prayer before Christ bound to the pillar, confessing that it was the sinner's own sins, not Pilate or the soldiers, that scourged Him, and resolving to make satisfaction for the rest of life. Raccolta no. 132, indulgenced by Leo XIII through the Cardinal Vicar in 1886. ${ST_JOHN}`,
+    summary: `A meditation turned into prayer before Christ bound to the pillar, confessing that it was the sinner's own sins, not Pilate or the soldiers, that scourged Him, and resolving to make satisfaction for the rest of life. Raccolta no. 132, indulgenced by Leo XIII through the Cardinal Vicar in 1886.`,
   }),
   raccolta({
     slug: "ecce-crucem-domini",
@@ -1216,7 +1204,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "devotional",
     occasions: ["protection", "spiritual-warfare", "exaltation-of-the-holy-cross"],
     relatedSaints: ["saint-anthony-of-padua"],
-    summary: `The invocation Ecce Crucem Domini, known as the "Brief of St Anthony" from the legend that St Anthony of Padua gave it written out to a woman troubled by the devil, taken from the Apocalypse (5:5); the cross printed in the text marks where the sign of the cross is made. The Raccolta (no. 134) prints it in Latin and English; Leo XIII indulgenced it in 1892. ${ST_JOHN}`,
+    summary: `The invocation Ecce Crucem Domini, known as the "Brief of St Anthony" from the legend that St Anthony of Padua gave it written out to a woman troubled by the devil, taken from the Apocalypse (5:5); the cross printed in the text marks where the sign of the cross is made. The Raccolta (no. 134) prints it in Latin and English; Leo XIII indulgenced it in 1892.`,
   }),
   raccolta({
     slug: "prayer-to-our-lord-on-the-cross-for-the-hour-of-death",
@@ -1241,7 +1229,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["preparation-for-death", "for-the-dying", "good-friday"],
-    summary: `A prayer made now, before the crucifix, for the moment of death when the senses fail: when the eyes can no longer look up, the lips no longer kiss the wounds, the hands no longer embrace the Cross and the tongue no longer speak, Christ is asked to remember the love shown Him now. The Raccolta (no. 135) prints it in Latin and English; Pius X indulgenced it in 1903. ${ST_JOHN}`,
+    summary: `A prayer made now, before the crucifix, for the moment of death when the senses fail: when the eyes can no longer look up, the lips no longer kiss the wounds, the hands no longer embrace the Cross and the tongue no longer speak, Christ is asked to remember the love shown Him now. The Raccolta (no. 135) prints it in Latin and English; Pius X indulgenced it in 1903.`,
   }),
   raccolta({
     slug: "prayer-to-the-holy-face-of-jesus-dead",
@@ -1255,7 +1243,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "devotional",
     occasions: ["lent", "holy-face", "good-friday"],
     relatedSaints: ["saint-therese-of-lisieux"],
-    summary: `A prayer of veneration of the Holy Face of Christ disfigured in the Passion, whose tears are gathered "as precious pearls" to purchase the souls of sinners. It is St Thérèse of Lisieux's prayer to the Holy Face, which the Raccolta (no. 136), published before her beatification, prints in this translation under the title "Prayer to Jesus Dead" without naming her. Pius X indulgenced it in 1906. ${ST_JOHN}`,
+    summary: `A prayer of veneration of the Holy Face of Christ disfigured in the Passion, whose tears are gathered "as precious pearls" to purchase the souls of sinners. It is St Thérèse of Lisieux's prayer to the Holy Face, which the Raccolta (no. 136), published before her beatification, prints in this translation under the title "Prayer to Jesus Dead" without naming her. Pius X indulgenced it in 1906.`,
   }),
   raccolta({
     slug: "prayer-for-a-happy-death-o-jesus-while-adoring-thy-last-breath",
@@ -1268,7 +1256,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["preparation-for-death", "good-friday", "evening"],
-    summary: `A prayer of offering of one's own death, made in advance while the senses are still at command, asking that the last moment be united to the moment of Christ's death and the last heartbeat be an act of pure love. Raccolta no. 137, indulgenced by Leo XIII in 1902. ${ST_JOHN}`,
+    summary: `A prayer of offering of one's own death, made in advance while the senses are still at command, asking that the last moment be united to the moment of Christ's death and the last heartbeat be an act of pure love. Raccolta no. 137, indulgenced by Leo XIII in 1902.`,
   }),
 
   // ── VIII. The Precious Blood ─────────────────────────────────────────────
@@ -1291,17 +1279,10 @@ export const prayerBatch9: CuratedEntry[] = [
       "Let us pray.",
       "Almighty and everlasting God, who hast appointed thine only-begotten Son the Saviour of the world, and hast willed to be appeased by his Blood; grant us, we beseech Thee, so to venerate this Blood, the price of our salvation, and so to be defended on earth by its power from the evils of this present life, that in heaven we may be made glad by its everlasting fruit. Who liveth and reigneth, etc. Amen.",
     ],
-    latin: [
-      "V. Deus, in adjutorium meum intende.\nR. Domine, ad adjuvandum me festina.\nV. Gloria Patri, etc.\nR. Sicut erat, etc.",
-      "V. Te ergo quæsumus tuis famulis subveni quos pretioso Sanguine redemisti.",
-      "V. Redemisti nos, Domine, in Sanguine tuo:\nR. Et fecisti nos Deo nostro regnum.",
-      "Oremus.",
-      "Omnipotens sempiterne Deus, qui unigenitum Filium tuum mundi Redemptorem constituisti, ac ejus Sanguine placari voluisti; concede nobis, quæsumus, salutis nostræ pretium ita venerari, atque a præsentis vitæ malis ejus virtute defendi in terris, ut fructu perpetuo lætemur in cœlis. Qui tecum vivit et regnat, etc. Amen.",
-    ],
     prayerType: "chaplet",
     category: "chaplet",
     occasions: ["july", "precious-blood", "lent"],
-    summary: `The Chaplet of the Precious Blood in seven mysteries, the seven times Christ shed his Blood — the Circumcision, the Agony in the Garden, the scourging, the crowning with thorns, the carrying of the Cross, the Crucifixion and the piercing of his side — with a meditation and resolution for each, thirty-three Our Fathers in all for the years of his life, and the closing prayer "Most Precious Blood of life eternal" with the collect of the feast. The Raccolta (no. 138; the closing prayer is also no. 139) records indulgences from Pius VII in 1815; the Latin is that of the versicles and collect printed beside the English. ${ST_JOHN}`,
+    summary: `The Chaplet of the Precious Blood in seven mysteries, the seven times Christ shed his Blood — the Circumcision, the Agony in the Garden, the scourging, the crowning with thorns, the carrying of the Cross, the Crucifixion and the piercing of his side — with a meditation and resolution for each, thirty-three Our Fathers in all for the years of his life, and the closing prayer "Most Precious Blood of life eternal" with the collect of the feast. The Raccolta (no. 138; the closing prayer is also no. 139) records indulgences from Pius VII in 1815.`,
   }),
   raccolta({
     slug: "glory-be-to-jesus-hymn",
@@ -1321,7 +1302,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "hymn",
     category: "hymn",
     occasions: ["july", "precious-blood", "good-friday"],
-    summary: `The hymn "Glory be to Jesus", Edward Caswall's English rendering of the Italian hymn Viva! viva! Gesù, in nine stanzas praising the Precious Blood that pleads for pardon as Abel's blood cried for vengeance. The Raccolta (no. 140) prints it, without naming the translator, as the "Devout Aspirations" indulgenced by Pius VII in 1815. ${ST_JOHN}`,
+    summary: `The hymn "Glory be to Jesus", Edward Caswall's English rendering of the Italian hymn Viva! viva! Gesù, in nine stanzas praising the Precious Blood that pleads for pardon as Abel's blood cried for vengeance. The Raccolta (no. 140) prints it, without naming the translator, as the "Devout Aspirations" indulgenced by Pius VII in 1815.`,
   }),
   raccolta({
     slug: "seven-offerings-of-the-precious-blood",
@@ -1340,7 +1321,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "devotional",
     occasions: ["july", "precious-blood", "for-the-church", "all-souls"],
-    summary: `Seven offerings to the Eternal Father of the merits of the Precious Blood — for the Church and the Pope, for peace among rulers, for the conversion of unbelievers and sinners, for family, friends and enemies, for the dying, for those devoted to the Precious Blood, and for one's own needs and the holy souls — each closed with a Glory Be and a short praise of Jesus who saved us by his Blood. The Raccolta (no. 141) gives them in reparation for the outrages Christ receives in the Precious Blood; Pius VII indulgenced them in 1817. ${ST_JOHN}`,
+    summary: `Seven offerings to the Eternal Father of the merits of the Precious Blood — for the Church and the Pope, for peace among rulers, for the conversion of unbelievers and sinners, for family, friends and enemies, for the dying, for those devoted to the Precious Blood, and for one's own needs and the holy souls — each closed with a Glory Be and a short praise of Jesus who saved us by his Blood. The Raccolta (no. 141) gives them in reparation for the outrages Christ receives in the Precious Blood; Pius VII indulgenced them in 1817.`,
   }),
   raccolta({
     slug: "act-of-oblation-of-the-precious-blood-for-blessings",
@@ -1352,7 +1333,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["precious-blood", "thanksgiving", "blessing"],
-    summary: `An offering to the Father of the Blood that Christ shed from his right hand, asking through it God's blessing and protection from every enemy and ill, and ending with the invocation of the blessing of the Holy Trinity. Raccolta no. 142, indulgenced by Leo XII in 1823. ${ST_JOHN}`,
+    summary: `An offering to the Father of the Blood that Christ shed from his right hand, asking through it God's blessing and protection from every enemy and ill, and ending with the invocation of the blessing of the Holy Trinity. Raccolta no. 142, indulgenced by Leo XII in 1823.`,
   }),
   raccolta({
     slug: "prayer-to-jesus-of-nazareth",
@@ -1365,7 +1346,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "penitential",
     occasions: ["penance", "lent", "confession"],
-    summary: `A penitent's prayer at the feet of Jesus of Nazareth, King of heaven and earth and benefactor of the wretched, confessing that the soul He created and redeemed with his Precious Blood belongs to Him, and begging pardon as He pardoned the penitent thief; it ends with the Apostles' Creed. Raccolta no. 144, indulgenced by Leo XIII in 1894. ${ST_JOHN}`,
+    summary: `A penitent's prayer at the feet of Jesus of Nazareth, King of heaven and earth and benefactor of the wretched, confessing that the soul He created and redeemed with his Precious Blood belongs to Him, and begging pardon as He pardoned the penitent thief; it ends with the Apostles' Creed. Raccolta no. 144, indulgenced by Leo XIII in 1894.`,
   }),
 
   // ── IX. The Sacred Heart ─────────────────────────────────────────────────
@@ -1389,7 +1370,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "devotional",
     occasions: ["sacred-heart", "first-friday", "june", "feast-of-the-sacred-heart"],
-    summary: `Three acts of adoration and thanksgiving to the Sacred Heart, each headed by a verse of Scripture or the Creed — for the Incarnation, for the Passion and for the Blessed Sacrament — followed by petitions, the collect of the Sacred Heart, an act of consecration, a prayer for whichever of those who pray it shall die first, and an appeal to the heart of Mary. Raccolta no. 149, indulgenced by Pius VII in 1808 and by Pius IX in 1876. ${ST_JOHN}`,
+    summary: `Three acts of adoration and thanksgiving to the Sacred Heart, each headed by a verse of Scripture or the Creed — for the Incarnation, for the Passion and for the Blessed Sacrament — followed by petitions, the collect of the Sacred Heart, an act of consecration, a prayer for whichever of those who pray it shall die first, and an appeal to the heart of Mary. Raccolta no. 149, indulgenced by Pius VII in 1808 and by Pius IX in 1876.`,
   }),
   raccolta({
     slug: "chaplet-of-the-sacred-heart-prayers",
@@ -1410,7 +1391,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "chaplet",
     category: "chaplet",
     occasions: ["sacred-heart", "june", "first-friday"],
-    summary: `A chaplet of five meditations on the virtues of the Heart of Jesus — its tenderness toward sinners, its humility, its patience, its meekness and its generosity — each followed by an Our Father, five Glory Bes and the aspiration "Sweet Heart of my Jesus, make me love Thee ever more and more", then a prayer to Mary and the collect of the Sacred Heart. Raccolta no. 150, indulgenced by Pius VII in 1815. ${ST_JOHN}`,
+    summary: `A chaplet of five meditations on the virtues of the Heart of Jesus — its tenderness toward sinners, its humility, its patience, its meekness and its generosity — each followed by an Our Father, five Glory Bes and the aspiration "Sweet Heart of my Jesus, make me love Thee ever more and more", then a prayer to Mary and the collect of the Sacred Heart. Raccolta no. 150, indulgenced by Pius VII in 1815.`,
   }),
   raccolta({
     slug: "prayer-for-the-dying-o-most-merciful-jesus-lover-of-souls",
@@ -1427,7 +1408,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "devotional",
     occasions: ["for-the-dying", "daily", "preparation-for-death"],
-    summary: `The prayer for the sinners of the whole world who are in their last agony and will die this day, asking Jesus, Lover of souls, to cleanse them in his Blood through the agony of his Sacred Heart and the sorrows of his Mother; it ends with the invocation "Heart of Jesus, once in agony, pity the dying". The Raccolta (no. 153) prints it in Latin and English and speaks of its being said three times a day; Pius IX indulgenced it in 1850. ${ST_JOHN}`,
+    summary: `The prayer for the sinners of the whole world who are in their last agony and will die this day, asking Jesus, Lover of souls, to cleanse them in his Blood through the agony of his Sacred Heart and the sorrows of his Mother; it ends with the invocation "Heart of Jesus, once in agony, pity the dying". The Raccolta (no. 153) prints it in Latin and English and speaks of its being said three times a day; Pius IX indulgenced it in 1850.`,
   }),
   raccolta({
     slug: "prayer-to-the-eucharistic-heart-sweet-companion-in-our-exile",
@@ -1446,7 +1427,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["adoration", "holy-hour", "sacred-heart"],
-    summary: `The first of the four "Acts of Homage to the Eucharistic Heart of Jesus": a series of titles of the Heart of Jesus present in the tabernacle — solitary, forgotten, patient in waiting for us, wrapped in silence — followed by acts of self-offering that end "may it be no longer I that live, but do thou alone live in me" (Galatians 2:20). The Raccolta (no. 155) notes that the devotion to the Eucharistic Heart differs from that to the Sacred Heart only in dwelling on the gift of the Eucharist; Leo XIII indulgenced the acts in 1899. ${ST_JOHN}`,
+    summary: `The first of the four "Acts of Homage to the Eucharistic Heart of Jesus": a series of titles of the Heart of Jesus present in the tabernacle — solitary, forgotten, patient in waiting for us, wrapped in silence — followed by acts of self-offering that end "may it be no longer I that live, but do thou alone live in me" (Galatians 2:20). The Raccolta (no. 155) notes that the devotion to the Eucharistic Heart differs from that to the Sacred Heart only in dwelling on the gift of the Eucharist; Leo XIII indulgenced the acts in 1899.`,
   }),
   raccolta({
     slug: "act-of-consecration-to-the-eucharistic-heart",
@@ -1460,7 +1441,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "consecration",
     category: "consecration",
     occasions: ["adoration", "sacred-heart", "corpus-christi"],
-    summary: `The second of the Raccolta's "Acts of Homage to the Eucharistic Heart of Jesus" (no. 155): an act of consecration to Christ hidden in the Sacrament of love, offering Him the heart in return for his own and consecrating every moment of life to adoration, thanksgiving, reparation and supplication before his real presence. Leo XIII indulgenced it in 1899. ${ST_JOHN}`,
+    summary: `The second of the Raccolta's "Acts of Homage to the Eucharistic Heart of Jesus" (no. 155): an act of consecration to Christ hidden in the Sacrament of love, offering Him the heart in return for his own and consecrating every moment of life to adoration, thanksgiving, reparation and supplication before his real presence. Leo XIII indulgenced it in 1899.`,
   }),
   raccolta({
     slug: "act-of-reparation-to-the-eucharistic-heart",
@@ -1479,7 +1460,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "eucharistic",
     occasions: ["adoration", "reparation", "holy-hour"],
-    summary: `The fourth of the Raccolta's "Acts of Homage to the Eucharistic Heart of Jesus" (no. 155): a confession of having forgotten Christ in the tabernacle and in one's own heart after the fervour of first Communion, ending with a plea to be drawn back and the intercession of St Michael and St John. Leo XIII indulgenced it in 1899. ${ST_JOHN}`,
+    summary: `The fourth of the Raccolta's "Acts of Homage to the Eucharistic Heart of Jesus" (no. 155): a confession of having forgotten Christ in the tabernacle and in one's own heart after the fervour of first Communion, ending with a plea to be drawn back and the intercession of St Michael and St John. Leo XIII indulgenced it in 1899.`,
   }),
   raccolta({
     slug: "daily-act-of-oblation-to-the-sacred-heart",
@@ -1492,7 +1473,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "morning",
     category: "devotional",
     occasions: ["morning", "daily", "sacred-heart"],
-    summary: `A morning offering of the whole day — intentions, thoughts, affections, desires, words and actions — made in union with the praise Christ offers the Father through his Sacred Heart in the Eucharist, that all may be conformed to the heart of Mary. Raccolta no. 156, indulgenced by Leo XIII in 1885. ${ST_JOHN}`,
+    summary: `A morning offering of the whole day — intentions, thoughts, affections, desires, words and actions — made in union with the praise Christ offers the Father through his Sacred Heart in the Eucharist, that all may be conformed to the heart of Mary. Raccolta no. 156, indulgenced by Leo XIII in 1885.`,
   }),
   raccolta({
     slug: "may-the-heart-of-jesus-in-the-most-blessed-sacrament-be-praised",
@@ -1504,7 +1485,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["adoration", "sacred-heart", "visit-to-the-blessed-sacrament"],
-    summary: `A one-sentence act of praise of the Heart of Jesus present in the Blessed Sacrament, asking that it be praised, adored and loved in every tabernacle of the world to the end of time. Raccolta no. 161, indulgenced by Pius IX in 1868. ${ST_JOHN}`,
+    summary: `A one-sentence act of praise of the Heart of Jesus present in the Blessed Sacrament, asking that it be praised, adored and loved in every tabernacle of the world to the end of time. Raccolta no. 161, indulgenced by Pius IX in 1868.`,
   }),
   raccolta({
     slug: "prayer-o-divine-heart-of-jesus-grant-eternal-rest",
@@ -1517,7 +1498,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "devotional",
     occasions: ["sacred-heart", "all-souls", "for-the-dying", "daily"],
-    summary: `A short intercession to the Divine Heart of Jesus for the souls in purgatory, for those who will die today, for sinners, for those who do not know the faith, and for oneself and one's own, offering for them the merits of Christ, of Our Lady and the saints, and every Mass and good work of the day. Raccolta no. 167, indulgenced by Leo XIII in 1901. ${ST_JOHN}`,
+    summary: `A short intercession to the Divine Heart of Jesus for the souls in purgatory, for those who will die today, for sinners, for those who do not know the faith, and for oneself and one's own, offering for them the merits of Christ, of Our Lady and the saints, and every Mass and good work of the day. Raccolta no. 167, indulgenced by Leo XIII in 1901.`,
   }),
   raccolta({
     slug: "prayer-to-the-eucharistic-heart-o-sovereign-love",
@@ -1529,7 +1510,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["adoration", "corpus-christi", "after-communion"],
-    summary: `A prayer during exposition of the Blessed Sacrament to the Eucharistic Heart, the love that instituted the Eucharist, hearing in it Christ's invitation to give Him our hearts and live in his life, and asking grace to receive Him worthily and to keep alive "this seed of a blessed immortality". Raccolta no. 170, indulgenced by Leo XIII in 1902. ${ST_JOHN}`,
+    summary: `A prayer during exposition of the Blessed Sacrament to the Eucharistic Heart, the love that instituted the Eucharist, hearing in it Christ's invitation to give Him our hearts and live in his life, and asking grace to receive Him worthily and to keep alive "this seed of a blessed immortality". Raccolta no. 170, indulgenced by Leo XIII in 1902.`,
   }),
   raccolta({
     slug: "prayer-o-most-sacred-heart-pour-down-thy-blessings",
@@ -1542,7 +1523,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "devotional",
     occasions: ["sacred-heart", "first-friday", "for-the-church"],
-    summary: `A short intercession to the Sacred Heart for the Church, the Pope and the clergy, for the just and for sinners, for unbelievers, for parents, friends and benefactors, for the dying and the souls in purgatory, that the sweet empire of his love may extend over all hearts. Raccolta no. 171, indulgenced by Pius X in 1906. ${ST_JOHN}`,
+    summary: `A short intercession to the Sacred Heart for the Church, the Pope and the clergy, for the just and for sinners, for unbelievers, for parents, friends and benefactors, for the dying and the souls in purgatory, that the sweet empire of his love may extend over all hearts. Raccolta no. 171, indulgenced by Pius X in 1906.`,
   }),
 
   // ── XVI. The faithful departed: prayers to God and to Christ ─────────────
@@ -1563,7 +1544,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "devotional",
     occasions: ["all-souls", "november", "daily", "precious-blood"],
-    summary: `A prayer for the souls in purgatory for each day of the week, offering the Father on each day the Blood that Christ shed in a different moment of his Passion — in the garden, at the scourging, at the crowning with thorns, on the way of the Cross, in the Eucharist, on the Cross and from his pierced side — for a different soul: the most forsaken, the nearest to glory, the last to be released, the richest in merits, the most devoted to the Blessed Sacrament, the one I am most bound to pray for, and the one most devoted to Our Lady. Each ends with an Our Father, a Hail Mary and the De profundis. Raccolta no. 408, indulgenced by Leo XII in 1826. ${ST_JOHN}`,
+    summary: `A prayer for the souls in purgatory for each day of the week, offering the Father on each day the Blood that Christ shed in a different moment of his Passion — in the garden, at the scourging, at the crowning with thorns, on the way of the Cross, in the Eucharist, on the Cross and from his pierced side — for a different soul: the most forsaken, the nearest to glory, the last to be released, the richest in merits, the most devoted to the Blessed Sacrament, the one I am most bound to pray for, and the one most devoted to Our Lady. Each ends with an Our Father, a Hail Mary and the De profundis. Raccolta no. 408, indulgenced by Leo XII in 1826.`,
   }),
   raccolta({
     slug: "offering-of-the-five-wounds-for-the-holy-souls",
@@ -1588,7 +1569,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "devotional",
     occasions: ["all-souls", "november", "precious-blood", "funerals"],
-    summary: `A devotion for the souls in purgatory that offers the eternal Father, five times over, the Precious Blood shed from each of the five wounds of Christ together with the sorrow of Mary in beholding it; it opens with the collect Actiones nostras, asks Jesus and his Mother themselves to present their sufferings for the holy souls, and closes with the Requiem tract Absolve, Domine, the versicles of the Office of the Dead and the collect Fidelium Deus. The Raccolta calls it "Devotion to the Five Wounds" (no. 412); Leo XIII indulgenced it in 1888. ${ST_JOHN}`,
+    summary: `A devotion for the souls in purgatory that offers the eternal Father, five times over, the Precious Blood shed from each of the five wounds of Christ together with the sorrow of Mary in beholding it; it opens with the collect Actiones nostras, asks Jesus and his Mother themselves to present their sufferings for the holy souls, and closes with the Requiem tract Absolve, Domine, the versicles of the Office of the Dead and the collect Fidelium Deus. The Raccolta calls it "Devotion to the Five Wounds" (no. 412); Leo XIII indulgenced it in 1888.`,
   }),
   raccolta({
     slug: "prayers-to-jesus-for-the-holy-souls-my-jesus-by-that-copious-sweat",
@@ -1605,7 +1586,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "devotional",
     occasions: ["all-souls", "november", "passion"],
-    summary: `Five prayers to Jesus for the souls in purgatory, each pleading one stage of his Passion — the bloody sweat, the scourging, the crowning with thorns, the way of the Cross and the Crucifixion — for a particular group of souls (one's nearest relations, other relations and friends, the most forgotten, the nearest to release, those devoted to Our Lady), followed by a prayer asking the holy souls themselves to intercede for the living. Raccolta no. 413, indulgenced by Leo XIII in 1889. ${ST_JOHN}`,
+    summary: `Five prayers to Jesus for the souls in purgatory, each pleading one stage of his Passion — the bloody sweat, the scourging, the crowning with thorns, the way of the Cross and the Crucifixion — for a particular group of souls (one's nearest relations, other relations and friends, the most forgotten, the nearest to release, those devoted to Our Lady), followed by a prayer asking the holy souls themselves to intercede for the living. Raccolta no. 413, indulgenced by Leo XIII in 1889.`,
   }),
 
   // ── XVII. Miscellaneous prayers to God and to Christ ─────────────────────
@@ -1619,7 +1600,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["children", "disability", "charity"],
-    summary: `A prayer to Jesus, who welcomed and blessed little children, for children who cannot hear or speak, asking that Christians may come to their aid and that those who provide a safe refuge for them may be blessed. The Raccolta titles it "Prayer for Deaf-Mutes" (no. 432), in the language of its time; Pius X indulgenced it in 1906. ${ST_JOHN}`,
+    summary: `A prayer to Jesus, who welcomed and blessed little children, for children who cannot hear or speak, asking that Christians may come to their aid and that those who provide a safe refuge for them may be blessed. The Raccolta titles it "Prayer for Deaf-Mutes" (no. 432), in the language of its time; Pius X indulgenced it in 1906.`,
   }),
   raccolta({
     slug: "prayers-against-an-unprovided-death",
@@ -1646,7 +1627,7 @@ export const prayerBatch9: CuratedEntry[] = [
       "good-friday",
       "exaltation-of-the-holy-cross",
     ],
-    summary: `A devotion against sudden and unprepared death: collects begging time for repentance and deliverance from sudden death, the antiphon Media vita ("In the midst of life we are in death"), and a prayer to Jesus, by his agony, scourging, Precious Blood and last words, not to let one die unprepared or without the sacraments; it ends with five Our Fathers and Hail Marys in memory of the Passion. Raccolta no. 434, indulgenced by Pius VII in 1816. ${ST_JOHN}`,
+    summary: `A devotion against sudden and unprepared death: collects begging time for repentance and deliverance from sudden death, the antiphon Media vita ("In the midst of life we are in death"), and a prayer to Jesus, by his agony, scourging, Precious Blood and last words, not to let one die unprepared or without the sacraments; it ends with five Our Fathers and Hail Marys in memory of the Passion. Raccolta no. 434, indulgenced by Pius VII in 1816.`,
   }),
   raccolta({
     slug: "in-honour-of-the-blessed-trinity-and-all-the-saints",
@@ -1665,7 +1646,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "trinitarian",
     occasions: ["sunday", "trinity-sunday", "all-saints"],
-    summary: `A Sunday devotion in two parts: the antiphon of praise to the Holy and undivided Trinity with the collect of Trinity Sunday, and an invocation of all the choirs of angels and every rank of saints with a collect, echoing that of All Saints, asking that as our intercessors are multiplied God would grant us the abundance of his mercy. Raccolta no. 436, indulgenced by Pius VII in 1816 for every Sunday. ${ST_JOHN}`,
+    summary: `A Sunday devotion in two parts: the antiphon of praise to the Holy and undivided Trinity with the collect of Trinity Sunday, and an invocation of all the choirs of angels and every rank of saints with a collect, echoing that of All Saints, asking that as our intercessors are multiplied God would grant us the abundance of his mercy. Raccolta no. 436, indulgenced by Pius VII in 1816 for every Sunday.`,
   }),
   raccolta({
     slug: "prayer-o-father-of-mercies-and-source-of-every-good",
@@ -1679,7 +1660,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "theological-virtue",
     occasions: ["daily", "act-of-love", "sacred-heart"],
-    summary: `A prayer to the Father, made through the Sacred Heart of his Son, for lively faith, firm hope and ardent charity, true sorrow for sin and perseverance in his love, followed by a short petition to Our Lady to be able to fly to her in every danger of soul. The Raccolta calls it "Prayer, with Ejaculation" (no. 438); Pius VII indulgenced it in 1818. ${ST_JOHN}`,
+    summary: `A prayer to the Father, made through the Sacred Heart of his Son, for lively faith, firm hope and ardent charity, true sorrow for sin and perseverance in his love, followed by a short petition to Our Lady to be able to fly to her in every danger of soul. The Raccolta calls it "Prayer, with Ejaculation" (no. 438); Pius VII indulgenced it in 1818.`,
   }),
   raccolta({
     slug: "litany-for-a-happy-death-merciful-jesus-have-mercy-on-me",
@@ -1707,7 +1688,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "litany",
     category: "litany",
     occasions: ["preparation-for-death", "for-the-dying", "november"],
-    summary: `The prayer commonly called the Litany for a Happy Death, which commends to Jesus each stage of one's last agony — the feet, hands, eyes, lips, face, ears, imagination and heart failing in turn, the last tear and the last sigh — with the refrain "merciful Jesus, have mercy on me", and ends with a collect for a holy life and death. The Raccolta titles it "Prayers for a Happy Death" (no. 439); Leo XII indulgenced it in 1824. ${ST_JOHN}`,
+    summary: `The prayer commonly called the Litany for a Happy Death, which commends to Jesus each stage of one's last agony — the feet, hands, eyes, lips, face, ears, imagination and heart failing in turn, the last tear and the last sigh — with the refrain "merciful Jesus, have mercy on me", and ends with a collect for a holy life and death. The Raccolta titles it "Prayers for a Happy Death" (no. 439); Leo XII indulgenced it in 1824.`,
   }),
   raccolta({
     slug: "invocations-and-petitions-through-the-precious-blood",
@@ -1723,7 +1704,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["precious-blood", "july", "daily"],
-    summary: `Invocations of the Holy Trinity, of Jesus and Mary, of the angels and saints, asking through the Precious Blood ten graces — to do God's will, live in union with Him, love Him alone, seek only his glory, know one's own nothingness, and a special grace of one's own — with an offering of the Precious Blood through Mary for the Church, sinners and the holy souls. Raccolta no. 440, indulgenced by Leo XII in 1827. ${ST_JOHN}`,
+    summary: `Invocations of the Holy Trinity, of Jesus and Mary, of the angels and saints, asking through the Precious Blood ten graces — to do God's will, live in union with Him, love Him alone, seek only his glory, know one's own nothingness, and a special grace of one's own — with an offering of the Precious Blood through Mary for the Church, sinners and the holy souls. Raccolta no. 440, indulgenced by Leo XII in 1827.`,
   }),
   raccolta({
     slug: "prayers-in-times-of-calamity-mercy-of-our-god",
@@ -1744,7 +1725,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "devotional",
     occasions: ["times-of-trouble", "precious-blood", "protection"],
-    summary: `Short prayers for deliverance in time of plague and calamity, invoking the mercy of God, the Blood of the Lamb with which the Israelites signed their doors, the wounds of Christ as "mouths of love and mercy", the Cross, and the intercession of Mary, each with a Glory Be, and ending with the Salve Regina. Raccolta no. 441, indulgenced by Gregory XVI in 1837. ${ST_JOHN}`,
+    summary: `Short prayers for deliverance in time of plague and calamity, invoking the mercy of God, the Blood of the Lamb with which the Israelites signed their doors, the wounds of Christ as "mouths of love and mercy", the Cross, and the intercession of Mary, each with a Glory Be, and ending with the Salve Regina. Raccolta no. 441, indulgenced by Gregory XVI in 1837.`,
   }),
   raccolta({
     slug: "prayer-in-any-plague-or-trouble",
@@ -1762,7 +1743,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "devotional",
     occasions: ["times-of-trouble", "protection", "sickness"],
-    summary: `A prayer for deliverance in any plague or trouble: the verse "Help us, O God of our salvation" (Psalm 78 (79):9), Psalm 53 (54) "Save me, O Lord, in thy name", a versicle and collect, and the verse from the Te Deum "We beseech Thee, therefore, help thy servants, whom Thou hast redeemed with thy Precious Blood". Raccolta no. 443, indulgenced by Pius IX in 1849. ${ST_JOHN}`,
+    summary: `A prayer for deliverance in any plague or trouble: the verse "Help us, O God of our salvation" (Psalm 78 (79):9), Psalm 53 (54) "Save me, O Lord, in thy name", a versicle and collect, and the verse from the Te Deum "We beseech Thee, therefore, help thy servants, whom Thou hast redeemed with thy Precious Blood". Raccolta no. 443, indulgenced by Pius IX in 1849.`,
   }),
   raccolta({
     slug: "three-offerings-of-the-precious-blood-for-the-immaculate-conception",
@@ -1778,7 +1759,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "trinitarian",
     occasions: ["december-8", "immaculate-conception", "precious-blood"],
-    summary: `Three offerings of the Precious Blood, one to each Person of the Trinity — to the Father for Mary his most obedient daughter, to the Word for his most loving Mother, to the Holy Spirit for his most faithful Spouse — in thanksgiving for her Immaculate Conception and for the Church and the Pope, followed by a prayer to the Immaculate Virgin. Pius IX indulgenced them in June 1854, the year he defined the dogma; Raccolta no. 444. ${ST_JOHN}`,
+    summary: `Three offerings of the Precious Blood, one to each Person of the Trinity — to the Father for Mary his most obedient daughter, to the Word for his most loving Mother, to the Holy Spirit for his most faithful Spouse — in thanksgiving for her Immaculate Conception and for the Church and the Pope, followed by a prayer to the Immaculate Virgin. Pius IX indulgenced them in June 1854, the year he defined the dogma; Raccolta no. 444.`,
   }),
   raccolta({
     slug: "prayer-of-saint-benedict-joseph-labre-for-times-of-necessity",
@@ -1797,14 +1778,11 @@ export const prayerBatch9: CuratedEntry[] = [
       "Mary Immaculate, Mother of God, pray to Jesus for us, for N., and for all. Jesu, Mary, mercy!",
       "St Michael Archangel, St Joseph, SS. Peter and Paul, protectors of all the faithful in the Church of God, and all ye Angels and Saints of Paradise, men and women, pray to God, and by your intercession obtain grace and mercy for me, for N., and for all. Amen.",
     ],
-    latin: [
-      "Jesus Christus, Rex gloriæ, venit in pace.\nDeus homo factus est.\nVerbum caro factum est.\nChristus de Maria Virgine natus est.\nChristus per medium illorum ibat in pace.\nChristus crucifixus est.\nChristus mortuus est.\nChristus sepultus est.\nChristus resurrexit.\nChristus ascendit in cœlum.\nChristus vincit.\nChristus regnat.\nChristus imperat.\nChristus ab omni malo nos defendat.\nJesus nobiscum est.\nPater, Ave, Gloria.",
-    ],
     prayerType: "intercession",
     category: "devotional",
     occasions: ["times-of-trouble", "precious-blood", "april-16"],
     relatedSaints: [],
-    summary: `The prayer the Raccolta (no. 445) gives as St Benedict Joseph Labre's, the eighteenth-century pilgrim and beggar of Rome: a litany of the mysteries of Christ from the Incarnation to "Christ conquers, Christ reigns, Christ commands", followed by appeals to the Father by the Blood of Jesus — to sign us as He signed Israel, save us as He saved Noah, deliver us as He delivered Lot — each joined to a petition to Mary. Pius IX indulgenced it through the Cardinal Vicar in 1854; the Latin is that of the opening litany, which the book prints beside the English. ${ST_JOHN}`,
+    summary: `The prayer the Raccolta (no. 445) gives as St Benedict Joseph Labre's, the eighteenth-century pilgrim and beggar of Rome: a litany of the mysteries of Christ from the Incarnation to "Christ conquers, Christ reigns, Christ commands", followed by appeals to the Father by the Blood of Jesus — to sign us as He signed Israel, save us as He saved Noah, deliver us as He delivered Lot — each joined to a petition to Mary. Pius IX indulgenced it through the Cardinal Vicar in 1854.`,
   }),
   raccolta({
     slug: "prayers-for-purity-o-jesus-son-of-the-living-god",
@@ -1820,7 +1798,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "general",
     occasions: ["chastity", "temptation", "families"],
     relatedSaints: ["saint-joseph"],
-    summary: `Prayers for purity of mind and body, for oneself and for the whole Church and every Christian family, addressed in turn to Jesus, the brightness of eternal light born of a most pure Virgin, to Mary, lily of purity, to St Joseph, protector of chaste souls, and to St Bernardine (the book spells it "Bernadine"), invoked as a model of Christian modesty. Raccolta no. 446, indulgenced by Pius IX through the Penitentiary in 1862. ${ST_JOHN}`,
+    summary: `Prayers for purity of mind and body, for oneself and for the whole Church and every Christian family, addressed in turn to Jesus, the brightness of eternal light born of a most pure Virgin, to Mary, lily of purity, to St Joseph, protector of chaste souls, and to St Bernardine (the book spells it "Bernadine"), invoked as a model of Christian modesty. Raccolta no. 446, indulgenced by Pius IX through the Penitentiary in 1862.`,
   }),
   raccolta({
     slug: "temperance-pledge-prayer",
@@ -1833,7 +1811,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "penitential",
     occasions: ["temperance", "penance", "daily"],
-    summary: `A daily pledge to abstain from all intoxicating drink, made to God the Father out of love, in reparation and for the salvation of souls, and offered in union with the sacrifice of Christ on the altar. Raccolta no. 447, indulgenced by Pius X by brief in 1904. ${ST_JOHN}`,
+    summary: `A daily pledge to abstain from all intoxicating drink, made to God the Father out of love, in reparation and for the salvation of souls, and offered in union with the sacrifice of Christ on the altar. Raccolta no. 447, indulgenced by Pius X by brief in 1904.`,
   }),
   raccolta({
     slug: "oremus-pro-pontifice",
@@ -1848,7 +1826,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["for-the-church", "daily", "benediction"],
-    summary: `The versicle and response Oremus pro Pontifice, often sung for the Pope at Benediction, its response drawn from Psalm 40 (41), followed by an Our Father and a Hail Mary. The Raccolta (no. 449) prints it in Latin and English; Pius IX indulgenced it in 1876. ${ST_JOHN}`,
+    summary: `The versicle and response Oremus pro Pontifice, often sung for the Pope at Benediction, its response drawn from Psalm 40 (41), followed by an Our Father and a Hail Mary. The Raccolta (no. 449) prints it in Latin and English; Pius IX indulgenced it in 1876.`,
   }),
   raccolta({
     slug: "christian-acts-my-god-i-believe-in-thee-i-hope-in-thee",
@@ -1862,7 +1840,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "theological-virtue",
     occasions: ["daily", "act-of-love", "confession"],
-    summary: `A single short act of faith, hope, love and contrition, which the Raccolta (no. 453) directs to be said thirty-three times, with a Glory Be after each eleven. Leo XIII indulgenced it in 1885. ${ST_JOHN}`,
+    summary: `A single short act of faith, hope, love and contrition, which the Raccolta (no. 453) directs to be said thirty-three times, with a Glory Be after each eleven. Leo XIII indulgenced it in 1885.`,
   }),
   raccolta({
     slug: "prayer-in-times-of-calamity-o-lord-jesus-christ-god-of-sanctity",
@@ -1874,7 +1852,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["times-of-trouble", "precious-blood", "peace"],
-    summary: `A brief prayer to Christ, true God and true Man, for mercy on the whole human race and for purification from sin by his Precious Blood, so that all may live in his peace and charity. Raccolta no. 456, indulgenced by Leo XIII in 1888. ${ST_JOHN}`,
+    summary: `A brief prayer to Christ, true God and true Man, for mercy on the whole human race and for purification from sin by his Precious Blood, so that all may live in his peace and charity. Raccolta no. 456, indulgenced by Leo XIII in 1888.`,
   }),
   raccolta({
     slug: "prayer-for-the-christian-family-god-of-bounty",
@@ -1893,7 +1871,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "general",
     occasions: ["families", "home", "house-blessing", "holy-family"],
     relatedSaints: ["saint-joseph"],
-    summary: `A prayer commending home and family to God, asking that the household be blessed as the Holy Family was at Nazareth and kept from every evil, storm, enmity and sudden death without the sacraments, with petitions to Mary, St Joseph, the archangels Michael, Gabriel and Raphael, the guardian angels and the patron saints, and a closing blessing of the home by the Holy Trinity. Raccolta no. 457, indulgenced by Leo XIII in 1889. ${ST_JOHN}`,
+    summary: `A prayer commending home and family to God, asking that the household be blessed as the Holy Family was at Nazareth and kept from every evil, storm, enmity and sudden death without the sacraments, with petitions to Mary, St Joseph, the archangels Michael, Gabriel and Raphael, the guardian angels and the patron saints, and a closing blessing of the home by the Holy Trinity. Raccolta no. 457, indulgenced by Leo XIII in 1889.`,
   }),
   raccolta({
     slug: "prayers-to-the-holy-family-jesus-mary-and-joseph-bless-us",
@@ -1910,7 +1888,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "devotional",
     occasions: ["holy-family", "families", "for-the-church"],
     relatedSaints: ["saint-joseph"],
-    summary: `Five short petitions to Jesus, Mary and Joseph for the graces of a Christian life — to love the Church above every earthly thing, to profess the faith openly without human respect, to defend and spread it, to live in harmony under our pastors, and to keep the commandments of God and the Church — each followed by an Our Father, Hail Mary and Glory Be. Raccolta no. 458, indulgenced by Leo XIII in 1890. ${ST_JOHN}`,
+    summary: `Five short petitions to Jesus, Mary and Joseph for the graces of a Christian life — to love the Church above every earthly thing, to profess the faith openly without human respect, to defend and spread it, to live in harmony under our pastors, and to keep the commandments of God and the Church — each followed by an Our Father, Hail Mary and Glory Be. Raccolta no. 458, indulgenced by Leo XIII in 1890.`,
   }),
   raccolta({
     slug: "prayer-for-benefactors-retribuere",
@@ -1923,7 +1901,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["thanksgiving", "meal", "daily"],
-    summary: `The short prayer for benefactors Retribuere dignare, Domine, long said in religious houses at grace after meals, asking eternal life for all who do us good for the sake of God's name. The Raccolta (no. 459) prints it in Latin and English; Leo XIII indulgenced it in 1892. ${ST_JOHN}`,
+    summary: `The short prayer for benefactors Retribuere dignare, Domine, long said in religious houses at grace after meals, asking eternal life for all who do us good for the sake of God's name. The Raccolta (no. 459) prints it in Latin and English; Leo XIII indulgenced it in 1892.`,
   }),
   raccolta({
     slug: "prayer-of-saint-alphonsus-before-retiring-to-rest",
@@ -1936,7 +1914,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "saintly",
     occasions: ["evening", "night-prayer", "bedtime"],
     relatedSaints: ["saint-alphonsus-liguori"],
-    summary: `St Alphonsus Liguori's night prayer: thanks to Christ for the favours of the day, the offering of sleep and every moment of the night, and the commendation of oneself to his sacred side, to the mantle of Our Lady and to the keeping of the holy angels. Raccolta no. 460, indulgenced by Leo XIII in 1893. ${ST_JOHN}`,
+    summary: `St Alphonsus Liguori's night prayer: thanks to Christ for the favours of the day, the offering of sleep and every moment of the night, and the commendation of oneself to his sacred side, to the mantle of Our Lady and to the keeping of the holy angels. Raccolta no. 460, indulgenced by Leo XIII in 1893.`,
   }),
   raccolta({
     slug: "prayer-for-the-propagation-of-faith-and-piety",
@@ -1955,7 +1933,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "trinitarian",
     occasions: ["missions", "vocations", "for-the-church"],
-    summary: `A prayer for the spread of the faith addressed to the Father, the incarnate Word and the Holy Spirit, with the repeated petition "send, O Lord, labourers into thy harvest, and spare thy people", followed by an act of dedication to Mary, Queen of Apostles, resolving to use every gift — talents, riches, health, sickness or sorrow — for the salvation of souls, that there may be one fold and one shepherd. Raccolta no. 462, indulgenced by Leo XIII in 1894. ${ST_JOHN}`,
+    summary: `A prayer for the spread of the faith addressed to the Father, the incarnate Word and the Holy Spirit, with the repeated petition "send, O Lord, labourers into thy harvest, and spare thy people", followed by an act of dedication to Mary, Queen of Apostles, resolving to use every gift — talents, riches, health, sickness or sorrow — for the salvation of souls, that there may be one fold and one shepherd. Raccolta no. 462, indulgenced by Leo XIII in 1894.`,
   }),
   raccolta({
     slug: "prayers-for-the-increase-and-preservation-of-the-clergy",
@@ -1984,11 +1962,11 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["vocations", "for-the-church", "ordination"],
-    summary: `Two short offices for priests, each an antiphon, versicle and collect: the first, built on the parable of the labourers in the vineyard, asks God to raise up labourers for his Church who will spend themselves for souls; the second, on the words "No one putting his hand to the plough and looking back", asks protection for priests who are in danger. The Raccolta (no. 464) prints them in Latin and English; Pius X indulgenced them in 1908. ${ST_JOHN}`,
+    summary: `Two short offices for priests, each an antiphon, versicle and collect: the first, built on the parable of the labourers in the vineyard, asks God to raise up labourers for his Church who will spend themselves for souls; the second, on the words "No one putting his hand to the plough and looking back", asks protection for priests who are in danger. The Raccolta (no. 464) prints them in Latin and English; Pius X indulgenced them in 1908.`,
   }),
   raccolta({
     slug: "prayer-when-putting-on-the-surplice-indue-me-domine",
-    title: "Prayer when Putting on the Surplice (Indue me, Domine)",
+    title: "Prayer when Putting on the Cotta or Surplice (Indue me, Domine)",
     pages: [400],
     body: [
       "Make the Sign of the Cross and say:",
@@ -2000,11 +1978,12 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "liturgical",
     occasions: ["mass", "before-mass", "altar-servers"],
-    summary: `The vesting prayer said by clerics, servers and students on putting on the cotta or surplice, asking to be clothed with "the new man, who was created according to God, in justice and the sanctity of truth" (Ephesians 4:24). The Raccolta (no. 465) prints it in Latin and English; Pius X indulgenced it in 1907. ${ST_JOHN}`,
+    summary: `The vesting prayer the Raccolta (no. 465) gives for clerics and students putting on the cotta, asking to be clothed with "the new man, who was created according to God, in justice and the sanctity of truth" (Ephesians 4:24). The book prints it in Latin and English; Pius X indulgenced it in 1907.`,
   }),
   raccolta({
     slug: "prayer-in-choosing-a-state-of-life",
-    title: "Prayer in Choosing a State of Life",
+    title:
+      "Prayer in Choosing a State of Life (O my God, Thou who art the God of wisdom and of counsel)",
     pages: [407],
     body: [
       "O my God, Thou who art the God of wisdom and of counsel, Thou who readest in my heart the sincere will to please Thee alone, and to govern myself with regard to my choice of a state of life, entirely in conformity with thy most holy desire; grant me, by the intercession of the most blessed Virgin, my Mother, and of my holy patrons, specially of St Joseph and St Aloysius, the grace to know what state I ought to choose, and when known to embrace it, so that in it I may be able to pursue and increase thy glory, work out my salvation, and merit that heavenly reward which Thou hast promised to those who do thy holy will. Amen.",
@@ -2013,7 +1992,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "general",
     occasions: ["discernment", "vocations", "decisions"],
     relatedSaints: ["saint-joseph", "saint-aloysius-gonzaga"],
-    summary: `A prayer for young people choosing their state of life, asking the God of wisdom and counsel, through Our Lady, St Joseph and St Aloysius, for the grace to know the state they ought to choose and, once known, to embrace it. The Raccolta places it among the prayers for students (no. 478); Pius X indulgenced it in 1905. ${ST_JOHN}`,
+    summary: `A prayer for young people choosing their state of life, asking the God of wisdom and counsel, through Our Lady, St Joseph and St Aloysius, for the grace to know the state they ought to choose and, once known, to embrace it. The Raccolta places it among the prayers for students (no. 478); Pius X indulgenced it in 1905.`,
   }),
   raccolta({
     slug: "prayer-for-one-aspiring-to-the-priesthood",
@@ -2026,7 +2005,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "general",
     occasions: ["vocations", "discernment", "ordination"],
-    summary: `A prayer of discernment for a young man who feels drawn to the priesthood, asking God, the Light of the world, to show whether the attraction is his call or presumption, to give the grace to answer promptly if it is, and never to let him enter the priesthood if he would not be a good priest; it closes with a petition to Mary, Mother of good counsel. Raccolta no. 479, indulgenced by Leo XIII in 1901. ${ST_JOHN}`,
+    summary: `A prayer of discernment for a young man who feels drawn to the priesthood, asking God, the Light of the world, to show whether the attraction is his call or presumption, to give the grace to answer promptly if it is, and never to let him enter the priesthood if he would not be a good priest; it closes with a petition to Mary, Mother of good counsel. Raccolta no. 479, indulgenced by Leo XIII in 1901.`,
   }),
   raccolta({
     slug: "prayer-of-children-for-children-in-purgatory",
@@ -2039,7 +2018,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["children", "all-souls", "november"],
-    summary: `A prayer for children to say for other children who have died and are in purgatory, asking Jesus, who loved children, to open heaven to them, and asking their protection in turn for those who pray, their families and the Pope. Raccolta no. 481, indulgenced by Leo XIII in 1886 for children who say it. ${ST_JOHN}`,
+    summary: `A prayer for children to say for other children who have died and are in purgatory, asking Jesus, who loved children, to open heaven to them, and asking their protection in turn for those who pray, their families and the Pope. Raccolta no. 481, indulgenced by Leo XIII in 1886 for children who say it.`,
   }),
 
   // ── Short prayers and ejaculations (sections II to IX and the Appendix) ──
@@ -2053,7 +2032,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "general",
     occasions: ["daily", "act-of-love"],
-    summary: `A short invocation asking God for the grace to love Him and, as the only reward of that love, to love Him ever more. Raccolta no. 31, indulgenced by Leo XIII in 1890. ${ST_JOHN}`,
+    summary: `A short invocation asking God for the grace to love Him and, as the only reward of that love, to love Him ever more. Raccolta no. 31, indulgenced by Leo XIII in 1890.`,
   }),
   raccolta({
     slug: "my-god-my-only-good",
@@ -2063,7 +2042,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "general",
     occasions: ["daily", "act-of-love"],
-    summary: `An ejaculation confessing God as the soul's only good and asking to belong wholly to Him in return. Raccolta no. 32, indulgenced by Leo XIII by brief in 1902. ${ST_JOHN}`,
+    summary: `An ejaculation confessing God as the soul's only good and asking to belong wholly to Him in return. Raccolta no. 32, indulgenced by Leo XIII by brief in 1902.`,
   }),
   raccolta({
     slug: "my-god-unite-all-minds-in-the-truth",
@@ -2073,7 +2052,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["for-the-church", "peace", "daily"],
-    summary: `A one-line petition that God will unite all minds in the truth and all hearts in charity, a prayer for the unity of believers in faith and love. Raccolta no. 34, indulgenced by Pius X in 1905 and 1908. ${ST_JOHN}`,
+    summary: `A one-line petition that God will unite all minds in the truth and all hearts in charity, a prayer for the unity of believers in faith and love. Raccolta no. 34, indulgenced by Pius X in 1905 and 1908.`,
   }),
   raccolta({
     slug: "sweetest-jesus-be-to-me-not-a-judge-but-a-saviour",
@@ -2085,7 +2064,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "general",
     occasions: ["daily", "penance", "preparation-for-death"],
     relatedSaints: ["saint-jerome-emiliani"],
-    summary: `The ejaculation the Raccolta (no. 62) gives as St Jerome Emiliani's, asking Jesus to be not a judge but a Saviour. It is printed in Latin and English; Pius IX indulgenced it in 1851 and 1853, with a plenary indulgence on the saint's feast, then kept on 20 July. ${ST_JOHN}`,
+    summary: `The ejaculation the Raccolta (no. 62) gives as St Jerome Emiliani's, asking Jesus to be not a judge but a Saviour. It is printed in Latin and English; Pius IX indulgenced it in 1851 and 1853, with a plenary indulgence on the saint's feast, then kept on 20 July.`,
   }),
   raccolta({
     slug: "jesus-my-god-i-love-thee-above-all-things",
@@ -2096,7 +2075,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "general",
     occasions: ["daily", "act-of-love"],
-    summary: `A brief act of love of Jesus as God, above all things. The Raccolta (no. 63) prints it in Latin and English; Pius IX indulgenced it in his own hand in 1854, both for saying it and for leading others to say it. ${ST_JOHN}`,
+    summary: `A brief act of love of Jesus as God, above all things. The Raccolta (no. 63) prints it in Latin and English; Pius IX indulgenced it in his own hand in 1854, both for saying it and for leading others to say it.`,
   }),
   raccolta({
     slug: "jesus-son-of-david-have-mercy-on-me",
@@ -2107,7 +2086,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "penitential",
     occasions: ["daily", "penance", "lent"],
-    summary: `The cry of the blind man at Jericho in St Luke's Gospel (18:38), which the Raccolta (no. 64) prints in Latin and English as an ejaculation; Leo XIII indulgenced it in 1886. ${ST_JOHN}`,
+    summary: `The cry of the blind man at Jericho in St Luke's Gospel (18:38), which the Raccolta (no. 64) prints in Latin and English as an ejaculation; Leo XIII indulgenced it in 1886.`,
   }),
   raccolta({
     slug: "most-sweet-jesus-increase-my-faith-hope-and-charity",
@@ -2122,7 +2101,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "theological-virtue",
     occasions: ["daily", "penance", "humility"],
-    summary: `A short petition to Jesus for an increase of faith, hope and charity and for the humble and contrite heart of Psalm 50 (51). The Raccolta (no. 67) prints it in Latin and English; Leo XIII indulgenced it in 1893. ${ST_JOHN}`,
+    summary: `A short petition to Jesus for an increase of faith, hope and charity and for the humble and contrite heart of Psalm 50 (51). The Raccolta (no. 67) prints it in Latin and English; Leo XIII indulgenced it in 1893.`,
   }),
   raccolta({
     slug: "jesus-my-god-i-adore-thee-here-present",
@@ -2132,7 +2111,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["adoration", "visit-to-the-blessed-sacrament", "benediction"],
-    summary: `An act of adoration of Jesus present in the Sacrament of his love. Pius X indulgenced it in 1908 for saying it before the tabernacle or at Exposition, and for making a reverence on passing a church or chapel where the Blessed Sacrament is reserved; Raccolta no. 103. ${ST_JOHN}`,
+    summary: `An act of adoration of Jesus present in the Sacrament of his love. Pius X indulgenced it in 1908 for saying it before the tabernacle or at Exposition, and for making a reverence on passing a church or chapel where the Blessed Sacrament is reserved; Raccolta no. 103.`,
   }),
   raccolta({
     slug: "most-sacred-heart-of-jesus-have-mercy-on-us-after-mass",
@@ -2142,7 +2121,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["mass", "sacred-heart", "thanksgiving"],
-    summary: `The invocation of the Sacred Heart said three times after Mass, which Pius X indulgenced in 1904, the indulgence holding when the people say it alternately with the priest; Raccolta no. 109. ${ST_JOHN}`,
+    summary: `The invocation of the Sacred Heart said three times after Mass, which Pius X indulgenced in 1904, the indulgence holding when the people say it alternately with the priest; Raccolta no. 109.`,
   }),
   raccolta({
     slug: "my-lord-and-my-god-at-the-elevation",
@@ -2156,7 +2135,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["mass", "elevation", "adoration"],
-    summary: `St Thomas the Apostle's confession of faith in the risen Christ (John 20:28), which Pius X indulgenced in 1907 for those who say it looking at the Blessed Sacrament at the Elevation or at Exposition. The Raccolta (no. 116) prints the words in Latin and English with that direction, which is kept here. ${ST_JOHN}`,
+    summary: `St Thomas the Apostle's confession of faith in the risen Christ (John 20:28), which Pius X indulgenced in 1907 for those who say it looking at the Blessed Sacrament at the Elevation or at Exposition. The Raccolta (no. 116) prints the words in Latin and English with that direction, which is kept here.`,
   }),
   raccolta({
     slug: "eternal-father-by-the-precious-blood-glorify-his-holy-name",
@@ -2170,7 +2149,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["reparation", "precious-blood", "holy-name-of-jesus"],
-    summary: `An ejaculation to be said in reparation for blasphemy, asking the Father, through the Precious Blood of Christ, to glorify the Holy Name according to the desires of the Sacred Heart. Raccolta no. 145, indulgenced by Pius X in 1908. ${ST_JOHN}`,
+    summary: `An ejaculation to be said in reparation for blasphemy, asking the Father, through the Precious Blood of Christ, to glorify the Holy Name according to the desires of the Sacred Heart. Raccolta no. 145, indulgenced by Pius X in 1908.`,
   }),
   raccolta({
     slug: "eternal-father-i-offer-thee-the-precious-blood",
@@ -2182,7 +2161,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["precious-blood", "daily", "for-the-church"],
-    summary: `A short offering of the Precious Blood of Christ to the Eternal Father in satisfaction for one's sins and for the needs of the Church. Raccolta no. 146, indulgenced by Pius VII by rescript in 1817. ${ST_JOHN}`,
+    summary: `A short offering of the Precious Blood of Christ to the Eternal Father in satisfaction for one's sins and for the needs of the Church. Raccolta no. 146, indulgenced by Pius VII by rescript in 1817.`,
   }),
   raccolta({
     slug: "may-the-heart-of-jesus-be-loved-everywhere",
@@ -2192,7 +2171,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["sacred-heart", "daily", "first-friday"],
-    summary: `A one-line ejaculation wishing that the Heart of Jesus may be loved everywhere. Raccolta no. 159, indulgenced by Pius IX in his own hand in 1860. ${ST_JOHN}`,
+    summary: `A one-line ejaculation wishing that the Heart of Jesus may be loved everywhere. Raccolta no. 159, indulgenced by Pius IX in his own hand in 1860.`,
   }),
   raccolta({
     slug: "sweet-heart-of-my-jesus-make-me-love-thee",
@@ -2202,7 +2181,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["sacred-heart", "daily", "act-of-love"],
-    summary: `A two-line ejaculation asking the Heart of Jesus for an ever greater love of Him; it is also the refrain of the Chaplet of the Sacred Heart in this batch. Raccolta no. 162, indulgenced by Pius IX in 1876. ${ST_JOHN}`,
+    summary: `A two-line ejaculation asking the Heart of Jesus for an ever greater love of Him; it is also the refrain of the Chaplet of the Sacred Heart in this batch. Raccolta no. 162, indulgenced by Pius IX in 1876.`,
   }),
   raccolta({
     slug: "sweet-heart-of-jesus-be-my-love",
@@ -2213,7 +2192,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["sacred-heart", "daily", "act-of-love"],
-    summary: `The ejaculation Dulce Cor Jesu, sis amor meus, asking the Sacred Heart to be the soul's love. The Raccolta (no. 163) prints it in Latin and English; Leo XIII indulgenced it in 1892. ${ST_JOHN}`,
+    summary: `The ejaculation Dulce Cor Jesu, sis amor meus, asking the Sacred Heart to be the soul's love. The Raccolta (no. 163) prints it in Latin and English; Leo XIII indulgenced it in 1892.`,
   }),
   raccolta({
     slug: "heart-of-jesus-burning-with-love-of-us",
@@ -2224,7 +2203,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["sacred-heart", "daily", "act-of-love"],
-    summary: `The ejaculation Cor Jesu flagrans amore nostri, asking the Heart of Jesus, burning with love for us, to set our hearts on fire with love of Him. The Raccolta (no. 164) prints it in Latin and English; Leo XIII indulgenced it in 1893. ${ST_JOHN}`,
+    summary: `The ejaculation Cor Jesu flagrans amore nostri, asking the Heart of Jesus, burning with love for us, to set our hearts on fire with love of Him. The Raccolta (no. 164) prints it in Latin and English; Leo XIII indulgenced it in 1893.`,
   }),
   raccolta({
     slug: "all-praise-honour-and-glory-to-the-divine-heart-of-jesus",
@@ -2234,7 +2213,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["sacred-heart", "praise", "daily"],
-    summary: `A short ejaculation of praise to the divine Heart of Jesus. Raccolta no. 168, indulgenced by Leo XIII in 1901. ${ST_JOHN}`,
+    summary: `A short ejaculation of praise to the divine Heart of Jesus. Raccolta no. 168, indulgenced by Leo XIII in 1901.`,
   }),
   raccolta({
     slug: "let-us-with-mary-immaculate-adore-the-eucharistic-heart",
@@ -2247,7 +2226,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["adoration", "sacred-heart", "december-8"],
-    summary: `A one-sentence prayer inviting the faithful to adore, thank, pray to and console the Eucharistic Heart of Jesus together with Mary Immaculate. The Raccolta (no. 173) gives it as a prayer to the Sacred Heart; Pius X indulgenced it by brief in 1904, with a plenary indulgence on the feast of the Immaculate Conception for those who say it every day for a year. ${ST_JOHN}`,
+    summary: `A one-sentence prayer inviting the faithful to adore, thank, pray to and console the Eucharistic Heart of Jesus together with Mary Immaculate. The Raccolta (no. 173) gives it as a prayer to the Sacred Heart; Pius X indulgenced it by brief in 1904, with a plenary indulgence on the feast of the Immaculate Conception for those who say it every day for a year.`,
   }),
   raccolta({
     slug: "eucharistic-heart-of-jesus-model-of-the-priestly-heart",
@@ -2258,7 +2237,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["adoration", "vocations", "sacred-heart"],
-    summary: `An invocation of the Eucharistic Heart of Jesus as the model of the priestly heart. The Raccolta (no. 177) prints it in Latin and English; Pius X indulgenced it in 1907. ${ST_JOHN}`,
+    summary: `An invocation of the Eucharistic Heart of Jesus as the model of the priestly heart. The Raccolta (no. 177) prints it in Latin and English; Pius X indulgenced it in 1907.`,
   }),
   raccolta({
     slug: "o-heart-of-love-i-place-all-my-trust-in-thee",
@@ -2271,7 +2250,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "devotional",
     occasions: ["sacred-heart", "trust", "daily"],
     relatedSaints: ["saint-margaret-mary-alacoque"],
-    summary: `An act of trust in the Sacred Heart that the Raccolta (no. 180) gives as St Margaret Mary's ejaculation (she was then Blessed; canonized in 1920); it echoes a sentence of her consecration to the Sacred Heart. Pius X indulgenced it in 1908. ${ST_JOHN}`,
+    summary: `An act of trust in the Sacred Heart that the Raccolta (no. 180) gives as St Margaret Mary's ejaculation (she was then Blessed; canonized in 1920); it echoes a sentence of her consecration to the Sacred Heart. Pius X indulgenced it in 1908.`,
   }),
   raccolta({
     slug: "all-for-thee-most-sacred-heart-of-jesus",
@@ -2281,7 +2260,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "devotional",
     occasions: ["sacred-heart", "morning", "daily"],
-    summary: `A brief ejaculation offering everything to the Sacred Heart of Jesus, printed in the Appendix of the 1910 Raccolta (no. 486) among the grants made by Pius X through the Holy Office in November 1908. ${ST_JOHN}`,
+    summary: `A brief ejaculation offering everything to the Sacred Heart of Jesus, printed in the Appendix of the 1910 Raccolta (no. 486) among the grants made by Pius X through the Holy Office in November 1908.`,
   }),
 
   // ── From the 1857 first edition ──────────────────────────────────────────
@@ -2300,7 +2279,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "penitential",
     occasions: ["confession", "penance"],
-    summary: `The prayer the Raccolta appoints for confessors before they take their seat to hear confessions, asking for the Wisdom that stands by God's throne, for the right mixture of gentleness and firmness with penitents, and for the grace to save others without losing one's own soul. The 1910 edition prints it in Latin only (no. 471); this English is St John's, from the first edition of 1857 (no. 13), which records Pius IX's grant of 1854. ${ST_JOHN_1857}`,
+    summary: `The prayer the Raccolta appoints for confessors before they take their seat to hear confessions, asking for the Wisdom that stands by God's throne, for the right mixture of gentleness and firmness with penitents, and for the grace to save others without losing one's own soul. The 1910 edition prints it in Latin only (no. 471); this English is St John's, from the first edition of 1857 (no. 13), which records Pius IX's grant of 1854.`,
   }),
   raccolta({
     slug: "priests-intention-before-mass-ego-volo-celebrare-missam",
@@ -2318,7 +2297,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["before-mass", "mass"],
-    summary: `The priest's declaration of intention before celebrating Mass, to offer the Sacrifice according to the rite of the Roman Church for the praise of God and the good of the whole Church and of all who have asked his prayers, followed by the prayer Gaudium cum pace for joy and peace, amendment of life and perseverance. The 1910 edition prints both in Latin only (no. 466); this English is St John's, from the 1857 first edition (no. 46), which records an indulgence of Gregory XIII. ${ST_JOHN_1857}`,
+    summary: `The priest's declaration of intention before celebrating Mass, to offer the Sacrifice according to the rite of the Roman Church for the praise of God and the good of the whole Church and of all who have asked his prayers, followed by the prayer Gaudium cum pace for joy and peace, amendment of life and perseverance. The 1910 edition prints both in Latin only (no. 466); this English is St John's, from the 1857 first edition (no. 46), which records an indulgence of Gregory XIII.`,
   }),
   raccolta({
     slug: "prayer-after-mass-obsecro-te-dulcissime-domine-jesu-christe",
@@ -2334,7 +2313,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["after-communion", "mass", "passion"],
-    summary: `A thanksgiving after Mass asking that Christ's Passion be the soul's strength and defence, his wounds its food and drink, his Blood its cleansing and his death its everlasting glory. The 1910 edition prints it in Latin only (no. 467), for priests after Mass; this English is St John's, from the 1857 first edition (no. 47), which records Pius IX's grant of 1846. ${ST_JOHN_1857}`,
+    summary: `A thanksgiving after Mass asking that Christ's Passion be the soul's strength and defence, his wounds its food and drink, his Blood its cleansing and his death its everlasting glory. The 1910 edition prints it in Latin only (no. 467), for priests after Mass; this English is St John's, from the 1857 first edition (no. 47), which records Pius IX's grant of 1846.`,
   }),
   raccolta({
     slug: "o-sacrament-most-holy-o-sacrament-divine",
@@ -2347,7 +2326,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["adoration", "benediction", "corpus-christi"],
-    summary: `The rhymed English, as the 1857 first edition of the Raccolta gives it (no. 57), of the Eucharistic ejaculation that Pius VI indulgenced in 1776 and Pius VII extended to its use at Exposition, at Benediction and at the Elevation. The 1910 edition renders the same ejaculation more literally as "Blessed and praised every moment be the most holy and divine Sacrament", the refrain of its Acts of Adoration and Reparation. ${ST_JOHN_1857}`,
+    summary: `The rhymed English, as the 1857 first edition of the Raccolta gives it (no. 57), of the Eucharistic ejaculation that Pius VI indulgenced in 1776 and Pius VII extended to its use at Exposition, at Benediction and at the Elevation. The 1910 edition prints the same ejaculation in a closer rendering as its no. 108, "Blessed and praised every moment be the most holy and divine Sacrament", which is also the refrain of its Acts of Adoration and Reparation (no. 89).`,
   }),
   raccolta({
     slug: "sacrosanctae-prayer-after-the-divine-office",
@@ -2368,7 +2347,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "trinitarian",
     occasions: ["office", "compline", "vespers"],
     relatedSaints: ["saint-bonaventure"],
-    summary: `The prayer Sacrosanctae, which the Raccolta gives as St Bonaventure's, said kneeling after the Divine Office or the Little Office of Our Lady with an Our Father and a Hail Mary: praise from every creature to the Trinity, to the humanity of Christ, to the fruitful virginity of Mary and to all the saints, and a petition for the forgiveness of sins. Leo X attached to it the remission of faults committed through human frailty in saying the Office. The 1910 edition prints it in Latin only (no. 423); this English is St John's, from the 1857 first edition (no. 142), and passes over the Latin's "crucified" before "Lord". ${ST_JOHN_1857}`,
+    summary: `The prayer Sacrosanctae, which the Raccolta gives as St Bonaventure's, said kneeling after the Divine Office or the Little Office of Our Lady with an Our Father and a Hail Mary: praise from every creature to the Trinity, to the humanity of Christ, to the fruitful virginity of Mary and to all the saints, and a petition for the forgiveness of sins. Leo X attached to it the remission of faults committed through human frailty in saying the Office. The 1910 edition prints it in Latin only (no. 423); this English is St John's, from the 1857 first edition (no. 142), and passes over the Latin's "crucified" before "Lord".`,
   }),
   raccolta({
     slug: "offering-of-the-precious-blood-in-troubled-times",
@@ -2382,6 +2361,6 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["times-of-trouble", "precious-blood", "all-souls"],
-    summary: `The "devout intention and offering" that the 1857 first edition of the Raccolta prints with its prayers for troubled times (no. 155): an offering to the Eternal Father, in union with the heavenly host and the Hearts of Jesus and Mary, of the Precious Blood and merits of Christ and the merits of his Church, for the sins of the world and the holy souls, with thanks for God's mercies and for the one Fold under one Shepherd. Pius IX indulgenced the prayers, or this offering made on its own, by autograph rescript in 1848, especially for times of trouble; the offering is not in the 1910 edition. ${ST_JOHN_1857}`,
+    summary: `The "devout intention and offering" that the 1857 first edition of the Raccolta prints with its prayers for troubled times (no. 155): an offering to the Eternal Father, in union with the heavenly host and the Hearts of Jesus and Mary, of the Precious Blood and merits of Christ and the merits of his Church, for the sins of the world and the holy souls, with thanks for God's mercies and for the one Fold under one Shepherd. Pius IX indulgenced the prayers, or this offering made on its own, by autograph rescript in 1848, especially for times of trouble; the offering is not in the 1910 edition.`,
   }),
 ];
