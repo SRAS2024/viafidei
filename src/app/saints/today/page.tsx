@@ -33,10 +33,13 @@ export default async function SaintsTodayPage({ searchParams }: Props) {
       <PageHero eyebrow={t("saints.today.eyebrow")} title={t("saints.today.title")} />
       <TodayDateLabel serverMonth={month} serverDay={day} />
       {/* The same card as /saints: the name, then the patronage, then the feast
-          day — not a clipped biography under a "Feast day" eyebrow. */}
+          day — not a clipped biography under a "Feast day" eyebrow. These
+          rows carry their payload, so the summary is switched off explicitly:
+          /saints shows none because its projected rows have none. */}
       <PublishedList
         items={todaySaints}
         baseHref="/saints"
+        showSummary={false}
         emptyMessage="No published feast day saints for today."
         eyebrowFor={(item) => saintSubtypeLabel(entryPayload(item).saintType as string | undefined)}
         detailLinesFor={(item) => saintCardDetailLines(saintCardDetails(entryPayload(item)), t)}

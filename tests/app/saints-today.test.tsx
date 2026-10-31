@@ -42,6 +42,9 @@ describe("/saints/today", () => {
         feastMonth: 10,
         feastDayOfMonth: 31,
         biography: "Wolfgang was a Bavarian bishop who reformed the monasteries of his diocese.",
+        // A full row carries its summary; the card must not print it as a
+        // fourth line under the name, patronage and feast day.
+        summary: "Saint Wolfgang, bishop of Regensburg and reformer of monasteries.",
       }),
     ]);
     const { container } = render(
@@ -57,6 +60,7 @@ describe("/saints/today", () => {
     ]);
     expect(screen.getByRole("link")).toHaveAttribute("href", "/saints/saint-wolfgang");
     expect(container.textContent).not.toContain("reformed the monasteries");
+    expect(container.textContent).not.toContain("reformer of monasteries");
   });
 
   it("says so when no saint's feast falls today", async () => {
