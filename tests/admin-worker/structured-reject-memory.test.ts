@@ -201,12 +201,16 @@ afterEach(() => {
 });
 
 describe("rejection backoff", () => {
-  it("starts at a day, doubles, and caps at thirty days", () => {
+  it("starts at a day, doubles, and caps at a week", () => {
     expect(rejectionBackoffMs(1)).toBe(REJECTION_BACKOFF_BASE_MS);
     expect(rejectionBackoffMs(2)).toBe(2 * DAY);
-    expect(rejectionBackoffMs(5)).toBe(16 * DAY);
-    expect(rejectionBackoffMs(6)).toBe(REJECTION_BACKOFF_MAX_MS);
+    expect(rejectionBackoffMs(3)).toBe(4 * DAY);
+    expect(rejectionBackoffMs(4)).toBe(7 * DAY);
+    expect(REJECTION_BACKOFF_MAX_MS).toBe(7 * DAY);
     expect(rejectionBackoffMs(50)).toBe(REJECTION_BACKOFF_MAX_MS);
+    // A memo outlives the longest wait by a wide margin, so an entity still in
+    // its corpus is always re-tested (and re-stamped) before it can expire.
+    expect(REJECTION_MEMORY_TTL_MS).toBeGreaterThan(3 * REJECTION_BACKOFF_MAX_MS);
   });
 
   it("never remembers a code that says nothing about the entity", () => {

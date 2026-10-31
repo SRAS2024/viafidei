@@ -6,8 +6,9 @@
  * wraps every RESWEEP_INTERVAL, so every re-sweep re-mapped the same rejected
  * entities — the same Wikipedia summary + infobox fetches, the same verdict
  * ("feast_uncorroborated", "not_catholic_status", …) — on a network budget the
- * SAINT ingest shares with WDQS's per-client limits. Production pages showed
- * 40 of 100 saints rejected per page, sweep after sweep.
+ * SAINT ingest shares with WDQS's per-client limits. The production page
+ * recorded in reject.ts (2026-09-07) dropped 40 of 100 saints, and nothing
+ * stopped the next sweep from mapping the same 40 again.
  *
  * THE MECHANISM. A rejection whose code describes the ENTITY (its data, its
  * article, its classification) is remembered per (ingestor, Wikidata QID) in
@@ -16,7 +17,10 @@
  * like a live one — no mapping, no Wikipedia traffic, and a page made only of
  * live and deferred rows is skipped like an entirely-live page. When the wait
  * is over the entity is mapped again; a repeat rejection doubles the wait
- * (1 day → 30 days), a publish clears the memo.
+ * (1 day → 7 days), a publish clears the memo. The cap is deliberately short:
+ * a rejection can also come from a mapper bug, and a shipped fix must reach
+ * every remembered entity within a week (deleting the `structured-reject:`
+ * rows re-tests them at once — they are bookkeeping, never content).
  *
  * Codes that say nothing about the entity are NOT remembered: a Wikipedia
  * fetch that failed (network), a mapper that threw, a same-page duplicate, a
@@ -37,10 +41,10 @@ import type { RejectionCode } from "./reject";
 export const REJECTION_MEMORY_PREFIX = "structured-reject:";
 /** First wait after a rejection; doubles per repeat. */
 export const REJECTION_BACKOFF_BASE_MS = 24 * 60 * 60 * 1000;
-/** Longest wait, so a corrected article or statement is re-read within a month. */
-export const REJECTION_BACKOFF_MAX_MS = 30 * 24 * 60 * 60 * 1000;
+/** Longest wait, so a corrected article, statement or mapper is re-read within a week. */
+export const REJECTION_BACKOFF_MAX_MS = 7 * 24 * 60 * 60 * 1000;
 /** Memos untouched this long belong to entities that left their corpus. */
-export const REJECTION_MEMORY_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+export const REJECTION_MEMORY_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 /** Hard cap on memos kept (all ingestors); the least recently touched go first. */
 export const MAX_REJECTION_MEMOS = 50_000;
 /** At most one prune per process per day. */
