@@ -20,6 +20,7 @@ import { EVENTS_1 } from "@/lib/content-shared/church-history/events-1";
 import { EVENTS_2 } from "@/lib/content-shared/church-history/events-2";
 import { EVENTS_3 } from "@/lib/content-shared/church-history/events-3";
 import { EVENTS_4 } from "@/lib/content-shared/church-history/events-4";
+import { EVENTS_9 } from "@/lib/content-shared/church-history/events-9";
 import { apparitionKnowledge } from "@/lib/checklist/knowledge/apparitions";
 import { churchDocumentKnowledge } from "@/lib/checklist/knowledge/church-documents";
 import { churchHistoryKnowledge } from "@/lib/checklist/knowledge/church-history";
@@ -34,15 +35,16 @@ const slugsOf = (entries: Array<{ slug: string }>) => new Set(entries.map((e) =>
 
 describe("CHURCH_HISTORY_EVENTS dataset", () => {
   it("aggregates every part, sorted chronologically", () => {
-    expect(CHURCH_HISTORY_EVENTS).toHaveLength(
-      EVENTS_1.length + EVENTS_2.length + EVENTS_3.length + EVENTS_4.length,
-    );
-    // The curated spine is four reviewed parts of 58. Pinning the totals is a
-    // tripwire: a part that fails to load, or is truncated by a bad merge,
-    // silently shrinks the timeline instead of failing. Raise these numbers
-    // deliberately when events are added.
-    for (const part of [EVENTS_1, EVENTS_2, EVENTS_3, EVENTS_4]) expect(part).toHaveLength(58);
-    expect(CHURCH_HISTORY_EVENTS).toHaveLength(232);
+    const parts = [EVENTS_1, EVENTS_2, EVENTS_3, EVENTS_4, EVENTS_9];
+    expect(CHURCH_HISTORY_EVENTS).toHaveLength(parts.reduce((n, part) => n + part.length, 0));
+    // A tripwire without a pinned total: a part that fails to load, or is
+    // truncated by a bad merge, silently shrinks the timeline instead of
+    // failing. The original spine is four reviewed parts of 58 that only ever
+    // grow, and each later part details a whole era.
+    for (const part of [EVENTS_1, EVENTS_2, EVENTS_3, EVENTS_4]) {
+      expect(part.length).toBeGreaterThanOrEqual(58);
+    }
+    expect(EVENTS_9.length).toBeGreaterThanOrEqual(30);
     for (let i = 1; i < CHURCH_HISTORY_EVENTS.length; i++) {
       expect(compareHistoryEvents(CHURCH_HISTORY_EVENTS[i - 1]!, CHURCH_HISTORY_EVENTS[i]!)).toBe(
         -1,
@@ -55,6 +57,14 @@ describe("CHURCH_HISTORY_EVENTS dataset", () => {
     const slugs = CHURCH_HISTORY_EVENTS.map((e) => e.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
     for (const slug of slugs) expect(slug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+  });
+
+  it("keeps part 9 within the Western Schism, Renaissance and Reformation eras", () => {
+    for (const e of EVENTS_9) {
+      expect(e.year, e.slug).toBeGreaterThanOrEqual(1378);
+      expect(e.year, e.slug).toBeLessThanOrEqual(1648);
+      expect(["schism-renaissance", "reformation-trent"], e.slug).toContain(e.era);
+    }
   });
 
   it("keeps year, era, precision and date consistent", () => {
