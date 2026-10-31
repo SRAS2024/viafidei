@@ -33,21 +33,33 @@ import type { CuratedEntry } from "../index";
  *     "Thou sayest" for "Thou savest", "Thou didst suffer" for "didst'", "my
  *     very body" for "my very, body", "give us a safe lodging" where the
  *     transcription omits "a", "illustrations are given of" for "given to",
- *     "where all are present" for "where all are at present", and a clause
- *     the transcription repeats in The Infinite Knowledge of God ("to its
- *     origin, and canst follow it into its whole growth") given once, as
- *     printed. Each of these readings was confirmed in two separate scans.
+ *     "where all are present" for "where all are at present", a clause the
+ *     transcription repeats in The Infinite Knowledge of God ("to its origin,
+ *     and canst follow it into its whole growth") given once, as printed,
+ *     "Thou alone art holy" where the transcription omits "art" (The Bondage
+ *     of Sin), the closing quotation mark it drops after "they shall turn to
+ *     a curse." (the first meditation Against Thee Only Have I Sinned), "I am
+ *     to live for ever" for "forever" (God the Sole Stay for Eternity), and,
+ *     in the Good Friday intercessions, "in the midst of the years" for "in
+ *     the amidst of the years" and "through torments and blood" for
+ *     "torment". Each of these readings was confirmed in two separate scans.
  *
  * Saint John Henry Newman's prayers come from Meditations and Devotions
  * (Longmans, 1893), Verses on Various Occasions (1868) and Sermons Bearing on
  * Subjects of the Day (1843), as transcribed by the Newman Reader. Most of his
  * meditations are written throughout as prayers and are given whole; where a
  * prayer is the closing colloquy of a longer meditation, only that prayer is
- * given and its summary says where it stands. Saint Francis's prayers are
- * Paschal Robinson's translation, The Writings of Saint Francis of Assisi
- * (Philadelphia: Dolphin Press, 1906); Saint Augustine's are from E. B.
- * Pusey's Confessions in its first edition (Library of the Fathers, Oxford,
- * 1838), not from later reprints, whose wording differs in places.
+ * given and its summary says where it stands. Of his Twelve Meditations and
+ * Intercessions for Good Friday only the intercessions are given, each with
+ * the bidding printed before it ("Let us pray for ..."); the intercessions
+ * for pagans, for the Jewish people and for the unity of Christians were
+ * left out, as were the Manual's prayers of the same kind (below).
+ *
+ * Saint Francis's prayers are Paschal Robinson's translation, The Writings of
+ * Saint Francis of Assisi (Philadelphia: Dolphin Press, 1906); Saint
+ * Augustine's are from E. B. Pusey's Confessions in its first edition
+ * (Library of the Fathers, Oxford, 1838), not from later reprints, whose
+ * wording differs in places.
  *
  * The occasional prayers, the prayers for the dead, the devotions for
  * Confession, the prayers for the sick, the devotions for Holy Communion and
@@ -3292,6 +3304,487 @@ export const prayerBatch12: CuratedEntry[] = [
       occasions: ["sacred-heart", "first-friday", "visit-to-the-blessed-sacrament"],
       relatedSaints: [],
       citations: ["https://archive.org/details/manualofprayersf00wood/page/n352/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-against-thee-only-have-i-sinned-the-return-we-make-thee",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-against-thee-only-have-i-sinned-the-return-we-make-thee",
+      title: "Against Thee Only Have I Sinned: The Return We Make Thee (Saint John Henry Newman)",
+      body: '1. Thou, O Lord, after living a whole eternity in ineffable bliss, because Thou art the one and sole Perfection, at length didst begin to create spirits to be with Thee and to share Thy blessedness according to their degree; and the return they made Thee was at once to rebel against Thee. First a great part of the Angels, then mankind, have risen up against Thee, and served others, not Thee. Why didst Thou create us, but to make us happy? Couldest Thou be made more happy by creating us? and how could we be happy but in obeying Thee? Yet we determined not to be happy as Thou wouldest have us happy, but to find out a happiness of our own; and so we left Thee. O my God, what a return is it that we—that I—make Thee when we sin! what dreadful unthankfulness is it! and what will be my punishment for refusing to be happy, and for preferring hell to heaven! I know what the punishment will be; Thou wilt say, "Let him have it all his own way. He wishes to perish; let him perish. He despises the graces I give him; they shall turn to a curse."\n\n2. Thou, O my God, hast a claim on me, and I am wholly Thine! Thou art the Almighty Creator, and I am Thy workmanship. I am the work of Thy Hands, and Thou art my owner. As well might the axe or the hammer exalt itself against its framer, as I against Thee. Thou owest me nothing; I have no rights in respect to Thee, I have only duties. I depend on Thee for life, and health, and every blessing every moment. I have no more power of exercising will as to my life than axe or hammer. I depend on Thee far more entirely than anything here depends on its owner and master. The son does not depend on the father for the continuance of life—the matter out of which the axe is made existed first—but I depend wholly on Thee—if Thou withdraw Thy breath from me for a moment, I die. I am wholly and entirely Thy property and Thy work, and my one duty is to serve Thee.\n\n3. O my God, I confess that before now I have utterly forgotten this, and that I am continually forgetting it! I have acted many a time as if I were my own master, and turned from Thee rebelliously. I have acted according to my own pleasure, not according to Thine. And so far have I hardened myself, as not to feel as I ought how evil this is. I do not understand how dreadful sin is—and I do not hate it, and fear it, as I ought. I have no horror of it, or loathing. I do not turn from it with indignation, as being an insult to Thee, but I trifle with it, and, even if I do not commit great sins, I have no great reluctance to do small ones. O my God, what a great and awful difference is there between what I am and what I ought to be!',
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The first of Newman's two meditations headed \"Against Thee only have I sinned\" (Psalm 50:6), which open his section on sin: God created angels and men only to make them happy, and they rebelled; the soul confesses that it is wholly God's property and work, and that it trifles with sin instead of hating it. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["lent", "examination-of-conscience", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-effects-of-sin",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#sin3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-effects-of-sin",
+      title: "The Effects of Sin (Saint John Henry Newman)",
+      body: "1. My Lord, Thou art the infinitely merciful God. Thou lovest all things that Thou hast created. Thou art the lover of souls. How then is it, O Lord, that I am in a world so miserable as this is? Can this be the world which Thou hast created, so full of pain and suffering? Who among the sons of Adam lives without suffering from his birth to his death? How many bad sicknesses and diseases are there! how many frightful accidents! how many great anxieties! how are men brought down and broken by grief, distress, the tumult of passions, and continual fear! What dreadful plagues are there ever on the earth: war, famine, and pestilence! Why is this, O my God? Why is this, O my soul? Dwell upon it, and ask thyself, Why is this? Has God changed His nature? yet how evil has the earth become!\n\n2. O my God, I know full well why all these evils are. Thou hast not changed Thy nature, but man has ruined his own. We have sinned, O Lord, and therefore is this change. All these evils which I see and in which I partake are the fruit of sin. They would not have been, had we not sinned. They are but the first instalment of the punishment of sin. They are an imperfect and dim image of what sin is. Sin is infinitely worse than famine, than war, than pestilence. Take the most hideous of diseases, under which the body wastes away and corrupts, the blood is infected; the head, the heart, the lungs, every organ disordered, the nerves unstrung and shattered; pain in every limb, thirst, restlessness, delirium—all is nothing compared with that dreadful sickness of the soul which we call sin. They all are the effects of it, they all are shadows of it, but nothing more. That cause itself is something different in kind, is of a malignity far other and greater than all these things. O my God, teach me this! Give me to understand the enormity of that evil under which I labour and know it not. Teach me what sin is.\n\n3. All these dreadful pains of body and soul are the fruits of sin, but they are nothing to its punishment in the world to come. The keenest and fiercest of bodily pains is nothing to the fire of hell; the most dire horror or anxiety is nothing to the never-dying worm of conscience; the greatest bereavement, loss of substance, desertion of friends, and forlorn desolation is nothing compared to the loss of God's countenance. Eternal punishment is the only true measure of the guilt of sin. My God, teach me this. Open my eyes and heart, I earnestly pray Thee, and make me understand how awful a body of death I bear about me. And, not only teach me about it, but in Thy mercy and by Thy grace remove it.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A meditation in prayer on why a world made by a loving God is so full of sickness, war and grief: these are the first fruits of sin, and nothing beside its punishment hereafter. It ends asking God to teach the heart what sin is and to take it away. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["lent", "examination-of-conscience", "suffering", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#sin3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-evil-of-sin",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#sin4",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-evil-of-sin",
+      title: "The Evil of Sin (Saint John Henry Newman)",
+      body: "1. My God, I know that Thou didst create the whole universe very good; and if this was true of the material world which we see, much more true is it of the world of rational beings. The innumerable stars which fill the firmament, and the very elements out of which the earth is made, all are carried through their courses and their operations in perfect concord; but much higher was the concord which reigned in heaven when the Angels were first created. At that first moment of their existence the main orders of the Angels were in the most excellent harmony, and beautiful to contemplate; and the creation of man was expected next, to continue that harmony in the instance of a different kind of being. Then it was that suddenly was discovered a flaw or a rent in one point of this most delicate and exquisite web—and it extended and unravelled the web, till a third part of it was spoilt; and then again a similar flaw was found in human kind, and it extended over the whole race. This dreadful evil, destroying so large a portion of all God's works, is sin.\n\n2. My God, such is sin in Thy judgment; what is it in the judgment of the world? A very small evil or none at all. In the judgment of the Creator it is that which has marred His spiritual work; it is a greater evil than though the stars got loose, and ran wild in heaven, and chaos came again. But man, who is the guilty one, calls it by soft names. He explains it away. The world laughs at it, and is indulgent to it; and, as to its deserving eternal punishment, it rises up indignant at the idea, and rather than admit it, would deny the God who has said it does. The world thinks sin the same sort of imperfection as an impropriety, or want of taste or infirmity. O my soul, consider carefully the great difference between the views of sin taken by Almighty God and the world! Which of the two views do you mean to believe?\n\n3. O my soul, which of the two wilt thou believe—the word of God or the word of man? Is God right or is the creature right? Is sin the greatest of all possible evils or the least? My Lord and Saviour, I have no hesitation which to believe. Thou art true, and every man a liar. I will believe Thee, above the whole world. My God, imprint on my heart the infamous deformity of sin. Teach me to abhor it as a pestilence—as a fierce flame destroying on every side; as my death. Let me take up arms against it, and devote myself to fight under Thy banner in overcoming it.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A meditation in prayer contrasting God's judgment of sin, the flaw that marred his spiritual creation, with the world's indulgent view of it, and resolving to believe God rather than man and to fight sin under Christ's banner. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["lent", "examination-of-conscience", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#sin4",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-heinousness-of-sin",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#sin5",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-heinousness-of-sin",
+      title: "The Heinousness of Sin (Saint John Henry Newman)",
+      body: '1. My Lord, I know well that Thou art all perfect, and needest nothing. Yet I know that Thou hast taken upon Thyself the nature of man, and, not only so, but in that nature didst come upon earth, and suffer all manner of evil, and didst die. This is a history which has hung the heavens with sackcloth, and taken from this earth, beautiful as it is, its light and glory. Thou didst come, O my dear Lord, and Thou didst suffer in no ordinary way, but unheard of and extreme torments! The all-blessed Lord suffered the worst and most various of pains. This is the corner truth of the Gospel: it is the one foundation, Jesus Christ and He crucified. I know it, O Lord, I believe it, and I put it steadily before me.\n\n2. Why is this strange anomaly in the face of nature? Does God do things for naught? No, my soul, it is sin; it is thy sin, which has brought the Everlasting down upon earth to suffer. Hence I learn how great an evil sin is. The death of the Infinite is its sole measure. All that slow distress of body and mind which He endured, from the time He shed blood at Gethsemani down to His death, all that pain came from sin. What sort of evil is that, which had to be so encountered by such a sacrifice, and to be reversed at such a price! Here then I understand best how horrible a thing sin is. It is horrible; because through it have come upon men all those evils whatever they are, with which the earth abounds. It is more horrible, in that it has nailed the Son of God to the accursed tree.\n\n3. My dear Lord and Saviour, how can I make light of that which has had such consequences! Henceforth I will, through Thy grace, have deeper views of sin than before. Fools make jest of sin, but I will view things in their true light. My suffering Lord, I have made Thee suffer. Thou art most beautiful in Thy eternal nature, O my Lord; Thou art most beautiful in Thy sufferings! Thy adorable attributes are not dimmed, but increased to us as we gaze on Thy humiliation. Thou art more beautiful to us than before. But still I will never forget that it was man\'s sin, my sin, which made that humiliation necessary. Amor meus crucifixus est—"my Love is crucified," but by none other than me. I have crucified Thee, my sin has crucified Thee. O my Saviour, what a dreadful thought—but I cannot undo it; all I can do is to hate that which made Thee suffer. Shall I not do that at least? Shall I not love my Lord just so much as to hate that which is so great an enemy of His, and break off all terms with it? Shall I not put off sin altogether? By Thy great love of me, teach me and enable me to do this, O Lord. Give me a deep, rooted, intense hatred of sin.',
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        'A meditation in prayer that measures the evil of sin by the Passion it cost the Son of God ("my Love is crucified," but by none other than me) and asks for a deep and rooted hatred of sin. From Newman\'s Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.',
+      occasions: ["lent", "good-friday", "examination-of-conscience", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#sin5",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-bondage-of-sin",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#sin6",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-bondage-of-sin",
+      title: "The Bondage of Sin (Saint John Henry Newman)",
+      body: '1. Thou, O my Lord and God, Thou alone art strong, Thou alone art holy! Thou art the Sanctus Deus, Sanctus fortis—"Holy God, holy and strong!" Thou art the sanctity and the strength of all things. No created nature has any stay or subsistence in itself, but crumbles and melts away, if Thou art not with it, to sustain it. My God, Thou art the strength of the Angels, of the Saints in glory—of holy men on earth. No being has any sanctity or any strength apart from Thee. My God, I wish to adore Thee as such. I wish with all my heart to understand and to confess this great truth, that not only Thou art Almighty, but that there is no might at all, or power, or strength, anywhere but in Thee.\n\n2. My God, if Thou art the strength of all spirits, O how pre-eminently art Thou my strength! O how true it is, so that nothing is more so, that I have no strength but in Thee! I feel intimately, O my God, that, whenever I am left to myself, I go wrong. As sure as a stone falls down to the earth if it be let go, so surely my heart and spirit fall down hopelessly if they are let go by Thee. Thou must uphold me by Thy right hand, or I cannot stand. How strange it is, but how true, that all my natural tendencies are towards sloth, towards excess, towards neglect of religion, towards neglect of prayer, towards love of the world, not towards love of Thee, or love of sanctity, or love of self-governance. I approve and praise what I do not do. My heart runs after vanities, and I tend to death, I tend to corruption and dissolution, apart from Thee, Deus immortalis.\n\n3. My God, I have had experience enough what a dreadful bondage sin is. If Thou art away, I find I cannot keep myself, however I wish it—and am in the hands of my own self-will, pride, sensuality, and selfishness. And they prevail with me more and more every day, till they are irresistible. In time the old Adam within me gets so strong, that I become a mere slave. I confess things to be wrong which nevertheless I do. I bitterly lament over my bondage, but I cannot undo it. O what a tyranny is sin! It is a heavy weight which cripples me—and what will be the end of it? By Thy all-precious merits, by Thy Almighty power, I intreat Thee, O my Lord, to give me life and sanctity and strength! Deus sanctus, give me holiness; Deus fortis, give me strength; Deus immortalis, give me perseverance. Sanctus Deus, Sanctus fortis, Sanctus immortalis, miserere nobis.',
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A meditation in prayer on God as the only strength and holiness of every creature, confessing that the soul left to itself falls into the bondage of its own self-will, and ending with the Trisagion: Sanctus Deus, Sanctus fortis, Sanctus immortalis, miserere nobis. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["lent", "temptation", "examination-of-conscience", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#sin6",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-every-sin-has-its-punishment",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#sin7",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-every-sin-has-its-punishment",
+      title: "Every Sin Has Its Punishment (Saint John Henry Newman)",
+      body: '1. Thou art the all-seeing, all-knowing God. Thy eyes, O Lord, are in every place. Thou art a real spectator of everything which takes place anywhere. Thou art ever with me. Thou art present and conscious of all I think, say, or do. Tu Deus qui vidisti me—"Thou, God, who hast seen me." Every deed or act, however slight; every word, however quick and casual; every thought of my heart, however secret, however momentary, however forgotten, Thou seest, O Lord, Thou seest and Thou notest down. Thou hast a book; Thou enterest in it every day of my life. I forget; Thou dost not forget. There is stored up the history of all my past years, and so it will be till I die—the leaves will be filled and turned over—and the book at length finished. Quo ibo a Spiritu Tuo— "whither shall I go from Thy Spirit?" I am in Thy hands, O Lord, absolutely.\n\n2. My God, how often do I act wrongly, how seldom rightly! how dreary on the whole are the acts of any one day! All my sins, offences, and negligences, not of one day only, but of all days, are in Thy book. And every sin, offence, negligence, has a separate definite punishment. That list of penalties increases, silently but surely, every day. As the spendthrift is overwhelmed by a continually greater weight of debt, so am I exposed continually to a greater and greater score of punishments catalogued against me. I forget the sins of my childhood, my boyhood, my adolescence, my youth. They are all noted down in that book. There is a complete history of all my life; and it will one day be brought up against me. Nothing is lost, all is remembered. O my soul, what hast thou to go through! What an examination that will be, and what a result! I shall have put upon me the punishment of ten thousand sins—I shall for this purpose be sent to Purgatory—how long will it last? when shall I ever get out? Not till I have paid the last farthing. When will this possibly be?\n\n3. O my dear Lord, have mercy upon me! I trust Thou hast forgiven me my sins—but the punishment remains. In the midst of Thy love for me, and recognising me as Thine own, Thou wilt consign me to Purgatory. There I shall go through my sins once more, in their punishment. There I shall suffer, but here is the time for a thorough repentance. Here is the time of good works, of obtaining indulgences, of wiping out the debt in every possible way. Thy saints, though to the eyes of man without sin, really had a vast account—and they settled it by continual trials here. I have neither their merit nor their sufferings. I cannot tell whether I can make such acts of love as will gain me an indulgence of my sins. The prospect before me is dark—I can only rely on Thy infinite compassion. O my dear Lord, who hast in so many ways shown Thy mercy towards me, pity me here! Be merciful in the midst of justice.',
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The last of Newman's meditations on sin: God sees and records every thought and act, and each forgiven sin still has its punishment, to be paid in Purgatory if not by repentance and good works now. It ends with a plea for mercy in the midst of justice. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["lent", "examination-of-conscience", "all-souls", "november", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#sin7",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-our-advocate-above-thou-art-gone-to-heaven-to-take-my-part",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#ascension3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-our-advocate-above-thou-art-gone-to-heaven-to-take-my-part",
+      title:
+        "Our Advocate Above: Thou Art Gone to Heaven to Take My Part (Saint John Henry Newman)",
+      body: "1. I adore Thee, O my Lord, as is most fitting, for Thou art gone to heaven to take my part there, and defend my interests. I have one to plead for me with the Lord of all. On earth we try to put ourselves under the protection of powerful men when we have any important business on hand; we know the value of their influence, and we make much of any promise they make us. Thou art omnipotent, and Thou dost exert Thy omnipotence for me. There are millions of men in the world: thou didst die for them all; but Thou livest for Thy people, whom Thou hast chosen out of the world. And still more marvellously dost Thou live for Thy predestinate. Thou hast engraven them upon the palms of Thy hands; their names are ever before Thee. Thou countest the full roll of them; Thou knowest them by heart: Thou orderest the crown of the world for them; and, when their number shall be completed, the world shall end.\n\n2. For me, Thou hast chosen me for present grace—and thus Thou hast put me in the way for future glory. I know perfectly well that, whatever be Thy secret counsels about me, it will be simply, entirely, most really my own fault if I am not written in Thy book. I cannot understand Thee: I can understand myself enough to know and be sure of this. Thou hast put me on such especial vantage ground that the prize is almost in my hand. If I am at present in the society of Angels or Saints, it is hard if I cannot make interest with them that the fellowship begun between them and me should endure. Men of the world know how to turn such opportunities to account in their own matters. If Thou hast given me Mary for my Mother, who, O my God! is Thine, cannot I now establish, as it were, a family interest in her, so that she will not cast me off at the last? If I have the right to pray and the gift of impetration, may I not thereby secure that perseverance to the end, which I cannot merit, and which is the sign and assurance of my predestination? I have in my hands all the means of that which I have not, and may infallibly obtain, even though I cannot certainly secure it.\n\n3. O my Lord, I sink down almost in despair, in utter remorse certainly and disgust at myself, that I so utterly neglect these means which Thou hast put into my hands, content to let things take their course, as if grace would infallibly lead to glory without my own trouble in the matter. What shall I say to Thee, O my Saviour! except that I am in the chains of habit, feeble, helpless, stunted, growthless, and as if I were meant to walk through life, as the inferior creatures, with my face down to the earth, on hands and feet, or crawling on, instead of having an erect posture and a heavenward face? O give me what I need—contrition for all those infinitely numerous venial sins, negligences, slovenliness, which are the surest foreboding that I am not of Thy predestinate. Who can save me from myself but Thou?",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The first of Newman's two meditations on Christ \"our Advocate above\" in his section on the Ascension: the ascended Lord pleads for his chosen in heaven, the soul has every means of perseverance in its hands, and it asks for contrition for the small sins it neglects. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["ascension", "easter-season", "trust", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#ascension3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-our-advocate-above-thou-art-ever-listening-for-my-voice",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#ascension4",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-our-advocate-above-thou-art-ever-listening-for-my-voice",
+      title: "Our Advocate Above: Thou Art Ever Listening for My Voice (Saint John Henry Newman)",
+      body: "1. I cannot penetrate Thy secret decrees, O Lord! I know Thou didst die for all men really; but since thou hast not effectually willed the salvation of all, and since Thou mightest have done so, it is certain that Thou doest for one what Thou dost not do for another. I cannot tell what has been Thy everlasting purpose about myself, but, if I go by all the signs which Thou hast lavished upon me, I may hope that I am one of those whose names are written in Thy book. But this I know and feel most entirely, what I believe in the case of all men, but know and feel in my own case, that, if I do not attain to that crown which I see and which is within my reach, it is entirely my own fault. Thou hast surrounded me from childhood with Thy mercies; Thou hast taken as much pains with me as if I was of importance to Thee, and my loss of heaven would be Thy loss of me. Thou hast led me on by ten thousand merciful providences; Thou hast brought me near to Thee in the most intimate of ways; Thou hast brought me into Thy house and chamber; Thou hast fed me with Thyself. Dost Thou not love me? really, truly, substantially, efficaciously love me, without any limitation of the word? I know it. I have an utter conviction of it. Thou art ever waiting to do me benefits, to pour upon me blessings. Thou art ever waiting for me to ask Thee to be merciful to me.\n\n2. Yes, my Lord, Thou dost desire that I should ask Thee; Thou art ever listening for my voice. There is nothing I cannot get from Thee. Oh I confess my heinous neglect of this great privilege. I am very guilty. I have trifled with the highest of gifts, the power to move Omnipotence. How slack am I in praying to Thee for my own needs! how little have I thought of the needs of others! How little have I brought before Thee the needs of the world—of Thy Church! How little I have asked for graces in detail! and for aid in daily wants! How little have I interceded for individuals! How little have I accompanied actions and undertakings, in themselves good, with prayer for Thy guidance and blessing!\n\n3. O my Lord Jesu, I will use the time. It will be too late to pray, when life is over. There is no prayer in the grave—there is no meriting in Purgatory. Low as I am in Thy all holy sight, I am strong in Thee, strong through Thy Immaculate Mother, through Thy Saints: and thus I can do much for the Church, for the world, for all I love. O let not the blood of souls be on my head! O let me not walk my own way without thinking of Thee. Let me bring everything before Thee, asking Thy leave for everything I purpose, Thy blessing on everything I do. I will not move without Thee. I will ever lift up my heart to Thee. I will never forget that Thou art my Advocate at the Throne of the Highest. As the dial speaks of the sun, so will I be ruled by Thee above, if Thou wilt take me and rule me. Be it so, my Lord Jesus. I give myself wholly to Thee.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The second of Newman's meditations on Christ \"our Advocate above\": trusting the love that has surrounded him with mercies, he confesses how little he has used the power of prayer for himself, the Church and the world, and resolves to bring everything before his Advocate at the throne of the Highest. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["ascension", "easter-season", "for-the-church", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#ascension4",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-the-incommunicable-perfection",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine21",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-the-incommunicable-perfection",
+      title: "God the Incommunicable Perfection (Saint John Henry Newman)",
+      body: "1. Almighty God, Thou art the One Infinite Fulness. From eternity Thou art the One and only absolute and most all-sufficient seat and proper abode of all conceivable best attributes, and of all, which are many more, which cannot be conceived. I hold this as a matter of reason, though my imagination starts from it. I hold it firmly and absolutely, though it is the most difficult of all mysteries. I hold it from the actual experience of Thy blessings and mercies towards me, the evidences of Thy awful Being and attributes, brought home continually to my reason, beyond the power of doubting or disputing. I hold it from that long and intimate familiarity with it, so that it is part of my rational nature to hold it; because I am so constituted and made up upon the idea of it, as a keystone, that not to hold it would be to break my mind to pieces. I hold it from that intimate perception of it in my conscience, as a fact present to me, that I feel it as easy to deny my own personality as the personality of God, and have lost my grounds for believing that I exist myself, if I deny existence to Him. I hold it because I could not bear to be without Thee, O my Lord and Life, because I look for blessings beyond thought by being with Thee. I hold it from the terror of being left in this wild world without stay or protection. I hold it from humble love to Thee, from delight in Thy glory and exaltation, from my desire that Thou shouldst be great and the only great one. I hold it for Thy sake, and because I love to think of Thee as so glorious, perfect, and beautiful. There is one God, and none other but He.\n\n2. Since, O Eternal God, Thou art so incommunicably great, so one, so perfect in that oneness, surely one would say, Thou ever must be most distant from Thy creatures, didst Thou create any;—separated from them by Thy eternal ancientness on their beginning to be, and separated by Thy transcendency of excellence and Thy absolute contrariety to them. What couldst Thou give them out of Thyself, which would suit their nature, so different from Thine? What good of Thine could be their good, or do them good, except in some poor external way? If Thou couldst be the happiness of man, then might man in turn, or some gift from him, be the happiness of the bird of prey or the wild beast, the cattle of his pasture, or the myriads of minute creatures which we can scarcely see. Man is not so far above them, as Thou above him. For what is every creature in Thy sight, O Lord, but a vanity and a breath, a smoke which stays not, but flits by and passes away, a poor thing which only vanishes so much the sooner, because Thou lookest on it, and it is set in the illumination of Thy countenance? Is not this, O Lord, the perplexity of reason? From the Perfect comes the Perfect; yet Thou canst not make a second God, from the nature of the case; and therefore either canst not create at all, or of necessity must create what is infinitely unlike, and therefore, in a sense, unworthy of the Creator.\n\n3. What communion then can there be between Thee and me? O my God! what am I but a parcel of dead bones, a feeble, tottering, miserable being, compared with Thee. I am Thy work, and Thou didst create me pure from sin, but how canst Thou look upon me in my best estate of nature, with complacency? how canst Thou see in me any image of Thyself, the Creator? How is this, my Lord? Thou didst pronounce Thy work very good, and didst make man in Thy image. Yet there is an infinite gulf between Thee and me, O my God.",
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "A meditation in prayer that professes God as the one infinite fulness of every perfection, held by reason, experience, conscience and love, and then asks how so great a God can have any communion with his creatures; the meditation that follows it, God Communicated to Us, gives the answer. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["trinity-sunday", "adoration", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine21",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-the-sole-stay-for-eternity",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine23",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-the-sole-stay-for-eternity",
+      title: "God the Sole Stay for Eternity (Saint John Henry Newman)",
+      body: "1. My God I believe and know and adore Thee as infinite in the multiplicity and depth of Thy attributes. I adore Thee as containing in Thee an abundance of all that can delight and satisfy the soul. I know, on the contrary, and from sad experience I am too sure, that whatever is created, whatever is earthly, pleases but for the time, and then palls and is a weariness. I believe that there is nothing at all here below, which I should not at length get sick of. I believe, that, though I had all the means of happiness which this life could give, yet in time I should tire of living, feeling everything trite and dull and unprofitable. I believe, that, were it my lot to live the long antediluvian life, and to live it without Thee, I should be utterly, inconceivably, wretched at the end of it. I think I should be tempted to destroy myself for very weariness and disgust. I think I should at last lose my reason and go mad, if my life here was prolonged long enough. I should feel it like solitary confinement, for I should find myself shut up in myself without companion, if I could not converse with Thee, my God. Thou only, O my Infinite Lord, art ever new, though Thou art the ancient of days—the last as well as the first.\n\n2. Thou, O my God, art ever new, though Thou art the most ancient—Thou alone art the food for eternity. I am to live for ever, not for a time—and I have no power over my being; I cannot destroy myself, even though I were so wicked as to wish to do so. I must live on, with intellect and consciousness for ever, in spite of myself. Without Thee eternity would be another name for eternal misery. In Thee alone have I that which can stay me up for ever: Thou alone art the food of my soul. Thou alone art inexhaustible, and ever offerest to me something new to know, something new to love. At the end of millions of years I shall know Thee so little, that I shall seem to myself only beginning. At the end of millions of years I shall find in Thee the same, or rather, greater sweetness than at first, and shall seem then only to be beginning to enjoy Thee: and so on for eternity I shall ever be a little child beginning to be taught the rudiments of Thy infinite Divine nature. For Thou art Thyself the seat and centre of all good, and the only substance in this universe of shadows, and the heaven in which blessed spirits live and rejoice.\n\n3. My God, I take Thee for my portion. From mere prudence I turn from the world to Thee; I give up the world for Thee. I renounce that which promises for Him who performs. To whom else should I go? I desire to find and feed on Thee here; I desire to feed on Thee, Jesu, my Lord, who art risen, who hast gone up on high, who yet remainest with Thy people on earth. I look up to Thee; I look for the Living Bread which is in heaven, which comes down from heaven. Give me ever of this Bread. Destroy this life, which will soon perish—even though Thou dost not destroy it, and fill me with that supernatural life, which will never die.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The last of Newman's Meditations on Christian Doctrine: every created good palls in time, but God, ever ancient and ever new, is the only food of the soul for eternity; it ends by taking God for one's portion and asking for the Living Bread that comes down from heaven. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["meditation", "adoration", "after-communion"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine23",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-the-return-of-england-to-the-faith",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-the-return-of-england-to-the-faith",
+      title:
+        "Good Friday Intercession for the Return of England to the Faith (Saint John Henry Newman)",
+      body: "Let us pray for the recovery of our own country England to the faith and the Church of Christ.\n\nO Sapientia, O Wisdom who hast issued out of the mouth of the Highest, and reachest in Thy Providence from the beginning to the end of all things, and disposest all things in sweetness and in strength, it was by Thy unmerited grace, we acknowledge it, O Lord, that this country of ours was so many centuries ago brought into the true fold, and gifted with the knowledge of Thy Truth and the grace of Thy Sacraments. Alas! how things have changed since then! The people was small then and of little account; now it stands highest among the nations of the earth. Then it was obscure and poor—now it has amazing wealth and pre-eminent power; but then it was great in Thy sight, and now on the contrary it is little, for it has lost Thee. O my God, what doth it profit, though we gain the whole world and lose our own souls? or what exchange shall we give for our souls? Wilt Thou forget, O Lord, what by Thy grace we once were, before we turned from Thee? Wilt Thou not listen to all our Saints and Martyrs who are now reigning with Thee and are ever interceding for us? O, look not upon our haughtiness and pride; look not upon our contempt of truths invisible; look not upon our impurity; but look upon Thy own merits; look upon the wounds in Thy hands; look upon Thy past mercies towards us; and, in spite of our wilfulness, subdue our hearts to Thee, O Saviour of men, and renew Thy work in the midst of the years, in the midst of the years re-establish Thou it.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's prayer, addressed to Christ as the Wisdom of the O antiphon, for the return of England to the Catholic faith it once received, pleading the merits of his wounds and the intercession of England's saints and martyrs. It closes the third of Newman's Twelve Meditations and Intercessions for Good Friday, \"Jesus the Lord of Grace\", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.",
+      occasions: ["good-friday", "holy-week", "conversion", "for-the-church"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-unbelievers-and-scoffers",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday4",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-unbelievers-and-scoffers",
+      title: "Good Friday Intercession for Unbelievers and Scoffers (Saint John Henry Newman)",
+      body: 'Let us pray for all the scorners, scoffers, and unbelievers, all false teachers and opposers of the truth, who are to be found in this land.\n\nO Lord Jesus Christ, upon the Cross Thou didst say: "Father, forgive them, for they know not what they do." And this surely, O my God, is the condition of vast multitudes among us now; they know not what they might have known, or they have forgotten what once they knew. They deny that there is a God, but they know not what they are doing. They laugh at the joys of heaven and the pains of hell, but they know not what they are doing. They renounce all faith in Thee, the Saviour of man, they despise Thy Word and Sacraments, they revile and slander Thy Holy Church and her Priests, but they know not what they are doing. They mislead the wandering, they frighten the weak, they corrupt the young, but they know not what they do. Others, again, have a wish to be religious, but mistake error for truth—they go after fancies of their own, and they seduce others and keep them from Thee. They know not what they are doing, but Thou canst make them know. O Lord, we urge Thee by Thy own dear words, "Lord and Father, forgive them, for they know not what they do." Teach them now, open their eyes here, before the future comes; give them faith in what they must see hereafter, if they will not believe in it here. Give them full and saving faith here; destroy their dreadful delusions, and give them to drink of that living water, which whoso hath shall not thirst again.',
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        'A prayer for those who deny God and deride the faith, built on Christ\'s word from the Cross, "Father, forgive them, for they know not what they do," asking that their eyes be opened here and that they be given the living water. It closes the fourth of Newman\'s Twelve Meditations and Intercessions for Good Friday, "Jesus the Author and Finisher of Faith", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.',
+      occasions: ["good-friday", "holy-week", "conversion"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday4",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-the-church-militant",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday5",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-the-church-militant",
+      title: "Good Friday Intercession for the Church Militant (Saint John Henry Newman)",
+      body: "Let us pray for the whole Church Militant here upon earth.\n\nO Lion of the Tribe of Judah, the root of David, who fightest the good fight, and hast called on all men to join Thee, give Thy courage and strength to all Thy soldiers over the whole earth, who are fighting under the standard of Thy Cross. Give grace to every one in his own place to fight Thy battle well. Be with Thy missionaries in pagan lands, put right words into their mouths, prosper their labours, and sustain them under their sufferings with Thy consolations, and carry them on, even through torments and blood (if it be necessary), to their reward in heaven. Give the grace of wisdom to those in high station, that they may neither yield to fear, nor be seduced by flattery. Make them prudent as serpents, and simple as doves. Give Thy blessing to all preachers and teachers, that they may speak Thy words and persuade their hearers to love Thee. Be with all faithful servants of Thine, whether in low station or in high, who mix in the world; instruct them how to speak and how to act every hour of the day, so as to preserve their own souls from evil and to do good to their companions and associates. Teach us, one and all, to live in thy presence and to see Thee, our Great Leader and Thy Cross—and thus to fight valiantly and to overcome, that at the last we may sit down with Thee in Thy Throne, as Thou also hast overcome and art set down with Thy Father in His Throne.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        'A prayer to Christ, the Lion of the tribe of Judah, for all who fight under the standard of his Cross: missionaries, those in high station, preachers and teachers, and the faithful who live in the world. It closes the fifth of Newman\'s Twelve Meditations and Intercessions for Good Friday, "Jesus the Lord of Armies", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.',
+      occasions: ["good-friday", "holy-week", "for-the-church", "missions"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday5",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-the-pope-and-the-rulers-of-the-church",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday7",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-the-pope-and-the-rulers-of-the-church",
+      title:
+        "Good Friday Intercession for the Pope and the Rulers of the Church (Saint John Henry Newman)",
+      body: "Let us pray for our Holy Father the Pope, and all Rulers in the Church.\n\nO Emmanuel, God with us, who art the Light that enlighteneth all men, who from the time when Thou camest upon earth, hast never left it to itself, who, after teaching Thy Apostles, gave them to teach others to succeed them, and didst especially leave St. Peter and his successors, Bishops of Rome, to take Thy place towards us, and to guide and rule us in Thy stead age after age, till the end come; Thou hast sent grievous trials for many years upon the Holy See of Rome. We believe and confess, O Lord, without any hesitation at all, that Thou hast promised a continuous duration to Thy Church while the world lasts—and we confess before Thee, that we are in no doubt or trouble whatever, we have not a shadow of misgiving as to the permanence and the spiritual well-being either of Thy Church itself or of its rulers. Nor do we know what is best for Thy Church, and for the interests of the Catholic faith, and for the Pope, or the bishops throughout the world at this time. We leave the event entirely to Thee; we do so without any anxiety, knowing that everything must turn to the prosperity of Thy ransomed possession, even though things may look threatening for a season. Only we earnestly entreat that Thou wouldest give Thy own servant and representative, the Pope Leo, true wisdom and courage, and fortitude, and the consolations of Thy grace in this life, and a glorious immortal crown in the life to come.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "A prayer to Christ, Emmanuel, who left Saint Peter and his successors to guide the Church in his stead, confessing complete confidence in the Church's future amid the trials of the Holy See, and asking wisdom, courage and consolation for the Pope, Leo XIII when Newman wrote. It closes the seventh of Newman's Twelve Meditations and Intercessions for Good Friday, \"Jesus the Eternal King\", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.",
+      occasions: ["good-friday", "holy-week", "for-the-church", "for-the-pope"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday7",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-all-ranks-and-conditions-in-the-church",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday8",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-all-ranks-and-conditions-in-the-church",
+      title:
+        "Good Friday Intercession for All Ranks and Conditions in the Church (Saint John Henry Newman)",
+      body: "Let us pray for all ranks and conditions of men in Thy Holy Church.\n\nO Lord, who art called the Branch, the Orient, the Splendour of the eternal light, and the Sun of Justice, who art that Tree, of whom Thy beloved disciple speaks as the Tree of life, bearing twelve fruits, and its leaves for the healing of the nations, give Thy grace and blessing on all those various states and conditions in Thy Holy Church, which have sprung from Thee and live in Thy Life. Give to all Bishops the gifts of knowledge, discernment, prudence, and love. Give to all priests to be humble, tender, and pure; give to all pastors of Thy flock to be zealous, vigilant, and unworldly; give to all religious bodies to act up to their rule, to be simple and without guile, and to set their hearts upon invisible things and them only. Grant to fathers of families to recollect that they will have hereafter to give account of the souls of their children; grant to all husbands to be tender and true; to all wives to be obedient and patient; grant to all children to be docile; to all young people to be chaste; to all the aged to be fervent in spirit; to all who are engaged in business, to be honest and unselfish; and to all of us the necessary graces of faith, hope, charity, and contrition.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        'A prayer to Christ, the Tree of life whose leaves heal the nations, asking for each state in the Church the grace proper to it: bishops, priests, pastors and religious, fathers, husbands, wives and children, the young, the aged and those in business. It closes the eighth of Newman\'s Twelve Meditations and Intercessions for Good Friday, "Jesus the Beginning of the New Creation", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.',
+      occasions: ["good-friday", "holy-week", "for-the-church", "families"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday8",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-the-conversion-of-sinners",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday9",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-the-conversion-of-sinners",
+      title: "Good Friday Intercession for the Conversion of Sinners (Saint John Henry Newman)",
+      body: 'Let us pray for the conversion of all sinners.\n\nO Lord, "who didst give Thyself for us, that Thou mightest redeem us from all iniquity, and mightest cleanse to Thyself a people acceptable, a pursuer of good works," look upon Thy baptized, look on the multitude of those who once were Thine and have gone from Thee. Ah, for how short a time do they keep Thy grace in their hearts, how soon do they fall off from Thee, with what difficulty do they return; and even, though they repent and come to penance, yet how soon, in the words of Scripture, doth the dog return to his vomit, and the sow that was washed to her wallowing in the mire. O my God, save us all from the seven deadly sins, and rescue those who have been made captive by them. Convert all sinners—bring judgments down upon them, if there is no other way of reclaiming them. Touch the hearts of all proud men, wrathful, revengeful men; of the obstinate, of the self-relying, of the envious, of the slanderer, of the hater of goodness and truth; of the slothful and torpid; of all gluttons and drunkards; of the covetous and unmerciful; of all licentious talkers; of all who indulge in impure thoughts, words, or deeds. Make them understand that they are going straight to hell, and save them from themselves and from Satan.',
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        'A prayer for the baptized who have fallen away, asking Christ to save all from the seven deadly sins and to touch the hearts of the proud, the angry, the envious, the slothful, the intemperate, the covetous and the impure. It closes the ninth of Newman\'s Twelve Meditations and Intercessions for Good Friday, "Jesus the Lover of Souls", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.',
+      occasions: ["good-friday", "holy-week", "conversion", "lent"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday9",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-ourselves-in-thy-arms-i-am-safe",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday10",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-ourselves-in-thy-arms-i-am-safe",
+      title:
+        "Good Friday Intercession for Ourselves and All Our Needs: In Thy Arms I Am Safe (Saint John Henry Newman)",
+      body: "Let us pray for ourselves and for all our needs.\n\nO my Lord and Saviour, in Thy arms I am safe; keep me and I have nothing to fear; give me up and I have nothing to hope for. I know not what will come upon me before I die. I know nothing about the future, but I rely upon Thee. I pray Thee to give me what is good for me; I pray Thee to take from me whatever may imperil my salvation; I pray Thee not to make me rich, I pray Thee not to make me very poor; but I leave it all to Thee, because Thou knowest and I do not. If Thou bringest pain or sorrow on me, give me grace to bear it well—keep me from fretfulness and selfishness. If Thou givest me health and strength and success in this world, keep me ever on my guard lest these great gifts carry me away from Thee. O Thou who didst die on the Cross for me, even for me, sinner as I am, give me to know Thee, to believe on Thee, to love Thee, to serve Thee; ever to aim at setting forth Thy glory; to live to and for Thee; to set a good example to all around me; give me to die just at that time and in that way which is most for Thy glory, and best for my salvation.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        'Newman\'s prayer of trust, often quoted from its opening words "in Thy arms I am safe": knowing nothing of the future, he asks for what is good for him and to be spared what endangers his salvation, neither riches nor poverty, and to die at the time and in the way most for God\'s glory. It closes the tenth of Newman\'s Twelve Meditations and Intercessions for Good Friday, "Jesus our Guide and Guardian", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.',
+      occasions: ["good-friday", "trust", "daily", "preparation-for-death"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday10",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-relations-friends-and-enemies",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday11",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-relations-friends-and-enemies",
+      title:
+        "Good Friday Intercession for Relations, Friends and Enemies, Living and Dead (Saint John Henry Newman)",
+      body: 'Let us pray God for our relations, friends, well wishers, and enemies, living and dead.\n\nO Jesus, son of Mary, whom Mary followed to the Cross when Thy disciples fled, and who didst bear her tenderly in mind in the midst of Thy sufferings, even in Thy last words, who didst commit her to Thy best beloved disciple, saying to her, "Woman, behold thy son," and to him, "Behold thy Mother," we, after Thy pattern, would pray for all who are near and dear to us, and we beg Thy grace to do so continually. We beg Thee to bring them all into the light of Thy truth, or to keep them in Thy truth if they already know it, and to keep them in a state of grace, and to give them the gift of perseverance. We thus pray for our parents, for our fathers and our mothers, for our children, for every one of them, for our brothers and sisters, for every one of our brothers, for every one of our sisters, for our cousins and all our kindred, for our friends, and our father\'s friends, for all our old friends, for our dear and intimate friends, for our teachers, for our pupils, for our masters and employers, for our servants or subordinates, for our associates and work-fellows, for our neighbours, for our superiors and rulers; for those who wish us well, for those who wish us ill; for our enemies; for our rivals; for our injurers and for our slanderers. And not only for the living, but for the dead, who have died in the grace of God, that He may shorten their time of expiation, and admit them into His presence above.',
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "A prayer to Jesus, son of Mary, who remembered his Mother from the Cross, for all who are near and dear to us, named one by one from parents and children to rivals and slanderers, and for the dead who have died in God's grace. It closes the eleventh of Newman's Twelve Meditations and Intercessions for Good Friday, \"Jesus Son of Mary\", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.",
+      occasions: ["good-friday", "families", "all-souls"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday11",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-all-who-have-calls-upon-us",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday12",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-all-who-have-calls-upon-us",
+      title: "Good Friday Intercession for All Who Have Calls upon Us (Saint John Henry Newman)",
+      body: "Let us pray for all who day by day have calls upon us.\n\nMy Lord Jesus Christ, Thou hast given me this great gift, that I am allowed, not only to pray for myself, but to intercede for others in Thy Holy Mass. Therefore, O Lord, I pray Thee to give all grace and blessing upon this town and every inhabitant of it—upon the Catholic Church in it, for our Bishop, and his clergy, and for all Catholic places of worship and their congregations. I pray Thee to bless and prosper all the good works and efforts of all priests, religious, and pious Catholics—I pray for all the sick, all the suffering, all the poor, all the oppressed—I pray for all prisoners—I pray for all evil doers. I pray for all ranks in the community—I pray for the Queen and Royal Family—for the Houses of Parliament—for the judges and magistrates—for all our soldiers—for all who defend us in ships—I pray for all who are in peril and danger. I pray for all who have benefited me, befriended me, or aided me. I pray for all who have asked my prayers—I pray for all whom I have forgotten. Bring us all after the troubles of this life into the haven of peace, and reunite us all together for ever, O my dear Lord, in Thy glorious heavenly kingdom.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "The last of Newman's Good Friday intercessions, offered in the Mass for the town and its Catholics, the clergy, the sick, the poor and prisoners, the civil authorities, benefactors and all who have asked or been forgotten in our prayers. It closes the twelfth of Newman's Twelve Meditations and Intercessions for Good Friday, \"Jesus our Daily Sacrifice\", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.",
+      occasions: ["good-friday", "mass", "for-the-church"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday12",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
     },
   },
 ];
