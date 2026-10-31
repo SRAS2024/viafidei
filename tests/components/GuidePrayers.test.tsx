@@ -88,6 +88,24 @@ describe("GuidePrayers", () => {
     expect(screen.getByRole("heading", { name: "Prayers of this novena" })).toBeInTheDocument();
   });
 
+  it("says under a dropdown when the chosen language is a machine translation", () => {
+    const creed: GuidePrayerData = {
+      slug: "apostles-creed",
+      title: "Apostles' Creed",
+      variants: [
+        { code: "en", label: "English", text: "I believe in God...", preserve: false },
+        { code: "el", label: "Greek", text: "Πιστεύω...", preserve: true, unofficial: true },
+      ],
+    };
+    render(<GuidePrayers prayers={[creed, OUR_FATHER]} />);
+    open(/Apostles' Creed/);
+    open(/Our Father/);
+    expect(screen.queryByText(/Unofficial translation/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Greek" }));
+    // One note: the Creed's Greek is a machine fill, the Our Father's is not.
+    expect(screen.getAllByText(/Unofficial translation/)).toHaveLength(1);
+  });
+
   it("numbers a sequence, and claims no order for a set of alternatives", () => {
     const { unmount } = render(<GuidePrayers prayers={[OUR_FATHER, DAY_PRAYER]} />);
     expect(screen.getByRole("button", { name: /^Prayer 1\s*Our Father/ })).toBeInTheDocument();

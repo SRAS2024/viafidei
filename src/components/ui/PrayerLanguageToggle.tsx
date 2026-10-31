@@ -3,7 +3,11 @@
 import { resolvePrayerLanguage, type PrayerVariant } from "@/lib/content-shared/prayer-language";
 
 import type { GuidePrayerData } from "./GuidePrayers";
-import { PrayerLanguageChips, usePrayerLanguage } from "./PrayerLanguageChips";
+import {
+  PrayerLanguageChips,
+  UnofficialTranslationNote,
+  usePrayerLanguage,
+} from "./PrayerLanguageChips";
 import { PrayerLinkedText } from "./PrayerLinkedText";
 
 /**
@@ -22,7 +26,8 @@ import { PrayerLinkedText } from "./PrayerLinkedText";
  * prayer doesn't have that language.
  *
  * Latin / Greek variants are marked `translate="no"` so device or future
- * auto-translation never rewrites the verbatim liturgical text.
+ * auto-translation never rewrites the verbatim liturgical text, and a machine
+ * translation says so under the text (`UnofficialTranslationNote`).
  *
  * `linkedPrayers` are the prayers the vernacular text names ("pray the Our
  * Father", "three Hail Marys"), as in the Rosary and chaplet prayers: each name
@@ -65,6 +70,7 @@ export function PrayerLanguageToggle({
           {shown.text}
         </p>
       )}
+      <UnofficialTranslationNote variant={shown} className="mt-3" />
     </div>
   );
 }

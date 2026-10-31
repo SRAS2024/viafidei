@@ -181,4 +181,22 @@ describe("prayer detail page", () => {
       /^Our Father/,
     );
   });
+
+  it("says when a language is a machine translation rather than the liturgical text", async () => {
+    seed({
+      body: OUR_FATHER_BODY,
+      latin: "Pater noster, qui es in caelis.",
+      greek: "Πάτερ ἡμῶν ὁ ἐν τοῖς οὐρανοῖς.",
+      // The June 2026 machine fills are marked; this prayer's Greek is one.
+      machineTranslated: ["greek"],
+    });
+    await renderPrayer();
+    const note = /Unofficial translation/;
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Latin" }));
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Greek" }));
+    expect(screen.getByText("Πάτερ ἡμῶν ὁ ἐν τοῖς οὐρανοῖς.")).toBeInTheDocument();
+    expect(screen.getByText(note)).toBeInTheDocument();
+  });
 });

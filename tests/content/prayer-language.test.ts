@@ -93,6 +93,25 @@ describe("buildPrayerVariants (Latin / Greek prayer language support)", () => {
     expect(v.map((x) => x.code)).toEqual(["en"]);
   });
 
+  it("marks a language the payload records as machine-translated as unofficial", () => {
+    const v = buildPrayerVariants({
+      body: "I believe in God...",
+      latin: "Credo in Deum...",
+      greek: "Πιστεύω εἰς Θεὸν...",
+      machineTranslated: ["greek"],
+    });
+    expect(v.map((x) => [x.code, x.unofficial ?? false])).toEqual([
+      ["en", false],
+      ["la", false],
+      ["el", true],
+    ]);
+    // Both spellings of the marker, and nothing marked when there is no marker.
+    expect(
+      buildPrayerVariants({ body: "x", latin: "y", machineTranslated: ["la"] })[1]?.unofficial,
+    ).toBe(true);
+    expect(buildPrayerVariants({ body: "x", latin: "y" })[1]).not.toHaveProperty("unofficial");
+  });
+
   it("returns an empty list when there is no usable text at all", () => {
     expect(buildPrayerVariants({})).toEqual([]);
     expect(buildPrayerVariants({ body: "   " })).toEqual([]);

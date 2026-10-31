@@ -134,6 +134,33 @@ describe("PrayerLinkedText", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Our Father" })).toBeInTheDocument();
   });
 
+  it("says when the language shown is a machine translation, and only then", () => {
+    const CREED: GuidePrayerData = {
+      slug: "apostles-creed",
+      title: "Apostles' Creed",
+      variants: [
+        { code: "en", label: "English", text: "I believe in God...", preserve: false },
+        { code: "la", label: "Latin", text: "Credo in Deum...", preserve: true },
+        {
+          code: "el",
+          label: "Greek",
+          text: "Πιστεύω εἰς Θεὸν...",
+          preserve: true,
+          unofficial: true,
+        },
+      ],
+    };
+    render(<PrayerLinkedText text="Pray the Apostles' Creed." prayers={[CREED]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Apostles' Creed/ }));
+    const note = /Unofficial translation/;
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Latin" }));
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Greek" }));
+    expect(screen.getByText("Πιστεύω εἰς Θεὸν...")).toHaveAttribute("translate", "no");
+    expect(screen.getByText(note)).toBeInTheDocument();
+  });
+
   it("with matchCase, links only names capitalised as names (the text is itself prayer)", () => {
     render(
       <PrayerLinkedText

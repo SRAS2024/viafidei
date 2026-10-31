@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import type { PrayerVariant } from "@/lib/content-shared/prayer-language";
+
 /**
  * The one Latin / Greek language control, shared by every place a prayer's
  * text is shown: the prayer page, a guide's, novena's or devotion's prayer
@@ -112,5 +114,25 @@ export function PrayerLanguageChips({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * The line under a prayer shown in a machine translation (`unofficial`): the
+ * June 2026 Greek of the Creed or the Memorare is not a received liturgical
+ * text, and the page must not present it as one. Renders nothing otherwise.
+ */
+export function UnofficialTranslationNote({
+  variant,
+  className = "",
+}: {
+  variant: PrayerVariant | undefined;
+  className?: string;
+}) {
+  if (!variant?.unofficial) return null;
+  return (
+    <p lang="en" className={`font-sans text-xs text-ink-faint ${className}`.trim()}>
+      Unofficial translation, not a liturgical text.
+    </p>
   );
 }

@@ -6,7 +6,11 @@ import { resolvePrayerLanguage } from "@/lib/content-shared/prayer-language";
 import { tokenizePrayerMentions } from "@/lib/content-shared/prayer-mentions";
 
 import type { GuidePrayerData } from "./GuidePrayers";
-import { PrayerLanguageChips, usePrayerLanguage } from "./PrayerLanguageChips";
+import {
+  PrayerLanguageChips,
+  UnofficialTranslationNote,
+  usePrayerLanguage,
+} from "./PrayerLanguageChips";
 
 /**
  * Text with the prayers it names made inline-expandable.
@@ -58,13 +62,16 @@ function InlinePrayerPanel({
         />
       </div>
       {shown ? (
-        <p
-          className="mt-2 whitespace-pre-line font-serif text-sm leading-relaxed text-ink-soft"
-          translate={shown.preserve ? "no" : undefined}
-          lang={shown.code}
-        >
-          {shown.text}
-        </p>
+        <>
+          <p
+            className="mt-2 whitespace-pre-line font-serif text-sm leading-relaxed text-ink-soft"
+            translate={shown.preserve ? "no" : undefined}
+            lang={shown.code}
+          >
+            {shown.text}
+          </p>
+          <UnofficialTranslationNote variant={shown} className="mt-2" />
+        </>
       ) : (
         <p className="mt-2 text-sm text-ink-faint">Text not available.</p>
       )}

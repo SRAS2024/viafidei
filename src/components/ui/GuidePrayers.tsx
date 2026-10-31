@@ -7,7 +7,12 @@ import {
   type PrayerWithVariants,
 } from "@/lib/content-shared/prayer-language";
 import { Disclosure } from "./Disclosure";
-import { PrayerLanguageChips, usePrayerLanguage, type LanguageOption } from "./PrayerLanguageChips";
+import {
+  PrayerLanguageChips,
+  UnofficialTranslationNote,
+  usePrayerLanguage,
+  type LanguageOption,
+} from "./PrayerLanguageChips";
 
 /**
  * The prayers of a guide, novena, devotion or chaplet, each as a dropdown (so
@@ -16,7 +21,8 @@ import { PrayerLanguageChips, usePrayerLanguage, type LanguageOption } from "./P
  * same session-wide choice as the prayer page's chips (`usePrayerLanguage`),
  * so Latin picked anywhere opens here in Latin; a prayer without the chosen
  * language shows its vernacular text. Latin / Greek text is marked
- * translate="no" so it is never auto-translated.
+ * translate="no" so it is never auto-translated, and a machine translation
+ * says so under the text.
  *
  * An `ordered` list is the sequence in which the prayers are prayed, so each
  * is numbered ("Prayer 1"). A set that is not a sequence (a Marian title's
@@ -85,13 +91,16 @@ export function GuidePrayers({
               title={p.title}
             >
               {shown ? (
-                <p
-                  className="whitespace-pre-line"
-                  translate={shown.preserve ? "no" : undefined}
-                  lang={shown.code}
-                >
-                  {shown.text}
-                </p>
+                <>
+                  <p
+                    className="whitespace-pre-line"
+                    translate={shown.preserve ? "no" : undefined}
+                    lang={shown.code}
+                  >
+                    {shown.text}
+                  </p>
+                  <UnofficialTranslationNote variant={shown} className="mt-2" />
+                </>
               ) : (
                 <p className="text-ink-faint">Text not available.</p>
               )}
