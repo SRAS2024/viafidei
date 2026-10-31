@@ -93,6 +93,11 @@ export interface DrainArtifact {
 export interface GateContext {
   /** Cross-source verification evidence rows already recorded for this artifact. */
   evidenceCount: number;
+  /**
+   * How many of those rows are a confirming MATCH / PASS. Defaults to 0. The
+   * row count alone cannot tell "verified" from "verification found nothing".
+   */
+  matchCount?: number;
   /** A DIFFERENT already-published item shares this (contentType, slug). */
   hasPublishedDuplicate: boolean;
   /** Confidence below this is treated as too weak to publish as-is. */
@@ -162,13 +167,32 @@ export function diagnoseArtifactGate(a: DrainArtifact, ctx: GateContext): Artifa
   }
 
   // Doctrinally-sensitive facts need cross-source evidence before QA.
-  if (a.validationNeeds.length > 0) {
+  //
+  // VERIFICATION_READY means the verification stage already confirmed every
+  // need, so the only thing left is strict QA. Its validationNeeds are never
+  // cleared, and the evidence count includes its MATCH rows, so it used to
+  // land in VERIFICATION_INCOMPLETE here: the drain filed a
+  // VALIDATION_EVIDENCE_MISSING plan, the repair wiped the evidence and reset
+  // it to BUILD_READY, and verified content looped back through verification
+  // (re-fetching vatican.va / usccb.org) instead of reaching QA.
+  if (a.validationNeeds.length > 0 && a.status !== "VERIFICATION_READY") {
     if (ctx.evidenceCount === 0) {
       return {
         gate: "AWAITING_VERIFICATION",
         outcome: "run_verification",
         explanation: `Needs cross-source evidence for: ${a.validationNeeds.join(", ")}.`,
         recommendedAction: "Run cross-source verification to gather evidence.",
+      };
+    }
+    if ((ctx.matchCount ?? 0) > 0) {
+      // Some evidence confirmed: the verification stage re-judges the stored
+      // rows need by need (the same predicate the publish gate uses) and
+      // either promotes it or files a bounded repair round itself.
+      return {
+        gate: "AWAITING_VERIFICATION",
+        outcome: "run_verification",
+        explanation: `Stored evidence (${ctx.matchCount} confirming of ${ctx.evidenceCount} row(s)) awaits judgement against ${a.validationNeeds.join(", ")}.`,
+        recommendedAction: "Run cross-source verification to judge the stored evidence.",
       };
     }
     return {
@@ -347,8 +371,10 @@ export async function runBuildReadyDrain(
     // at CHECKLIST_READY forever — extraction succeeding while nothing publishes
     // (the EXTRACTING_WITHOUT_PUBLISHING escalation). The drain must own that
     // bridge too, so it drains the WHOLE downstream funnel every pass.
+    // Healed artifacts that keep their checklist item count too: the bridge
+    // re-promotes them (they used to strand here forever).
     const checklistReady = await prisma.adminWorkerPackageArtifact
-      .count({ where: { status: "CHECKLIST_READY", checklistItemId: null } })
+      .count({ where: { status: "CHECKLIST_READY" } })
       .catch(() => 0);
 
     if (stuck.length === 0 && checklistReady === 0 && out.recovered === 0) return out;
@@ -358,9 +384,16 @@ export async function runBuildReadyDrain(
     // Batch context: evidence counts + published-duplicate slugs.
     const ids = stuck.map((a) => a.id);
     const slugs = [...new Set(stuck.map((a) => a.normalizedSlug))];
-    const [evidenceRows, publishedRows] = await Promise.all([
+    const [evidenceRows, matchRows, publishedRows] = await Promise.all([
       prisma.adminWorkerCrossSourceVerification
         .groupBy({ by: ["contentId"], where: { contentId: { in: ids } }, _count: { _all: true } })
+        .catch(() => [] as Array<{ contentId: string | null; _count: { _all: number } }>),
+      prisma.adminWorkerCrossSourceVerification
+        .groupBy({
+          by: ["contentId"],
+          where: { contentId: { in: ids }, matchResult: { in: ["MATCH", "PASS"] } },
+          _count: { _all: true },
+        })
         .catch(() => [] as Array<{ contentId: string | null; _count: { _all: number } }>),
       prisma.publishedContent
         .findMany({
@@ -372,6 +405,8 @@ export async function runBuildReadyDrain(
     const evidenceByArtifact = new Map<string, number>();
     for (const r of evidenceRows)
       if (r.contentId) evidenceByArtifact.set(r.contentId, r._count._all);
+    const matchesByArtifact = new Map<string, number>();
+    for (const r of matchRows) if (r.contentId) matchesByArtifact.set(r.contentId, r._count._all);
     const publishedKeys = new Set(publishedRows.map((r) => `${r.contentType}:${r.slug}`));
 
     // Triage + route each stuck artifact.
@@ -390,6 +425,7 @@ export async function runBuildReadyDrain(
         },
         {
           evidenceCount: evidenceByArtifact.get(a.id) ?? 0,
+          matchCount: matchesByArtifact.get(a.id) ?? 0,
           hasPublishedDuplicate: publishedKeys.has(`${a.contentType}:${a.normalizedSlug}`),
           confidenceFloor,
         },
@@ -475,9 +511,10 @@ export async function runBuildReadyDrain(
       //    artifact must not depend on the brain happening to pick the checklist
       //    stage — the always-on drain promotes it (creates its checklist item +
       //    citations → BUILD_READY) so it can be QA'd and published this same
-      //    pass. Bounded per round; `checklistItemId: null` guarantees no reloop.
+      //    pass. Bounded per round; promotion moves an artifact out of
+      //    CHECKLIST_READY, so it cannot reloop.
       const pendingChecklist = await prisma.adminWorkerPackageArtifact
-        .count({ where: { status: "CHECKLIST_READY", checklistItemId: null } })
+        .count({ where: { status: "CHECKLIST_READY" } })
         .catch(() => 0);
       if (pendingChecklist > 0) {
         const outcomes = await runChecklistAndCitationOrchestrator(prisma, {

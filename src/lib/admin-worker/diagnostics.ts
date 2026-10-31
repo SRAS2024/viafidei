@@ -1027,15 +1027,15 @@ async function ratingChecklistBridge(prisma: PrismaClient): Promise<HealthRating
   // trap already corrected for content-goals + the repair orchestrator.)
   //
   // The only artifacts the bridge still OWES are those sitting at CHECKLIST_READY
-  // without a checklistItemId — exactly the backlog the BUILD_READY drain targets
-  // every pass. An empty backlog means the bridge is caught up (healthy); a
+  // — exactly the backlog the BUILD_READY drain targets every pass, including
+  // healed artifacts that kept the checklist item they were bridged to before. An empty backlog means the bridge is caught up (healthy); a
   // growing one means it is genuinely stalled. REJECTED / EXTRACTED / NEEDS_REPAIR
   // never reach the bridge and must not count against it.
   const now = new Date();
   const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
   const [waitingUnbridged, bridgedTotal, bridgedRecent] = await Promise.all([
     prisma.adminWorkerPackageArtifact
-      .count({ where: { status: "CHECKLIST_READY", checklistItemId: null } })
+      .count({ where: { status: "CHECKLIST_READY" } })
       .catch(() => 0),
     prisma.adminWorkerPackageArtifact
       .count({ where: { checklistItemId: { not: null } } })

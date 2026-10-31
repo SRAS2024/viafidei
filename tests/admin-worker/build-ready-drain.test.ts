@@ -110,6 +110,29 @@ describe("diagnoseArtifactGate", () => {
     expect(d.outcome).toBe("create_evidence");
   });
 
+  // R2: VERIFICATION_READY artifacts keep their validationNeeds and their MATCH
+  // rows count as evidence, so the drain used to diagnose them as
+  // VERIFICATION_INCOMPLETE and file VALIDATION_EVIDENCE_MISSING — the repair
+  // wiped the evidence and reset them to BUILD_READY, looping verified content
+  // back through verification instead of on to strict QA.
+  it("VERIFICATION_READY with validation needs + MATCH evidence → AWAITING_QA / run_qa", () => {
+    const d = diagnoseArtifactGate(
+      artifact({ status: "VERIFICATION_READY", validationNeeds: ["feastDay"] }),
+      ctx({ evidenceCount: 3, matchCount: 2 }),
+    );
+    expect(d.gate).toBe("AWAITING_QA");
+    expect(d.outcome).toBe("run_qa");
+  });
+
+  it("BUILD_READY with some confirming evidence → the verification stage judges it", () => {
+    const d = diagnoseArtifactGate(
+      artifact({ validationNeeds: ["feastDay"] }),
+      ctx({ evidenceCount: 3, matchCount: 1 }),
+    );
+    expect(d.gate).toBe("AWAITING_VERIFICATION");
+    expect(d.outcome).toBe("run_verification");
+  });
+
   it("low confidence → LOW_CONFIDENCE / repair", () => {
     const d = diagnoseArtifactGate(
       artifact({ confidenceScore: 0.2 }),
@@ -169,7 +192,7 @@ describe("runBuildReadyDrain — CHECKLIST_READY bridge", () => {
 
   // Stateful fake prisma: N artifacts at CHECKLIST_READY, none built yet. The
   // bridge mock promotes them (drops the CHECKLIST_READY count to 0), mirroring
-  // the real orchestrator's `checklistItemId: null` filter that prevents reloop.
+  // the real orchestrator, whose promotion out of CHECKLIST_READY prevents reloop.
   function fakePrisma(initialChecklistReady: number) {
     let checklistReady = initialChecklistReady;
     const countFor = (where: Record<string, unknown> = {}) => {
