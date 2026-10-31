@@ -174,6 +174,21 @@ export type PresentedValue =
 /** Objects nested deeper than this are structure, not content — hidden. */
 const MAX_DEPTH = 2;
 
+/**
+ * Keys inside an object that hold a source, never content. A reader's page
+ * shows no sources (the owner's rule), and printed as a pair they read as a
+ * form field: a devotion's `indulgences: { claimed, citation }` became
+ * "Indulgences / Citation / Enchiridion Indulgentiarum, 4th ed. …".
+ */
+const SOURCE_KEYS: ReadonlySet<string> = new Set([
+  "citation",
+  "citations",
+  "source",
+  "sources",
+  "sourceUrl",
+  "sourceUrls",
+]);
+
 function text(value: string): PresentedValue {
   return { kind: "text", text: value, multiline: value.includes("\n") };
 }
@@ -181,7 +196,8 @@ function text(value: string): PresentedValue {
 /**
  * Turn one payload value into something renderable, or `null` when it cannot
  * be presented honestly (booleans, functions, empty collections, objects too
- * deep or with no presentable leaves). Callers render `null` as "no section",
+ * deep or with no presentable leaves). A source inside an object (`citation`,
+ * `sources`, …) is never presented. Callers render `null` as "no section",
  * never as an empty heading.
  */
 export function presentValue(key: string, value: unknown, depth = 0): PresentedValue | null {
@@ -233,6 +249,7 @@ export function presentValue(key: string, value: unknown, depth = 0): PresentedV
     if (depth >= MAX_DEPTH) return null;
     const pairs: Array<{ label: string; value: PresentedValue }> = [];
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (SOURCE_KEYS.has(k)) continue;
       const presented = presentValue(k, v, depth + 1);
       if (presented) pairs.push({ label: fieldLabel(k), value: presented });
     }

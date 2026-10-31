@@ -129,6 +129,23 @@ describe("presentValue", () => {
     expect(presentValue("flags", { ok: true, errors: [] })).toBeNull();
   });
 
+  it("never presents a source inside an object", () => {
+    // A devotion's indulgence note is a flag plus its citation: nothing to show.
+    expect(
+      presentValue("indulgences", {
+        claimed: true,
+        citation: "Enchiridion Indulgentiarum, 4th ed. (Apostolic Penitentiary, 1999), grant …",
+      }),
+    ).toBeNull();
+    // The content beside a source stays; the source pair does not.
+    expect(
+      presentValue("approval", { status: "Approved", sources: ["https://www.vatican.va/x"] }),
+    ).toEqual({
+      kind: "pairs",
+      pairs: [{ label: "Status", value: { kind: "text", text: "Approved", multiline: false } }],
+    });
+  });
+
   it("keeps an array of objects as an ordered list of pairs", () => {
     const presented = presentValue("days", [
       { day: 1, intention: "For the Church" },

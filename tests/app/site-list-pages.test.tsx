@@ -53,6 +53,7 @@ import GuidesPage from "@/app/guides/page";
 import LitaniesPage from "@/app/litanies/page";
 import ParishesPage from "@/app/parishes/page";
 import LiturgyPage from "@/app/liturgy/page";
+import ChurchDocumentsPage from "@/app/church-documents/page";
 
 function projected(over: Partial<PublishedListItem> & { id: string }): PublishedListItem {
   return {
@@ -334,5 +335,40 @@ describe("/liturgy chips", () => {
 
     render(await LiturgyPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByRole("link", { name: /Feasts & Solemnities/ })).toBeInTheDocument();
+  });
+});
+
+describe("/church-documents", () => {
+  it("shows each document's kind, title and summary — no source link on the card", async () => {
+    listPublished.mockResolvedValue([
+      {
+        id: "laudato-si",
+        checklistItemId: "laudato-si",
+        contentType: "CHURCH_DOCUMENT",
+        slug: "laudato-si",
+        title: "Laudato si'",
+        subtitle: "",
+        payload: {
+          documentType: "encyclical",
+          summary: "On care for our common home.",
+          canonicalUrl: "https://www.vatican.va/content/francesco/en/encyclicals/laudato-si.html",
+        },
+        authorityLevel: "VATICAN",
+        version: 1,
+        publishedAt: new Date(),
+      },
+    ]);
+    render(await ChurchDocumentsPage({ searchParams: Promise.resolve({}) }));
+
+    const card = screen.getByRole("article");
+    expect(card).toHaveTextContent("Encyclical");
+    expect(card).toHaveTextContent("On care for our common home.");
+    // The title leads to the document's own page, which has "Read the full document".
+    expect(screen.getByRole("link", { name: "Laudato si'" })).toHaveAttribute(
+      "href",
+      "/liturgy-history/laudato-si",
+    );
+    expect(card).not.toHaveTextContent(/Read on|vatican\.va/);
+    expect(card.querySelector('a[href^="https://"]')).toBeNull();
   });
 });
