@@ -205,7 +205,7 @@ describe("publish derives ContentQualityScore from strict-QA dimensions (spec §
     });
     expect(result.kind).toBe("blocked");
     if (result.kind === "blocked") {
-      expect(result.blockedBy).toBe("strict-qa");
+      expect(result.blockedBy).toBe("strict-qa-missing");
     }
   });
 });

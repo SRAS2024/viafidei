@@ -2398,6 +2398,9 @@ export async function runStrictQA(prisma: PrismaClient, passId: string): Promise
   let passed = 0;
   let heldForReview = 0;
   let rejected = 0;
+  // Scored, but the strict-QA row did not persist (database error): left in
+  // place for the next pass instead of advancing without a row.
+  let deferred = 0;
 
   for (const artifact of candidates) {
     if (!artifact) continue;
@@ -2498,6 +2501,16 @@ export async function runStrictQA(prisma: PrismaClient, passId: string): Promise
       publicReadinessScore,
     });
 
+    // The publish gate refuses any artifact without a persisted strict-QA row.
+    // recordStrictQA swallows a failed upsert and still returns the computed
+    // status, and advancing on that status sent a QA_PASSED artifact with no
+    // row to the publish gate, which rejected it for good. Leave the artifact
+    // where it is instead; the next pass scores it again.
+    if (qa.recordId === null) {
+      deferred += 1;
+      continue;
+    }
+
     // A strict-QA NEEDS_REPAIR means the finalScore landed in the review
     // band [REVIEW_FLOOR, threshold) with NO zero dimension — the content
     // is structurally complete and provenance-backed but didn't clear the
@@ -2569,10 +2582,12 @@ export async function runStrictQA(prisma: PrismaClient, passId: string): Promise
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "QA",
-    severity: rejected > 0 ? "WARN" : "INFO",
+    severity: rejected > 0 || deferred > 0 ? "WARN" : "INFO",
     eventName: "strict_qa_pass",
-    message: `Strict QA processed ${processed} artifact(s): ${passed} passed, ${heldForReview} held for review, ${rejected} rejected.`,
-    safeMetadata: { processed, passed, heldForReview, rejected },
+    message: `Strict QA processed ${processed} artifact(s): ${passed} passed, ${heldForReview} held for review, ${rejected} rejected${
+      deferred > 0 ? `, ${deferred} deferred (strict-QA row not persisted; retried next pass)` : ""
+    }.`,
+    safeMetadata: { processed, passed, heldForReview, rejected, deferred },
   });
 
   return {
@@ -2756,8 +2771,11 @@ export async function runPersistAndPublish(
     // Spec §19: source reputation updates after the publishing stage
     // (which also gates on the quality score). A host whose artifact
     // publishes gains reputation; a blocked/repair outcome loses it.
+    // A transient database failure says nothing about the source, so it never
+    // costs the host reputation.
     const pubHost = sourceHost;
-    if (pubHost) {
+    const transientBlock = result.kind === "blocked" && result.retryable === true;
+    if (pubHost && !transientBlock) {
       const { pushReputation } = await import("./source-reputation-hooks");
       await pushReputation(prisma, {
         sourceHost: pubHost,
@@ -2769,6 +2787,7 @@ export async function runPersistAndPublish(
 
     // Update the artifact based on the outcome.
     let reviewRouted: ReviewRouting = "terminal";
+    let blockedRouted: "retry" | "terminal" | "requeued" | null = null;
     if (result.kind === "published") {
       await prisma.adminWorkerPackageArtifact
         .update({
@@ -2779,12 +2798,43 @@ export async function runPersistAndPublish(
       const { clearRetryBudget } = await import("./human-review");
       await clearRetryBudget(prisma, "review", artifact.id);
     } else if (result.kind === "blocked") {
-      await prisma.adminWorkerPackageArtifact
-        .update({
-          where: { id: artifact.id },
-          data: { status: "REJECTED", rejectionReason: result.reason },
-        })
-        .catch(() => undefined);
+      if (result.retryable) {
+        // A database error is not a verdict on the content. It used to REJECT a
+        // complete, QA-passed package for good (only a later duplicate read
+        // could ever revive it); retry it with backoff instead.
+        blockedRouted = await routeTransientPublishFailure(prisma, {
+          artifactId: artifact.id,
+          reason: `TRANSIENT_PUBLISH_FAILURE (${result.blockedBy}): ${result.reason}`,
+        });
+      } else if (result.blockedBy === "strict-qa-missing") {
+        // QA_PASSED without a persisted strict-QA row is a pipeline gap (the
+        // QA upsert failed while the status advanced), not a content verdict:
+        // send it back through strict QA.
+        await prisma.adminWorkerPackageArtifact
+          .update({
+            where: { id: artifact.id },
+            data: {
+              status: "BUILD_READY",
+              rejectionReason: "STRICT_QA_ROW_MISSING: re-queued for strict QA",
+            },
+          })
+          .catch(() => undefined);
+        blockedRouted = "requeued";
+      } else {
+        const { publishRejectionCode } = await import("./publish-orchestrator");
+        await prisma.adminWorkerPackageArtifact
+          .update({
+            where: { id: artifact.id },
+            data: {
+              status: "REJECTED",
+              rejectionReason: `${publishRejectionCode(result.blockedBy)}: ${result.reason}`.slice(
+                0,
+                480,
+              ),
+            },
+          })
+          .catch(() => undefined);
+      }
     } else if (result.kind === "repair") {
       // Spec §6: repairable — send the artifact back for re-extraction
       // (the QUALITY_SCORE_FAILED / STRICT_QA_FAILED repair plan the
@@ -2826,13 +2876,17 @@ export async function runPersistAndPublish(
     }
 
     const reviewIsRepair = result.kind === "review" && reviewRouted === "repair";
+    // A retried (transient) or re-queued block is not a rejection.
+    const blockedIsRetry = blockedRouted !== null;
     return {
       stage: "PUBLIC_PUBLISH",
       kind:
         result.kind === "published"
           ? "advanced"
           : result.kind === "blocked"
-            ? "rejected"
+            ? blockedIsRetry
+              ? "repair-planned"
+              : "rejected"
             : result.kind === "duplicate"
               ? "idle"
               : result.kind === "repair" || reviewIsRepair
@@ -2841,16 +2895,23 @@ export async function runPersistAndPublish(
       summary: `Publish orchestrator: ${result.kind} (${result.reason})${
         result.kind === "review" && reviewRouted !== "terminal"
           ? ` → autonomous ${reviewRouted}`
-          : ""
+          : blockedRouted
+            ? ` → ${blockedRouted === "requeued" ? "re-queued for strict QA" : `transient, ${blockedRouted}`}`
+            : ""
       }.`,
       built: result.kind === "published" ? 1 : 0,
       published: result.kind === "published" ? 1 : 0,
-      rejected: result.kind === "blocked" || (result.kind === "review" && !reviewIsRepair) ? 1 : 0,
-      repairsPlanned: result.kind === "repair" || reviewIsRepair ? 1 : 0,
+      rejected:
+        (result.kind === "blocked" && !blockedIsRetry) ||
+        (result.kind === "review" && !reviewIsRepair)
+          ? 1
+          : 0,
+      repairsPlanned: result.kind === "repair" || reviewIsRepair || blockedIsRetry ? 1 : 0,
       metadata: {
         artifactId: artifact.id,
         kind: result.kind,
         reviewRouted: result.kind === "review" ? reviewRouted : undefined,
+        blockedRouted: blockedRouted ?? undefined,
       },
     };
   }
@@ -2875,6 +2936,35 @@ export async function runPersistAndPublish(
 }
 
 type ReviewRouting = "repair" | "retry" | "terminal";
+
+/**
+ * Route a publish the orchestrator blocked for a TRANSIENT reason (a database
+ * error reading the strict-QA row, writing the quality score or persisting the
+ * row). The artifact parks in NEEDS_REVIEW with a TRANSIENT_PUBLISH_FAILURE
+ * reason; the build-ready drain re-queues it as QA_PASSED once the per-artifact
+ * backoff (10 → 20 → 40 minutes) has passed, within the shared retry budget.
+ * Once the budget is spent it stays parked with the reason recorded, and the
+ * weekly self-maintenance requeue gives it one more try.
+ */
+async function routeTransientPublishFailure(
+  prisma: PrismaClient,
+  input: { artifactId: string; reason: string },
+): Promise<"retry" | "terminal"> {
+  const { consumeRetryBudget } = await import("./human-review");
+  const budget = await consumeRetryBudget(prisma, "review", input.artifactId, {
+    reason: input.reason,
+  });
+  const rejectionReason = budget.allowed
+    ? input.reason
+    : `${input.reason} [retry budget spent after ${budget.attempts - 1} autonomous attempts]`;
+  await prisma.adminWorkerPackageArtifact
+    .update({
+      where: { id: input.artifactId },
+      data: { status: "NEEDS_REVIEW", rejectionReason: rejectionReason.slice(0, 480) },
+    })
+    .catch(() => undefined);
+  return budget.allowed ? "retry" : "terminal";
+}
 
 /**
  * Autonomous routing for a publish outcome of "review" (finding: review

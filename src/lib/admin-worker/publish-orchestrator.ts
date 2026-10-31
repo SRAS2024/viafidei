@@ -93,7 +93,19 @@ export type OrchestratorResult =
       route: string;
       reason: string;
     }
-  | { kind: "blocked"; reason: string; gate?: string; blockedBy: string }
+  | {
+      kind: "blocked";
+      reason: string;
+      gate?: string;
+      blockedBy: string;
+      /**
+       * True when the block is a transient infrastructure failure (a database
+       * error reading the strict-QA row, writing the quality score, or
+       * persisting the row) rather than a verdict about the content. The
+       * caller retries these with backoff instead of rejecting the item.
+       */
+      retryable?: boolean;
+    }
   // Spec §6: "repair" is distinct from "review". A repairable failure
   // (e.g. strict QA NEEDS_REPAIR, quality score just below threshold)
   // goes to repair first; "review" is reserved for genuinely
@@ -111,12 +123,27 @@ export async function runPublishOrchestrator(
   // unless the AdminWorkerStrictQAResult row exists with status =
   // "PASSED".
   if (input.strictQAArtifactId) {
-    const { getStrictQAResult } = await import("./strict-qa");
-    const qa = await getStrictQAResult(prisma, input.strictQAArtifactId);
-    if (!qa) {
+    const { readStrictQAResult } = await import("./strict-qa");
+    const { result: qa, error: qaUnreadable } = await readStrictQAResult(
+      prisma,
+      input.strictQAArtifactId,
+    );
+    if (qaUnreadable) {
+      // A database error is not a verdict on the artifact: retry it.
       return {
         kind: "blocked",
         blockedBy: "strict-qa",
+        retryable: true,
+        reason: "strict-QA result could not be read (database error)",
+      };
+    }
+    if (!qa) {
+      // The artifact reached the publish queue without a persisted strict-QA
+      // row (the upsert failed while its status still advanced). That is a
+      // pipeline gap, not a content verdict: the caller re-queues it for QA.
+      return {
+        kind: "blocked",
+        blockedBy: "strict-qa-missing",
         reason: "no AdminWorkerStrictQAResult row for this artifact",
       };
     }
@@ -509,7 +536,22 @@ export async function runPublishOrchestrator(
     packageConsistencyScore: input.qaPassed ? 1 : 0.8,
   };
   const { recordQualityScore, thresholdFor } = await import("./quality");
-  const qualityScore = await recordQualityScore(prisma, qualityFinal).catch(() => null);
+  let qualityWriteFailed = false;
+  const qualityScore = await recordQualityScore(prisma, qualityFinal).catch(() => {
+    qualityWriteFailed = true;
+    return null;
+  });
+  // A failed ContentQualityScore write is a database error, not a low score.
+  // It used to fall into the QUALITY_SCORE_FAILED repair below with a "missing"
+  // score, which discarded a complete, QA-passed package; retry it instead.
+  if (qualityWriteFailed) {
+    return {
+      kind: "blocked",
+      blockedBy: "quality-score",
+      retryable: true,
+      reason: "ContentQualityScore could not be recorded (database error)",
+    };
+  }
   // Spec: publishing must use the FULL stored quality score. `passed`
   // already folds in the per-content-type threshold.
   if (!qualityScore || !qualityScore.passed) {
@@ -666,15 +708,15 @@ export async function runPublishOrchestrator(
         reason: "PublishedContent already exists for this (contentType, slug)",
       };
     }
+    let repubError: unknown = null;
     const repub = await prisma.publishedContent
       .update({ where: { id: existing.id }, data: republishData })
-      .catch(() => null);
+      .catch((e) => {
+        repubError = e;
+        return null;
+      });
     if (!repub) {
-      return {
-        kind: "blocked",
-        blockedBy: "persist",
-        reason: "failed to update existing row to published",
-      };
+      return persistBlocked("failed to update existing row to published", repubError);
     }
     if (!input.skipPostPublishSideEffects) {
       await postPublishSideEffects(prisma, input, repub.id, route);
@@ -736,15 +778,15 @@ export async function runPublishOrchestrator(
       if (upd.blocked) {
         return { kind: "blocked", blockedBy: "protection", reason: upd.reason };
       }
+      let renameError: unknown = null;
       const renamed = await prisma.publishedContent
         .update({ where: { id: byItem.id }, data: { slug: input.slug } })
-        .catch(() => null);
+        .catch((e) => {
+          renameError = e;
+          return null;
+        });
       if (!renamed) {
-        return {
-          kind: "blocked",
-          blockedBy: "persist",
-          reason: `failed to rename ${liveKey} to slug ${input.slug}`,
-        };
+        return persistBlocked(`failed to rename ${liveKey} to slug ${input.slug}`, renameError);
       }
       await writeAdminWorkerLog(prisma, {
         category: "PUBLISHING",
@@ -767,15 +809,15 @@ export async function runPublishOrchestrator(
     }
     // Unpublished row under the old slug: republish it under the requested
     // slug — no live URL is affected and the (contentType, slug) pair is free.
+    let repubError: unknown = null;
     const repub = await prisma.publishedContent
       .update({ where: { id: byItem.id }, data: { ...republishData, slug: input.slug } })
-      .catch(() => null);
+      .catch((e) => {
+        repubError = e;
+        return null;
+      });
     if (!repub) {
-      return {
-        kind: "blocked",
-        blockedBy: "persist",
-        reason: `failed to republish ${liveKey} under slug ${input.slug}`,
-      };
+      return persistBlocked(`failed to republish ${liveKey} under slug ${input.slug}`, repubError);
     }
     if (!input.skipPostPublishSideEffects) {
       await postPublishSideEffects(prisma, input, repub.id, route);
@@ -791,6 +833,7 @@ export async function runPublishOrchestrator(
 
   // 5. Persist a new PublishedContent row. The descriptive subtitle is generated
   // and stored at publish time (rendered under the title on the public page).
+  let createError: unknown = null;
   const created = await prisma.publishedContent
     .create({
       data: {
@@ -809,6 +852,7 @@ export async function runPublishOrchestrator(
       },
     })
     .catch((e) => {
+      createError = e;
       void writeAdminWorkerLog(prisma, {
         category: "PUBLISHING",
         severity: "ERROR",
@@ -820,11 +864,7 @@ export async function runPublishOrchestrator(
     });
 
   if (!created) {
-    return {
-      kind: "blocked",
-      blockedBy: "persist",
-      reason: "PublishedContent create() failed",
-    };
+    return persistBlocked("PublishedContent create() failed", createError);
   }
 
   if (!input.skipPostPublishSideEffects) {
@@ -972,6 +1012,66 @@ const HARD_SAFETY_REASONS: ReadonlySet<SafetyBlockReason> = new Set<SafetyBlockR
   "store_page",
   "donation_page",
 ]);
+
+/**
+ * Prisma error codes that are a verdict about the write itself: a unique /
+ * foreign-key / null / length constraint the row breaks. Retrying the same
+ * write reproduces them, so they are permanent. Everything else (connection
+ * loss, pool or statement timeout, a serialization conflict, an unknown error)
+ * is treated as transient: the cost of a bounded retry is one more attempt,
+ * while a wrong REJECTED discards a complete, QA-passed package for good.
+ */
+const PERMANENT_DB_ERROR_CODES: ReadonlySet<string> = new Set([
+  "P2000", // value too long for the column
+  "P2002", // unique constraint
+  "P2003", // foreign key constraint
+  "P2004", // database constraint
+  "P2005", // invalid stored value for the field type
+  "P2006", // invalid value for the field
+  "P2007", // data validation error
+  "P2011", // null constraint
+  "P2012", // missing required value
+]);
+
+export function isPermanentDbError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === "string" && PERMANENT_DB_ERROR_CODES.has(code);
+}
+
+/** A failed PublishedContent write, classified transient or permanent. */
+function persistBlocked(reason: string, err: unknown): OrchestratorResult {
+  const permanent = isPermanentDbError(err);
+  const code = (err as { code?: unknown } | null)?.code;
+  return {
+    kind: "blocked",
+    blockedBy: "persist",
+    retryable: !permanent,
+    reason: permanent && typeof code === "string" ? `${reason} (${code})` : reason,
+  };
+}
+
+/**
+ * Typed reason code for a publish the orchestrator refused for good, keyed by
+ * `blockedBy`. The dispatcher stamps it on the REJECTED artifact so a rejection
+ * can be counted and filtered by cause rather than by free text.
+ */
+const PUBLISH_REJECTION_CODES: Readonly<Record<string, string>> = {
+  "strict-qa": "STRICT_QA_FAILED",
+  safety: "PUBLISH_SAFETY",
+  proof: "PROOF_CONFLICT",
+  verifier: "VERIFIER_BLOCKED",
+  gate: "PUBLISH_GATE",
+  "quality-score": "QUALITY_SCORE_BELOW_THRESHOLD",
+  route: "NO_PUBLIC_ROUTE",
+  canonical_max: "CANONICAL_MAX",
+  protection: "PROTECTED_UPDATE_REFUSED",
+  persist: "PERSIST_CONSTRAINT",
+  schema: "SCHEMA_INVALID",
+};
+
+export function publishRejectionCode(blockedBy: string): string {
+  return PUBLISH_REJECTION_CODES[blockedBy] ?? "PUBLISH_BLOCKED";
+}
 
 /** Run a query that may not exist on a partial client; a throw is `null`. */
 async function safeQuery<T>(fn: () => Promise<T>): Promise<T | null> {

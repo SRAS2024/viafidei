@@ -561,6 +561,11 @@ export interface RecoverableReviewRule {
 
 export const RECOVERABLE_REVIEW_RULES: readonly RecoverableReviewRule[] = [
   {
+    match: "TRANSIENT_PUBLISH_FAILURE",
+    route: "retry",
+    why: "a database error while publishing clears on retry; the content itself was never judged",
+  },
+  {
     match: "objections: citation",
     route: "retry",
     requireProvenance: true,

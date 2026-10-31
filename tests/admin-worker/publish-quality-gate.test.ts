@@ -105,7 +105,12 @@ describe("publish requires a passing strict-QA result (spec §6)", () => {
       strictQAArtifactId: "art-1",
     });
     expect(result.kind).toBe("blocked");
-    if (result.kind === "blocked") expect(result.blockedBy).toBe("strict-qa");
+    // A missing row is a pipeline gap the dispatcher re-queues for QA — a
+    // distinct cause from a FAILED strict-QA verdict, and not transient.
+    if (result.kind === "blocked") {
+      expect(result.blockedBy).toBe("strict-qa-missing");
+      expect(result.retryable).toBeFalsy();
+    }
   });
 
   it("routes to repair (not review) when strict-QA status is NEEDS_REPAIR (spec §6)", async () => {
