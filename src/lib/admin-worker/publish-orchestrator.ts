@@ -1121,7 +1121,6 @@ const PUBLISH_REJECTION_CODES: Readonly<Record<string, string>> = {
   canonical_max: "CANONICAL_MAX",
   protection: "PROTECTED_UPDATE_REFUSED",
   persist: "PERSIST_CONSTRAINT",
-  schema: "SCHEMA_INVALID",
 };
 
 export function publishRejectionCode(blockedBy: string): string {
