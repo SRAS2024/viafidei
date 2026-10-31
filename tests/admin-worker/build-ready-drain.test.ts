@@ -23,6 +23,16 @@ vi.mock("@/lib/admin-worker/dispatcher", () => ({
 vi.mock("@/lib/admin-worker/logs", () => ({ writeAdminWorkerLog: vi.fn(async () => undefined) }));
 vi.mock("@/lib/admin-worker/repair-plans", () => ({ filePlan: vi.fn(async () => undefined) }));
 
+// A prayer whose fields make a valid PRAYER schema payload, so the gates under
+// test are the ones that decide (the triage now also refuses a package its
+// schema can never accept).
+const PRAYER_FIELDS = {
+  prayerTitle: "Glory Be",
+  prayerType: "general",
+  prayerText: "Glory be to the Father, and to the Son, and to the Holy Spirit. Amen.",
+  category: "essential",
+};
+
 function artifact(overrides: Partial<DrainArtifact> = {}): DrainArtifact {
   return {
     id: "a1",
@@ -32,7 +42,7 @@ function artifact(overrides: Partial<DrainArtifact> = {}): DrainArtifact {
     missingFields: [],
     validationNeeds: [],
     confidenceScore: 0.9,
-    extractedFields: { title: "T", body: "B", sourceUrl: "https://example.org" },
+    extractedFields: { ...PRAYER_FIELDS, sourceUrl: "https://example.org" },
     ...overrides,
   };
 }
@@ -81,7 +91,7 @@ describe("diagnoseArtifactGate", () => {
     // REJECTED, so nothing ever published.
     const d = diagnoseArtifactGate(
       artifact({
-        extractedFields: { title: "T", body: "B" }, // no citations embedded
+        extractedFields: PRAYER_FIELDS, // no citations embedded
         fieldProvenance: [
           { fieldName: "body", sourceUrl: "https://vatican.va/x", confidence: 0.9 },
         ],
@@ -90,6 +100,49 @@ describe("diagnoseArtifactGate", () => {
     );
     expect(d.gate).toBe("AWAITING_QA");
     expect(d.outcome).toBe("run_qa");
+  });
+
+  // R1: a package its schema can never accept spent verification fetches and
+  // strict QA only to be refused at publish; the drain now repairs it first.
+  it("a package the schema can never accept → MALFORMED / repair (before any verification)", () => {
+    const d = diagnoseArtifactGate(
+      artifact({
+        contentType: "CHURCH_DOCUMENT",
+        validationNeeds: ["dateOrEra"],
+        extractedFields: {
+          historyType: "encyclicals",
+          title: "Rerum Novarum",
+          dateOrEra: "1891",
+          summary:
+            "Rerum Novarum is the encyclical on capital and labour that opened modern Catholic social teaching.",
+          body: "…",
+          sourceUrl: "https://www.vatican.va/rerum-novarum",
+        },
+      }),
+      ctx(),
+    );
+    expect(d.gate).toBe("MALFORMED");
+    expect(d.outcome).toBe("repair");
+    expect(d.explanation).toMatch(/^SCHEMA_FIELDS_MISSING: .*issuingAuthority/);
+  });
+
+  it("a citation shortfall alone is not MALFORMED (verification adds the witness)", () => {
+    const d = diagnoseArtifactGate(
+      artifact({
+        contentType: "SAINT",
+        validationNeeds: ["feastDay"],
+        extractedFields: {
+          saintName: "Saint Francis of Assisi",
+          saintType: "saint",
+          feastDay: "10-04",
+          background:
+            "Francis of Assisi was born in 1181 in Assisi, founded the Friars Minor, and died in 1226 at the Portiuncula.",
+          sourceUrl: "https://www.catholic.org/saints/francis",
+        },
+      }),
+      ctx(),
+    );
+    expect(d.gate).toBe("AWAITING_VERIFICATION");
   });
 
   it("validation needs + no evidence → AWAITING_VERIFICATION / run_verification", () => {
@@ -108,6 +161,29 @@ describe("diagnoseArtifactGate", () => {
     );
     expect(d.gate).toBe("VERIFICATION_INCOMPLETE");
     expect(d.outcome).toBe("create_evidence");
+  });
+
+  // R2: VERIFICATION_READY artifacts keep their validationNeeds and their MATCH
+  // rows count as evidence, so the drain used to diagnose them as
+  // VERIFICATION_INCOMPLETE and file VALIDATION_EVIDENCE_MISSING — the repair
+  // wiped the evidence and reset them to BUILD_READY, looping verified content
+  // back through verification instead of on to strict QA.
+  it("VERIFICATION_READY with validation needs + MATCH evidence → AWAITING_QA / run_qa", () => {
+    const d = diagnoseArtifactGate(
+      artifact({ status: "VERIFICATION_READY", validationNeeds: ["feastDay"] }),
+      ctx({ evidenceCount: 3, matchCount: 2 }),
+    );
+    expect(d.gate).toBe("AWAITING_QA");
+    expect(d.outcome).toBe("run_qa");
+  });
+
+  it("BUILD_READY with some confirming evidence → the verification stage judges it", () => {
+    const d = diagnoseArtifactGate(
+      artifact({ validationNeeds: ["feastDay"] }),
+      ctx({ evidenceCount: 3, matchCount: 1 }),
+    );
+    expect(d.gate).toBe("AWAITING_VERIFICATION");
+    expect(d.outcome).toBe("run_verification");
   });
 
   it("low confidence → LOW_CONFIDENCE / repair", () => {
@@ -169,7 +245,7 @@ describe("runBuildReadyDrain — CHECKLIST_READY bridge", () => {
 
   // Stateful fake prisma: N artifacts at CHECKLIST_READY, none built yet. The
   // bridge mock promotes them (drops the CHECKLIST_READY count to 0), mirroring
-  // the real orchestrator's `checklistItemId: null` filter that prevents reloop.
+  // the real orchestrator, whose promotion out of CHECKLIST_READY prevents reloop.
   function fakePrisma(initialChecklistReady: number) {
     let checklistReady = initialChecklistReady;
     const countFor = (where: Record<string, unknown> = {}) => {
@@ -384,5 +460,62 @@ describe("runBuildReadyDrain — recovers citation-misrouted reviews", () => {
       { passId: "t", active: true, driveRounds: 1 },
     );
     expect(r.recovered).toBe(0);
+  });
+});
+
+describe("runBuildReadyDrain — unpublishable packages go to the schema-aware repair", () => {
+  it("files EXTRACT_FAILED with origin schema_payload and parks NEEDS_REPAIR with the reason", async () => {
+    const { filePlan } = await import("@/lib/admin-worker/repair-plans");
+    vi.mocked(filePlan).mockClear();
+    const updates: Array<{ data: Record<string, unknown> }> = [];
+    const prisma = {
+      adminWorkerPackageArtifact: {
+        findMany: async ({ where }: { where?: Record<string, unknown> } = {}) =>
+          where?.status && typeof where.status === "object"
+            ? [
+                {
+                  id: "doc1",
+                  contentType: "CHURCH_DOCUMENT",
+                  normalizedSlug: "rerum-novarum",
+                  normalizedTitle: "Rerum Novarum",
+                  status: "BUILD_READY",
+                  missingFields: [],
+                  validationNeeds: ["dateOrEra"],
+                  confidenceScore: 0.9,
+                  extractedFields: {
+                    historyType: "encyclicals",
+                    title: "Rerum Novarum",
+                    dateOrEra: "1891",
+                    summary:
+                      "Rerum Novarum is the encyclical on capital and labour that opened modern Catholic social teaching.",
+                    body: "…",
+                  },
+                  fieldProvenance: [{ fieldName: "title" }],
+                  sourceReadId: "sr-doc",
+                },
+              ]
+            : [],
+        count: async () => 0,
+        update: async (arg: { data: Record<string, unknown> }) => {
+          updates.push(arg);
+          return undefined;
+        },
+      },
+      adminWorkerCrossSourceVerification: { groupBy: async () => [] },
+      publishedContent: { findMany: async () => [] },
+    } as never;
+    const { runBuildReadyDrain } = await import("@/lib/admin-worker/build-ready-drain");
+    const r = await runBuildReadyDrain(prisma, { passId: "t", active: true, driveRounds: 0 });
+    expect(r.byGate.MALFORMED).toBe(1);
+    expect(vi.mocked(filePlan)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        kind: "EXTRACT_FAILED",
+        failedEntity: "doc1",
+        metadata: expect.objectContaining({ origin: "schema_payload", sourceReadId: "sr-doc" }),
+      }),
+    );
+    const parked = updates.find((u) => u.data.status === "NEEDS_REPAIR");
+    expect(String(parked?.data.rejectionReason)).toMatch(/^SCHEMA_FIELDS_MISSING: /);
   });
 });

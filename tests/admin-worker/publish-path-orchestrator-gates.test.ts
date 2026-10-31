@@ -300,6 +300,49 @@ describe("P1 — proof gate receives real evidence", () => {
     expect(input.state.trustedSourceCount).toBe(2);
   });
 
+  // A proof-gated type published without a verifier (DEVOTION, LITURGICAL,
+  // POPE) always handed the proof 0 agreements and only its own host's
+  // authority, so its "≥1 independent agreement" condition could never hold.
+  // The independent pages whose stored evidence confirmed it are that
+  // agreement, and their authority is evidence too.
+  it("counts each corroborating source as an agreement and its registry authority", () => {
+    const corroborated = buildProofEvidence(
+      {
+        authorityLevel: "USCCB",
+        corroboratingSources: [
+          "https://www.vatican.va/roman_curia/liturgical-year.html",
+          // Another page of the same site is the same witness.
+          "https://press.vatican.va/liturgical-year.html",
+        ],
+      },
+      ["https://www.usccb.org/liturgical-year", "https://www.vatican.va/roman_curia/x.html"],
+    );
+    expect(corroborated.agreements).toBe(1);
+    expect(corroborated.authorities).toEqual(["USCCB", "VATICAN"]);
+    // A host the registry does not vouch for adds an agreement, not authority.
+    const unlisted = buildProofEvidence(
+      { authorityLevel: "USCCB", corroboratingSources: ["https://some-parish-blog.example/x"] },
+      [],
+    );
+    expect(unlisted.agreements).toBe(1);
+    expect(unlisted.authorities).toEqual(["USCCB", "COMMUNITY"]);
+    expect(buildProofEvidence({ authorityLevel: "USCCB" }, []).agreements).toBe(0);
+  });
+
+  it("hands a proof-gated item's corroboration to the proof when there is no verifier", async () => {
+    brain.enabled = true;
+    await runPublishOrchestrator(makePrisma(), {
+      ...DOC,
+      authorityLevel: "USCCB",
+      isDoctrinallySensitive: false,
+      verifier: undefined,
+      corroboratingSources: ["https://www.vatican.va/lg"],
+    });
+    const input = proof.lastInput as { evidence: { agreements: number; authorities: string[] } };
+    expect(input.evidence.agreements).toBe(1);
+    expect(input.evidence.authorities).toEqual(["USCCB", "VATICAN"]);
+  });
+
   it("treats a proof 'review' as advisory when the verifier signed off, and as review otherwise", async () => {
     brain.enabled = true;
     proof.decision = { allow: false, action: "review", reasons: ["below Vatican authority"] };

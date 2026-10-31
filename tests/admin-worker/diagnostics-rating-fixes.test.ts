@@ -35,7 +35,9 @@ function makePrisma(s: Scenario) {
 
   const artifactCount = vi.fn(async (arg?: { where?: Where }) => {
     const w = arg?.where ?? {};
-    if (w.status === "CHECKLIST_READY" && w.checklistItemId === null) {
+    // Every CHECKLIST_READY artifact is bridge backlog — healed ones keep their
+    // checklist item and are re-promoted by the bridge too.
+    if (w.status === "CHECKLIST_READY") {
       return s.checklistReadyUnbridged ?? 0;
     }
     const cid = w.checklistItemId as { not?: unknown } | undefined;

@@ -60,12 +60,14 @@ export function scoreAction(action: BrainAction, world: WorldState): BrainAction
           rejection = "Heartbeat fresh and no blocker.";
         }
       } else {
-        urgency = Math.min(20, world.failedBuildJobs * 2 + world.pendingRepairPlans * 3);
-        repairScore =
-          0.4 + Math.min(0.4, world.failedBuildJobs * 0.05 + world.pendingRepairPlans * 0.08);
-        if (world.failedBuildJobs === 0 && world.pendingRepairPlans === 0) {
+        // Only durable repair plans count. Failed WorkerBuildJob rows are the
+        // residue of a build engine that no longer exists — nothing executes or
+        // clears them — so they used to keep this stage "urgent" forever.
+        urgency = Math.min(20, world.pendingRepairPlans * 3);
+        repairScore = 0.4 + Math.min(0.4, world.pendingRepairPlans * 0.08);
+        if (world.pendingRepairPlans === 0) {
           safe = false;
-          rejection = "No failed jobs or pending repair plans.";
+          rejection = "No pending repair plans.";
         }
       }
       break;
@@ -73,7 +75,6 @@ export function scoreAction(action: BrainAction, world: WorldState): BrainAction
       const gap = world.contentGoalGap;
       const noCandidates = world.candidateUrlsAvailable === 0;
       const noGrowth = hoursSinceCapped(world.timeSinceLastGrowthMs);
-      const queueIsDoingWork = world.pendingBuildJobs > 0 || world.runningBuildJobs > 0;
       // Drain before discover: when items are already in flight (reads to
       // extract, artifacts awaiting checklist / verification / QA /
       // publish, or candidates still to fetch), pushing those to public
@@ -87,14 +88,15 @@ export function scoreAction(action: BrainAction, world: WorldState): BrainAction
         world.artifactsAwaitingVerification +
         world.artifactsAwaitingQA +
         world.artifactsAwaitingPublish;
+      // In-flight work is measured on the artifact pipeline above. Pending
+      // WorkerBuildJob rows are not work in flight — no stage consumes them —
+      // so they no longer hold discovery back.
       urgency =
         inFlight > 0
           ? 2
           : (gap > 0 ? Math.min(20, gap * 1.5) : 0) +
-            (noCandidates && !queueIsDoingWork ? 15 : 0) +
-            // Only push discovery hard when the queue isn't already
-            // working — otherwise let the build engine drain first.
-            (queueIsDoingWork ? 0 : Math.min(10, noGrowth / 24));
+            (noCandidates ? 15 : 0) +
+            Math.min(10, noGrowth / 24);
       sourceScore = noCandidates ? 0.2 : 0.6;
       if (gap <= 0) {
         safe = false;
@@ -198,22 +200,17 @@ export function scoreAction(action: BrainAction, world: WorldState): BrainAction
       break;
     }
     case "PACKAGE_BUILD": {
-      const gap = world.contentGoalGap;
-      // PACKAGE_BUILD only drains LEGACY pending build jobs. BUILD_READY
-      // package artifacts are advanced directly by CROSS_SOURCE_VERIFICATION
-      // (when they carry validation needs) and STRICT_QA — runPackageBuild
-      // is a deferring no-op for them, so letting it compete for
-      // BUILD_READY artifacts just makes the brain spin on a stage that
-      // can't advance the item. Gate strictly on pending jobs.
-      urgency =
-        world.pendingBuildJobs > 0 ? Math.min(60, world.pendingBuildJobs * 8 + gap * 1.5) : 0;
-      sourceScore = world.pendingBuildJobs > 0 ? 0.8 : 0.1;
-      quality = world.pendingBuildJobs > 0 ? 0.85 : quality;
-      if (world.pendingBuildJobs === 0) {
-        safe = false;
-        rejection =
-          "No pending build jobs (BUILD_READY artifacts advance via QA, not PACKAGE_BUILD).";
-      }
+      // PACKAGE_BUILD has no executor. runPackageBuild reports idle on every
+      // call (BUILD_READY artifacts advance through CROSS_SOURCE_VERIFICATION
+      // and STRICT_QA), and nothing consumes WorkerBuildJob rows. Pending
+      // build intents used to give this stage urgency up to 60, so every
+      // stale intent spent a pass slot on an idle dispatch. It is never a
+      // useful choice, so it is never safe.
+      urgency = 0;
+      sourceScore = 0;
+      safe = false;
+      rejection =
+        "PACKAGE_BUILD has no executor: WorkerBuildJob intents are not consumed and BUILD_READY artifacts advance via cross-source verification and strict QA.";
       break;
     }
     case "CROSS_SOURCE_VERIFICATION": {

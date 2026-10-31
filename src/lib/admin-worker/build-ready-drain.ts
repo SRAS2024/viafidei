@@ -35,6 +35,7 @@ import { runChecklistAndCitationOrchestrator } from "./checklist-citation-orches
 import { writeAdminWorkerLog } from "./logs";
 import { filePlan } from "./repair-plans";
 import { runCrossSourceVerification, runStrictQA, runPersistAndPublish } from "./dispatcher";
+import { buildWebPublishPayload } from "./web-publish-payloads";
 
 /** The exact gate blocking an artifact from advancing. */
 export type GateKind =
@@ -72,6 +73,8 @@ export interface DrainArtifact {
   id: string;
   contentType: string;
   normalizedSlug: string;
+  /** The package title (the schema check's fallback display title). */
+  normalizedTitle?: string;
   status: string;
   missingFields: string[];
   validationNeeds: string[];
@@ -93,6 +96,11 @@ export interface DrainArtifact {
 export interface GateContext {
   /** Cross-source verification evidence rows already recorded for this artifact. */
   evidenceCount: number;
+  /**
+   * How many of those rows are a confirming MATCH / PASS. Defaults to 0. The
+   * row count alone cannot tell "verified" from "verification found nothing".
+   */
+  matchCount?: number;
   /** A DIFFERENT already-published item shares this (contentType, slug). */
   hasPublishedDuplicate: boolean;
   /** Confidence below this is treated as too weak to publish as-is. */
@@ -113,6 +121,22 @@ function lacksCitations(a: Pick<DrainArtifact, "extractedFields" | "fieldProvena
     (typeof f.sourceUrl === "string" && f.sourceUrl.length > 0) ||
     (typeof f.sourceHost === "string" && f.sourceHost.length > 0);
   return !hasCitations && !hasSource;
+}
+
+/**
+ * The schema's complaints about an artifact's fields, citations aside (the
+ * publish stage's own mapping, run without the corroborating citations).
+ * Empty when the fields map, or when the type has no web mapping to judge.
+ */
+function schemaFieldGaps(a: DrainArtifact): string[] {
+  if (!a.extractedFields || typeof a.extractedFields !== "object") return [];
+  const mapped = buildWebPublishPayload(a.contentType, {
+    fields: a.extractedFields as Record<string, unknown>,
+    title: a.normalizedTitle ?? a.normalizedSlug,
+    slug: a.normalizedSlug,
+  });
+  if (mapped.ok || mapped.code !== "SCHEMA_FIELDS_MISSING") return [];
+  return mapped.errors.filter((e) => !e.startsWith("citations"));
 }
 
 /**
@@ -161,14 +185,49 @@ export function diagnoseArtifactGate(a: DrainArtifact, ctx: GateContext): Artifa
     };
   }
 
+  // A package its content schema can never accept — a Church document with no
+  // issuing authority, a novena with no per-day meditation — would spend
+  // cross-source verification fetches and strict QA only to be refused at
+  // publish. Send it to the schema-aware EXTRACT_FAILED path now instead. A
+  // citation shortfall is not a gap here: verification adds the second witness.
+  const gaps = schemaFieldGaps(a);
+  if (gaps.length > 0) {
+    return {
+      gate: "MALFORMED",
+      outcome: "repair",
+      explanation: `SCHEMA_FIELDS_MISSING: ${gaps.slice(0, 3).join("; ")}`,
+      recommendedAction:
+        "Re-extract once; close the artifact if its fields still do not make a schema payload.",
+    };
+  }
+
   // Doctrinally-sensitive facts need cross-source evidence before QA.
-  if (a.validationNeeds.length > 0) {
+  //
+  // VERIFICATION_READY means the verification stage already confirmed every
+  // need, so the only thing left is strict QA. Its validationNeeds are never
+  // cleared, and the evidence count includes its MATCH rows, so it used to
+  // land in VERIFICATION_INCOMPLETE here: the drain filed a
+  // VALIDATION_EVIDENCE_MISSING plan, the repair wiped the evidence and reset
+  // it to BUILD_READY, and verified content looped back through verification
+  // (re-fetching vatican.va / usccb.org) instead of reaching QA.
+  if (a.validationNeeds.length > 0 && a.status !== "VERIFICATION_READY") {
     if (ctx.evidenceCount === 0) {
       return {
         gate: "AWAITING_VERIFICATION",
         outcome: "run_verification",
         explanation: `Needs cross-source evidence for: ${a.validationNeeds.join(", ")}.`,
         recommendedAction: "Run cross-source verification to gather evidence.",
+      };
+    }
+    if ((ctx.matchCount ?? 0) > 0) {
+      // Some evidence confirmed: the verification stage re-judges the stored
+      // rows need by need (the same predicate the publish gate uses) and
+      // either promotes it or files a bounded repair round itself.
+      return {
+        gate: "AWAITING_VERIFICATION",
+        outcome: "run_verification",
+        explanation: `Stored evidence (${ctx.matchCount} confirming of ${ctx.evidenceCount} row(s)) awaits judgement against ${a.validationNeeds.join(", ")}.`,
+        recommendedAction: "Run cross-source verification to judge the stored evidence.",
       };
     }
     return {
@@ -217,6 +276,10 @@ export interface DrainResult {
    * retries them.
    */
   recovered: number;
+  /** Research holds whose backoff expired, sent back through verification. */
+  researchRequeued: number;
+  /** QA-passed artifacts the old quality repair stranded at EXTRACTED, re-queued. */
+  qualityResetRecovered: number;
 }
 
 /**
@@ -240,23 +303,39 @@ export interface DrainResult {
 async function recoverRetryableReviews(prisma: PrismaClient, limit: number): Promise<number> {
   const { RECOVERABLE_REVIEW_RULES, classifyReviewReason, readRetryBudget, REVIEW_RETRY_BUDGET } =
     await import("./human-review");
+  const { RESEARCH_HOLD_DIAGNOSIS } = await import("./research-holds");
   const retryRules = RECOVERABLE_REVIEW_RULES.filter((r) => r.route === "retry");
   const candidates = await prisma.adminWorkerPackageArtifact
     .findMany({
       where: {
         status: "NEEDS_REVIEW",
-        OR: retryRules.map((r) => ({ rejectionReason: { contains: r.match } })),
+        // A research hold keeps the proof-gate text in its reason, but it is
+        // re-checked on its own long backoff (requeueDueResearchHolds), never
+        // on the short review retry — or the hold would be undone at once.
+        AND: [
+          { OR: retryRules.map((r) => ({ rejectionReason: { contains: r.match } })) },
+          {
+            OR: [{ gateDiagnosis: null }, { gateDiagnosis: { not: RESEARCH_HOLD_DIAGNOSIS } }],
+          },
+        ],
       },
       take: limit,
-      select: { id: true, fieldProvenance: true, rejectionReason: true },
+      select: { id: true, fieldProvenance: true, rejectionReason: true, gateDiagnosis: true },
     })
     .catch(
-      () => [] as Array<{ id: string; fieldProvenance: unknown; rejectionReason?: string | null }>,
+      () =>
+        [] as Array<{
+          id: string;
+          fieldProvenance: unknown;
+          rejectionReason?: string | null;
+          gateDiagnosis?: string | null;
+        }>,
     );
 
   let recovered = 0;
   const now = Date.now();
   for (const a of candidates) {
+    if (a.gateDiagnosis === RESEARCH_HOLD_DIAGNOSIS) continue;
     const { route, rule } = classifyReviewReason(a.rejectionReason);
     if (route !== "retry" || !rule) continue;
     const hasProvenance = Array.isArray(a.fieldProvenance) && a.fieldProvenance.length > 0;
@@ -280,12 +359,66 @@ async function recoverRetryableReviews(prisma: PrismaClient, limit: number): Pro
   return recovered;
 }
 
+/**
+ * Return artifacts the old QUALITY_SCORE_FAILED repair stranded at EXTRACTED.
+ *
+ * That handler reset a QA-passed artifact that missed its ContentQualityScore
+ * (or landed in the publish gate's review band) to EXTRACTED and reported
+ * success — and nothing re-processes an EXTRACTED artifact whose read already
+ * has one. The handler now closes such artifacts terminally with a typed
+ * reason; this sweep gives the ones it already stranded the same treatment by
+ * sending them back to BUILD_READY: verification re-judges their stored
+ * evidence under the current rules, strict QA keeps its PASSED verdict, and
+ * the publish gates (with the corrected source-authority factor) decide again
+ * — publishing them, or closing them with a recorded reason. Identified by the
+ * reason the publish stage stamped on them; bounded; fail-open. Once the
+ * backlog is cleared the query returns nothing.
+ */
+async function recoverQualityResetArtifacts(prisma: PrismaClient, limit: number): Promise<number> {
+  try {
+    const stranded = await prisma.adminWorkerPackageArtifact.findMany({
+      where: {
+        status: "EXTRACTED",
+        missingFields: { isEmpty: true },
+        OR: [
+          { rejectionReason: { startsWith: "ContentQualityScore" } },
+          { rejectionReason: { startsWith: "finalScore " } },
+          { rejectionReason: { startsWith: "confidence " } },
+        ],
+      },
+      orderBy: { updatedAt: "asc" },
+      take: limit,
+      select: { id: true },
+    });
+    let recovered = 0;
+    for (const a of stranded) {
+      const qa = await prisma.adminWorkerStrictQAResult
+        .findUnique({ where: { packageArtifactId: a.id }, select: { status: true } })
+        .catch(() => null);
+      if (qa?.status !== "PASSED") continue;
+      const moved = await prisma.adminWorkerPackageArtifact
+        .updateMany({
+          where: { id: a.id, status: "EXTRACTED" },
+          data: { status: "BUILD_READY", rejectionReason: null, gateDiagnosis: null },
+        })
+        .catch(() => ({ count: 0 }));
+      recovered += moved.count;
+    }
+    return recovered;
+  } catch {
+    return 0;
+  }
+}
+
 const REPAIR_KIND_BY_GATE: Partial<
   Record<GateKind, "EXTRACT_FAILED" | "VALIDATION_EVIDENCE_MISSING">
 > = {
   MISSING_REQUIRED_FIELDS: "EXTRACT_FAILED",
   MISSING_CITATIONS: "EXTRACT_FAILED",
   LOW_CONFIDENCE: "EXTRACT_FAILED",
+  // Filed with origin "schema_payload": the handler heals only if the
+  // re-extracted fields map, otherwise it closes the artifact.
+  MALFORMED: "EXTRACT_FAILED",
   VERIFICATION_INCOMPLETE: "VALIDATION_EVIDENCE_MISSING",
 };
 
@@ -311,6 +444,8 @@ export async function runBuildReadyDrain(
     reviewed: 0,
     rejectedDuplicate: 0,
     recovered: 0,
+    researchRequeued: 0,
+    qualityResetRecovered: 0,
   };
   const limit = opts.limit ?? 100;
   const driveRounds = opts.driveRounds ?? 6;
@@ -322,6 +457,12 @@ export async function runBuildReadyDrain(
     // snapshotting the stuck set, so the recovered QA_PASSED items are drained
     // + published in this same pass.
     out.recovered = await recoverRetryableReviews(prisma, limit);
+    // Research holds whose long backoff has expired go back through
+    // verification (their stale evidence cleared) before the stuck set is
+    // read, so they are triaged and driven this same pass.
+    const { requeueDueResearchHolds } = await import("./research-holds");
+    out.researchRequeued = await requeueDueResearchHolds(prisma, { limit: 10 }).catch(() => 0);
+    out.qualityResetRecovered = await recoverQualityResetArtifacts(prisma, 25);
 
     const stuck = await prisma.adminWorkerPackageArtifact.findMany({
       where: { status: { in: ["BUILD_READY", "VERIFICATION_READY", "QA_PASSED"] } },
@@ -331,6 +472,7 @@ export async function runBuildReadyDrain(
         id: true,
         contentType: true,
         normalizedSlug: true,
+        normalizedTitle: true,
         status: true,
         missingFields: true,
         validationNeeds: true,
@@ -347,8 +489,10 @@ export async function runBuildReadyDrain(
     // at CHECKLIST_READY forever — extraction succeeding while nothing publishes
     // (the EXTRACTING_WITHOUT_PUBLISHING escalation). The drain must own that
     // bridge too, so it drains the WHOLE downstream funnel every pass.
+    // Healed artifacts that keep their checklist item count too: the bridge
+    // re-promotes them (they used to strand here forever).
     const checklistReady = await prisma.adminWorkerPackageArtifact
-      .count({ where: { status: "CHECKLIST_READY", checklistItemId: null } })
+      .count({ where: { status: "CHECKLIST_READY" } })
       .catch(() => 0);
 
     if (stuck.length === 0 && checklistReady === 0 && out.recovered === 0) return out;
@@ -358,9 +502,16 @@ export async function runBuildReadyDrain(
     // Batch context: evidence counts + published-duplicate slugs.
     const ids = stuck.map((a) => a.id);
     const slugs = [...new Set(stuck.map((a) => a.normalizedSlug))];
-    const [evidenceRows, publishedRows] = await Promise.all([
+    const [evidenceRows, matchRows, publishedRows] = await Promise.all([
       prisma.adminWorkerCrossSourceVerification
         .groupBy({ by: ["contentId"], where: { contentId: { in: ids } }, _count: { _all: true } })
+        .catch(() => [] as Array<{ contentId: string | null; _count: { _all: number } }>),
+      prisma.adminWorkerCrossSourceVerification
+        .groupBy({
+          by: ["contentId"],
+          where: { contentId: { in: ids }, matchResult: { in: ["MATCH", "PASS"] } },
+          _count: { _all: true },
+        })
         .catch(() => [] as Array<{ contentId: string | null; _count: { _all: number } }>),
       prisma.publishedContent
         .findMany({
@@ -372,6 +523,8 @@ export async function runBuildReadyDrain(
     const evidenceByArtifact = new Map<string, number>();
     for (const r of evidenceRows)
       if (r.contentId) evidenceByArtifact.set(r.contentId, r._count._all);
+    const matchesByArtifact = new Map<string, number>();
+    for (const r of matchRows) if (r.contentId) matchesByArtifact.set(r.contentId, r._count._all);
     const publishedKeys = new Set(publishedRows.map((r) => `${r.contentType}:${r.slug}`));
 
     // Triage + route each stuck artifact.
@@ -381,6 +534,7 @@ export async function runBuildReadyDrain(
           id: a.id,
           contentType: a.contentType,
           normalizedSlug: a.normalizedSlug,
+          normalizedTitle: a.normalizedTitle,
           status: a.status,
           missingFields: a.missingFields ?? [],
           validationNeeds: a.validationNeeds ?? [],
@@ -390,6 +544,7 @@ export async function runBuildReadyDrain(
         },
         {
           evidenceCount: evidenceByArtifact.get(a.id) ?? 0,
+          matchCount: matchesByArtifact.get(a.id) ?? 0,
           hasPublishedDuplicate: publishedKeys.has(`${a.contentType}:${a.normalizedSlug}`),
           confidenceFloor,
         },
@@ -431,6 +586,7 @@ export async function runBuildReadyDrain(
             sourceReadId: a.sourceReadId,
             gate: diag.gate,
             contentType: a.contentType,
+            ...(diag.gate === "MALFORMED" ? { origin: "schema_payload" } : {}),
           },
         }).catch(() => undefined);
         await prisma.adminWorkerPackageArtifact
@@ -475,9 +631,10 @@ export async function runBuildReadyDrain(
       //    artifact must not depend on the brain happening to pick the checklist
       //    stage — the always-on drain promotes it (creates its checklist item +
       //    citations → BUILD_READY) so it can be QA'd and published this same
-      //    pass. Bounded per round; `checklistItemId: null` guarantees no reloop.
+      //    pass. Bounded per round; promotion moves an artifact out of
+      //    CHECKLIST_READY, so it cannot reloop.
       const pendingChecklist = await prisma.adminWorkerPackageArtifact
-        .count({ where: { status: "CHECKLIST_READY", checklistItemId: null } })
+        .count({ where: { status: "CHECKLIST_READY" } })
         .catch(() => 0);
       if (pendingChecklist > 0) {
         const outcomes = await runChecklistAndCitationOrchestrator(prisma, {
@@ -553,7 +710,7 @@ export async function runBuildReadyDrain(
       category: "VALIDATION",
       severity: "INFO",
       eventName: "build_ready_drain",
-      message: `BUILD_READY drain: ${out.recovered} recovered from misrouted review, ${out.bridged} bridged from CHECKLIST_READY, ${out.stuck} stuck triaged → ${out.published} published, ${out.advanced} QA-advanced, ${out.repaired} repaired, ${out.reviewed} to review, ${out.rejectedDuplicate} duplicate. Gates: ${Object.entries(
+      message: `BUILD_READY drain: ${out.recovered} recovered from misrouted review, ${out.researchRequeued} research hold(s) re-checked, ${out.qualityResetRecovered} quality-reset artifact(s) re-queued, ${out.bridged} bridged from CHECKLIST_READY, ${out.stuck} stuck triaged → ${out.published} published, ${out.advanced} QA-advanced, ${out.repaired} repaired, ${out.reviewed} to review, ${out.rejectedDuplicate} duplicate. Gates: ${Object.entries(
         out.byGate,
       )
         .map(([g, n]) => `${g}=${n}`)
@@ -563,6 +720,8 @@ export async function runBuildReadyDrain(
         byGate: out.byGate,
         byOutcome: out.byOutcome,
         recovered: out.recovered,
+        researchRequeued: out.researchRequeued,
+        qualityResetRecovered: out.qualityResetRecovered,
         bridged: out.bridged,
         published: out.published,
         advanced: out.advanced,

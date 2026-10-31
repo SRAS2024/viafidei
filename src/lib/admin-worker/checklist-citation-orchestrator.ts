@@ -31,10 +31,17 @@ export async function runChecklistAndCitationOrchestrator(
   prisma: PrismaClient,
   opts: { passId?: string; limit?: number } = {},
 ): Promise<ChecklistCitationOutcome[]> {
-  // Pick the most recent CHECKLIST_READY artifacts.
+  // Pick the oldest CHECKLIST_READY artifacts — including ones that already
+  // carry a checklistItemId. A heal (the EXTRACT_FAILED repair re-extracting a
+  // broken artifact, or a duplicate read completing one) resets an artifact to
+  // CHECKLIST_READY but keeps the checklist item it was bridged to before; the
+  // old `checklistItemId: null` filter skipped exactly those, so every healed
+  // artifact stranded at CHECKLIST_READY while the brain still counted it as
+  // backlog. Promotion moves the artifact out of CHECKLIST_READY, so including
+  // them cannot reloop.
   const artifacts = await prisma.adminWorkerPackageArtifact
     .findMany({
-      where: { status: "CHECKLIST_READY", checklistItemId: null },
+      where: { status: "CHECKLIST_READY" },
       orderBy: { createdAt: "asc" },
       take: opts.limit ?? 10,
     })
@@ -74,14 +81,25 @@ export async function runChecklistAndCitationOrchestrator(
       continue;
     }
 
-    // Look up an existing checklist item by canonicalSlug (which is
-    // schema-unique).
-    const existing = await prisma.checklistItem
-      .findUnique({
-        where: { canonicalSlug: artifact.normalizedSlug },
-        select: { id: true, approvalStatus: true },
-      })
-      .catch(() => null);
+    // A healed artifact keeps the checklist item it was bridged to; reuse it
+    // when it still exists. Otherwise look up an existing checklist item by
+    // canonicalSlug (which is schema-unique).
+    const linked = artifact.checklistItemId
+      ? await prisma.checklistItem
+          .findUnique({
+            where: { id: artifact.checklistItemId },
+            select: { id: true, approvalStatus: true },
+          })
+          .catch(() => null)
+      : null;
+    const existing =
+      linked ??
+      (await prisma.checklistItem
+        .findUnique({
+          where: { canonicalSlug: artifact.normalizedSlug },
+          select: { id: true, approvalStatus: true },
+        })
+        .catch(() => null));
 
     let checklistItemId = existing?.id ?? null;
     let action: "created" | "updated" | "skipped_duplicate" = "updated";

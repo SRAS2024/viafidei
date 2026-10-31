@@ -37,6 +37,27 @@ vi.mock("@/lib/admin-worker/public-routes", () => ({
 
 import { runPublishOrchestrator } from "@/lib/admin-worker/publish-orchestrator";
 
+// A web artifact (strictQAArtifactId supplied) publishes its schema payload,
+// which the orchestrator validates; these are minimal valid ones.
+const PRAYER_PAYLOAD = {
+  slug: "our-father",
+  title: "Our Father",
+  body: "Our Father, who art in heaven, hallowed be Thy name. Amen.",
+  prayerType: "general",
+  category: "essential",
+  citations: ["https://www.vatican.va/prayers/our-father"],
+};
+const APPARITION_PAYLOAD = {
+  slug: "our-lady",
+  title: "Our Lady of Lourdes",
+  location: "Lourdes",
+  country: "France",
+  approvedStatus: "approved",
+  summary:
+    "The Blessed Virgin Mary appeared eighteen times to Saint Bernadette Soubirous at the grotto of Massabielle in 1858.",
+  citations: ["https://www.vatican.va/lourdes", "https://www.usccb.org/lourdes"],
+};
+
 function makePrisma(opts: {
   qaRow?: {
     completenessScore: number;
@@ -104,9 +125,7 @@ describe("publish derives ContentQualityScore from strict-QA dimensions (spec §
       contentId: "ci-1",
       title: "Our Father",
       slug: "our-father",
-      payload: {
-        prayerText: "Our Father, who art in heaven, hallowed be Thy name. Amen.",
-      } as never,
+      payload: PRAYER_PAYLOAD as never,
       authorityLevel: "VATICAN",
       finalScore: 0.92,
       qaPassed: true,
@@ -167,7 +186,7 @@ describe("publish derives ContentQualityScore from strict-QA dimensions (spec §
       contentId: "ci-bias",
       title: "Our Father",
       slug: "our-father-bias",
-      payload: {} as never,
+      payload: { ...PRAYER_PAYLOAD, slug: "our-father-bias" } as never,
       // DIOCESAN authority → 0.88 sourceAuthority dimension.
       authorityLevel: "DIOCESAN",
       finalScore: 0.92,
@@ -205,7 +224,7 @@ describe("publish derives ContentQualityScore from strict-QA dimensions (spec §
     });
     expect(result.kind).toBe("blocked");
     if (result.kind === "blocked") {
-      expect(result.blockedBy).toBe("strict-qa");
+      expect(result.blockedBy).toBe("strict-qa-missing");
     }
   });
 });
@@ -227,7 +246,7 @@ describe("publish routes missing validation evidence to repair, not blocked (spe
       contentId: "ci-3",
       title: "Our Lady",
       slug: "our-lady",
-      payload: {} as never,
+      payload: APPARITION_PAYLOAD as never,
       authorityLevel: "VATICAN",
       finalScore: 0.97,
       qaPassed: true,
@@ -273,7 +292,7 @@ describe("publish routes missing validation evidence to repair, not blocked (spe
       contentId: "ci-4",
       title: "Our Lady",
       slug: "our-lady-x",
-      payload: {} as never,
+      payload: { ...APPARITION_PAYLOAD, slug: "our-lady-x" } as never,
       authorityLevel: "VATICAN",
       finalScore: 0.97,
       qaPassed: true,

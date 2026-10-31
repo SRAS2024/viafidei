@@ -131,6 +131,25 @@ describe("rerouteToAlternateSource", () => {
     expect(r.reason).toMatch(/no alternate/i);
   });
 
+  // Every page of these types is refused alike (the extractor never reads a
+  // field the schema requires), so another source of them is no remedy, and a
+  // +1000 boost would only put a page that can only be refused at the head of
+  // the global fetch queue.
+  it.each(["NOVENA", "CHURCH_DOCUMENT", "SACRAMENT", "ROSARY", "CONSECRATION"])(
+    "never boosts a %s candidate: the gap is the type's, not the source's",
+    async (contentType) => {
+      const prisma = fakePrisma([cand({ id: "alt", predictedContentType: contentType })]);
+      const r = await rerouteToAlternateSource(prisma as FakePrisma, {
+        contentType,
+        failedHost: "failed.example",
+      });
+      expect(r.succeeded).toBe(false);
+      expect(r.reroutedTo).toBeNull();
+      expect(r.reason).toMatch(/never reads/);
+      expect(prisma.rows[0]).toMatchObject({ fetchPriority: 5, status: "DISCOVERED" });
+    },
+  );
+
   it("prefers the least-tried alternate (genuine rotation, not re-hammering one)", async () => {
     const prisma = fakePrisma([
       cand({ id: "tried", sourceHost: "a.example", fetchAttempts: 3, fetchPriority: 50 }),

@@ -384,6 +384,72 @@ export function derivedParentField(contentType: string, field: string): string |
   return DERIVED_FIELDS[contentType]?.[field] ?? null;
 }
 
+/** How stored cross-source evidence stands against an artifact's validation needs. */
+export interface ValidationNeedsVerdict {
+  /** Needs with at least one MATCH/PASS row and no MISMATCH. */
+  confirmed: string[];
+  /** Needs with no evidence row at all (never compared). */
+  missing: string[];
+  /** Needs compared but never confirmed (only MISSING / AMBIGUOUS rows). */
+  unconfirmed: string[];
+  /** Needs a validation source contradicted (a MISMATCH row). */
+  conflicted: string[];
+  /** True when every need is confirmed. */
+  allConfirmed: boolean;
+}
+
+/**
+ * How one field stands on its evidence rows' match results: confirmed when
+ * some source MATCHed (or PASSed) it and none contradicted it. A MISSING row —
+ * a source that never stated the field — neither confirms nor contradicts.
+ */
+export function judgeFieldEvidence(
+  results: readonly string[],
+): "missing" | "conflicted" | "unconfirmed" | "confirmed" {
+  if (results.length === 0) return "missing";
+  if (results.includes("MISMATCH")) return "conflicted";
+  if (!results.some((r) => r === "MATCH" || r === "PASS")) return "unconfirmed";
+  return "confirmed";
+}
+
+/**
+ * Judge an artifact's validation needs against its stored
+ * AdminWorkerCrossSourceVerification rows. This is the ONE predicate the
+ * verification stage (promote to VERIFICATION_READY), the BUILD_READY drain
+ * (triage) and the publish gate (stored-evidence verifier) share, so a need the
+ * publish gate would refuse can never be promoted past verification. A derived
+ * need (SAINT feastMonth from feastDay) stands or falls with its parent: it is
+ * never fetched or recorded on its own.
+ */
+export function evaluateValidationNeeds(
+  contentType: string,
+  needs: readonly string[],
+  rows: ReadonlyArray<{ fieldName: string; matchResult: string }>,
+): ValidationNeedsVerdict {
+  const byField = new Map<string, string[]>();
+  for (const r of rows) {
+    const arr = byField.get(r.fieldName) ?? [];
+    arr.push(r.matchResult);
+    byField.set(r.fieldName, arr);
+  }
+  const verdict: ValidationNeedsVerdict = {
+    confirmed: [],
+    missing: [],
+    unconfirmed: [],
+    conflicted: [],
+    allConfirmed: true,
+  };
+  for (const need of new Set(needs)) {
+    const field = derivedParentField(contentType, need) ?? need;
+    verdict[judgeFieldEvidence(byField.get(field) ?? [])].push(need);
+  }
+  verdict.allConfirmed =
+    verdict.missing.length === 0 &&
+    verdict.unconfirmed.length === 0 &&
+    verdict.conflicted.length === 0;
+  return verdict;
+}
+
 /** "Saint Francis of Assisi" / "St. Francis" → "Francis of Assisi" / "Francis". */
 export function stripHonorific(name: string): string {
   return name
@@ -449,6 +515,30 @@ export function expectedValueVariants(
       return { primary: all[0], all };
     }
   }
+  // Prose dates the extractors lift verbatim ("May 15, 1891" from a Church
+  // document, "February 11, 1858" from an apparition page). A page that prints
+  // "15 May 1891" states the same fact; the year alone is never offered, since
+  // it would also match a different date in the same year.
+  const prose =
+    /^([A-Za-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{3,4})$/.exec(value) ??
+    /^(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([A-Za-z]+),?\s+(\d{3,4})$/.exec(value);
+  if (prose) {
+    const monthWord = (/^\d/.test(prose[1]) ? prose[2] : prose[1]).toLowerCase();
+    const day = Number(/^\d/.test(prose[1]) ? prose[1] : prose[2]);
+    const monthIndex = MONTHS.findIndex((mo) => mo === monthWord || mo.slice(0, 3) === monthWord);
+    if (monthIndex >= 0 && day >= 1 && day <= 31) {
+      const md = monthDayVariants(monthIndex + 1, day);
+      const year = prose[3];
+      const all = [`${md[0]}, ${year}`, `${md[1]} ${year}`, `${md[0]} ${year}`, value];
+      return { primary: all[0], all: [...new Set(all)] };
+    }
+  }
+  // Year ranges ("1917-1918", "1545–1563"): the dash a page uses varies.
+  m = /^(\d{3,4})\s*[-–]\s*(\d{2,4})$/.exec(value);
+  if (m) {
+    const all = [`${m[1]}–${m[2]}`, `${m[1]}-${m[2]}`, `${m[1]} to ${m[2]}`];
+    return { primary: value, all: [...new Set([value, ...all])] };
+  }
   if (NAME_FIELDS.has(field)) {
     const cleaned = cleanSourceTitle(value) ?? value;
     const bare = stripHonorific(cleaned);
@@ -476,6 +566,65 @@ export function entityHintFor(
   }
   void contentType;
   return stripHonorific(cleanSourceTitle(normalizedTitle) ?? normalizedTitle);
+}
+
+// ── Citation sources ───────────────────────────────────────────────────
+
+/**
+ * Registrable-ish key of a citation URL's host: "www.vatican.va" and
+ * "press.vatican.va" are one source, so two pages of one site count as one
+ * witness, never two. Null for anything that is not a URL.
+ */
+export function citationSourceKey(url: string): string | null {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  const labels = host
+    .replace(/^www\d*\./, "")
+    .split(".")
+    .filter(Boolean);
+  if (labels.length <= 2) return labels.join(".") || null;
+  const tld = labels[labels.length - 1];
+  const sld = labels[labels.length - 2];
+  // "diocese.org.uk" / "x.com.au": keep the registrable third label.
+  const take = tld.length === 2 && sld.length <= 3 ? 3 : 2;
+  return labels.slice(-take).join(".");
+}
+
+/**
+ * The independent pages stored cross-source evidence can cite for an artifact:
+ * the URLs of MATCH / PASS rows, on a source other than the artifact's own
+ * page, that point at a page rather than a bare site root (a homepage that
+ * happens to mention a date confirms nothing citable). De-duplicated per
+ * source, in row order.
+ */
+export function corroboratingCitations(
+  rows: ReadonlyArray<{ matchResult: string; validationSourceUrl: string | null }>,
+  primarySourceUrl: string | null | undefined,
+): string[] {
+  const primary = primarySourceUrl ? citationSourceKey(primarySourceUrl) : null;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of rows) {
+    if (r.matchResult !== "MATCH" && r.matchResult !== "PASS") continue;
+    const url = r.validationSourceUrl?.trim();
+    if (!url || !/^https?:\/\//i.test(url)) continue;
+    let path = "/";
+    try {
+      path = new URL(url).pathname;
+    } catch {
+      continue;
+    }
+    if (path === "/" || path === "") continue;
+    const key = citationSourceKey(url);
+    if (!key || key === primary || seen.has(key)) continue;
+    seen.add(key);
+    out.push(url);
+  }
+  return out;
 }
 
 // ── PRAYER publish payload ─────────────────────────────────────────────
@@ -523,6 +672,8 @@ export function buildPrayerPublishPayload(input: {
   host?: string | null;
   /** The page the prayer was read from — the citation the schema requires. */
   sourceUrl?: string | null;
+  /** Independent pages whose stored evidence confirmed it (further citations). */
+  corroboratingUrls?: readonly string[];
 }): PrayerPayloadResult {
   const f = input.fields;
   const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
@@ -536,7 +687,11 @@ export function buildPrayerPublishPayload(input: {
   // citation) would refuse every web prayer.
   const sourceUrl = str(f.sourceUrl) ?? str(input.sourceUrl);
   const citations = [
-    ...new Set([...(Array.isArray(f.citations) ? f.citations : []), sourceUrl]),
+    ...new Set([
+      ...(Array.isArray(f.citations) ? f.citations : []),
+      sourceUrl,
+      ...(input.corroboratingUrls ?? []),
+    ]),
   ].filter((c): c is string => typeof c === "string" && /^https?:\/\//i.test(c));
   const category = categorizePrayer({
     title,

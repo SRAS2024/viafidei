@@ -203,7 +203,17 @@ export async function evaluateSensitivePublish(
       reasons,
     };
   }
-  reasons.push("proof incomplete or sensitive type below Vatican authority — routing to review");
+  // Say WHICH it was: an incomplete proof names its failed conditions (an
+  // evidence gap the worker can research), a complete one below Vatican
+  // authority says so. "incomplete or below Vatican" left callers guessing.
+  const failedConditions = proof.result?.conditions_failed ?? [];
+  reasons.push(
+    !proven && failedConditions.length > 0
+      ? `proof incomplete (failed: ${failedConditions.join(", ")}) — routing to review`
+      : proven
+        ? "proof holds but the sensitive type's evidence is below Vatican authority — routing to review"
+        : "proof incomplete or sensitive type below Vatican authority — routing to review",
+  );
   return {
     proofRequired: true,
     allow: false,
