@@ -452,4 +452,20 @@ describe("the other content types keep their content and drop the filler", () =>
     expect(sections()).toEqual(["How to practice"]);
     expectAbsent("Devotion to Christ", "Margaret Mary (saint page)", "christological");
   });
+
+  it("devotion: the words it prays under their own heading, not a second 'How to practice'", async () => {
+    // The live Green Scapular: its instructions, then the words on the scapular.
+    put("DEVOTION", "green-scapular", "The Green Scapular", {
+      summary: "A sacramental for conversion.",
+      practiceInstructions:
+        "Have the green scapular blessed by a priest. Each day pray the words that appear on it.",
+      practiceText: "Immaculate Heart of Mary, pray for us now and at the hour of our death.",
+      relatedPrayers: [],
+    });
+    render(await DevotionDetailPage(params("green-scapular")));
+    expect(sections()).toEqual(["How to practice", "Prayer"]);
+    expect(
+      screen.getByText("Immaculate Heart of Mary, pray for us now and at the hour of our death."),
+    ).toBeInTheDocument();
+  });
 });

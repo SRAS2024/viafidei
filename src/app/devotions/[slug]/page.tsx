@@ -99,7 +99,10 @@ export default async function DevotionDetailPage({ params }: Props) {
         // "Enchiridion Indulgentiarum, 4th ed. …" }), so it printed a
         // "Citation" row on the page. It stays in the payload and search.
         primaryFields={["background", ...INSTRUCTION_FIELDS]}
-        headings={{ background: null }}
+        // `practiceText` is the words the devotion prays ("Immaculate Heart of
+        // Mary, pray for us…"), not a second set of instructions: under the
+        // shared field label it printed "How to practice" twice.
+        headings={{ background: null, practiceText: "Prayer" }}
         linkedPrayers={prayers}
         footer={
           guides.length > 0 ? (
