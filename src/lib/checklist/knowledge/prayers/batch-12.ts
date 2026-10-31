@@ -24,7 +24,9 @@ import type { CuratedEntry } from "../index";
  *   - page numbers, running heads, footnote and marginal references, and the
  *     bracketed chapter and section numbers of the 1838 Confessions are dropped;
  *   - plain printer's slips are corrected: "tabernacle.!" (Saint Francis's
- *     Salutation of the Blessed Virgin) and "but in, Thee" (his Praises);
+ *     Salutation of the Blessed Virgin), "but in, Thee" (his Praises), and
+ *     the full stop the Manual omits after "who come to Thee", the last words
+ *     of its Act of Humility before Communion;
  *   - where a transcription departs from the printed book, the book is
  *     followed: in Newman's prayers to Saint Philip "chose thee and made thee a
  *     saint" (the third prayer drops "thee"), "Salvator earum" for "Salvador",
@@ -48,14 +50,26 @@ import type { CuratedEntry } from "../index";
  * 1838), not from later reprints, whose wording differs in places.
  *
  * The occasional prayers, the prayers for the dead, the devotions for
- * Confession and the prayers for the sick come from A Manual of Prayers for
- * the Use of the Catholic Laity (New York, 1889), the prayer book prepared by
- * order of the Third Plenary Council of Baltimore. Most of the occasional
- * prayers are the Roman Missal's collects for particular needs in the
+ * Confession, the prayers for the sick, the devotions for Holy Communion and
+ * the Visit to the Blessed Sacrament come from A Manual of Prayers for the Use
+ * of the Catholic Laity (New York, 1889), the prayer book prepared by order of
+ * the Third Plenary Council of Baltimore. Most of the occasional prayers, and
+ * the collects before and after Communion, are the Roman Missal's in the
  * Manual's English; its red initials and small capitals ("O GOD", "GRANT")
  * are given in ordinary case, and its rubrics ("N." for a name, "this famine
- * (or pestilence)") are kept as printed. The Manual's old prayers for
- * heretics, Jews and pagans were deliberately left out.
+ * (or pestilence)") are kept as printed, as are the day headings (Sunday to
+ * Saturday) that divide the prayer O great High-Priest; the dotted blanks it
+ * leaves for the reader's own sins and intentions (". . . ,") are given as
+ * "...,". The Manual's old prayers for heretics, Jews and pagans were
+ * deliberately left out, and so were the Communion and Visit prayers already
+ * in the catalogue in another translation: Saint Thomas Aquinas's prayers
+ * before and after Communion, Saint Bonaventure's Transfige, the prayer of the
+ * Imitation of Christ for grace to do God's will, "How boundless, O Jesus, is
+ * Thy Love" (the Raccolta's "Behold, my most loving Jesus"), Saint Alphonsus's
+ * prayer for a visit, Saint Margaret Mary's consecration to the Sacred Heart
+ * and the prayer before a crucifix. The thanksgiving "Offer Yourself to
+ * Christ" was left out as well, since its second half is Saint Ignatius's
+ * Suscipe.
  *
  * Saint Anselm's prayers are the first and last chapters of the Proslogium in
  * Sidney Norton Deane's translation (Chicago: Open Court, 1903); the
@@ -2801,6 +2815,483 @@ export const prayerBatch12: CuratedEntry[] = [
         "https://ccel.org/ccel/s/schaff/npnf103/cache/npnf103.txt",
         "https://archive.org/details/selectlibraryofn03auguuoft",
       ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collects-of-the-preparation-for-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n317/mode/1up"],
+    payload: {
+      slug: "collects-of-the-preparation-for-holy-communion",
+      title: "Collects of the Preparation for Holy Communion (Roman Missal)",
+      body: "O merciful Lord, incline Thine ears to our prayers, and enlighten our hearts by the grace of Thy Holy Spirit: that we may worthily receive Thy holy Mysteries, and love Thee with an everlasting love.\n\nO God, unto whom every heart is open, every desire known, and from whom no secret is hid: cleanse the thoughts of our hearts by the inspiration of Thy Holy Spirit, that we may perfectly love Thee and worthily praise Thee.\n\nInflame, O Lord, our reins and our hearts with the fire of the Holy Ghost: that we may serve Thee with a chaste body, and please Thee with a pure mind.\n\nWe pray Thee, O Lord, that the Comforter who proceedeth from Thee may illuminate our minds, and lead us, as Thy Son hath promised, into all truth.\n\nMay the power of Thy Holy Spirit, O Lord, be present with us to cleanse us from all evil and defend us from all adversities.\n\nO God, who didst teach the hearts of Thy faithful by the light of Thy Holy Spirit: grant us by the same Spirit to have a right judgment in all things, and evermore to rejoice in His holy comfort.\n\nVisit, O Lord, we beseech Thee, and cleanse our consciences, that Thy Son, our Lord Jesus Christ, when He cometh, may find in us a mansion prepared for Himself.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "The seven collects that close the Preparation for Mass in the Roman Missal, after its psalms, antiphon and versicles, which the Manual gives to lay communicants as their own preparation. They ask the Holy Spirit to enlighten, cleanse and inflame the heart so that Christ, when he comes, may find in it a dwelling prepared for himself; the sixth is the collect of Pentecost. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "before-mass", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n317/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "o-great-high-priest-prayer-before-communion-ascribed-to-saint-ambrose",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n319/mode/1up"],
+    payload: {
+      slug: "o-great-high-priest-prayer-before-communion-ascribed-to-saint-ambrose",
+      title: "O Great High-Priest (Prayer before Communion Ascribed to Saint Ambrose)",
+      body: "Sunday.\nO great High-Priest, the true Pontiff, Jesus Christ, who didst offer Thyself to God the Father a pure and spotless Victim upon the Altar of the Cross for us miserable sinners, and didst give us Thy Flesh to eat and Thy Blood to drink, and didst ordain this Mystery in the power of Thy Holy Spirit, saying, Do this for the commemoration of Me: I pray Thee, by the same Thy Blood, the great price of our salvation; I pray Thee, by that wonderful and unspeakable love wherewith Thou deignedst so to love us, miserable and unworthy, as to wash us from our sins in Thine own Blood: teach me, Thine unworthy servant, by Thy Holy Spirit, to approach so great a Mystery with that reverence and honor, that devotion and fear, which is due and fitting. Make me, through Thy grace, always so to believe and understand, to conceive and firmly to hold, to think and to speak, of that exceeding Mystery, as shall please Thee and be good for my soul.\n\nLet Thy good Spirit enter my heart, and there be heard without utterance, and without the sound of words speak all truth. For Thy Mysteries are exceeding deep, and covered with a sacred veil. For Thy great mercy's sake, grant me to approach Thy holy Mysteries with a clean heart and a pure mind. Free my heart from all defiling and unholy, from all vain and hurtful thoughts. Fence me round about with the holy and faithful guard and mighty protection of Thy blessed Angels, that the enemies of all good may go away ashamed. By the virtue of this mighty Mystery, and by the hand of Thy holy Angel, drive away from me and from all Thy servants the hard spirit of pride and vain-glory, of envy and blasphemy, of impurity and uncleanness, of doubting and mistrust. Let them be confounded that persecute us. Let them perish who are bent upon our ruin.\n\nMonday.\nKing of virgins and Lover of chastity and innocence, extinguish in my frame, by the dew of Thy heavenly blessing, the fuel of evil concupiscence, that so an equal purity of soul and body may abide in me. Mortify in my members the lusts of the flesh and all harmful emotions, and give me true and persevering chastity with Thine other gifts which please Thee in truth, so that I may with chaste body and pure heart offer unto Thee the sacrifice of praise. For with what contrition of heart and fountain of tears, with what reverence and awe, with what chastity of body and purity of soul, should that divine and heavenly Sacrifice be celebrated, wherein Thy flesh is indeed eaten, where Thy Blood is indeed drunk, wherein things lowest and highest, earthly and divine, are united, where the holy Angels are present, and where Thou art in a marvellous and unspeakable manner both Sacrifice and Priest!\n\nTuesday.\nWho can worthily be present at this Sacrifice unless Thou, O God, makest him worthy? I know, O Lord, yea, truly do I know, and this do confess to Thy loving-kindness, that I am unworthy to approach so great a Mystery, by reason of my numberless sins and negligences; but I know, and truly with my own heart do I believe, and with my mouth confess, that Thou canst make me worthy, who alone canst make that clean which proceedeth from that which is unclean, and sinners to be just and holy. By this Thine Almighty power I beseech Thee, O my God, to grant that I, a sinner, may assist at this Sacrifice with fear and trembling, with purity of heart and plenteous tears, with spiritual gladness and heavenly joy. May my mind feel the sweetness of Thy most blessed Presence, and the love of Thy holy Angels, keeping watch around me.\n\nWednesday.\nMindful then, O Lord, of Thy worshipful Passion, I approach Thine Altar, sinner though I am, to join in offering unto Thee that Sacrifice which Thou hast instituted and commanded to be offered in remembrance of Thee for our well-being. Receive it, I beseech Thee, O God most High, for Thy holy Church, and for the people whom Thou hast purchased with Thine own Blood. Let not, through my unworthiness, the price of their salvation be wasted, whose saving Victim and Redemption Thou didst Thyself vouchsafe to be. Also behold in pity, O Lord, the sorrows of Thy people, which I bring before Thee; the perils of Thy servants; the sorrowful sighing of prisoners; the miseries of widows and orphans, and all that are desolate and bereaved; the necessities of strangers and travellers; the helplessness and sadness of the weak and sickly; the depressions of the languishing; the weakness of the aged and of children; the trials and aspirations of young men; and the vows of virgins.\n\nThursday.\nFor Thou hast mercy upon all, O Lord, and hatest nothing that Thou hast made. Remember how frail our nature is, and that Thou art our Father and our God. Be not angry with us for ever, and shut not up Thy tender mercies in displeasure. For it is not for our just works that we present our prayers before Thy face, but for the multitude of Thy tender mercies. Take away from us, O Lord, our iniquities, and mercifully kindle in us the fire of Thy Holy Spirit. Take away from us the heart of stone, and give us a heart of flesh, a heart to love and adore Thee, a heart to delight in, to follow, and to enjoy Thee. And we entreat Thy mercy, O Lord, that Thou wouldst look down graciously upon Thy family, as it pays its vows to Thy most holy name; and that the desire of none may be in vain, and the petitions of none unfulfilled, do Thou inspire our prayers, that they may be such as Thou delightest to hear and answer.\n\nFriday.\nWe pray Thee also, O Lord, Holy Father, for the souls of the faithful departed: that this great Sacrament of Thy love may be to them health and salvation, joy and refreshment. O Lord, my God, grant them this day a great and abundant feast of Thee, the living Bread, who camest down from heaven and givest life unto the world; even of Thy holy and blessed Flesh, the Lamb without spot, who takest away the sins of the world; that Flesh, which was taken of the Blessed Virgin Mary, and conceived by the Holy Ghost; and of that Fountain of mercy which, by the soldier's lance, flowed from Thy most sacred Side; that they be thereby fed and satisfied, refreshed and comforted, and may rejoice in Thy praise and in Thy glory. I pray Thy loving mercy, O Lord, that on the bread and wine to be offered unto Thee may descend the fulness of Thy blessing and the sanctification of Thy Divinity. May there descend also the invisible and incomprehensible Majesty of Thy Holy Spirit, as it descended of old on the sacrifices of the Fathers, which shall make these oblations Thy Body and Blood; and may this offering be acceptable unto Thee, through Him who offered Himself a sacrifice to Thee, O Father, even Jesus Christ, Thine only Son our Lord.\n\nSaturday.\nI entreat Thee also, O Lord, by this most holy mystery of Thy Body and Blood, wherewith we are daily fed, and cleansed, and sanctified in Thy Church, and are made partakers of the one Supreme Divinity, grant unto me Thy holy virtues, that filled therewith I may draw near with a good conscience unto Thy holy Altar, so that these heavenly mysteries may be made unto me salvation and life; for Thou hast said with Thy holy and blessed mouth: The Bread which I will give is My Flesh, for the life of the world. I am the Living Bread which came down from heaven. If any man eat of this Bread, he shall live for ever. O most sweet Bread, heal the palate of my heart, that I may taste the sweetness of Thy love. Heal it of all infirmities, that I may find sweetness in nothing out of Thee. O most pure Bread, having all delight and all savor, which ever refreshest us, and never failest, let my heart feed on Thee, and may my inmost soul be filled with the sweetness of Thy savor. The Angels feed on Thee fully; let pilgrim man feed on Thee after his measure, so that, refreshed by this nourishment, he may not faint by the way. Holy Bread! Living Bread! Pure Bread! who didst come down from heaven, and who givest life to the world, enter into my heart and cleanse me from all impurity of flesh and spirit. Come into my soul; heal and cleanse me within and without; be the protection and continual health of my soul and body. Drive far from me all foes that lie in wait: let them flee afar off at the presence of Thy power; that, fortified by Thee without and within, I may by a straight way arrive at Thy kingdom, where, not as now in mysteries, but face to face, we shall behold Thee; when Thou shalt have delivered up the kingdom to God Thy Father, and shalt be God All in all. Then shalt Thou satisfy me with Thyself by a wondrous fulness, so that I shall never hunger nor thirst any more for ever. Who with the same God the Father, and the Holy Ghost, ever livest and reignest world without end. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "The long prayer Summe Sacerdos et vere Pontifex, printed in the Roman Missal's preparation for Mass under the name of Saint Ambrose and now generally credited to the eleventh-century abbot John of Fécamp. The Manual divides it into seven portions, one for each day of the week, which ask in turn for reverence before the Mystery, purity of body and soul, the worthiness that God alone can give, mercy for the Church and the afflicted, a new heart, rest for the faithful departed, and the sweetness of the living Bread. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "before-mass", "mass"],
+      relatedSaints: ["saint-ambrose"],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n319/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "ad-mensam-dulcissimi-convivii-prayer-before-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n325/mode/1up"],
+    payload: {
+      slug: "ad-mensam-dulcissimi-convivii-prayer-before-communion",
+      title: "Ad Mensam Dulcissimi Convivii (O Gracious Lord Jesus Christ, I, a Sinner)",
+      body: "O gracious Lord Jesus Christ, I, a sinner, nothing presuming on my own deserts, but trusting in Thy mercy and goodness, with fear and trembling approach to the Table of Thy most sweet Feast. For my heart and body are stained with many sins; my thoughts and lips not diligently guarded. Wherefore, O gracious God, O awful Majesty, in my extremity I turn to Thee, the Fount of Mercy; to Thee I hasten to be healed, and take refuge under Thy protection; and Thee, before whom as my Judge I cannot stand, I long for as my Saviour. To Thee, O Lord, I show my wounds, to Thee I lay bare my shame. I know my sins are many and great, for which I am afraid. My trust is in Thy mercies, of which there is no end. Look therefore upon me with the eyes of Thy mercy, O Lord Jesus Christ, God and Man, crucified for man; hearken unto me, whose trust is in Thee; have mercy upon me, who am full of sin and misery, O Thou fount of mercy, that wilt never cease to flow. Hail, saving Victim, offered for me and all mankind on the Cross of suffering and shame. Hail, noble and precious Blood, flowing from the wounds of my crucified Lord and Saviour Jesus Christ, and washing away the sins of the whole world. Be mindful, O Lord, of Thy creature, whom Thou hast redeemed with Thine own Blood. I repent that I have sinned; I desire to amend what I have done. Take therefore away from me, O most merciful Father, all my iniquities and sins: that, being cleansed both in body and soul, I may worthily taste the Holy of Holies; and grant that this holy feeding on Thy Body and Blood, of which, unworthy as I am, I purpose to partake, may be for the remission of my sins, and the perfect cleansing of all my offences, for the driving away of all evil thoughts and the renewal of all holy desires, for the healthful bringing forth of fruit well-pleasing unto Thee, and the most sure protection of my soul and body against the wiles of all my enemies. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "The prayer of the Roman Missal's preparation for Mass that begins Ad mensam dulcissimi convivii, traditionally ascribed to Saint Ambrose: the sinner approaches the table of the Lord trusting only in his mercy, shows him his wounds, greets the saving Victim and the precious Blood, and asks that the Communion bring pardon, cleansing and protection. The Manual sets it to be said daily. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "before-mass", "mass"],
+      relatedSaints: ["saint-ambrose"],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n325/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-contrition-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n326/mode/1up"],
+    payload: {
+      slug: "act-of-contrition-before-holy-communion",
+      title: "Act of Contrition before Holy Communion",
+      body: "I desire, O my Saviour, to humbly offer Thee the sacrifice of a troubled spirit and a contrite heart. I grieve from my inmost heart that I have ever offended Thee by my sins, Thee my God and my chief good, Thee who art so gracious to me, and so oft refreshest me in Thy Blessed Sacrament. I grieve especially for the sins of ..., which Thou knowest, Thou Searcher of our hearts, and which I, a miserable sinner, do confess in the bitterness of my soul. Would that I had never offended Thee! Yet a contrite and humble heart, O God, Thou wilt not despise; Thou who for love of us didst give to us Thine Only-Begotten Son, to wash us from our sins in His own Blood.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'The first of the Manual\'s acts before Communion: sorrow for having offended so gracious a Lord, with a pause after "the sins of" for the communicant to name particular sins, and trust that God will not despise a contrite and humble heart (Psalm 50). From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["before-communion", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n326/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "resolution-of-amendment-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n327/mode/1up"],
+    payload: {
+      slug: "resolution-of-amendment-before-holy-communion",
+      title: "Resolution of Amendment before Holy Communion",
+      body: "I desire, O Lord, earnestly longing for the help of Thy grace, to renew all my Baptismal Vows to Thee, to renounce all that displeaseth Thee, and to walk more perfectly in newness of life. I renounce the devil and all his works and pomps, the glory of the world with all its covetous desires, all sinful excesses in things lawful, and whatever may lead my heart from Thee or hinder my duty towards Thee; also, I renounce all the sinful lusts of the flesh, with everything in thought, word, or deed, which displeaseth Thee, especially ..., from all which let it be Thy good pleasure to deliver me, and to turn the whole stream of my affections to the love of Thee, that Thy will and Thy love may be the sole rule and guide of my life, and I may love whatever Thou lovest, and hate whatever Thou hatest.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'A renewal of the baptismal vows before Communion, renouncing the devil, the world and the flesh and resolving to walk in newness of life, with a pause after "especially" for the communicant to name a particular fault. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["before-communion", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n327/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-faith-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n327/mode/1up"],
+    payload: {
+      slug: "act-of-faith-before-holy-communion",
+      title: "Act of Faith before Holy Communion",
+      body: "Of a truth I firmly believe, O Good Jesus, and with lively faith confess, that Thou Thyself, equal to God the Father in glory and in power, true God and Man, art verily and indeed present in this Sacrament. For Thou, the very Truth itself, hast said, This is My Body, This is My Blood. I believe whatever the Son of God hath said. Nothing can be truer than this word of Him who is the Truth. I do believe, Lord; help mine unbelief, increase my faith.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'A profession of faith in the real presence of Christ, true God and Man, in the Sacrament, resting on his own words "This is My Body, This is My Blood" and closing with the cry of the father in the Gospel, "help mine unbelief" (Mark 9). From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["before-communion", "mass", "adoration"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n327/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-hope-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n327/mode/1up"],
+    payload: {
+      slug: "act-of-hope-before-holy-communion",
+      title: "Act of Hope before Holy Communion",
+      body: "O Christ Jesus, I am sinful dust and ashes, but Thou callest to Thee all who labor and are burdened, that Thou mayest refresh them. Art not Thou my Refuge? To whom else shall I go? Thou hast the words of eternal life, Thou alone canst comfort me in every trouble. Lord, I am weak and sick, but Thou art my salvation. Those who are well need not a physician, but those who are sick. Therefore I come to Thee, my Physician and my Refuge, hoping that this Communion may be to me the increase of Faith, Hope, and Charity; a firm defence against the snares of my enemies; a help to the removal of the fault and defect of ..., and to the bringing forth of works well-pleasing unto Thee, especially ..., and a pledge of future glory. This is the hope and desire which I cherish in my heart, for Thou art compassionate and of tender mercy, and in all Thy promises most faithful.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "An act of hope that comes to Christ as Physician and Refuge, recalling his call to all who labour and are burdened and Saint Peter's confession that he has the words of eternal life (John 6), and hoping that the Communion will increase faith, hope and charity; two pauses are left for the communicant's own faults and intentions. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n327/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-love-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n328/mode/1up"],
+    payload: {
+      slug: "act-of-love-before-holy-communion",
+      title: "Act of Love before Holy Communion",
+      body: "O most Sweet Saviour, Jesus Christ, how great was Thy love, which drew Thee from the bosom of the Father to this vale of tears, to take our flesh and endure infinite miseries and wrongs, yea, even the death of the Cross, and that only for us miserable sinners and for our salvation. O how great was Thy love! Thou mightest have condemned us, and Thou didst rather choose to save us: we were guilty, and Thou, the sinless One, didst endure our punishment to set us free. Out of love it was that Thou camest down to take our flesh; and when about to depart from this world to the Father, Thou didst leave to us this Sacrament as a pledge of Thy love, that after a new and wondrous manner Thou mightest abide with us for ever; Thou whose delights are to be with the children of men. O Lord, how worthy art Thou of love, who dost so much for love of us! Wherefore I will love Thee, O Lord, my Strength, my Refuge, and my Deliverer. O God, Thou art true Love! He that dwelleth in love dwelleth in Thee. I desire to receive Thee in this Sacrament, that I may be more firmly united with Thee in the bond of love. Who shall separate me from the love of Christ my Saviour? O that neither life, nor death, nor any creature may have power to do so.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "An act of love that meditates on the love which brought the Son from the bosom of the Father to the Cross and moved him to leave the Sacrament as a pledge of that love, and asks to be bound to him so that nothing may separate the soul from the love of Christ (Romans 8:35-39). From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "mass", "act-of-love"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n328/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-humility-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n329/mode/1up"],
+    payload: {
+      slug: "act-of-humility-before-holy-communion",
+      title: "Act of Humility before Holy Communion",
+      body: "How dare I venture to approach to Thee, O Lord? Art not Thou, O God, my Lord, my Creator, my Redeemer, the King of heaven and earth? And who am I? A poor worm of earth, and, what is yet more unworthy, so often a disobedient and ungrateful sinner against Thee! Of a truth, Lord, I am not worthy that Thou shouldst enter under my roof; yet remember, O Lord, that although Thou wast Lord of all, yet didst Thou take upon Thee the form of a servant, and coming unto us didst converse familiarly with publicans and sinners; and lastly didst humble Thyself and become obedient unto death. Let that Thy humility move Thee, I beseech Thee, not to despise me, vile and worthless as I am, but graciously to come unto me, and mercifully to receive me, who come to Thee.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'An act of humility before Communion that echoes the centurion\'s "Lord, I am not worthy that Thou shouldst enter under my roof" and appeals to the humility of Christ, who took the form of a servant and kept company with publicans and sinners. The book prints no full stop after the last word; one is supplied. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["before-communion", "mass", "humility"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n329/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-reparation-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n329/mode/1up"],
+    payload: {
+      slug: "act-of-reparation-before-holy-communion",
+      title: "Act of Reparation before Holy Communion",
+      body: "O Lord, my God and Saviour, who, as Thou didst endure for our salvation the outrages of those who crucified Thee, so now deignest to bear with those who by careless or unworthy Communions approach and touch Thee, not discerning Thee, and endurest all irreverences rather than withhold Thy sacred Presence from our Altars: I bewail these indignities, and most earnestly desire to prevent, to the utmost of my power, whatever thus still grieves Thee. I beseech Thee, accept this sorrow and this desire as the only offering I can make in reparation of so great dishonor. O Lord, increase our faith, and preserve us from the least profanation of this adorable Mystery, and kindle in me and in the hearts of all Thy people, especially of all who celebrate or assist in Its ministration, such reverence and devotion that Thy most holy name may more and more be honored and glorified in this Sacrament of love. Amen.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "An act of reparation for careless and unworthy Communions, offering sorrow and the desire to prevent such dishonour, and asking that all who celebrate or assist at the Sacrament may receive it with reverence and devotion. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "mass", "reparation"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n329/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "aspirations-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n330/mode/1up"],
+    payload: {
+      slug: "aspirations-before-holy-communion",
+      title: "Aspirations before Holy Communion",
+      body: "O Lord Jesus, what great things hast Thou done, and what didst Thou suffer, out of the power of Thy boundless love towards me! But what return have I made? and what return shall I make?\n\nI am sorry from the bottom of my heart that I have ever offended Thee, who hast so greatly loved me.\n\nI believe in Thee with a lively faith, O eternal Truth! because Thou art Thyself God and Man, my Lord and Saviour.\n\nI hope in Thee, O Lord, O only Hope, and true Salvation of my soul.\n\nI love Thee, O my sovereign Good! O that I may love Thee above all things with my whole heart! O may the burning power of Thy love absorb me, that nothing may ever separate me from the love of Christ Jesus, my Saviour!\n\nFor what have I in heaven but Thee? and beside Thee what do I desire upon earth?\n\nAs the hart panteth after the water-springs, so panteth my soul after Thee, O God.\n\nWhat is man, that Thou art mindful of him? or the son of man that Thou visitest him?\n\nBlessed is he who cometh in the name of the Lord.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'Short aspirations of contrition, faith, hope and love to be said in the moments before Communion, closing with verses of the Psalms and "Blessed is he who cometh in the name of the Lord". From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["before-communion", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n330/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-to-the-blessed-virgin-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n331/mode/1up"],
+    payload: {
+      slug: "prayer-to-the-blessed-virgin-before-holy-communion",
+      title:
+        "Prayer to the Blessed Virgin before Holy Communion (O Most Blessed Virgin Mary, Mother of Gentleness)",
+      body: "O most Blessed Virgin Mary, mother of gentleness and mercy, I, a miserable and unworthy sinner, fly to thy protection with every sentiment of humility and love; and I implore of thy loving-kindness that thou wouldst vouchsafe graciously to be near me, and all who throughout the whole Church are to receive the Body and Blood of thy Son this day, even as thou wert near thy sweetest Son as He hung bleeding on the Cross. That, aided by thy gracious help, we may worthily offer up a pure and acceptable sacrifice in the sight of the Holy and Undivided Trinity. Amen.",
+      prayerType: "marian",
+      category: "marian",
+      language: "en",
+      summary:
+        "The prayer to Our Lady from the Roman Missal's preparation for Mass (O Mater pietatis et misericordiae), asking her to stand by all who receive her Son's Body and Blood that day as she stood by him on the Cross. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "mass", "marian-devotion"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n331/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-to-saint-joseph-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n331/mode/1up"],
+    payload: {
+      slug: "prayer-to-saint-joseph-before-holy-communion",
+      title: "Prayer to Saint Joseph before Holy Communion (Happy and Blessed Art Thou, O Joseph)",
+      body: "Happy and blessed art thou, O Joseph, to whom it was given not only to see and to hear that God whom many kings desired to see, and saw not, to hear, and heard not; but also to bear Him in thine arms, to embrace Him, to clothe Him, and to guard and defend Him.\n\nV. Pray for us, O Blessed Joseph.\nR. That we may be made worthy of the promises of Christ.\n\nLet us pray.\nO God, who hast given unto us a royal Priesthood, vouchsafe, we beseech Thee, that as Blessed Joseph was found worthy to handle with his hands, and bear within his arms, Thine Only-begotten Son, born of the Virgin Mary, so may we be made fit, by cleanness of heart and innocency of works, to wait upon Thy Holy Altars; that we may worthily receive the Most Sacred Body and Blood of Thy Son, now in this present, and deserve to attain an everlasting reward in the world to come. Through the same Christ our Lord. Amen.",
+      prayerType: "intercession",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The prayer to Saint Joseph from the Roman Missal's preparation for Mass (O felicem virum), praising the saint who carried the Son of God in his arms, with its versicle and collect asking that we may receive the Body and Blood of Christ with a clean heart. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "mass", "march-19"],
+      relatedSaints: ["saint-joseph"],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n331/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "direction-of-the-intention-before-mass-and-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n332/mode/1up"],
+    payload: {
+      slug: "direction-of-the-intention-before-mass-and-holy-communion",
+      title: "Direction of the Intention before Mass and Holy Communion",
+      body: "I intend to assist at the Holy Sacrifice of the Mass, and to receive the Body and Blood of our Lord Jesus Christ, according to the Rite of the holy Roman Church, to the praise of Almighty God and of the whole Court of Heaven; for my benefit, and that of the whole Church on earth; for all those who have commended themselves unto my prayers, in general and in particular; and for the happy estate of the holy Roman Church.\n\nJoy with peace, amendment of life, space for true repentance, the grace and comfort of the Holy Ghost, perseverance in good works, a contrite and humble heart, and a happy consummation of my life, grant unto me, O Almighty and merciful Lord. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "A form for directing one's intention before hearing Mass and receiving Communion, modelled on the priest's formula of intention in the Roman Missal, followed by the Missal's short prayer for joy with peace, amendment of life and a happy end (Gaudium cum pace). From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-mass", "before-communion", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n332/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collects-of-thanksgiving-after-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n336/mode/1up"],
+    payload: {
+      slug: "collects-of-thanksgiving-after-holy-communion",
+      title: "Collects of Thanksgiving after Holy Communion (Roman Missal)",
+      body: "O God, who for the Three Children didst assuage the flames of fire: mercifully grant that the flames of sin may not consume us Thy servants.\n\nDirect, we beseech Thee, O Lord, our actions by Thy inspiration, and further them with Thy continual help; that every prayer and work of ours may always begin from Thee, and through Thee be brought to an end.\n\nVouchsafe, O Lord, to extinguish within us the flames of sin; Thou who didst grant to Blessed Lawrence grace to arise whole from his fiery torments. Through Christ our Lord. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "The three collects that close the Roman Missal's thanksgiving after Mass, said after the Canticle of the Three Children and Psalm 150: that the flames of sin may not consume us as the fire spared the three young men, that every prayer and work may begin and end in God (Actiones nostras), and that God, who brought Saint Lawrence through the fire of his martyrdom, may quench in us the flames of sin. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["after-communion", "thanksgiving", "mass"],
+      relatedSaints: ["saint-lawrence"],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n336/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-to-the-blessed-virgin-after-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n339/mode/1up"],
+    payload: {
+      slug: "prayer-to-the-blessed-virgin-after-holy-communion",
+      title: "Prayer to the Blessed Virgin after Holy Communion (O Most Holy, O Most Benign)",
+      body: "O most Holy, O most benign, O noble and glorious Virgin Mary, who wast worthy to bear in thy sacred womb the Creator of all, and at thy virginal breast to nourish Him whose true, real, and most holy Body and Blood I, an unworthy sinner, have just now dared to receive: vouchsafe, I humbly beseech thee, to intercede with Him for me a sinner; that whatsoever, by ignorance or neglect, by accident or irreverence, I have left undone, or have done amiss, in this unspeakably holy Sacrifice, may be pardoned through thy prayers to the same our Lord Jesus Christ, thy Son, who with the Father and the Holy Ghost liveth and reigneth world without end. Amen.",
+      prayerType: "marian",
+      category: "marian",
+      language: "en",
+      summary:
+        "A prayer after Communion to the Virgin who bore and nursed the Lord just received, asking her to obtain pardon for whatever was done amiss or left undone through ignorance or irreverence in the holy Sacrifice. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["after-communion", "thanksgiving", "marian-devotion"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n339/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "aspirations-after-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n339/mode/1up"],
+    payload: {
+      slug: "aspirations-after-holy-communion",
+      title: "Aspirations after Holy Communion",
+      body: "Who art Thou, O Lord, and what am I? Dost Thou come unto me, O King most High, even to the very lowest of Thy servants?\n\nBehold, O Lord, I now have Thee, who hast all things: I possess Thee, who possessest all things and canst do all things; therefore, O my God and my All, do Thou wean my heart from all other things beside Thee, for in them there is nothing but vanity and weariness of spirit; on Thee alone may my heart be fixed; in Thee be my rest, for in Thee is my treasure, in Thee are sovereign truth, true happiness, and eternal life.\n\nLet my soul, O Lord, feel the sweetness of Thy presence. May it taste how sweet Thou art, O Lord, that, drawn by love of Thee, it may seek for nothing wherein to rejoice out of Thee; for Thou art the joy of my heart, and my God, and my portion for ever.\n\nThou art the Physician of my soul, who with Thine own stripes hast healed our sickness. I am that sick soul whom Thou camest from heaven to heal; heal my soul, therefore, for I have sinned against Thee.\n\nThou art the Good Shepherd who hast laid down Thy life for Thy sheep. Behold, I am that sheep which was lost, and yet Thou dost vouchsafe to feed me with Thy Body and Blood; lay me now upon Thy shoulders. What wilt Thou refuse me, who hast given Thyself unto me? O be Thou my Shepherd, and I shall lack nothing in the green pasture wherein Thou feedest me, until I am brought to the pastures of eternal life.\n\nO Thou true Light, which enlightenest every man who cometh into the world, enlighten mine eyes, that I sleep not in death.\n\nO Fire continually burning, and never failing! behold how lukewarm and cold I am; O do Thou inflame my reins and my heart, that they may be on fire with the love of Thee. For Thou camest to send fire on the earth, and what wilt Thou but that it be kindled?\n\nO King of Heaven and earth, rich in pity! behold, I am poor and needy; Thou knowest what I most require; Thou alone art able to enrich and help me; help me, O God, and out of the treasure of Thy goodness succor Thou my needy soul.\n\nO my Lord and my God! behold, I am Thy servant: give me understanding and kindle my affections, that I may know and do Thy will.\n\nThou art the Lamb of God, the Lamb without spot, who takest away the sins of the world; take away from me whatever hurteth me and displeaseth Thee; and give me what Thou knowest to be pleasing to Thee and good for me.\n\nThou art my love and all my joy; Thou art my God and my all; Thou art the portion of my inheritance and of my cup; Thou art He that will restore my inheritance unto me.\n\nO my God and my All! may the sweet and burning power of Thy love, I beseech Thee, so absorb my soul, that I may die unto the world for the love of Thee, who for the love of me hast vouchsafed to die upon the Cross, O my God and my All.\n\nLord, if I had lived innocently, I could not have deserved to receive the crumbs that fall from Thy Table. How great is Thy mercy, who hast feasted me with the Bread of Virgins, with the Wine of Angels, with Manna from heaven!\n\nO when shall I pass from this dark glass, from this veil of Sacraments, to the vision of Thy eternal light; from eating Thy Body, to beholding Thy face in Thy eternal kingdom?\n\nLet not my sins crucify the Lord of life again; let it never be said of me, The hand of him who betrayeth Me is with Me on the table.\n\nO that I might love Thee as well as ever any creature loved Thee! Let me think nothing but Thee, desire nothing but Thee, enjoy nothing but Thee.\n\nO Jesus, be a Jesus unto me. Thou art all things unto me. Let nothing ever please me but what savors of Thee and Thy miraculous sweetness.\n\nBlessed be the mercies of our Lord, who of God is made unto me wisdom, and justice, and sanctification, and redemption. Let him who glorieth glory in the Lord. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'A chain of aspirations for the time after Communion, addressing Christ as Physician, Good Shepherd, true Light, burning Fire and Lamb of God, and ending with "O my God and my All" and Saint Paul\'s words that Christ is made unto us wisdom, justice, sanctification and redemption (1 Corinthians 1:30-31). From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["after-communion", "thanksgiving"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n339/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "o-lord-jesus-sweetest-guest-after-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n342/mode/1up"],
+    payload: {
+      slug: "o-lord-jesus-sweetest-guest-after-holy-communion",
+      title: "O Lord Jesus, Sweetest Guest (after Holy Communion)",
+      body: "O Lord Jesus, sweetest Guest, mayest Thou have come happily to me, Thy poor and humble servant. Mayest Thou have entered in blessing under this mean and lowly roof. Blessed art Thou, O Lord, in the highest, for that Thou hast come into my heart, Thou Day-spring from on high. O King of peace, drive from my heart all vain and idle thoughts, that my soul may be able to imitate and to love Thee only, the Author of peace. For what beside Thee, O Thou peace, Thou calm and sweetness of my heart, should my soul seek for or desire?",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'A short welcome to Christ received in Communion, headed "Adore and Magnify the Lord" in the book: it blesses him for entering the soul\'s lowly roof and asks the King of peace to drive out every idle thought. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["after-communion", "thanksgiving"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n342/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "what-shall-i-render-unto-thee-o-lord-jesus-after-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n343/mode/1up"],
+    payload: {
+      slug: "what-shall-i-render-unto-thee-o-lord-jesus-after-holy-communion",
+      title: "What Shall I Render unto Thee, O Lord Jesus (Thanksgiving after Holy Communion)",
+      body: "What shall I render unto Thee, O Lord Jesus, for all that Thou hast done unto me, and on this day especially? In Thy care for me Thou hast given me Thy Body for my food, and Thy Blood for my drink, and both for a pledge of future glory. Would that my lips might be opened, and my mouth filled with Thy praise, that I might sing of Thy glory and of Thy greatness all the day long, and tell of all Thy wondrous works. O my soul, magnify the Lord, from whom thou hast received blessings so many and so great; and rejoice, my spirit, in God thy Saviour: for He hath looked down on my lowliness; and the Mighty One hath done great things for me, and hath filled me, when hungry, with good things.\n\nLet my words please Thee, O Lord; my joy shall be in Thee, and I will be exercised in Thy commandments. Hold Thou me by my right hand, and guide me by Thy will, that Thou mayest afterwards receive me with Thy glory; for Thy mercy's sake. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'A thanksgiving after Communion, headed "Give Thanks", that turns the words of Psalm 115 and the Magnificat to the gift of Christ\'s Body and Blood, and asks to be led by the hand and received at last into his glory. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["after-communion", "thanksgiving"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n343/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "offering-of-jesus-christ-to-the-father-after-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n343/mode/1up"],
+    payload: {
+      slug: "offering-of-jesus-christ-to-the-father-after-holy-communion",
+      title: "Offering of Jesus Christ to God the Father after Holy Communion",
+      body: "O most Merciful Father, who hast so loved me as to give to me Thine Only-begotten Son for my food and drink, and with Him all things, look upon the Face of Thine Anointed, in whom Thou art well pleased. This Thy Beloved Son, and with Him my heart, I offer and present to Thee for all the blessings Thou hast this day given me. Mayest Thou, O Father, be now well pleased in Him, and through Him turn away Thine indignation from me.\n\nBehold the One Mediator between God and men, a Man Christ Jesus, my Advocate and High-Priest, who intercedes for me. Him do I offer and plead before Thee, who committed no sin, but bore the sins of the world, and by whose stripes we are healed. Accept, therefore, O Holy Father, this Immaculate Victim, to the honor and glory of Thy name, in thanksgiving for all Thy benefits bestowed upon me, in remission also of my sins, and supply of all my defects and shortcomings.\n\nO Blessed Virgin, Mother of my God and Saviour, recommend my petitions to thy Son. O all ye Angels and Saints, citizens of heaven, join also your prayers with mine. Ye stand always before the Throne, and see Him face to face, whom I here receive under veils. Be ever mindful of me, and obtain from Him and through Him that with you I may bless Him and love Him for ever. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "A prayer after Communion that offers the Father his beloved Son, the one Mediator and immaculate Victim, in thanksgiving and for the remission of sins, and asks Our Lady, the angels and the saints to join their prayers to the communicant's. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["after-communion", "thanksgiving", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n343/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-adoration-to-the-most-holy-trinity-i-most-humbly-adore-thee",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n347/mode/1up"],
+    payload: {
+      slug: "act-of-adoration-to-the-most-holy-trinity-i-most-humbly-adore-thee",
+      title:
+        "Act of Adoration to the Most Holy Trinity (I Most Humbly Adore Thee, O Uncreated Father)",
+      body: "I most humbly adore Thee, O uncreated Father, and Thee, O Only-begotten Son, and Thee, O Holy Ghost the Paraclete, one Almighty, Everlasting, and Unchangeable God, Creator of heaven and earth, and of all things visible and invisible. I acknowledge in Thee a true and ineffable Trinity of Persons, a true and indivisible Unity of Substance. I glorify Thee, O Almighty Trinity, one only Deity, my most compassionate Lord, my sweetest hope, my dearest light, my most desired repose, my joy, my life, and all my good. To Thy most merciful goodness I commend my soul and body; to Thy most sacred Majesty I wholly devote myself, and to Thy divine will I resign and yield myself eternally. All honor and glory be to Thee for ever and ever. Amen.",
+      prayerType: "act",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "The act of adoration that opens the Manual's Visit to the Blessed Sacrament: it adores the Father, the Son and the Holy Ghost as one God, confesses the Trinity of Persons and Unity of Substance, and commends soul and body to the divine will. From the Visit to the Blessed Sacrament in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["visit-to-the-blessed-sacrament", "adoration", "trinity-sunday"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n347/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "o-heavenly-father-o-most-forgiving-father",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n348/mode/1up"],
+    payload: {
+      slug: "o-heavenly-father-o-most-forgiving-father",
+      title: "O Heavenly Father, O Most Forgiving Father (Offering of Christ for the Whole World)",
+      body: "O heavenly Father, O most forgiving Father, O Lord God, have mercy upon me a wretched sinner, have mercy upon all men. In fullest reparation, expiation, and satisfaction for all my iniquities and negligences, and for the sins of the whole world, and perfectly to supply the deficiency of my works, I offer unto Thee Thy Beloved Son, Christ Jesus, in union with that sovereign charity with which Thou didst send Him to us, and didst give Him to us as our Saviour. I offer His transcendent virtues, and all that He did and suffered for us. I offer His labors, sorrows, torments, and most Precious Blood. I offer the merits of the most Blessed Virgin Mary and of all Thy Saints. Assist me, I beseech Thee, O most merciful Father, through the same Thy Son, by the power of Thy Holy Spirit. Have mercy on all unhappy sinners, and graciously call them back to the way of salvation. Grant to all the living pardon and grace, and to the faithful departed eternal light and rest. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A prayer of offering in the Visit to the Blessed Sacrament: it presents to the Father his Son, with all that he did and suffered and the merits of Our Lady and the saints, in reparation for one's own sins and the sins of the world, and asks mercy for sinners, grace for the living and rest for the dead. From the Visit to the Blessed Sacrament in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["visit-to-the-blessed-sacrament", "reparation", "conversion", "all-souls"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n348/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "o-holy-spirit-sweetest-comforter",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n348/mode/1up"],
+    payload: {
+      slug: "o-holy-spirit-sweetest-comforter",
+      title: "O Holy Spirit, Sweetest Comforter",
+      body: "O Holy Spirit, sweetest Comforter, who proceedest from the Father and the Son in an ineffable manner, come, I beseech Thee, and enter into my heart. Purify and cleanse me from all sin, and sanctify my soul. Wash away its defilements, moisten its dryness, heal its wounds, subdue its stubbornness, melt its coldness, and correct its wanderings. Make me truly humble and resigned, that I may be pleasing unto Thee, and Thou mayest abide with me for ever. O most blessed Light, O Light worthy of all love, enlighten me. O Joy of Paradise, O fount of purest delights, O my God, give Thyself to me, and kindle in my inmost soul the fire of Thy love. O my Lord, instruct, direct, and defend me in all things. Give me strength against all undue fears and a cowardly spirit; bestow upon me a right Faith, a firm Hope, and a sincere and perfect Charity; and grant that I may ever do Thy most gracious will. Amen.",
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "A prayer to the Holy Spirit in the Visit to the Blessed Sacrament that echoes the petitions of the sequence Veni, Sancte Spiritus and asks for humility, light, courage against cowardice, and a right faith, firm hope and perfect charity. From the Visit to the Blessed Sacrament in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["pentecost", "visit-to-the-blessed-sacrament", "daily"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n348/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-reparation-to-the-sacred-heart-o-jesus-only-son-of-the-living-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n350/mode/1up"],
+    payload: {
+      slug: "act-of-reparation-to-the-sacred-heart-o-jesus-only-son-of-the-living-god",
+      title: "Act of Reparation to the Sacred Heart of Jesus (O Jesus, Only Son of the Living God)",
+      body: "O Jesus, Only Son of the Living God, who, by an incomprehensible effect of Thy love, wast pleased to be made Man, to be born in a stable, to live amidst labors and sufferings, to die upon a Cross, and to leave us, as a perpetual pledge of Thy tenderness, Thine own Body and Blood for the nourishment of our souls, in the ineffable Sacrament of the Eucharist: Thou beholdest at Thy feet a criminal covered with confusion, who comes, in the spirit of union with all the associates in the adoration of Thy divine Heart, humbly to confess his ingratitude, his iniquities, and those of all other men, that he may make reparation for them as far as in him lies.\n\nAlas! O loving Jesus, we have sinned against heaven and before Thee. What hath Thy most Sacred Heart not suffered on our part in the course of Thy sacred life, in Thy bitter Passion, and from the moment that Thou hast dwelt amongst us in the Sacrament of Thy Love! O with how much bitterness, opprobrium, and grief have we deluged Thy divine Heart! Pardon; mercy; O adorable Heart of Jesus! mercy for me, mercy for all men, and for our land in particular!\n\nI detest, with all the sincerity of my soul, and with the most profound and bitter grief, everything which hath ever offended Thee in myself or in others; I detest it for the love Thou deservest, and which is supremely due unto Thee. O that I could efface with my tears, and wash away with my blood, the injuries which we have done unto Thee. O that I could repay Thee, by my repentance, by my works, and by my love, all the glory, honor, and satisfaction of which Thou hast been robbed by the injuries and outrages that have been committed against Thee! Accept at least the earnest desire with which Thou inspirest me.\n\nVouchsafe, O Heart infinitely rich in mercy, to light again in my heart and that of all men the sacred fire which Thou camest to kindle upon the earth. Let it purify them, let it inflame them, let it make of them one heart with Thy Heart. Pour down, I beseech Thee, Thy most precious and abundant benedictions on Thy holy Church, and those who govern it; on this diocese, on this region, and on all those who are united with us in devotion to Thy Sacred Heart. O Heart of Jesus, live, reign in all hearts, for time and for eternity. Amen.",
+      prayerType: "act",
+      category: "devotional",
+      language: "en",
+      summary:
+        "An act of reparation to the Sacred Heart for the ingratitude and outrages Christ suffers, above all in the Sacrament of his love, made in union with all who adore his Heart, and ending with the prayer that the Heart of Jesus may live and reign in all hearts. From the Visit to the Blessed Sacrament in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["sacred-heart", "reparation", "first-friday", "visit-to-the-blessed-sacrament"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n350/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-to-the-eternal-father-offering-the-sacred-heart",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n352/mode/1up"],
+    payload: {
+      slug: "prayer-to-the-eternal-father-offering-the-sacred-heart",
+      title: "Prayer to the Eternal Father Offering the Sacred Heart of Jesus",
+      body: "O Eternal Father, let me offer up unto Thy mercy the Sacred Heart of Thy dearly-beloved Son, even as He offered Himself up a Sacrifice to Thy Justice.\n\nAccept, on my behalf, all the thoughts, sentiments, affections, motions, and all the actions of this Sacred Heart; they are mine, because It was immolated for me; they are mine, because for the future I am resolved to admit nothing into my heart but what hath place in Thine. Receive, then, O God, the merits of this Sacred Heart in satisfaction for my sins, and in thanksgiving for all the benefits conferred upon me. Receive them, O Lord, as so many motives for granting my petitions. Give me, O Lord, for their sake, all the graces I need, but especially the gift of final perseverance. Receive them as so many acts of love, adoration, and praise, which I now offer to Thy divine Majesty. This Sacred Heart, this Heart alone, can love, honor, and glorify Thee as Thou deservest. Amen.",
+      prayerType: "general",
+      category: "devotional",
+      language: "en",
+      summary:
+        "A prayer that offers the Eternal Father the Sacred Heart of his Son, and all its thoughts, affections and acts, in satisfaction for sin and thanksgiving, asking above all for final perseverance, since this Heart alone can love and glorify God as he deserves. From the Visit to the Blessed Sacrament in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["sacred-heart", "first-friday", "visit-to-the-blessed-sacrament"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n352/mode/1up"],
     },
   },
 ];
