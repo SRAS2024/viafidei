@@ -20,11 +20,11 @@
  * reason to spend the worker's rate budget.
  */
 
+import { mapSourceRow } from "./map-row";
 import { fetchSourcePage } from "./source-page";
 import type { StructuredIngestor } from "./ingestors";
 import {
   isRejection,
-  reject,
   tallyRejection,
   topRejections,
   type RejectionCode,
@@ -145,13 +145,9 @@ export async function diagnoseStructuredPage(input: {
 
   for (let start = 0; start < page.rows.length; start += concurrency) {
     const slice = page.rows.slice(start, start + concurrency);
-    const results = await Promise.all(
-      slice.map((row) =>
-        ingestor
-          .map(row, {} as Record<string, never>)
-          .catch((err) => reject("map_threw", err instanceof Error ? err.message : String(err))),
-      ),
-    );
+    // The same per-row mapping as a pass, so a verdict reached after a failed
+    // source read shows up here as `source_read_failed` too.
+    const results = await Promise.all(slice.map((row) => mapSourceRow(ingestor, row)));
     results.forEach((result, i) => {
       const row = slice[i];
       if (isRejection(result)) {

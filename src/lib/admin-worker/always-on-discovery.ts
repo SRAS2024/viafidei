@@ -8,9 +8,13 @@
  * it on EVERY loop pass (throttled), so the candidate pile is always being
  * refilled and the worker never goes idle for lack of fresh sources to fetch.
  *
- * It targets the content type furthest from its goal (the orchestrator picks the
- * largest-gap goal when no type is given), so scanning effort follows the
- * headroom. Surfaced candidates are still only UNVERIFIED leads — every one
+ * It targets what the mission selector (`nextPriorityContentType`) picks — gap
+ * fraction, the channel-weighted major-goal campaign, source-blocked de-rank —
+ * rotating over the lane's OWN recent targets (kept in its throttle row). It
+ * used to let the orchestrator take the largest ABSOLUTE gap every time, which
+ * pinned every sweep on SAINT (10,000 target, grown mostly by the Wikidata
+ * lane) while PRAYER and NOVENA, which only the web can grow, got no sweep of
+ * their own. Surfaced candidates are still only UNVERIFIED leads — every one
  * faces the full pipeline (classify → cross-source verify → strict QA → publish)
  * before anything goes public. Scanning widens reach, never the accuracy bar.
  *
@@ -29,6 +33,8 @@ import { writeAdminWorkerLog } from "./logs";
 
 const DEFAULT_THROTTLE_MS = 5 * 60 * 1000; // ~5 minutes — "constant" without hammering hosts
 const THROTTLE_KEY = "always-on-discovery-lastrun";
+/** Recent sweep targets remembered for the rotation (newest first). */
+const RECENT_TARGETS_KEPT = 4;
 
 export interface AlwaysOnDiscoveryResult {
   ran: boolean;
@@ -51,10 +57,12 @@ function throttleMs(): number {
   return Number.isFinite(n) && n >= 0 ? n : DEFAULT_THROTTLE_MS;
 }
 
+const throttleWhere = {
+  memoryType_memoryKey: { memoryType: "GENERIC" as const, memoryKey: THROTTLE_KEY },
+};
+
 async function throttleOk(prisma: PrismaClient): Promise<boolean> {
-  const where = {
-    memoryType_memoryKey: { memoryType: "GENERIC" as const, memoryKey: THROTTLE_KEY },
-  };
+  const where = throttleWhere;
   const row = await prisma.adminWorkerMemory
     .findUnique({ where, select: { lastUsedAt: true } })
     .catch(() => null);
@@ -75,9 +83,51 @@ async function throttleOk(prisma: PrismaClient): Promise<boolean> {
   return true;
 }
 
+/** The lane's own recent targets, newest first (empty when unknown). */
+async function readRecentTargets(prisma: PrismaClient): Promise<string[]> {
+  const row = await prisma.adminWorkerMemory
+    .findUnique({ where: throttleWhere, select: { memoryValue: true } })
+    .catch(() => null);
+  const recent = (row?.memoryValue as { recentTargets?: unknown } | null)?.recentTargets;
+  return Array.isArray(recent) ? recent.filter((t): t is string => typeof t === "string") : [];
+}
+
+async function writeRecentTargets(prisma: PrismaClient, recentTargets: string[]): Promise<void> {
+  await prisma.adminWorkerMemory
+    .upsert({
+      where: throttleWhere,
+      update: { memoryValue: { recentTargets } },
+      create: {
+        memoryType: "GENERIC",
+        memoryKey: THROTTLE_KEY,
+        memoryValue: { recentTargets },
+        lastUsedAt: new Date(),
+      },
+    })
+    .catch(() => undefined);
+}
+
+/**
+ * The type this sweep scans for: the mission selector's pick, rotated over the
+ * lane's recent targets. Null (the orchestrator's own fallback) when no
+ * web-growable goal has a gap or the goals cannot be read.
+ */
+async function chooseSweepTarget(prisma: PrismaClient): Promise<string | null> {
+  try {
+    const recent = await readRecentTargets(prisma);
+    const { nextPriorityContentType } = await import("./content-goals");
+    const pick = await nextPriorityContentType(prisma, { recentTypes: recent });
+    if (!pick) return null;
+    await writeRecentTargets(prisma, [pick.contentType, ...recent].slice(0, RECENT_TARGETS_KEPT));
+    return pick.contentType;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Run one always-on discovery sweep (throttled). Surfaces fresh candidate URLs
- * for the largest-gap content type so the fetch/extract pipeline always has new
+ * for the rotating mission target so the fetch/extract pipeline always has new
  * material to work through. Best-effort + fail-open: never throws, never blocks
  * the pass.
  */
@@ -105,7 +155,7 @@ export async function runAlwaysOnDiscovery(
     const { runDiscoveryOrchestrator } = await import("./discovery-orchestrator");
     const res = await runDiscoveryOrchestrator(prisma, {
       passId: opts.passId,
-      contentType: opts.contentType ?? null,
+      contentType: opts.contentType ?? (await chooseSweepTarget(prisma)),
     });
     out.ran = true;
     out.surfaced = res.surfaced ?? 0;

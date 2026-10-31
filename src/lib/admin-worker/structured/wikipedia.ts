@@ -15,7 +15,7 @@
  * article state the same feast day?) — the published biography stays English.
  */
 
-import { fetchJson } from "./http";
+import { fetchJson, type SourceReadLedger } from "./http";
 import { parseWikipediaArticleUrl } from "./wikipedia-url";
 
 export { parseWikipediaArticleUrl } from "./wikipedia-url";
@@ -38,15 +38,16 @@ interface RestSummary {
  * Fetch the lead abstract + canonical URL for a Wikipedia article URL (any
  * language edition, e.g. `https://en.wikipedia.org/wiki/Pope_Francis`). Returns
  * null when the URL isn't a Wikipedia article, the fetch fails, or the abstract
- * is empty.
+ * is empty; a fetch that failed transiently is recorded in `opts.ledger`.
  */
 export async function fetchSummaryForArticleUrl(
   articleUrl: string,
+  opts: { ledger?: SourceReadLedger } = {},
 ): Promise<WikipediaSummary | null> {
   const parsed = parseWikipediaArticleUrl(articleUrl);
   if (!parsed) return null;
   const api = `https://${parsed.lang}.wikipedia.org/api/rest_v1/page/summary/${parsed.title}`;
-  const data = await fetchJson<RestSummary>(api);
+  const data = await fetchJson<RestSummary>(api, { ledger: opts.ledger });
   const extract = data?.extract?.trim();
   if (!extract) return null;
   return { extract, url: data?.content_urls?.desktop?.page ?? articleUrl, lang: parsed.lang };

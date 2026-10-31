@@ -16,7 +16,7 @@
  */
 
 import { htmlToText } from "../communion-verifier";
-import { fetchText } from "./http";
+import { fetchText, type SourceReadLedger } from "./http";
 
 const MIN_PARAGRAPH_CHARS = 120;
 const MAX_EXCERPT_CHARS = 1_200;
@@ -66,10 +66,15 @@ export function extractExcerptFromHtml(html: string): string | null {
 
 /**
  * Fetch a document's canonical page and return a verbatim opening excerpt, or
- * null (offline/disabled, fetch failed, or no confident prose found).
+ * null (offline/disabled, fetch failed, or no confident prose found). A fetch
+ * that failed transiently is recorded in `opts.ledger`, so a caller can tell a
+ * page with no prose from a page it never read.
  */
-export async function fetchDocumentExcerpt(canonicalUrl: string): Promise<string | null> {
-  const html = await fetchText(canonicalUrl);
+export async function fetchDocumentExcerpt(
+  canonicalUrl: string,
+  opts: { ledger?: SourceReadLedger } = {},
+): Promise<string | null> {
+  const html = await fetchText(canonicalUrl, { ledger: opts.ledger });
   if (!html) return null;
   try {
     return extractExcerptFromHtml(html);

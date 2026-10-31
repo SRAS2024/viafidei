@@ -22,6 +22,7 @@
 
 import type { ChecklistContentType, SourceAuthorityLevel } from "@prisma/client";
 
+import type { SourceReadLedger } from "./http";
 import { bindingValue, qidOf, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
 import { fetchSummaryForArticleUrl } from "./wikipedia";
 import { fetchArticleInfobox } from "./wikipedia-infobox";
@@ -51,8 +52,16 @@ import {
   type CanonizationStatus,
 } from "./saint-facts";
 
-/** Reserved for future context (locale, calendar) passed into a mapper. */
-export type IngestContext = Record<string, never>;
+/**
+ * What the orchestrator hands a mapper alongside its row. `reads` is the
+ * entity's source-read ledger: a mapper passes it to every fetch it makes, so
+ * a rejection reached after a read that never completed (an infobox fetch that
+ * timed out reads exactly like an article with no infobox) can be told from a
+ * rejection that describes the entity — see `mapSourceRow`.
+ */
+export interface IngestContext {
+  reads?: SourceReadLedger;
+}
 
 export interface StructuredIngestor {
   /** The content type this ingestor publishes. */
@@ -124,6 +133,23 @@ export interface StructuredIngestor {
    * ingests. Optional; returns [] when the row carries none.
    */
   discoveredSources?(row: SparqlBinding): string[];
+  /**
+   * True when the type's members ARE a curated set (the thirty-seven Doctors in
+   * `knowledge/doctors.ts`, the rite registry in `knowledge/rites.ts`): this
+   * ingestor may confirm that set but never adds to it.
+   *
+   * Curated rows carry no Wikidata QID, so the dedup against them rests on slug
+   * and name alone, and Wikidata's labels are not the curated titles ("Pope
+   * Gregory I" for Saint Gregory the Great, "Albertus Magnus" for Saint Albert
+   * the Great, "Antiochene Rite" for the West Syriac Rite). An entity no live
+   * row matches is therefore far more often a curated member under another name
+   * than a new member, and publishing it would put a second page for the same
+   * Doctor or rite on the site. The orchestrator holds every such entity
+   * (`curated_set_unmatched`, remembered per QID like any other rejection), so a
+   * sweep re-checks the set and names a newcomer — a newly declared Doctor —
+   * for a curator to add, and publishes nothing.
+   */
+  curatedSet?: boolean;
 }
 
 /** What `identify` returns: any subset, all cheap. */
@@ -216,7 +242,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       name: title,
     };
   },
-  async map(row) {
+  async map(row, ctx) {
     const label = bindingValue(row, "popeLabel");
     const entity = bindingValue(row, "pope");
     const startYear = bindingValue(row, "startYear");
@@ -240,7 +266,7 @@ LIMIT ${limit} OFFSET ${offset}`,
     const citations = [wikidataEntityUrl(entity)];
     let background: string | undefined;
     if (article) {
-      const summary = await fetchSummaryForArticleUrl(article);
+      const summary = await fetchSummaryForArticleUrl(article, { ledger: ctx.reads });
       if (summary) {
         background = summary.extract;
         if (!citations.includes(summary.url)) citations.push(summary.url);
@@ -604,7 +630,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       name: label,
     };
   },
-  async map(row) {
+  async map(row, ctx) {
     const facts = parseSaintFacts(row);
     if (!facts) return reject("saint_facts_unparseable", bindingValue(row, "s") ?? "no entity");
 
@@ -642,7 +668,7 @@ LIMIT ${limit} OFFSET ${offset}`,
     const articleUrl = enArticle ?? alt?.url ?? null;
     const lang = enArticle ? "en" : (alt?.lang ?? null);
     if (!articleUrl || !lang) return reject("no_wikipedia_article", facts.label);
-    const summary = await fetchSummaryForArticleUrl(articleUrl);
+    const summary = await fetchSummaryForArticleUrl(articleUrl, { ledger: ctx.reads });
     if (!summary) return reject("wikipedia_fetch_failed", articleUrl);
     if (lang === "en" && summary.extract.length < 100) {
       return reject("description_too_short", `${articleUrl} (${summary.extract.length} chars)`);
@@ -650,8 +676,12 @@ LIMIT ${limit} OFFSET ${offset}`,
 
     // Read the infobox up front: it corroborates the feast, disambiguates a
     // multi-feast saint, supplies the status for branch 3, and enriches the
-    // record. Fail-open ({}): a missing infobox just means less corroboration.
-    const infobox: Record<string, string> = await fetchArticleInfobox(articleUrl).catch(() => ({}));
+    // record. Fail-open ({}): a missing infobox just means less corroboration —
+    // and a read that failed is in `ctx.reads`, so a rejection that rested on
+    // it is retried rather than remembered.
+    const infobox: Record<string, string> = await fetchArticleInfobox(articleUrl, {
+      ledger: ctx.reads,
+    }).catch(() => ({}));
 
     if (needsInfoboxStatus) canonizationStatus = statusFromInfobox(infobox);
     if (!canonizationStatus) return reject("no_canonization_date", articleUrl);
@@ -832,7 +862,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       name: label,
     };
   },
-  async map(row) {
+  async map(row, ctx) {
     const entity = bindingValue(row, "doc");
     const label = bindingValue(row, "label");
     const types = bindingValue(row, "types");
@@ -875,7 +905,7 @@ LIMIT ${limit} OFFSET ${offset}`,
     }
 
     if (!article) return reject("no_wikipedia_article", label);
-    const summary = await fetchSummaryForArticleUrl(article);
+    const summary = await fetchSummaryForArticleUrl(article, { ledger: ctx.reads });
     if (!summary) return reject("wikipedia_fetch_failed", article);
     if (summary.extract.length < 100) {
       return reject("description_too_short", `${article} (${summary.extract.length} chars)`);
@@ -903,7 +933,9 @@ LIMIT ${limit} OFFSET ${offset}`,
     // Verbatim opening excerpt from the canonical document text itself
     // (usually vatican.va) — cited via canonicalUrl, zero fabrication surface.
     // Fail-open: no excerpt just means the record ships metadata-only.
-    const excerpt = await fetchDocumentExcerpt(canonicalUrl).catch(() => null);
+    const excerpt = await fetchDocumentExcerpt(canonicalUrl, { ledger: ctx.reads }).catch(
+      () => null,
+    );
     if (excerpt) payload.bodyExcerpt = excerpt;
 
     return {
@@ -920,6 +952,9 @@ const doctorIngestor: StructuredIngestor = {
   contentType: "DOCTOR",
   id: "wikidata-doctors",
   authorityLevel: "TRUSTED_PUBLISHER",
+  // The Doctors are the curated thirty-seven: Wikidata confirms them and names
+  // a newly declared one for curation, but never publishes one (see the field).
+  curatedSet: true,
   // Doctors of the Church — matched by the honorific label (position held P39
   // or award P166 containing "Doctor of the Church"), so it doesn't depend on a
   // single hard-coded QID. The schema is permissive (name + citations); the
@@ -954,7 +989,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       name: label,
     };
   },
-  async map(row) {
+  async map(row, ctx) {
     const entity = bindingValue(row, "d");
     const label = bindingValue(row, "label");
     if (!entity) return reject("missing_required_field", "d");
@@ -966,7 +1001,7 @@ LIMIT ${limit} OFFSET ${offset}`,
     let summary: string | undefined;
     const article = bindingValue(row, "art");
     if (article) {
-      const s = await fetchSummaryForArticleUrl(article);
+      const s = await fetchSummaryForArticleUrl(article, { ledger: ctx.reads });
       if (s) {
         summary = s.extract;
         if (!citations.includes(s.url)) citations.push(s.url);
@@ -998,6 +1033,10 @@ const riteIngestor: StructuredIngestor = {
   contentType: "RITE",
   id: "wikidata-rites",
   authorityLevel: "TRUSTED_PUBLISHER",
+  // The rite registry is curated (rites, uses and the Churches sui iuris), and
+  // `riteCoreSlug` only lines up the labels it was written for: an unmatched
+  // rite is held for curation, never published (see the field).
+  curatedSet: true,
   // The recognized Catholic rites + the Eastern Catholic Churches sui iuris — a
   // fixed, factual, low-sensitivity set Wikidata covers well. The RITE schema is
   // permissive (name + citations; description optional), so a cited Wikipedia
@@ -1032,7 +1071,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       name: label,
     };
   },
-  async map(row) {
+  async map(row, ctx) {
     const entity = bindingValue(row, "r");
     const label = bindingValue(row, "label");
     if (!entity) return reject("missing_required_field", "r");
@@ -1043,7 +1082,7 @@ LIMIT ${limit} OFFSET ${offset}`,
     // only a name and no sourced description isn't publishable quality.
     const article = bindingValue(row, "art");
     if (!article) return reject("no_wikipedia_article", label);
-    const summary = await fetchSummaryForArticleUrl(article);
+    const summary = await fetchSummaryForArticleUrl(article, { ledger: ctx.reads });
     if (!summary) return reject("wikipedia_fetch_failed", article);
     if (summary.extract.length < 80) {
       return reject("description_too_short", `${article} (${summary.extract.length} chars)`);
@@ -1134,11 +1173,13 @@ export function leadText(text: string, maxChars: number): string {
  * kept confusing: an entity with NO source URL at all (`no_source_url` — a
  * Wikidata coverage gap the ingest can do nothing about) versus sources that
  * were read but were too thin (`narrative_too_short` — which, if it dominates,
- * usually means the extractor or the threshold is the problem).
+ * usually means the extractor or the threshold is the problem). A source that
+ * could not be read at all (timeout, 429, 5xx) is recorded in `opts.reads`,
+ * and `mapSourceRow` reports the resulting rejection as `source_read_failed`.
  */
 async function resolveSourcedNarrative(
   row: SparqlBinding,
-  opts: { minChars?: number } = {},
+  opts: { minChars?: number; reads?: SourceReadLedger } = {},
 ): Promise<SourcedNarrative | MapRejection> {
   const minChars = opts.minChars ?? 120;
   const site = validUrl(bindingValue(row, "site"));
@@ -1151,7 +1192,7 @@ async function resolveSourcedNarrative(
   let text: string | null = null;
   let sourceUrl = "";
   for (const url of [site, desc].filter((u): u is string => Boolean(u))) {
-    const excerpt = await fetchDocumentExcerpt(url).catch(() => null);
+    const excerpt = await fetchDocumentExcerpt(url, { ledger: opts.reads }).catch(() => null);
     if (excerpt && excerpt.trim().length >= minChars) {
       text = excerpt.trim();
       sourceUrl = url;
@@ -1163,7 +1204,7 @@ async function resolveSourcedNarrative(
   //    (when present) so the record carries an independent cross-reference.
   let wikiUrl: string | null = null;
   if (art) {
-    const summary = await fetchSummaryForArticleUrl(art).catch(() => null);
+    const summary = await fetchSummaryForArticleUrl(art, { ledger: opts.reads }).catch(() => null);
     if (summary) {
       wikiUrl = validUrl(summary.url) ?? validUrl(art);
       if (!text && summary.extract.trim().length >= minChars) {
@@ -1257,7 +1298,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       name: label,
     };
   },
-  async map(row) {
+  async map(row, ctx) {
     const entity = bindingValue(row, "d");
     const label = bindingValue(row, "label");
     if (!entity) return reject("missing_required_field", "d");
@@ -1273,7 +1314,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       return reject("owned_by_other_ingestor", `MARIAN_TITLE owns "${label}"`);
     }
 
-    const narrative = await resolveSourcedNarrative(row);
+    const narrative = await resolveSourcedNarrative(row, { reads: ctx.reads });
     if (isRejection(narrative)) return narrative;
 
     const slug = slugify(label);
@@ -1337,14 +1378,14 @@ LIMIT ${limit} OFFSET ${offset}`,
       name: label,
     };
   },
-  async map(row) {
+  async map(row, ctx) {
     const entity = bindingValue(row, "m");
     const label = bindingValue(row, "label");
     if (!entity) return reject("missing_required_field", "m");
     if (!label) return reject("missing_required_field", "label");
     if (/^Q\d+$/.test(label)) return reject("no_english_label", label);
 
-    const narrative = await resolveSourcedNarrative(row);
+    const narrative = await resolveSourcedNarrative(row, { reads: ctx.reads });
     if (isRejection(narrative)) return narrative;
 
     const slug = slugify(label);
@@ -1533,7 +1574,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       name: label,
     };
   },
-  async map(row) {
+  async map(row, ctx) {
     const entity = bindingValue(row, "p");
     const label = bindingValue(row, "label");
     if (!entity) return reject("missing_required_field", "p");
@@ -1541,7 +1582,7 @@ LIMIT ${limit} OFFSET ${offset}`,
     if (/^Q\d+$/.test(label)) return reject("no_english_label", label);
 
     // summary + instructions both require ≥50 chars, so demand a fuller source.
-    const narrative = await resolveSourcedNarrative(row, { minChars: 140 });
+    const narrative = await resolveSourcedNarrative(row, { minChars: 140, reads: ctx.reads });
     if (isRejection(narrative)) return narrative;
 
     // Accuracy guard: the generic "spiritual practice" class contains other

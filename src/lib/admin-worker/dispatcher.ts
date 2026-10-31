@@ -874,6 +874,11 @@ async function runSourceFetchRead(
   if (suppressedPrefixes.size > 0) {
     await retireSuppressedCandidates(prisma, passId, suppressedPrefixes);
   }
+  // Junk URL shapes (Cloudflare challenge endpoints, CMS endpoints, login /
+  // cart / search pages) are no longer enqueued; this retires the ones queued
+  // before that filter existed. Throttled inside, fail-open.
+  const { retireJunkShapedCandidates } = await import("./candidate-url-hygiene");
+  await retireJunkShapedCandidates(prisma, { passId }).catch(() => undefined);
   const notSuppressed =
     suppressedPrefixes.size > 0
       ? {

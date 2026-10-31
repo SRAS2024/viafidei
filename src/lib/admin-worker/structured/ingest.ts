@@ -19,6 +19,10 @@
  *     slug / name) BEFORE any Wikipedia fetch, and a page that is entirely live
  *     is skipped straight to the next page, so a re-sweep costs one SPARQL call
  *     per page and no Wikipedia traffic;
+ *   - an entity rejected for a reason that describes IT (its article, its
+ *     status, its type) is remembered per QID and treated like a live row until
+ *     its backoff expires (`reject-memory.ts`), so a re-sweep does not re-map
+ *     the same rejections;
  *   - the same memory row accumulates success/failure counts — a learning
  *     signal the worker uses to favour the productive ingestors.
  *
@@ -37,6 +41,7 @@ import { runPublishOrchestrator } from "../publish-orchestrator";
 import { writeAdminWorkerLog } from "../logs";
 import { lastSparqlFailure, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
 import { structuredNetworkEnabled } from "./http";
+import { mapSourceRow } from "./map-row";
 import { fetchSourcePage } from "./source-page";
 import {
   formatRejections,
@@ -49,6 +54,12 @@ import {
   type RejectionCode,
   type RejectionHistogram,
 } from "./reject";
+import {
+  pruneRejectionMemos,
+  readRejectionMemos,
+  recordRejectionOutcomes,
+  type RejectionMemo,
+} from "./reject-memory";
 import { persistSourceCooldown, readSourceCooldownMs } from "./source-cooldown";
 import {
   STRUCTURED_INGESTORS,
@@ -145,6 +156,13 @@ export interface StructuredIngestResult {
   discoveredSources: number;
   /** Pages of entirely-live rows skipped without any Wikipedia traffic. */
   pagesSkipped: number;
+  /**
+   * Rows NOT mapped because the entity was rejected on an earlier sweep and its
+   * backoff has not expired (see reject-memory.ts) — counted like live rows.
+   */
+  rejectionsDeferred: number;
+  /** Rejections written to the per-entity memory this pass. */
+  rejectionsRemembered: number;
   /** True when the source is fully ingested (nothing new produced this pass). */
   exhausted: boolean;
   /** True when the pass was skipped because the source is cooling down. */
@@ -214,6 +232,12 @@ interface CursorState {
    * second page for the same episode; cleared as soon as a page succeeds.
    */
   escalatedAt: number | null;
+  /**
+   * Epoch ms of the last run that published at least one record — what tells
+   * the major-goal campaign this type has a productive structured channel (see
+   * `productiveStructuredTypes`). Stamped by `writeCursor`.
+   */
+  lastPublishedAt: number | null;
 }
 
 function cursorKey(id: string): string {
@@ -231,6 +255,7 @@ function parseCursor(value: unknown): CursorState {
     exhaustedUntil: num(v.exhaustedUntil),
     failures: Math.max(0, num(v.failures) ?? 0),
     escalatedAt: num(v.escalatedAt),
+    lastPublishedAt: num(v.lastPublishedAt),
   };
 }
 
@@ -267,6 +292,7 @@ async function writeCursor(
     exhaustedUntil: next.exhaustedUntil,
     failures: next.failures,
     escalatedAt: next.escalatedAt,
+    lastPublishedAt: counters.published > 0 ? Date.now() : next.lastPublishedAt,
   };
   await prisma.adminWorkerMemory
     .upsert({
@@ -287,6 +313,43 @@ async function writeCursor(
       },
     })
     .catch(() => undefined);
+}
+
+/**
+ * How recently an ingestor must have published for its type to count as having
+ * a productive structured channel. Longer than RESWEEP_INTERVAL_MS, so the rest
+ * after a productive full sweep does not flip the answer back and forth.
+ */
+export const STRUCTURED_PRODUCTIVE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The content types whose structured (Wikidata) ingestor published something
+ * within STRUCTURED_PRODUCTIVE_WINDOW_MS — i.e. a channel that is closing the
+ * gap on its own, so a web campaign on that type is mostly wasted effort. One
+ * read of the cursor rows; fail-open to "none" (no type gets discounted).
+ */
+export async function productiveStructuredTypes(
+  prisma: PrismaClient,
+  nowMs: number = Date.now(),
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  try {
+    const rows = await prisma.adminWorkerMemory.findMany({
+      where: {
+        memoryType: "GENERIC",
+        memoryKey: { in: STRUCTURED_INGESTORS.map((i) => cursorKey(i.id)) },
+      },
+      select: { memoryKey: true, memoryValue: true },
+    });
+    const byKey = new Map(rows.map((r) => [r.memoryKey, parseCursor(r.memoryValue)]));
+    for (const ing of STRUCTURED_INGESTORS) {
+      const at = byKey.get(cursorKey(ing.id))?.lastPublishedAt;
+      if (at != null && nowMs - at < STRUCTURED_PRODUCTIVE_WINDOW_MS) out.add(ing.contentType);
+    }
+  } catch {
+    // fail-open: no channel discount
+  }
+  return out;
 }
 
 /** The display name an entry should dedup on (title / canonicalName / slug). */
@@ -314,6 +377,24 @@ function entryQid(entry: CuratedEntry): string | undefined {
 }
 
 /**
+ * Maintenance floor: an ingestor that has not run for this long is picked
+ * ahead of the gap ranking (env `ADMIN_WORKER_STRUCTURED_FLOOR_MS`). Without
+ * it, a type at or over its target scores 0 and is never picked while any
+ * other ingestor has a gap (RITE, MARIAN_TITLE, SPIRITUAL_PRACTICE and DOCTOR
+ * are at or over target while SAINT's gap is in the thousands), although open
+ * types are meant to keep growing past target and a newly elected pope must
+ * still arrive. The curated-set types (DOCTOR, RITE) are re-checked too, but a
+ * run of theirs publishes nothing: an entity it cannot match to a curated row
+ * is held for curation (`StructuredIngestor.curatedSet`). One run per floor
+ * interval per ingestor costs a handful of passes a day next to SAINT's
+ * hundreds.
+ */
+export const INGESTOR_MAINTENANCE_FLOOR_MS = envInt(
+  "ADMIN_WORKER_STRUCTURED_FLOOR_MS",
+  6 * 60 * 60 * 1000,
+);
+
+/**
  * Pick the ingestor whose content type is furthest from its goal (by gap
  * fraction), so the worker focuses where the headroom actually is — but DAMPENED
  * by recent productivity so it can never get starved. An ingestor that keeps
@@ -325,11 +406,22 @@ function entryQid(entry: CuratedEntry): string | undefined {
  * ingestors. The dampening decays as
  * soon as an ingestor produces again (its streak resets to 0). An ingestor
  * resting after a full sweep (`exhaustedUntil` in the future) is not picked.
+ *
+ * Every ingestor also has a maintenance floor: one that has not run for
+ * INGESTOR_MAINTENANCE_FLOOR_MS (its cursor row's `lastUsedAt`, stamped by every
+ * run, failed ones included) goes first, whatever its gap, so a type at its
+ * target is still swept for new entities. Overdue ingestors are ordered among
+ * themselves by the same score, and the rest by the gap ranking above.
  */
 async function pickIngestor(prisma: PrismaClient): Promise<StructuredIngestor | undefined> {
   if (STRUCTURED_INGESTORS.length <= 1) return STRUCTURED_INGESTORS[0];
   const now = Date.now();
-  const scored: Array<{ ing: StructuredIngestor; score: number; lastUsed: number }> = [];
+  const scored: Array<{
+    ing: StructuredIngestor;
+    score: number;
+    lastUsed: number;
+    overdue: boolean;
+  }> = [];
   for (const ing of STRUCTURED_INGESTORS) {
     const live = await prisma.publishedContent
       .count({ where: { isPublished: true, contentType: ing.contentType } })
@@ -354,9 +446,12 @@ async function pickIngestor(prisma: PrismaClient): Promise<StructuredIngestor | 
     // full gap score; one that has produced nothing for N passes is divided by
     // N + 1, so it can't monopolise the worker just because its goal gap is big.
     const score = gap / (1 + Math.max(0, state.zeroStreak));
-    scored.push({ ing, score, lastUsed });
+    const overdue = now - lastUsed >= INGESTOR_MAINTENANCE_FLOOR_MS;
+    scored.push({ ing, score, lastUsed, overdue });
   }
-  scored.sort((a, b) => b.score - a.score || a.lastUsed - b.lastUsed);
+  scored.sort(
+    (a, b) => Number(b.overdue) - Number(a.overdue) || b.score - a.score || a.lastUsed - b.lastUsed,
+  );
   return scored[0]?.ing;
 }
 
@@ -554,6 +649,8 @@ export async function runStructuredIngest(
     skipSamples: [],
     discoveredSources: 0,
     pagesSkipped: 0,
+    rejectionsDeferred: 0,
+    rejectionsRemembered: 0,
     exhausted: true,
     sourceCooling: false,
     sourceFailure: null,
@@ -605,6 +702,10 @@ export async function runStructuredIngest(
   let rows: SparqlBinding[] | null = null;
   let pageSize = 0;
   let candidates: SparqlBinding[] = [];
+  // The QID of each candidate (from the cheap identity), and the rejection
+  // memos read for them — what the outcome bookkeeping below extends or clears.
+  let candidateQids: Array<string | undefined> = [];
+  let priorRejections: ReadonlyMap<string, RejectionMemo> = new Map();
   for (let page = 0; page < MAX_SKIP_PAGES_PER_PASS; page += 1) {
     pageStart = offset;
     const fetched = await fetchSourcePage(ingestor, batch, offset);
@@ -612,7 +713,7 @@ export async function runStructuredIngest(
     if (rows === null) break;
     pageSize = fetched.size;
     out.fetched += rows.length;
-    const toMap: SparqlBinding[] = [];
+    const toMap: Array<{ row: SparqlBinding; qid?: string }> = [];
     for (const row of rows) {
       const id = identify(ingestor, row);
       if (id && liveMatch(live, id) === "live") {
@@ -621,12 +722,30 @@ export async function runStructuredIngest(
         // official website); it costs no Wikipedia traffic.
         out.discoveredSources += await enqueueDiscoveredSources(prisma, ingestor, row);
       } else {
-        toMap.push(row);
+        toMap.push({ row, qid: id?.qid });
       }
     }
+    // An entity rejected on an earlier sweep waits out its backoff exactly like
+    // a live row: no mapping, no Wikipedia fetch — and a page left with nothing
+    // else is skipped like an entirely-live one.
+    const memos = await readRejectionMemos(
+      prisma,
+      ingestor.id,
+      toMap.flatMap((t) => (t.qid ? [t.qid] : [])),
+    );
+    const due = toMap.filter((t) => {
+      const memo = t.qid ? memos.get(t.qid) : undefined;
+      if (memo && memo.nextAttemptAt > now) {
+        out.rejectionsDeferred += 1;
+        return false;
+      }
+      return true;
+    });
     offset += pageSize;
-    if (toMap.length > 0 || pageSize < batch) {
-      candidates = toMap;
+    if (due.length > 0 || pageSize < batch) {
+      candidates = due.map((t) => t.row);
+      candidateQids = due.map((t) => t.qid);
+      priorRejections = memos;
       break;
     }
     out.pagesSkipped += 1;
@@ -712,17 +831,13 @@ export async function runStructuredIngest(
   // Downstream dedup + publish stay strictly sequential (below).
   // A mapper answers `MapResult` — an entry, or an ATTRIBUTED rejection. A
   // thrown mapper is itself a reason (`map_threw`), so even the fail-open path
-  // is counted instead of vanishing.
+  // is counted instead of vanishing, and a rejection reached after a source
+  // read that did not complete is `source_read_failed` (map-row.ts), which the
+  // rejection memory never defers.
   const mapped: MapResult[] = new Array<MapResult>(candidates.length).fill(reject("map_threw"));
   for (let start = 0; start < candidates.length; start += MAP_CONCURRENCY) {
     const slice = candidates.slice(start, start + MAP_CONCURRENCY);
-    const results = await Promise.all(
-      slice.map((row) =>
-        ingestor
-          .map(row, {} as Record<string, never>)
-          .catch((err) => reject("map_threw", err instanceof Error ? err.message : String(err))),
-      ),
-    );
+    const results = await Promise.all(slice.map((row) => mapSourceRow(ingestor, row)));
     results.forEach((e, i) => {
       mapped[start + i] = e;
     });
@@ -741,6 +856,9 @@ export async function runStructuredIngest(
   };
 
   // ── Dedup + publish ───────────────────────────────────────────────────────
+  // Per-entity outcomes for the rejection memory: what to remember, what to clear.
+  const rejectedEntities: Array<{ qid: string; code: RejectionCode; detail?: string }> = [];
+  const clearedEntities: string[] = [];
   const seenSlugs = new Set<string>();
   const seenNames = new Map<string, string | undefined>();
   let leftovers = false;
@@ -754,13 +872,16 @@ export async function runStructuredIngest(
     }
     const row = candidates[idx];
     const result = mapped[idx];
+    const rowQid = candidateQids[idx];
     if (isRejection(result)) {
       out.skipped += 1;
       note(result.code, result.detail);
+      if (rowQid) rejectedEntities.push({ qid: rowQid, code: result.code, detail: result.detail });
       continue;
     }
     let entry: CuratedEntry = result;
     const qid = entryQid(entry);
+    const memoQid = rowQid ?? qid;
     const name = normalizeName(entryDisplayName(entry));
 
     // Same-batch dedup: the same entity twice → skip; a DIFFERENT entity with
@@ -787,14 +908,29 @@ export async function runStructuredIngest(
     const match = liveMatch(live, { qid, slug: entry.slug, name: entryDisplayName(entry) });
     if (match === "live") {
       out.alreadyPublished += 1;
+      if (memoQid) clearedEntities.push(memoQid);
       continue;
     }
     if (match === "collision" && qid) {
       entry = withSlug(entry, disambiguatedSlug(entry.slug, qid));
       if (live.bySlug.has(entry.slug)) {
         out.alreadyPublished += 1;
+        if (memoQid) clearedEntities.push(memoQid);
         continue;
       }
+    }
+    // A curated-set type (DOCTOR, RITE) never grows from Wikidata: an entity no
+    // live row matched is far more often a curated member under a different
+    // label than a new member, so it is held — counted, sampled in the log and
+    // remembered per QID — for a curator to add, never published.
+    if (ingestor.curatedSet) {
+      out.skipped += 1;
+      const held = `${entryDisplayName(entry)} (${qid ?? "no QID"})`;
+      note("curated_set_unmatched", held);
+      if (memoQid) {
+        rejectedEntities.push({ qid: memoQid, code: "curated_set_unmatched", detail: held });
+      }
+      continue;
     }
     try {
       const r = await publishStructuredEntry(prisma, entry);
@@ -802,10 +938,13 @@ export async function runStructuredIngest(
         out.published += 1;
         live.bySlug.set(entry.slug, qid ? wikidataEntityUrl(qid) : null);
         if (qid) live.refs.add(wikidataEntityUrl(qid));
+        if (memoQid) clearedEntities.push(memoQid);
       } else {
         out.skipped += 1;
-        note(r.code ?? "publish_rejected", `${entry.slug}: ${r.reason ?? ""}`);
+        const code = r.code ?? "publish_rejected";
+        note(code, `${entry.slug}: ${r.reason ?? ""}`);
         if (r.reason) out.errors.push(`${entry.contentType}/${entry.slug}: ${r.reason}`);
+        if (memoQid) rejectedEntities.push({ qid: memoQid, code, detail: r.reason });
       }
     } catch (err) {
       out.failed += 1;
@@ -815,8 +954,23 @@ export async function runStructuredIngest(
     }
   }
 
+  // ── Remember this pass's rejections, clear the entities that published ────
+  out.rejectionsRemembered = await recordRejectionOutcomes(prisma, ingestor.id, {
+    rejected: rejectedEntities,
+    cleared: clearedEntities,
+    prior: priorRejections,
+    nowMs: now,
+  });
+  await pruneRejectionMemos(prisma, { nowMs: now });
+
   // ── Advance the cursor ────────────────────────────────────────────────────
-  const barren = out.fetched > 0 && out.alreadyPublished === 0 && out.published === 0;
+  // A deferred rejection is a KNOWN outcome, like a live row: a page of them is
+  // not barren, so walking past remembered rejections never demotes the ingestor.
+  const barren =
+    out.fetched > 0 &&
+    out.alreadyPublished === 0 &&
+    out.rejectionsDeferred === 0 &&
+    out.published === 0;
   const zeroStreak = out.published > 0 ? 0 : barren ? state.zeroStreak + 1 : state.zeroStreak;
   let next: CursorState;
   // A page came back: the source is usable again — clear the consecutive-failure
@@ -833,6 +987,7 @@ export async function runStructuredIngest(
       exhaustedUntil: now + RESWEEP_INTERVAL_MS,
       failures: 0,
       escalatedAt: null,
+      lastPublishedAt: state.lastPublishedAt,
     };
   } else {
     next = { ...state, offset, zeroStreak, failures: 0, escalatedAt: null };
@@ -883,7 +1038,7 @@ export async function runStructuredIngest(
       category: "CONTENT_BUILD",
       severity: "INFO",
       eventName: "structured_knowledge_ingest",
-      message: `Structured-knowledge ingest (${ingestor.id}): published ${out.published} new ${ingestor.contentType} record(s) from Wikidata + Wikipedia (fetched ${out.fetched}, ${out.alreadyPublished} already live, ${out.skipped} skipped, ${out.pagesSkipped} live page(s) skipped).${reasons ? ` Dropped ${rejected}: ${reasons}.` : ""}`,
+      message: `Structured-knowledge ingest (${ingestor.id}): published ${out.published} new ${ingestor.contentType} record(s) from Wikidata + Wikipedia (fetched ${out.fetched}, ${out.alreadyPublished} already live, ${out.rejectionsDeferred} known rejection(s) waiting out their backoff, ${out.skipped} skipped, ${out.pagesSkipped} live page(s) skipped).${reasons ? ` Dropped ${rejected}: ${reasons}.` : ""}`,
       safeMetadata: {
         ingestorId: ingestor.id,
         contentType: ingestor.contentType,
@@ -898,6 +1053,8 @@ export async function runStructuredIngest(
         skipSamples: out.skipSamples,
         discoveredSources: out.discoveredSources,
         pagesSkipped: out.pagesSkipped,
+        rejectionsDeferred: out.rejectionsDeferred,
+        rejectionsRemembered: out.rejectionsRemembered,
         nextOffset: next.offset,
         exhaustedUntil: next.exhaustedUntil,
       },

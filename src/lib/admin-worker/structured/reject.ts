@@ -116,6 +116,12 @@ export const REJECTION_CODES = [
   /* ── Orchestration: recorded by ingest.ts, not by a mapper ─────────────── */
   /** The mapper threw; the pass degraded to dropping the row. */
   "map_threw",
+  /**
+   * The mapper rejected the row after one of its source reads did not complete
+   * (no response, timeout, 408/425/429/5xx, network gate closed), so its verdict
+   * — kept in `detail` — may say nothing about the entity (see `map-row.ts`).
+   */
+  "source_read_failed",
   /** The same entity appeared twice on one page and could not be disambiguated. */
   "duplicate_in_page",
   /** The mapped payload failed its content schema at publish time. */
@@ -124,6 +130,12 @@ export const REJECTION_CODES = [
   "publish_rejected",
   /** The publish call threw. */
   "publish_threw",
+  /**
+   * The type's members are its curated set and no live row matched the entity
+   * by QID, slug or name: held for a curator instead of published (see
+   * `StructuredIngestor.curatedSet`).
+   */
+  "curated_set_unmatched",
 ] as const;
 
 /** One of the closed `REJECTION_CODES`. */

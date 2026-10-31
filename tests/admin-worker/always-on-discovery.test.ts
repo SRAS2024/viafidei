@@ -96,4 +96,86 @@ describe("runAlwaysOnDiscovery", () => {
     expect(out.ran).toBe(true);
     expect(vi.mocked(runDiscoveryOrchestrator)).toHaveBeenCalledTimes(1);
   });
+
+  it("leaves the target to the orchestrator when the goals cannot be read", async () => {
+    await runAlwaysOnDiscovery(freshPrisma(), { passId: "p1" });
+    expect(vi.mocked(runDiscoveryOrchestrator)).toHaveBeenCalledWith(expect.anything(), {
+      passId: "p1",
+      contentType: null,
+    });
+  });
+});
+
+describe("runAlwaysOnDiscovery — sweep target rotation", () => {
+  // Production-shaped: SAINT has by far the largest ABSOLUTE web gap, which is
+  // what every sweep used to target; PRAYER and NOVENA can only grow from the
+  // web. PARISH (structured-built) must never be a web sweep target.
+  const goals = [
+    { contentType: "PARISH", gapCount: 199_973, desiredTarget: 200_000, priority: 110 },
+    { contentType: "SAINT", gapCount: 7_203, desiredTarget: 10_000, priority: 20 },
+    { contentType: "PRAYER", gapCount: 752, desiredTarget: 1_000, priority: 10 },
+    { contentType: "NOVENA", gapCount: 69, desiredTarget: 100, priority: 40 },
+  ];
+
+  function goalsPrisma() {
+    const memory = new Map<string, Record<string, unknown>>();
+    return {
+      memory,
+      contentGoal: {
+        // No campaign-sized gap is returned for the campaign's `gte` query, so
+        // this exercises the normal ranking + the lane's own rotation.
+        findMany: async ({ where }: { where?: { gapCount?: { gte?: number } } }) =>
+          where?.gapCount?.gte !== undefined ? [] : goals,
+      },
+      adminWorkerSourceCoverage: { findMany: async () => [] },
+      // The brain has not picked DISCOVERY recently: its rotation would not move.
+      adminWorkerDecision: { findMany: async () => [] },
+      adminWorkerPackageArtifact: { count: async () => 0 },
+      adminWorkerMemory: {
+        findUnique: async ({
+          where,
+        }: {
+          where: { memoryType_memoryKey: { memoryKey: string } };
+        }) => {
+          const v = memory.get(where.memoryType_memoryKey.memoryKey);
+          return v ? { memoryValue: v, lastUsedAt: null } : null;
+        },
+        findMany: async () => [],
+        upsert: async ({
+          where,
+          update,
+        }: {
+          where: { memoryType_memoryKey: { memoryKey: string } };
+          update: { memoryValue?: Record<string, unknown> };
+        }) => {
+          if (update.memoryValue)
+            memory.set(where.memoryType_memoryKey.memoryKey, update.memoryValue);
+          return {};
+        },
+      },
+    } as unknown as PrismaClient & { memory: Map<string, Record<string, unknown>> };
+  }
+
+  it("rotates across the web-growable types instead of pinning the largest gap", async () => {
+    const prisma = goalsPrisma();
+    const targets: Array<string | null | undefined> = [];
+    for (let i = 0; i < 4; i += 1) {
+      await runAlwaysOnDiscovery(prisma, { passId: `p${i}`, force: true });
+      targets.push(vi.mocked(runDiscoveryOrchestrator).mock.calls[i][1]?.contentType);
+    }
+    expect(targets).toEqual(["PRAYER", "SAINT", "NOVENA", "PRAYER"]);
+    expect(prisma.memory.get("always-on-discovery-lastrun")?.recentTargets).toEqual([
+      "PRAYER",
+      "NOVENA",
+      "SAINT",
+      "PRAYER",
+    ]);
+  });
+
+  it("an explicit target is used as given and leaves the rotation alone", async () => {
+    const prisma = goalsPrisma();
+    await runAlwaysOnDiscovery(prisma, { passId: "p1", force: true, contentType: "APPARITION" });
+    expect(vi.mocked(runDiscoveryOrchestrator).mock.calls[0][1]?.contentType).toBe("APPARITION");
+    expect(prisma.memory.size).toBe(0);
+  });
 });

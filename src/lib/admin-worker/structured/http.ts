@@ -22,15 +22,57 @@ export function structuredNetworkEnabled(): boolean {
 }
 
 /**
+ * The source reads that did NOT complete while one entity was being mapped.
+ *
+ * Every fetch helper here fails open — null, never a throw — so a caller cannot
+ * tell "this article has no infobox" from "the infobox fetch timed out", and a
+ * mapper that reads the first as a fact about the entity reads the second the
+ * same way. A caller that needs the difference passes a ledger: each read that
+ * ended without an answer about the resource (see `isTransientFetchFailure`)
+ * appends its URL. Bounded, so a mapper that reads many sources stays small.
+ */
+export interface SourceReadLedger {
+  unread: string[];
+}
+
+/** URLs kept per ledger; the first few are enough to say which read failed. */
+const LEDGER_MAX_URLS = 4;
+
+/**
+ * True when a GET ended without an answer about the resource: no response at
+ * all (network error, our own timeout), the network gate closed, or a
+ * throttle / server error (408, 425, 429, 5xx) that a later attempt can clear.
+ * A 404, 410 or any other 4xx IS an answer — the resource is gone or refused
+ * to us — and is not counted.
+ */
+export function isTransientFetchFailure(r: {
+  status: number | null;
+  aborted: boolean;
+  disabled: boolean;
+}): boolean {
+  if (r.disabled || r.aborted || r.status === null) return true;
+  return r.status === 408 || r.status === 425 || r.status === 429 || r.status >= 500;
+}
+
+/** Record a read that did not complete (no-op without a ledger; bounded). */
+export function noteUnreadSource(ledger: SourceReadLedger | undefined, url: string): void {
+  if (ledger && ledger.unread.length < LEDGER_MAX_URLS) ledger.unread.push(url);
+}
+
+/**
  * GET a URL and return the raw text body. Returns null on any failure
  * (network, non-2xx, timeout, non-text content) and when network is disabled.
- * Never throws. Bounded to `maxBytes` (default 2 MB) by truncation.
+ * Never throws. Bounded to `maxBytes` (default 2 MB) by truncation. A read that
+ * failed transiently is recorded in `ledger` when one is passed.
  */
 export async function fetchText(
   url: string,
-  opts: { maxBytes?: number; timeoutMs?: number } = {},
+  opts: { maxBytes?: number; timeoutMs?: number; ledger?: SourceReadLedger } = {},
 ): Promise<string | null> {
-  if (!structuredNetworkEnabled()) return null;
+  if (!structuredNetworkEnabled()) {
+    noteUnreadSource(opts.ledger, url);
+    return null;
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? TIMEOUT_MS);
   try {
@@ -42,13 +84,22 @@ export async function fetchText(
       redirect: "follow",
       signal: controller.signal,
     });
-    if (!res.ok) return null;
-    const contentType = res.headers.get("content-type") ?? "";
+    if (!res.ok) {
+      const status = typeof res.status === "number" ? res.status : null;
+      if (isTransientFetchFailure({ status, aborted: false, disabled: false })) {
+        noteUnreadSource(opts.ledger, url);
+      }
+      return null;
+    }
+    const contentType =
+      (typeof res.headers?.get === "function" ? res.headers.get("content-type") : null) ?? "";
     if (contentType && !/text|html|xml|json/i.test(contentType)) return null;
     const body = await res.text();
     const max = opts.maxBytes ?? 2_000_000;
     return body.length > max ? body.slice(0, max) : body;
   } catch {
+    // No response, our own timeout, or a body that never finished arriving.
+    noteUnreadSource(opts.ledger, url);
     return null;
   } finally {
     clearTimeout(timer);
@@ -126,12 +177,15 @@ export async function fetchJsonDetailed<T = unknown>(
 
 /**
  * GET a URL and parse the JSON body. Returns null on any failure (network,
- * non-2xx, timeout, parse) and when network is disabled. Never throws.
+ * non-2xx, timeout, parse) and when network is disabled. Never throws. A read
+ * that failed transiently is recorded in `ledger` when one is passed.
  */
 export async function fetchJson<T = unknown>(
   url: string,
-  opts: { accept?: string; timeoutMs?: number } = {},
+  opts: { accept?: string; timeoutMs?: number; ledger?: SourceReadLedger } = {},
 ): Promise<T | null> {
   const r = await fetchJsonDetailed<T>(url, opts);
-  return r.ok ? r.data : null;
+  if (r.ok) return r.data;
+  if (isTransientFetchFailure(r)) noteUnreadSource(opts.ledger, url);
+  return null;
 }
