@@ -44,6 +44,8 @@ const DIRECTORY_POPULAR_PIETY =
   "https://www.vatican.va/roman_curia/congregations/ccdds/documents/rc_con_ccdds_doc_20020513_vers-direttorio_en.html";
 const LITANY_OF_LORETO =
   "https://www.vatican.va/special/rosary/documents/litanie-lauretane_en.html";
+const DDF_ROSA_MYSTICA_LETTER =
+  "https://www.vatican.va/roman_curia/congregations/cfaith/documents/rc_ddf_doc_20240705_lettera-devozione-mariarosamistica_en.html";
 const ECCLESIA_IN_AMERICA =
   "https://www.vatican.va/content/john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_22011999_ecclesia-in-america.html";
 const ECCLESIA_IN_ASIA =
@@ -172,7 +174,7 @@ export const marianTitleGroupOne: CuratedEntry[] = [
     summary:
       "An invocation of the Litany of Loreto that praises Mary under the image of the rose: the flower of the enclosed garden, beautiful, fragrant and, in the medieval reading, without thorns.",
     origin:
-      "Rosa mystica belongs to the Litany of Loreto as the Church prays it, and its roots lie in the medieval hymns and sermons that read the Song of Songs of Mary — the garden enclosed, the flower of the field — and in the tradition that called the thorns of the rose an image of sin from which she alone was preserved. The same imagery gave the Rosary its name, the rosarium or rose garden of prayers offered to her. The title is sometimes attached in popular usage to private claims the Church has not approved; this entry follows only the Litany's own use of it.",
+      "Rosa mystica belongs to the Litany of Loreto as the Church prays it, and its roots lie in the medieval hymns and sermons that read the Song of Songs of Mary — the garden enclosed, the flower of the field — and in the tradition that called the thorns of the rose an image of sin from which she alone was preserved. The same imagery gave the Rosary its name, the rosarium or rose garden of prayers offered to her. The title is also the name under which Mary is honoured at Montichiari-Fontanelle, near Brescia, in the devotion that grew from the experiences reported by Pierina Gilli; in 2024, after a favourable letter from the Dicastery for the Doctrine of the Faith, the Bishop of Brescia granted that devotion a nihil obstat. This entry follows the Litany's own use of the title.",
     region: "Universal Church",
     associatedPrayers: ["litany-of-the-blessed-virgin-mary", "hail-mary", "salve-regina"],
     iconographyNotes:
@@ -180,7 +182,7 @@ export const marianTitleGroupOne: CuratedEntry[] = [
     aliases: ["Rosa Mystica", "Mystic Rose"],
     theologicalSignificance:
       "This is a title of praise rather than a distinct doctrine, and Marialis Cultus asks that such poetic titles be read for what they teach. What the rose teaches is her holiness: a beauty that is entirely God's gift and entirely fruitful, since the flower exists for the fruit. The invocation belongs with the Immaculate Conception on one side and with the Church's own vocation to be holy and without blemish on the other.",
-    citations: [LITANY_OF_LORETO, MARIALIS_CULTUS, LUMEN_GENTIUM],
+    citations: [LITANY_OF_LORETO, MARIALIS_CULTUS, LUMEN_GENTIUM, DDF_ROSA_MYSTICA_LETTER],
   }),
   marianTitle({
     slug: "gate-of-heaven",

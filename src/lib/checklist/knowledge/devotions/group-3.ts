@@ -62,6 +62,7 @@ const CATHOLIC_COMPANY_GREGORIAN_MASSES =
   "https://www.catholiccompany.com/getfed/what-are-gregorian-masses/";
 const ALETEIA_GREGORIAN_MASSES =
   "https://aleteia.org/2018/11/07/what-are-gregorian-masses-for-the-dead";
+const EWTN_GREGORIAN_MASSES = "https://www.ewtn.com/catholicism/library/gregorian-masses-4473";
 const WIKIPEDIA_GREGORIAN_MASSES = "https://en.wikipedia.org/wiki/Gregorian_Masses";
 const OP_ANGELIC_WARFARE = "https://www.op.org/angelic-warfare-confraternity/";
 const ANGELIC_WARFARE_HISTORY = "https://angelicwarfareconfraternity.org/history/";
@@ -123,6 +124,7 @@ const THREE_HOURS_CITATIONS = [MESIA_THREE_HOURS_ARCHIVE, WIKIPEDIA_THREE_HOURS]
 const GREGORIAN_MASSES_CITATIONS = [
   CATHOLIC_COMPANY_GREGORIAN_MASSES,
   ALETEIA_GREGORIAN_MASSES,
+  EWTN_GREGORIAN_MASSES,
   WIKIPEDIA_GREGORIAN_MASSES,
 ];
 const ANGELIC_WARFARE_CITATIONS = [OP_ANGELIC_WARFARE, ANGELIC_WARFARE_HISTORY];
@@ -206,7 +208,7 @@ export const devotionGroupThree: CuratedEntry[] = [
       devotionType: "christological",
       subtype: "Christmas",
       practiceInstructions:
-        "Set up the crib during Advent, leaving the manger empty until Christmas. Let the children help to arrange the stable, the animals and the shepherds, and include ordinary working people and the poor among the figures, as Pope Francis suggests. On Christmas night place the figure of the Child in the manger with a short prayer or a reading of Luke 2:1-20. Move the Magi closer through the season and set them before the Child on the Epiphany, reading Matthew 2:1-12. Gather the family at the crib for a moment of prayer during Christmastide, and keep it in place through the Christmas season, which ends with the feast of the Baptism of the Lord.",
+        "Make the crib a place of family prayer. On Christmas Eve, when the crib is completed in the home, gather before it to read Saint Luke's account of the birth of Christ (Luke 2:1-20), sing Christmas carols, and offer prayers of petition and praise, especially the prayers of the children, as the Directory on Popular Piety suggests. Through the Christmas season come back to the crib for a short moment of prayer or to read the Gospel accounts of the Lord's birth, and at the Epiphany read the coming of the Magi (Matthew 2:1-12).",
       relatedPrayers: ["gloria-in-excelsis", "hail-mary", "our-father"],
       relatedSaints: ["saint-francis-of-assisi", "saint-joseph"],
       citations: CHRISTMAS_CRIB_CITATIONS,
@@ -328,7 +330,7 @@ export const devotionGroupThree: CuratedEntry[] = [
       devotionType: "general",
       subtype: "prayer for the dead",
       practiceInstructions:
-        "Gregorian Masses can be requested only for the dead, and only for one person at a time. Because the thirty Masses must be offered on consecutive days, and an interrupted series is customarily begun again, a parish priest can rarely accept the request; it is usually made to a monastery, seminary, religious community or mission society that offers them, with the customary offering. While the Masses are being offered, the family can join them by praying daily for the one who has died — the Eternal Rest or the De Profundis — and by going to Mass when they can.",
+        "Gregorian Masses can be requested only for the dead, and only for one person at a time. Because the thirty Masses are offered on consecutive days, a parish priest can rarely accept the request (since 1967 a series interrupted by an unforeseen impediment or for a reasonable cause, such as a funeral or wedding Mass, is completed as soon as possible rather than begun again); it is usually made to a monastery, seminary, religious community or mission society that offers them, with the customary offering. While the Masses are being offered, the family can join them by praying daily for the one who has died — the Eternal Rest or the De Profundis — and by going to Mass when they can.",
       relatedPrayers: ["eternal-rest", "de-profundis", "prayer-for-the-faithful-departed"],
       relatedSaints: ["saint-gregory-the-great"],
       citations: GREGORIAN_MASSES_CITATIONS,
@@ -413,7 +415,7 @@ export const devotionGroupThree: CuratedEntry[] = [
       summary:
         "Catholics bring their pets, livestock and working animals to be blessed, thanking the Creator for the creatures that share and serve human life — traditionally on the feast of Saint Anthony the Abbot, 17 January, and, especially in the United States, on or near the feast of Saint Francis of Assisi, 4 October.",
       background:
-        "A blessing, one of the sacramentals, provided for in the Church's Book of Blessings. Its introduction notes that by the providence of the Creator animals have a place in human life — helping people in their work, supplying food and clothing, and offering companionship — and that the custom of invoking God's blessing on them may be continued, for example on a saint's feast. The rite may take a longer or shorter form, with readings and intercessions or with the prayer of blessing alone, and the animals are sprinkled with holy water. In Rome the blessing has been given on Saint Anthony's day since the Middle Ages and is still held at the Vatican each 17 January, since Anthony, the father of monasticism, is honoured as the protector of animals; the October blessings on the feast of Saint Francis are a later custom, widespread in America.",
+        "A blessing, one of the sacramentals, provided for in the Church's Book of Blessings. Its introduction notes that by the providence of the Creator animals have a place in human life — helping people in their work and supplying food and clothing — and that the custom of invoking God's blessing on them may be continued, for example on a saint's feast. The rite may take a longer or shorter form, with readings and intercessions or with the prayer of blessing alone, and the animals may be sprinkled with holy water. In Rome the blessing has been given on Saint Anthony's day since the Middle Ages and is still held at the Vatican each 17 January, since Anthony, the father of monasticism, is honoured as the protector of animals; the October blessings on the feast of Saint Francis are a later custom, widespread in America.",
       devotionType: "liturgical",
       subtype: "blessing",
       practiceInstructions:
@@ -436,7 +438,7 @@ export const devotionGroupThree: CuratedEntry[] = [
       summary:
         "Lima's greatest devotion is to an image of Christ crucified painted on an adobe wall in the seventeenth century, venerated in the Sanctuary of Las Nazarenas and carried each October through the streets of the city by brotherhoods robed in purple.",
       background:
-        "A popular devotion, and the deepest of Lima's devotions, venerated by millions. The image of the crucified Christ was painted in the mid-seventeenth century by an enslaved man brought from Angola, on an adobe wall that was revered after it withstood the earthquakes that devastated Lima; the original stands over the main altar of the Sanctuary of Las Nazarenas, the church of the Discalced Carmelite Nazarene nuns, and a seventeenth-century copy is carried in the processions. October is kept in Lima as the month of the Lord of Miracles, with Masses almost every hour in the sanctuary and processions on several days. The Brotherhood of bearers and incense-bearers, founded in 1878 and recognised by the Church in 1955, organises the processions under a steward appointed by the Archbishop of Lima. Pope Francis prayed with contemplative nuns at the Shrine of the Lord of Miracles on 21 January 2018 and placed before the Lord of Miracles the people he had met in Peru.",
+        "A popular devotion, and the deepest of Lima's devotions, venerated by millions. The image of the crucified Christ was painted in the mid-seventeenth century by an enslaved man brought from Angola, on an adobe wall that was revered after it withstood the earthquakes that devastated Lima; the original stands over the main altar of the Sanctuary of Las Nazarenas, the church of the Discalced Carmelite Nazarene nuns, and a seventeenth-century copy is carried in the processions. October is kept in Lima as the month of the Lord of Miracles, with Masses almost every hour in the sanctuary and processions on several days. The Brotherhood of bearers and incense-bearers, founded in 1878 and recognised by the Church in 1955, organises the processions under a steward appointed by the Archbishop of Lima. Pope Francis prayed with contemplative nuns at the Shrine of the Lord of Miracles on 21 January 2018 and spoke of it as a shrine visited so often by Peruvians to ask the Lord for his closeness and mercy.",
       devotionType: "christological",
       subtype: "popular devotion",
       practiceInstructions:

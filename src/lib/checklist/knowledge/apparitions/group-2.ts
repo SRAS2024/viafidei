@@ -16,9 +16,10 @@ import type { CuratedEntry } from "../index";
  * - `private_revelation` is used where the Church has approved and fostered the
  *   cult — a bishop's decree authorising worship at the site, a canonical
  *   coronation, a basilica, a patronage, a regional sanctuary — without a
- *   juridical judgement on the apparition itself. The background says exactly
- *   what was approved and by whom, and where a tradition has no contemporary
- *   documentation the entry says that too.
+ *   juridical judgement on the apparition itself that can still be produced.
+ *   The background says exactly what was approved and by whom; where a
+ *   tradition has no contemporary documentation, or an early judgement is known
+ *   only from later accounts (Caravaggio, 1432), the entry says that too.
  *
  * Message highlights summarise neutrally what the cited pages report; no message
  * text is invented, and where nothing reliable is recorded the list is empty.
@@ -64,6 +65,7 @@ const LITMANOVA_CITATIONS = [
   DDF_LITMANOVA_LETTER,
   "https://www.vaticannews.va/en/vatican-city/news/2025-07/ddf-vatican-nihil-obstat-marian-devotion-slovakia-mount-zvir.html",
   "https://www.ewtnnews.com/vatican/vatican-approves-marian-devotion-in-slovakia-but-doesn-t-recognize-apparitions",
+  "https://sita.sk/vatikan-schvalil-verejnu-mariansku-uctu-na-hore-zvir-v-litmanovej-kde-sa-udajne-zjavila-panna-maria/",
   DDF_NORMS_2024,
 ];
 
@@ -89,6 +91,7 @@ const MONTE_BERICO_CITATIONS = [
 ];
 
 const CARAVAGGIO_CITATIONS = [
+  "https://www.diocesidicremona.it/liturgia/wp-content/uploads/sites/8/2025/04/Madonna-Caravaggio-NOTA-STORICA.pdf",
   "https://www.diocesidicremona.it/verso-lanniversario-dellapparizione-a-caravaggio-il-calendario-dei-riti-il-rettore-don-mascaretti-al-servizio-della-misericordia-12-05-2016.html",
   "https://www.avvenire.it/chiesa/chiesa-italiana/caravaggio-proclamato-santuario-regionale-della-lombardia_67363",
   "https://www.miraclehunter.com/marian_apparitions/approved_apparitions/caravaggio/index.html",
@@ -143,6 +146,7 @@ export const apparitionGroupTwo: CuratedEntry[] = [
         "Mary presented as Rosa Mystica and Mother of the Church — a title the Dicastery valued as a safeguard against a merely individual devotion.",
         "The three roses on the Virgin's breast, explained in Pierina Gilli's writings as prayer, sacrifice and penance; the Dicastery cautioned that they are not to be offered as a programme for all believers, since the heart of the Gospel is charity.",
       ],
+      associatedMarianTitleSlug: "mystical-rose",
       officialDocumentUrl: DDF_ROSA_MYSTICA_LETTER,
       citations: MONTICHIARI_CITATIONS,
     },
@@ -168,7 +172,9 @@ export const apparitionGroupTwo: CuratedEntry[] = [
       background:
         "The Dicastery made no judgement on whether the events were supernatural and asked that the bishop's decree say so: the nihil obstat recognises the spiritual fruits of the place and permits the faithful to adhere to it prudently, without obliging anyone to believe. The bishop had reported a spirit of prayer, conversions, some vocations to the priesthood and religious life and works of charity, and no critical or risky elements over the years. The Dicastery added that the decision implies no judgement on the lives of the persons involved, that any further messages are to be made known only after the bishop's discernment, and that devotion at the shrine must avoid improper forms or titles and keep a clear Christological focus. Cosimo Fragomeni became a Franciscan tertiary in 1987; the site was placed under the pastoral care of the diocesan bishop in 2008 and erected as a diocesan sanctuary on 11 February 2016, and it is known locally as the little Lourdes of Calabria.",
       visionaries: ["Cosimo Fragomeni"],
-      messageHighlights: [],
+      messageHighlights: [
+        "Calls to conversion and prayer, and the wish that the place become a great centre of spirituality where people could encounter God's mercy, as Vatican News summarises the messages.",
+      ],
       officialDocumentUrl: DDF_PLACANICA_LETTER,
       citations: PLACANICA_CITATIONS,
     },
@@ -219,10 +225,10 @@ export const apparitionGroupTwo: CuratedEntry[] = [
       subject: "marian",
       yearOfApparition: 1990,
       summary:
-        "Between 1990 and 1995 three children of the Byzantine Catholic village of Litmanová in northern Slovakia — Ivetka Korčáková, Katka Česelková and Mitko Česelka, then aged eleven, twelve and nine — reported apparitions of the Blessed Virgin Mary on Mount Zvir, beginning on 5 August 1990; Mary is venerated there as the Immaculate Purity. On 4 July 2025 the Dicastery for the Doctrine of the Faith accepted the proposal of the Archbishop of Prešov to declare a nihil obstat for the Marian devotion that arose on the mountain.",
+        "Between 1990 and 1995 three children of the Byzantine Catholic village of Litmanová in northern Slovakia — Ivetka Korčáková, Katka Češelková and Mitko Češelka, then aged eleven, twelve and nine — reported apparitions of the Blessed Virgin Mary on Mount Zvir, beginning on 5 August 1990; Mary is venerated there as the Immaculate Purity. On 4 July 2025 the Dicastery for the Doctrine of the Faith accepted the proposal of the Archbishop of Prešov to declare a nihil obstat for the Marian devotion that arose on the mountain.",
       background:
         "The Dicastery states that the nihil obstat does not recognise the supernatural authenticity of the alleged apparitions, though it permits public devotion and assures the faithful that they may approach this spiritual proposal without risk. It points to sincere confessions, conversions and a growing stream of pilgrims, and to the messages' repeated invitations to conversion, inner freedom, joy, simplicity, peace and love of neighbour. It also judges a few messages unacceptable as worded — one that could be read as saying that almost all the people of one part of the world are condemned, and one that makes sin the cause of every illness — and, since the seers described the communication as interior, treats the wording as their own limited rendering of the experience. The archbishop was asked to publish a collection of the messages leaving out the statements that could confuse or disturb the faith of simple people.",
-      visionaries: ["Ivetka Korčáková", "Katka Česelková", "Mitko Česelka"],
+      visionaries: ["Ivetka Korčáková", "Katka Češelková", "Mitko Češelka"],
       messageHighlights: [
         "Repeated invitations to conversion, inner freedom, joy, simplicity and peace, gathered up in the call to let Jesus set one free.",
       ],
@@ -277,7 +283,7 @@ export const apparitionGroupTwo: CuratedEntry[] = [
       subject: "marian",
       yearOfApparition: 1652,
       summary:
-        "On 15 August 1652 Jeanne Courtel, a shepherd girl of about eleven from the hamlet of Querrien in Brittany who had been deaf and mute from birth, reported that the Blessed Virgin appeared to her in the fields, spoke with her and asked for a chapel to be built in the village; Jeanne is remembered to have recovered her hearing and speech. An old wooden statue of the Virgin and Child was dug up near a spring where the Lady had indicated, and the shrine of Notre-Dame de Toute-Aide, Our Lady of All Help, grew from it.",
+        "On 15 August 1652 Jeanne Courtel, a shepherd girl of about eleven from the hamlet of Querrien in Brittany who had been deaf and mute from birth, reported that the Blessed Virgin appeared to her in the fields and spoke with her, and Jeanne is remembered to have recovered her hearing and speech; the next day the Lady asked for a chapel to be built in the village. An old wooden statue of the Virgin and Child was dug up near a spring where the Lady had indicated, and the shrine of Notre-Dame de Toute-Aide, Our Lady of All Help, grew from it.",
       background:
         "Bishop Denis de La Barde of Saint-Brieuc had the events examined: in September 1652 he went to Querrien, questioned Jeanne and the witnesses under oath, and then decided that a chapel should be built and worship organised there. The foundation stone was blessed that autumn, the chapel was finished in 1656, and the bishop endowed perpetual chaplaincies for it. Historians differ on how far his decision amounted to a formal recognition of the apparition, since the episcopal documents speak of the cult rather than of the vision, and it is the devotion that the Church has gone on confirming: the statue was canonically crowned on 14 August 1950 before a great crowd of pilgrims. Jeanne Courtel married, raised a family and died in 1703; she is buried in the chapel. The principal pilgrimage is held on 15 August.",
       visionaries: ["Jeanne Courtel"],
@@ -359,15 +365,15 @@ export const apparitionGroupTwo: CuratedEntry[] = [
       country: "Italy",
       approvedStatus: "private_revelation",
       decisionAuthority:
-        "The bishops of Lombardy, at whose gathering in Caravaggio Santa Maria del Fonte was proclaimed the regional sanctuary of Lombardy",
-      decisionYear: 2023,
+        "Pope Saint Pius X, who raised Santa Maria del Fonte to a minor basilica by decree of 7 May 1906",
+      decisionYear: 1906,
       subject: "marian",
       yearOfApparition: 1432,
       feastDay: "05-26",
       summary:
         "Towards five in the evening of 26 May 1432, Giannetta de' Vacchi, a devout countrywoman of thirty-two married to Francesco Varoli, was cutting grass outside Caravaggio on the road to Misano when the Blessed Virgin appeared to her, told her not to be afraid, and asked for penance: fasting on bread and water on Fridays in honour of her Son, and honouring Mary on Saturdays from the hour of Vespers. A spring that no one had seen before was found at the spot, and the great sanctuary of Santa Maria del Fonte now stands over it.",
       background:
-        "In Giannetta's account Mary said she had pleaded with her Son for seven years to spare a sinful world, and promised signs to confirm the message; many of the sick who came to the spring reported healings. In the same year the vicar of the Bishop of Cremona wanted a votive chapel built on the site, and from 1575, with the strong support of Saint Charles Borromeo, the present sanctuary was raised to a design by Pellegrino Tibaldi, its building continuing in stages into the eighteenth century. The Diocese of Cremona, to which Caravaggio belongs, keeps the anniversary of the apparition each 26 May. In May 2020, during the pandemic, Italy was entrusted to Mary at Caravaggio, and on 25 May 2023 Santa Maria del Fonte was proclaimed the regional sanctuary of Lombardy. These acts concern the cult and the sanctuary; they are not a juridical judgement on the apparition itself.",
+        "In Giannetta's account Mary said she had pleaded with her Son for seven years to spare a sinful world, and promised signs to confirm the message; many of the sick who came to the spring reported healings. On 31 July 1432 Antonio Aleardi, vicar general of the Bishop of Cremona, issued a document which, according to the diocese, approved the truth of the events and authorised a church and a hospital; the original is now lost, and the church was consecrated in 1451. From 1575, with the strong support of Saint Charles Borromeo, the present sanctuary was raised to a design by Pellegrino Tibaldi, its building continuing in stages into the eighteenth century. The statue of Our Lady was crowned in 1710, the Holy See approved a proper Mass and Office of the Apparition in 1904, Pius X made the sanctuary a minor basilica in 1906, and in 1962 Our Lady of Caravaggio was confirmed as patroness of the Diocese of Cremona, to which Caravaggio belongs and which keeps the anniversary of the apparition each 26 May. In May 2020, during the pandemic, Italy was entrusted to Mary at Caravaggio, and on 26 May 2023, the 591st anniversary of the apparition, Santa Maria del Fonte was proclaimed the regional sanctuary of Lombardy.",
       visionaries: ["Giannetta de' Vacchi"],
       messageHighlights: [
         "A call to penance: fasting on bread and water on Fridays in honour of her Son, and honouring Mary on Saturdays from the hour of Vespers.",
@@ -476,11 +482,7 @@ export const apparitionGroupTwo: CuratedEntry[] = [
         "Three traditions handed down at Vailankanni, on the coast of Tamil Nadu, lie behind the greatest Marian shrine of India: the Virgin with her Child is said to have appeared in the sixteenth century to a shepherd boy carrying milk and, some years later, to a lame boy selling buttermilk, who was healed and sent to ask for a chapel to be built; and Portuguese sailors saved from a storm in the Bay of Bengal fulfilled a vow by building a church where they came ashore. Mary is honoured there as Our Lady of Good Health.",
       background:
         "No document of the time records the apparitions; they are handed down as the oral tradition of the shrine, and the Church has never judged them. Her approval is given to the devotion: at the request of the local bishop, made during the Second Vatican Council, Pope John XXIII raised the shrine church to the rank of a minor basilica by the decree Salutem Supplicibus Dilargiens of 3 November 1962. The shrine is often called the Lourdes of the East. Its great festival runs from 29 August to the feast of the Nativity of Mary on 8 September and draws millions of pilgrims, Hindus and Muslims among them as well as Catholics, and the porcelain plates said to have been brought by the Portuguese sailors still adorn the altar.",
-      visionaries: [
-        "a shepherd boy carrying milk",
-        "a lame boy selling buttermilk",
-        "Portuguese sailors saved from a storm",
-      ],
+      visionaries: ["a shepherd boy carrying milk", "a lame boy selling buttermilk"],
       messageHighlights: [
         "A request, made through the healed buttermilk seller, that a chapel be built at the place.",
       ],

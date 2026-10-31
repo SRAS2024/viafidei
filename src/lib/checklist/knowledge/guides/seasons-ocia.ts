@@ -816,6 +816,7 @@ export const seasonsAndOciaGuides: CuratedEntry[] = [
     ],
     durationMinutes: 20,
     relatedPrayers: ["our-father", "glory-be"],
+    relatedDevotions: ["christmas-crib"],
     relatedSaints: ["saint-francis-of-assisi"],
     steps: [
       {
