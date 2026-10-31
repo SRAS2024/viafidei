@@ -2797,6 +2797,8 @@ export async function runPersistAndPublish(
         .catch(() => undefined);
       const { clearRetryBudget } = await import("./human-review");
       await clearRetryBudget(prisma, "review", artifact.id);
+      const { clearResearchFlag } = await import("./research-holds");
+      await clearResearchFlag(prisma, artifact.id);
     } else if (result.kind === "blocked") {
       if (result.retryable) {
         // A database error is not a verdict on the content. It used to REJECT a
@@ -2935,7 +2937,7 @@ export async function runPersistAndPublish(
   );
 }
 
-type ReviewRouting = "repair" | "retry" | "terminal";
+type ReviewRouting = "repair" | "retry" | "terminal" | "research";
 
 /**
  * Route a publish the orchestrator blocked for a TRANSIENT reason (a database
@@ -2971,6 +2973,8 @@ async function routeTransientPublishFailure(
  * outcomes were terminal). Returns how the artifact was routed:
  *   - "repair": QUALITY_SCORE_FAILED plan filed + NEEDS_REPAIR (re-extraction)
  *   - "retry":  NEEDS_REVIEW with a backed-off retry the drain will honour
+ *   - "research": NEEDS_REVIEW on a research hold (an evidence gap the proof
+ *                 gate found), re-checked only after a long backoff
  *   - "terminal": NEEDS_REVIEW, left for a person (human-review mode, a
  *                 non-recoverable reason, or the retry budget is spent)
  */
@@ -2997,6 +3001,29 @@ async function routeReviewOutcome(
   if (requireHumanReview()) {
     await park(input.reason);
     return "terminal";
+  }
+
+  // An evidence gap the proof gate found — fewer trusted sources than a
+  // sensitive type needs, or support below the required authority — does not
+  // change between attempts minutes apart. These were retried on the review
+  // backoff (logging a "Publish blocked" WARN each time) and re-armed weekly
+  // by the self-maintenance requeue. Hold them for research instead: a typed
+  // reason, a research flag, and a re-check only after a long backoff.
+  const { researchHoldCodeFor, holdForResearch } = await import("./research-holds");
+  const researchCode = researchHoldCodeFor(input.reason);
+  if (researchCode) {
+    await holdForResearch(prisma, {
+      artifactId: input.artifactId,
+      contentType: input.contentType,
+      slug: input.slug,
+      code: researchCode,
+      detail: input.reason,
+      missing:
+        researchCode === "BELOW_REQUIRED_AUTHORITY"
+          ? ["a corroborating source at the authority this content type requires"]
+          : ["a second independent trusted source confirming this item"],
+    });
+    return "research";
   }
 
   const { classifyReviewReason, consumeRetryBudget } = await import("./human-review");

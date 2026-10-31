@@ -621,6 +621,36 @@ describe("REPAIR: parked artifacts", () => {
     };
     expect(call.data.status).toBe("BUILD_READY");
   });
+
+  // A research hold re-checks itself on its own 7 → 90 day backoff (the drain
+  // requeues it when due). The blanket weekly requeue must leave it alone or it
+  // would undo that backoff; and the filter must keep rows whose gateDiagnosis
+  // is NULL, which `NOT: { gateDiagnosis: x }` silently drops.
+  it("never requeues research holds, and keeps NULL-diagnosis rows eligible", async () => {
+    const prisma = makePrisma({
+      ...healthyOpts(),
+      parkedArtifacts: 40,
+      parkedRows: [{ id: "a1" }],
+    });
+    await runSelfMaintenance(prisma, { now: NOW, force: true, limit: 2 });
+    const eligible = {
+      OR: [
+        { gateDiagnosis: null },
+        { gateDiagnosis: { notIn: ["requeued_by_self_maintenance", "NEEDS_RESEARCH"] } },
+      ],
+    };
+    const findWhere = vi
+      .mocked(prisma.adminWorkerPackageArtifact.findMany)
+      .mock.calls.at(-1)?.[0] as {
+      where: Record<string, unknown>;
+    };
+    expect(findWhere.where).toMatchObject(eligible);
+    const countWheres = vi
+      .mocked(prisma.adminWorkerPackageArtifact.count)
+      .mock.calls.map((c) => (c[0] as { where: Record<string, unknown> }).where);
+    expect(countWheres.length).toBeGreaterThan(0);
+    for (const w of countWheres) expect(w).toMatchObject(eligible);
+  });
 });
 
 /* ------------------------------------------------------------------ */

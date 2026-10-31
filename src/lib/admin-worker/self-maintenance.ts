@@ -57,6 +57,7 @@ import { eventBudgetPerHour, eventCooldownMs, suppressWorkerEvent } from "./even
 import { fileHumanReview } from "./human-review";
 import { writeAdminWorkerLog } from "./logs";
 import { evaluatePublishSafety } from "./publish-safety";
+import { RESEARCH_HOLD_DIAGNOSIS } from "./research-holds";
 
 /**
  * The event sampler moved to ./event-sampler so `writeAdminWorkerLog` can
@@ -272,6 +273,24 @@ export const LANE_IDENTICAL_OUTCOME_LIMIT = 3;
 export const CURSOR_ZERO_STREAK_LIMIT = 3;
 /** An artifact parked in a non-terminal state longer than this is stuck. */
 export const ARTIFACT_PARKED_MS = 7 * DAY;
+
+/**
+ * The parked artifacts the 7-day requeue may touch: every one NOT deliberately
+ * held. A research hold re-checks itself on its own, longer backoff (the
+ * BUILD_READY drain requeues it when due), so a blanket weekly requeue would
+ * undo that backoff; an artifact this repair already requeued is never
+ * requeued twice. Written null-safe — `NOT: { gateDiagnosis: x }` also drops
+ * rows whose gateDiagnosis is NULL. SENSE, REPAIR and VERIFY all count this
+ * same population.
+ */
+function parkedRequeueEligible(): Record<string, unknown> {
+  return {
+    OR: [
+      { gateDiagnosis: null },
+      { gateDiagnosis: { notIn: [REQUEUE_MARKER, RESEARCH_HOLD_DIAGNOSIS] } },
+    ],
+  };
+}
 
 /**
  * The telemetry tables SENSE measures. Same allow-list, same order and same
@@ -837,6 +856,7 @@ export async function senseSelfHealth(
       where: {
         status: { in: ["NEEDS_REVIEW", "NEEDS_REPAIR"] },
         updatedAt: { lt: new Date(now - ARTIFACT_PARKED_MS) },
+        ...parkedRequeueEligible(),
       },
     },
     0,
@@ -1206,7 +1226,7 @@ async function repairParkedArtifacts(ctx: RepairContext): Promise<Omit<RepairAct
       where: {
         status: { in: ["NEEDS_REVIEW", "NEEDS_REPAIR"] },
         updatedAt: { lt: new Date(ctx.now - ARTIFACT_PARKED_MS) },
-        NOT: { gateDiagnosis: REQUEUE_MARKER },
+        ...parkedRequeueEligible(),
       },
       select: { id: true },
       take: ctx.limit,
@@ -1504,7 +1524,7 @@ async function reSense(
         where: {
           status: { in: ["NEEDS_REVIEW", "NEEDS_REPAIR"] },
           updatedAt: { lt: new Date(now - ARTIFACT_PARKED_MS) },
-          NOT: { gateDiagnosis: REQUEUE_MARKER },
+          ...parkedRequeueEligible(),
         },
       },
       0,

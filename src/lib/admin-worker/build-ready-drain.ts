@@ -241,6 +241,8 @@ export interface DrainResult {
    * retries them.
    */
   recovered: number;
+  /** Research holds whose backoff expired, sent back through verification. */
+  researchRequeued: number;
 }
 
 /**
@@ -264,23 +266,39 @@ export interface DrainResult {
 async function recoverRetryableReviews(prisma: PrismaClient, limit: number): Promise<number> {
   const { RECOVERABLE_REVIEW_RULES, classifyReviewReason, readRetryBudget, REVIEW_RETRY_BUDGET } =
     await import("./human-review");
+  const { RESEARCH_HOLD_DIAGNOSIS } = await import("./research-holds");
   const retryRules = RECOVERABLE_REVIEW_RULES.filter((r) => r.route === "retry");
   const candidates = await prisma.adminWorkerPackageArtifact
     .findMany({
       where: {
         status: "NEEDS_REVIEW",
-        OR: retryRules.map((r) => ({ rejectionReason: { contains: r.match } })),
+        // A research hold keeps the proof-gate text in its reason, but it is
+        // re-checked on its own long backoff (requeueDueResearchHolds), never
+        // on the short review retry — or the hold would be undone at once.
+        AND: [
+          { OR: retryRules.map((r) => ({ rejectionReason: { contains: r.match } })) },
+          {
+            OR: [{ gateDiagnosis: null }, { gateDiagnosis: { not: RESEARCH_HOLD_DIAGNOSIS } }],
+          },
+        ],
       },
       take: limit,
-      select: { id: true, fieldProvenance: true, rejectionReason: true },
+      select: { id: true, fieldProvenance: true, rejectionReason: true, gateDiagnosis: true },
     })
     .catch(
-      () => [] as Array<{ id: string; fieldProvenance: unknown; rejectionReason?: string | null }>,
+      () =>
+        [] as Array<{
+          id: string;
+          fieldProvenance: unknown;
+          rejectionReason?: string | null;
+          gateDiagnosis?: string | null;
+        }>,
     );
 
   let recovered = 0;
   const now = Date.now();
   for (const a of candidates) {
+    if (a.gateDiagnosis === RESEARCH_HOLD_DIAGNOSIS) continue;
     const { route, rule } = classifyReviewReason(a.rejectionReason);
     if (route !== "retry" || !rule) continue;
     const hasProvenance = Array.isArray(a.fieldProvenance) && a.fieldProvenance.length > 0;
@@ -335,6 +353,7 @@ export async function runBuildReadyDrain(
     reviewed: 0,
     rejectedDuplicate: 0,
     recovered: 0,
+    researchRequeued: 0,
   };
   const limit = opts.limit ?? 100;
   const driveRounds = opts.driveRounds ?? 6;
@@ -346,6 +365,11 @@ export async function runBuildReadyDrain(
     // snapshotting the stuck set, so the recovered QA_PASSED items are drained
     // + published in this same pass.
     out.recovered = await recoverRetryableReviews(prisma, limit);
+    // Research holds whose long backoff has expired go back through
+    // verification (their stale evidence cleared) before the stuck set is
+    // read, so they are triaged and driven this same pass.
+    const { requeueDueResearchHolds } = await import("./research-holds");
+    out.researchRequeued = await requeueDueResearchHolds(prisma, { limit: 10 }).catch(() => 0);
 
     const stuck = await prisma.adminWorkerPackageArtifact.findMany({
       where: { status: { in: ["BUILD_READY", "VERIFICATION_READY", "QA_PASSED"] } },
@@ -590,7 +614,7 @@ export async function runBuildReadyDrain(
       category: "VALIDATION",
       severity: "INFO",
       eventName: "build_ready_drain",
-      message: `BUILD_READY drain: ${out.recovered} recovered from misrouted review, ${out.bridged} bridged from CHECKLIST_READY, ${out.stuck} stuck triaged → ${out.published} published, ${out.advanced} QA-advanced, ${out.repaired} repaired, ${out.reviewed} to review, ${out.rejectedDuplicate} duplicate. Gates: ${Object.entries(
+      message: `BUILD_READY drain: ${out.recovered} recovered from misrouted review, ${out.researchRequeued} research hold(s) re-checked, ${out.bridged} bridged from CHECKLIST_READY, ${out.stuck} stuck triaged → ${out.published} published, ${out.advanced} QA-advanced, ${out.repaired} repaired, ${out.reviewed} to review, ${out.rejectedDuplicate} duplicate. Gates: ${Object.entries(
         out.byGate,
       )
         .map(([g, n]) => `${g}=${n}`)
@@ -600,6 +624,7 @@ export async function runBuildReadyDrain(
         byGate: out.byGate,
         byOutcome: out.byOutcome,
         recovered: out.recovered,
+        researchRequeued: out.researchRequeued,
         bridged: out.bridged,
         published: out.published,
         advanced: out.advanced,

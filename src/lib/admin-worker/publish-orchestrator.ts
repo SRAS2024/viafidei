@@ -32,6 +32,7 @@ import { resolveContentSubtype } from "./content-subtype";
 import { isBrainEnabled } from "./intelligence";
 import { writeAdminWorkerLog } from "./logs";
 import { publicRouteFor } from "./public-routes";
+import { authorityLevelForHost } from "@/lib/checklist/sources/authority-registry";
 import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
 import { derivedColumnsFor } from "@/lib/content-shared/derived-columns";
 import { evaluatePublishGate } from "./publisher";
@@ -476,8 +477,8 @@ export async function runPublishOrchestrator(
       .findUnique({ where: { packageArtifactId: input.strictQAArtifactId } })
       .catch(() => null);
     if (qa && qaRow) {
-      // Source-authority factor: VATICAN=1.0, CONFERENCE/MAGISTERIUM=0.95,
-      // DIOCESAN=0.88, PARISH/COMMUNITY=0.78.
+      // Source-authority factor: VATICAN=1.0, CATECHISM/LITURGICAL_BOOK/USCCB
+      // =0.95, DIOCESAN=0.88, order/publisher/academic=0.85, COMMUNITY=0.78.
       const authorityFactor = sourceAuthorityFactor(input.authorityLevel);
       // Verification-evidence-strength factor: when a verifier outcome
       // is supplied, missing required fields drag validation down even
@@ -1130,11 +1131,75 @@ export function buildProofEvidence(
   const agreements = input.verifier ? Math.max(rows, input.verifier.publishAllowed ? 1 : 0) : 0;
   return {
     sources: citations,
-    authorities: [input.authorityLevel],
+    authorities: [brainAuthorityLevel(input.authorityLevel)],
     citations,
     agreements,
     conflicts: input.verifier?.hasConflict ? ["cross-source verifier reported a conflict"] : [],
   };
+}
+
+/**
+ * The brain's proof ladder (intelligence/operations/proof.py) names the
+ * liturgical-book rung "LITURGICAL"; SourceAuthorityLevel calls it
+ * LITURGICAL_BOOK (icel.org). Sent unmapped it ranked -1 — below COMMUNITY —
+ * so Roman-Missal-sourced content always failed the proof's authority
+ * condition. Every other level shares its name on both sides.
+ */
+function brainAuthorityLevel(level: string): string {
+  return level === "LITURGICAL_BOOK" ? "LITURGICAL" : level;
+}
+
+/**
+ * Registrable-ish key of a URL's host ("www.vatican.va" and
+ * "press.vatican.va" are one source), or null for a non-URL. Two pages of
+ * one site are one witness, not two.
+ */
+function sourceKeyOf(url: string): string | null {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  const labels = host
+    .replace(/^www\d*\./, "")
+    .split(".")
+    .filter(Boolean);
+  if (labels.length <= 2) return labels.join(".");
+  const tld = labels[labels.length - 1];
+  const sld = labels[labels.length - 2];
+  // "diocese.org.uk" / "x.com.au": keep the registrable third label.
+  const take = tld.length === 2 && sld.length <= 3 ? 3 : 2;
+  return labels.slice(-take).join(".");
+}
+
+/**
+ * Distinct sources among the citations, and how many of them are TRUSTED — a
+ * host on the approved authority registry (or the Holy See's .va domain) at a
+ * level above COMMUNITY. A host trusted only by name-pattern inference is not
+ * counted. The doctrinal invariant (≥2 trusted sources) used to be fed the raw
+ * citation count: any two URLs passed it, and a web artifact — whose source
+ * URL lived on the source read, not in the payload — always counted zero.
+ */
+export function countCitedSources(citations: string[]): { sources: number; trusted: number } {
+  const keys = new Map<string, string>();
+  for (const c of citations) {
+    const key = sourceKeyOf(c);
+    if (!key || keys.has(key)) continue;
+    let host = key;
+    try {
+      host = new URL(c).hostname.toLowerCase();
+    } catch {
+      // keep the key
+    }
+    keys.set(key, host);
+  }
+  let trusted = 0;
+  for (const host of keys.values()) {
+    const level = authorityLevelForHost(host);
+    if (level !== null && level !== "COMMUNITY") trusted += 1;
+  }
+  return { sources: keys.size, trusted };
 }
 
 /** Field state for the brain's logic-rule invariants. */
@@ -1152,13 +1217,14 @@ export function buildInvariantState(
     (typeof payload?.kind === "string" && payload.kind) ||
     (typeof payload?.contentSubtype === "string" && payload.contentSubtype) ||
     undefined;
+  const counted = countCitedSources(citations);
   return {
     contentType: input.contentType,
     sensitive: input.isDoctrinallySensitive,
     title: input.title,
     authority: input.authorityLevel,
-    trustedSourceCount: citations.length,
-    sourceCount: citations.length,
+    trustedSourceCount: counted.trusted,
+    sourceCount: counted.sources,
     citation: citations[0],
     sourceUrl: sourceUrl ?? citations[0],
     route: publicRouteFor(input.contentType, input.slug).slugPath,
@@ -1170,23 +1236,30 @@ export function buildInvariantState(
 /**
  * Spec §6: source-authority factor used to bias sourceAuthorityScore
  * by where the content was sourced. VATICAN is the unconditional
- * baseline (1.0); conference / magisterium sources are slightly
- * deboosted; diocesan / parish / community sources are deboosted
- * further so the geometric mean reflects the actual authority of the
- * sources backing the publish.
+ * baseline (1.0); magisterial texts and the bishops' conference are
+ * slightly deboosted; diocesan, then publisher / order / academic, then
+ * community sources are deboosted further so the geometric mean reflects
+ * the actual authority of the sources backing the publish.
+ *
+ * Keyed on the real SourceAuthorityLevel values. It used to switch on
+ * MAGISTERIUM / CONFERENCE / PARISH, which are not enum values, so USCCB,
+ * CATECHISM and LITURGICAL_BOOK fell to the 0.85 default — below DIOCESAN
+ * (0.88) — and doctrinal content from usccb.org or the Catechism that
+ * passed strict QA could still fail the ContentQualityScore.
  */
-function sourceAuthorityFactor(authorityLevel: string): number {
+export function sourceAuthorityFactor(authorityLevel: string): number {
   switch (authorityLevel) {
     case "VATICAN":
       return 1.0;
-    case "MAGISTERIUM":
-    case "CONFERENCE":
+    case "CATECHISM":
+    case "LITURGICAL_BOOK":
+    case "USCCB":
       return 0.95;
     case "DIOCESAN":
       return 0.88;
-    case "PARISH":
     case "COMMUNITY":
       return 0.78;
+    // RELIGIOUS_ORDER, TRUSTED_PUBLISHER, ACADEMIC.
     default:
       return 0.85;
   }
