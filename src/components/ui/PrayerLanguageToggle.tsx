@@ -53,7 +53,8 @@ export function PrayerLanguageToggle({
       />
       {linked ? (
         <div lang={shown.code} className="font-serif text-lg leading-relaxed text-ink">
-          <PrayerLinkedText text={shown.text} prayers={linked} matchCase />
+          {/* The page's title is the h1; an opened prayer is the next level. */}
+          <PrayerLinkedText text={shown.text} prayers={linked} matchCase headingLevel={2} />
         </div>
       ) : (
         <p

@@ -242,9 +242,15 @@ export function PublishedDetail({
   const linked = linkedPrayers && linkedPrayers.length > 0 ? linkedPrayers : null;
   const keysShown = new Set<string>();
 
+  /** A field's section heading, or null when the page shows it unheaded. */
+  const headingFor = (key: string) =>
+    headings && key in headings ? headings[key] : fieldLabel(key);
+  /** A prayer opened inside a field sits one level under that field's heading. */
+  const panelLevel = (key: string) => (headingFor(key) ? 3 : 2);
+
   /** The section around a field's content, headed unless the page said null. */
   const section = (key: string, body: React.ReactNode) => {
-    const heading = headings && key in headings ? headings[key] : fieldLabel(key);
+    const heading = headingFor(key);
     return (
       <section key={key} className="mt-6">
         {heading ? <h2 className="font-display text-xl text-ink">{heading}</h2> : null}
@@ -296,7 +302,12 @@ export function PublishedDetail({
             <Disclosure key={`${key}-${i}`} title={d.title} eyebrow={d.eyebrow}>
               {linked ? (
                 // A day's text is itself prayer: only capitalised names link.
-                <PrayerLinkedText text={d.body} prayers={linked} matchCase />
+                <PrayerLinkedText
+                  text={d.body}
+                  prayers={linked}
+                  matchCase
+                  headingLevel={panelLevel(key)}
+                />
               ) : (
                 <p className="whitespace-pre-line">{d.body}</p>
               )}
@@ -315,7 +326,7 @@ export function PublishedDetail({
       <div className="mt-2 font-serif leading-relaxed text-ink">
         {linked && presented.kind === "text" ? (
           // Instructions name prayers in running prose ("pray the Our Father").
-          <PrayerLinkedText text={presented.text} prayers={linked} />
+          <PrayerLinkedText text={presented.text} prayers={linked} headingLevel={panelLevel(key)} />
         ) : (
           renderPresented(presented)
         )}

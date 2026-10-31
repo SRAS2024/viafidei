@@ -148,6 +148,11 @@ describe("prayer detail page", () => {
     const name = screen.getByRole("button", { name: /Our Father/ });
     fireEvent.click(name);
     expect(screen.getByText(/hallowed be thy name/)).toBeInTheDocument();
+    // The opened prayer's title follows the page's h1 as an h2, never an h3.
+    expect(screen.getAllByRole("heading").map((h) => `${h.tagName}:${h.textContent}`)).toEqual([
+      "H1:Opening Prayers of the Rosary",
+      "H2:Our Father",
+    ]);
     fireEvent.click(screen.getByRole("button", { name: "Latin" }));
     expect(screen.getByText("Pater noster, qui es in caelis.")).toHaveAttribute("translate", "no");
   });

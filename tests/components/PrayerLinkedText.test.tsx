@@ -100,6 +100,40 @@ describe("PrayerLinkedText", () => {
     expect(screen.queryByRole("group")).not.toBeInTheDocument();
   });
 
+  it("gives each opened panel its own id, even when two texts open the same prayer", () => {
+    render(
+      <>
+        <PrayerLinkedText text="Day one: pray one Our Father." prayers={[OUR_FATHER]} />
+        <PrayerLinkedText text="Day two: pray one Our Father." prayers={[OUR_FATHER]} />
+      </>,
+    );
+    const [first, second] = screen.getAllByRole("button", { name: /Our Father/ });
+    fireEvent.click(first!);
+    fireEvent.click(second!);
+    const ids = [first!, second!].map((b) => b.getAttribute("aria-controls")!);
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) {
+      expect(document.querySelectorAll(`[id="${id}"]`)).toHaveLength(1);
+      expect(document.getElementById(id)).toHaveTextContent("Our Father, who art in heaven...");
+    }
+  });
+
+  it("titles an opened prayer at the heading level its place in the page needs", () => {
+    const { unmount } = render(
+      <PrayerLinkedText text="Pray the Our Father." prayers={[OUR_FATHER]} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Our Father/ }));
+    expect(screen.getByRole("heading", { level: 3, name: "Our Father" })).toBeInTheDocument();
+    unmount();
+
+    // Straight under a prayer page's h1: an h2, never a skipped level.
+    render(
+      <PrayerLinkedText text="Pray the Our Father." prayers={[OUR_FATHER]} headingLevel={2} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Our Father/ }));
+    expect(screen.getByRole("heading", { level: 2, name: "Our Father" })).toBeInTheDocument();
+  });
+
   it("with matchCase, links only names capitalised as names (the text is itself prayer)", () => {
     render(
       <PrayerLinkedText
