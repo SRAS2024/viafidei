@@ -23,17 +23,25 @@
  *      either. A quiet tick is the normal case, several times a minute.
  *   3. The poll never competes with the exit/restart handling. While any
  *      existing path intends to (re)start the child — a crash backoff, a
- *      deferred resume after a database outage — the poll stands aside.
- *   4. A runtime that GAVE UP (five crashes in a row, a spawn error, a lease
- *      held by another computer) is not restarted by a switch that is merely
+ *      deferred resume after a database outage — the poll stands aside. But
+ *      an OFF wins over a pending restart: the poll stops it (cancelling the
+ *      timer) instead of letting a worker boot after the operator said OFF.
+ *   4. A runtime that is "failed" (a lease held by another computer, a
+ *      configuration problem) is not restarted by a switch that is merely
  *      still ON. It takes a fresh OFF→ON edge — the operator deliberately
- *      re-arming, which is what the give-up message asks for — and that edge
- *      can only happen once per operator action, so it can never become a
- *      crash loop at poll cadence. The edge is recognised either by watching
- *      the value cross, or by `changedAt` moving, so a thumb that flips OFF
- *      and back ON faster than one poll interval still re-arms the runtime.
+ *      re-arming — and that edge can only happen once per operator action, so
+ *      it can never become a loop at poll cadence. The edge is recognised
+ *      either by watching the value cross, or by `changedAt` moving, so a thumb
+ *      that flips OFF and back ON faster than one poll interval still re-arms
+ *      the runtime. Crashes are never "failed" any more: the host retries them
+ *      with capped backoff for as long as the switch is ON (restart-backoff.ts).
  *   5. A refused start (lease held elsewhere, misconfigured database) puts the
  *      poll on a cooldown instead of retrying every few seconds.
+ *   6. An OFF given on this Mac that the database has not recorded yet is a
+ *      local fact, honoured before anything is read: the row may still say
+ *      ON (or not answer at all), and starting on it would undo the OFF. The
+ *      poll starts nothing then, and stops whatever is still armed or running
+ *      against it — even with the database down.
  */
 
 /** Supervisor states scripts/local-worker-host.ts moves through. */
@@ -74,7 +82,10 @@ export type SwitchPollReason =
   | "shutting_down"
   /** The database did not answer — NOT the same thing as OFF (fail open). */
   | "switch_unknown"
-  /** An operator OFF is still waiting to be recorded durably; the lease tick owns it. */
+  /**
+   * An OFF given on this Mac is not in the database yet: nothing starts, and
+   * anything still armed or running is stopped (the lease tick writes the OFF).
+   */
   | "pending_durable_off"
   /** Some existing path (crash backoff, deferred resume) is already starting the child. */
   | "start_pending"
@@ -93,7 +104,9 @@ export type SwitchPollReason =
   /** The switch is ON and no worker is running here. */
   | "switch_on_not_running"
   /** The switch is OFF and a worker is running here. */
-  | "switch_turned_off";
+  | "switch_turned_off"
+  /** The switch is OFF while a restart (crash backoff, outage wait) is scheduled. */
+  | "switch_off_restart_pending";
 
 export interface SwitchPollInput {
   /** Wall clock, injected so the cooldown is testable. */
@@ -129,7 +142,15 @@ export interface SwitchPollInput {
   runState: HostRunState;
   /** How many existing paths are between "child exited" and "started or gave up". */
   pendingStarts: number;
-  /** An operator OFF that still has to be written to the database. */
+  /**
+   * A restart timer (crash backoff or a wait for the database) is armed.
+   * Optional so older callers read as "none armed".
+   */
+  restartScheduled?: boolean;
+  /**
+   * An OFF given on this Mac that the database has not recorded yet — from the
+   * moment it is given, not only once its first write has failed.
+   */
   pendingDurableOff: boolean;
   /** Epoch ms until which starts are suppressed after a refusal, or null. */
   startBlockedUntil: number | null;
@@ -158,11 +179,18 @@ function decision(
  */
 export function planSwitchPoll(input: SwitchPollInput): SwitchPollDecision {
   if (input.shuttingDown) return decision("none", "shutting_down");
+  // Rule 6, before anything that needs the database: the OFF the operator
+  // gave here is the latest word until the row records it. Never start; stop
+  // a restart that is still armed, or a worker that is somehow running (one
+  // already being stopped is left to that stop).
+  if (input.pendingDurableOff) {
+    const running = input.childRunning && input.runState !== "stopping";
+    return running || input.restartScheduled
+      ? decision("stop", "pending_durable_off")
+      : decision("none", "pending_durable_off");
+  }
   // Rule 1: an unreachable database is not an OFF switch.
   if (!input.switchKnown) return decision("none", "switch_unknown");
-  // The OFF the operator asked for is already in flight locally; the lease tick
-  // is retrying the durable half. Acting here would fight it.
-  if (input.pendingDurableOff) return decision("none", "pending_durable_off");
 
   // A deliberate operator action that left the switch ON. Either we watched it
   // cross OFF→ON, or the row was rewritten since we last looked — which is the
@@ -199,6 +227,9 @@ export function planSwitchPoll(input: SwitchPollInput): SwitchPollDecision {
   if (input.childRunning || input.runState === "running" || input.runState === "starting") {
     return decision("stop", "switch_turned_off");
   }
+  // Nothing is running, but a restart is armed: OFF must cancel it, or a
+  // worker boots a few minutes after the operator switched it off.
+  if (input.restartScheduled) return decision("stop", "switch_off_restart_pending");
   return decision("none", "already_stopped");
 }
 

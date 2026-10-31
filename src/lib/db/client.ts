@@ -21,13 +21,47 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
  * hitting `P2037`. Still bounded and modest (Postgres `max_connections` is ~100
  * by default). Raise `PRISMA_CONNECTION_LIMIT` (and the lane cap) together on
  * bigger machines; lower it if several web instances share a small Postgres.
+ *
+ * QUERY TIMEOUTS, opt-in per process. `PRISMA_STATEMENT_TIMEOUT` (seconds)
+ * becomes `options=-c statement_timeout=Ns`, so Postgres itself cancels a
+ * statement that runs too long (a lock wait, a bad plan) and frees the pooled
+ * connection; `PRISMA_SOCKET_TIMEOUT` (seconds) becomes Prisma's
+ * `socket_timeout`, so the client stops waiting on a connection that went
+ * half-open (the Mac slept, Wi-Fi changed) — the server's own cancel can never
+ * arrive over that one. Unset, blank or 0 means no timeout, which is what the
+ * web service and every script keep; the local worker host and its worker
+ * child set both (launch-worker-host.sh, local-worker-host.ts). Migrations
+ * never come through here: `prisma migrate deploy` reads DATABASE_URL itself.
+ * Explicit parameters in the URL win, as for everything else in this function.
  */
-export function databaseUrlWithPool(raw: string | undefined): string | undefined {
+export function databaseUrlWithPool(
+  raw: string | undefined,
+  opts: { timeouts?: boolean; connectionLimit?: number } = {},
+): string | undefined {
   if (!raw) return undefined;
   try {
     const url = new URL(raw);
     if (!url.searchParams.has("connection_limit")) {
-      url.searchParams.set("connection_limit", process.env.PRISMA_CONNECTION_LIMIT ?? "10");
+      url.searchParams.set(
+        "connection_limit",
+        opts.connectionLimit !== undefined
+          ? String(opts.connectionLimit)
+          : (process.env.PRISMA_CONNECTION_LIMIT ?? "10"),
+      );
+    }
+    if (opts.timeouts !== false) {
+      const statementS = timeoutSeconds("PRISMA_STATEMENT_TIMEOUT");
+      const existingOptions = url.searchParams.get("options") ?? "";
+      if (statementS !== null && !/statement_timeout/.test(existingOptions)) {
+        url.searchParams.set(
+          "options",
+          `${existingOptions ? `${existingOptions} ` : ""}-c statement_timeout=${statementS}s`,
+        );
+      }
+      const socketS = timeoutSeconds("PRISMA_SOCKET_TIMEOUT");
+      if (socketS !== null && !url.searchParams.has("socket_timeout")) {
+        url.searchParams.set("socket_timeout", String(socketS));
+      }
     }
     if (!url.searchParams.has("pool_timeout")) {
       url.searchParams.set("pool_timeout", process.env.PRISMA_POOL_TIMEOUT ?? "20");
@@ -66,12 +100,57 @@ export function isLocalHost(hostname: string): boolean {
   );
 }
 
-function createPrismaClient(): PrismaClient {
-  const url = databaseUrlWithPool(process.env.DATABASE_URL);
+/**
+ * A PRISMA_*_TIMEOUT variable in whole seconds, or null for "no timeout":
+ * unset, blank, 0, negative or not a number.
+ */
+function timeoutSeconds(name: string): number | null {
+  const raw = (process.env[name] ?? "").trim();
+  if (raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.ceil(n) : null;
+}
+
+/** True when this process runs its queries under a statement or socket timeout. */
+export function queryTimeoutsConfigured(): boolean {
+  return (
+    timeoutSeconds("PRISMA_STATEMENT_TIMEOUT") !== null ||
+    timeoutSeconds("PRISMA_SOCKET_TIMEOUT") !== null
+  );
+}
+
+function createPrismaClient(url = databaseUrlWithPool(process.env.DATABASE_URL)): PrismaClient {
   return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
     ...(url ? { datasources: { db: { url } } } : {}),
   });
+}
+
+/**
+ * Run `fn` on a client WITHOUT the query timeouts, for the few statements that
+ * are legitimately long and must not be cut off half-way: a VACUUM of a large
+ * ledger table (cancelling it throws the whole pass of work away, and the
+ * space it would have made reusable never is), or the monthly report's read of
+ * a month of log rows over the public proxy. With no timeout configured there
+ * is nothing to lift and `fn` simply gets `shared`; otherwise a short-lived
+ * two-connection client is opened for the call and closed after it.
+ */
+export async function withoutQueryTimeouts<T>(
+  shared: PrismaClient,
+  fn: (db: PrismaClient) => Promise<T>,
+): Promise<T> {
+  if (!queryTimeoutsConfigured()) return fn(shared);
+  const url = databaseUrlWithPool(process.env.DATABASE_URL, {
+    timeouts: false,
+    connectionLimit: 2,
+  });
+  if (!url) return fn(shared);
+  const untimed = createPrismaClient(url);
+  try {
+    return await fn(untimed);
+  } finally {
+    await untimed.$disconnect().catch(() => undefined);
+  }
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();

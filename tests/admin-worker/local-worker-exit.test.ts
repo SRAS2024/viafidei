@@ -20,6 +20,9 @@ import {
   describeWorkerExitKind,
   interpretWorkerExit,
   LEASE_HELD_ELSEWHERE_MESSAGE,
+  refineRefusedExit,
+  refusalExitCode,
+  WORKER_EXIT_SUPERVISOR_LOST,
 } from "@/lib/admin-worker/worker-exit";
 
 const base = { signal: null, wasStopping: false, switchOn: null as boolean | null };
@@ -92,6 +95,17 @@ describe("interpretWorkerExit", () => {
     expect(plan.failureReason).toContain("another runtime holds the execution lease");
   });
 
+  it("exit 6: the worker lost its log pipe or host — restartable like a crash", () => {
+    const plan = interpretWorkerExit({ ...base, code: WORKER_EXIT_SUPERVISOR_LOST });
+    expect(plan).toMatchObject({
+      kind: "supervisor_lost",
+      restart: true,
+      runState: "crashed",
+      leaseHeldElsewhere: false,
+    });
+    expect(plan.failureReason).toBeNull();
+  });
+
   it("any other non-zero code is a genuine crash and may restart", () => {
     for (const code of [1, 2, 7, 137]) {
       expect(interpretWorkerExit({ ...base, code })).toMatchObject({
@@ -109,15 +123,59 @@ describe("interpretWorkerExit", () => {
       "refused",
       "db_unreachable",
       "lease_taken",
+      "supervisor_lost",
       "crashed",
     ] as const) {
       expect(describeWorkerExitKind(kind).length).toBeGreaterThan(0);
     }
   });
 
+  it("a refusal's exit code comes from its typed reason: only an outage is 4", () => {
+    expect(refusalExitCode("db_unreachable")).toBe(4);
+    for (const refusal of ["not_local", "switch_off", "lease_held_elsewhere"] as const) {
+      expect(refusalExitCode(refusal)).toBe(3);
+    }
+  });
+
   it("the lease message tells the operator what to do and promises no change", () => {
     expect(LEASE_HELD_ELSEWHERE_MESSAGE).toContain("Switch the Admin Worker OFF");
     expect(LEASE_HELD_ELSEWHERE_MESSAGE).toContain("nothing was changed here");
+  });
+});
+
+describe("refineRefusedExit (exit 3, once the host has read the switch)", () => {
+  it("switch read OFF: the operator's own stop", () => {
+    expect(refineRefusedExit({ switchKnown: true, switchOn: false })).toMatchObject({
+      kind: "refused",
+      restart: false,
+      runState: "off",
+      leaseHeldElsewhere: false,
+    });
+  });
+
+  it("switch read ON: another runtime holds the lease — surfaced, not retried", () => {
+    expect(refineRefusedExit({ switchKnown: true, switchOn: true })).toMatchObject({
+      kind: "refused",
+      restart: false,
+      runState: "failed",
+      leaseHeldElsewhere: true,
+    });
+  });
+
+  it("switch unreadable: an outage, retried — never parked as 'lease held elsewhere'", () => {
+    const plan = refineRefusedExit({
+      switchKnown: false,
+      switchOn: false,
+      databaseHost: "db.example:5432/viafidei",
+    });
+    expect(plan).toMatchObject({
+      kind: "db_unreachable",
+      restart: true,
+      runState: "crashed",
+      leaseHeldElsewhere: false,
+    });
+    expect(plan.failureReason).toContain("db.example:5432/viafidei");
+    expect(plan.failureReason).not.toContain("another runtime");
   });
 });
 
@@ -132,6 +190,27 @@ describe("scripts/local-worker-host.ts applies the plan", () => {
 
   it("only restarts when the plan allows it", () => {
     expect(src).toContain("if (!plan.restart) return;");
+  });
+
+  it("refines exit 3 with the switch it read, and retries when it could not read it", () => {
+    // The host hands exit 3 to the lifecycle (restart-lifecycle.test.ts drives
+    // it: ON → lease elsewhere, unreadable → retried, OFF given here → off).
+    const refused = src.slice(src.indexOf('if (plan.kind === "refused")'));
+    expect(refused.slice(0, 600)).toContain("autoRestart.hold(() => autoRestart.afterRefusal());");
+    const lifecycle = readFileSync(
+      join(process.cwd(), "src/lib/admin-worker/restart-lifecycle.ts"),
+      "utf8",
+    );
+    const afterRefusal = lifecycle.slice(lifecycle.indexOf("async function afterRefusal()"));
+    expect(afterRefusal).toContain("refineRefusedExit({");
+    expect(afterRefusal).toMatch(
+      /if \(refined\.kind === "db_unreachable" && refined\.failureReason\) \{[\s\S]*?schedule\(/,
+    );
+  });
+
+  it("never reports a database error on the lease claim as a lease held elsewhere", () => {
+    expect(src).toContain('host.leaseHeldElsewhere = claim.refusal !== "db_unreachable";');
+    expect(src).toContain('if (!claim.acquired && claim.refusal === "db_unreachable") {');
   });
 
   it("carries leaseHeldElsewhere into the dashboard status payload", () => {

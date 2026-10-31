@@ -10,6 +10,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { isNonContentHost } from "@/lib/checklist/sources/authority-registry";
+import { withoutQueryTimeouts } from "@/lib/db/client";
 
 import { OPERATOR_FILE_HOST } from "./file-ingest";
 import { writeAdminWorkerLog } from "./logs";
@@ -392,10 +393,16 @@ export async function pruneLedgerRows(
     ["AdminWorkerDecision", out.decisions],
     ["AdminWorkerPass", out.passes],
   ];
-  out.vacuumed = await vacuumLedgerTables(
-    prisma,
-    bigDeletes.filter(([, n]) => n >= LEDGER_PRUNE_BATCH).map(([t]) => t),
-  );
+  // A VACUUM of a large ledger table can legitimately outlast the worker's
+  // statement timeout, and a cancelled VACUUM makes no space reusable at all —
+  // so it runs on a connection without the query timeouts (db/client.ts).
+  const toVacuum = bigDeletes.filter(([, n]) => n >= LEDGER_PRUNE_BATCH).map(([t]) => t);
+  out.vacuumed =
+    toVacuum.length === 0
+      ? []
+      : await withoutQueryTimeouts(prisma, (db) => vacuumLedgerTables(db, toVacuum)).catch(
+          () => [],
+        );
   return out;
 }
 

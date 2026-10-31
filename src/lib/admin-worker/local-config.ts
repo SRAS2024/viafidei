@@ -169,6 +169,45 @@ export function computeLocalConfig(input: LocalConfigInput): LocalConfigPayload 
 }
 
 /**
+ * True for a reason only the operator can fix — no database configured,
+ * Railway's private network, a laptop database — and false for "unreachable",
+ * which is a fact about this minute (the Mac just woke, Wi-Fi is still
+ * joining, a cold TLS handshake lost the probe's race), not about the setup.
+ */
+export function isConfigurationBlock(reason: BlockingReason): boolean {
+  return reason !== null && reason !== "unreachable";
+}
+
+/**
+ * What the host does at boot with a master switch it found ON:
+ *   - "stay_off": the switch is OFF, or could not be read (never read as ON);
+ *   - "park":     a configuration problem — the runtime is "failed" and says
+ *                 why, and only the operator can re-arm it;
+ *   - "defer":    the database is not answering yet — stay OFF locally and let
+ *                 the switch poll re-probe and start the worker the moment it
+ *                 answers;
+ *   - "claim":    claim the execution lease and start the worker.
+ *
+ * "unreachable" used to park the runtime as "failed" like a configuration
+ * problem, and the poll never restarts a failed runtime on a switch that is
+ * merely still ON — so a probe that lost one race at login left the worker
+ * stopped until the operator turned the switch OFF and ON again.
+ */
+export type BootResumePlan = "stay_off" | "park" | "defer" | "claim";
+
+export function planBootResume(input: {
+  /** The switch as read at boot (false when it could not be read). */
+  switchOn: boolean;
+  blockingReason: BlockingReason;
+  databaseReachable: boolean;
+}): BootResumePlan {
+  if (!input.switchOn) return "stay_off";
+  if (isConfigurationBlock(input.blockingReason)) return "park";
+  if (input.blockingReason === "unreachable" || !input.databaseReachable) return "defer";
+  return "claim";
+}
+
+/**
  * Where published pages are verified. A worker on the production database is
  * working on the production site, so when nothing sets PUBLIC_BASE_URL the
  * canonical origin is the only sensible default — `publicOrigin()` would
@@ -210,6 +249,46 @@ export function resolvePublicBaseUrl(input: {
 export function leaseRenewDelayMs(baseMs: number, random: () => number = Math.random): number {
   const spread = baseMs * 0.2;
   return Math.round(baseMs - spread + random() * spread * 2);
+}
+
+/**
+ * Query timeouts for the local worker runtime, in seconds (db/client.ts turns
+ * them into `statement_timeout` and `socket_timeout`). Without them a query
+ * stuck behind a lock, or on a connection that went half-open when the Mac
+ * slept, held its pooled connection — and the pass around it — forever.
+ *
+ * 120 s is far above anything a pass needs: its reads are bounded findMany /
+ * count / upsert calls of milliseconds to seconds, and the two statements that
+ * can legitimately run for minutes (a VACUUM of a large ledger table, the
+ * monthly report's month of log rows) run without the timeouts. The socket
+ * timeout sits above it, so a slow statement is cancelled by Postgres (a clean
+ * error) and the socket timeout only fires when no answer can arrive at all.
+ */
+export const WORKER_STATEMENT_TIMEOUT_S = 120;
+export const WORKER_SOCKET_TIMEOUT_S = 150;
+
+/**
+ * The PRISMA_* variables the host hands its worker child, from
+ * VIAFIDEI_DB_STATEMENT_TIMEOUT / VIAFIDEI_DB_SOCKET_TIMEOUT (seconds). Unset,
+ * blank or not a number means the default; "0" turns that timeout off.
+ */
+export function workerQueryTimeoutEnv(env: NodeJS.ProcessEnv = process.env): {
+  PRISMA_STATEMENT_TIMEOUT: string;
+  PRISMA_SOCKET_TIMEOUT: string;
+} {
+  const seconds = (raw: string | undefined, fallback: number): string => {
+    const text = (raw ?? "").trim();
+    const n = text === "" ? NaN : Number(text);
+    if (!Number.isFinite(n) || n < 0) return String(fallback);
+    return String(Math.ceil(n));
+  };
+  return {
+    PRISMA_STATEMENT_TIMEOUT: seconds(
+      env.VIAFIDEI_DB_STATEMENT_TIMEOUT,
+      WORKER_STATEMENT_TIMEOUT_S,
+    ),
+    PRISMA_SOCKET_TIMEOUT: seconds(env.VIAFIDEI_DB_SOCKET_TIMEOUT, WORKER_SOCKET_TIMEOUT_S),
+  };
 }
 
 /**

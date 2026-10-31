@@ -1,21 +1,30 @@
 /**
  * Pure decisions of the local execution host (src/lib/admin-worker/local-config.ts):
- * the structured blocking reason that gates switching the worker ON, the
- * PUBLIC_BASE_URL guess that must refuse non-production Railway environments,
+ * the structured blocking reason that gates switching the worker ON, what a
+ * boot does with a switch it finds ON, the PUBLIC_BASE_URL guess that must
+ * refuse non-production Railway environments,
  * lease-renewal jitter, worker exit classification and the launcher notice
  * line the Swift app parses.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
   classifyWorkerExit,
   computeLocalConfig,
   describeDatabaseHost,
+  isConfigurationBlock,
   isLocalDatabaseHost,
   leaseRenewDelayMs,
   parseLauncherLine,
+  planBootResume,
   resolvePublicBaseUrl,
   summarizeDatabaseError,
+  workerQueryTimeoutEnv,
+  WORKER_SOCKET_TIMEOUT_S,
+  WORKER_STATEMENT_TIMEOUT_S,
   type DatabaseProbe,
 } from "@/lib/admin-worker/local-config";
 
@@ -121,6 +130,55 @@ describe("computeLocalConfig — blocking reason", () => {
     const cfg = config({ publicBaseUrl: undefined, railwayEnvironmentName: "staging" });
     expect(cfg.railwayEnvironment).toBe("staging");
     expect(cfg.warnings[0]).toMatch(/"staging" environment.*nothing is guessed/);
+  });
+});
+
+describe("planBootResume — what a boot does with a switch it finds ON", () => {
+  const plan = (cfg: ReturnType<typeof config>, switchOn = true) =>
+    planBootResume({
+      switchOn,
+      blockingReason: cfg.blockingReason,
+      databaseReachable: cfg.database.reachable,
+    });
+
+  it("defers a database that is merely not answering yet to the switch poll — never 'failed'", () => {
+    // The reported trigger: after login or wake the 15 s boot probe over a
+    // cold TLS connection loses its race, then the switch read succeeds on
+    // the connection that has since come up. computeLocalConfig calls that
+    // "unreachable" — which used to park the runtime until the operator
+    // turned the switch OFF and ON again.
+    const cold = config({ probe: unreachable });
+    expect(cold.blockingReason).toBe("unreachable");
+    expect(cold.database.reachable).toBe(false);
+    expect(plan(cold)).toBe("defer");
+    expect(isConfigurationBlock(cold.blockingReason)).toBe(false);
+  });
+
+  it("parks the runtime only for configuration only the operator can fix", () => {
+    const local = config({ databaseUrl: "postgresql://u:p@localhost:5432/viafidei" });
+    const internal = config({
+      databaseUrl: "postgresql://u:p@postgres.railway.internal:5432/railway",
+    });
+    const none = config({ databaseUrl: "" });
+    for (const cfg of [local, internal, none]) {
+      expect(isConfigurationBlock(cfg.blockingReason)).toBe(true);
+      // A failed probe on top of it changes nothing: still configuration.
+      expect(plan(cfg)).toBe("park");
+      expect(plan({ ...cfg, database: unreachable })).toBe("park");
+    }
+  });
+
+  it("claims and starts against a database that answered, and does nothing with the switch OFF", () => {
+    expect(plan(config())).toBe("claim");
+    expect(plan(config(), false)).toBe("stay_off");
+    expect(plan(config({ probe: unreachable }), false)).toBe("stay_off");
+    expect(plan(config({ databaseUrl: "" }), false)).toBe("stay_off");
+  });
+
+  it("never claims against an unanswered probe, even without a blocking reason", () => {
+    expect(planBootResume({ switchOn: true, blockingReason: null, databaseReachable: false })).toBe(
+      "defer",
+    );
   });
 });
 
@@ -256,5 +314,46 @@ describe("summarizeDatabaseError", () => {
     );
     expect(summarizeDatabaseError("plain string")).toBe("plain string");
     expect(summarizeDatabaseError(new Error(""))).toBe("database error");
+  });
+});
+
+describe("workerQueryTimeoutEnv (the worker child's query timeouts)", () => {
+  it("defaults to a 120 s statement timeout under a 150 s socket timeout", () => {
+    expect(workerQueryTimeoutEnv({})).toEqual({
+      PRISMA_STATEMENT_TIMEOUT: "120",
+      PRISMA_SOCKET_TIMEOUT: "150",
+    });
+    // Postgres cancels first (a clean error); the socket timeout is only for
+    // a connection that can no longer deliver an answer at all.
+    expect(WORKER_SOCKET_TIMEOUT_S).toBeGreaterThan(WORKER_STATEMENT_TIMEOUT_S);
+  });
+
+  it("is tunable, switchable off with 0, and defaults on blank or junk", () => {
+    expect(
+      workerQueryTimeoutEnv({
+        VIAFIDEI_DB_STATEMENT_TIMEOUT: "300",
+        VIAFIDEI_DB_SOCKET_TIMEOUT: "0",
+      }),
+    ).toEqual({ PRISMA_STATEMENT_TIMEOUT: "300", PRISMA_SOCKET_TIMEOUT: "0" });
+    expect(
+      workerQueryTimeoutEnv({
+        VIAFIDEI_DB_STATEMENT_TIMEOUT: " ",
+        VIAFIDEI_DB_SOCKET_TIMEOUT: "x",
+      }),
+    ).toEqual({ PRISMA_STATEMENT_TIMEOUT: "120", PRISMA_SOCKET_TIMEOUT: "150" });
+  });
+
+  it("the host hands them to the worker child, and the long statements run without them", () => {
+    const host = readFileSync(join(process.cwd(), "scripts/local-worker-host.ts"), "utf8");
+    expect(host).toContain("...workerQueryTimeoutEnv(),");
+    const cleanup = readFileSync(join(process.cwd(), "src/lib/admin-worker/cleanup.ts"), "utf8");
+    expect(cleanup).toContain(
+      "withoutQueryTimeouts(prisma, (db) => vacuumLedgerTables(db, toVacuum))",
+    );
+    const monthly = readFileSync(
+      join(process.cwd(), "src/lib/admin-worker/monthly-report-job.ts"),
+      "utf8",
+    );
+    expect(monthly).toMatch(/withoutQueryTimeouts\(prisma, async \(db\) => \(\{/);
   });
 });

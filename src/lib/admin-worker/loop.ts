@@ -37,6 +37,7 @@ import {
 import { completePass, startPass } from "./passes";
 import { refreshContentGoals, seedContentGoals } from "./content-goals";
 import { executeMissionStage, type DispatchOutcome } from "./dispatcher";
+import { reportProgress } from "./worker-progress";
 
 export interface LoopOptions {
   workerId?: string;
@@ -313,7 +314,10 @@ export async function runAdminWorkerLoop(
             : passOutcome.degraded
               ? degradedFloorMs
               : idleBackoffStartMs;
-          await sleep(Math.max(floor, idleBackoffMs));
+          const restMs = Math.max(floor, idleBackoffMs);
+          // An announced rest is not a hang (the host's watchdog allows for it).
+          reportProgress("idle", String(restMs));
+          await sleep(restMs);
           idleBackoffMs = Math.min(idleBackoffMaxMs, Math.max(floor, idleBackoffMs) * 2);
         } else {
           idleBackoffMs = idleBackoffStartMs;
@@ -328,6 +332,7 @@ export async function runAdminWorkerLoop(
         failed += 1;
         console.error(`[admin-worker:${workerId}] pass ${passes} threw; continuing:`, err);
         if (oneShot) break;
+        reportProgress("idle", String(idleBackoffMs));
         await sleep(idleBackoffMs);
         idleBackoffMs = Math.min(idleBackoffMaxMs, Math.max(1, idleBackoffMs) * 2);
       }
@@ -430,6 +435,9 @@ function withDispatchWatchdog<T>(p: Promise<T>, ms: number): Promise<T> {
  */
 export async function runOnePass(prisma: PrismaClient, workerId: string): Promise<PassOutcome> {
   assertWorkerExecutionAllowed("run an Admin Worker pass");
+  // Progress beacons (worker-progress.ts): the host restarts a worker that
+  // crosses none of these boundaries for its progress timeout.
+  reportProgress("pass_start");
   await writeHeartbeat(prisma);
   const state = await getAdminWorkerState(prisma);
 
@@ -691,6 +699,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       };
     }
 
+    reportProgress("dispatch_done", dispatch.stage);
     built += dispatch.built ?? 0;
     publishedCount += dispatch.published ?? 0;
     failedCount += dispatch.failed ?? 0;
@@ -763,6 +772,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       summary: `${brain.missionStage}: ${dispatch.summary}`,
     });
     completed = true;
+    reportProgress("pass_complete");
     await recordSuccess(prisma, { summary: dispatch.summary });
   } catch (err) {
     failedCount += 1;
