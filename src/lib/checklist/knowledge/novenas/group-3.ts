@@ -20,13 +20,23 @@ import type { CuratedEntry } from "../index";
  *     five novenas for the principal feasts of Our Lady (the Immaculate
  *     Conception, her Nativity, the Annunciation, the Purification and the
  *     Assumption), transcribed from the page images of the archive.org scan
- *     and checked against its OCR. Where the book refers back to a prayer
- *     printed earlier in the same section (the Come, O Holy Ghost, the
- *     closing prayers for the Pope and the Church, the versicles and collect
- *     of the first day), that prayer is written out in full; page
- *     cross-references are dropped, and the Litany of Loreto, printed in
- *     another chapter, is left to the book's own rubric. Three printer's
- *     slips, "ot" for "of", are corrected.
+ *     and checked against its OCR. Three printer's slips, "ot" for "of", are
+ *     corrected.
+ *
+ *   - St. John Henry Newman, "Novena of St. Philip", in Meditations and
+ *     Devotions of the Late Cardinal Newman (London: Longmans, Green, 1893):
+ *     the nine prayers, from the Newman Reader transcription checked against
+ *     the 1893 scan (whose reading "wast so tender" is followed).
+ *
+ *   - St. Alphonsus Liguori, "Novena to the Sacred Heart", in The Holy
+ *     Eucharist, vol. 6 of the Centenary Edition, ed. Eugene Grimm (New York:
+ *     Benziger Brothers, 1887): the nine "Affections and Prayers".
+ *
+ *   - "Novena to Our Lady of Lourdes, for the use of the sick and afflicted"
+ *     (Baltimore: John Murphy & Co., [1876]), and "A Novena in Honour of the
+ *     Most Blessed Virgin Mary of Mount Carmel", translated from the Spanish
+ *     (London: Burns and Lambert, 1852): both transcribed from archive.org
+ *     scans, the Mount Carmel novena wholly from the page images.
  *
  * Every `prayerText` is copied from the first cited source and nothing in it is
  * paraphrased, shortened, composed or merged across versions. Where a novena's
@@ -34,9 +44,18 @@ import type { CuratedEntry } from "../index";
  * built once from their received parts, in the order the book prints them, and
  * repeated; the day-by-day distinction then lies in the `meditation`, which is a
  * short editorial introduction to the day's subject and never pretends to be
- * part of the prayer. Summaries and backgrounds are editorial and rest on the
- * cited sources; where the old Acts of a saint are legendary, the background
- * says so.
+ * part of the prayer. Where a book prints a prayer once and afterwards refers
+ * back to it ("Come, O Holy Ghost, etc., p. 176", "Hail, Holy Queen, &c.",
+ * "the Litany, with V., R. and prayers as above"), that prayer is written out
+ * in full from the same book on each day it is said; page cross-references
+ * are dropped, and a litany printed in another chapter of the book is left to
+ * the book's own rubric. Where a book sets a litany's responses in a brace
+ * beside the invocations, each invocation is given with its response. A
+ * meditation or address that a book prints before the day's prayer is
+ * summarised in the day's `meditation` rather than reproduced, except where it
+ * is itself said aloud as part of the prayer (the Raccolta's novena for the
+ * Assumption). Summaries and backgrounds are editorial and rest on the cited
+ * sources; where the old Acts of a saint are legendary, the background says so.
  *
  * Typographic conventions of the printed books are normalised without changing
  * any word: opening words set in capitals or small capitals are given in
@@ -71,6 +90,18 @@ const CE_CANDLEMAS = "https://www.newadvent.org/cathen/03245b.htm";
 const CE_ASSUMPTION = "https://www.newadvent.org/cathen/02006b.htm";
 const MUNIFICENTISSIMUS_DEUS =
   "https://www.vatican.va/content/pius-xii/en/apost_constitutions/documents/hf_p-xii_apc_19501101_munificentissimus-deus.html";
+const NEWMAN_MEDITATIONS_1893 = "https://archive.org/details/a600404300newmuoft/page/129/mode/1up";
+const NEWMAN_READER_NOVENA_OF_ST_PHILIP =
+  "https://www.newmanreader.org/works/meditations/meditations4.html";
+const CE_ORATORY_OF_ST_PHILIP = "https://www.newadvent.org/cathen/11272a.htm";
+const ALPHONSUS_HOLY_EUCHARIST_1887 =
+  "https://archive.org/details/alphonsusworks06alfouoft/page/n230/mode/1up";
+const CE_DEVOTION_TO_THE_SACRED_HEART = "https://www.newadvent.org/cathen/07163a.htm";
+const LOURDES_NOVENA_MURPHY = "https://archive.org/details/novenatoourladyo00unse";
+const CE_LOURDES = "https://www.newadvent.org/cathen/09389b.htm";
+const CARMEL_NOVENA_1852 = "https://archive.org/details/ANovenaInHonourOfTheMostBVM";
+const CE_CARMELITE_ORDER = "https://www.newadvent.org/cathen/03354a.htm";
+const CE_SCAPULAR = "https://www.newadvent.org/cathen/13508b.htm";
 
 /** Hammer's preparatory prayer, said first in each of the fourteen novenas to the Holy Helpers. */
 const HOLY_HELPER_PREPARATORY =
@@ -445,6 +476,162 @@ const RACCOLTA_ASSUMPTION_DAY_9 = [
   "Let us meditate how glorious Mary is in Heaven by reason of her patronage of man, and for the power she has to aid him with great watchfulness in all his necessities; wherefore with lively confidence in the patronage of the very Mother of our God, let us implore her aid.\n\nMary, our most powerful patroness, whose glory it is in Heaven to be the advocate of man; oh! take us from the hands of the enemy and place us in the arms of our God and Creator. Ave Maria thrice.\n\nMary, our most powerful patroness, who being in Heaven the advocate of men wouldst that all men should be saved; make it thy care that none of us succumb at the thought of our past relapses into sin. Ave Maria thrice.\n\nMary, our most powerful patroness, who to fulfil thy office dost love to be continually invoked by men; obtain for us such true devotion that we may ever call upon thee in life, and above all at the awful moment of our death. Ave Maria thrice.\n\nNow with all our hearts let us celebrate the glories of Mary; and consoled at having Mary for our advocate in Heaven, let us join in praising her with the ninth Choir of angels:",
   "Then say the Litany, and then:\nV. The Holy Mother of God is exalted.\nR. Into the heavenly kingdom above the Angel Choirs.\nLet us pray.\nWe beseech Thee, O Lord, to pardon the shortcomings of thy servants; that we who by our own works are not able to please Thee, may be saved by the intercession of the Mother of thy Son, our Lord Jesus Christ.",
   RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const NEWMAN_ST_PHILIP_DAY_1 =
+  "Philip, my glorious patron, who didst count as dross the praise, and even the good esteem of men, obtain for me also, from my Lord and Saviour, this fair virtue by thy prayers. How haughty are my thoughts, how contemptuous are my words, how ambitious are my works. Gain for me that low esteem of self with which thou wast gifted; obtain for me a knowledge of my own nothingness, that I may rejoice when I am despised, and ever seek to be great only in the eyes of my God and Judge.";
+
+const ALPHONSUS_SACRED_HEART_DAY_1 =
+  "O my amiable Redeemer, what object more worthy of love could Thy Eternal Father command me to love than Thee? Thou art the beauty of paradise, Thou art the love of Thy Father, Thy heart is the throne of all virtues. O amiable heart of my Jesus, Thou dost well deserve the love of all hearts; poor and wretched is that heart which loves Thee not! Thus miserable, O my God, has my heart been during all the time in which it hath not loved Thee. But I will not continue to be thus wretched; I love Thee, I will always continue to love Thee, O my Jesus. O my Lord, I have hitherto forgotten Thee, and now what can I expect? That my ingratitude will oblige Thee to forget me entirely, and forsake me forever? No, my Saviour, do not permit this. Thou art the object of the love of God; and shalt Thou not, then, be loved by a miserable sinner, such as I am, who have been so favored and loved by Thee? O lovely flames that burnt in the loving heart of my Jesus, enkindle in my poor heart that holy fire which Jesus came down from heaven to kindle on earth. Consume and destroy all the impure affections that dwell in my heart, and prevent it from being entirely his. O my God, grant that it may only exist to love Thee, and Thee alone, my dearest Saviour. If at one time I despised Thee, Thou art now the only object of my love. I love Thee, I love Thee, I love Thee, and I will never love any one else but Thee. My beloved Lord, do not disdain to accept the love of a heart which has once afflicted Thee by my sins. Let it be Thy glory to exhibit to the angels a heart now burning with the love of Thee, which hitherto shunned and despised Thee.\n\nMost holy Virgin Mary, my hope, do thou assist me, and beseech Jesus to make me, by his grace, all that he wishes me to be.";
+
+const NEWMAN_ST_PHILIP_DAY_2 =
+  "Philip, my glorious Patron, gain for me a portion of that gift which thou hadst so abundantly. Alas! thy heart was burning with love; mine is all frozen towards God, and alive only for creatures. I love the world, which can never make me happy; my highest desire is to be well off here below. O my God, when shall I learn to love nothing else but Thee? Gain for me, O Philip, a pure love, a strong love, and an efficacious love, that, loving God here upon earth, I may enjoy the sight of Him, together with thee and all saints, hereafter in heaven.";
+
+const ALPHONSUS_SACRED_HEART_DAY_2 =
+  "O adorable heart of my Jesus, heart inflamed with the love of men, heart created on purpose to love them, how is it possible that Thou canst be despised, and Thy love so ill corresponded to by men? Oh, miserable that I am, I also have been one of those ungrateful ones that have not loved Thee. Forgive me, my Jesus, this great sin of not having loved Thee, who art so amiable, and who hast loved me so much that Thou canst do nothing more to oblige me to love Thee. I feel that I deserve to be condemned not to be able to love Thee, for having renounced Thy love, as I have hitherto done. But no, my dearest Saviour, give me any chastisement, but do not inflict this one upon me. Grant me the grace to love Thee, and then give me any affliction Thou pleasest. But how can I fear such a chastisement, whilst I feel that Thou continuest to give me the sweet, the pleasing precept of loving Thee, my Lord and my God? Love the Lord thy God with thy whole heart. Yes, O my God, Thou wouldst be loved by me, and I will love Thee; indeed I will love none but Thee, who hast loved me so much. O Love of my Jesus, Thou art my Love. O burning heart of my Jesus, do thou inflame my heart also. Do not permit me in future, even for a single moment, to live without Thy love; rather kill me, destroy me; do not let the world behold the spectacle of such horrid ingratitude as that I, who have been so beloved by Thee, and received so many favors and lights from Thee, should begin again to despise Thy love. No, my Jesus, do not permit this. I trust in the blood that Thou hast shed for me, that I shall always love Thee, and that Thou wilt always love me, and that this love between Thee and me will not be broken off for eternity.\n\nO Mary, Mother of fair love, thou who desirest so much to see Jesus loved, bind me, unite me to thy Son; but bind me to him, so that we may never again be separated.";
+
+const NEWMAN_ST_PHILIP_DAY_3 =
+  "Philip, my holy Patron, teach me by thy example, and gain for me by thy intercessions, to seek my Lord and God at all times and in all places, and to live in His presence and in sacred intercourse with Him. As the children of this world look up to rich men or men in station for the favour which they desire, so may I ever lift up my eyes and hands and heart towards heaven, and betake myself to the Source of all good for those goods which I need. As the children of this world converse with their friends and find their pleasure in them, so may I ever hold communion with Saints and Angels, and with the Blessed Virgin, the Mother of my Lord. Pray with me, O Philip, as thou didst pray with thy penitents here below, and then prayer will become sweet to me, as it did to them.";
+
+const ALPHONSUS_SACRED_HEART_DAY_3 =
+  "My dearest Redeemer, I will say to Thee, with St. Augustine, Thou dost command me to love Thee, and dost threaten me with hell if I do not love Thee; but what more dreadful hell, what greater misfortune, can happen to me than to be deprived of Thy love! If, therefore, Thou desirest to frighten me, Thou shouldst threaten me only that I should live without loving Thee; for this threat alone will frighten me more than a thousand hells. If, in the midst of the flames of hell, the damned could burn with Thy love, O my God, hell itself would become a paradise; and if, on the contrary, the blessed in heaven could not love Thee, paradise would become hell. Thus St. Augustine expresses himself.\n\nI see, indeed, my dearest Lord, that I, on account of my sins, did deserve to be forsaken by Thy grace, and at the same time condemned to be incapable of loving Thee; but still I understand that Thou dost continue to command me to love Thee, and I also feel within me a great desire to love Thee. This my desire is a gift of Thy grace, and it comes from Thee. Oh, give me also the strength necessary to put it in execution, and make me, from this day forth, say to Thee earnestly, and from the bottom of my heart, and to repeat to Thee always, My God, I love Thee, I love Thee, I love Thee. Thou desirest my love; I also desire Thine. Blot out, therefore, from thy remembrance, O my Jesus, the offences that in past times I have committed against Thee; let us love each other henceforth forever. I will not leave Thee, and Thou wilt not leave me. Thou wilt always love me, and I will always love Thee. My dearest Saviour, in Thy merits do I place my hope; oh, do Thou make Thyself to be loved forever, and loved greatly, by a sinner who has offended Thee greatly.\n\nO Mary, Immaculate Virgin, do thou help me, do thou beseech Jesus for me.";
+
+const NEWMAN_ST_PHILIP_DAY_4 =
+  "Philip, my glorious Patron, who didst ever keep unsullied the white lily of thy purity, with such jealous care that the majesty of this fair virtue beamed from thine eyes, shone in thy hands, and was fragrant in thy breath, obtain for me that gift from the Holy Ghost, that neither the words nor the example of sinners may ever make any impression on my soul. And, since it is by avoiding occasions of sin, by prayer, by keeping myself employed, and by the frequent use of the Sacraments that my dread enemy must be subdued, gain for me the grace to persevere in these necessary observances.";
+
+const ALPHONSUS_SACRED_HEART_DAY_4 =
+  "My adorable and dearest Jesus, behold at Thy feet one who has caused so much sorrow to Thy amiable heart. O my God, how could I grieve this heart, which has loved me so much, and has spared nothing to make itself loved by me? But console Thyself, I will say, O my Saviour, for my heart having been wounded, through Thy grace, with Thy most holy love, feels now so much regret for the offences I have committed against Thee, that it would fain die of sorrow. Oh, who will give me, my Jesus, that sorrow for my sins which Thou didst feel for them in Thy life! Eternal Father, I offer Thee the sorrow and abhorrence Thy Son felt for my sins; and, for his sake, I beseech Thee to give me so great a sorrow for the offences I have committed against Thee, that I may lead an afflicted and sorrowful life at the thought of having once despised Thy friendship. And Thou, O my Jesus, do Thou give me, from this day forth, such a horror of sin, that I may abhor even the lightest faults, considering that they displease Thee, who dost not deserve to be offended much or little, but dost deserve an infinite love. My beloved Lord, I now detest everything that displeases Thee, and in future I will love only Thee, and that which Thou lovest. Oh, help me, give me the strength, give me the grace to invoke Thee constantly, O my Jesus, and always to repeat to Thee this petition: My Jesus, give me Thy love, give me Thy love, give me Thy love.\n\nAnd thou, most holy Mary, obtain for me the grace to pray to thee continually, and to say to thee, O my Mother, make me love Jesus Christ.";
+
+const NEWMAN_ST_PHILIP_DAY_5 =
+  "Philip, my glorious Advocate, teach me to look at all I see around me after thy pattern as the creatures of God. Let me never forget that the same God who made me made the whole world, and all men and all animals that are in it. Gain me the grace to love all God's works for God's sake, and all men for the sake of my Lord and Saviour who has redeemed them by the Cross. And especially let me be tender and compassionate and loving towards all Christians, as my brethren in grace. And do thou, who on earth wast so tender to all, be especially tender to us, and feel for us, bear with us in all our troubles, and gain for us from God, with whom thou dwellest in beatific light, all the aids necessary for bringing us safely to Him and to thee.";
+
+const ALPHONSUS_SACRED_HEART_DAY_5 =
+  'O compassionate heart of my Jesus, have pity on me: "Most sweet Jesus, have mercy on me." I say so now, and beseech Thee to give me the grace always to say to Thee, "Most sweet Jesus, have mercy on me." Even before I offended Thee, O my Redeemer, I certainly did not deserve any of the favors Thou hast bestowed upon me. Thou hast created me, Thou hast given me so much light and knowledge; and all without any merit of mine. But after I had offended Thee, I not only did not deserve Thy favor, but I deserved to be forsaken by Thee and cast into hell. Thy compassion has made Thee wait for me and preserve my life even when I had offended Thee. Thy compassion has enlightened me, and offered me pardon; it has given me sorrow for my sins, and the desire of loving Thee; and now I hope from Thy mercy to remain always in Thy grace. O my Jesus, cease not to show Thy compassion towards me. The mercy which I implore of Thee is that Thou wouldst grant me light and strength to be no longer ungrateful towards Thee. No, O my love, I do not expect that Thou shouldst again forgive me, if I again turn my back towards Thee; this would be presumption, and would prevent Thee from showing mercy to me any more. For what pity could I expect any more from Thee if I were so ungrateful as to despise Thy friendship again, and to separate myself from Thee. No, my Jesus, I love Thee, and I will always love Thee; and this is the mercy which I hope for and seek from Thee: "Permit me not to be separated from Thee, permit me not to be separated from Thee."\n\nAnd I beseech thee also, O Mary my Mother, permit me not to be ever again separated from my God.';
+
+const NEWMAN_ST_PHILIP_DAY_6 =
+  "Philip, my glorious Advocate, who didst ever follow the precepts and example of the Apostle St. Paul in rejoicing always in all things, gain for me the grace of perfect resignation to God's will, of indifference to matters of this world, and a constant sight of Heaven; so that I may never be disappointed at the Divine providences, never desponding, never sad, never fretful; that my countenance may always be open and cheerful, and my words kind and pleasant, as becomes those who, in whatever state of life they are, have the greatest of all goods, the favour of God and the prospect of eternal bliss.";
+
+const ALPHONSUS_SACRED_HEART_DAY_6 =
+  "Ah, my Jesus, Thou hast not refused to give me Thy blood and Thy life, and shall I refuse to give Thee my miserable heart? No, my dearest Redeemer, I offer it entirely to Thee. I give Thee all my will; do Thou accept it, and dispose of it at Thy pleasure. I can do nothing, and have nothing; but I have this heart which Thou hast given me, and of which no one can deprive me. I may be deprived of my goods, my blood, my life, but not of my heart. With this heart I can love Thee; with this heart I will love Thee. I beseech Thee, O my God, teach me a perfect forgetfulness of myself; teach me what I must do to arrive at Thy pure love, of which Thou in Thy goodness hast inspired me with the desire. I feel in myself a determination to please Thee; but in order to put my resolve into execution, I expect and implore help from Thee. It depends on Thee, O loving heart of Jesus, to make entirely Thine my poor heart, which hitherto has been so ungrateful, and through my own fault deprived of Thy love. Oh, grant that my heart may be all on fire with the love of Thee, even as Thine is on fire with the love of me. Grant that my will may be entirely united to Thine, so that I may will nothing but what Thou willest, and that from this day forth Thy holy will may be the rule of all my actions, of all my thoughts, and of all my desires. I trust, O my Saviour, that Thou wilt not refuse me Thy grace to fulfil this resolution which I now make prostrate at Thy feet, to receive with submission whatever Thou mayest ordain for me and my affairs, as well in life as in death. Blessed art thou, O Immaculate Mary, who hadst thy heart always and entirely united to the heart of Jesus; obtain for me, O my Mother, that in future I may wish and desire that which Jesus wills and thou willest.";
+
+const NEWMAN_ST_PHILIP_DAY_7 =
+  "Philip, my holy Advocate, who didst bear persecution and calumny, pain and sickness, with so admirable a patience, gain for me the grace of true fortitude under all the trials of this life. Alas! how do I need patience! I shrink from every small inconvenience; I sicken under every light affliction; I fire up at every trifling contradiction; I fret and am cross at every little suffering of body. Gain for me the grace to enter with hearty good-will into all such crosses as I may receive day by day from my Heavenly Father. Let me imitate thee, as thou didst imitate my Lord and Saviour, that so, as thou hast attained heaven by thy calm endurance of bodily and mental pain, I too may attain the merit of patience, and the reward of life everlasting.";
+
+const ALPHONSUS_SACRED_HEART_DAY_7 =
+  "O my beloved Jesus, behold at Thy feet an ungrateful sinner. I have been grateful indeed towards creatures; but to Thee alone I have been ungrateful—to Thee, who hast died for me, and hast done the utmost that Thou couldst do to oblige me to love Thee. But the thought that I have to do with a heart full of goodness and infinite in mercy, of one who proclaims that he forgives all the offences of the sinner who repents and loves him, consoles me and gives me courage. My dearest Jesus, I have in times past offended Thee and despised Thee; but now I love Thee more than everything—more than myself. Tell me what Thou wouldst have me to do; for I am ready to do everything with Thy help. I believe that Thou hast created me. Thou hast given Thy blood and Thy life for the love of me. I believe also that for my sake Thou dost remain in the Blessed Sacrament; I thank Thee for it, O my love. Oh, permit me not to be ungrateful in future for so many benefits and proofs of Thy love. Oh, bind me, unite me to Thy heart; and permit me not, during the years that remain to me, to offend Thee or grieve Thee any more. I have displeased Thee sufficiently. O my Jesus, it is time that I should love Thee now. Oh, that those years that I have lost would return! But they will return no more, and the life that remains for me may be short; but whether it be short or long, my God, I desire to spend it all in loving Thee, my sovereign good, who dost deserve an eternal and infinite love.\n\nO Mary, my Mother, let me never again be ungrateful to thy Son. Pray to Jesus for me.";
+
+const NEWMAN_ST_PHILIP_DAY_8 =
+  "Philip, my holy Patron, who wast so careful for the souls of thy brethren, and especially of thy own people, when on earth, slack not thy care of them now, when thou art in heaven. Be with us, who are thy children and thy clients; and, with thy greater power with God, and with thy more intimate insight into our needs and our dangers, guide us along the path which leads to God and to thee. Be to us a good father; make our priests blameless and beyond reproach or scandal; make our children obedient, our youth prudent and chaste, our heads of families wise and gentle, our old people cheerful and fervent, and build us up, by thy powerful intercessions, in faith, hope, charity, and all virtues.";
+
+const ALPHONSUS_SACRED_HEART_DAY_8 =
+  "O Heart of Jesus, abyss of mercy and love, how is it that, at the sight of the goodness Thou hast shown me, and of my ingratitude, I do not die of sorrow? Thou, O my Saviour, after having given me my being, hast given me all Thy blood and Thy life, giving Thyself up, for my sake, to ignominy and death; and, not content with this, Thou hast invented the mode of sacrificing Thyself every day for me in the Holy Eucharist, not refusing to expose Thyself to the injuries which Thou shouldst receive, and which Thou didst foresee, in this Sacrament of love. O my God, how can I see myself so ungrateful to Thee without dying with confusion! O Lord, put an end, I pray Thee, to my ingratitude, by wounding my heart with Thy love, and making me entirely Thine. Remember the blood and the tears that Thou hast shed for me, and forgive me. Oh, let not all Thy sufferings be lost upon me. But though Thou hast seen how ungrateful and unworthy of Thy love I have been, yet Thou didst not cease to love me even when I did not love Thee, nor even desire that Thou shouldst love me; how much rather, then, may I not hope for Thy love, now that I desire and sigh after nothing but to love Thee, and to be loved by Thee. Oh, do Thou fully satisfy this my desire; or rather this Thy desire, for it is Thou that hast given it to me. Grant that this day may be the day of my thorough conversion; so that I may begin to love Thee, and may never cease to love Thee, my sovereign good. Make me die in everything to myself, in order that I may live only to Thee, and that I may always burn with Thy love.\n\nO Mary, thy heart was the blessed altar that was always on fire with divine love: my dearest Mother, make me like to thee; obtain this from thy Son, who delights in honoring thee, by denying thee nothing that thou askest of him.";
+
+const NEWMAN_ST_PHILIP_DAY_9 =
+  "Philip, my holy Patron, the wounds and diseases of my soul are greater than bodily ones, and are beyond thy curing, even with thy supernatural power. I know that my Almighty Lord reserves in His own hands the recovery of the soul from death, and the healing of all its maladies. But thou canst do more for our souls by thy prayers now, my dear Saint, than thou didst for the bodies of those who applied to thee when thou wast upon earth. Pray for me, that the Divine Physician of the soul, Who alone reads my heart thoroughly, may cleanse it thoroughly, and that I and all who are dear to me may be cleansed from all our sins; and, since we must die, one and all, that we may die, as thou didst, in the grace and love of God, and with the assurance, like thee, of eternal life.";
+
+const ALPHONSUS_SACRED_HEART_DAY_9 =
+  "Oh, that I had been as faithful towards Thee, my dearest Redeemer, as Thou hast been faithful to me. Whenever I have opened my heart to Thee, Thou hast entered in, to forgive me and to receive me into Thy favor; whenever I have called Thee, Thou hast hastened to my assistance. Thou hast been faithful with me, but I have been exceedingly unfaithful towards Thee. I have promised Thee my love, and then have many times refused it to Thee; as if Thou, my God, who hast created and redeemed me, wert less worthy of being loved than Thy creatures and those miserable pleasures for which I have forsaken Thee. Forgive me, O my Jesus. I know my ingratitude, and abhor it. I know that Thou art infinite goodness, who deservest an infinite love, especially from me, whom Thou hast so much loved, even after all the offences I have committed against Thee. Unhappy me if I should damn myself; the graces Thou hast vouchsafed to me, and the proofs of the singular affection which Thou hast shown me, would be, O God, the hell of hells to me. Ah, no, my love, have pity on me; suffer me not to forsake Thee again, and then by damning myself, as I should deserve, continue to repay in hell with injuries and hatred the love that Thou hast borne me. O loving and faithful heart of Jesus, inflame, I beseech Thee, my miserable heart, so that it may burn with love for Thee, as Thine dost for me. My Jesus, it seems to me that now I love Thee; but I love Thee but little. Make me love Thee exceedingly, and remain faithful to Thee until death. I ask of Thee this grace, together with that of always praying to Thee for it. Grant that I may die rather than ever betray Thee again.\n\nO Mary, my Mother, help me to be faithful to thy Son.";
+
+/** The first and second prayers of the 1852 Mount Carmel novena, said on every day. */
+const CARMEL_DAILY_PRAYERS = [
+  "O my God and my Lord, prostrate before Thy Sovereign Majesty, I adore Thee with all my heart and soul. I confess to Thee, praise Thee, bless Thee, and glorify Thee. I acknowledge Thee to be my Lord and my God; I believe in Thee, and in all the mysteries of the Holy Catholic Faith, in which I desire to live and die. I hope in Thee, and I trust that Thou wilt pardon my faults and give me Thy grace, together with perseverance in it; and that at last Thou wilt bring me to the glory which Thou hast promised to those who continue in Thy love. I love Thee, above all things, for Thine infinite goodness; I give Thee thanks for all the benefits which Thou hast conferred, and still continuest to confer, upon me: I confess my great ingratitude towards Thee, and all my sins and offences against Thee; I am sorry for them, and beg that Thou wilt pardon me: it grieves me much that I have thus offended Thee, because Thou art the Infinite Being that Thou art. I repent with all my heart, because Thou art my God, infinitely good and worthy of my love: I am firmly resolved, by the help of Thy grace, to sin no more, and to avoid all occasions of offending Thee; to confess my faults, and to make satisfaction for them: I hope in Thee, O Lord, and that in Thine infinite mercy Thou wilt pardon me, so that with a pure heart I may praise Thy most holy Mother, and obtain by Her holy intercession what I ask in this Novena, if it be for Thy greater glory and the good of my soul. Amen.",
+  "O Blessed Virgin Mary, Mother of God and of sinners, Special Protectress of those who wear Thy Holy Scapular, I implore of Thee to obtain for me, from Thy dear Son Jesus, the pardon of my sins, the grace necessary for the amendment of my life, and the salvation of my soul. Be Thou also, O Lady, my help in necessity, my consolation in tribulation, and obtain for me what I ask in this Novena, if it be to His greater glory and for the good of my soul: and uniting myself to all the Angels, Saints, and Just, I salute Thee, saying, Hail Mary, &c.\nHere the Hail Mary is to be repeated three times.",
+].join("\n\n");
+
+/** The Litany of Loretto, antiphon, collect of Our Lady of Mount Carmel and closing acclamation, said on every day. */
+const CARMEL_LITANY_AND_CLOSING = [
+  "Litany of Loretto.\nAnt. We fly to thy patronage, O holy Mother of God; despise not our petitions in our necessities, but deliver us always from all dangers, O glorious and blessed Virgin.\nLord have mercy on us.\nLord have mercy on us.\nChrist have mercy on us.\nChrist have mercy on us.\nLord have mercy on us.\nLord have mercy on us.\nChrist hear us.\nChrist graciously hear us.\nGod the Father of heaven, have mercy on us.\nGod the Son, Redeemer of the world, have mercy on us.\nGod the Holy Ghost, have mercy on us.\nHoly Trinity, one God, have mercy on us.\nHoly Mary, pray for us.\nHoly Mother of God, pray for us.\nHoly Virgin of Virgins, pray for us.\nMother of Christ, pray for us.\nMother of divine grace, pray for us.\nMother most pure, pray for us.\nMother most chaste, pray for us.\nMother inviolate, pray for us.\nMother undefiled, pray for us.\nMother most amiable, pray for us.\nMother most admirable, pray for us.\nMother of our Creator, pray for us.\nMother of our Saviour, pray for us.\nVirgin most prudent, pray for us.\nVirgin most venerable, pray for us.\nVirgin most renowned, pray for us.\nVirgin most powerful, pray for us.\nVirgin most merciful, pray for us.\nVirgin most faithful, pray for us.\nMirror of justice, pray for us.\nSeat of wisdom, pray for us.\nCause of our joy, pray for us.\nSpiritual vessel, pray for us.\nVessel of honour, pray for us.\nVessel of singular devotion, pray for us.\nMystical Rose, pray for us.\nTower of David, pray for us.\nTower of ivory, pray for us.\nHouse of gold, pray for us.\nArk of the covenant, pray for us.\nGate of heaven, pray for us.\nMorning star, pray for us.\nHealth of the sick, pray for us.\nRefuge of sinners, pray for us.\nComforter of the afflicted, pray for us.\nHelp of Christians, pray for us.\nQueen of Angels, pray for us.\nQueen of Patriarchs, pray for us.\nQueen of Prophets, pray for us.\nQueen of Apostles, pray for us.\nQueen of Martyrs, pray for us.\nQueen of Confessors, pray for us.\nQueen of Virgins, pray for us.\nQueen of all Saints, pray for us.\nQueen conceived without sin, pray for us.\nLamb of God, who takest away the sins of the world,\nSpare us, O Lord.\nLamb of God, who takest away the sins of the world,\nGraciously hear us.\nLamb of God, who takest away the sins of the world,\nHave mercy on us.\nChrist hear us.\nChrist graciously hear us.\nAnt. We fly to thy patronage, O holy Mother of God; despise not our petitions in our necessities, but deliver us always from all dangers, O glorious and blessed Virgin.\nV. Pray for us, O holy Mother of God.\nR. That we may be made worthy of the promises of Christ.\nLet us pray.\nO God, who hast honoured the Carmelite Order with the peculiar title of the most blessed ever Virgin Mary, thy Mother; mercifully grant that as we this day celebrate her commemoration with a solemn office, so we may be defended by her protecting power, and be found worthy to attain to everlasting joys. Who livest and reignest, &c.",
+  "Praised and blessed for ever be the most holy and divine Sacrament of the Altar; and blessed be the holy and immaculate Conception of the blessed Virgin Mary.",
+].join("\n\n");
+
+const LOURDES_SICK_DAY_1 =
+  "O our dear Lady of Lourdes, bless me and help me. Thou, whom the Saints have proclaimed so full of pity and kindness toward us,—thou, who art everywhere invoked with so much confidence,—thou, who hast deigned to appear in the grotto of Lourdes as a sweet messenger of grace and mercy, with a smile of motherly tenderness on thy lips,—show now thy goodness toward me, thy poor child. Obtain for me, I beseech thee, the graces I stand in need of for my sanctification; obtain for me patience in suffering; and if it be God's will, obtain for me restoration to health, (or whatever other favor is specially asked for in the novena.) Amen.\n\nOur dear Lady of Lourdes, pray for us. (Repeat three times.)";
+
+const MOUNT_CARMEL_DAY_1 = [
+  CARMEL_DAILY_PRAYERS,
+  "O Virgin of Carmel, Most Holy Mary, who wast prefigured by the cloud which the great prophet Elias saw rising from the sea, and which with its rain rendered the whole earth fruitful, signifying Thy most pure fecundity, by which Thou gavest to the world Thy dear Son Jesus for the salvation of all our souls: I beg of Thee, O Lady, to obtain for me from His Divine Majesty a copious supply of grace, so that my soul may bring forth abundant fruits of virtue and good works, and having served Thee perfectly on earth, I may be worthy to enjoy Thee eternally in Heaven; and that I may obtain what I particularly pray for in this Novena, I humbly beg this grace of Thee, saying,",
+  "Hail, Holy Queen, Mother of Mercy, our life, our sweetness, and our hope; to Thee do we cry, poor banished children of Eve; to Thee do we send up our sighs, mourning and weeping in this valley of tears! Turn, then, most Gracious Advocate, thine eyes of mercy towards us, and after this our painful exile shew unto us the Blessed Fruit of Thy womb, Jesus! O clement, O pious, O sweet Virgin Mary!",
+  CARMEL_LITANY_AND_CLOSING,
+].join("\n\n");
+
+const LOURDES_SICK_DAY_2 =
+  "O our blessed Lady of Lourdes, thou whose influence with Almighty God is so great that thy prayers are never refused, have pity on me thy needy child. O Virgin most holy! O Virgin most powerful! turn not away from me, though all unworthy, nor disdain to plead in my behalf. Heed not my unworthiness, but the promptings of thy own heart, thou who art as rich in mercy as in power. Use thy boundless influence to obtain for me patience in my sufferings, restoration to health (or other favor), and the grace to make a good use of it for the glory of God. Amen.\n\nOur dear Lady of Lourdes, pray for us. (Three times.)";
+
+const MOUNT_CARMEL_DAY_2 = [
+  CARMEL_DAILY_PRAYERS,
+  "O Virgin of Carmel, Most Holy Mary, who, on account of Thy singular love for the Carmelites, didst favour them by familiarly conversing with them, and enlightening them by means of Thy instruction and example: I beseech Thee, O dear Lady, to obtain for me, of Thy Beloved Son Jesus, light to be sensible of His goodness, grace to love Him, to know and deplore my sins, and to teach me what I ought to do in order to serve Him perfectly. Grant that my life and conversation may always be to His greater honour and glory, as well as to the edification of my neighbour; and that I may obtain what I desire in this Novena, I ask it especially through Thy intercession, saying,",
+  "Hail, Holy Queen, Mother of Mercy, our life, our sweetness, and our hope; to Thee do we cry, poor banished children of Eve; to Thee do we send up our sighs, mourning and weeping in this valley of tears! Turn, then, most Gracious Advocate, thine eyes of mercy towards us, and after this our painful exile shew unto us the Blessed Fruit of Thy womb, Jesus! O clement, O pious, O sweet Virgin Mary!",
+  CARMEL_LITANY_AND_CLOSING,
+].join("\n\n");
+
+const LOURDES_SICK_DAY_3 =
+  "O our compassionate Lady of Lourdes, who hast shown thy affection for poor sinners by commanding Bernadette to pray for them and to get others to pray for them, exercise now thy compassion in my regard. O my Mother and my advocate, I know that my sins render me unworthy to approach thee; but I know also, sweet Refuge of sinners, that thy goodness will not reject me. I come to thee then with humble confidence. I lay all my miseries before thee, and implore thy help. O above all things obtain for me true repentance for my sins, and entire pardon for them. And if it be the holy will of God, obtain for me restoration to health, and the grace to make a good use of it for the glory of God.\n\nOur dear Lady of Lourdes, pray for us.";
+
+const MOUNT_CARMEL_DAY_3 = [
+  CARMEL_DAILY_PRAYERS,
+  "O Virgin of Carmel, Most Holy Mary, who didst receive with singular pleasure and love the homage of the Carmelites, who were the first to build a church to Thine honour on Mount Carmel, where the faithful assembled to praise Thee: I beseech Thee, O Blessed Lady, to make my soul a living temple of the Majesty of God, where He may always dwell, and from which temporal affections may be ever banished; and, that I may obtain what I desire in this Novena, I beg of Thee to ask it for me, most humbly saying,",
+  "Hail, Holy Queen, Mother of Mercy, our life, our sweetness, and our hope; to Thee do we cry, poor banished children of Eve; to Thee do we send up our sighs, mourning and weeping in this valley of tears! Turn, then, most Gracious Advocate, thine eyes of mercy towards us, and after this our painful exile shew unto us the Blessed Fruit of Thy womb, Jesus! O clement, O pious, O sweet Virgin Mary!",
+  CARMEL_LITANY_AND_CLOSING,
+].join("\n\n");
+
+const LOURDES_SICK_DAY_4 =
+  "O our blessed Lady of Lourdes, I come to claim a share in thy boundless compassion and goodness. Remember that thy mercy has never failed any one. Nay, permit me even to remind thee, that whatever gifts thou hast of grace and glory, even to thy divine maternity, thou owest all in a certain sense to poor sinners, since it was for sinners that God became thy Son. Look on me, then, O Mary, and bless me, and help me. Obtain for me purity of soul and health of body. Amen.\n\nOur dear Lady of Lourdes, pray for us.";
+
+const MOUNT_CARMEL_DAY_4 = [
+  CARMEL_DAILY_PRAYERS,
+  "O Virgin of Mount Carmel, Most Holy Mary, who, to shew Thy great love towards the Carmelites, didst honour them with the sweet name of Thy sons and brethren, thus teaching them confidently to look to Thee, as their Mother, for remedy, consolation, and help in all their afflictions, and exhorting them to imitate Thy virtues: I beseech Thee, most dear Lady, to be my Mother, so that I may imitate Thy virtues, worthily enjoy the title of Thy child, and that my name may be inscribed in the book of predestination with those of the Sons of God and Brothers of Jesus Christ; and I beg of Thee most humbly to obtain for me what I ask in this Novena, by Thine intercession, saying,",
+  "Hail, Holy Queen, Mother of Mercy, our life, our sweetness, and our hope; to Thee do we cry, poor banished children of Eve; to Thee do we send up our sighs, mourning and weeping in this valley of tears! Turn, then, most Gracious Advocate, thine eyes of mercy towards us, and after this our painful exile shew unto us the Blessed Fruit of Thy womb, Jesus! O clement, O pious, O sweet Virgin Mary!",
+  CARMEL_LITANY_AND_CLOSING,
+].join("\n\n");
+
+const LOURDES_SICK_DAY_5 =
+  "O our Lady of Lourdes, special protectress of France, we all unite in thanking thee for thy goodness to that favored country. O be her protectress now above all in these troublous times; dispel the cloud of sin and infidelity that now obscures her, and make her shine more brightly than ever with the light of faith and virtue. We thank thee too for the blessings which from her shrines, and especially from Lourdes, thou hast dispensed throughout the world. Deign, dear Mother, to make me now a sharer in those blessings, both spiritual and temporal. O if it be the will of God, obtain for me restoration to health; but if that should be a danger to my soul, I ask only for resignation and patience unto the end. Amen.\n\nOur dear Lady of Lourdes, pray for us.";
+
+const MOUNT_CARMEL_DAY_5 = [
+  CARMEL_DAILY_PRAYERS,
+  "O Virgin of Carmel, Most Holy Mary, who, to defend Thy beloved children the Carmelites, when their Holy Institute was on the point of being abolished, manifesting thereby Thy singular love towards them, didst desire the Supreme Pontiff, Honorius III., to receive them, and to confirm their Institute, shewing him that this was Thy will and that of Thy divine Son, by the sudden death with which He punished two persons who particularly opposed it: I beseech Thee, O Lady, to defend me from all my enemies, both of soul and body, so that I may serve God in peace; and obtain for me what I ask in this Novena, through Thine intercession, I beg this grace, devoutly saying,",
+  "Hail, Holy Queen, Mother of Mercy, our life, our sweetness, and our hope; to Thee do we cry, poor banished children of Eve; to Thee do we send up our sighs, mourning and weeping in this valley of tears! Turn, then, most Gracious Advocate, thine eyes of mercy towards us, and after this our painful exile shew unto us the Blessed Fruit of Thy womb, Jesus! O clement, O pious, O sweet Virgin Mary!",
+  CARMEL_LITANY_AND_CLOSING,
+].join("\n\n");
+
+const LOURDES_SICK_DAY_6 =
+  "O our sweet Lady of Lourdes, during thy whole life the bitter cup of suffering was always at thy lips, and thou didst never murmur. Alas! how different have been my dispositions! With all my heart I regret my want of generosity and resignation, and I now desire to do better. Obtain for me the courage and patience that I need in all my trials, and especially in these present sufferings. I offer them up through thy hands in atonement for my sins, and for the good of the holy Church. Deign, our dear Lady of Lourdes, to obtain my cure. But should that not be for the good of my soul, obtain for me perfect resignation and patience. Amen.\n\nOur dear Lady of Lourdes, pray for us.";
+
+const MOUNT_CARMEL_DAY_6 = [
+  CARMEL_DAILY_PRAYERS,
+  "O Virgin of Carmel, Most Holy Mary, who, to mark the Carmelites as Thine especial children, didst enrich them with the singular pledge of Thy most Holy Scapular, by means of which Thou dost bestow such singular graces on those who devoutly wear it, and fulfilling their obligations, shew, by their imitation of Thy virtues, that they are truly Thy children: I beseech Thee, O Lady, to obtain for me the grace to serve Thee lovingly in this life, so that I may be worthy to feel the effects of this holy devotion; and I beg of Thee most humbly to obtain for me the grace I particularly pray for in this Novena, through Thine intercession, saying,",
+  "Hail, Holy Queen, Mother of Mercy, our life, our sweetness, and our hope; to Thee do we cry, poor banished children of Eve; to Thee do we send up our sighs, mourning and weeping in this valley of tears! Turn, then, most Gracious Advocate, thine eyes of mercy towards us, and after this our painful exile shew unto us the Blessed Fruit of Thy womb, Jesus! O clement, O pious, O sweet Virgin Mary!",
+  CARMEL_LITANY_AND_CLOSING,
+].join("\n\n");
+
+const LOURDES_SICK_DAY_7 =
+  'O our dear Lady of Lourdes, who didst say to Bernadette: "I promise to make thee happy, not in this world but in the world to come," help me to be less intent upon the gratifications of this life, and more desirous of the happiness of heaven. Make me understand what treasures are hidden in suffering, that I may not waste them. Enable me rightly to appreciate the strengthening and sanctifying sacraments, that I may receive them devoutly and profitably. O by thy bitter sufferings at the foot of the Cross, obtain for me patience in my sufferings, and, if it be the holy will of God, restoration to health. Amen.\n\nOur dear Lady of Lourdes, pray for us.';
+
+const MOUNT_CARMEL_DAY_7 = [
+  CARMEL_DAILY_PRAYERS,
+  "O Virgin of Carmel, Most Holy Mary, who, in Thy Holy Scapular, givest to those who devoutly wear it a strong buckler against the perils of this world and the attacks of the devil, proving the truth of this privilege by so many and such singular miracles: I beseech Thee, O Lady, to be my powerful defence in this mortal life, so that in all my tribulations I may find security in Thee, and be victorious in my temptations, by means of Thine especial assistance; and I beg of Thee to obtain for me from Thy Blessed Son Jesus, through Thine intercession, what I desire in this Novena; I ask it of thee most humbly, O dear Lady, saying,",
+  "Hail, Holy Queen, Mother of Mercy, our life, our sweetness, and our hope; to Thee do we cry, poor banished children of Eve; to Thee do we send up our sighs, mourning and weeping in this valley of tears! Turn, then, most Gracious Advocate, thine eyes of mercy towards us, and after this our painful exile shew unto us the Blessed Fruit of Thy womb, Jesus! O clement, O pious, O sweet Virgin Mary!",
+  CARMEL_LITANY_AND_CLOSING,
+].join("\n\n");
+
+const LOURDES_SICK_DAY_8 =
+  "O our blessed Lady of Lourdes, the Immaculate Conception, Virgin most pure and stainless, obtain for me the grace to be chaste, to avoid all occasions of sin, and to have recourse to prayer whenever I am tempted by the devil, the world, or the flesh. Let me rather die than live to commit sin. But if it be the holy will of God, O obtain for me my health, and grace to make use of it for practising virtue and gaining heaven. Amen.\n\nOur dear Lady of Lourdes, pray for us.";
+
+const MOUNT_CARMEL_DAY_8 = [
+  CARMEL_DAILY_PRAYERS,
+  "O Virgin of Carmel, Most Holy Mary, who hast promised Thine especial assistance at the hour of death to those who wear Thy Holy Scapular, so that by means of true penitence they may leave this life in a state of grace: I beseech Thee, O Lady, to assist and console me at the hour of my death, and to obtain for me a true and perfect contrition for all my sins, an ardent love of God, and a great desire of seeing and enjoying Him, so that I may arrive securely at eternal happiness; and I beg of Thee to obtain for me the grace I ask in this Novena, through Thine intercession, saying,",
+  "Hail, Holy Queen, Mother of Mercy, our life, our sweetness, and our hope; to Thee do we cry, poor banished children of Eve; to Thee do we send up our sighs, mourning and weeping in this valley of tears! Turn, then, most Gracious Advocate, thine eyes of mercy towards us, and after this our painful exile shew unto us the Blessed Fruit of Thy womb, Jesus! O clement, O pious, O sweet Virgin Mary!",
+  CARMEL_LITANY_AND_CLOSING,
+].join("\n\n");
+
+const LOURDES_SICK_DAY_9 =
+  "O our Lady of Lourdes, who hast so strongly recommended penance, help me to accept as I ought the penance which God sends me, and to profit by the sufferings which I have to bear. Enable me to understand rightly the wickedness of sin, and how terrible are its consequences for this life and for the life to come. And may this understanding make me eager to do all possible penance for the sins I have committed, and careful not to fall into them again. May this holy novena have the effect of lastingly increasing my devotion toward thee, dear Mother; and at its close I again beseech thee, if it be for the best, to obtain my restoration to health, though I add, in the sincerity of my soul, not my will, but God's will and thine be done. Amen.\n\nOur dear Lady of Lourdes, pray for us.";
+
+const MOUNT_CARMEL_DAY_9 = [
+  CARMEL_DAILY_PRAYERS,
+  "O Virgin of Carmel, Most Holy Mary, who even favourest Thy children the Carmelites after death, and, as a loving Mother, dost assist the souls of those who wear Thy Holy Scapular when in the flames of Purgatory, and by Thy prayers obtainest for them a speedy deliverance from their sufferings, and the enjoyment of God in eternal glory: I beseech Thee, O dear Lady, to obtain for me, from His Majesty, the grace to fulfil my obligations as a Christian, so that I also may enjoy this singular favour; and I beg of Thee to obtain for me what I ask in this Novena, through Thine intercession, saying,",
+  "Hail, Holy Queen, Mother of Mercy, our life, our sweetness, and our hope; to Thee do we cry, poor banished children of Eve; to Thee do we send up our sighs, mourning and weeping in this valley of tears! Turn, then, most Gracious Advocate, thine eyes of mercy towards us, and after this our painful exile shew unto us the Blessed Fruit of Thy womb, Jesus! O clement, O pious, O sweet Virgin Mary!",
+  CARMEL_LITANY_AND_CLOSING,
 ].join("\n\n");
 
 /**
@@ -2062,6 +2249,398 @@ export const novenaGroupThree: CuratedEntry[] = [
       typicalStartDate: "6 August, ending on 14 August, the eve of the solemnity",
       relatedFeastSlug: "solemnity-assumption",
       citations: [RACCOLTA_1910_NOVENAS, CE_ASSUMPTION, MUNIFICENTISSIMUS_DEUS],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-philip-neri",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      NEWMAN_MEDITATIONS_1893,
+      NEWMAN_READER_NOVENA_OF_ST_PHILIP,
+      CE_ORATORY_OF_ST_PHILIP,
+    ],
+    payload: {
+      slug: "novena-saint-philip-neri",
+      title: "Novena of Saint Philip Neri (Saint John Henry Newman)",
+      summary:
+        "The novena St. John Henry Newman wrote for the feast of St. Philip Neri, apostle of Rome and founder of the Oratory, kept from 17 to 25 May. Each day Newman sets out one of Philip's virtues — humility, devotion, prayer, purity, tenderness of heart, cheerfulness, patience, care for souls and his miraculous gifts — and closes with a prayer to Philip for the same grace.",
+      background:
+        "St. Philip Neri (1515-1595) gathered the clergy and laity of Rome around him for prayer, preaching and the sacraments, and in 1575 his Congregation of the Oratory was erected at Santa Maria in Vallicella. Newman, who became an Oratorian and founded the Oratory in England in 1847-1848, wrote this novena for his community's keeping of Philip's feast on 26 May; it was published after his death in Meditations and Devotions of the Late Cardinal Newman (London: Longmans, Green, 1893). Each day joins a short address — whose substance, Newman notes, he took from Bacci's Life of St. Philip in Father Faber's translation — to a prayer. Only Newman's nine prayers are reproduced here; the addresses are summarised in the day meditations and are best read in full in the cited edition.",
+      intentionTheme:
+        "the virtues of St. Philip Neri — humility, love of God, prayer and cheerful patience — through his intercession",
+      days: [
+        {
+          day: 1,
+          title: "Philip's Humility",
+          meditation:
+            "Newman's first address gathers Philip's sayings against himself: he thanked God, on hearing of another's crime, that he had not done worse, and fled every mark of honour. His constant lesson was simply, be humble.",
+          prayerText: NEWMAN_ST_PHILIP_DAY_1,
+          intentionPrompt: "When did I last let someone else take the credit for something I did?",
+        },
+        {
+          day: 2,
+          title: "Philip's Devotion",
+          meditation:
+            "The second day describes the fire of Philip's love for God, his devotion to the Blessed Sacrament and to Our Lady — and his warning that emotion is not devotion, nor tears a proof of grace.",
+          prayerText: NEWMAN_ST_PHILIP_DAY_2,
+          intentionPrompt: "Do I love God only when I feel it?",
+        },
+        {
+          day: 3,
+          title: "Philip's Exercise of Prayer",
+          meditation:
+            "Philip prayed at all times and in all places, and taught his penitents to do the same. Newman's prayer asks to lift up eyes, hands and heart to God as naturally as worldly people look to the powerful for favour.",
+          prayerText: NEWMAN_ST_PHILIP_DAY_3,
+          intentionPrompt: "To whom do I turn first when I need something?",
+        },
+        {
+          day: 4,
+          title: "Philip's Purity",
+          meditation:
+            "Philip kept his purity with such care that it seemed to shine from him. The prayer names the means: avoiding occasions of sin, prayer, keeping busy, and the frequent use of the sacraments.",
+          prayerText: NEWMAN_ST_PHILIP_DAY_4,
+          intentionPrompt: "Which of those four means am I neglecting?",
+        },
+        {
+          day: 5,
+          title: "Philip's Tenderness of Heart",
+          meditation:
+            "Philip could not bear cruelty even to animals, and was tender toward everyone he met. The prayer asks to see all things as God's creatures and all men as redeemed by the Cross.",
+          prayerText: NEWMAN_ST_PHILIP_DAY_5,
+          intentionPrompt: "Toward whom have I been hard-hearted?",
+        },
+        {
+          day: 6,
+          title: "Philip's Cheerfulness",
+          meditation:
+            "Philip followed St. Paul in rejoicing always. Newman's prayer asks for resignation, indifference to worldly things and a constant sight of heaven — so that one's face is open and one's words kind.",
+          prayerText: NEWMAN_ST_PHILIP_DAY_6,
+          intentionPrompt: "What would change if I were never fretful this week?",
+        },
+        {
+          day: 7,
+          title: "Philip's Patience",
+          meditation:
+            "Philip bore persecution, calumny and long sickness calmly. Newman's prayer is unusually candid about the one praying: shrinking from every small inconvenience, firing up at every trifling contradiction.",
+          prayerText: NEWMAN_ST_PHILIP_DAY_7,
+          intentionPrompt: "Which small irritation do I meet with least patience?",
+        },
+        {
+          day: 8,
+          title: "Philip's Care for the Salvation of Souls",
+          meditation:
+            "Philip spent his life hearing confessions and leading souls to God. The prayer asks him to go on caring for his people from heaven — priests, children, the young, parents and the old.",
+          prayerText: NEWMAN_ST_PHILIP_DAY_8,
+          intentionPrompt: "Whose salvation am I responsible for praying for?",
+        },
+        {
+          day: 9,
+          title: "Philip's Miraculous Gifts",
+          meditation:
+            "Philip healed many in body, but Newman's last prayer asks for the deeper healing only God can give: a heart cleansed of sin, and a death in the grace and love of God.",
+          prayerText: NEWMAN_ST_PHILIP_DAY_9,
+          intentionPrompt: "What wound in my soul do I most need Christ to heal?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-philip-neri",
+      typicalStartDate: "17 May, ending on 25 May, the eve of his feast",
+      citations: [
+        NEWMAN_MEDITATIONS_1893,
+        NEWMAN_READER_NOVENA_OF_ST_PHILIP,
+        CE_ORATORY_OF_ST_PHILIP,
+      ],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-sacred-heart-saint-alphonsus",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [ALPHONSUS_HOLY_EUCHARIST_1887, CE_DEVOTION_TO_THE_SACRED_HEART],
+    payload: {
+      slug: "novena-sacred-heart-saint-alphonsus",
+      title: "Novena to the Sacred Heart (Saint Alphonsus Liguori)",
+      summary:
+        "St. Alphonsus Liguori's novena of meditations to the Sacred Heart of Jesus: nine considerations of the Heart of Christ — amiable, loving, longing to be loved, sorrowful, compassionate, generous, grateful, despised and faithful — each closing with the saint's own affections and prayers and a short petition to Our Lady.",
+      background:
+        "St. Alphonsus Liguori (1696-1787), Doctor of the Church and founder of the Redemptorists, wrote this novena for souls who wished to honour the Heart of Jesus in the Blessed Sacrament, at a time when he hoped the Church would grant the Sacred Heart a feast of its own; Clement XIII allowed the Office and Mass to a number of churches in 1765, and Pius IX extended the feast to the universal Church in 1856. The text is that of The Holy Eucharist, volume 6 of the Centenary Edition of his ascetical works edited by Eugene Grimm (New York: Benziger Brothers, 1887). Each day's prayer is Alphonsus's own Affections and Prayers; his meditations, which precede them, are summarised in the day meditations below. It is distinct from the traditional novena prayer to the Sacred Heart in this catalogue.",
+      intentionTheme: "love for the Heart of Jesus, returned for the love it bears us",
+      days: [
+        {
+          day: 1,
+          title: "The Amiable Heart of Jesus",
+          meditation:
+            "If we would only consider what makes Jesus worthy of love, Alphonsus says, we could not help loving Him. The saints wept that Love is not loved.",
+          prayerText: ALPHONSUS_SACRED_HEART_DAY_1,
+          intentionPrompt: "What about Christ have I never really stopped to consider?",
+        },
+        {
+          day: 2,
+          title: "The Loving Heart of Jesus",
+          meditation:
+            "All the love of angels and saints together would not reach the thousandth part of His love for us — shown in His death, in His remaining with us in the Blessed Sacrament, and in His becoming our food.",
+          prayerText: ALPHONSUS_SACRED_HEART_DAY_2,
+          intentionPrompt: "Do I receive Communion as a gift of love or as a habit?",
+        },
+        {
+          day: 3,
+          title: "The Heart of Jesus Panting to Be Loved",
+          meditation:
+            "God has no need of us, yet, as St. Thomas says, He desires our love as if His happiness depended on it. Alphonsus finds in this the strongest reason to love Him back.",
+          prayerText: ALPHONSUS_SACRED_HEART_DAY_3,
+          intentionPrompt: "Do I believe God actually wants my love?",
+        },
+        {
+          day: 4,
+          title: "The Sorrowful Heart of Jesus",
+          meditation:
+            "His Heart was sorrowful even unto death, Alphonsus says, less for the torments prepared for Him than for the ingratitude He foresaw, above all toward His love in the Blessed Sacrament. The prayer asks for a share in that sorrow and a horror even of the smallest faults.",
+          prayerText: ALPHONSUS_SACRED_HEART_DAY_4,
+          intentionPrompt: "Which small fault have I stopped thinking of as a sin?",
+        },
+        {
+          day: 5,
+          title: "The Compassionate Heart of Jesus",
+          meditation:
+            "No heart is more compassionate toward sinners. Alphonsus repeats the old ejaculation, Most sweet Jesus, have mercy on me, and asks above all never to be separated from Him again.",
+          prayerText: ALPHONSUS_SACRED_HEART_DAY_5,
+          intentionPrompt: "Am I presuming on God's mercy, or trusting it?",
+        },
+        {
+          day: 6,
+          title: "The Generous Heart of Jesus",
+          meditation:
+            "Christ gave His blood and His life; the least we can give Him is the heart He gave us, which no one can take from us. The prayer is an offering of the whole will.",
+          prayerText: ALPHONSUS_SACRED_HEART_DAY_6,
+          intentionPrompt: "What part of my will am I still keeping back from God?",
+        },
+        {
+          day: 7,
+          title: "The Grateful Heart of Jesus",
+          meditation:
+            "Christ rewards the smallest thing done for Him; we have been grateful to creatures and ungrateful only to Him. The prayer resolves to spend whatever life remains in loving Him.",
+          prayerText: ALPHONSUS_SACRED_HEART_DAY_7,
+          intentionPrompt: "How will I spend the years that remain to me?",
+        },
+        {
+          day: 8,
+          title: "The Despised Heart of Jesus",
+          meditation:
+            "Nothing grieves a loving heart more than to see its love despised, and Christ's love in the Blessed Sacrament is repaid with neglect. The prayer asks that this day be the day of a thorough conversion.",
+          prayerText: ALPHONSUS_SACRED_HEART_DAY_8,
+          intentionPrompt: "What would a thorough conversion look like in my life?",
+        },
+        {
+          day: 9,
+          title: "The Faithful Heart of Jesus",
+          meditation:
+            "God is faithful to His promises and never abandons the soul that seeks Him. The novena ends asking for the grace to be faithful in return until death.",
+          prayerText: ALPHONSUS_SACRED_HEART_DAY_9,
+          intentionPrompt: "Where have I been unfaithful to promises made to God?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-alphonsus-liguori",
+      associatedDevotionSlug: "devotion-sacred-heart-of-jesus",
+      typicalStartDate: "The nine days before the Solemnity of the Most Sacred Heart of Jesus",
+      relatedFeastSlug: "solemnity-sacred-heart",
+      citations: [ALPHONSUS_HOLY_EUCHARIST_1887, CE_DEVOTION_TO_THE_SACRED_HEART],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-our-lady-of-lourdes",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LOURDES_NOVENA_MURPHY, CE_LOURDES],
+    payload: {
+      slug: "novena-our-lady-of-lourdes",
+      title: "Novena to Our Lady of Lourdes for the Sick and Afflicted",
+      summary:
+        "A nine-day novena to Our Lady of Lourdes written for the sick and those who care for them, and for anyone with a favour to ask. Each day considers one reason for confidence in Mary and closes with a short prayer that asks patience in suffering and, if it be God's will, restoration to health.",
+      background:
+        "The Blessed Virgin appeared to Bernadette Soubirous, a girl of fourteen, at the grotto of Massabielle near Lourdes eighteen times from 11 February 1858, calling for prayer and penance and naming herself the Immaculate Conception; in 1862 the bishop of Tarbes declared the faithful justified in believing the apparitions, and the spring she showed Bernadette has been associated with healing ever since. This novena was written in French in the years after the apparition of Pontmain in 1871 and published in English by John Murphy of Baltimore, 'for the use of the sick and afflicted'. The book directs that a sick person who cannot follow the daily considerations should say only the day's short prayer; the considerations are summarised in the day meditations below, and only the prayers are reproduced. The fifth day, written in France, prays for that country.",
+      intentionTheme:
+        "health of soul and body, and patience in suffering, through the intercession of Our Lady of Lourdes",
+      days: [
+        {
+          day: 1,
+          title: "How Ready Mary Is to Help Us",
+          meditation:
+            "Life is full of sorrow, and Mary's compassion reaches all who call on her, even by a single Hail Mary. At Cana she asked for help before anyone asked her.",
+          prayerText: LOURDES_SICK_DAY_1,
+          intentionPrompt: "What am I asking Our Lady of Lourdes for in these nine days?",
+        },
+        {
+          day: 2,
+          title: "What Influence Mary Has with God",
+          meditation:
+            "Her power to help is as great as her willingness. The Mother of God does not plead in vain with her Son.",
+          prayerText: LOURDES_SICK_DAY_2,
+          intentionPrompt: "Do I really believe my prayer can be heard?",
+        },
+        {
+          day: 3,
+          title: "What Confidence We Ought to Have in Mary",
+          meditation:
+            "Sinners are not to stay away from her because of their sins; she is the Refuge of sinners, and at Lourdes she asked Bernadette to pray for them.",
+          prayerText: LOURDES_SICK_DAY_3,
+          intentionPrompt: "What sin makes me feel I cannot approach God?",
+        },
+        {
+          day: 4,
+          title: "Mary Obtains for Us the Pardon of Our Sins",
+          meditation:
+            "It was for sinners that God became her Son. The prayer dares to remind her of it, and asks purity of soul together with health of body.",
+          prayerText: LOURDES_SICK_DAY_4,
+          intentionPrompt: "Have I asked for the healing of my soul as earnestly as of my body?",
+        },
+        {
+          day: 5,
+          title: "Mary, Protectress of France",
+          meditation:
+            "The book was written in France, where Mary had appeared at La Salette, Lourdes and Pontmain within twenty-five years. Pray today for that country and for your own.",
+          prayerText: LOURDES_SICK_DAY_5,
+          intentionPrompt: "What does my own country most need from God?",
+        },
+        {
+          day: 6,
+          title: "Enduring Suffering with Patience",
+          meditation:
+            "Mary's whole life held the bitter cup, and she never murmured. The prayer offers present sufferings through her hands for one's sins and for the Church.",
+          prayerText: LOURDES_SICK_DAY_6,
+          intentionPrompt: "Can I offer today's pain for someone else?",
+        },
+        {
+          day: 7,
+          title: "Where True Consolation Is Found",
+          meditation:
+            "At Lourdes Our Lady promised Bernadette happiness not in this world but in the next. Consolation in suffering is found in faith and in the sacraments.",
+          prayerText: LOURDES_SICK_DAY_7,
+          intentionPrompt: "Have I asked for the Anointing of the Sick, or helped someone else to?",
+        },
+        {
+          day: 8,
+          title: "I Am the Immaculate Conception",
+          meditation:
+            "Our Lady named herself at Lourdes with the title of her sinlessness. The day's prayer asks for purity and for recourse to prayer in every temptation.",
+          prayerText: LOURDES_SICK_DAY_8,
+          intentionPrompt: "Where do I need the grace of purity most?",
+        },
+        {
+          day: 9,
+          title: "The Necessity of Doing Penance",
+          meditation:
+            "Penance was the repeated message of the grotto. The novena ends asking to accept the penance God sends, and to put God's will before one's own.",
+          prayerText: LOURDES_SICK_DAY_9,
+          intentionPrompt: "Can I say, not my will but God's, about the thing I asked for?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      associatedMarianTitleSlug: "our-lady-of-lourdes",
+      typicalStartDate:
+        "Any time of sickness or need; or the nine days before the memorial of Our Lady of Lourdes, 11 February",
+      relatedFeastSlug: "optional-memorial-our-lady-of-lourdes",
+      citations: [LOURDES_NOVENA_MURPHY, CE_LOURDES],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-our-lady-of-mount-carmel",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [CARMEL_NOVENA_1852, CE_CARMELITE_ORDER, CE_SCAPULAR],
+    payload: {
+      slug: "novena-our-lady-of-mount-carmel",
+      title: "Novena to Our Lady of Mount Carmel",
+      summary:
+        "The novena to Our Lady of Mount Carmel used in some of the novitiates of the Carmelite Order and published in English in 1852, kept from 8 to 16 July. Each day joins two fixed prayers and three Hail Marys to a prayer proper to the day recalling a privilege of the Order or of the Scapular, then the Salve Regina, the Litany of Loretto and the collect of the feast.",
+      background:
+        "The feast of Our Lady of Mount Carmel on 16 July was instituted in the later fourteenth century in thanksgiving for the approval of the Carmelite rule by Honorius III, became the feast of the Scapular, and was extended to the whole Church in 1726. This novena, translated from the Spanish, was printed in London by Burns and Lambert in 1852 with a grant of a hundred days' indulgence from Cardinal Wiseman; its directions allow it to be made on nine consecutive days or nine Saturdays, and appoint 8 to 16 July as its proper time. The day prayers recall the traditions of the Order: the little cloud seen by Elias from Carmel as a figure of Mary, the Carmelites' title as her brothers, the confirmation of their rule, and the graces attached to the Brown Scapular, which tradition traces to a vision of St. Simon Stock in 1251; the ninth day alludes to the Sabbatine privilege, on which the Catholic Encyclopedia's article on the Scapular is a sober guide. The Hail, Holy Queen printed in full on the first day and abbreviated on the others is written out on every day here.",
+      intentionTheme: "the protection of Our Lady of Mount Carmel in life and at the hour of death",
+      days: [
+        {
+          day: 1,
+          title: "The Little Cloud over Carmel",
+          meditation:
+            "From the top of Carmel the prophet Elias saw a small cloud rise from the sea and bring rain after the drought. The Carmelites read it as a figure of Mary, through whom the world received its Saviour.",
+          prayerText: MOUNT_CARMEL_DAY_1,
+          intentionPrompt: "What fruit of grace is my soul meant to bear this year?",
+        },
+        {
+          day: 2,
+          title: "Mary's Familiar Care for Her Carmelites",
+          meditation:
+            "The second prayer recalls the Order's tradition that Mary instructed and encouraged its first hermits. It asks for the light to know God's goodness and one's own sins.",
+          prayerText: MOUNT_CARMEL_DAY_2,
+          intentionPrompt: "What is God teaching me through my present circumstances?",
+        },
+        {
+          day: 3,
+          title: "The First Church on Carmel",
+          meditation:
+            "The Carmelites cherished the tradition that they built the first church in Mary's honour on the mountain. The prayer asks that the soul itself become a living temple of God.",
+          prayerText: MOUNT_CARMEL_DAY_3,
+          intentionPrompt: "What would have to be cleared out for my soul to be God's temple?",
+        },
+        {
+          day: 4,
+          title: "Sons and Brothers of Our Lady",
+          meditation:
+            "The Carmelites are called the brothers of the Blessed Virgin. The fourth prayer asks her to be a mother indeed, and that one's name be written among the children of God.",
+          prayerText: MOUNT_CARMEL_DAY_4,
+          intentionPrompt: "Do I live as Mary's child?",
+        },
+        {
+          day: 5,
+          title: "The Rule Confirmed",
+          meditation:
+            "The Order's existence was in danger before its rule was approved by Honorius III in 1226, and the prayer recounts the tradition of Mary's intervention. It asks defence from every enemy of soul and body.",
+          prayerText: MOUNT_CARMEL_DAY_5,
+          intentionPrompt: "What is threatening my peace with God?",
+        },
+        {
+          day: 6,
+          title: "The Pledge of the Scapular",
+          meditation:
+            "The Brown Scapular is Mary's pledge to those who wear it devoutly and imitate her virtues. A sacramental is a sign of a covenant, not a charm.",
+          prayerText: MOUNT_CARMEL_DAY_6,
+          intentionPrompt: "If I wear the Scapular, am I keeping its obligations?",
+        },
+        {
+          day: 7,
+          title: "A Buckler against the Enemy",
+          meditation:
+            "The seventh prayer calls the Scapular a strong buckler against the perils of the world and the attacks of the devil. It asks for security in every tribulation and victory in temptation.",
+          prayerText: MOUNT_CARMEL_DAY_7,
+          intentionPrompt: "Which temptation do I most need Mary's defence against?",
+        },
+        {
+          day: 8,
+          title: "Assistance at the Hour of Death",
+          meditation:
+            "Mary's promise to those who wear her habit is above all a promise for the hour of death: true penitence and a departure in grace.",
+          prayerText: MOUNT_CARMEL_DAY_8,
+          intentionPrompt: "Am I preparing for my death?",
+        },
+        {
+          day: 9,
+          title: "A Mother to the Souls in Purgatory",
+          meditation:
+            "The last prayer recalls the Carmelite tradition of Mary's help to her children after death, and asks the grace to fulfil the obligations of a Christian. Pray today for the dead.",
+          prayerText: MOUNT_CARMEL_DAY_9,
+          intentionPrompt: "Which of my dead will I pray for today?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      associatedDevotionSlug: "brown-scapular",
+      associatedMarianTitleSlug: "our-lady-of-mount-carmel",
+      typicalStartDate: "8 July, ending on the feast of Our Lady of Mount Carmel, 16 July",
+      relatedFeastSlug: "optional-memorial-our-lady-of-mount-carmel",
+      citations: [CARMEL_NOVENA_1852, CE_CARMELITE_ORDER, CE_SCAPULAR],
     },
   },
 ];
