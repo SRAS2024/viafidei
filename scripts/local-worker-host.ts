@@ -110,6 +110,7 @@ import {
   restartDelayMs,
 } from "../src/lib/admin-worker/restart-backoff";
 import {
+  announcedRestMs,
   parseProgressLine,
   progressTimeoutMs,
   workerStalledForMs,
@@ -194,6 +195,8 @@ interface HostState {
   /** The worker's last progress beacon (or its spawn), for the hung-pass watchdog. */
   lastProgressAt: number | null;
   lastProgressPhase: string | null;
+  /** A rest between passes the last beacon announced ("idle"), allowed on top of the timeout. */
+  announcedRestMs: number;
   /** When the worker last reported a completed pass. */
   lastPassCompletedAt: number | null;
   lastExit: { code: number | null; signal: string | null; at: number } | null;
@@ -257,6 +260,7 @@ const host: HostState = {
   degradedLoggedAt: 0,
   lastProgressAt: null,
   lastProgressPhase: null,
+  announcedRestMs: 0,
   lastPassCompletedAt: null,
   lastExit: null,
   lastError: null,
@@ -600,6 +604,7 @@ function startWorkerChild(): void {
 
   host.lastProgressAt = host.startedAt;
   host.lastProgressPhase = "spawned";
+  host.announcedRestMs = 0;
   const onLine = (line: string) => {
     const trimmed = line.trimEnd();
     if (!trimmed) return;
@@ -776,6 +781,7 @@ let hungRestartInFlight = false;
 
 function noteWorkerProgress(progress: WorkerProgress): void {
   host.lastProgressAt = Date.now();
+  host.announcedRestMs = announcedRestMs(progress);
   host.lastProgressPhase = progress.detail
     ? `${progress.phase}:${progress.detail}`
     : progress.phase;
@@ -797,6 +803,7 @@ function checkWorkerProgress(): void {
     running: host.child != null && host.runState === "running",
     lastProgressAt: host.lastProgressAt,
     timeoutMs: PROGRESS_TIMEOUT_MS,
+    announcedRestMs: host.announcedRestMs,
   });
   if (stalledMs === null) return;
   hungRestartInFlight = true;

@@ -314,7 +314,10 @@ export async function runAdminWorkerLoop(
             : passOutcome.degraded
               ? degradedFloorMs
               : idleBackoffStartMs;
-          await sleep(Math.max(floor, idleBackoffMs));
+          const restMs = Math.max(floor, idleBackoffMs);
+          // An announced rest is not a hang (the host's watchdog allows for it).
+          reportProgress("idle", String(restMs));
+          await sleep(restMs);
           idleBackoffMs = Math.min(idleBackoffMaxMs, Math.max(floor, idleBackoffMs) * 2);
         } else {
           idleBackoffMs = idleBackoffStartMs;
@@ -329,6 +332,7 @@ export async function runAdminWorkerLoop(
         failed += 1;
         console.error(`[admin-worker:${workerId}] pass ${passes} threw; continuing:`, err);
         if (oneShot) break;
+        reportProgress("idle", String(idleBackoffMs));
         await sleep(idleBackoffMs);
         idleBackoffMs = Math.min(idleBackoffMaxMs, Math.max(1, idleBackoffMs) * 2);
       }

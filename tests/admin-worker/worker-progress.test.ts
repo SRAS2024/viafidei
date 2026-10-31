@@ -19,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runWorkerLanes, type LaneDef } from "@/lib/admin-worker/lanes";
 import { resetPauseTracking, runOnePass } from "@/lib/admin-worker/loop";
 import {
+  announcedRestMs,
   formatProgressLine,
   parseProgressLine,
   progressTimeoutMs,
@@ -96,6 +97,30 @@ describe("the stall rule", () => {
     ).toBeNull();
     expect(workerStalledForMs({ ...base, lastProgressAt: null })).toBeNull();
   });
+
+  it("allows for a rest the worker announced, so a long idle backoff is not a hang", () => {
+    const base = { now: 100 * 60_000, running: true, timeoutMs: 25 * 60_000 };
+    const idle = { phase: "idle", at: "t", detail: String(30 * 60_000) };
+    expect(announcedRestMs(idle)).toBe(30 * 60_000);
+    expect(announcedRestMs({ phase: "lane_done", at: "t", detail: "120000" })).toBe(0);
+    expect(announcedRestMs({ phase: "idle", at: "t", detail: "soon" })).toBe(0);
+    // 40 min silent after announcing a 30 min rest: inside 25 + 30.
+    expect(
+      workerStalledForMs({
+        ...base,
+        lastProgressAt: base.now - 40 * 60_000,
+        announcedRestMs: announcedRestMs(idle),
+      }),
+    ).toBeNull();
+    // ...but not forever.
+    expect(
+      workerStalledForMs({
+        ...base,
+        lastProgressAt: base.now - 56 * 60_000,
+        announcedRestMs: announcedRestMs(idle),
+      }),
+    ).toBe(56 * 60_000);
+  });
 });
 
 describe("the loop and the lanes emit beacons", () => {
@@ -153,6 +178,9 @@ describe("the loop and the lanes emit beacons", () => {
     const loop = readFileSync(join(process.cwd(), "src/lib/admin-worker/loop.ts"), "utf8");
     expect(loop).toContain('reportProgress("dispatch_done", dispatch.stage);');
     expect(loop).toMatch(/completed = true;\s*reportProgress\("pass_complete"\);/);
+    // Every rest between passes is announced before it starts.
+    expect(loop.match(/reportProgress\("idle", String\(/g)).toHaveLength(2);
+    expect(loop.match(/await sleep\(/g)).toHaveLength(2);
   });
 });
 

@@ -11,8 +11,9 @@
  * promise anyway.
  *
  * So the worker reports PROGRESS at the boundaries a healthy loop always
- * crosses — pass start, dispatch done, each lane finished, pass complete — as
- * one tagged JSON line on stdout, which the host already reads. The host keeps
+ * crosses — pass start, dispatch done, each lane finished, pass complete, and
+ * each announced rest between passes — as one tagged JSON line on stdout,
+ * which the host already reads. The host keeps
  * the time of the last one, and when none has arrived for the progress timeout
  * (default 25 min; passes normally take 2-10, and the longest lane watchdog is
  * 10) it stops the worker's process group and lets the restart path bring up a
@@ -98,7 +99,10 @@ export function progressTimeoutMs(env: NodeJS.ProcessEnv = process.env): number 
 
 /**
  * How long a running worker has gone without progress, once that exceeds the
- * timeout — or null while it is healthy (or not running at all).
+ * timeout — or null while it is healthy (or not running at all). An "idle"
+ * beacon announces a rest of N ms between passes; that rest is added to the
+ * allowance, so an idle backoff configured longer than the timeout is never
+ * mistaken for a hang.
  */
 export function workerStalledForMs(input: {
   now: number;
@@ -106,8 +110,18 @@ export function workerStalledForMs(input: {
   /** The last beacon, or the spawn time before the first one. */
   lastProgressAt: number | null;
   timeoutMs: number;
+  /** The rest the last beacon announced ("idle"), if any. */
+  announcedRestMs?: number;
 }): number | null {
   if (!input.running || input.lastProgressAt === null) return null;
   const silent = input.now - input.lastProgressAt;
-  return silent > input.timeoutMs ? silent : null;
+  const allowance = input.timeoutMs + Math.max(0, input.announcedRestMs ?? 0);
+  return silent > allowance ? silent : null;
+}
+
+/** The rest an "idle" beacon announced, in ms (0 for any other beacon). */
+export function announcedRestMs(progress: WorkerProgress): number {
+  if (progress.phase !== "idle") return 0;
+  const ms = Number(progress.detail ?? "");
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
 }
