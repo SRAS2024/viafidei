@@ -23,15 +23,18 @@
  *      either. A quiet tick is the normal case, several times a minute.
  *   3. The poll never competes with the exit/restart handling. While any
  *      existing path intends to (re)start the child — a crash backoff, a
- *      deferred resume after a database outage — the poll stands aside.
- *   4. A runtime that GAVE UP (five crashes in a row, a spawn error, a lease
- *      held by another computer) is not restarted by a switch that is merely
+ *      deferred resume after a database outage — the poll stands aside. But
+ *      an OFF wins over a pending restart: the poll stops it (cancelling the
+ *      timer) instead of letting a worker boot after the operator said OFF.
+ *   4. A runtime that is "failed" (a lease held by another computer, a
+ *      configuration problem) is not restarted by a switch that is merely
  *      still ON. It takes a fresh OFF→ON edge — the operator deliberately
- *      re-arming, which is what the give-up message asks for — and that edge
- *      can only happen once per operator action, so it can never become a
- *      crash loop at poll cadence. The edge is recognised either by watching
- *      the value cross, or by `changedAt` moving, so a thumb that flips OFF
- *      and back ON faster than one poll interval still re-arms the runtime.
+ *      re-arming — and that edge can only happen once per operator action, so
+ *      it can never become a loop at poll cadence. The edge is recognised
+ *      either by watching the value cross, or by `changedAt` moving, so a thumb
+ *      that flips OFF and back ON faster than one poll interval still re-arms
+ *      the runtime. Crashes are never "failed" any more: the host retries them
+ *      with capped backoff for as long as the switch is ON (restart-backoff.ts).
  *   5. A refused start (lease held elsewhere, misconfigured database) puts the
  *      poll on a cooldown instead of retrying every few seconds.
  */
@@ -93,7 +96,9 @@ export type SwitchPollReason =
   /** The switch is ON and no worker is running here. */
   | "switch_on_not_running"
   /** The switch is OFF and a worker is running here. */
-  | "switch_turned_off";
+  | "switch_turned_off"
+  /** The switch is OFF while a restart (crash backoff, outage wait) is scheduled. */
+  | "switch_off_restart_pending";
 
 export interface SwitchPollInput {
   /** Wall clock, injected so the cooldown is testable. */
@@ -129,6 +134,11 @@ export interface SwitchPollInput {
   runState: HostRunState;
   /** How many existing paths are between "child exited" and "started or gave up". */
   pendingStarts: number;
+  /**
+   * A restart timer (crash backoff or a wait for the database) is armed.
+   * Optional so older callers read as "none armed".
+   */
+  restartScheduled?: boolean;
   /** An operator OFF that still has to be written to the database. */
   pendingDurableOff: boolean;
   /** Epoch ms until which starts are suppressed after a refusal, or null. */
@@ -199,6 +209,9 @@ export function planSwitchPoll(input: SwitchPollInput): SwitchPollDecision {
   if (input.childRunning || input.runState === "running" || input.runState === "starting") {
     return decision("stop", "switch_turned_off");
   }
+  // Nothing is running, but a restart is armed: OFF must cancel it, or a
+  // worker boots a few minutes after the operator switched it off.
+  if (input.restartScheduled) return decision("stop", "switch_off_restart_pending");
   return decision("none", "already_stopped");
 }
 

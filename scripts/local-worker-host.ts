@@ -101,6 +101,13 @@ import {
   LEASE_HELD_ELSEWHERE_MESSAGE,
   refineRefusedExit,
 } from "../src/lib/admin-worker/worker-exit";
+import {
+  degradedReason,
+  formatDelay,
+  restartBackoffFromEnv,
+  restartDegraded,
+  restartDelayMs,
+} from "../src/lib/admin-worker/restart-backoff";
 import { localHostLabel, sampleLocalResources } from "../src/lib/admin-worker/local-resources";
 import { loadCommandCenterSnapshot } from "../src/lib/admin-worker/command-center";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
@@ -131,8 +138,10 @@ const LOG_RING_SIZE = 800;
 /** The supervisor's state machine; the union lives with the poll rules. */
 type RunState = HostRunState;
 
-/** Give up after this many consecutive crashes rather than looping forever. */
-const MAX_CONSECUTIVE_RESTARTS = 5;
+/** Crash-restart backoff: 2 s doubling to 5 min, never giving up (restart-backoff.ts). */
+const RESTART_BACKOFF = restartBackoffFromEnv();
+/** At most one WARN row an hour while a degraded runtime keeps retrying. */
+const DEGRADED_LOG_INTERVAL_MS = 60 * 60 * 1000;
 /** SIGTERM grace for the worker tree before the whole group is SIGKILLed. */
 const CHILD_KILL_GRACE_MS = 5_000;
 /** Longest any database call may hold up a shutdown or an OFF request. */
@@ -146,10 +155,17 @@ interface HostState {
   runState: RunState;
   child: ChildProcess | null;
   startedAt: number | null;
+  /** Consecutive restarts in the current crash streak (reset after healthy uptime). */
   restarts: number;
+  /** When the armed restart fires (epoch ms), or null when none is armed. */
+  nextRestartAt: number | null;
+  /** Past the old give-up point: still retrying, and every surface says so. */
+  degraded: boolean;
+  /** When the last degraded WARN row was written, for the hourly cap. */
+  degradedLoggedAt: number;
   lastExit: { code: number | null; signal: string | null; at: number } | null;
   lastError: string | null;
-  /** Set when the host has stopped trying to keep the worker alive. */
+  /** Why the worker is not running normally here (null when it is, or after a plain stop). */
   failureReason: string | null;
   /**
    * The worker is not running here because ANOTHER runtime holds the
@@ -169,7 +185,7 @@ interface HostState {
   pendingDurableOff: boolean;
   /**
    * How many existing paths are between "the child exited" and "it has been
-   * restarted, or we gave up" — a crash backoff, a deferred resume after a
+   * restarted, or stays off" — a crash backoff, a deferred resume after a
    * database outage, the exit decision itself. While this is above zero the
    * switch poll stands aside instead of racing those paths (LH: one lifecycle,
    * never two).
@@ -203,6 +219,9 @@ const host: HostState = {
   child: null,
   startedAt: null,
   restarts: 0,
+  nextRestartAt: null,
+  degraded: false,
+  degradedLoggedAt: 0,
   lastExit: null,
   lastError: null,
   failureReason: null,
@@ -293,20 +312,144 @@ function tsxBinary(): { cmd: string; prefix: string[] } {
   return { cmd: "npx", prefix: ["--yes", "tsx"] };
 }
 
+/** The one armed (re)start — a crash backoff, or a wait for the database. */
+let restartTimer: ReturnType<typeof setTimeout> | null = null;
+
 /**
- * Defer a (re)start — a crash backoff, or waiting out a database outage — and
- * account for it while it is pending. `host.pendingStarts` is what tells the
- * switch poll that a lifecycle transition is already in flight, so the poll
- * never starts a worker that an existing path is about to start (and never
- * short-circuits the crash backoff that protects against restart loops).
+ * Arm a deferred (re)start and account for it while it is pending.
+ * `host.pendingStarts` is what tells the switch poll that a lifecycle
+ * transition is already in flight, so the poll never starts a worker that an
+ * existing path is about to start (and never short-circuits the crash backoff
+ * that protects against restart loops). There is only ever one: arming another
+ * replaces it. When it fires it RE-READS the durable switch (resumeIfSwitchOn)
+ * instead of starting blindly, so an OFF issued during the wait wins.
  */
-function scheduleDeferredStart(delayMs: number, run: () => void | Promise<void>): void {
+function scheduleRestart(delayMs: number): void {
+  cancelScheduledRestart();
   host.pendingStarts += 1;
-  setTimeout(() => {
+  host.nextRestartAt = Date.now() + delayMs;
+  restartTimer = setTimeout(() => {
+    restartTimer = null;
+    host.nextRestartAt = null;
     host.pendingStarts = Math.max(0, host.pendingStarts - 1);
-    if (shuttingDown) return;
-    void run();
-  }, delayMs).unref();
+    if (shuttingDown || host.child) return;
+    void resumeIfSwitchOn();
+  }, delayMs);
+  restartTimer.unref();
+}
+
+/** Disarm the pending restart, if any (an OFF, a shutdown). */
+function cancelScheduledRestart(): boolean {
+  if (!restartTimer) return false;
+  clearTimeout(restartTimer);
+  restartTimer = null;
+  host.nextRestartAt = null;
+  host.pendingStarts = Math.max(0, host.pendingStarts - 1);
+  return true;
+}
+
+/**
+ * The worker is gone without being asked to stop — it crashed, lost its
+ * supervisor, or could not even be spawned. Restart it with capped exponential
+ * backoff for as long as the durable switch is ON; never give up
+ * (restart-backoff.ts). Past the old give-up point the runtime reports itself
+ * DEGRADED on every surface, and the audit trail gets every restart of a young
+ * streak, one ERROR row when it turns degraded, then at most one WARN an hour.
+ */
+async function restartAfterCrash(exit: {
+  code: number | null;
+  signal: string | null;
+}): Promise<void> {
+  // Never hand the work back to Railway (spec §5: no cloud failover).
+  const master = await readMasterSwitch(prisma).catch(() => ({ on: false, known: false }) as const);
+  if (shuttingDown || host.child) return;
+  if (!master.known) {
+    // The database is unreachable: that is an outage, not a crash streak. Wait
+    // for it to come back and re-check.
+    host.runState = "crashed";
+    host.failureReason =
+      "The worker stopped and the database cannot be reached right now — it will be restarted when the database answers again.";
+    pushLog("host", host.failureReason);
+    broadcast("status", statusPayload());
+    scheduleRestart(30_000);
+    return;
+  }
+  if (!master.on) {
+    host.runState = "off";
+    host.failureReason = null;
+    host.degraded = false;
+    broadcast("status", statusPayload());
+    return;
+  }
+
+  host.restarts += 1;
+  const delayMs = restartDelayMs(host.restarts, RESTART_BACKOFF);
+  const degraded = restartDegraded(host.restarts);
+  const enteringDegraded = degraded && !host.degraded;
+  host.runState = "crashed";
+  host.degraded = degraded;
+  host.failureReason = degraded
+    ? degradedReason({
+        consecutive: host.restarts,
+        code: exit.code,
+        signal: exit.signal,
+        nextDelayMs: delayMs,
+      })
+    : null;
+  pushLog(
+    "host",
+    `master switch is still ON — restarting the local worker in ${formatDelay(delayMs)} ` +
+      `(restart #${host.restarts}${degraded ? ", degraded: it keeps retrying" : ""})`,
+  );
+  scheduleRestart(delayMs);
+  broadcast("status", statusPayload());
+
+  const now = Date.now();
+  if (degraded && !enteringDegraded && now - host.degradedLoggedAt < DEGRADED_LOG_INTERVAL_MS) {
+    return;
+  }
+  if (degraded) host.degradedLoggedAt = now;
+  await writeAdminWorkerLog(prisma, {
+    category: "ERROR",
+    severity: enteringDegraded ? "ERROR" : "WARN",
+    eventName: degraded ? "local_worker_degraded" : "local_worker_restart",
+    message: degraded
+      ? `${host.failureReason} Execution was NOT moved to the cloud.`
+      : `Local Admin Worker runtime exited (code=${exit.code ?? "null"}, signal=${exit.signal ?? "none"}) and is being restarted on the operator MacBook in ${formatDelay(delayMs)}. Execution was NOT moved to the cloud.`,
+    safeMetadata: {
+      restarts: host.restarts,
+      nextDelayMs: delayMs,
+      degraded,
+      runtimeId: RUNTIME_ID,
+    },
+  }).catch(() => undefined);
+}
+
+/** Run a lifecycle decision while holding it, so the switch poll stands aside. */
+function holdLifecycle(work: () => Promise<void>): void {
+  // Incremented synchronously, before the first await, or the poll could slip in.
+  host.pendingStarts += 1;
+  void work()
+    .catch((err: unknown) => pushLog("host", `restart decision failed: ${errorText(err)}`))
+    .finally(() => {
+      // Whatever the decision was, this path is no longer holding the
+      // lifecycle: either a restart is armed (accounted for separately) or
+      // nothing more will happen here.
+      host.pendingStarts = Math.max(0, host.pendingStarts - 1);
+    });
+}
+
+/** The worker could not be spawned at all: same backoff as a crash, never "failed". */
+function onSpawnFailure(err: Error & { code?: string }): void {
+  host.child = null;
+  host.lastError = err.message;
+  pushLog(
+    "host",
+    `could not start the Admin Worker process: ${err.message}` +
+      `${err.code === "ENOENT" ? " (is this repository's node_modules installed?)" : ""}`,
+  );
+  if (shuttingDown) return;
+  holdLifecycle(() => restartAfterCrash({ code: null, signal: null }));
 }
 
 function startWorkerChild(): void {
@@ -330,31 +473,55 @@ function startWorkerChild(): void {
   // detached: the worker gets its own process group, so stopping the switch can
   // take down the whole tree — worker, Python brain, and any Chromium it
   // launched. OFF must genuinely mean OFF (spec §4).
-  const child = spawn(cmd, args, {
-    cwd: REPO_ROOT,
-    detached: true,
-    stdio: ["ignore", "pipe", "pipe"],
-    env: {
-      ...process.env,
-      // The launcher pins this supervisor's pool at 3; the worker does the
-      // real work and gets the full pool (lanes concurrency 8 + pass + heartbeat).
-      PRISMA_CONNECTION_LIMIT: process.env.VIAFIDEI_WORKER_CONNECTION_LIMIT ?? "10",
-      // The host renews the lease (with jitter) and writes the heartbeat on
-      // its tick; the child only needs to CHECK the lease, not rewrite it.
-      VIAFIDEI_LEASE_RENEWED_BY_HOST: "1",
-      // The child's parent watchdog (worker-supervisor.ts): its own parent is
-      // the tsx wrapper, which outlives this process, so it watches this pid.
-      VIAFIDEI_HOST_PID: String(process.pid),
-    },
-  });
+  let child: ChildProcess;
+  try {
+    child = spawn(cmd, args, {
+      cwd: REPO_ROOT,
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        // The launcher pins this supervisor's pool at 3; the worker does the
+        // real work and gets the full pool (lanes concurrency 8 + pass + heartbeat).
+        PRISMA_CONNECTION_LIMIT: process.env.VIAFIDEI_WORKER_CONNECTION_LIMIT ?? "10",
+        // The host renews the lease (with jitter) and writes the heartbeat on
+        // its tick; the child only needs to CHECK the lease, not rewrite it.
+        VIAFIDEI_LEASE_RENEWED_BY_HOST: "1",
+        // The child's parent watchdog (worker-supervisor.ts): its own parent is
+        // the tsx wrapper, which outlives this process, so it watches this pid.
+        VIAFIDEI_HOST_PID: String(process.pid),
+      },
+    });
+  } catch (err) {
+    // spawn() throws synchronously for some failures; left alone that pinned
+    // runState at "starting", which the poll reads as a transition forever.
+    onSpawnFailure(err instanceof Error ? err : new Error(String(err)));
+    return;
+  }
 
   host.child = child;
   host.startedAt = Date.now();
   host.runState = "running";
-  // If it stays up for a while, treat the crash streak as over.
+  // If it stays up for a while, the crash streak is over — and a runtime that
+  // was degraded has recovered, which every surface should say too.
   setTimeout(() => {
-    if (host.child === child && host.runState === "running") host.restarts = 0;
-  }, 120_000).unref();
+    if (host.child !== child || host.runState !== "running") return;
+    const wasDegraded = host.degraded;
+    host.restarts = 0;
+    host.degraded = false;
+    host.degradedLoggedAt = 0;
+    if (!wasDegraded) return;
+    host.failureReason = null;
+    pushLog("host", "the local worker has stayed up — recovered from the crash streak");
+    broadcast("status", statusPayload());
+    void writeAdminWorkerLog(prisma, {
+      category: "OVERVIEW",
+      severity: "INFO",
+      eventName: "local_worker_recovered",
+      message: "The local Admin Worker recovered: it has stayed up after a degraded crash streak.",
+      safeMetadata: { runtimeId: RUNTIME_ID },
+    }).catch(() => undefined);
+  }, RESTART_BACKOFF.healthyUptimeMs).unref();
 
   const onLine = (chunk: Buffer) => {
     for (const line of chunk.toString("utf8").split("\n")) {
@@ -399,10 +566,8 @@ function startWorkerChild(): void {
     if (wasStopping || shuttingDown) return;
 
     // Claim the lifecycle for the duration of the exit decision (and of any
-    // restart it schedules) so the switch poll leaves it alone. Incremented
-    // synchronously, before the first await, or the poll could slip in.
-    host.pendingStarts += 1;
-    void (async () => {
+    // restart it schedules) so the switch poll leaves it alone.
+    holdLifecycle(async () => {
       if (plan.kind === "refused") {
         // Only the durable switch tells an operator OFF (nothing to report)
         // from a live lease on another computer (surface it, never restart).
@@ -427,106 +592,48 @@ function startWorkerChild(): void {
         }
         if (refined.kind === "db_unreachable" && refined.failureReason) {
           pushLog("host", refined.failureReason);
-          scheduleDeferredStart(30_000 + Math.round(Math.random() * 30_000), () => {
-            if (!host.child) void resumeIfSwitchOn();
-          });
+          scheduleRestart(30_000 + Math.round(Math.random() * 30_000));
         }
         broadcast("status", statusPayload());
         return;
       }
       if (!plan.restart) return;
       if (plan.kind === "db_unreachable") {
-        // run-worker.ts exit 4: it could not read the switch. That is an
-        // outage, not a crash — do not burn the restart budget; wait for the
-        // database and resume (the switch is durable, so ON survives).
+        // run-worker.ts exit 4: it could not read the switch or claim the
+        // lease. That is an outage, not a crash — it does not lengthen the
+        // crash streak; wait for the database and resume (the switch is
+        // durable, so ON survives).
         void probeDatabase().catch(() => undefined);
-        scheduleDeferredStart(30_000 + Math.round(Math.random() * 30_000), () => {
-          if (!host.child) void resumeIfSwitchOn();
-        });
+        scheduleRestart(30_000 + Math.round(Math.random() * 30_000));
         return;
       }
-      // A genuine crash: restart locally when the master switch is still ON —
-      // but never hand the work back to Railway (spec §5: no cloud failover).
-      {
-        const master = await readMasterSwitch(prisma).catch(
-          () => ({ on: false, known: false }) as const,
-        );
-        if (shuttingDown) return;
-        if (!master.known) {
-          // The database is unreachable: neither restart-loop nor give up. Wait
-          // for it to come back and re-check (the lease tick keeps probing).
-          host.runState = "crashed";
-          host.failureReason =
-            "The worker stopped and the database cannot be reached right now — it will be restarted when the database answers again.";
-          pushLog("host", host.failureReason);
-          broadcast("status", statusPayload());
-          scheduleDeferredStart(30_000, () => {
-            if (!host.child) void resumeIfSwitchOn();
-          });
-          return;
-        }
-        if (!master.on) return;
-        host.restarts += 1;
-
-        if (host.restarts > MAX_CONSECUTIVE_RESTARTS) {
-          // Stop pretending. A worker that dies on every launch (missing Python,
-          // bad DATABASE_URL, no Chromium) must surface as a failure rather than
-          // an eternally-restarting "active" worker.
-          host.runState = "failed";
-          host.failureReason =
-            `The local Admin Worker exited ${host.restarts} times in a row ` +
-            `(last: code=${code ?? "null"}, signal=${signal ?? "none"}). Giving up — ` +
-            `check the runtime log, then switch the Admin Worker off and on again.`;
-          pushLog("host", host.failureReason);
-          await writeAdminWorkerLog(prisma, {
-            category: "ERROR",
-            severity: "ERROR",
-            eventName: "local_worker_gave_up",
-            message: host.failureReason,
-            safeMetadata: { restarts: host.restarts, runtimeId: RUNTIME_ID },
-          }).catch(() => undefined);
-          // Release the lease so no surface claims this machine is executing.
-          await releaseExecutionLease(prisma, RUNTIME_ID).catch(() => undefined);
-          broadcast("status", statusPayload());
-          return;
-        }
-
-        const backoffMs = Math.min(60_000, 2_000 * host.restarts);
-        pushLog(
-          "host",
-          `master switch is still ON — restarting the local worker in ${Math.round(backoffMs / 1000)}s (restart #${host.restarts})`,
-        );
-        await writeAdminWorkerLog(prisma, {
-          category: "ERROR",
-          severity: "WARN",
-          eventName: "local_worker_restart",
-          message: `Local Admin Worker runtime exited (code=${code ?? "null"}, signal=${signal ?? "none"}) and is being restarted on the operator MacBook. Execution was NOT moved to the cloud.`,
-          safeMetadata: { restarts: host.restarts, runtimeId: RUNTIME_ID },
-        }).catch(() => undefined);
-        scheduleDeferredStart(backoffMs, () => startWorkerChild());
-      }
-    })().finally(() => {
-      // Whatever the decision was, this path is no longer holding the
-      // lifecycle: either a start is scheduled (accounted for separately) or
-      // nothing more will happen here.
-      host.pendingStarts = Math.max(0, host.pendingStarts - 1);
+      // A genuine crash, or a worker that lost its log pipe while this host
+      // was in fact still listening.
+      await restartAfterCrash({ code, signal });
     });
   });
 
   child.on("error", (err) => {
+    // Without a pid the process never started, and Node emits no 'exit' for
+    // it: host.child used to stay set to the dead object, so every later
+    // start returned early and presence reported a running worker.
+    if (host.child === child && child.pid == null) {
+      onSpawnFailure(err);
+      return;
+    }
     host.lastError = err.message;
-    host.runState = "failed";
-    host.failureReason =
-      `Could not start the Admin Worker process: ${err.message}. ` +
-      `Check that Node and this repository's dependencies are installed (npm install).`;
-    pushLog("host", host.failureReason);
-    broadcast("status", statusPayload());
+    pushLog("host", `worker process error: ${err.message}`);
   });
 }
 
 async function stopWorkerChild(reason: string): Promise<void> {
+  // A stop also stands down an armed restart: an OFF during a crash backoff
+  // must not be followed by a worker booting minutes later.
+  if (cancelScheduledRestart()) pushLog("host", `pending restart cancelled (${reason})`);
+  host.degraded = false;
   const child = host.child;
   if (!child || child.pid == null) {
+    host.child = null;
     host.runState = "off";
     return;
   }
@@ -620,9 +727,10 @@ async function writeDurableOff(actor: string): Promise<boolean> {
 }
 
 /**
- * After a database outage: if the switch is still ON (a durable fact we can
- * now read again), start the worker; otherwise stay off. Used by the
- * crash-handler's deferred retry so an outage never ends in "gave up".
+ * When an armed restart fires (a crash backoff, or a wait for the database):
+ * if the switch is still ON — a durable fact, re-read now — start the worker;
+ * if it is OFF, stay off; if it cannot be read, wait and look again. Never a
+ * blind start, so an OFF issued during the wait always wins.
  */
 async function resumeIfSwitchOn(): Promise<void> {
   // Hold the lifecycle while this decides, so the switch poll does not start
@@ -632,20 +740,22 @@ async function resumeIfSwitchOn(): Promise<void> {
     const master = await readMasterSwitch(prisma).catch(
       () => ({ on: false, known: false }) as const,
     );
+    if (shuttingDown || host.child) return;
     if (!master.known) {
-      scheduleDeferredStart(30_000, () => {
-        if (!host.child) void resumeIfSwitchOn();
-      });
+      scheduleRestart(30_000);
       return;
     }
-    if (master.on && !host.child) {
-      host.failureReason = null;
+    if (master.on) {
+      // A degraded runtime keeps saying so until it has stayed up.
+      if (!host.degraded) host.failureReason = null;
       host.leaseHeldElsewhere = false;
-      pushLog("host", "database reachable again and the switch is ON — restarting the worker");
+      pushLog("host", "the master switch is still ON — restarting the worker");
       startWorkerChild();
-    } else if (!master.on) {
+    } else {
       host.runState = "off";
       host.failureReason = null;
+      host.degraded = false;
+      pushLog("host", "the master switch is OFF — the pending restart stands down");
       broadcast("status", statusPayload());
     }
   } finally {
@@ -731,7 +841,10 @@ async function startFromSwitchPoll(decisionValue: SwitchPollDecision): Promise<v
     // Only a deliberate OFF→ON forgives a crash streak, so a worker that dies
     // on every launch cannot be relaunched five times a minute by a switch
     // that is merely still ON.
-    if (decisionValue.clearFailure) host.restarts = 0;
+    if (decisionValue.clearFailure) {
+      host.restarts = 0;
+      host.degraded = false;
+    }
     pushLog(
       "host",
       decisionValue.reason === "switch_turned_on"
@@ -870,6 +983,7 @@ async function reconcileSwitchOnce(): Promise<void> {
     pendingStarts: host.pendingStarts,
     pendingDurableOff: host.pendingDurableOff,
     startBlockedUntil: host.startBlockedUntil,
+    restartScheduled: restartTimer !== null,
   });
   if (switchKnown) {
     host.lastObservedSwitchOn = switchOn;
@@ -1073,6 +1187,14 @@ function statusPayload() {
     startedAt: host.startedAt ? new Date(host.startedAt).toISOString() : null,
     uptimeMs: host.startedAt ? Date.now() - host.startedAt : 0,
     restarts: host.restarts,
+    // Retrying after crashes: never a give-up while the switch is ON. Past the
+    // old give-up point `degraded` is set and failureReason says so.
+    degraded: host.degraded,
+    restart: {
+      consecutive: host.restarts,
+      nextAttemptAt: host.nextRestartAt ? new Date(host.nextRestartAt).toISOString() : null,
+      backoffMaxMs: RESTART_BACKOFF.maxMs,
+    },
     lastExit: host.lastExit,
     lastError: host.lastError,
     activeJobs: Array.from(host.activeJobs),
@@ -1374,7 +1496,11 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
             from: "swift-app",
           });
           invalidateExecutionCache();
+          // The operator's own ON starts now: it replaces any armed restart
+          // and forgives the crash streak.
+          cancelScheduledRestart();
           host.restarts = 0;
+          host.degraded = false;
           host.failureReason = null;
           host.leaseHeldElsewhere = false;
           startWorkerChild();

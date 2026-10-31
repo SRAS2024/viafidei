@@ -168,6 +168,36 @@ describe("planSwitchPoll — never fights the existing lifecycle", () => {
     ).toMatchObject({ action: "start" });
   });
 
+  it("lets an OFF win over an armed restart: it stops (and so cancels) the pending restart", () => {
+    const plan = planSwitchPoll({
+      ...STOPPED,
+      runState: "crashed",
+      pendingStarts: 1,
+      restartScheduled: true,
+    });
+    expect(plan).toMatchObject({ action: "stop", reason: "switch_off_restart_pending" });
+  });
+
+  it("while the switch stays ON an armed restart is left alone", () => {
+    expect(
+      planSwitchPoll({
+        ...STOPPED,
+        switchOn: true,
+        previousSwitchOn: true,
+        runState: "crashed",
+        pendingStarts: 1,
+        restartScheduled: true,
+      }),
+    ).toMatchObject({ action: "none", reason: "start_pending" });
+  });
+
+  it("a crashed runtime with nothing armed and the switch OFF is simply stopped already", () => {
+    expect(planSwitchPoll({ ...STOPPED, runState: "crashed" })).toMatchObject({
+      action: "none",
+      reason: "already_stopped",
+    });
+  });
+
   it("leaves a pending durable OFF to the lease tick", () => {
     expect(planSwitchPoll({ ...STOPPED, switchOn: true, pendingDurableOff: true })).toMatchObject({
       action: "none",
