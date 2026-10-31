@@ -36,10 +36,14 @@ interface RaccoltaInput {
  * Batch 9 of the curated prayer catalogue: prayers from The Raccolta, or
  * Collection of Indulgenced Prayers and Good Works, in the 1910 English edition
  * of Ambrose St John of the Birmingham Oratory (London: Burns & Oates; New
- * York: Benziger), sections I to IX — prayers to the Most Holy Trinity, to
+ * York: Benziger): sections I to IX — prayers to the Most Holy Trinity, to
  * Almighty God, to the Holy Ghost, to our Lord Jesus Christ and his Holy Name,
  * to the Child Jesus, to our Lord in the Blessed Sacrament, to Jesus Crucified,
- * to the Precious Blood and to the Sacred Heart.
+ * to the Precious Blood and to the Sacred Heart — and, from the later
+ * sections (XVI, the Faithful Departed; XVII, Miscellaneous; and the prayers
+ * for special classes), the prayers there that are addressed to God and to
+ * Christ. Prayers to Our Lady, the angels and the saints are left to other
+ * batches.
  *
  * The edition was published in 1910 (St John's translation dates from 1857),
  * so the text is in the public domain; every citation is the archive.org scan
@@ -67,13 +71,29 @@ interface RaccoltaInput {
  * the scan prints "of" as "or" or "ot" (nos. 23, 60, 75, 76, 150) it is read
  * as "of", as the Latin beside it confirms where there is one, and the same
  * broken "f" is read in "refuge" and "afresh" (no. 155); "O must just God" is
- * read "O most just God" (no. 58) and "througn-out" "throughout" (no. 88).
- * The book's own errata ("Notification", November 1909) are applied where
+ * read "O most just God" (no. 58) and "througn-out" "throughout" (no. 88);
+ * and in the Latin of St Thomas's Concede mihi (no. 455) the nominative "Da
+ * mihi, Dominus Deus meus" is read as the vocative "Domine", which the
+ * English beside it ("Grant, O Lord my God") and every other clause of the
+ * prayer require. The book's own errata ("Notification", November 1909,
+ * printed after page 428) are applied where
  * they touch these prayers: "mi sery" is "misery" (no. 10, page 9), "in
  * perfection of thy ways" is "in the perfection of thy ways" (no. 48), "whom
  * Thou has redeemed" is "whom Thou hast redeemed" (no. 49, both page 45), and
- * "To ap pease" is "To appease" (no. 115). The same "Thou has redeemed" in the
- * versicle of no. 88, which the errata miss, is given as "Thou hast".
+ * "To ap pease" is "To appease" (no. 115, page 91). The same "Thou has
+ * redeemed" in the versicle of no. 88, which the errata miss, is given as
+ * "Thou hast".
+ *
+ * Left out on purpose: the one-line ejaculations; items that grant an
+ * indulgence for an act and print no prayer; prayers the catalogue already
+ * has in another translation (the Acts of Faith, Hope and Charity, the
+ * Consecration of the Family to the Sacred Heart and the like); prayers whose
+ * wording about other Christians and other religions belongs to its time
+ * rather than to the Church's present language (for the conversion of
+ * Scandinavia, of "Jews and Turks", of Freemasons; the reparation of no. 90);
+ * and the Prayer for the Sanctification of Priests (no. 463), which calls Our
+ * Lady "a priest at the altar", a title the Holy Office afterwards (1916,
+ * 1927) declined to approve.
  */
 function raccolta(input: RaccoltaInput): CuratedEntry {
   const citations = input.pages.map((page) => `${RACCOLTA}${page}`);
@@ -553,19 +573,32 @@ export const prayerBatch9: CuratedEntry[] = [
   }),
   raccolta({
     slug: "prayer-of-saint-thomas-aquinas-concede-mihi",
-    title: "Prayer of Saint Thomas Aquinas to Fulfil God's Will (Concede mihi, misericors Deus)",
-    pages: [46, 47],
+    title:
+      "Prayer of Saint Thomas Aquinas for Grace to Lead a Holy Life (Concede mihi, misericors Deus)",
+    pages: [390, 391, 392],
     body: [
-      "O merciful God, grant that I may eagerly desire, carefully search out, truthfully acknowledge, and ever perfectly fulfil all things which are pleasing to Thee, to the praise and glory of thy Name. Amen.",
+      "O merciful God, grant that I may eagerly desire, carefully search out, truthfully acknowledge, and ever perfectly fulfil all things which are pleasing to Thee. Order, O my God, all my state and grant me to know what Thou dost require me to do, and give me to do it as is fitting and profitable to my soul.",
+      "Grant, O Lord my God, that I may not fail either in prosperity or adversity, that I be not lifted up by the one or cast down by the other. Let me joy in nothing but what leads to Thee, nor grieve for anything but what leads away from Thee; let me neither seek to please, nor fear to displease any but Thee alone.",
+      "May all transitory things grow vile in my eyes, O Lord, and may all that is eternal be dear to me. May all joy be irksome to me that is without Thee, nor may I desire anything that is apart from Thee. May all labour and toil delight me which is for Thee, and all rest be weariness which is not in Thee.",
+      "Grant me, O Lord, continually to lift up my heart towards Thee, and to bring sorrowfully to mind my many shortcomings with full purpose of amendment.",
+      "Make me, O Lord, obedient without demur, poor without repining, chaste without stain, patient without murmur, humble without pretence, joyous without frivolity, fearful without abjectness, truthful without disguise, given to good works without presumption, faithful to rebuke my neighbour without arrogance, and ever careful to edify him by word and example without pretension.",
+      "Give me, O Lord, an ever watchful heart, which no subtle speculation may lure from Thee. Give me a noble heart, which no unworthy affection can draw downwards to the earth. Give me an upright heart, which no insincere intention can warp aside. Give me a firm heart, which no tribulation can crush or quell. Give me a free heart, which no perverted or impetuous affection can claim for its own.",
+      "Bestow on me, O Lord, my God, understanding to know Thee, diligence to seek Thee, wisdom to find Thee, a life and conversation which may please Thee, perseverance in waiting patiently for Thee, and a hope which may embrace Thee at the last. Grant me to be pierced with compunction by thy sorrows through true repentance, to improve all thy gifts and benefits during this my pilgrimage through thy grace, and so in glory to rejoice together with Thee in the heavenly country. Who livest and reignest God, for ever and ever. Amen.",
     ],
     latin: [
-      "Concede mihi, misericors Deus, quæ tibi placita sunt ardenter concupiscere, prudenter investigare, veraciter agnoscere et perfecte adimplere ad laudem et gloriam nominis tui. Amen.",
+      "Concede mihi, misericors Deus, quæ tibi sunt placita, ardenter concupiscere, prudenter investigare, veraciter agnoscere et perfecte adimplere ad laudem et gloriam nominis tui. Ordina, Deus meus, statum meum: et quod a me requiris, ut faciam, tribue ut sciam; et da exequi sicut oportet et expedit animæ meæ.",
+      "Da mihi, Domine Deus meus, inter prospera et adversa non deficere, ut in illis non extollar, et in istis non deprimar. De nullo gaudeam vel doleam nisi quod ducat ad te, vel abducat a te. Nulli placere appetam, vel displicere timeam nisi tibi.",
+      "Vilescant mihi Domine, omnia transitoria, et cara mihi sint omnia æterna. Tædeat me gaudii quod est sine te, nec aliud cupiam quod est extra te. Delectet me Domine, labor, qui est pro te; et tædiosa sit mihi omnis quies, quæ est sine te.",
+      "Da mihi, Deus meus, cor meum ad te dirigere, et in defectione mea cum emendationis proposito constanter dolere.",
+      "Fac me, Domine Deus meus, obedientem sine contradictione, pauperem sine dejectione, castum sine corruptione, patientem sine murmuratione; humilem sine fictione, hilarem sine dissolutione, maturum sine gravidine, agilem sine levitate, timentem te sine desperatione, veracem sine duplicitate, operantem bona sine præsumptione, proximum corripere sine elatione, ipsum ædificare verbo et exemplo sine simulatione.",
+      "Da mihi, Domine Deus, cor pervigil, quod nulla abducat a te curiosa cogitatio: da nobile, quod nulla deorsum trahat indigna affectio: da rectum, quod nulla seorsum obliquet sinistra intentio: da firmum, quod nulla frangat tribulatio: da liberum, quod nulla sibi vindicet violenta affectio.",
+      "Largire mihi, Domine Deus meus, intellectum te cognoscentem, diligentiam te quærentem, sapientiam te invenientem, conversationem tibi placentem, perseverantiam fidenter te expectantem, et fiduciam te finaliter amplectentem. Da tuis pœnis hic affligi per pœnitentiam, tuis beneficiis in via uti per gratiam, tuis gaudiis in patria perfrui per gloriam. Qui vivis et regnas Deus per omnia sæcula sæculorum. Amen.",
     ],
     prayerType: "general",
     category: "general",
-    occasions: ["before-study", "study", "daily"],
+    occasions: ["before-study", "study", "daily", "january-28"],
     relatedSaints: ["saint-thomas-aquinas"],
-    summary: `St Thomas Aquinas's short prayer to desire ardently, search out carefully, acknowledge truly and fulfil perfectly whatever is pleasing to God. The Raccolta (no. 51) directs that it be said before study or class and prints it in Latin and English; Leo XIII indulgenced it in 1879. ${ST_JOHN}`,
+    summary: `St Thomas Aquinas's prayer Concede mihi, misericors Deus: to desire, seek, know and fulfil whatever pleases God, to be neither lifted up by prosperity nor cast down by adversity, to be given a watchful, noble, upright, firm and free heart, and at the last a hope that embraces God. The Raccolta prints it in Latin and English as the "Prayer of St Thomas Aquinas for grace to lead a holy life" (no. 455), indulgenced by Leo XIII in 1888; its opening sentence alone appears earlier in the book as a prayer before study (no. 51). ${ST_JOHN}`,
   }),
   raccolta({
     slug: "petitions-of-saint-augustine",
@@ -1445,5 +1478,486 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "devotional",
     occasions: ["sacred-heart", "first-friday", "for-the-church"],
     summary: `A short intercession to the Sacred Heart for the Church, the Pope and the clergy, for the just and for sinners, for unbelievers, for parents, friends and benefactors, for the dying and the souls in purgatory, that the sweet empire of his love may extend over all hearts. Raccolta no. 171, indulgenced by Pius X in 1906. ${ST_JOHN}`,
+  }),
+
+  // ── XVI. The faithful departed: prayers to God and to Christ ─────────────
+  raccolta({
+    slug: "prayers-for-the-holy-souls-for-every-day-of-the-week",
+    title:
+      "Prayers for the Holy Souls for Every Day of the Week (O Lord God Almighty, I pray Thee by the Precious Blood)",
+    pages: [355, 356, 357],
+    body: [
+      "For Sunday.\nO Lord God Almighty, I pray Thee, by the Precious Blood which thy Divine Son Jesus shed in the garden, deliver the souls in purgatory, and especially that soul amongst them all which is most destitute of spiritual aid; and vouchsafe to bring it to thy glory, there to praise and bless Thee for ever. Amen. Pater, Ave, De profundis.",
+      "For Monday.\nO Lord God Almighty, I pray Thee, by the Precious Blood which thy Divine Son Jesus shed in his cruel scourging, deliver the souls in purgatory, and that soul especially amongst them all which is nearest to its entrance into thy glory; that so it may forthwith begin to praise and bless Thee for ever. Amen. Pater, Ave, De profundis.",
+      "For Tuesday.\nO Lord God Almighty, I pray Thee, by the Precious Blood which thy Divine Son Jesus shed in his bitter crowning with thorns, deliver the souls in purgatory, and in particular that one amongst them all which would be the last to depart out of those pains, that it may not tarry so long a time before it come to praise Thee in thy glory and bless Thee for ever. Amen. Pater, Ave, De profundis.",
+      "For Wednesday.\nO Lord God Almighty, I pray Thee, by the Precious Blood which thy Divine Son Jesus shed in the streets of Jerusalem, when He carried the Cross upon his sacred shoulders, deliver the souls in purgatory, and especially that soul which is richest in merits before Thee; that so, in that throne of glory which awaits it, it may magnify Thee and bless Thee for ever. Amen. Pater, Ave, De profundis.",
+      "For Thursday.\nO Lord God Almighty, I pray Thee, by the Precious Body and Blood of thy Divine Son Jesus, which He gave with his own hands upon the eve of his Passion to his beloved Apostles to be their meat and drink, and which He left to his whole Church to be a perpetual sacrifice and the life-giving food of his own faithful people, deliver the souls in purgatory, and especially that one which was most devoted to this mystery of infinite love, that it may with the same thy Divine Son, and with thy Holy Spirit, ever praise Thee for thy love therein in eternal glory. Amen. Pater, Ave, De profundis.",
+      "For Friday.\nO Lord God Almighty, I pray Thee, by the Precious Blood which thy Divine Son shed on this day upon the wood of the Cross, especially from his most sacred hands and feet, deliver the souls in purgatory, and in particular that soul for which I am most bound to pray; that no neglect of mine may hinder it from praising Thee in thy glory and blessing Thee for ever. Amen. Pater, Ave, De profundis.",
+      "For Saturday.\nO Lord God Almighty, I beseech Thee, by the Precious Blood which gushed forth from the side of thy Divine Son Jesus, in the sight of, and to the extreme pain of his most holy Mother, deliver the souls in purgatory, and especially that one amongst them all which was the most devout to her; that it may soon attain unto thy glory, there to praise Thee in her, and her in Thee, world without end. Amen. Pater, Ave, De profundis.",
+    ],
+    prayerType: "intercession",
+    category: "devotional",
+    occasions: ["all-souls", "november", "daily", "precious-blood"],
+    summary: `A prayer for the souls in purgatory for each day of the week, offering the Father on each day the Blood that Christ shed in a different moment of his Passion — in the garden, at the scourging, at the crowning with thorns, on the way of the Cross, in the Eucharist, on the Cross and from his pierced side — for a different soul: the most forsaken, the nearest to glory, the last to be released, the richest in merits, the most devoted to the Blessed Sacrament, the one I am most bound to pray for, and the one most devoted to Our Lady. Each ends with an Our Father, a Hail Mary and the De profundis. Raccolta no. 408, indulgenced by Leo XII in 1826. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "offering-of-the-five-wounds-for-the-holy-souls",
+    title: "Offering of the Precious Blood of the Five Wounds for the Holy Souls",
+    pages: [357, 358, 359],
+    body: [
+      "Go before our actions, we beseech Thee, O Lord, with thy inspiration, and follow after them with thy help, that every prayer and work of ours may begin from Thee and through Thee be likewise ended. Through Christ our Lord. Amen.",
+      "Eternal rest give unto them, O Lord, and let perpetual light shine upon them.",
+      "I. We offer unto Thee, O eternal Father, Father of mercies, for those souls so dear to Thee in purgatory, the most Precious Blood shed on Calvary from the wound in the left foot of Jesus thy Son, our Saviour, and the sorrow of Mary his most loving Mother in beholding it. Pater, Ave, Requiem æternam.",
+      "II. We offer unto Thee, O eternal Father, Father of mercies, for those souls so dear to Thee in purgatory, the most Precious Blood shed on Calvary from the wound in the right foot of Jesus thy Son, our Saviour, and the sorrow of Mary his most loving Mother in beholding it. Pater, Ave, Requiem æternam.",
+      "III. We offer unto Thee, O eternal Father, Father of mercies, for those souls so dear to Thee in purgatory, the most Precious Blood shed on Calvary from the wound in the left hand of Jesus thy Son, our Saviour, and the sorrow of Mary his most loving Mother in beholding it. Pater, Ave, Requiem æternam.",
+      "IV. We offer unto Thee, O eternal Father, Father of mercies, for those souls so dear to Thee in purgatory, the most Precious Blood shed on Calvary from the wound in the right hand of Jesus thy Son, our Saviour, and the sorrow of Mary his most loving Mother in beholding it. Pater, Ave, Requiem æternam.",
+      "V. We offer unto Thee, O eternal Father, Father of mercies, for those souls so dear to Thee in purgatory, the most Precious Blood and water flowing on Calvary from the pierced side of Jesus thy Son, our Saviour, and the sorrow of Mary his most loving Mother in beholding it. Pater, Ave, Requiem æternam.",
+      "Let us pray.",
+      "And now to give greater value to our feeble prayers, turning to Thee, most loving Jesus, we humbly pray Thee thyself to offer to the eternal Father the sacred wounds of thy feet, hands and side, together with thy most precious Blood, and thy agony and death; and do thou also, Mary, Virgin of sorrows, present, together with the most sorrowful Passion of thy well-beloved Son, the sighs, tears and all the sorrows suffered by thee through his sufferings, so that through their merits the souls who suffer in the most ardent flames of purgatory may obtain refreshment, and, freed from this prison of torment, may be clothed with glory in heaven, there to sing the mercies of God for ever. Amen.",
+      "Absolve, O Lord, the souls of all the faithful departed from every bond of sin, so that by thy aid they may deserve to escape the judgment of wrath, and come to the enjoyment of beatitude in eternal light.",
+      "V. Eternal rest give unto them, O Lord.\nR. And let perpetual light shine upon them.\nV. From the gate of hell.\nR. Deliver their souls, O Lord.\nV. May they rest in peace. R. Amen.\nV. O Lord, hear my prayer.\nR. And let my cry come unto Thee.\nV. The Lord be with you.\nR. And with thy spirit.",
+      "Let us pray.",
+      "O God, the Creator and Redeemer of all the faithful, grant to the souls of thy servants departed the remission of all their sins, that through pious supplications they may obtain the pardon they have always desired. Who livest and reignest world without end. Amen.",
+      "Eternal rest, etc.",
+    ],
+    prayerType: "intercession",
+    category: "devotional",
+    occasions: ["all-souls", "november", "precious-blood", "funerals"],
+    summary: `A devotion for the souls in purgatory that offers the eternal Father, five times over, the Precious Blood shed from each of the five wounds of Christ together with the sorrow of Mary in beholding it; it opens with the collect Actiones nostras, asks Jesus and his Mother themselves to present their sufferings for the holy souls, and closes with the absolution Absolve, Domine, the versicles of the Office of the Dead and the collect Fidelium Deus. The Raccolta calls it "Devotion to the Five Wounds" (no. 412); Leo XIII indulgenced it in 1888. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayers-to-jesus-for-the-holy-souls-my-jesus-by-that-copious-sweat",
+    title: "Prayers to Jesus for the Holy Souls (My Jesus, by that copious sweat of blood)",
+    pages: [360, 361],
+    body: [
+      "My Jesus, by that copious sweat of blood with which Thou didst bedew the ground in the garden, have mercy on the souls of my nearest relations who are suffering in purgatory. Pater, Ave, Requiem æternam.",
+      "My Jesus, by that cruel scourging which Thou didst suffer, bound to the column, have pity on the souls of my other relations and friends who are suffering in purgatory. Pater, Ave, Requiem æternam.",
+      "My Jesus, by that crown of sharpest thorns which pierced thy sacred temples, have mercy on that soul which is most neglected and least prayed for, and on that soul which is furthest from being released from the pains of purgatory. Pater, Ave, Requiem æternam.",
+      "My Jesus, by those sorrowful steps which Thou didst take with the Cross on thy shoulders, have mercy on that soul which is nearest to its departure from purgatory; and by the pains which Thou didst suffer together with thy most holy Mother Mary, when Thou didst meet her on the road to Calvary, deliver from the pains of purgatory those souls who were devout to this beloved Mother. Pater, Ave, Requiem æternam.",
+      "My Jesus, by thy most holy body stretched on the Cross, by thy most holy hands and feet pierced with hard nails, by thy most cruel death, and by thy most holy side laid open with a lance, have pity and mercy on those poor souls; free them from the awful pains they suffer, call and admit them to thy most sweet embrace in Paradise. Pater, Ave, Requiem æternam.",
+      "O holy souls, tormented in most cruel pains, as one truly devoted to you, I promise never to forget you, and continually to pray to the Most High for your release. I beseech you to respond to this offering which I make to you, and obtain for me from God, with whom you are so powerful on behalf of the living, that I may be freed from all dangers of soul and body; I beg both for myself and for my relations and benefactors, friends and enemies, pardon for our sins, and the grace of perseverance in good, whereby we may save our souls. Set us free from all misfortunes, miseries, sicknesses, trials and labours. Obtain for us peace of heart; assist us in all our actions; succour us promptly in all our spiritual and temporal needs; console and defend us in our dangers. Pray for the supreme Pontiff, for the exaltation of holy Church, for peace between nations, for Christian princes, and for tranquillity among peoples; and obtain that we may one day all rejoice together in Paradise. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "devotional",
+    occasions: ["all-souls", "november", "passion"],
+    summary: `Five prayers to Jesus for the souls in purgatory, each pleading one stage of his Passion — the bloody sweat, the scourging, the crowning with thorns, the way of the Cross and the Crucifixion — for a particular group of souls (one's nearest relations, other relations and friends, the most forgotten, the nearest to release, those devoted to Our Lady), followed by a prayer asking the holy souls themselves to intercede for the living. Raccolta no. 413, indulgenced by Leo XIII in 1889. ${ST_JOHN}`,
+  }),
+
+  // ── XVII. Miscellaneous prayers to God and to Christ ─────────────────────
+  raccolta({
+    slug: "prayer-for-deaf-children",
+    title: "Prayer for Deaf Children (O most merciful Jesus, who didst show such tenderness)",
+    pages: [370, 371],
+    body: [
+      "O most merciful Jesus, who didst show such tenderness towards little children, who enjoyed the privilege of being caressed by thy divine hands, and didst say that whoever received one such innocent child, received Thee; extend, we pray Thee, the hand of thy providence over the little ones who, through being deprived of hearing and speech, are exposed to so many dangers of soul and body. Diffuse the spirit of thy ardent charity into Christian hearts, that they may come to their aid, and send down abundant graces on those who help in providing for this portion of thy flock a refuge where their innocence can be secure, and they can find food and affection. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["children", "disability", "charity"],
+    summary: `A prayer to Jesus, who welcomed and blessed little children, for children who cannot hear or speak, asking that Christians may come to their aid and that those who provide homes and schools for them may be blessed. The Raccolta titles it "Prayer for Deaf-Mutes" (no. 432), in the language of its time; Pius X indulgenced it in 1906. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayers-against-an-unprovided-death",
+    title: "Prayers against an Unprovided Death",
+    pages: [371, 372, 373],
+    body: [
+      "Hear us, O God of our salvation, and issue not the decree for the completion of our days before Thou forgivest us our sins; and because penance avails not in hell, and there is no room for amendment in the pit, therefore we humbly pray and beseech Thee here on earth that, giving us time to pray for pardon, Thou wouldst give us also forgiveness of our sins. Through Christ our Lord. Amen.",
+      "Take away, merciful Lord, all errors from thy faithful people, avert from them the sudden destruction of the wasting pestilence; and those whose wanderings Thou dost justly chastise, do Thou mercifully pity when corrected. Through Christ our Lord. Amen.",
+      "Ant. Sin no longer, O my soul; think upon the sudden change from sin to endless torments. There, in hell, penance is not accepted, and tears profit not. Turn, then, whilst thou hast time; cry out and say, Have mercy upon me, O my God.",
+      "Ant. In the midst of life we are in death; but to whom can we look to be our helper save Thee, O Lord, who art justly angry with us because of our sins? O holy God, holy and strong, holy and merciful Saviour, deliver us not over to a bitter death.\nV. Lest, overtaken by the day of death, we seek time for penance, and be unable to find it:\nR. Hearken, O Lord, and have mercy on us, for we have sinned against Thee.",
+      "We beseech Thee, Almighty God, receive in thy fatherly pity thy people who flee unto Thee from thine anger; that those who fear to be chastised by the rod of thy majesty through sudden death, may be made worthy to rejoice in thy pardon. Through Christ our Lord. Amen.",
+      "We beseech Thee, Almighty God, graciously incline thine ear to the assembly of thy Church, and let thy mercy to us prevent thine anger, for if Thou shouldst mark iniquities there shall no creature be able to stand before Thee; and in that same admirable charity whereby Thou didst create us, pardon us sinners, and destroy not the work of thy own hands by sudden death. Through Christ our Lord. Amen.",
+      "Hear our prayers, O Lord, and enter not into judgment with thy servants; for, knowing that there is no justice in us on which we can dare to presume, we acknowledge no other fount of mercy whereby we can be washed from our sins, delivered from our infirmities, and especially from sudden death, but only Thee, O God. Through Christ our Lord. Amen.",
+      "O God, in whose sight every heart trembles and every conscience is awed; show forth thy mercy upon us, thy suppliants, that we, who trust not in the excellence of our own merit, may never experience thy judgments by suddenness of death, but may receive Thy pardon. Through Christ our Lord. Amen.",
+      "Prayer.",
+      "Most merciful Lord Jesus, by thy agony and bloody sweat, and by thy death, deliver me, I beseech Thee, from sudden and unprepared death. O most gentle Lord Jesus, by thy cruel and ignominious scourging and crowning with thorns, by thy Cross and bitter Passion, and by thy own great goodness, I humbly pray Thee let me not die unprepared and pass from this life without the Holy Sacraments. Jesus, my best beloved, my Lord! by all thy travails and all thy sorrows, by thy Precious Blood, and by thy most holy wounds, and by those last words spoken by Thee upon the Cross—“My God, my God, why hast Thou forsaken Me?” and again, “Father, into thy hands I commend my spirit”—most ardently I pray Thee, free me from sudden death. Thy hands, O my Redeemer, have wholly made and formed me; oh, suffer not death to take me unawares; grant me, I beseech Thee, time for penance; vouchsafe me a happy passage when I am in thy grace, that in the world to come I may love Thee with my whole heart, and praise and bless Thee for ever and for ever. Amen.",
+      "Pater and Ave five times, in memory of the Passion of our Lord Jesus Christ, and Ave thrice, to the Blessed Virgin, Mother of Sorrows.",
+    ],
+    prayerType: "general",
+    category: "penitential",
+    occasions: [
+      "preparation-for-death",
+      "holy-thursday",
+      "good-friday",
+      "exaltation-of-the-holy-cross",
+    ],
+    summary: `A devotion against sudden and unprepared death: collects begging time for repentance and deliverance from sudden death, the antiphon Media vita ("In the midst of life we are in death"), and a prayer to Jesus, by his agony, scourging, Precious Blood and last words, not to let one die unprepared or without the sacraments; it ends with five Our Fathers and Hail Marys in memory of the Passion. Raccolta no. 434, indulgenced by Pius VII in 1816. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "in-honour-of-the-blessed-trinity-and-all-the-saints",
+    title: "In Honour of the Blessed Trinity and of All the Angels and Saints",
+    pages: [374],
+    body: [
+      "I. The Blessed Trinity.",
+      "With our whole hearts and lips we acknowledge, praise and bless Thee, O Father unbegotten; Thee, O only begotten Son; Thee, O Holy Spirit and Paraclete; O holy and undivided Trinity; to Thee be glory for ever.\nV. Let us bless the Father, Son, and Holy Spirit.\nR. Let us praise and exalt Him for ever.",
+      "Let us pray.",
+      "O Almighty and everlasting God, who hast granted to thy servants in the confession of the true faith to acknowledge the glory of the eternal Trinity, and in the power of thy Majesty to adore the Unity; we beseech Thee that by the strength of the same faith we may ever be defended from all adversity; through Christ our Lord. Amen.",
+      "II. All Angels and Saints.",
+      "Angels, Archangels, Thrones and Dominations, Principalities and Powers, and Virtues of Heaven, Cherubim and Seraphim, Patriarchs and Prophets, holy Doctors of the Law, Apostles, all Martyrs of Christ, holy Confessors, Virgins of the Lord, Anchorites, and all Saints, intercede for us.\nV. All ye holy men and women, saints of God.\nR. Intercede for us.",
+      "Let us pray.",
+      "Almighty and everlasting God, who hast willed that we should profit by the merits of all thy saints, we beseech Thee that, as our intercessors are multiplied, so thou wouldst bestow upon us that abundance of mercy which we desire. Through Christ our Lord. Amen.",
+    ],
+    prayerType: "general",
+    category: "trinitarian",
+    occasions: ["sunday", "trinity-sunday", "all-saints"],
+    summary: `A Sunday devotion in two parts: the antiphon of praise to the Holy and undivided Trinity with the collect of Trinity Sunday, and an invocation of all the choirs of angels and every rank of saints with the collect of All Saints. Raccolta no. 436, indulgenced by Pius VII in 1816 for every Sunday. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-o-father-of-mercies-and-source-of-every-good",
+    title:
+      "Prayer to the Father of Mercies for Faith, Hope and Charity (O Father of mercies, and source of every good)",
+    pages: [375],
+    body: [
+      "O Father of mercies, and source of every good! I humbly beg Thee, through the most sacred and most loving Heart of Jesus, thy well-beloved Son, our Lord and Redeemer, in whom Thou art always well pleased, vouchsafe to grant me the grace of a lively faith, a firm hope, and an ardent charity for Thee and for my neighbour. Grant me, besides, the grace of a true sorrow for all my sins, together with a most firm purpose of never offending Thee in the future, that I may always live according to thy divine good pleasure, fulfil thy most holy will in all things with a generous and willing heart, and persevere in thy love unto the end of my life. Amen.",
+      "O most blessed Virgin Mary, Mother of my Lord and Redeemer, I entreat thee and beseech thee to effect by thy mercy that, in all the dangers and necessities of my soul, I may flee to thee, pray to thee, and call upon thee for help.",
+    ],
+    prayerType: "general",
+    category: "theological-virtue",
+    occasions: ["daily", "act-of-love", "sacred-heart"],
+    summary: `A prayer to the Father, made through the Sacred Heart of his Son, for lively faith, firm hope and ardent charity, true sorrow for sin and perseverance in his love, followed by a short petition to Our Lady to be able to fly to her in every danger of soul. The Raccolta calls it "Prayer, with Ejaculation" (no. 438); Pius VII indulgenced it in 1818. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "litany-for-a-happy-death-merciful-jesus-have-mercy-on-me",
+    title: "Litany for a Happy Death (Merciful Jesus, have mercy on me)",
+    pages: [375, 376, 377],
+    body: [
+      "O Lord Jesus, God of goodness, and Father of mercies, I draw nigh to Thee with a contrite and humble heart; to Thee I recommend the last hour of my life, and that judgment which awaits me afterwards.",
+      "When my feet, benumbed with death, shall admonish me, that my course in this life is drawing to an end, merciful Jesus, have mercy on me.",
+      "When my hands, cold and trembling, shall no longer be able to clasp the crucifix, and shall let it fall against my will on my bed of suffering, merciful Jesus, have mercy on me.",
+      "When my eyes, dim and troubled at the approach of death, shall fix themselves on Thee, my last and only support, merciful Jesus, have mercy on me.",
+      "When my lips, cold and trembling, pronounce for the last time thy adorable Name, merciful Jesus, have mercy on me.",
+      "When my face, pale and livid, shall inspire the beholders with pity and dismay; when my hair, bathed in the sweat of death, and stiffening on my head, shall forebode my approaching end, merciful Jesus, have mercy on me.",
+      "When my ears, soon to be for ever shut to the discourse of men, shall be open to that irrevocable decree which is to fix my doom for all eternity, merciful Jesus, have mercy on me.",
+      "When my imagination, agitated by dreadful spectres, shall be sunk in an abyss of anguish; when my soul, affrighted with the sight of my iniquities and the terrors of thy judgments, shall have to fight against the angels of darkness, who will endeavour to conceal thy mercies from my eyes, and plunge me into despair, merciful Jesus, have mercy on me.",
+      "When my poor heart, oppressed with suffering and exhausted by its continual struggles with the enemies of its salvation, shall feel the pangs of death, merciful Jesus, have mercy on me.",
+      "When the last tear, the forerunner of my dissolution, shall drop from my eyes, receive it as a sacrifice of expiation for my sins; grant that I may expire the victim of penance; and then, in that dreadful moment, merciful Jesus, have mercy on me.",
+      "When my friends and relations, encircling my bed, shall be moved with compassion for me, and invoke thy clemency in my behalf, merciful Jesus, have mercy on me.",
+      "When I shall have lost the use of my senses, when the world shall have vanished from my sight, when I shall groan with anguish in my last agony and the pangs of death, merciful Jesus, have mercy on me.",
+      "When my last sighs shall force my soul to issue from my body, accept them as born of a loving impatience to come to thee; merciful Jesus, have mercy on me.",
+      "When my soul, trembling on my lips, shall bid adieu to the world, and leave my body lifeless, pale and cold, receive this separation as a homage which I willingly pay to thy Divine Majesty, and in that last moment of my mortal life, merciful Jesus, have mercy on me.",
+      "When at length my soul, admitted to thy presence, shall first behold the immortal splendour of thy Majesty, reject it not, but receive me into the loving embrace of thy mercy, where I may for ever sing thy praises; merciful Jesus, have mercy on me.",
+      "Let us pray.",
+      "O God, who hast doomed all men to die, but hast concealed from all the hour of their death, grant that I may pass my days in the practice of holiness and justice, and that I may be made worthy to quit this world in the embrace of thy love, through the merits of our Lord Jesus Christ, who liveth and reigneth with Thee in the unity of the Holy Spirit. Amen.",
+    ],
+    prayerType: "litany",
+    category: "litany",
+    occasions: ["preparation-for-death", "for-the-dying", "november"],
+    summary: `The prayer commonly called the Litany for a Happy Death, which commends to Jesus each stage of one's last agony — the feet, hands, eyes, lips, face, ears, imagination and heart failing in turn, the last tear and the last sigh — with the refrain "merciful Jesus, have mercy on me", and ends with a collect for a holy life and death. The Raccolta titles it "Prayers for a Happy Death" (no. 439); Leo XII indulgenced it in 1824. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "invocations-and-petitions-through-the-precious-blood",
+    title: "Invocations and Petitions through the Precious Blood (O Father! O Son! O Holy Ghost!)",
+    pages: [378],
+    body: [
+      "O Father! O Son! O Holy Ghost!\nO Holy Trinity! O Jesus! O Mary!",
+      "O ye blessed Angels of God, all ye Saints of Paradise, men and women, obtain for me these graces, which I ask through the Precious Blood of Jesus Christ:",
+      "1. Ever to do the holy will of God.\n2. Ever to live in union with God.\n3. Not to think of anything but God.\n4. To love God alone.\n5. To do all for God.\n6. To seek only the glory of God.\n7. To sanctify myself solely for God.\n8. To know well my own utter nothingness.\n9. Ever to know more and more the will of my God.\n10. (Here ask for any special grace.)",
+      "Mary most holy, offer to the Eternal Father the most Precious Blood of Jesus Christ for my soul, for the holy souls in purgatory, for the needs of Holy Church, for the conversion of sinners, and for all the world.",
+      "Then say Gloria Patri thrice to the most holy Blood of Jesus Christ, Ave Maria once to most holy Mary sorrowing, and Requiem æternam once for the holy souls in purgatory.",
+    ],
+    prayerType: "general",
+    category: "devotional",
+    occasions: ["precious-blood", "july", "daily"],
+    summary: `Invocations of the Holy Trinity, of Jesus and Mary, of the angels and saints, asking through the Precious Blood ten graces — to do God's will, live in union with Him, love Him alone, seek only his glory, know one's own nothingness, and a special grace of one's own — with an offering of the Precious Blood through Mary for the Church, sinners and the holy souls. Raccolta no. 440, indulgenced by Leo XII in 1827. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayers-in-times-of-calamity-mercy-of-our-god",
+    title: "Prayers in Times of Calamity (Mercy of our God, encompass us)",
+    pages: [378, 379],
+    body: [
+      "Mercy of our God, encompass us, and deliver us from every plague. Gloria Patri.",
+      "Eternal Father, sign us with the Blood of the Immaculate Lamb, as Thou didst sign the dwellings of thy people. Gloria Patri.",
+      "Most precious Blood of Jesus our Love, cry for mercy for us from thy Divine Father, and deliver us. Gloria Patri.",
+      "Wounds of my Jesus, mouths of love and mercy, speak for us in pity to the Eternal Father; hide us within yourselves and deliver us. Gloria Patri.",
+      "Eternal Father, Jesus is ours; ours his Blood, ours his infinite merits; to Thee we offer ourselves wholly: then, if Thou lovest Him, and holdest precious this gift we make Thee, Thou oughtest to deliver us: for this we hope with fullest confidence. Gloria Patri.",
+      "Eternal Father, Thou desirest not the death of a sinner, but rather that he should be converted and live: in thy mercy grant that we may live before Thee and be for ever thine. Gloria Patri.",
+      "Save us, Christ our Saviour, by the virtue of thy holy Cross; Thou who didst save Peter in the sea, have mercy upon us.",
+      "Mary, Mother of mercy, pray for us, and we shall be delivered; Mary, our advocate, speak for us, and we shall be saved.",
+      "The Lord justly scourgeth us for our sins; but do thou, Mary, plead for us, for thou art our most tender Mother.",
+      "Mary, in thy Jesus, and in thee, have we put our hope; oh, let us never be confounded. Salve Regina.",
+    ],
+    prayerType: "intercession",
+    category: "devotional",
+    occasions: ["times-of-trouble", "precious-blood", "protection"],
+    summary: `Short prayers for deliverance in time of plague and calamity, invoking the mercy of God, the Blood of the Lamb with which the Israelites signed their doors, the wounds of Christ as "mouths of love and mercy", the Cross, and the intercession of Mary, each with a Glory Be, and ending with the Salve Regina. Raccolta no. 441, indulgenced by Gregory XVI in 1837. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-in-any-plague-or-trouble",
+    title: "Prayer in Any Plague or Trouble (with Psalm 53)",
+    pages: [380],
+    body: [
+      "Help us, O God of our salvation, and for the glory of thy name deliver us: be merciful to our sins for thy name's sake.",
+      "Psalm liii.",
+      "Save me, O Lord, in thy name; and judge me in thy strength.\nO God, hear my prayer; give ear to the words of my mouth;\nFor strangers have risen up against me, and the mighty have sought after my soul, and they have not set God before their eyes.\nFor, behold, God is my helper, and the Lord is the protector of my soul.\nTurn away evil from me upon my enemies, and scatter them in thy truth.\nI will freely sacrifice to Thee; and will give praise, O God, to thy name, because it is good.\nFor Thou hast delivered me out of all my trouble, and mine eye hath looked down upon mine enemies.\nGloria Patri.",
+      "V. For the glory of thy name, deliver us.\nR. And deal mercifully with our sins for thy name's sake.",
+      "Let us pray.",
+      "Lord, we beseech Thee, in thy pity hear the prayers of thy people; that we who suffer justly for our sins may, for the glory of thy name, mercifully be delivered. Through Christ our Lord. R. Amen.",
+      "We beseech Thee, therefore, help thy servants, whom Thou hast redeemed with thy Precious Blood.",
+    ],
+    prayerType: "intercession",
+    category: "devotional",
+    occasions: ["times-of-trouble", "protection", "sickness"],
+    summary: `A prayer for deliverance in any plague or trouble: the verse "Help us, O God of our salvation" (Psalm 78:9), Psalm 53 (54) "Save me, O Lord, in thy name", a versicle and collect, and the verse from the Te Deum "We beseech Thee, therefore, help thy servants, whom Thou hast redeemed with thy Precious Blood". Raccolta no. 443, indulgenced by Pius IX in 1849. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "three-offerings-of-the-precious-blood-for-the-immaculate-conception",
+    title: "Three Offerings of the Precious Blood in Thanksgiving for the Immaculate Conception",
+    pages: [381, 382],
+    body: [
+      "Eternal Father, in union with the most holy and Immaculate Virgin, all the blessed in heaven and all the elect upon earth, I offer to Thee the most Precious Blood of Jesus Christ, in thanksgiving for the gifts and privileges with which Thou hast enriched Mary, thy most obedient daughter, particularly in her Immaculate Conception. I offer to Thee also this Precious Blood for the conversion of poor sinners, for the propagation and exaltation of thy Holy Church, for the safety and prosperity of our chief pastor, the Bishop of Rome, and according to his intentions. Gloria Patri.",
+      "Eternal and Incarnate Word! in union with the most holy and Immaculate Virgin, all the blessed in heaven, and all the elect upon earth, I offer to thee thine own most Precious Blood, in thanksgiving for the gifts and privileges with which Thou hast enriched Mary, thy most loving Mother, particularly in her Immaculate Conception. I offer to thee also this Precious Blood for the conversion of poor sinners, for the propagation and exaltation of thy Holy Church, for the safety and prosperity of our chief pastor, the Bishop of Rome, and according to his intentions. Gloria Patri.",
+      "Holy and Eternal Spirit! in union with the most holy and Immaculate Virgin, all the blessed in Heaven, and all the elect upon earth, I offer to Thee the most Precious Blood of Jesus, in thanksgiving for the gifts and privileges with which Thou hast enriched Mary, thy most faithful Spouse, particularly in her Immaculate Conception. I offer to Thee also this Precious Blood for the conversion of poor sinners, for the propagation and exaltation of thy Holy Church, for the safety and prosperity of our chief pastor, the Bishop of Rome, and according to his intentions. Gloria Patri.",
+      "Prayer to the Most Holy Virgin.",
+      "Mary, Mother of God, most holy and Immaculate Virgin, by the love thou dost ever bear to God, by the gratitude thou hast towards Him for the manifold graces and favours with which thou wast enriched by Him, particularly for the privilege of Immaculate Conception granted to thee alone, and by the infinite merits of Jesus Christ, thy Divine Son our Lord, we pray thee most earnestly to obtain for us a most perfect and constant devotion towards thyself, and a full trust that through thy most mighty intercession we shall receive all the graces which we ask. Certain henceforth of obtaining them from thy great goodness, with hearts overflowing with joy and thankfulness, we venerate thee, and say the salutation which the holy archangel Gabriel made to thee. Ave Maria.",
+    ],
+    prayerType: "general",
+    category: "trinitarian",
+    occasions: ["december-8", "immaculate-conception", "precious-blood"],
+    summary: `Three offerings of the Precious Blood, one to each Person of the Trinity — to the Father for Mary his most obedient daughter, to the Word for his most loving Mother, to the Holy Spirit for his most faithful Spouse — in thanksgiving for her Immaculate Conception and for the Church and the Pope, followed by a prayer to the Immaculate Virgin. Pius IX indulgenced them in June 1854, the year he defined the dogma; Raccolta no. 444. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-of-saint-benedict-joseph-labre-for-times-of-necessity",
+    title: "Prayer of Saint Benedict Joseph Labre for Times of Necessity",
+    pages: [382, 383, 384],
+    body: [
+      "Jesus Christ, the King of Glory, hath come in peace.\nGod was made man.\nThe Word was made flesh.\nChrist was born of Mary the Virgin.\nChrist went thro' the midst of them in peace.\nChrist was crucified.\nChrist died.\nChrist was buried.\nChrist rose from the dead.\nChrist ascended into heaven.\nChrist is victorious.\nChrist reigns.\nChrist is Lord of all.\nMay Christ defend us from all evil.\nJesus is with us.\nPater, Ave, Gloria.",
+      "Eternal Father, by the Blood of Jesus have mercy; sign us with the Blood of the Immaculate Lamb Jesus Christ, as Thou didst sign the people of Israel, in order to deliver them from death: and do thou, Mary, Mother of Mercy, pray to God and appease Him for us, and obtain for us the grace we ask. Gloria Patri.",
+      "Eternal Father, by the Blood of Jesus have mercy; save us from the shipwreck of the world, as Thou didst save Noe from the universal deluge: and do thou, Mary, Ark of salvation, pray to God and appease Him for us, and obtain for us the grace we ask. Gloria Patri.",
+      "Eternal Father, by the Blood of Jesus have mercy; deliver us from the plagues which we have deserved for our sins, as Thou didst deliver Lot from the flames of Sodom. And do thou, Mary, our Advocate, pray to God and appease Him for us, and obtain for us the grace we ask. Gloria Patri.",
+      "Eternal Father, by the Blood of Jesus have mercy; comfort us under our present necessities and troubles, as Thou didst comfort Job, Anna and Tobias in their afflictions. And do thou, Mary, Comforter of the afflicted, pray to God and appease Him for us, and obtain for us the grace we ask. Gloria Patri.",
+      "Eternal Father, by the Blood of Jesus have mercy; Thou who wouldst not the death of a sinner, but rather that he should be converted and live, grant us through thy mercy time for penance; that, filled with contrition and penance for our sins, which are the cause of all our evils, we may live in the holy faith, hope, charity and peace of our Lord Jesus Christ. And do thou, Mary, Refuge of sinners, pray to God and appease Him for us, and obtain for us the grace we ask. Gloria Patri.",
+      "Precious Blood of Jesus, our Love, cry unto the Divine Father for mercy, pardon, grace and peace for us, for N., and for all the world. Gloria Patri.",
+      "Mary, our Mother and our Hope, pray to God for us, for N., and for all, and obtain for us the grace we ask. Gloria Patri.",
+      "Eternal Father, I offer Thee the Blood of Jesus Christ in discharge of all my debt of sin, for the wants of Holy Church, and for the conversion of sinners. Gloria Patri.",
+      "Mary Immaculate, Mother of God, pray to Jesus for us, for N., and for all. Jesu, Mary, mercy!",
+      "St Michael Archangel, St Joseph, SS. Peter and Paul, protectors of all the faithful in the Church of God, and all ye Angels and Saints of Paradise, men and women, pray to God, and by your intercession obtain grace and mercy for me, for N., and for all. Amen.",
+    ],
+    latin: [
+      "Jesus Christus, Rex gloriæ, venit in pace.\nDeus homo factus est.\nVerbum caro factum est.\nChristus de Maria Virgine natus est.\nChristus per medium illorum ibat in pace.\nChristus crucifixus est.\nChristus mortuus est.\nChristus sepultus est.\nChristus resurrexit.\nChristus ascendit in cœlum.\nChristus vincit.\nChristus regnat.\nChristus imperat.\nChristus ab omni malo nos defendat.\nJesus nobiscum est.\nPater, Ave, Gloria.",
+    ],
+    prayerType: "intercession",
+    category: "devotional",
+    occasions: ["times-of-trouble", "precious-blood", "april-16"],
+    relatedSaints: [],
+    summary: `The prayer the Raccolta (no. 445) gives as St Benedict Joseph Labre's, the eighteenth-century pilgrim and beggar of Rome: a litany of the mysteries of Christ from the Incarnation to "Christ conquers, Christ reigns, Christ commands", followed by appeals to the Father by the Blood of Jesus — to sign us as He signed Israel, save us as He saved Noah, deliver us as He delivered Lot — each joined to a petition to Mary. Pius IX indulgenced it through the Cardinal Vicar in 1854; the Latin is that of the opening litany, which the book prints beside the English. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayers-for-purity-o-jesus-son-of-the-living-god",
+    title: "Prayers for Purity (O Jesus, Son of the living God, brightness of eternal light)",
+    pages: [384, 385],
+    body: [
+      "O Jesus, Son of the living God, brightness of eternal light, who from all eternity wast begotten most pure in the bosom of the Eternal Father, and who in time didst will to be born of a most pure and immaculate Virgin, I, thy creature full of infirmity, beg of Thee, with all my heart, to preserve me pure in mind and body; and do Thou cause to be renewed most abundantly in thy holy Church the virtue of holy Purity for thy greater glory and the salvation of the souls Thou hast redeemed.",
+      "O most pure and ever-immaculate Virgin Mary, Daughter of the Eternal Father, Mother of the Eternal Son, and Spouse of the Holy Ghost, august and living temple of the most adorable Trinity, lily of purity and mirror without stain, obtain for me, dear Mother, I beseech thee, from the good Jesus, purity of mind and body, and beg of Him to cause this beautiful virtue to flourish more and more among all classes of the faithful.",
+      "O most chaste Spouse of Mary Immaculate, glorious St Joseph, who didst merit to receive from God the singular privilege of being the reputed Father of Innocence itself, Jesus Christ, and spotless guardian of the Virgin of virgins, obtain for me, I beseech thee, the love of Jesus, my Saviour and God, and the special protection of Mary my most blessed Mother; grant, O blessed Joseph, protector of all chaste souls, that this thy beloved virtue of holy purity may be better loved by me and by all men.",
+      "And thou who didst so deeply love Jesus, Mary and Joseph, St Bernadine, my special advocate and example, model of Christian modesty, restorer in our times of piety and holy living, present my prayers, I beseech thee, to the Holy Family, and implore that, together with piety and the fear of God, holy purity of soul and body may reign in all Christian families and in all children of our Mother, the holy Roman Church. Amen.",
+    ],
+    prayerType: "general",
+    category: "general",
+    occasions: ["chastity", "temptation", "families"],
+    relatedSaints: ["saint-joseph"],
+    summary: `Prayers for purity of mind and body, for oneself and for the whole Church and every Christian family, addressed in turn to Jesus, the brightness of eternal light born of a most pure Virgin, to Mary, lily of purity, to St Joseph, protector of chaste souls, and to St Bernardine (the book spells it "Bernadine"), invoked as a model of Christian modesty. Raccolta no. 446, indulgenced by Pius IX through the Penitentiary in 1862. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "temperance-pledge-prayer",
+    title: "The Temperance Pledge (O God, my Father, to show my love for Thee)",
+    pages: [386],
+    body: [
+      "O God, my Father, to show my love for Thee, to make reparation to thy wounded honour, to obtain the salvation of souls, I firmly purpose to take this day neither wine, nor beer, nor any intoxicating drink.",
+      "I offer Thee this act of mortification in union with the sacrifice of thy Son Jesus Christ, who daily offers Himself a victim on the altar for thy greater glory. Amen.",
+    ],
+    prayerType: "act",
+    category: "penitential",
+    occasions: ["temperance", "penance", "daily"],
+    summary: `A daily pledge to abstain from all intoxicating drink, made to God the Father out of love, in reparation and for the salvation of souls, and offered in union with the sacrifice of Christ on the altar. Raccolta no. 447, indulgenced by Pius X by brief in 1904. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "oremus-pro-pontifice",
+    title: "Prayer for the Sovereign Pontiff (Oremus pro Pontifice)",
+    pages: [386],
+    body: [
+      "V. Let us pray for our Pontiff N.\nR. The Lord preserve him and give him life, and make him blessed upon earth, and deliver him not up to the will of his enemies.\nPater noster. Ave Maria.",
+    ],
+    latin: [
+      "V. Oremus pro Pontifice nostro N.\nR. Dominus conservet eum, et vivificet eum, et beatum faciat eum in terra, et non tradat eum in animam inimicorum ejus.\nPater noster. Ave Maria.",
+    ],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["for-the-church", "daily", "benediction"],
+    summary: `The versicle and response Oremus pro Pontifice, sung for the Pope at Benediction and on papal occasions, its response drawn from Psalm 40, followed by an Our Father and a Hail Mary. The Raccolta (no. 449) prints it in Latin and English; Pius IX indulgenced it in 1876. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "christian-acts-my-god-i-believe-in-thee-i-hope-in-thee",
+    title:
+      "Christian Acts (My God, I believe in Thee, I hope in Thee, I love Thee above all things)",
+    pages: [389],
+    body: [
+      "The prayer must be repeated thirty-three times, with a Gloria after each eleven.",
+      "My God, I believe in Thee, I hope in Thee, I love Thee above all things with all my soul, with all my heart, with all my strength: I love Thee because Thou art infinitely good and worthy to be loved; and because I love Thee, I repent with my whole heart for having offended Thee; be merciful to me a sinner. Amen.",
+    ],
+    prayerType: "act",
+    category: "theological-virtue",
+    occasions: ["daily", "act-of-love", "confession"],
+    summary: `A single short act of faith, hope, love and contrition, which the Raccolta (no. 453) directs to be said thirty-three times, in honour of the years of Christ's life, with a Glory Be after each eleven. Leo XIII indulgenced it in 1885. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-in-times-of-calamity-o-lord-jesus-christ-god-of-sanctity",
+    title: "Prayer in Times of Calamity (O Lord Jesus Christ, true God and true Man)",
+    pages: [393],
+    body: [
+      "O Lord Jesus Christ, true God and true Man, God of Sanctity, God of Majesty, God Everlasting, have pity on us and upon the whole human race; now and always purify us from our sins and infirmities with thy Precious Blood, so that we may be able to live in thy holy peace and charity, now and for ever. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["times-of-trouble", "precious-blood", "peace"],
+    summary: `A brief prayer to Christ, true God and true Man, for mercy on the whole human race and for purification from sin by his Precious Blood, so that all may live in his peace and charity. Raccolta no. 456, indulgenced by Leo XIII in 1888. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-for-the-christian-family-god-of-bounty",
+    title: "Prayer for the Christian Family (O God of bounty and of mercy)",
+    pages: [393, 394],
+    body: [
+      "God of bounty and of mercy, to thy almighty protection we commend our home, our family and all we possess. Bless us all, as Thou didst bless the Holy Family at Nazareth.",
+      "O Jesus, our most blessed Saviour, by the love with which Thou didst become man for our salvation, by thy mercy in dying for us on the Cross, bless, we beseech thee, our home, our family and our household; preserve us from every evil and from the snares of men; protect us from lightning and hail, from fire, flood and tempest; preserve us from thy wrath, from the hatred and the evil designs of our enemies, from pestilence, famine and war. Let not any one of us die without the holy Sacraments; grant us thy blessing, that we may bravely confess that faith by which we are sanctified, that we may preserve our hope in sorrow and in affliction, and that we may redouble our love of Thee and our charity towards our neighbour.",
+      "O Jesus, bless and protect us.",
+      "O Mary, mother of grace and of mercy, bless us, defend us against the evil spirit, lead us by the hand across this vale of tears, reconcile us with thy Son, and commend us to Him that we may be made worthy of his promises. O holy Joseph, reputed father of our Saviour, guardian of his most blessed Mother, head of the Holy Family, intercede for us, and bless and protect our habitation at all times.",
+      "St Michael, defend us against all the malice of hell.\nSt Gabriel, make us ever to seek the holy will of God.\nSt Raphael, preserve us from sickness and all danger of death.\nYe holy angels, our guardians, keep us day and night in the way of salvation.\nYe holy saints, our patrons, pray for us before the throne of God.",
+      "Bless this our home, O God the Father, who hast created us; O God the Son, who hast suffered for us on the Cross; O God the Holy Spirit, who hast sanctified us in baptism. May God in his three divine Persons preserve our bodies, purify our souls, guide our hearts and lead us to eternal life.",
+      "Glory be to the Father, glory be to the Son, glory be to the Holy Ghost. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["families", "home", "house-blessing", "holy-family"],
+    relatedSaints: ["saint-joseph"],
+    summary: `A prayer commending home and family to God, asking that the household be blessed as the Holy Family was at Nazareth and kept from every evil, storm, enmity and sudden death without the sacraments, with petitions to Mary, St Joseph, the archangels Michael, Gabriel and Raphael, the guardian angels and the patron saints, and a closing blessing of the home by the Holy Trinity. Raccolta no. 457, indulgenced by Leo XIII in 1889. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayers-to-the-holy-family-jesus-mary-and-joseph-bless-us",
+    title: "Prayers to the Holy Family (Jesus, Mary and Joseph, bless us)",
+    pages: [394, 395],
+    body: [
+      "Jesus, Mary and Joseph, bless us and grant us the grace to love the Church, as we ought, above every other earthly thing, and always to show forth our love by deeds. Pater, Ave, Gloria.",
+      "Jesus, Mary and Joseph, bless us and grant us the grace without fear or human respect openly to profess, as we ought, the faith which was given to us in baptism. Pater, Ave, Gloria.",
+      "Jesus, Mary and Joseph, bless us and grant us the grace to share, as we ought, in the defence and propagation of the Faith, when duty calls, whether by word or by the sacrifice of our fortunes and our lives. Pater, Ave, Gloria.",
+      "Jesus, Mary and Joseph, bless us and grant us the grace to love one another, as we ought, and to live together in perfect harmony of thought, will and action, under the rule and guidance of our pastors. Pater, Ave, Gloria.",
+      "Jesus, Mary and Joseph, bless us and grant us the grace to conform our lives, as we ought, to the precepts of God and of the Church, so as to live always in that charity which they set forth. Pater, Ave, Gloria.",
+    ],
+    prayerType: "general",
+    category: "devotional",
+    occasions: ["holy-family", "families", "for-the-church"],
+    relatedSaints: ["saint-joseph"],
+    summary: `Five short petitions to Jesus, Mary and Joseph for the graces of a Christian life — to love the Church above every earthly thing, to profess the faith openly without human respect, to defend and spread it, to live in harmony under our pastors, and to keep the commandments of God and the Church — each followed by an Our Father, Hail Mary and Glory Be. Raccolta no. 458, indulgenced by Leo XIII in 1890. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-for-benefactors-retribuere",
+    title: "Prayer for Benefactors (Retribuere dignare, Domine)",
+    pages: [395],
+    body: ["Reward, O Lord, with eternal life all those who do us good for thy name's sake. Amen."],
+    latin: [
+      "Retribuere dignare Domine, omnibus nobis bona facientibus propter nomen tuum vitam æternam. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["thanksgiving", "meal", "daily"],
+    summary: `The short prayer for benefactors Retribuere dignare, Domine, long said in religious houses at grace after meals, asking eternal life for all who do us good for the sake of God's name. The Raccolta (no. 459) prints it in Latin and English; Leo XIII indulgenced it in 1892. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-of-saint-alphonsus-before-retiring-to-rest",
+    title: "Prayer of Saint Alphonsus before Retiring to Rest",
+    pages: [395],
+    body: [
+      "Jesus Christ, my God, I adore Thee and I thank Thee for the many favours Thou hast bestowed on me this day. I offer Thee my sleep and all the moments of this night, and I pray Thee to preserve me from sin. Therefore I place myself in thy most sacred side, and under the mantle of our blessed Lady my Mother. May the holy angels assist me and keep me in peace, and may thy blessing be upon me.",
+    ],
+    prayerType: "evening",
+    category: "saintly",
+    occasions: ["evening", "night-prayer", "bedtime"],
+    relatedSaints: ["saint-alphonsus-liguori"],
+    summary: `St Alphonsus Liguori's night prayer: thanks to Christ for the favours of the day, the offering of sleep and every moment of the night, and the commendation of oneself to his sacred side, to the mantle of Our Lady and to the keeping of the holy angels. Raccolta no. 460, indulgenced by Leo XIII in 1893. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-for-the-propagation-of-faith-and-piety",
+    title: "Prayer for the Propagation of Faith and Piety (Eternal Father, by thy infinite mercy)",
+    pages: [396, 397, 398],
+    body: [
+      "Eternal Father, by thy infinite mercy and by the infinite merits of thy divine Son Jesus, make thyself known and loved by all souls, since it is thy will that all should be saved. Gloria Patri.",
+      "Through the sacred mysteries of human redemption send, O Lord, labourers into thy harvest, and spare thy people.",
+      "Eternal Word incarnate, Redeemer of the human race, convert all souls to thyself, since for them Thou wast obedient even to the death of the Cross. Gloria Patri.",
+      "Through the merits and intercession of thy most holy Mother, and of all the Angels and Saints, send, O Lord, labourers into thy harvest, and spare thy people.",
+      "O Holy Spirit of God, by the infinite merits of the Passion and Death of Jesus Christ, diffuse thy most ardent and all-powerful charity in all hearts, that there may be one Fold and one Shepherd throughout the world, and that all may come to sing thy divine mercies in Heaven for ever. Amen. Gloria Patri.",
+      "Queen of Apostles, and all ye Angels and Saints, pray the Lord of the harvest to send labourers into his harvest and spare his people, that we may all rejoice with Him and the Father and the Holy Spirit for ever and ever. Amen.",
+      "Immaculate Mother of God, Queen of Apostles, I know that the divine precept, by which I am bound to love my neighbour as myself, obliges me to procure by every possible means not only my eternal salvation, but also that of my neighbour. But I confess that through my sins I am not worthy of the grace to labour effectually and constantly for the eternal salvation of my soul and of the souls of my relations and neighbours; much less am I worthy of the grace to promote good works and increase the means, both spiritual and temporal, of restoring Faith and rekindling Charity among Catholics, and propagating the truth throughout the world. Do thou then, O Mother, obtain for me this grace through the mercy of God and the infinite merits of Jesus Christ; and in union with the heavenly court and all the just, who are or will be in the Church of God, from henceforth I intend to offer these same merits of Jesus as a thanksgiving in anticipation of this grace obtained by thee for us and for all, as thou didst obtain it for the holy Apostles. And so, I, N.N., trusting in thy powerful intercession, resolve from henceforth to use whatever I have from God of power, talents, learning, riches, position, health, sickness or sorrow, for the greater glory of God and the salvation of my soul, and that of my neighbour, more especially by working for the propagation of piety and the holy faith throughout the world. And when all other means to this end fail me, I will never cease to pray, that there may be one Fold and one Shepherd. By so doing I hope to reach Paradise, there to enjoy the fruit of the Apostolate of Jesus Christ for all eternity. Amen.",
+      "Ave Maria thrice, Gloria Patri once.",
+    ],
+    prayerType: "intercession",
+    category: "trinitarian",
+    occasions: ["missions", "vocations", "for-the-church"],
+    summary: `A prayer for the spread of the faith addressed to the Father, the incarnate Word and the Holy Spirit, with the repeated petition "send, O Lord, labourers into thy harvest, and spare thy people", followed by an act of dedication to Mary, Queen of Apostles, resolving to use every gift — talents, riches, health, sickness or sorrow — for the salvation of souls, that there may be one fold and one shepherd. Raccolta no. 462, indulgenced by Leo XIII in 1894. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayers-for-the-increase-and-preservation-of-the-clergy",
+    title: "Two Prayers for the Increase and Preservation of the Clergy",
+    pages: [399, 400],
+    body: [
+      "I. For the Increase of Labourers.",
+      "Ant. Why stand ye all the day idle, go ye into my vineyard.\nV. Ask the Lord of the harvest.\nR. That He send labourers into his vineyard.",
+      "Let us pray.",
+      "God, who willest not the death of the sinner, but rather that he be converted and live; grant, by the intercession of blessed Mary ever Virgin and of all the saints, labourers for thy Church, fellow labourers with Christ, to spend and consume themselves for souls. Through the same Jesus Christ, etc. Amen.",
+      "II. For the Preservation of the Clergy.",
+      "Ant. No one putting his hand to the plough and looking back is fit for the Kingdom of God.\nV. No soldier of God involves himself in worldly affairs.\nR. That he may please Him to whom he has approved himself.",
+      "Let us pray.",
+      "O God, the sole protection of human weakness, hear, we beseech Thee, the prayers which we humbly address to Thee for our brethren who are in danger, and do Thou rescue them from all evil of sin, and establish them in the security of thy protection. Through Jesus Christ our Lord. Amen.",
+    ],
+    latin: [
+      "I.",
+      "Ant. Quid statis tota die otiosi? Ite in vineam meam.\nV. Rogate Dominum messis.\nR. Ut mittat operarios in vineam suam.",
+      "Oremus.",
+      "Deus qui non vis mortem peccatoris, sed magis ut convertatur et vivat, da, quæsumus, per intercessionem beatæ Mariæ semper Virginis et omnium sanctorum, operarios Ecclesiæ tuæ, qui sunt cooperatores Christi, ut se impendant et superimpendant pro animabus. Per eundem Dominum, etc. Amen.",
+      "II.",
+      "Ant. Nemo mittens manum suam ad aratrum et respiciens retro aptus est regno Dei.\nV. Nemo militans Deo implicat se negotiis sæcularibus.\nR. Ut ei placeat, cui se probavit.",
+      "Oremus.",
+      "Deus infirmitatis humanæ singulare præsidium, exaudi, quæsumus, preces quas pro fratribus in discrimine positis humiliter fundimus, ut famulos tuos ab omni eruas peccatorum nequitia et in tua protectionis securitate constituas. Per Dominum, etc. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["vocations", "for-the-church", "ordination"],
+    summary: `Two short offices for priests, each an antiphon, versicle and collect: the first, built on the parable of the labourers in the vineyard, asks God to raise up labourers for his Church who will spend themselves for souls; the second, on the words "No one putting his hand to the plough and looking back", asks protection for priests who are in danger. The Raccolta (no. 464) prints them in Latin and English; Pius X indulgenced them in 1908. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-in-choosing-a-state-of-life",
+    title: "Prayer in Choosing a State of Life",
+    pages: [407],
+    body: [
+      "O my God, Thou who art the God of wisdom and of counsel, Thou who readest in my heart the sincere will to please Thee alone, and to govern myself with regard to my choice of a state of life, entirely in conformity with thy most holy desire; grant me, by the intercession of the most blessed Virgin, my Mother, and of my holy patrons, specially of St Joseph and St Aloysius, the grace to know what state I ought to choose, and when known to embrace it, so that in it I may be able to pursue and increase thy glory, work out my salvation, and merit that heavenly reward which Thou hast promised to those who do thy holy will. Amen.",
+    ],
+    prayerType: "general",
+    category: "general",
+    occasions: ["discernment", "vocations", "decisions"],
+    relatedSaints: ["saint-joseph", "saint-aloysius-gonzaga"],
+    summary: `A prayer for young people choosing their state of life, asking the God of wisdom and counsel, through Our Lady, St Joseph and St Aloysius, for the grace to know the state they ought to choose and, once known, to embrace it. The Raccolta places it among the prayers for students (no. 478); Pius X indulgenced it in 1905. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-for-one-aspiring-to-the-priesthood",
+    title: "Prayer for One Aspiring to the Priesthood",
+    pages: [407, 408],
+    body: [
+      "O my God, I am unworthy, most unworthy, to serve in the ministry of the priesthood, through which is offered on thy altars the Body and Blood of thy Son Jesus Christ. I am in no way worthy of this honour, being a miserable sinner, a mere nothing, even less than nothing by reason of my malice, fit for nothing but to commit sin. But while I feel within me an impulse drawing me to the ecclesiastical state, and of myself cannot tell whether it be presumption on my part or an inspiration from Thee, I humble myself before Thee, and I pray Thee to enlighten me to know if it be in accordance with thy good pleasure, for I would do nothing contrary to thy will. Do Thou, therefore, who art the Light of the world, shine forth in my heart, and if this thought is a call from Thee, give me the grace to obey it promptly, and worthily to correspond with it. But if, O Lord, Thou dost not call me to the priestly ministry, or Thou seest that as a member of it I should not be a good priest, but rather a disedification and a scandal to the Church, never permit me to enter a state which would be my damnation.",
+      "Most holy Virgin, Mother of God, and Mother of good counsel, do thou support my poor prayer, and may I have the grace from our Lord by thy merits and intercession in all things to regulate my actions, not by my own, but by thy holy Will. Pater, Ave, Gloria.",
+    ],
+    prayerType: "general",
+    category: "general",
+    occasions: ["vocations", "discernment", "ordination"],
+    summary: `A prayer of discernment for a young man who feels drawn to the priesthood, asking God, the Light of the world, to show whether the attraction is his call or presumption, to give the grace to answer promptly if it is, and never to let him enter the priesthood if he would not be a good priest; it closes with a petition to Mary, Mother of good counsel. Raccolta no. 479, indulgenced by Leo XIII in 1901. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-of-children-for-children-in-purgatory",
+    title: "Prayer of Children for Children in Purgatory (Sweet Saviour Jesus)",
+    pages: [409],
+    body: [
+      "Sweet Saviour Jesus, who during thy life didst show such great love for children; we who as children share with them thy blessing, beseech Thee to open the gate of Heaven to our companions who are lamenting in the place of sorrow and penance. Grant also their protection to us, to our relations, and to our common Father, the supreme Pontiff.",
+      "Holy Virgin, good Mother, pray for us and for the children who suffer. Ave Maria.",
+    ],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["children", "all-souls", "november"],
+    summary: `A prayer for children to say for other children who have died and are in purgatory, asking Jesus, who loved children, to open heaven to them, and asking their protection in turn for those who pray, their families and the Pope. Raccolta no. 481, indulgenced by Leo XIII in 1886 for children who say it. ${ST_JOHN}`,
   }),
 ];
