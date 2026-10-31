@@ -89,8 +89,14 @@ const DR_1899 = "https://archive.org/details/holybibletransla00denv/page/";
  * Seven Holy Founders other than Matris sub almae); each summary says so.
  * Britt's abbreviation of the refrain of Adeste, fideles ("O come, etc.") is
  * kept as printed. Where the Breviary sings the parts of one long hymn at
- * different Hours (Saint Martina's hymn, the Paschal hymn of the Apostles),
- * each part is its own entry, as Britt numbers them.
+ * different Hours (Saint Martina's hymn, the Paschal hymn of the Apostles,
+ * Paul the Deacon's hymn for Saint John the Baptist), each part is its own
+ * entry, as Britt numbers them. One more misprint in Britt's Latin is
+ * corrected: "Flos ad genu Deiparae" for "Fles" in Caelestis Agni nuptias,
+ * which his own note renders "thou didst weep at the feet of the Mother of
+ * God". Summae Deus clementiae, Septem dolores Virginis is a different hymn
+ * from the Saturday hymn that begins with the same three words, so it has
+ * its own slug.
  */
 export const prayerBatch11: CuratedEntry[] = [
   {
@@ -2711,6 +2717,511 @@ export const prayerBatch11: CuratedEntry[] = [
       occasions: ["february", "vespers", "our-lady-of-sorrows"],
       relatedSaints: [],
       citations: [`${BRITT}241/mode/1up`, `${BRITT}242/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "iste-quem-laeti",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}246/mode/1up`, `${BRITT}247/mode/1up`],
+    payload: {
+      slug: "iste-quem-laeti",
+      title: "Iste, quem laeti (Worshipped throughout the Church to earth's far ends)",
+      body: "Worshipped throughout the Church to earth's far ends\nWith prayer and solemn rite,\nJoseph this day triumphantly ascends\nInto the realms of light.\n\nO blest beyond the lot of mortal men!\nO'er whose last dying sigh\nChrist and the Virgin-Mother watched serene,\nSoothing his agony.\n\nLoosed from his fleshly chain, gently he fleets,\nAs in calm sleep, away;\nAnd diademed with light, enters the seats\nOf everlasting day.\n\nThere throned in power, let us his loving aid\nWith fervent prayers implore;\nSo may he gain us pardon in our need,\nAnd peace forevermore.\n\nGlory and praise to Thee, blest Trinity!\nOne only God and Lord,\nWho to Thy faithful ones unfailingly\nTheir aureoles dost award.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Iste, quem læti colimus fideles,\nCujus excelsos canimus triumphos,\nHac die Joseph meruit perennis\nGaudia vitæ.\n\nO nimis felix, nimis o beatus,\nCujus extremam vigiles ad horam\nChristus et Virgo simul astiterunt\nOre sereno.\n\nHinc stygis victor, laqueo solutus\nCarnis, ad sedes placido sopore\nMigrat æternas, rutilisque cingit\nTempora sertis.\n\nErgo regnantem flagitemus omnes,\nAdsit ut nobis, veniamque nostris\nObtinens culpis, tribuat supernæ\nMunera pacis.\n\nSint tibi plausus, tibi sint honores,\nTrine, qui regnas, Deus, et coronas\nAureas servo tribuis fideli\nOmne per ævum.",
+      summary:
+        "The Lauds hymn of the feast of Saint Joseph (19 March) in the Roman Breviary, by an unknown author of the seventeenth century: on this day Joseph won the joys of eternal life, blessed above all in that Christ and the Virgin stood beside him at his last hour; freed from the bonds of the flesh he passed as in peaceful sleep to the eternal seats, and the faithful ask him to obtain them pardon and the gifts of peace. The English is the translation of Edward Caswall (1814-1878), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["march-19", "lauds", "morning", "preparation-for-death"],
+      relatedSaints: ["saint-joseph"],
+      citations: [`${BRITT}246/mode/1up`, `${BRITT}247/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "regali-solio",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}248/mode/1up`],
+    payload: {
+      slug: "regali-solio",
+      title: "Regali solio (Glory of Iberia's throne!)",
+      body: "Glory of Iberia's throne!\nJoy of martyred Saints above!\nWho the crown of life have won\nDying for their Saviour's love.\n\nWhat intrepid faith was thine!\nWhat unswerving constancy!\nBent to do the will divine\nWith exact fidelity.\n\nEvery rising motion checked\nWhich might lead thy heart astray,\nHow thou didst thy course direct\nWhither virtue showed the way.\n\nHonor, glory, majesty,\nTo the Father and the Son,\nWith the Holy Spirit be,\nWhile eternal ages run.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Regali solio fortis Iberiæ,\nHermenegilde jubar, gloria Martyrum,\nChristi quos amor almis\nCœli cœtibus inserit.\n\nUt perstas patiens, pollicitum Deo\nServans obsequium! quo potius tibi\nNil proponis, et arces\nCautus noxia, quæ placent.\n\nUt motus cohibes, pabula qui parant\nSurgentis vitii, non dubios agens\nPer vestigia gressus,\nQuo veri via dirigit!\n\nSit rerum Domino jugis honor Patri,\nEt Natum celebrent ora precantium,\nDivinumque supremis\nFlamen laudibus efferant.",
+      summary:
+        "The hymn for Vespers and Lauds of the feast of Saint Hermenegild (13 April), the Visigothic prince martyred in 585, written by Pope Urban VIII (1568-1644) in a metre that Britt notes only this hymn and the next use in the Breviary: the light of Spain's royal throne and glory of the martyrs is praised for keeping the allegiance he had promised to God, shunning harmful pleasures and checking every rising passion as he walked where the way of truth led. The English is the translation of Edward Caswall (1814-1878), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["april", "vespers", "lauds", "martyrs"],
+      relatedSaints: [],
+      citations: [`${BRITT}248/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "nullis-te-genitor",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}249/mode/1up`, `${BRITT}250/mode/1up`],
+    payload: {
+      slug: "nullis-te-genitor",
+      title: "Nullis te genitor (From the truth thy soul to turn)",
+      body: "From the truth thy soul to turn,\nPleads a father's voice in vain;\nNaught to thee were jewelled crown,\nEarthly pleasure, earthly gain.\n\nAngry threat and naked sword\nDaunted not thy courage high;\nChoosing glory with the Lord,\nRather than a present joy.\n\nNow amidst the Saints in light,\nThroned in bliss forevermore;—\nOh! from thy exalted height,\nHear the solemn prayer we pour.\n\nHonor, glory, majesty,\nTo the Father and the Son,\nWith the Holy Spirit be,\nWhile eternal ages run.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Nullis te genitor blanditiis trahit,\nNon vitæ caperis divitis otio,\nGemmarumve nitore,\nRegnandive cupidine.\n\nDiris non acies te gladii minis,\nNec terret perimens carnificis furor:\nNam mansura caducis\nPræfers gaudia cœlitum.\n\nNunc nos e Superum protege sedibus\nClemens, atque preces, dum canimus tua\nQuæsitam nece palmam,\nPronis auribus excipe.\n\nSit rerum Domino jugis honor Patri,\nEt Natum celebrent ora precantium,\nDivinumque supremis\nFlamen laudibus efferant.",
+      summary:
+        "The Matins hymn of the feast of Saint Hermenegild (13 April), Pope Urban VIII's continuation of Regali solio: no blandishment of his father, no life of ease, jewels or desire to reign could draw him from the truth, and neither the sword nor the executioner's rage could frighten him, for he preferred the lasting joys of heaven to passing ones; from heaven he is asked to protect those who sing of the palm he won by his death. The English is the translation of Edward Caswall (1814-1878), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["april", "office-of-readings", "martyrs"],
+      relatedSaints: [],
+      citations: [`${BRITT}249/mode/1up`, `${BRITT}250/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "martyr-dei-venantius",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}250/mode/1up`, `${BRITT}251/mode/1up`],
+    payload: {
+      slug: "martyr-dei-venantius",
+      title: "Martyr Dei Venantius (Venantius, hail! God's Martyr bright)",
+      body: "Venantius, hail! God's Martyr bright,\nThy country's honor and her light;\nWho didst with joy thy triumph sing,\nThy judge and tortures conquering.\n\nA child in years, he heeds no pain,\nNor dungeon damp, nor galling chain;\nThe tender youth for food is thrown\nTo lions, mad with hunger grown.\n\nO wondrous sight! the beasts of prey\nTheir food reject, and turn away;\nThen tamely lick the Martyr's feet,\nA tribute to his virtue meet.\n\nThen downwards hung, his mouth exposed\nTo clouds of smoke beneath disposed,\nWhilst with slow torches, burning clear,\nHis naked breasts and sides they sear.\n\nPraise to the Father, and the Son,\nAnd Holy Spirit, Three in One;\nOh! grant that through this Martyr's prayer,\nYour blissful joy we all may share.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Martyr Dei Venantius,\nLux et decus Camertium,\nTortore victo et judice,\nLætus triumphum concinit.\n\nAnnis puer, post vincula,\nPost carceres, post verbera,\nLonga fame frementibus\nCibus datur leonibus.\n\nSed ejus innocentiæ\nParcit leonum immanitas,\nPedesque lambunt Martyris,\nIræ famisque immemores.\n\nVerso deorsum vertice\nHaurire fumum cogitur:\nCostas utrimque et viscera\nSuccensa lampas ustulat.\n\nSit laus Patri, sit Filio,\nTibique sancte Spiritus:\nDa per preces Venantii\nBeata nobis gaudia.",
+      summary:
+        "The Vespers hymn of the feast of Saint Venantius of Camerino (18 May), whom Britt describes as martyred at the age of fifteen in the year 250, by an unknown seventeenth-century author: after chains, prison and scourging the boy is thrown to lions maddened by hunger, which spare him and lick his feet, and he is then hung head downward over smoke and burned with torches. The English is the translation of Father Thomas Joseph Potter (1828-1873), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["may", "vespers", "martyrs"],
+      relatedSaints: [],
+      citations: [`${BRITT}250/mode/1up`, `${BRITT}251/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "athleta-christi-nobilis",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}252/mode/1up`],
+    payload: {
+      slug: "athleta-christi-nobilis",
+      title: "Athleta Christi nobilis (Noble champion of the Lord!)",
+      body: "Noble champion of the Lord!\nArmed against idolatry!\nIn thy fervent zeal for God\nDeath had naught of fear for thee.\n\nBound with thongs, thy youthful form\nDown the rugged steep they tear,\nJagged rock and rending thorn\nAll thy tender flesh lay bare.\n\nSpent with toil, the savage crew,\nFainting, sinks with deadly thirst;\nThou the Cross dost sign; and lo!\nFrom the rock the waters burst.\n\nSaintly warrior-prince! who thus\nThy tormentors couldst forgive;\nPour the dew of grace on us,\nBid our fainting spirits live.\n\nTo Thee, O Father, with the Son\nAnd Holy Spirit, glory be;\nOh, grant us through Thy Martyr's prayer\nThe joys of immortality.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Athleta Christi nobilis\nIdola damnat Gentium,\nDeique amore saucius\nVitæ pericla despicit.\n\nLoris revinctus asperis,\nE rupe præceps volvitur:\nSpineta vultum lancinant:\nPer saxa corpus scinditur.\n\nDum membra raptant Martyris,\nLanguent siti satellites:\nSigno crucis Venantius\nE rupe fontes elicit.\n\nBellator o fortissime,\nQui perfidis tortoribus\nE caute præbes poculum,\nNos rore gratiæ irriga.\n\nSit laus Patri, sit Filio,\nTibique sancte Spiritus:\nDa per preces Venantii\nBeata nobis gaudia.",
+      summary:
+        "The Matins hymn of the feast of Saint Venantius (18 May), by an unknown seventeenth-century author: the noble athlete of Christ condemns the idols of the pagans and, wounded with the love of God, despises the dangers to his life; bound with thongs he is hurled down a cliff among thorns and rocks, and when his tormentors faint with thirst he draws water from the rock with the sign of the Cross. He is asked to water us with the dew of grace. The English is the translation of Edward Caswall (1814-1878), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["may", "office-of-readings", "martyrs"],
+      relatedSaints: [],
+      citations: [`${BRITT}252/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "dum-nocte-pulsa-lucifer",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}253/mode/1up`, `${BRITT}254/mode/1up`],
+    payload: {
+      slug: "dum-nocte-pulsa-lucifer",
+      title: "Dum nocte pulsa lucifer (The golden star of morn)",
+      body: "The golden star of morn\nIs climbing in the sky;\nThe birthday of Venantius\nAwakes the Church to joy.\n\nHis native land in depths\nOf pagan darkness lay;\nHe o'er her guilty regions poured\nThe light of heavenly day.\n\nHer in baptismal streams\nOf grace he purified;\nE'en those who came to take his life,\nWith him as Martyrs died.\n\nWith the Angels now he shares\nThose joys which never cease;\nLook down on us, O Spirit blest,\nAnd send us gifts of peace.\n\nPraise to the Father, Son,\nAnd, Holy Ghost, to Thee,\nOh, grant us through Thy Martyr's prayer\nA blest eternity.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Dum nocte pulsa lucifer\nDiem propinquam nuntiat,\nNobis refert Venantius\nLucis beatæ munera.\n\nNam criminum caliginem,\nStygisque noctem depulit,\nVeroque cives lumine\nDivinitatis imbuit.\n\nAquis sacri baptismatis\nLustravit ille patriam:\nQuos tinxit unda milites,\nIn astra misit Martyres.\n\nNunc Angelorum particeps,\nAdesto votis supplicum:\nProcul repelle crimina,\nTuumque lumen ingere.\n\nSit laus Patri, sit Filio,\nTibique sancte Spiritus:\nDa per preces Venantii\nBeata nobis gaudia.",
+      summary:
+        "The Lauds hymn of the feast of Saint Venantius (18 May), by an unknown seventeenth-century author: as the morning star heralds the day, Venantius brings the gifts of blessed light, for he drove the darkness of sin from his people, washed his homeland in the waters of baptism and sent to heaven as martyrs the soldiers he had baptized. Now a companion of the angels, he is asked to keep sin far off and pour his light upon us. The English is the translation of Edward Caswall (1814-1878), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["may", "lauds", "morning", "martyrs"],
+      relatedSaints: [],
+      citations: [`${BRITT}253/mode/1up`, `${BRITT}254/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "caelestis-agni-nuptias",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}254/mode/1up`, `${BRITT}255/mode/1up`],
+    payload: {
+      slug: "caelestis-agni-nuptias",
+      title: "Caelestis Agni nuptias (To be the Lamb's celestial bride)",
+      body: "To be the Lamb's celestial bride\nIs Juliana's one desire;\nFor this she quits her father's home,\nAnd leads the sacred virgin choir.\n\nBy day, by night, she mourns her Spouse\nNailed to the Cross, with ceaseless tears,\nTill in herself, through very grief,\nThe image of that Spouse appears.\n\nLike Him, all wounds, she kneels transfixed\nBefore the Virgin-Mother's shrine;\nAnd still the more she weeps, the more\nMounts up the flame of love divine.\n\nThat love so deep the Lord repaid\nHis handmaid on her dying bed;\nWhen, with the Food of heavenly life,\nBy miracle her soul He fed.\n\nAll praise to Thee, O Maker blest!\nPraise to the everlasting Son;\nPraise to the mighty Paraclete\nWhile ages upon ages run.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Cœlestis Agni nuptias,\nO Juliana, dum petis,\nDomum paternam deseris,\nChorumque ducis Virginum.\n\nSponsumque suffixum Cruci\nNoctes, diesque dum gemis,\nDoloris icta cuspide,\nSponsi refers imaginem.\n\nQuin septiformi vulnere\nFles ad genu Deiparæ:\nSed crescit infusa fletu,\nFlammasque tollit caritas.\n\nHinc morte fessam proxima\nNon usitato te modo\nSolatur, et nutrit Deus,\nDapem supernam porrigens.\n\nÆterne rerum Conditor,\nÆterne Fili par Patri,\nEt par utrique Spiritus,\nSoli tibi sit gloria.",
+      summary:
+        "The hymn for Vespers and Matins of the feast of Saint Juliana Falconieri (19 June), foundress of the Third Order of Servites, who died in 1341, written by Francesco Maria Lorenzini (1680-1743): seeking to be the bride of the Lamb she leaves her father's house, weeps night and day for her crucified Spouse until she bears his likeness, kneels pierced with the seven sorrows at the feet of the Mother of God, and at her death is fed by God with heavenly food in a way never seen before. The English is the translation of Edward Caswall (1814-1878), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["june", "vespers", "office-of-readings", "virgins"],
+      relatedSaints: [],
+      citations: [`${BRITT}254/mode/1up`, `${BRITT}255/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "antra-deserti",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}258/mode/1up`, `${BRITT}259/mode/1up`],
+    payload: {
+      slug: "antra-deserti",
+      title: "Antra deserti (Thou, in thy childhood, to the desert caverns)",
+      body: "Thou, in thy childhood, to the desert caverns\nFleddest for refuge from the cities' turmoil,\nWhere the world's slander might not dim thy luster,\nLonely abiding.\n\nCamel's hair raiment clothed thy saintly members;\nLeathern the girdle which thy loins encircled;\nLocusts and honey, with the fountain-water,\nDaily sustained thee.\n\nOft in past ages, seers with hearts expectant\nSang the far-distant advent of the Day-Star;\nThine was the glory, as the world's Redeemer\nFirst to proclaim Him.\n\nFar as the wide world reacheth, born of woman,\nHolier was there none than John the Baptist;\nMeetly in water laving Him who cleanseth\nMan from pollution.\n\nPraise to the Father, to the Son begotten,\nAnd to the Spirit, equal power possessing,\nOne God whose glory, through the lapse of ages,\nEver resoundeth.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Antra deserti, teneris sub annis,\nCivium, turmas fugiens, petisti,\nNe levi posses maculare vitam\nCrimine linguæ.\n\nPræbuit durum tegumen camelus\nArtubus sacris, strophium bidentes;\nCui latex haustum, sociata pastum\nMella locustis.\n\nCæteri tantum cecinere Vatum\nCorde præsago jubar affuturum:\nTu quidem mundi scelus auferentem\nIndice prodis.\n\nNon fuit vasti spatium per orbis\nSanctior quisquam genitus Joanne,\nQui nefas sæcli meruit lavantem\nTingere lymphis.\n\nSit decus Patri, genitæque Proli,\nEt tibi, compar utriusque virtus\nSpiritus semper, Deus unus, omni\nTemporis ævo.",
+      summary:
+        "The Matins hymn of the Nativity of Saint John the Baptist (24 June) in the Roman Breviary, the second part of Paul the Deacon's hymn whose first part is Ut queant laxis: as a child John fled to the desert caves lest a light word of the tongue should stain his life, clothed in camel's hair and fed on locusts and honey; the other prophets foretold the coming light, but he pointed out with his finger the one who takes away the sin of the world (John 1:29), and none born of woman was holier. The English is the translation of M. J. Blacker and G. H. Palmer, as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["june-24", "office-of-readings"],
+      relatedSaints: ["saint-john-the-baptist"],
+      citations: [`${BRITT}258/mode/1up`, `${BRITT}259/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "o-nimis-felix",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}260/mode/1up`, `${BRITT}261/mode/1up`],
+    payload: {
+      slug: "o-nimis-felix",
+      title: "O nimis felix (O more than blessèd, merit high attaining)",
+      body: "O more than blessèd, merit high attaining,\nPure as the snow-drift, innocent of evil,\nChild of the desert, mightiest of Martyrs,\nGreatest of Prophets.\n\nThirtyfold increase some with glory crowneth;\nSixtyfold fruitage prize for others winneth;\nHundredfold measure, thrice repeated, decks thee,\nBlest one, for guerdon.\n\nO may the virtue of thine intercession,\nAll stony hardness from our hearts expelling,\nSmooth the rough places, and the crooked straighten\nHere in the desert.\n\nThus may our gracious Maker and Redeemer,\nSeeking a station for His hallowed footsteps,\nFind, when He cometh, temples undefilèd,\nMeet to receive Him.\n\nNow as the Angels celebrate Thy praises,\nGodhead essential, Trinity co-equal;\nSpare Thy redeemed ones, as they bow before Thee,\nPardon imploring.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "O nimis felix, meritique celsi,\nNesciens labem nivei pudoris,\nPræpotens Martyr, nemorumque cultor,\nMaxime Vatum.\n\nSerta ter denis alios coronant\nAucta crementis, duplicata quosdam;\nTrina te fructu cumulata centum\nNexibus ornant.\n\nNunc potens nostri meritis opimis\nPectoris duros lapides revelle,\nAsperum planans iter, et reflexos\nDirige calles.\n\nUt pius mundi Sator et Redemptor,\nMentibus culpæ sine labe puris,\nRite dignetur veniens beatos\nPonere gressus.\n\nLaudibus cives celebrent superni\nTe Deus simplex, pariterque trine,\nSupplices et nos veniam precamur:\nParce redemptis.",
+      summary:
+        "The Lauds hymn of the Nativity of Saint John the Baptist (24 June), the third part of Paul the Deacon's hymn: the Baptist, spotless in purity, mightiest of martyrs, lover of the wilderness and greatest of the prophets, wears the hundredfold crown of the parable of the sower, and is asked to pluck the stony hardness from our hearts and make the rough way smooth, so that the Redeemer may find them pure when he comes (Luke 3:4-5). The English is the translation of M. J. Blacker and G. H. Palmer, as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["june-24", "lauds", "morning"],
+      relatedSaints: ["saint-john-the-baptist"],
+      citations: [`${BRITT}260/mode/1up`, `${BRITT}261/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "festivis-resonent-compita",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}265/mode/1up`, `${BRITT}266/mode/1up`],
+    payload: {
+      slug: "festivis-resonent-compita",
+      title:
+        "Festivis resonent compita vocibus (With glad and joyous strains now let each street resound)",
+      body: "With glad and joyous strains now let each street resound,\nAnd let the laurel wreath each Christian brow entwine;\nWith torches waving bright, let old and young go forth,\nAnd swell the train in solemn line.\n\nWhilst we with bitter tears, with sighs and grief profound,\nWail o'er the saving Blood, poured forth upon the Tree,\nOh, deeply let us muse, and count the heavy price,\nWhich Christ hath paid to make us free.\n\nThe primal man of old, who fell by serpent's guile,\nBrought death and many woes upon his fallen race;\nBut our New Adam, Christ, new life unto us gave,\nAnd brought to all ne'er-ending grace.\n\nTo heaven's highest height, the wailing cry went up\nOf Him, who hung in pain, God's own eternal Son;\nHis saving, priceless Blood, His Father's wrath appeased,\nAnd for His sons full pardon won.\n\nWhoe'er in that pure Blood his guilty soul shall wash,\nShall from his stains be freed—be made as roses bright—\nShall vie with Angels pure, shall please his King and Lord,\nAnd precious shine in His glad sight.\n\nOh, from the path of right ne'er let thy steps depart,\nBut haste thee to the goal in virtue's peaceful ways;\nThy God who reigns on high will e'er direct thy steps,\nAnd crown thy deeds with blissful days.\n\nFather of all things made, to us propitious be,\nFor whom Thy own dear Son, His saving Blood did spill;\nO Holy Spirit, grant the souls by Thee refreshed\nEternal bliss may ever fill.",
+      prayerType: "hymn",
+      category: "devotional",
+      language: "en",
+      latin:
+        "Festivis resonent compita vocibus,\nCives lætitiam frontibus explicent,\nTædis flammiferis ordine prodeant\nInstructi pueri et senes.\n\nQuem dura moriens Christus in arbore\nFudit multiplici vulnere Sanguinem,\nNos facti memores dum colimus, decet\nSaltem fundere lacrymas.\n\nHumano generi pernicies gravis\nAdami veteris crimine contigit:\nAdami integritas et pietas novi\nVitam reddidit omnibus.\n\nClamorem validum summus ab æthere\nLanguentis Geniti si Pater audiit,\nPlacari potius sanguine debuit,\nEt nobis veniam dare.\n\nHoc quicumque stolam sanguine proluit,\nAbstergit maculas, et roseum decus,\nQuo fiat similis protinus Angelis:\nEt Regi placeat, capit.\n\nA recto instabilis tramite postmodum\nSe nullus retrahat, meta sed ultima\nTangatur: tribuet nobile præmium,\nQui cursum Deus adjuvat.\n\nNobis propitius sis, Genitor potens,\nUt quos unigenæ Sanguine Filii\nEmisti, et placido Flamine recreas,\nCœli ad culmina transferas.",
+      summary:
+        "The Vespers hymn of the feast of the Most Precious Blood (1 July) in the Roman Breviary, by an unknown seventeenth-century author: the streets are to ring with festive song while the faithful remember with tears the Blood that Christ shed from many wounds on the Cross; the old Adam brought ruin and the new Adam gave life to all, and whoever washes his robe in that Blood is cleansed and made like the angels. The English is the translation of Father Thomas Joseph Potter (1828-1873), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["precious-blood", "july", "vespers", "procession"],
+      relatedSaints: [],
+      citations: [`${BRITT}265/mode/1up`, `${BRITT}266/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "ira-justa-conditoris",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}267/mode/1up`, `${BRITT}268/mode/1up`],
+    payload: {
+      slug: "ira-justa-conditoris",
+      title: "Ira justa Conditoris (He who once, in righteous vengeance)",
+      body: "He who once, in righteous vengeance,\nWhelmed the world beneath the Flood,\nOnce again in mercy cleansed it\nWith the stream of His own Blood,\nComing from His throne on high\nOn the painful Cross to die.\n\nBlest with this all-saving shower,\nEarth her beauty straight resumed;\nIn the place of thorns and briars,\nMyrtles sprang, and roses bloomed:\nBitter wormwood of the waste\nInto honey changed its taste.\n\nScorpions ceased; the slimy serpent\nLaid his deadly poison by;\nSavage beasts of cruel instinct\nLost their wild ferocity;\nWelcoming the gentle reign\nOf the Lamb for sinners slain.\n\nOh, the wisdom of th' eternal!\nOh, its depth and height divine!\nOh, the sweetness of that mercy\nWhich in Jesus Christ doth shine!\nSlaves we were condemned to die!\nOur King pays the penalty!\n\nWhen before the Judge we tremble,\nConscious of His broken laws,\nMay this Blood, in that dread hour,\nCry aloud, and plead our cause;\nBid our guilty terrors cease,\nBe our pardon and our peace.\n\nPrince and Author of Salvation!\nLord of majesty supreme!\nJesu, praise to Thee be given\nBy the world Thou didst redeem;\nWho with the Father and the Spirit,\nReignest in eternal merit.",
+      prayerType: "hymn",
+      category: "devotional",
+      language: "en",
+      latin:
+        "Ira justa Conditoris\nImbre aquarum vindice\nCriminosum mersit orbem,\nNoe in arca sospite:\nMira tandem vis amoris\nLavit orbem Sanguine.\n\nTam salubri terra felix\nIrrigata pluvia,\nAnte spinis quæ scatebat,\nGerminavit flosculos:\nInque nectaris saporem\nTransiere absynthia.\n\nTriste protinus venenum\nDirus anguis posuit,\nEt cruenta belluarum\nDesiit ferocia:\nMitis Agni vulnerati\nHæc fuit victoria.\n\nO scientiæ supernæ\nAltitudo impervia!\nO suavitas benigni\nPrædicanda pectoris!\nServus erat morte dignus,\nRex luit pœnam optimus.\n\nQuando culpis provocamus\nUltionem Judicis,\nTunc loquentis protegamur\nSanguinis præsentia:\nIngruentium malorum\nTunc recedant agmina.\n\nTe redemptus laudet orbis\nGrata servans munera,\nO salutis sempiternæ\nDux et auctor inclyte,\nQui tenes beata regna\nCum Parente et Spiritu.",
+      summary:
+        "The Matins hymn of the feast of the Most Precious Blood (1 July) in the Roman Breviary, by an unknown seventeenth-century author, in trochaic tetrameters that Britt prints divided at the caesura: the Creator's just anger once drowned the guilty world while Noah was saved in the ark, but at last the wondrous power of love washed the world in blood; the earth, watered by that saving rain, bears flowers instead of thorns, and the faithful ask that the Blood which speaks for them may shield them when their sins call down the Judge's vengeance. The English is the translation of Edward Caswall (1814-1878), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["precious-blood", "july", "office-of-readings"],
+      relatedSaints: [],
+      citations: [`${BRITT}267/mode/1up`, `${BRITT}268/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "salvete-christi-vulnera",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}269/mode/1up`, `${BRITT}270/mode/1up`],
+    payload: {
+      slug: "salvete-christi-vulnera",
+      title: "Salvete Christi vulnera (Hail, holy Wounds of Jesus, hail)",
+      body: "Hail, holy Wounds of Jesus, hail,\nSweet pledges of the saving Rood,\nWhence flow the streams that never fail,\nThe purple streams of His dear Blood.\n\nBrighter than brightest stars ye show,\nThan sweetest rose your scent more rare,\nNo Indian gem may match your glow,\nNo honey's taste with yours compare.\n\nPortals ye are to that dear home\nWherein our wearied souls may hide,\nWhereto no angry foe can come,\nThe Heart of Jesus crucified.\n\nWhat countless stripes our Jesus bore,\nAll naked left in Pilate's hall!\nFrom His torn flesh how red a shower\nDid round His sacred person fall!\n\nHis beauteous brow, oh, shame and grief,\nBy the sharp thorny crown is riven;\nThrough hands and feet, without relief,\nThe cruel nails are rudely driven.\n\nBut when for our poor sakes He died,\nA willing Priest by love subdued,\nThe soldier's lance transfixed His side,\nForth flowed the Water and the Blood.\n\nIn full atonement of our guilt,\nCareless of self, the Saviour trod—\nE'en till His Heart's best Blood was spilt—\nThe wine-press of the wrath of God.\n\nCome, bathe you in the healing flood,\nAll ye who mourn, by sin opprest;\nYour only hope is Jesus' Blood,\nHis Sacred Heart your only rest.\n\nAll praise to Him, the Eternal Son,\nAt God's right hand enthroned above,\nWhose Blood our full redemption won,\nWhose Spirit seals the gift of love.",
+      prayerType: "hymn",
+      category: "devotional",
+      language: "en",
+      latin:
+        "Salvete Christi vulnera,\nImmensi amoris pignora,\nQuibus perennes rivuli\nManant rubentis Sanguinis.\n\nNitore stellas vincitis,\nRosas odore et balsama,\nPretio lapillos indicos,\nMellis favos dulcedine.\n\nPer vos patet gratissimum\nNostris asylum mentibus,\nNon huc furor minantium\nUnquam penetrat hostium.\n\nQuot Jesus in Pretorio\nFlagella nudus excipit!\nQuot scissa pellis undique\nStillat cruoris guttulas!\n\nFrontem venustam, proh dolor!\nCorona pungit spinea,\nClavi retusa cuspide\nPedes manusque perforant.\n\nPostquam sed ille tradidit\nAmans volensque spiritum,\nPectus feritur lancea,\nGeminusque liquor exilit.\n\nUt plena sit redemptio\nSub torculari stringitur,\nSuique Jesus immemor,\nSibi nil reservat Sanguinis.\n\nVenite, quotquot criminum\nFunesta labes inficit:\nIn hoc salutis balneo\nQui se lavat, mundabitur.\n\nSummi ad Parentis dexteram\nSedenti habenda est gratia,\nQui nos redemit Sanguine,\nSanctoque firmat Spiritu.",
+      summary:
+        "The Lauds hymn of the feast of the Most Precious Blood (1 July) in the Roman Breviary, by an unknown seventeenth-century author: the wounds of Christ, pledges of boundless love from which streams of blood flow without end, outshine the stars and open a refuge no enemy can enter; the hymn recalls the scourging, the crown of thorns, the nails and the lance, and calls all whom sin has stained to the bath of salvation. The English is the translation of H. N. Oxenham (1829-1888), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["precious-blood", "july", "lauds", "passion"],
+      relatedSaints: [],
+      citations: [`${BRITT}269/mode/1up`, `${BRITT}270/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "sedibus-caeli-nitidis",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}271/mode/1up`, `${BRITT}272/mode/1up`, `${BRITT}273/mode/1up`],
+    payload: {
+      slug: "sedibus-caeli-nitidis",
+      title: "Sedibus caeli nitidis (Sing, O ye faithful, sing two athlete brothers)",
+      body: "Sing, O ye faithful, sing two athlete brothers,\nWelcomed above to thrones of light supernal;\nSing, of Slavonia's race, the glory twofold\nAnd strength eternal.\n\nOne love these brethren bound in sweetest union,\nBy pity same their solitude is broken;\nForth they would hasten, unto many bearing\nLife's blessed token.\n\nSoon o'er Bulgaria, Moravia, Bohemia,\nLight from the heavenly temple shineth glorious.\nOnce savage hordes, now countless flocks, to Peter\nLead they victorious.\n\nNow with the well-earned crown your brow encircled,\nHear, blessèd ones, to suppliant tears bending;\nUnto the Slavs, erst by your gifts enrichèd,\nProtection lending.\n\nOh, may each gen'rous land, your aid imploring,\nKeep bright the faith through every generation;\nRome to that land first gave, and ever guardeth,\nLife and salvation.\n\nLord, of our race Creator and Redeemer,\nBy nature good, all goods on us bestowing,\nGlory to Thee through ages all, from grateful\nHearts overflowing.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Sedibus cœli nitidis receptos\nDicite athletas geminos, Fideles,\nSlavicæ duplex columen decusque\nDicite gentis.\n\nHos amor fratres sociavit unus,\nUnaque abduxit pietas eremo,\nFerre quo multis celerent beatæ\nPignora vitæ.\n\nLuce, quæ templis superis renidet,\nBulgaros complent, Moravos, Bohemos;\nMox feras turmas numerosa Petro\nAgmina ducunt.\n\nDebitam cincti meritis coronam\nPergite o flecti lacrymis precantum:\nPrisca vos Slavis opus est datores\nDona tueri.\n\nQuæque vos clamat generosa tellus\nServet æternæ fidei nitorem;\nQuæ dedit princeps, dabit ipsa semper\nRoma salutem.\n\nGentis humanæ Sator et Redemptor\nQui bonus nobis bona cuncta præbes,\nSint tibi grates, tibi sit per omne\nGloria sæclum.",
+      summary:
+        "The hymn for Vespers and Matins of the feast of Saints Cyril and Methodius (7 July in Britt's day), the brothers who brought the faith to the Slavs: they left their solitude to carry the pledges of eternal life to many, filled Bulgaria, Moravia and Bohemia with heavenly light and led their peoples to Peter. Britt records that it was composed by Leanetti and Salvati and revised by Caprara and Tripepi, probably when Pope Leo XIII extended the feast to the whole Church in 1880, and that it has been wrongly ascribed to Leo himself. The English is the translation of the Benedictines of Stanbrook, as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["july", "vespers", "office-of-readings", "missions"],
+      relatedSaints: [],
+      citations: [`${BRITT}271/mode/1up`, `${BRITT}272/mode/1up`, `${BRITT}273/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "lux-o-decora-patriae",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}274/mode/1up`, `${BRITT}275/mode/1up`],
+    payload: {
+      slug: "lux-o-decora-patriae",
+      title: "Lux o decora patriae (O lovely light of fatherland!)",
+      body: "O lovely light of fatherland!\nKind beacon to Slavonic race,\nBrothers, all hail! your festival\nWith yearly canticle we grace.\n\nWhom Rome applauding did receive,\nAs mother doth her sons embrace,\nWith pontiff's miter deck your brows,\nGird with new strength, new toil to face.\n\nTo far-off barb'rous lands ye hie,\nKnowledge and love of Christ to bear;\nWhom error vain had long deceived,\nYe now with light replenish fair.\n\nIn hearts unfettered from the grasp\nOf ill, doth heav'nly ardor glow;\nWhere horrid thorns the land devoured,\nThe flowers of holiness now grow.\n\nAt length in heav'nly court enthroned,\nYe rest securely; as we pray,\nOh, hear our cry: the Slavic race\nVouchsafe from God may never stray.\n\nAll wanderers plunged in errors dark\nMay Christ's one fold to union bring;\nWhile emulous of ancestral deeds\nMay faith to new-born beauty spring.\n\nDo Thou, O blissful Trinity,\nInflame us with Thy heav'nly fires,\nAnd grant the sons may ever tread\nThe noble footsteps of their sires.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Lux o decora patriæ,\nSlavisque amica gentibus,\nSalvete, fratres, annuo\nVos efferemus cantico:\n\nQuos Roma plaudens excipit,\nComplexa mater filios,\nAuget corona præsulum,\nNovoque firmat robore.\n\nTerras ad usque barbaras\nInferre Christum pergitis;\nQuot vanus error luserat,\nAlmo repletis lumine.\n\nNoxis soluta pectora\nArdor supernus abripit;\nMutatur horror veprium\nIn sanctitatis flosculos.\n\nEt nunc serena cœlitum\nLocati in aula, supplici\nAdeste voto; Slavicas\nServate gentes Numini.\n\nErrore mersos unicum\nOvile Christi congreget;\nFactis avitis æmula\nFides virescat pulchrior.\n\nTu nos, beata Trinitas,\nCœlesti amore concita;\nPatrumque natos inclyta\nDa persequi vestigia.",
+      summary:
+        "The Lauds hymn of the feast of Saints Cyril and Methodius, by the same authors as Sedibus caeli: the brothers, light of their homeland and friends of the Slavonic nations, were welcomed by Rome as a mother embraces her sons and strengthened with the episcopal crown, carried Christ to barbarous lands and turned thorns into the flowers of holiness; they are asked to keep the Slavs faithful to God and to gather all who are lost in error into the one fold of Christ. The English is the translation of the Benedictines of Stanbrook, as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["july", "lauds", "morning", "missions", "for-the-church"],
+      relatedSaints: [],
+      citations: [`${BRITT}274/mode/1up`, `${BRITT}275/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "domare-cordis-impetus",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}276/mode/1up`, `${BRITT}277/mode/1up`],
+    payload: {
+      slug: "domare-cordis-impetus",
+      title: "Domare cordis impetus Elisabeth (To rule thy heart, Elizabeth)",
+      body: "To rule thy heart, Elizabeth,\nTo curb all motions vain,\nSeemed better to thy godly soul\nThan as a queen to reign.\n\nAnd lo, enthroned among the Saints,\nAbove the gleaming skies,\nThou hast received thy rich reward,\nThe joys of Paradise.\n\nThy reign is with the Angel choirs,\nThe stars beneath thy feet,\nThe Blessed Vision is thy prize\nAnd heaven thy queenly seat.\n\nAll power unto the Father be,\nAll glory to the Son,\nAnd honor to the Holy Ghost\nWhile endless ages run.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Domare cordis impetus Elisabeth\nFortis, inopsque Deo\nServire, regno prætulit.\n\nEn fulgidis recepta cœli sedibus,\nSidereæque domus\nDitata sanctis gaudiis.\n\nNunc regnat inter cœlites beatior,\nEt premit astra, docens\nQuæ vera sint regni bona.\n\nPatri potestas, Filioque gloria,\nPerpetuumque decus\nTibi sit alme Spiritus.",
+      summary:
+        "The hymn for Vespers and Matins of the feast of Saint Elizabeth of Portugal (8 July in Britt's day), queen of Portugal, who was born in 1271 and died in 1336, written by Pope Urban VIII (1568-1644) in a metre Britt notes is found in no other Breviary hymn: she preferred to master the impulses of her heart and serve God in poverty rather than to reign, and now, received into the bright seats of heaven, she reigns more blessedly among the saints and teaches what the true goods of a kingdom are. The English is the translation of Daniel Joseph Donahoe (1853-1930), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["july", "vespers", "office-of-readings"],
+      relatedSaints: ["saint-elizabeth-of-portugal"],
+      citations: [`${BRITT}276/mode/1up`, `${BRITT}277/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "opes-decusque-regium",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}277/mode/1up`],
+    payload: {
+      slug: "opes-decusque-regium",
+      title: "Opes decusque regium (Riches and regal throne, for Christ's dear sake)",
+      body: "Riches and regal throne, for Christ's dear sake,\nTrue Saint, thou didst despise;\nAmid the Angels seated now in bliss,\nOh, help us from the skies!\n\nGuide us; and fill our days with perfume sweet\nOf loving word and deed;\nSo teaches us thy beauteous charity,\nBy fragrant roses hid.\n\nO charity! what power is thine! by thee\nAbove the stars we soar;\nIn thee be purest praise to Father, Son\nAnd Spirit, evermore.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Opes decusque regium reliqueras\nElisabeth, Dei dicata numini:\nRecepta nunc bearis inter Angelos;\nLibens ab hostium tuere nos dolis.\n\nPræi, viamque dux salutis indica:\nSequemur: O sit una mens fidelium,\nOdor bonus sit omnis actio, tuis\nId innuit rosis operta caritas.\n\nBeata caritas, in arce siderum\nPotens locare nos per omne sæculum:\nPatrique Filioque summa gloria,\nTibique laus perennis alme Spiritus.",
+      summary:
+        "The Lauds hymn of the feast of Saint Elizabeth of Portugal, by Pope Urban VIII: the queen who gave up wealth and royal splendour for God is asked from among the angels to guard us from the snares of the enemy and to lead the way to salvation, so that every action may be a sweet odour, as her charity, hidden under roses, teaches. The English is the translation of Edward Caswall (1814-1878), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["july", "lauds", "morning"],
+      relatedSaints: ["saint-elizabeth-of-portugal"],
+      citations: [`${BRITT}277/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "pater-superni-luminis",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}278/mode/1up`, `${BRITT}279/mode/1up`],
+    payload: {
+      slug: "pater-superni-luminis",
+      title: "Pater superni luminis (Father of lights! one glance of Thine)",
+      body: "Father of lights! one glance of Thine,\nWhose eyes the universe control,\nFills Magdalene with holy love,\nAnd melts the ice within her soul.\n\nHer precious ointment forth she brings\nUpon those sacred feet to pour;\nShe washes them with burning tears,\nAnd with her hair she wipes them o'er.\n\nImpassioned, to the Cross she clings,\nNor fears beside the tomb to stay;\nNor dreads the soldiers' savage mien,\nFor love has cast all fear away.\n\nO Christ, Thou very Love itself!\nBlest hope of man, through Thee forgiven!\nSo touch our spirits from above,\nSo purify our souls for heaven.\n\nTo God the Father, with the Son\nAnd Holy Paraclete, with Thee,\nAs evermore hath been before,\nBe glory through eternity.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Pater superni luminis,\nCum Magdalenam respicis,\nFlammas amoris excitas,\nGeluque solvis pectoris.\n\nAmore currit saucia\nPedes beatos ungere,\nLavare fletu, tergere\nComis, et ore lambere.\n\nAdstare non timet Cruci,\nSepulchro inhæret anxia:\nTruces nec horret milites,\nPellit timorem caritas.\n\nO vera, Christe, caritas,\nTu nostra purga crimina,\nTu corda reple gratia,\nTu redde cœli præmia.\n\nPatri, simulque Filio,\nTibique, sancte Spiritus,\nSicut fuit, sit jugiter\nSæclum per omne gloria.",
+      summary:
+        "The Vespers hymn of the feast of Saint Mary Magdalene (22 July) in the Roman Breviary, by Saint Robert Bellarmine (1542-1621): when the Father of light looks upon Magdalene he kindles the flames of love and thaws the ice of her heart; wounded by love she runs to anoint the Lord's feet, wash them with tears and dry them with her hair, and she does not fear to stand by the Cross or keep watch at the tomb, for love casts out fear. The English is the translation of Edward Caswall (1814-1878), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["july", "vespers", "penance", "conversion"],
+      relatedSaints: ["saint-mary-magdalene"],
+      citations: [`${BRITT}278/mode/1up`, `${BRITT}279/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "maria-castis-osculis",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}279/mode/1up`, `${BRITT}280/mode/1up`],
+    payload: {
+      slug: "maria-castis-osculis",
+      title: "Maria castis osculis (His sacred feet with tears of agony)",
+      body: "His sacred feet with tears of agony\nShe bathes; and prostrate on the ground adores;\nSteeps them in kisses chaste, and wipes them dry\nWith her own hair; then forth her precious ointment pours.\n\nPraise in the highest to the Father be;\nPraise to the mighty co-eternal Son;\nAnd praise, O Spirit Paraclete, to Thee,\nWhile ages evermore of endless ages run.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Maria castis osculis\nLambit Dei vestigia:\nFletu rigat, tergit comis,\nDetersa nardo perlinit.\n\nDeo Patri sit gloria,\nEjusque soli Filio,\nCum Spiritu Paraclito,\nNunc, et per omne sæculum.",
+      summary:
+        "The short Matins hymn of the feast of Saint Mary Magdalene (22 July) in the Roman Breviary, a single stanza and doxology taken from a twelve-stanza hymn beginning Magno salutis gaudio and ascribed to Pope Saint Gregory the Great: with chaste kisses Mary kisses the feet of God, washes them with her tears, dries them with her hair and anoints them with spikenard (Luke 7:37-38). The English is the translation of Edward Caswall (1814-1878), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["july", "office-of-readings", "penance"],
+      relatedSaints: ["saint-mary-magdalene", "saint-gregory-the-great"],
+      citations: [`${BRITT}279/mode/1up`, `${BRITT}280/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "summi-parentis-unice",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}280/mode/1up`, `${BRITT}281/mode/1up`],
+    payload: {
+      slug: "summi-parentis-unice",
+      title: "Summi Parentis Unice (Son of the Highest, deign to cast)",
+      body: "Son of the Highest, deign to cast\nOn us a pitying eye;\nThou, who repentant Magdalene\nDidst call to endless joy.\n\nAgain the royal treasury\nReceives its long-lost coin;\nThe gem is found, and, cleansed from mire,\nDoth all the stars outshine.\n\nO Jesus, balm of every wound!\nThe sinner's only stay!\nWash Thou in Magdalene's pure tears\nOur guilty spots away.\n\nMother of God! the sons of Eve\nWeeping thine aid implore:\nOh, land us from the storms of life\nSafe on th' eternal shore.\n\nGlory, for graces manifold,\nTo the one only Lord;\nWhose mercy doth our souls forgive,\nWhose bounty doth reward.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Summi Parentis Unice,\nVultu pio nos respice,\nVocans ad arcem gloriæ\nCor Magdalenæ pœnitens.\n\nAmissa drachma regio\nRecondita est ærario,\nEt gemma, deterso luto,\nNitore vincit sidera.\n\nJesu, medela vulnerum,\nSpes una pœnitentium,\nPer Magdalenæ lacrymas\nPeccata nostra diluas.\n\nDei Parens piissima,\nHevæ nepotes flebiles\nDe mille vitæ fluctibus\nSalutis in portum vehas.\n\nUni Deo sit gloria,\nPro multiformi gratia,\nPeccantium qui crimina\nRemittit, et dat præmia.",
+      summary:
+        "The Lauds hymn of the feast of Saint Mary Magdalene (22 July) in the Roman Breviary, by Saint Odo of Cluny (879-942): the only Son of the Father, who called Magdalene's penitent heart to the citadel of glory, is asked to look on us with pity; the lost coin is restored to the royal treasury and the gem, cleansed of mud, outshines the stars, and Jesus, the healing of wounds and only hope of penitents, is asked to wash away our sins through Magdalene's tears. The English is the translation of Edward Caswall (1814-1878), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["july", "lauds", "morning", "penance", "conversion"],
+      relatedSaints: ["saint-mary-magdalene"],
+      citations: [`${BRITT}280/mode/1up`, `${BRITT}281/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "miris-modis-repente-liber",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}282/mode/1up`],
+    payload: {
+      slug: "miris-modis-repente-liber",
+      title: "Miris modis repente liber (In wondrous mode set free, lo, at the Lord's command)",
+      body: "In wondrous mode set free, lo, at the Lord's command\nThe galling iron chain doth fall from Peter's hand,\nFrom Peter, Shepherd blest, who doth with gentle sway,\nHis faithful children lead in virtue's fragrant way,\nAnd e'er with watchful love the tempter drive away.\n\nNow to the Father be eternal glory done;\nOur songs we raise to Thee, O everlasting Son;\nO Spirit from on high, Thy throne we bow before;\nTo Thee be honor, praise, and glory evermore:\nThe Holy Trinity we worship and adore.",
+      prayerType: "hymn",
+      category: "saintly",
+      language: "en",
+      latin:
+        "Miris modis repente liber, ferrea,\nChristo jubente, vincla Petrus exuit:\nOvilis ille Pastor, et Rector gregis\nVitæ recludit pascua, et fontes sacros,\nOvesque servat creditas; arcet lupos.\n\nPatri perenne sit per ævum gloria,\nTibique laudes concinamus inclytas,\nÆterne Nate, sit, superne Spiritus,\nHonor tibi, decusque: sancta jugiter\nLaudetur omne Trinitas per sæculum.",
+      summary:
+        "The Vespers hymn of the feast of Saint Peter's Chains (1 August) in the Roman Breviary, one stanza of the longer hymn ascribed to Saint Paulinus of Aquileia from which Quodcumque in orbe is also taken, with the same doxology; its original first line was Petrus beatus catenarum laqueos. Suddenly and wondrously set free at Christ's command, Peter puts off his iron chains (Acts 12:3-10), and as shepherd of the flock he opens the pastures of life and the sacred springs, guards the sheep entrusted to him and keeps the wolves away. The English is the translation of Father Thomas Joseph Potter (1828-1873), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["august", "vespers", "for-the-church"],
+      relatedSaints: ["saint-peter"],
+      citations: [`${BRITT}282/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "lux-alma-jesu-mentium",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}285/mode/1up`],
+    payload: {
+      slug: "lux-alma-jesu-mentium",
+      title: "Lux alma, Jesu, mentium (Light of the anxious heart)",
+      body: "Light of the anxious heart,\nJesus, Thou dost appear,\nTo bid the gloom of guilt depart,\nAnd shed Thy sweetness here.\n\nJoyous is he, with whom,\nGod's Word, Thou dost abide;\nSweet Light of our eternal home,\nTo fleshly sense denied.\n\nBrightness of God above!\nUnfathomable grace!\nThy presence be a fount of love\nWithin Thy chosen place.\n\nTo Thee, whom children see,\nThe Father ever blest,\nThe Holy Spirit, One and Three,\nBe endless praise addrest.",
+      prayerType: "hymn",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Lux alma, Jesu, mentium,\nDum corda nostra recreas,\nCulpæ fugas caliginem,\nEt nos reples dulcedine.\n\nQuam lætus est, quem visitas!\nConsors paternæ dexteræ,\nTu dulce lumen patriæ,\nCarnis negatum sensibus.\n\nSplendor paternæ gloriæ,\nIncomprehensa caritas,\nNobis amoris copiam\nLargire per præsentiam.\n\nJesu, tibi sit gloria,\nQui te revelas parvulis,\nCum Patre et almo Spiritu,\nIn sempiterna sæcula.",
+      summary:
+        "The Lauds hymn of the feast of the Transfiguration of Our Lord (6 August) in the Roman Breviary, a cento from the Jesu dulcis memoria of Saint Bernard (1091-1153), whose stanza Amor Jesu dulcissime it recasts: Jesus, the kindly light of souls, drives away the darkness of sin and fills hearts with sweetness; happy the one whom he visits, the sweet light of our homeland hidden from the senses, who reveals himself to little ones. It shares no stanza with the Vespers hymn Jesu dulcis memoria. The English is the translation of Saint John Henry Newman (1801-1890), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["transfiguration", "august-6", "lauds", "morning"],
+      relatedSaints: ["saint-bernard-of-clairvaux"],
+      citations: [`${BRITT}285/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "jam-toto-subitus-vesper",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}286/mode/1up`, `${BRITT}287/mode/1up`],
+    payload: {
+      slug: "jam-toto-subitus-vesper",
+      title: "Jam toto subitus vesper eat polo (Now let the darkling eve)",
+      body: "Now let the darkling eve\nMount suddenly on high,\nThe sun affrighted reave\nHis splendors from the sky,\nWhile I in silence grieve\nO'er the mocked agony\nAnd the divine catastrophe.\n\nGrief-drenched, thou dost appear\nWith heart of adamant,\nO Mother; and dost hear\nThe Great Hierophant,\nUpon His wooden bier\nLocked in the arms of Death,\nUtter in groans His parting breath.\n\nWhat lookest thou upon,\nMangled and bruised and torn?\nAh, 'tis the very Son\nThy yearning breast hath borne!\nSurely, each breaking moan\nAnd each deep-mouthèd wound\nIts fellow in thy heart hath found!\n\nSurely, the taunts and woes,\nThe scourge, the dripping thorn,\nThe spitting and the blows,\nThe gall, the lance, the scorn—\nSurely, each torment throws\nA poison-dart at thee,\nCrushed by their manifold tyranny.\n\nYet thou with patient mien\nBeneath His Cross dost stand,\nNobler in this, I ween,\nThan all the martyr-band:\nA thousand deaths, O Queen,\nUpon thy spirit lie,\nYet thou, O marvel! dost not die.\n\nO Holy Trinity,\nLet earth and heaven raise\nTheir song of laud to Thee\nThe while my spirit prays:—\nWhen evil comes to me,\nThe strength do Thou impart\nThat erst upheld Thy Mother's heart!",
+      prayerType: "hymn",
+      category: "marian",
+      language: "en",
+      latin:
+        "Jam toto subitus vesper eat polo,\nEt sol attonitum præcipitet diem,\nDum sævæ recolo ludibrium necis,\nDivinamque catastrophen.\n\nSpectatrix aderas supplicio Parens,\nMalis uda, gerens cor adamantinum:\nNatus funerea pendulus in cruce\nAltos dum gemitus dabat.\n\nPendens ante oculos Natus, atrocibus\nSectus verberibus, Natus hiantibus\nFossus vulneribus, quot penetrantibus\nTe confixit aculeis!\n\nHeu! sputa, alapæ, verbera, vulnera,\nClavi, fel, aloe, spongia, lancea,\nSitis, spina, cruor, quam varia pium\nCor pressere tyrannide!\n\nCunctis interea stat generosior\nVirgo Martyribus: prodigio novo,\nIn tantis moriens non moreris Parens,\nDiris fixa doloribus.\n\nSit summæ Triadi gloria, laus, honor,\nA qua suppliciter, sollicita prece,\nPosco virginei roboris æmulas\nVires rebus in asperis.",
+      summary:
+        "The Vespers hymn of the feast of the Seven Dolours of Our Lady (15 September) in the Roman Breviary, ascribed to the eighteenth-century Servite Callisto Palumbella; Britt notes that it was formerly assigned to Matins. Let evening fall suddenly and the sun hurry the astonished day away while the singer recalls the mockery of Christ's cruel death: the Mother stood by, drenched with sorrow yet with a heart of adamant, while her Son hung on the cross, and every spittle, blow, nail, gall and lance pierced her heart too; nobler than all the martyrs, she dies in such torments and yet does not die. The English is the translation of Monsignor Hugh T. Henry (1862-1946), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["september-15", "our-lady-of-sorrows", "vespers", "passion"],
+      relatedSaints: [],
+      citations: [`${BRITT}286/mode/1up`, `${BRITT}287/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "o-quot-undis-lacrimarum",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}288/mode/1up`, `${BRITT}289/mode/1up`],
+    payload: {
+      slug: "o-quot-undis-lacrimarum",
+      title: "O quot undis lacrimarum (What a sea of tears and sorrow)",
+      body: "What a sea of tears and sorrow\nDid the soul of Mary toss\nTo and fro upon its billows,\nWhile she wept her bitter loss;\nIn her arms her Jesus holding,\nTorn so newly from the Cross.\n\nOh, that mournful Virgin-Mother!\nSee her tears how fast they flow\nDown upon His mangled body,\nWounded side, and thorny brow;\nWhile His hands and feet she kisses—\nPicture of immortal woe.\n\nOft and oft His arms and bosom\nFondly straining to her own;\nOft her pallid lips imprinting\nOn each wound of her dear Son;\nTill at last, in swoons of anguish,\nSense and consciousness are gone.\n\nGentle Mother, we beseech thee\nBy thy tears and troubles sore;\nBy the death of thy dear Offspring,\nBy the bloody wounds He bore;\nTouch our hearts with that true sorrow\nWhich afflicted thee of yore.\n\nTo the Father everlasting,\nAnd the Son who reigns on high,\nWith the co-eternal Spirit,\nTrinity in Unity,\nBe salvation, honor, blessing\nNow and through eternity.",
+      prayerType: "hymn",
+      category: "marian",
+      language: "en",
+      latin:
+        "O quot undis lacrimarum,\nQuo dolore volvitur,\nLuctuosa de cruento\nDum, revulsum stipite,\nCernit ulnis incubantem\nVirgo Mater filium!\n\nOs suave, mite pectus,\nEt latus dulcissimum,\nDexteramque vulneratam,\nEt sinistram sauciam,\nEt rubras cruore plantas\nÆgra tingit lacrimis.\n\nCentiesque milliesque\nStringit arctis nexibus\nPectus illud, et lacertos,\nIlla figit vulnera:\nSicque tota colliquescit\nIn doloris osculis.\n\nEja Mater, obsecramus\nPer tuas has lacrimas,\nFiliique triste funus,\nVulnerumque purpuram,\nHunc tui cordis dolorem\nConde nostris cordibus.\n\nEsto Patri, Filioque,\nEt coævo Flamini,\nEsto summæ Trinitati\nSempiterna gloria,\nEt perennis laus, honorque\nHoc, et omni sæculo.",
+      summary:
+        "A hymn of the feast of the Seven Dolours of Our Lady (15 September), ascribed to the Servite Callisto Palumbella, who composed the office inserted in the Breviary in 1720; Britt notes that the latest editions of the Breviary assign it to Matins, though it was formerly the Vespers hymn. With floods of tears the Virgin Mother holds her Son, newly taken down from the Cross, bathes his wounded hands, feet and side with her tears and embraces him again and again, and the faithful ask her, by those tears, to plant the sorrow of her heart in theirs. The English is the translation of Edward Caswall (1814-1878), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["september-15", "our-lady-of-sorrows", "office-of-readings", "passion"],
+      relatedSaints: [],
+      citations: [`${BRITT}288/mode/1up`, `${BRITT}289/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "summae-deus-clementiae-septem-dolores",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${BRITT}290/mode/1up`],
+    payload: {
+      slug: "summae-deus-clementiae-septem-dolores",
+      title: "Summae Deus clementiae, Septem dolores Virginis (God of mercy, let us run)",
+      body: "God of mercy, let us run\nWhere yon fount of sorrows flows;\nPondering sweetly, one by one,\nJesu's Wounds and Mary's woes.\n\nAh, those tears Our Lady shed,\nEnough to drown a world of sin;\nTears that Jesu's sorrows fed,\nPeace and pardon well may win!\n\nHis five Wounds, a very home,\nFor our prayers and praises prove;\nAnd Our Lady's woes become\nEndless joys in heaven above.\n\nJesus, who for us did die,\nAll on Thee our love we pour;\nAnd in the Holy Trinity\nWorship Thee forevermore.",
+      prayerType: "hymn",
+      category: "marian",
+      language: "en",
+      latin:
+        "Summæ Deus clementiæ,\nSeptem dolores Virginis\nPlagasque Jesu Filii\nFac rite nos revolvere.\n\nNobis salutem conferant\nDeiparæ tot lacrimæ,\nQuibus lavare sufficis\nTotius orbis crimina.\n\nSit quinque Jesu vulnerum\nAmara contemplatio,\nSint et dolores Virginis\nÆterna cunctis gaudia.\n\nJesu, tibi sit gloria,\nQui passus es pro servulis,\nCum Patre et almo Spiritu,\nIn sempiterna sæcula.",
+      summary:
+        "The Lauds hymn of the feast of the Seven Dolours of Our Lady (15 September) in the Roman Breviary, ascribed to the eighteenth-century Servite Callisto Palumbella; it is a different hymn from the Saturday Matins hymn with the same opening words. God of supreme mercy is asked to let the faithful ponder rightly the seven sorrows of the Virgin and the wounds of her Son Jesus, that the Mother of God's many tears, enough to wash away the sins of the whole world, may bring them salvation, and that her sorrows may become everlasting joy for all. The English is the translation of Frederick William Faber (1814-1863), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+      occasions: ["september-15", "our-lady-of-sorrows", "lauds", "morning"],
+      relatedSaints: [],
+      citations: [`${BRITT}290/mode/1up`],
     },
   },
 ];
