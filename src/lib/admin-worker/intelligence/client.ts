@@ -3,9 +3,11 @@
  *
  * The brain is NOT a per-call sidecar: TypeScript holds a single long-lived
  * `python3 -m intelligence` process open for the lifetime of the worker (or
- * web) process and multiplexes every request over it by id. This makes the
- * brain a permanent, always-available intelligence core that is in play for
- * every meaningful decision — not a process that is spawned and thrown away.
+ * web) process and sends every request over it, matched to its answer by id.
+ * The brain answers one request at a time, so the bridge keeps exactly one in
+ * flight and queues the rest (single-flight.ts). This makes the brain a
+ * permanent, always-available intelligence core that is in play for every
+ * meaningful decision — not a process that is spawned and thrown away.
  *
  * The process is started lazily on first use, auto-restarts if it dies, and
  * is shut down cleanly via {@link shutdownBrain}. If the brain is disabled,
@@ -24,11 +26,21 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { BrainEnvelope, BrainEnvelopeSchema, BrainOp, PROTOCOL_VERSION } from "./contracts";
+import { SingleFlight } from "./single-flight";
 import { workerExecutionAllowed, workerExecutionOrigin } from "../execution-context";
 
 export interface CallOpts {
-  /** Per-call timeout (ms). Defaults to INTELLIGENCE_TIMEOUT_MS or 8000. */
+  /**
+   * Per-call timeout (ms), counted from the moment the request is written —
+   * not from when the caller asked. Defaults to INTELLIGENCE_TIMEOUT_MS or 8000.
+   */
   timeoutMs?: number;
+  /**
+   * Longest wait for this call's turn while another request is in flight
+   * (ms). Running out is "brain busy": null, and never counted as a timeout.
+   * Defaults to INTELLIGENCE_QUEUE_WAIT_MS or twice the default timeout.
+   */
+  queueWaitMs?: number;
   /** If set, cache the envelope under this key. */
   cacheKey?: string;
   /** Cache TTL (ms). Defaults to 60_000. */
@@ -74,6 +86,14 @@ const _cache = new Map<string, { env: BrainEnvelope; expires: number }>();
 let _consecutiveTimeouts = 0;
 // One-shot guard for the INTELLIGENCE_TIMEOUT_MS warning (see defaultTimeoutMs).
 let _timeoutEnvWarned = false;
+
+// One request in flight at a time (single-flight.ts): the brain answers
+// sequentially, so overlapping writes only made queued calls time out.
+const _flight = new SingleFlight();
+// "Brain busy" notices are rate-limited: one line a minute with a count.
+const BUSY_NOTICE_INTERVAL_MS = 60_000;
+let _busySkipped = 0;
+let _busyNoticeAt = 0;
 
 function brainLog(level: "warn" | "info", msg: string): void {
   if (level === "info" && process.env.INTELLIGENCE_DEBUG !== "1") return;
@@ -205,8 +225,11 @@ function failAllPending(): void {
   _pending.clear();
 }
 
-/** Stop the brain process and reject any in-flight calls. */
+/** Stop the brain process and reject any in-flight and waiting calls. */
 export function shutdownBrain(): void {
+  // Waiting calls are turned away first, or the in-flight call's release
+  // would hand its turn to one of them and spawn a fresh brain on the way out.
+  _flight.cancelWaiting();
   failAllPending();
   if (_proc) {
     try {
@@ -236,7 +259,14 @@ export function resetBrainStatus(): void {
   _resolvedPython = null;
   _resolvedPythonFor = undefined;
   _timeoutEnvWarned = false;
+  _busySkipped = 0;
+  _busyNoticeAt = 0;
   _cache.clear();
+}
+
+/** Calls waiting for their turn, and whether one is in flight (diagnostics + tests). */
+export function brainQueueStatus(): { inFlight: boolean; waiting: number } {
+  return { inFlight: _flight.inFlight, waiting: _flight.waiting };
 }
 
 /**
@@ -429,8 +459,40 @@ function cacheSet(key: string, env: BrainEnvelope, ttl: number): void {
 }
 
 /**
+ * Latched down — but re-probe once the cooldown elapses so a transient failure
+ * can't disable the brain (and thus publishing) forever. False while the
+ * latch still holds.
+ */
+function availableNow(force: boolean | undefined): boolean {
+  if (_status !== "down" || force) return true;
+  if (Date.now() - _downAt < downRetryCooldownMs()) return false;
+  _status = "unknown";
+  _restarts = 0; // give the restart budget a fresh window on recovery
+  return true;
+}
+
+/** A call gave up waiting for its turn: one notice a minute, with the count. */
+function noteBusy(op: string, waitedMs: number): void {
+  _busySkipped += 1;
+  const now = Date.now();
+  if (now - _busyNoticeAt < BUSY_NOTICE_INTERVAL_MS) return;
+  brainLog(
+    "warn",
+    `callBrain(${op}) waited ${waitedMs}ms for its turn — brain busy, call skipped ` +
+      `(${_busySkipped} skipped since the last notice; not counted as a timeout)`,
+  );
+  _busyNoticeAt = now;
+  _busySkipped = 0;
+}
+
+/**
  * Call a brain op over the persistent process. Returns the validated
  * envelope, or `null` when the brain is unavailable for any reason.
+ *
+ * One request is in flight at a time (single-flight.ts); a call waits its
+ * turn for at most `queueWaitMs`, and its `timeoutMs` starts when its request
+ * is written. Only a written request that goes unanswered counts towards a
+ * recycle of the process.
  */
 export async function callBrain<T = unknown>(
   op: BrainOp,
@@ -438,45 +500,54 @@ export async function callBrain<T = unknown>(
   opts: CallOpts = {},
 ): Promise<BrainEnvelope<T> | null> {
   if (!isBrainEnabled()) return null;
-  if (_status === "down" && !opts.force) {
-    // Latched down — but re-probe once the cooldown elapses so a transient
-    // failure can't disable the brain (and thus publishing) forever.
-    if (Date.now() - _downAt < downRetryCooldownMs()) return null;
-    _status = "unknown";
-    _restarts = 0; // give the restart budget a fresh window on recovery
-  }
+  if (!availableNow(opts.force)) return null;
 
   if (opts.cacheKey) {
     const hit = cacheGet(opts.cacheKey);
     if (hit) return hit as BrainEnvelope<T>;
   }
 
-  const proc = ensureProc();
-  if (!proc) return null;
+  const queueWaitMs = opts.queueWaitMs ?? defaultQueueWaitMs();
+  const turn = await _flight.acquire(queueWaitMs);
+  if (turn !== "granted") {
+    if (turn === "busy") noteBusy(op, queueWaitMs);
+    return null;
+  }
 
-  const id = randomUUID();
-  const timeoutMs = opts.timeoutMs ?? defaultTimeoutMs();
+  let raw: unknown | null = null;
+  try {
+    // The brain may have been latched down while this call waited its turn.
+    if (!availableNow(opts.force)) return null;
+    const proc = ensureProc();
+    if (!proc) return null;
 
-  const raw = await new Promise<unknown | null>((resolve) => {
-    const timer = setTimeout(() => {
-      _pending.delete(id);
-      brainLog("warn", `callBrain(${op}) timed out after ${timeoutMs}ms`);
-      noteTimeout(proc, op, timeoutMs);
-      resolve(null);
-    }, timeoutMs);
-    _pending.set(id, { settle: resolve, timer });
-    try {
-      proc.stdin.write(`${JSON.stringify({ id, op, payload: payload ?? {} })}\n`);
-    } catch (e) {
-      _pending.delete(id);
-      clearTimeout(timer);
-      brainLog(
-        "warn",
-        `callBrain(${op}) write failed: ${e instanceof Error ? e.message : String(e)}`,
-      );
-      resolve(null);
-    }
-  });
+    const id = randomUUID();
+    const timeoutMs = opts.timeoutMs ?? defaultTimeoutMs();
+
+    raw = await new Promise<unknown | null>((resolve) => {
+      // Started at the write, so time spent waiting for the turn never counts.
+      const timer = setTimeout(() => {
+        _pending.delete(id);
+        brainLog("warn", `callBrain(${op}) timed out after ${timeoutMs}ms`);
+        noteTimeout(proc, op, timeoutMs);
+        resolve(null);
+      }, timeoutMs);
+      _pending.set(id, { settle: resolve, timer });
+      try {
+        proc.stdin.write(`${JSON.stringify({ id, op, payload: payload ?? {} })}\n`);
+      } catch (e) {
+        _pending.delete(id);
+        clearTimeout(timer);
+        brainLog(
+          "warn",
+          `callBrain(${op}) write failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+        resolve(null);
+      }
+    });
+  } finally {
+    _flight.release();
+  }
 
   if (raw == null) return null;
 
@@ -520,6 +591,18 @@ function defaultTimeoutMs(): number {
     );
   }
   return DEFAULT_TIMEOUT_MS;
+}
+
+/**
+ * INTELLIGENCE_QUEUE_WAIT_MS, defaulting to two default timeouts: room for the
+ * call ahead to time out in full and one more to run, before this one gives
+ * up as "busy". Unset, blank or unparseable means the default; 0 means never
+ * wait (fail fast whenever another call is in flight).
+ */
+function defaultQueueWaitMs(): number {
+  const raw = (process.env.INTELLIGENCE_QUEUE_WAIT_MS ?? "").trim();
+  const n = raw === "" ? NaN : Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : 2 * defaultTimeoutMs();
 }
 
 // A brain that is ALIVE but not answering used to stay hung for the life of
