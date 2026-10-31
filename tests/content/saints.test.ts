@@ -231,7 +231,7 @@ describe("saintLifeDates", () => {
   });
 
   it("marks what the record itself marks as approximate, and never sharpens it", () => {
-    expect(lived("c. 1715–1765", "17 July 1794")).toBe("c. 1715 – 1794");
+    expect(lived("c. 500–520", "592")).toBe("c. 500 – 592");
     expect(lived("~250 AD", "302 or 303")).toBe("c. 250 – c. 302");
     expect(lived("173?", undefined)).toBe("Born c. 173");
     expect(lived(undefined, "3 December 649 or 650")).toBe("Died c. 649");
@@ -252,7 +252,51 @@ describe("saintLifeDates", () => {
 
   it("refuses a record that names two people or contradicts itself", () => {
     expect(lived(undefined, "550 (Severinus); 543 (Victorinus)")).toBeNull();
+    expect(lived("Francisco: 1908-06-11 Jacinta: 1910-03-05", undefined)).toBeNull();
+    expect(lived("826 or 827 and 815", "869-02-14 and 885-04-06 (41 or 42 and 70)")).toBeNull();
     expect(lived("1946", "1910")).toBeNull();
     expect(lived("100 BC", "44 BC")).toBe("100 BC – 44 BC");
+  });
+
+  // The rows the review found turned into confident single dates.
+  it("never turns a group's range or a disputed date into one year", () => {
+    // saint-vietnamese-martyrs and saint-120-martyrs-of-china: the group's span.
+    expect(lived(undefined, "1745–1862")).toBeNull();
+    expect(lived(undefined, "1648–1930")).toBeNull();
+    // saint-alban, and a date the record itself calls disputed.
+    expect(lived(undefined, "disputed: 209, 251 or 304")).toBeNull();
+    expect(lived("17 November, 810", "28 September, 865 (disputed)")).toBe("Born 810");
+    // Saint Marie-Geneviève Meunier of the Martyrs of Compiègne: born "c. 1715–1765".
+    expect(lived("c. 1715–1765", "17 July 1794")).toBe("Died 1794");
+    // Alternatives too far apart to be "c." the first.
+    expect(lived(undefined, "650 or 1015 AD")).toBeNull();
+    expect(lived(undefined, "Between 331 and 362")).toBeNull();
+    // Close alternatives still read as approximately the first.
+    expect(lived("1209/1210 or 1215", "19 May 1296 (aged 80–87)")).toBe("c. 1209 – 1296");
+    expect(lived("1293–4", "1381-12-02")).toBe("c. 1293 – 1381");
+    expect(lived("c. 450", "After 517 and before 519")).toBe("c. 450 – c. 517");
+  });
+
+  it("keeps a decade as written and honours every hedge the record makes", () => {
+    // saint-grimbald and saint-andrew-the-scot.
+    expect(lived("820s", "8 July 901")).toBe("820s – 901");
+    expect(lived("800s", "c. 877")).toBe("800s – c. 877");
+    expect(lived("Unknown, but most likely in the 620s", "2 March 672")).toBe("620s – 672");
+    // saint-gregorio-celli: the hedge is in brackets; "(possibly aged 118)" is about his age.
+    expect(lived("1225 (purportedly)", "11 May 1343 (possibly aged 118)")).toBe("c. 1225 – 1343");
+    // saint-maximus-of-turin.
+    expect(lived("About 380", "Shortly after 465 AD")).toBe("c. 380 – after 465");
+    expect(lived("prior to 819", "859-03-11")).toBe("before 819 – 859");
+    expect(lived(undefined, "probably 13 January 731")).toBe("Died c. 731");
+    expect(lived(undefined, "19 February probably of 685")).toBe("Died c. 685");
+    expect(lived("perhaps 20 November 1174", "1240-11-16")).toBe("c. 1174 – 1240");
+    expect(lived("980 (973 by some sources)", undefined)).toBe("Born c. 980");
+    expect(lived("100 AD. ca.", "143 AD. ca.")).toBe("c. 100 – c. 143");
+    // A day written as alternatives leaves a recorded year exact.
+    expect(lived(undefined, "Between 9 and 11 March 732")).toBe("Died 732");
+  });
+
+  it("reads a year written after a name instead of hedging it", () => {
+    expect(lived("James Alfred Miller 1944-09-21", "1982-02-13")).toBe("1944 – 1982");
   });
 });
