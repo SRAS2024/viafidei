@@ -83,13 +83,21 @@ import type { CuratedEntry } from "../index";
  * Christ" was left out as well, since its second half is Saint Ignatius's
  * Suscipe.
  *
- * The Sunday collects are those of the Third to the Twenty-fourth Sundays
- * after Pentecost from the Manual's Introits, Collects, Epistles, Gospels and
- * Postcommunions. Each is given as the book prints it after the word
- * "Collect", with its abbreviated conclusion ("Through our Lord Jesus Christ,
- * etc. Amen."); the rubric that follows it ("Others as on third Sunday") is
- * dropped. The collect of the Second Sunday, which closes the Litany of the
- * Holy Name, was left out, being already in the catalogue.
+ * The Sunday and feast collects come from the Manual's Introits, Collects,
+ * Epistles, Gospels and Postcommunions: those of the Sundays and chief days
+ * from Advent to the Sunday after the Ascension, and of the First and the
+ * Third to the Twenty-fourth Sundays after Pentecost. Each is given as the
+ * book prints it after the word "Collect" (or "Collect of the Sunday", where
+ * a feast displaces the Sunday), with its abbreviated conclusion ("Through
+ * our Lord Jesus Christ, etc. Amen."); the rubric that follows it ("Others as
+ * on third Sunday") is dropped, and "JESUS" set in small capitals is given as
+ * "Jesus". The 1889 copy's "Grant us. we beseech Thee" (Sixth Sunday after
+ * Epiphany) is given with the comma of the 1888 issue. Collects already in
+ * the knowledge base inside other entries were left out: those of
+ * Pentecost, the Holy Trinity, the Patronage of Saint Joseph and the Second
+ * Sunday after Pentecost, which close the prayer to the Holy Spirit, the
+ * Trisagion and the Litanies of Saint Joseph and of the Holy Name, and that
+ * of Corpus Christi, which the guide to Benediction gives.
  *
  * Saint Anselm's prayers are the first and last chapters of the Proslogium in
  * Sidney Norton Deane's translation (Chicago: Open Court, 1903); the
@@ -4221,6 +4229,697 @@ export const prayerBatch12: CuratedEntry[] = [
       occasions: ["sunday", "ordinary-time", "mass"],
       relatedSaints: [],
       citations: ["https://archive.org/details/manualofprayersf00wood/page/n761/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-first-sunday-of-advent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n672/mode/1up"],
+    payload: {
+      slug: "collect-of-the-first-sunday-of-advent",
+      title:
+        "Collect of the First Sunday of Advent (Excita, quaesumus, Domine, potentiam tuam, et veni)",
+      body: "O Lord, we pray Thee, raise up Thy power, and come; that by Thy protection we may deserve to be rescued from the threatening dangers of our sins, and to be saved by Thy deliverance. Who livest and reignest, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the First Sunday of Advent in the Roman Missal (Excita, quaesumus, Domine, potentiam tuam, et veni), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks the Lord to stir up his power and come, to rescue us from the threatening dangers of our sins and save us by his deliverance. The book prints the conclusion in its abbreviated form.",
+      occasions: ["advent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n672/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-second-sunday-of-advent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n673/mode/1up"],
+    payload: {
+      slug: "collect-of-the-second-sunday-of-advent",
+      title: "Collect of the Second Sunday of Advent (Excita, Domine, corda nostra)",
+      body: "Stir up our hearts, O Lord, to make ready the ways of Thine Only-begotten Son, that by His coming we may be worthy to serve Thee with purified minds. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Second Sunday of Advent in the Roman Missal (Excita, Domine, corda nostra), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to stir up our hearts to prepare the ways of his Son, so that we may serve him with purified minds. The book prints the conclusion in its abbreviated form.",
+      occasions: ["advent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n673/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-third-sunday-of-advent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n675/mode/1up"],
+    payload: {
+      slug: "collect-of-the-third-sunday-of-advent",
+      title: "Collect of the Third Sunday of Advent (Aurem tuam, quaesumus, Domine)",
+      body: "O Lord, we beseech Thee, mercifully incline Thine ears unto our prayers, and enlighten the darkness of our minds by the grace of Thy heavenly visitation. Who livest and reignest, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Third Sunday of Advent in the Roman Missal (Aurem tuam, quaesumus, Domine), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks the Lord to hear our prayers and lighten the darkness of our minds by the grace of his visitation. The book prints the conclusion in its abbreviated form.",
+      occasions: ["advent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n675/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fourth-sunday-of-advent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n676/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fourth-sunday-of-advent",
+      title:
+        "Collect of the Fourth Sunday of Advent (Excita, quaesumus, Domine, potentiam tuam, et veni: et magna nobis virtute succurre)",
+      body: "O Lord, we pray Thee, raise up Thy power, and come, and with great might succor us; that, by the aid of Thy grace, that which is hindered by our sins may be quickened by Thy merciful forgiveness. Who livest and reignest, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Fourth Sunday of Advent in the Roman Missal (Excita, quaesumus, Domine, potentiam tuam, et veni: et magna nobis virtute succurre), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks the Lord to come with great might and succour us, so that what our sins hinder his merciful forgiveness may hasten. The book prints the conclusion in its abbreviated form.",
+      occasions: ["advent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n676/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-first-mass-of-christmas",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n677/mode/1up"],
+    payload: {
+      slug: "collect-of-the-first-mass-of-christmas",
+      title: "Collect of the First Mass of Christmas (Deus, qui hanc sacratissimam noctem)",
+      body: "O God, who hast made this most sacred night to shine forth with the brightness of the true Light: grant, we beseech Thee, that we may enjoy His happiness in heaven, the mystery of whose light we have known upon earth. Who liveth and reigneth, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the First Mass of Christmas in the Roman Missal (Deus, qui hanc sacratissimam noctem), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls the most sacred night made bright by the true Light and asks to enjoy in heaven the happiness of him whose light we have known on earth. It is the collect of the Mass at midnight. The book prints the conclusion in its abbreviated form.",
+      occasions: ["christmas", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n677/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-second-mass-of-christmas",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n678/mode/1up"],
+    payload: {
+      slug: "collect-of-the-second-mass-of-christmas",
+      title: "Collect of the Second Mass of Christmas (Da nobis, quaesumus, omnipotens Deus)",
+      body: "Grant, we beseech Thee, Almighty God, that we, who are filled with the new light of Thy Incarnate Word, may show forth in our works that which by faith shineth in our minds. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Second Mass of Christmas in the Roman Missal (Da nobis, quaesumus, omnipotens Deus), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that we who are filled with the new light of the incarnate Word may show forth in our works what faith makes shine in our minds. It is the collect of the Mass at dawn. The book prints the conclusion in its abbreviated form.",
+      occasions: ["christmas", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n678/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-third-mass-of-christmas",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n679/mode/1up"],
+    payload: {
+      slug: "collect-of-the-third-mass-of-christmas",
+      title: "Collect of the Third Mass of Christmas (Concede, quaesumus, omnipotens Deus)",
+      body: "Grant, we beseech Thee, Almighty God, that the new birth of Thine Only-begotten Son in the flesh may deliver us who are held by the old bondage under the yoke of sin. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Third Mass of Christmas in the Roman Missal (Concede, quaesumus, omnipotens Deus), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that the new birth of the Son in the flesh may set free those held under the old yoke of sin. It is the collect of the Mass of the day. The book prints the conclusion in its abbreviated form.",
+      occasions: ["christmas", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n679/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-sunday-within-the-octave-of-christmas",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n681/mode/1up"],
+    payload: {
+      slug: "collect-of-the-sunday-within-the-octave-of-christmas",
+      title:
+        "Collect of the Sunday within the Octave of Christmas (Omnipotens sempiterne Deus, dirige actus nostros)",
+      body: "O Almighty and everlasting God, do Thou order all our actions in conformity with Thy good pleasure, that, through the name of Thy beloved Son, we may worthily abound in good works. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Sunday within the Octave of Christmas in the Roman Missal (Omnipotens sempiterne Deus, dirige actus nostros), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to order all our actions to his good pleasure, so that in the name of his Son we may abound in good works. The book prints the conclusion in its abbreviated form.",
+      occasions: ["christmas", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n681/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n683/mode/1up"],
+    payload: {
+      slug: "collect-of-the-epiphany",
+      title:
+        "Collect of the Epiphany (Deus, qui hodierna die Unigenitum tuum gentibus stella duce revelasti)",
+      body: "O God, who by the leading of a star didst on this day manifest Thine Only-begotten Son to the Gentiles: mercifully grant that we, who know Thee now by faith, may be brought to the contemplation of Thy glorious majesty. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Epiphany in the Roman Missal (Deus, qui hodierna die Unigenitum tuum gentibus stella duce revelasti), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls the star that revealed the Son to the Gentiles and asks that we who know God now by faith may come to the vision of his majesty. The book prints the conclusion in its abbreviated form.",
+      occasions: ["epiphany", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n683/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-first-sunday-after-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n684/mode/1up"],
+    payload: {
+      slug: "collect-of-the-first-sunday-after-epiphany",
+      title:
+        "Collect of the First Sunday after Epiphany (Vota, quaesumus, Domine, supplicantis populi)",
+      body: "O Lord, we beseech Thee, receive, of Thy heavenly mercy, the prayers of Thy people who call upon Thee; and grant that they may both perceive what things they ought to do, and also may have power to fulfil the same. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the First Sunday after Epiphany in the Roman Missal (Vota, quaesumus, Domine, supplicantis populi), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to receive his people's prayers, so that they may both see what they ought to do and have the strength to do it. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n684/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-feast-of-the-holy-name-of-jesus",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n686/mode/1up"],
+    payload: {
+      slug: "collect-of-the-feast-of-the-holy-name-of-jesus",
+      title:
+        "Collect of the Feast of the Holy Name of Jesus (Deus, qui Unigenitum tuum constituisti humani generis Salvatorem)",
+      body: "O God, who hast appointed Thine Only-begotten Son to be the Saviour of mankind, and hast commanded that His name should be called Jesus: mercifully grant that we may enjoy in heaven the blessed Vision of Him whose holy Name we worship on earth. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Feast of the Holy Name of Jesus in the Roman Missal (Deus, qui Unigenitum tuum constituisti humani generis Salvatorem), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls that God commanded his Son, the Saviour of mankind, to be called Jesus, and asks to see in heaven him whose holy Name we worship on earth. The Manual keeps the feast on the Second Sunday after Epiphany. The book prints the conclusion in its abbreviated form.",
+      occasions: ["holy-name-of-jesus", "january", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n686/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-second-sunday-after-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n686/mode/1up"],
+    payload: {
+      slug: "collect-of-the-second-sunday-after-epiphany",
+      title:
+        "Collect of the Second Sunday after Epiphany (Omnipotens sempiterne Deus, qui caelestia simul et terrena moderaris)",
+      body: "Almighty and everlasting God, who dost govern all things in heaven and earth: mercifully hear the prayers of Thy people, and grant us Thy peace in our days. Through our Lord Jesus Christ. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Second Sunday after Epiphany in the Roman Missal (Omnipotens sempiterne Deus, qui caelestia simul et terrena moderaris), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, who governs heaven and earth, to hear his people and grant us his peace in our days. The Manual gives it as the collect of the Sunday, said after that of the feast of the Holy Name kept on this day.",
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n686/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-third-sunday-after-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n687/mode/1up"],
+    payload: {
+      slug: "collect-of-the-third-sunday-after-epiphany",
+      title:
+        "Collect of the Third Sunday after Epiphany (Omnipotens sempiterne Deus, infirmitatem nostram propitius respice)",
+      body: "Almighty and Everlasting God, mercifully look upon our infirmities, and stretch forth the right hand of Thy Majesty to help and defend us. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Third Sunday after Epiphany in the Roman Missal (Omnipotens sempiterne Deus, infirmitatem nostram propitius respice), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to look upon our weakness and stretch out the right hand of his majesty to help and defend us. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n687/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fourth-sunday-after-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n689/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fourth-sunday-after-epiphany",
+      title:
+        "Collect of the Fourth Sunday after Epiphany (Deus, qui nos in tantis periculis constitutos)",
+      body: "O God, who knowest us to be set in the midst of so great dangers that, by reason of the frailty of our nature, we cannot stand: grant to us health of mind and body, that those things which we suffer for our sins we may by Thine aid overcome. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Fourth Sunday after Epiphany in the Roman Missal (Deus, qui nos in tantis periculis constitutos), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it confesses that we cannot stand among so many dangers and asks for health of mind and body to overcome what we suffer for our sins. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n689/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fifth-sunday-after-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n690/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fifth-sunday-after-epiphany",
+      title:
+        "Collect of the Fifth Sunday after Epiphany (Familiam tuam, quaesumus, Domine, continua pietate custodi)",
+      body: "Keep, O Lord, we beseech Thee, Thy family by Thy continual mercy; that they who lean only upon the hope of Thy heavenly grace may evermore be defended by Thy protection. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Fifth Sunday after Epiphany in the Roman Missal (Familiam tuam, quaesumus, Domine, continua pietate custodi), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to keep his family, which leans only on the hope of his grace, always under his protection. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n690/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-sixth-sunday-after-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n691/mode/1up"],
+    payload: {
+      slug: "collect-of-the-sixth-sunday-after-epiphany",
+      title:
+        "Collect of the Sixth Sunday after Epiphany (Praesta, quaesumus, omnipotens Deus, ut semper rationabilia meditantes)",
+      body: "Grant us, we beseech Thee, O Almighty God, ever to think such things as are reasonable, and, in every word and work of ours, to do that which is pleasing in Thy sight. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Sixth Sunday after Epiphany in the Roman Missal (Praesta, quaesumus, omnipotens Deus, ut semper rationabilia meditantes), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that we may always think what is reasonable and in every word and work do what pleases God. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n691/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-septuagesima-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n692/mode/1up"],
+    payload: {
+      slug: "collect-of-septuagesima-sunday",
+      title:
+        "Collect of Septuagesima Sunday (Preces populi tui, quaesumus, Domine, clementer exaudi)",
+      body: "O Lord, we beseech Thee, graciously hear the prayers of Thy people: that we, who are justly afflicted for our sins, may be mercifully delivered by Thy goodness, for the glory of Thy name. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Septuagesima Sunday in the Roman Missal (Preces populi tui, quaesumus, Domine, clementer exaudi), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that we who are justly afflicted for our sins may be mercifully delivered for the glory of God's name. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "mass", "septuagesima"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n692/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-sexagesima-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n694/mode/1up"],
+    payload: {
+      slug: "collect-of-sexagesima-sunday",
+      title:
+        "Collect of Sexagesima Sunday (Deus, qui conspicis quia ex nulla nostra actione confidimus)",
+      body: "O God, who seest that we put not our trust in anything that we do: mercifully grant that, through the protection of the Doctor of the Gentiles, we may be defended against all adversity. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Sexagesima Sunday in the Roman Missal (Deus, qui conspicis quia ex nulla nostra actione confidimus), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it confesses that we trust in nothing we do and asks for the protection of the Doctor of the Gentiles, Saint Paul, against all adversity. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "mass", "septuagesima"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n694/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-quinquagesima-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n696/mode/1up"],
+    payload: {
+      slug: "collect-of-quinquagesima-sunday",
+      title:
+        "Collect of Quinquagesima Sunday (Preces nostras, quaesumus, Domine, clementer exaudi)",
+      body: "O Lord, we beseech Thee, graciously hear our prayers; that we, being loosed from all chains of our sins, may by Thee be defended against all adversity. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Quinquagesima Sunday in the Roman Missal (Preces nostras, quaesumus, Domine, clementer exaudi), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that we may be loosed from the chains of our sins and defended against all adversity. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "mass", "septuagesima"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n696/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-ash-wednesday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n698/mode/1up"],
+    payload: {
+      slug: "collect-of-ash-wednesday",
+      title: "Collect of Ash Wednesday (Praesta, Domine, fidelibus tuis)",
+      body: "Grant, O Lord, unto Thy faithful people that they may begin the solemn service of fasting with due piety, and with tranquil devotion perform the same. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Ash Wednesday in the Roman Missal (Praesta, Domine, fidelibus tuis), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that the faithful may begin the solemn Lenten fast with due piety and keep it with quiet devotion. The book prints the conclusion in its abbreviated form.",
+      occasions: ["ash-wednesday", "lent", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n698/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-first-sunday-of-lent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n700/mode/1up"],
+    payload: {
+      slug: "collect-of-the-first-sunday-of-lent",
+      title:
+        "Collect of the First Sunday of Lent (Deus, qui Ecclesiam tuam annua quadragesimali observatione purificas)",
+      body: "O God, who dost every year purify Thy Church by the Fast of Forty Days: grant unto this Thy family that what things they strive to obtain at Thy hand by abstinence, they may turn to profit by good works. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the First Sunday of Lent in the Roman Missal (Deus, qui Ecclesiam tuam annua quadragesimali observatione purificas), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls that God purifies his Church each year by the forty days' fast and asks that what we seek by abstinence we may turn to profit by good works. The book prints the conclusion in its abbreviated form.",
+      occasions: ["lent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n700/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-second-sunday-of-lent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n701/mode/1up"],
+    payload: {
+      slug: "collect-of-the-second-sunday-of-lent",
+      title: "Collect of the Second Sunday of Lent (Deus, qui conspicis omni nos virtute destitui)",
+      body: "Almighty God, who seest that we have no power of ourselves: keep us both inwardly and outwardly; that we may be defended from all adversities which may happen to the body, and from all evil thoughts which may hurt the soul. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Second Sunday of Lent in the Roman Missal (Deus, qui conspicis omni nos virtute destitui), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it confesses that we have no power of ourselves and asks to be kept outwardly from bodily harm and inwardly from evil thoughts. The book prints the conclusion in its abbreviated form.",
+      occasions: ["lent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n701/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-third-sunday-of-lent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n703/mode/1up"],
+    payload: {
+      slug: "collect-of-the-third-sunday-of-lent",
+      title:
+        "Collect of the Third Sunday of Lent (Quaesumus, omnipotens Deus, vota humilium respice)",
+      body: "We beseech Thee, Almighty God, look upon the desires of Thy humble servants, and stretch forth the right hand of Thy Majesty, to be our defence. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Third Sunday of Lent in the Roman Missal (Quaesumus, omnipotens Deus, vota humilium respice), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to look upon the desires of his humble servants and stretch out his right hand in their defence. The book prints the conclusion in its abbreviated form.",
+      occasions: ["lent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n703/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fourth-sunday-of-lent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n704/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fourth-sunday-of-lent",
+      title:
+        "Collect of the Fourth Sunday of Lent (Concede, quaesumus, omnipotens Deus, ut qui ex merito nostrae actionis affligimur)",
+      body: "Grant, we beseech Thee, Almighty God, that we who for our deeds are justly punished, by the comfort of Thy grace may mercifully be relieved. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Fourth Sunday of Lent in the Roman Missal (Concede, quaesumus, omnipotens Deus, ut qui ex merito nostrae actionis affligimur), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that we who are justly punished for our deeds may be relieved by the comfort of God's grace. It is the collect of Laetare Sunday. The book prints the conclusion in its abbreviated form.",
+      occasions: ["lent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n704/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-passion-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n706/mode/1up"],
+    payload: {
+      slug: "collect-of-passion-sunday",
+      title:
+        "Collect of Passion Sunday (Quaesumus, omnipotens Deus, familiam tuam propitius respice)",
+      body: "We beseech Thee, Almighty God, to look down mercifully upon this Thy family; that by Thy great goodness they may be governed in body, and by Thy holy keeping be guarded in mind. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Passion Sunday in the Roman Missal (Quaesumus, omnipotens Deus, familiam tuam propitius respice), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to look mercifully on his family, so that by his goodness they may be governed in body and by his keeping guarded in mind. The book prints the conclusion in its abbreviated form.",
+      occasions: ["lent", "passiontide", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n706/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-palm-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n708/mode/1up"],
+    payload: {
+      slug: "collect-of-palm-sunday",
+      title:
+        "Collect of Palm Sunday (Omnipotens sempiterne Deus, qui humano generi ad imitandum humilitatis exemplum)",
+      body: "Almighty and everlasting God, who hast caused our Saviour to take upon Him our flesh, and to suffer death upon the Cross, that all mankind should follow the example of His humility: mercifully grant that we may deserve both to keep in mind the lessons of His patience, and also to be made partakers of His resurrection. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Palm Sunday in the Roman Missal (Omnipotens sempiterne Deus, qui humano generi ad imitandum humilitatis exemplum), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls that the Saviour took our flesh and suffered on the Cross as an example of humility, and asks to keep the lesson of his patience and share in his resurrection. The book prints the conclusion in its abbreviated form.",
+      occasions: ["palm-sunday", "holy-week", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n708/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-easter-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n716/mode/1up"],
+    payload: {
+      slug: "collect-of-easter-sunday",
+      title:
+        "Collect of Easter Sunday (Deus, qui hodierna die per Unigenitum tuum aeternitatis nobis aditum)",
+      body: "O God, who through Thine Only-begotten Son hast on this day overcome death, and opened unto us the gate of everlasting life: as by Thy preventing grace Thou dost prosper our good desires, so do Thou accompany them with Thy continual help. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Easter Sunday in the Roman Missal (Deus, qui hodierna die per Unigenitum tuum aeternitatis nobis aditum), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it rejoices that through the Son God has this day overcome death and opened the gate of everlasting life, and asks him to go before our good desires and help them to fulfilment. The book prints the conclusion in its abbreviated form.",
+      occasions: ["easter", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n716/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-low-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n717/mode/1up"],
+    payload: {
+      slug: "collect-of-low-sunday",
+      title:
+        "Collect of Low Sunday (Praesta, quaesumus, omnipotens Deus, ut qui paschalia festa peregimus)",
+      body: "Grant, we beseech Thee, O Almighty God, that we for whom the Feast of the Passover hath now come to an end, may, through Thy merciful bounty, always retain in our life and manners the influence of the same. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Low Sunday in the Roman Missal (Praesta, quaesumus, omnipotens Deus, ut qui paschalia festa peregimus), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that, now that the Paschal feast has ended, we may keep its influence in our life and conduct. Low Sunday is the octave day of Easter. The book prints the conclusion in its abbreviated form.",
+      occasions: ["easter-season", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n717/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-second-sunday-after-easter",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n719/mode/1up"],
+    payload: {
+      slug: "collect-of-the-second-sunday-after-easter",
+      title:
+        "Collect of the Second Sunday after Easter (Deus, qui in Filii tui humilitate jacentem mundum erexisti)",
+      body: "O God, who in the humility of Thy Son hast raised up a fallen world: grant to Thy faithful people perpetual gladness; and as Thou hast delivered them from the perils of eternal death, make them to rejoice with everlasting joy. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Second Sunday after Easter in the Roman Missal (Deus, qui in Filii tui humilitate jacentem mundum erexisti), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it praises God for raising up a fallen world through the humility of his Son and asks perpetual gladness and everlasting joy for his faithful. The book prints the conclusion in its abbreviated form.",
+      occasions: ["easter-season", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n719/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-third-sunday-after-easter",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n720/mode/1up"],
+    payload: {
+      slug: "collect-of-the-third-sunday-after-easter",
+      title:
+        "Collect of the Third Sunday after Easter (Deus, qui errantibus veritatis tuae lumen ostendis)",
+      body: "Almighty God, who showest to those that are in error the light of Thy truth, that they may return into the way of justice: grant unto all those who are admitted into the fellowship of Christ's religion, that they may avoid those things that are contrary to that name, and follow such things as are agreeable thereto. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Third Sunday after Easter in the Roman Missal (Deus, qui errantibus veritatis tuae lumen ostendis), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, who shows the light of his truth to those in error, that all who bear the name of Christian may shun what is contrary to it and follow what befits it. The Manual gives it as the collect of the Sunday, said after that of the Patronage of Saint Joseph kept on this day. The book prints the conclusion in its abbreviated form.",
+      occasions: ["easter-season", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n720/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fourth-sunday-after-easter",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n722/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fourth-sunday-after-easter",
+      title:
+        "Collect of the Fourth Sunday after Easter (Deus, qui fidelium mentes unius efficis voluntatis)",
+      body: "O God, who makest the minds of the faithful to be of one will: grant unto Thy people to love what Thou commandest, and to desire what Thou dost promise; that amidst the various changes of the world our hearts may there be fixed where true joys abide. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Fourth Sunday after Easter in the Roman Missal (Deus, qui fidelium mentes unius efficis voluntatis), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that God's people may love what he commands and desire what he promises, so that amid the changes of the world their hearts may be fixed where true joys are found. The book prints the conclusion in its abbreviated form.",
+      occasions: ["easter-season", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n722/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fifth-sunday-after-easter",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n723/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fifth-sunday-after-easter",
+      title: "Collect of the Fifth Sunday after Easter (Deus, a quo bona cuncta procedunt)",
+      body: "O Lord, from whom all good things do proceed: grant to us Thy humble servants that by Thy holy inspiration we may think those things that are good, and by Thy guidance may perform the same. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Fifth Sunday after Easter in the Roman Missal (Deus, a quo bona cuncta procedunt), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, from whom all good things come, to inspire us to think what is right and to guide us in doing it. The book prints the conclusion in its abbreviated form.",
+      occasions: ["easter-season", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n723/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-ascension",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n724/mode/1up"],
+    payload: {
+      slug: "collect-of-the-ascension",
+      title:
+        "Collect of the Ascension (Concede, quaesumus, omnipotens Deus, ut qui hodierna die Unigenitum tuum ... ad caelos ascendisse credimus)",
+      body: "Grant, we beseech Thee, Almighty God, that as we believe Thine Only-begotten Son our Redeemer to have this day ascended into the heavens, so we may also in heart and mind dwell amid heavenly things. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Ascension in the Roman Missal (Concede, quaesumus, omnipotens Deus, ut qui hodierna die Unigenitum tuum ... ad caelos ascendisse credimus), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that we who believe that the Redeemer ascended this day into heaven may ourselves dwell there in heart and mind. The book prints the conclusion in its abbreviated form.",
+      occasions: ["ascension", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n724/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-sunday-within-the-octave-of-the-ascension",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n726/mode/1up"],
+    payload: {
+      slug: "collect-of-the-sunday-within-the-octave-of-the-ascension",
+      title:
+        "Collect of the Sunday within the Octave of the Ascension (Omnipotens sempiterne Deus, fac nos tibi semper et devotam gerere voluntatem)",
+      body: "Almighty, Everlasting God, grant that we may always have a will devoted to Thee, and a sincere heart to serve Thy majesty. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Sunday within the Octave of the Ascension in the Roman Missal (Omnipotens sempiterne Deus, fac nos tibi semper et devotam gerere voluntatem), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks for a will always devoted to God and a sincere heart to serve his majesty. The book prints the conclusion in its abbreviated form.",
+      occasions: ["ascension", "easter-season", "sunday"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n726/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-first-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n729/mode/1up"],
+    payload: {
+      slug: "collect-of-the-first-sunday-after-pentecost",
+      title: "Collect of the First Sunday after Pentecost (Deus, in te sperantium fortitudo)",
+      body: "O God, the strength of those who put their trust in Thee, graciously accept our prayers; and because human infirmity without Thee can do nothing, grant us the help of Thy grace; that, in fulfilling Thy commandments, we may please Thee both in will and deed. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the First Sunday after Pentecost in the Roman Missal (Deus, in te sperantium fortitudo), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, the strength of those who trust in him, to grant the help of his grace, since human weakness can do nothing without him, so that we may please him in will and deed. The Manual gives it at Trinity Sunday as the collect of the Sunday, said after that of the feast. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "ordinary-time", "mass", "trinity-sunday"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n729/mode/1up"],
     },
   },
 ];
