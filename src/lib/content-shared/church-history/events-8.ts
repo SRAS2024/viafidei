@@ -40,9 +40,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["papacy"],
     location: "Melfi",
     context:
-      "Pope Nicholas II invests Robert Guiscard with Apulia, Calabria and a Sicily still to be won from the Saracens; Guiscard swears to hold his lands as the pope's vassal and to protect the Roman See.",
+      "At a synod in Melfi, Robert Guiscard becomes the pope's sworn man, owing a yearly tribute and armed defense of the Roman Church, and Nicholas II recognizes him as duke of Apulia and Calabria, and of Sicily once it is won back from Muslim rule; Richard of Capua makes a like pact.",
     significance:
-      "The reform papacy gains armed protectors, pledged also to defend the freedom of papal elections decreed that same year.",
+      "The reform papacy gained a standing military ally, bound among other things to safeguard the new procedure for electing popes laid down at the Lateran that Easter.",
     citation: `${NA}11055a.htm`,
   },
   {
@@ -88,7 +88,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["reform"],
     location: "Worms and Rome",
     context:
-      "On 23 January a synod of Henry IV's supporters at Worms declares Gregory deposed; the pope answers by excommunicating Henry and releasing his subjects from their oaths of allegiance.",
+      "In January a synod of Henry IV's supporters at Worms declares Gregory deposed; the pope replies by excommunicating the king and freeing his subjects from their allegiance.",
     significance:
       "The Investiture Controversy becomes open conflict between papacy and empire, and within a year the king is a penitent at Canossa.",
     citation: `${NA}06791c.htm`,
@@ -136,7 +136,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "At a council in the Lateran under Gregory VII, Berengar, long accused of denying the real presence, signs a formula confessing that the bread and wine are substantially changed into the true body and blood of Christ.",
     significance:
-      "The Roman formula expressed the Eucharistic change more clearly than any earlier document and prepared the later language of transubstantiation.",
+      "No earlier text had put the substantial conversion of the bread and wine so precisely, and Thomas Aquinas would echo its terms closely when he came to define transubstantiation.",
     citation: `${NA}02487a.htm`,
     links: { popes: ["pope-saint-gregory-vii"] },
   },
@@ -182,7 +182,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     kind: "saint",
     location: "Székesfehérvár",
     context:
-      "With Gregory VII's permission, King Ladislaus I has the remains of Hungary's first Christian king solemnly elevated; his son Emeric and Bishop Gerard of Csanád are canonized the same day.",
+      "With Gregory VII's permission, King Ladislaus I has the remains of Hungary's first Christian king solemnly elevated; his son Emeric and Bishop Gerard of Csanád are also canonized that same year.",
     significance:
       "Hungary gains its royal patron, and 20 August remains both his feast and the nation's founding day.",
     citation: `${W}Stephen_I_of_Hungary`,
@@ -198,7 +198,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["papacy"],
     location: "Rome",
     context:
-      "Called in by Gregory VII, besieged by Henry IV, the Norman duke drives the emperor from Rome in May; when the citizens riot, his troops plunder the city for three days and set it ablaze.",
+      "Summoned by Gregory VII, whom Henry IV was besieging in Castel Sant'Angelo, the Norman duke drives the emperor from Rome in May; when the citizens riot, his troops plunder the city for three days and set it ablaze.",
     significance:
       "Gregory is freed, but whole districts from the Capitoline to the Lateran are gutted, the darkest fruit of the papal alliance with the Normans.",
     citation: `${W}Sack_of_Rome_(1084)`,
@@ -365,7 +365,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "The famous master William of Champeaux gives up his chair at Notre-Dame and withdraws to a hermitage outside Paris, where his followers become canons regular and he resumes teaching.",
     significance:
-      "St Victor became a center of piety and learning and, with the schools of Notre-Dame and Ste-Geneviève, a cradle of the University of Paris.",
+      "Home to Hugh and Richard of St Victor, its school drew students from across Christendom and stands, beside the schools of Notre-Dame and Ste-Geneviève, among the roots of the University of Paris.",
     citation: `${NA}13388a.htm`,
   },
   {
@@ -430,7 +430,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "Pope Callixtus II approves the constitution, attributed to Abbot Stephen Harding, that binds Cîteaux and its daughter houses together through regular visitation and an annual general chapter.",
     significance:
-      "It turned a family of abbeys into a true order, and the Fourth Lateran Council later required general chapters of every new order.",
+      "It turned a family of abbeys into a true order, and the Fourth Lateran Council later held up its general chapters as the model for other religious.",
     citation: `${W}Carta_Caritatis`,
     links: { popes: ["pope-callixtus-ii"] },
   },
@@ -639,9 +639,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["doctor"],
     location: "Clairvaux",
     context:
-      "The abbot whose voice had carried through the councils, schisms and crusades of his age dies at Clairvaux, having founded 163 monasteries across Europe.",
+      "The abbot whose voice had carried through the councils, schisms and crusades of his age dies at Clairvaux, credited with founding 163 monasteries scattered across Christendom.",
     significance:
-      "Canonized by Alexander III in 1174, the first Cistercian on the calendar of saints, he was later named a Doctor of the Church.",
+      "In 1174 Alexander III made him the first Cistercian to be canonized, and Pius VIII later proclaimed him a Doctor of the Church.",
     citation: `${NA}02498d.htm`,
     links: {
       popes: ["pope-alexander-iii"],
@@ -709,7 +709,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "The pope enrolls among the saints the Anglo-Saxon king who rebuilt Westminster Abbey and was buried there in January 1066.",
     significance:
-      "On 13 October 1163, still his feast day, Thomas Becket solemnly translated his incorrupt body.",
+      "Two years later, on 13 October 1163, Archbishop Thomas Becket moved the king's body, found incorrupt, to a new shrine in the abbey in Henry II's presence, and that day remains his feast.",
     citation: `${NA}05322a.htm`,
     links: { saints: ["saint-edward-the-confessor"], popes: ["pope-alexander-iii"] },
   },
@@ -754,9 +754,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     era: "high-medieval",
     kind: "saint",
     context:
-      "Little more than two years after the archbishop's murder, Alexander III proclaims him a saint, as devotion to him and reports of miracles spread across Europe.",
+      "Some twenty-six months after the archbishop was cut down in his cathedral, Alexander III declares him a saint, as pilgrims crowd to his tomb and reports of miracles spread.",
     significance:
-      "In July 1174 Henry II did public penance at the tomb and was scourged there, a king's submission before the martyr of the Church's liberty.",
+      "In July 1174 Henry II knelt as a penitent at the martyr's grave and submitted to a scourging, a king humbled before the defender of the Church's freedom.",
     citation: `${NA}14676a.htm`,
     links: { saints: ["saint-thomas-becket"], popes: ["pope-alexander-iii"] },
   },
@@ -849,9 +849,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["crusade"],
     location: "Acre",
     context:
-      "German crusaders besieging Acre set up a field hospital in a tent made from ships' sails; after the city's capture it becomes a permanent house with knights attached to defend pilgrims.",
+      "During the Third Crusade's siege of Acre, crusaders from Bremen and Lübeck turn their ships' sails into a great tent to nurse their sick countrymen; once the city falls, the hospital is re-founded inside the walls, and knights vowed to religion take up the protection of pilgrims.",
     significance:
-      "Ranked beside the Hospitallers and Templars, the Teutonic Knights later turned to the Baltic, where they ruled Prussia as a military state.",
+      "Joining the Hospitallers and Templars as the third great military order, its knights later turned their crusade on the pagans of the Baltic and ruled Prussia as their own state.",
     citation: `${NA}14541b.htm`,
   },
   {
@@ -865,9 +865,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["marian"],
     location: "Chartres",
     context:
-      "A night fire destroys most of the cathedral of Our Lady at Chartres; only the crypt, towers and west front survive, and rebuilding begins at once.",
+      "Fire guts most of the cathedral of Our Lady at Chartres overnight, sparing little but the crypt, the towers and the west front, and rebuilding begins at once.",
     significance:
-      "Raised largely within twenty-five years around its venerated relic, the tunic of the Virgin, the new cathedral became a summit of Gothic glass and sculpture.",
+      "Rebuilt so quickly that its roof was on by 1220, the new cathedral around its treasured relic, the tunic said to be the Virgin's, became a summit of Gothic glass and sculpture.",
     citation: `${W}Chartres_Cathedral`,
   },
   {
@@ -878,9 +878,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     precision: "day",
     era: "high-medieval",
     kind: "order",
-    location: "Cerfroid, France",
+    location: "Rome",
     context:
-      "The pope approves the Order of the Holy Trinity, founded by John of Matha with the hermit Felix of Valois to ransom Christians held captive by Muslims.",
+      "The pope approves the Order of the Holy Trinity, begun at the hermitage of Cerfroid by John of Matha and the hermit Felix of Valois to ransom Christians held captive by Muslims.",
     significance:
       "A third of every house's income went to ransoms, and for centuries its friars journeyed to North Africa to buy captives' freedom.",
     citation: `${NA}15045d.htm`,
@@ -946,7 +946,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["crusade"],
     location: "Provence",
     context:
-      "The legate sent by Innocent III against the Cathar heresy is assassinated, possibly by an agent of Count Raymond VI of Toulouse, though that was never proven.",
+      "Innocent III's legate against the Cathar heresy, a Cistercian monk of Fontfroide, is murdered; suspicion fell on a follower of Count Raymond VI of Toulouse, but the count's guilt was never proved.",
     significance:
       "Innocent holds Raymond responsible, excommunicates him and calls the Albigensian Crusade against the heretics of Languedoc.",
     citation: `${W}Pierre_de_Castelnau`,
@@ -981,7 +981,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "In the first major action of the Albigensian Crusade, the army led by the legate Arnaud Amalric storms Béziers and slaughters its people, Catholics and Cathars alike, many in the church where they had taken refuge.",
     significance:
-      "The saying later attributed to the legate, 'Kill them all; God will know his own', is doubtful, yet historians agree it captured the spirit of the assault.",
+      "The legate's alleged cry, 'Kill them all; God will know his own', rests only on a monk's story told a decade or more later, but it matches the ferocity of the day, which turned much of the Catholic south against the crusaders.",
     citation: `${W}Massacre_at_Béziers`,
   },
   {
@@ -993,7 +993,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     kind: "order",
     location: "Porziuncula, Assisi",
     context:
-      "On the night after Palm Sunday the young noblewoman Clare slips away from her family to the Porziuncula, where Francis cuts her hair and clothes her in a rough tunic.",
+      "On the night after Palm Sunday the young noblewoman Clare steals away from her family's house to the Porziuncula, where Francis cuts her hair and gives her a coarse habit and veil in place of her fine clothes.",
     significance:
       "Settled soon after at San Damiano, she and her companions became the Poor Ladies, the second order of the Franciscan family.",
     citation: `${NA}04004a.htm`,
@@ -1045,9 +1045,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["mission"],
     location: "Damietta, Egypt",
     context:
-      "During the Fifth Crusade's siege of Damietta, Francis crosses over to the Muslim camp, is taken prisoner and led before the sultan, to whom he preaches the faith.",
+      "While the Fifth Crusade besieges Damietta, Francis crosses to the Muslim lines, is seized and brought to the sultan, and preaches the Christian faith to him.",
     significance:
-      "The sultan received him courteously and promised gentler treatment for Christian captives, though no conversion followed.",
+      "Francis won no convert, but Jacques de Vitry, then in the crusader camp, reports that the sultan heard him graciously and pledged milder treatment of his Christian prisoners.",
     citation: `${NA}06221a.htm`,
     links: { saints: ["saint-francis-of-assisi"] },
   },
@@ -1078,9 +1078,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     kind: "saint",
     location: "Bologna",
     context:
-      "Soon after presiding over his order's second general chapter, Dominic falls ill at Bologna and dies after three weeks of sickness.",
+      "Dominic falls ill at Bologna, where the friars had held their second general chapter under him that spring, and dies three weeks later.",
     significance:
-      "Gregory IX, who had known and helped him, canonized him in 1234, saying he no more doubted his holiness than that of Peter and Paul.",
+      "His patron Cardinal Ugolino, by then Pope Gregory IX, canonized him in 1234, only thirteen years after his death.",
     citation: `${NA}05106a.htm`,
     links: { saints: ["saint-dominic"], popes: ["pope-gregory-ix"] },
   },
@@ -1093,8 +1093,8 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     kind: "event",
     location: "Greccio",
     context:
-      "At Christmas Francis celebrates the Nativity 'in a new manner' at Greccio, reproducing the manger of Bethlehem.",
-    significance: "He is regarded as having begun the popular devotion of the Christmas crib.",
+      "At Christmas Francis keeps the feast at Greccio before a re-created manger of Bethlehem, bringing the Nativity vividly before the people.",
+    significance: "Tradition credits that night with starting the custom of the Christmas crib.",
     citation: `${NA}06221a.htm`,
     links: { saints: ["saint-francis-of-assisi"] },
   },
@@ -1139,12 +1139,12 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     era: "high-medieval",
     kind: "event",
     tags: ["crusade"],
-    location: "Meaux",
+    location: "Paris (preliminaries at Meaux)",
     context:
-      "Count Raymond VII of Toulouse makes peace with the regency of the young Louis IX, ceding much of his land and swearing allegiance to the French crown.",
+      "After peace talks at Meaux with the regent Blanche of Castile, Count Raymond VII of Toulouse does public penance in Notre-Dame and is freed from excommunication; under the settlement Toulouse loses its walls and his daughter Jeanne is promised to Alphonse of Poitiers, brother of the young Louis IX.",
     significance:
-      "The Cathars lost their protectors: Raymond and his vassals were ordered to hunt them down, and the Inquisition was given free rein to seek out heretics.",
-    citation: `${W}Treaty_of_Paris_(1229)`,
+      "The crusade that had stripped him of almost every fortress was over, and back in Toulouse Raymond let the Inquisition be established in his lands and took a hand himself in suppressing heresy.",
+    citation: `${NA}12670b.htm`,
   },
   {
     slug: "parens-scientiarum",
@@ -1226,7 +1226,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "After the bishops assembled at Mainz refuse to endorse his charges against the Count of Sayn, the zealous inquisitor, once St Elizabeth's confessor, is killed on the road by a band of knights.",
     significance:
-      "His summary trials and burnings had made him notorious as an overly harsh judge, and his memory long turned opinion in the Empire against the Inquisition.",
+      "Gregory IX honored him as a defender of the faith and demanded that his murderers be punished, but his rough justice, sending suspects to the stake on little more than an accusation, left the Inquisition deeply unpopular in Germany for years.",
     citation: `${W}Konrad_von_Marburg`,
     links: { saints: ["saint-elizabeth-of-hungary"] },
   },
@@ -1352,7 +1352,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "Louis IX's palace chapel, a shrine of stained glass built to house the Crown of Thorns he had bought from the Latin emperor of Constantinople, is consecrated.",
     significance:
-      "Shortly afterward the king left on the Seventh Crusade, in which he was captured and ransomed.",
+      "The relics made Louis's capital a shrine of the Passion and lent his crown great prestige; within months he left on the Seventh Crusade, which ended in his capture and ransom.",
     citation: `${W}Sainte-Chapelle`,
     links: { saints: ["saint-louis-ix"] },
   },
@@ -1406,7 +1406,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
   // ------------------------------------- Schoolmen, missions, Boniface (1254–1308)
   {
     slug: "rubruck-reaches-karakorum",
-    title: "William of Rubruck reaches the Great Khan at Karakorum",
+    title: "William of Rubruck reaches Karakorum",
     year: 1254,
     precision: "year",
     era: "high-medieval",
@@ -1414,9 +1414,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["mission"],
     location: "Karakorum",
     context:
-      "Sent by Louis IX in hope of converting the Mongols and winning them as allies, the Franciscan crosses the steppe and reaches Karakorum and the court of the Great Khan Möngke at Easter 1254.",
+      "Sent by Louis IX in hope of converting the Mongols and winning them as allies, the Franciscan crosses the steppe, reaches the Great Khan Möngke's camp at the end of 1253 and follows the court to Karakorum, arriving there at Easter 1254.",
     significance:
-      "He came home without an alliance or conversions, but his report to the king is a geographical masterpiece of the Middle Ages.",
+      "He came home with neither alliance nor converts, but his report to the king, which among much else showed the Caspian to be a landlocked sea, ranks among the finest works of medieval geography.",
     citation: `${NA}13217a.htm`,
     links: { saints: ["saint-louis-ix"] },
   },
@@ -1490,7 +1490,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "On the mountain where Francis had received the stigmata, Bonaventure writes the Itinerarium mentis in Deum, leading the mind through creation back to God, its source and end.",
     significance:
-      "A classic of Christian mysticism, it was the delight of Jean Gerson and a source for later spiritual writers such as Henry Suso.",
+      "It became a classic of Christian mysticism, long a favorite of Jean Gerson and a rich source for Henry Suso.",
     citation: `${NA}02648c.htm`,
     links: { saints: ["saint-bonaventure"], doctors: ["doctor-bonaventure"] },
   },
@@ -1533,7 +1533,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["papacy"],
     location: "Viterbo",
     context:
-      "After a vacancy of more than two years and nine months, the weary local authorities lock the cardinals in, and they at last elect Teobaldo Visconti, who takes the name Gregory X.",
+      "Nearly three years after Clement IV's death, with the cardinals still deadlocked, the city's exasperated officials confine them in close quarters, and they finally choose Teobaldo Visconti, who takes the name Gregory X.",
     significance:
       "To prevent such delays, Gregory X imposed the first law of the conclave at the Second Council of Lyon in 1274.",
     citation: `${NA}04192a.htm`,
@@ -1612,9 +1612,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["mission"],
     location: "Rome",
     context:
-      "A monk of the Church of the East born near Beijing, sent west as envoy of the Mongol Ilkhan, is welcomed in Rome, where on Palm Sunday Pope Nicholas IV gives him Communion and lets him celebrate his own Eucharist.",
+      "A monk of the Church of the East from the region of Beijing, travelling west as envoy of the Mongol Ilkhan Arghun, is warmly received in Rome by Nicholas IV, who on Palm Sunday gives him Communion and lets him offer the liturgy of his own Church there.",
     significance:
-      "A rare meeting of the Latin Church with the Christians of Asia; the papacy soon sent missionaries such as John of Montecorvino to the Mongol court.",
+      "A rare meeting of the Latin Church with the Christians of Asia; Nicholas IV went on to send Franciscan missionaries, John of Montecorvino among them, into the Mongol lands.",
     citation: `${W}Rabban_Bar_Sauma`,
   },
   {
@@ -1628,9 +1628,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["crusade"],
     location: "Acre",
     context:
-      "After a six-week siege the Mamluks storm Acre, the last major stronghold of the crusader Kingdom of Jerusalem.",
+      "Six weeks after Sultan al-Ashraf Khalil's army arrived before its walls, the Mamluks storm Acre, the chief fortress left to the crusader Kingdom of Jerusalem.",
     significance:
-      "Crusading continued for centuries, but the fall of Acre ended the crusades to the Holy Land.",
+      "Nearly two centuries of crusader rule in the Holy Land came to an end; crusading went on elsewhere for centuries, but the Levant ceased to be its field.",
     citation: `${W}Siege_of_Acre_(1291)`,
   },
   {
@@ -1645,7 +1645,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "Sent by Nicholas IV by way of Persia and India, the Franciscan reaches the Mongol capital just after Kublai Khan's death and is allowed to preach.",
     significance:
-      "He founded the first Catholic mission in China and built churches in Peking; in 1307 Clement V had him consecrated archbishop there.",
+      "He founded the first Catholic mission in China and built churches in Peking; in 1307 Clement V named him archbishop of Peking, and the Franciscan bishops sent out to consecrate him did so in 1308.",
     citation: `${NA}08474a.htm`,
     links: { popes: ["pope-clement-v"] },
   },
@@ -1694,7 +1694,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "As pilgrims throng Rome, the pope grants great indulgences to the penitent who visit the basilicas of the Apostles during the year 1300.",
     significance:
-      "The first jubilee of which there is precise record, it began the tradition of Holy Years that the Church still keeps.",
+      "No earlier jubilee is reliably documented, and from this one descends the long line of Holy Years the Church still proclaims.",
     citation: `${NA}08531c.htm`,
     links: { popes: ["pope-boniface-viii"] },
   },
@@ -1709,7 +1709,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "The Benedictine nun of Helfta, schooled in its cloister from the age of five, dies in her mid-forties after years of mystical prayer and writing.",
     significance:
-      "Her Herald of Divine Love made her an early witness to devotion to the Sacred Heart; her feast was extended to the whole Church in 1677.",
+      "Her Herald of Divine Love made her an early witness to devotion to the Sacred Heart; her name entered the Roman Martyrology in 1677, and her feast was later extended to the whole Church.",
     citation: `${NA}06534a.htm`,
     links: { saints: ["saint-gertrude-the-great"] },
   },
@@ -1723,9 +1723,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     kind: "event",
     location: "France",
     context:
-      "On secret orders from King Philip the Fair, the Templars of France are seized on a single day and interrogated under torture so ferocious that many die; most confess to the crimes alleged.",
+      "On sealed orders from King Philip IV, the Templars throughout France are arrested on a single day; under brutal torture, which a number of them do not survive, most confess to the crimes laid against them.",
     significance:
-      "Inquiries in most other countries found the Templars innocent, but under French pressure Clement V dissolved the order in 1312.",
+      "Tribunals in Spain, Portugal, Germany and Cyprus acquitted the knights, yet in 1312 Clement V, under heavy pressure from Philip, abolished the order by apostolic decree without pronouncing it guilty.",
     citation: `${NA}14493a.htm`,
     links: { popes: ["pope-clement-v"] },
   },
@@ -1849,7 +1849,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "In Rome the excommunicated emperor has the Franciscan Pietro Rainalducci chosen by an assembly of clergy and laity and consecrated at St Peter's as Nicholas V, against John XXII at Avignon.",
     significance:
-      "The last antipope set up by an emperor, he submitted to John XXII in 1330 and was absolved.",
+      "No emperor would again set up a pope of his own; Nicholas confessed his fault to John XXII at Avignon in 1330, was absolved, and lived out his last years there as an honored captive.",
     citation: `${W}Antipope_Nicholas_V`,
   },
   {
@@ -1862,9 +1862,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     kind: "document",
     location: "Avignon",
     context:
-      "Two years after the Dominican preacher's death, the pope condemns seventeen of his propositions as heretical and eleven as rash or suspect, noting that Eckhart had retracted any errors and submitted to the Holy See.",
+      "Soon after the Dominican preacher's death, the pope brands seventeen of his propositions heretical and eleven more rash or suspect of heresy, while recording that Eckhart had disowned any error and placed himself under the Holy See's judgment.",
     significance:
-      "Counted the father of German mysticism, Eckhart passed his ideas and his plain, warm style to his disciples Tauler and Suso.",
+      "Remembered as the father of German mysticism, he shaped both the thought and the plain, warm preaching of his disciples Tauler and Suso.",
     citation: `${NA}05274a.htm`,
   },
   {
@@ -1939,9 +1939,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     kind: "event",
     location: "Prague",
     context:
-      "At the request of Charles IV, the pope issues the bull establishing a university in Prague on the model of Paris, with all four faculties, theology included.",
+      "Answering a request from Charles IV, king of Bohemia, Clement VI grants a bull for a university in Prague, organized like that of Paris and complete with faculties of arts, law, medicine and theology.",
     significance:
-      "Charles granted its privileges in 1348, and it remains one of the oldest universities in continuous operation.",
+      "Charles endowed it with privileges by a Golden Bull of April 1348, and the university that bears his name still teaches in Prague nearly seven centuries later.",
     citation: `${W}Charles_University`,
   },
   {
@@ -1955,9 +1955,9 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["papacy"],
     location: "Avignon",
     context:
-      "The pope purchases the sovereignty of Avignon for 80,000 florins from Queen Joanna of Naples, countess of Provence.",
+      "Clement pays Queen Joanna I of Naples, countess of Provence, 80,000 florins for full sovereignty over Avignon, the city where the papal court already lived.",
     significance:
-      "Having declined Rome's plea that he return, Clement made the papacy's residence abroad seem permanent.",
+      "With the city now papal property, and a Roman embassy's plea to come home already refused, the papacy's exile from Rome looked more permanent than ever.",
     citation: `${NA}04023a.htm`,
   },
   {
@@ -1970,7 +1970,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["persecution"],
     location: "Avignon",
     context:
-      "As mobs in many places massacre Jews blamed for the plague, the pope issues bulls for their protection and gives them refuge in his small state around Avignon.",
+      "The papal lands around Avignon become a sanctuary for Jews fleeing the mobs that blame them for the plague, and Clement's bulls command Christians to leave them unharmed.",
     significance:
       "Many communities were still destroyed, but the bulls set the papacy against the slaughter and gave Avignon's Jews a haven.",
     citation: `${NA}04023a.htm`,
@@ -2048,7 +2048,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "Gravely ill and thought near death, a thirty-year-old Englishwoman gazing on a crucifix receives sixteen visions of Christ's Passion and of God's love.",
     significance:
-      "Her Revelations of Divine Love, written over the following decades, are counted the finest fruit of late medieval English mysticism.",
+      "Pondered for some twenty years before she wrote them out in full, her Revelations of Divine Love rank among the treasures of English mystical writing.",
     citation: `${NA}08557a.htm`,
   },
   {
@@ -2061,7 +2061,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     tags: ["reform"],
     location: "Deventer",
     context:
-      "After a dangerous illness and the rebuke of a Carthusian friend, the learned Deventer cleric gives up his worldly life and turns his family house into a home for poor women.",
+      "Shaken by a grave illness and the rebukes of Henry of Kalkar, a former fellow student now prior of a Carthusian house, the learned Deventer cleric turns from his worldly career, hands over his family's house to poor women and lodges for some years with the Carthusians.",
     significance:
       "As preacher and founder of the Brethren of the Common Life he started the Devotio Moderna, whose spirit later reached readers through The Imitation of Christ.",
     citation: `${W}Geert_Groote`,
@@ -2094,7 +2094,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
     context:
       "In June Catherine travels to the papal court as envoy of Florence, then at war with the Holy See, to make peace and to urge Gregory XI to return to Rome.",
     significance:
-      "The Florentine peace failed, but she so impressed the pope that he left for Rome despite the opposition of the French king and most of the cardinals.",
+      "Her peace mission for Florence failed, but her urging weighed heavily with Gregory: defying the French court and nearly all his cardinals, he left Avignon and entered Rome in January 1377.",
     citation: `${NA}03447a.htm`,
     links: {
       saints: ["saint-catherine-of-siena"],
