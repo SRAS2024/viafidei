@@ -120,6 +120,33 @@ describe("nextPriorityContentType", () => {
     expect(pick?.contentType).toBe("SAINT");
   });
 
+  it("SURGE yields one pick to the rotation after a streak of campaign decisions", async () => {
+    // Two DISCOVERY decisions in a row on the campaign type: this pick goes to
+    // the normal ranking + rotation, so the web-only types keep a share.
+    const yielded = await nextPriorityContentType(
+      fakePrisma(goals, ["SAINT", "SAINT"], [], { campaign: true }),
+    );
+    expect(yielded?.contentType).toBe("CHURCH_DOCUMENT");
+
+    // Right after the rotation's pick, the campaign has the next turn again.
+    const resumed = await nextPriorityContentType(
+      fakePrisma(goals, ["CHURCH_DOCUMENT", "SAINT"], [], { campaign: true }),
+    );
+    expect(resumed?.contentType).toBe("SAINT");
+  });
+
+  it("the SURGE streak is tunable", async () => {
+    process.env.ADMIN_WORKER_CAMPAIGN_SURGE_STREAK = "3";
+    try {
+      const pick = await nextPriorityContentType(
+        fakePrisma(goals, ["SAINT", "SAINT"], [], { campaign: true }),
+      );
+      expect(pick?.contentType).toBe("SAINT");
+    } finally {
+      delete process.env.ADMIN_WORKER_CAMPAIGN_SURGE_STREAK;
+    }
+  });
+
   it("never excludes the only remaining web-growable option", async () => {
     const one: Goal[] = [
       { contentType: "SAINT", gapCount: 10, desiredTarget: 10_000, priority: 20 },

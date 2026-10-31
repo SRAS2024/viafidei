@@ -283,6 +283,37 @@ export function contentGoalStatusLabel(status: ContentGoalStatus | string): stri
   }
 }
 
+/**
+ * Consecutive discovery decisions a SURGING campaign type gets before one pick
+ * goes to the normal rotation (env `ADMIN_WORKER_CAMPAIGN_SURGE_STREAK`). At 2
+ * the campaign keeps two of every three targeted discovery picks.
+ */
+export function surgeStreak(): number {
+  const n = Number((process.env.ADMIN_WORKER_CAMPAIGN_SURGE_STREAK ?? "").trim());
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 2;
+}
+
+/**
+ * True when the last `surgeStreak()` DISCOVERY decisions all targeted
+ * `contentType`, i.e. the campaign has had its run and this pick belongs to the
+ * rotation. Fail-open to false (the campaign keeps the pick), exactly as before
+ * interleaving existed.
+ */
+async function surgeTurnIsOver(prisma: PrismaClient, contentType: string): Promise<boolean> {
+  const streak = surgeStreak();
+  try {
+    const recent = await prisma.adminWorkerDecision.findMany({
+      where: { missionStage: "DISCOVERY", contentType: { not: null } },
+      orderBy: { createdAt: "desc" },
+      take: streak,
+      select: { contentType: true },
+    });
+    return recent.length >= streak && recent.every((r) => r.contentType === contentType);
+  } catch {
+    return false;
+  }
+}
+
 export async function nextPriorityContentType(
   prisma: PrismaClient,
 ): Promise<{ contentType: string; gap: number } | null> {
@@ -313,15 +344,21 @@ export async function nextPriorityContentType(
   if (goals.length === 0) return null;
 
   // Major-goal campaign: when a big goal is SURGING, focus the mission target
-  // ENTIRELY on it (overriding the de-rank + rotation below) so the worker
-  // throws everything at completing that one goal before moving to the next
-  // biggest. DRAIN/NORMAL phases fall through to the normal ranking. Fail-open.
+  // on it (overriding the de-rank + rotation below) so the worker throws its
+  // weight at completing that one goal before moving to the next biggest —
+  // but interleaved: once the last SURGE_STREAK discovery decisions were all
+  // the campaign type, this pick goes to the normal rotation, so the other
+  // web-only types (PRAYER, NOVENA, …) keep a share of targeted discovery
+  // during a long campaign. DRAIN/NORMAL phases fall through to the normal
+  // ranking. Fail-open.
   try {
     const { evaluateMajorGoalCampaign } = await import("./major-goal-campaign");
     const campaign = await evaluateMajorGoalCampaign(prisma);
     if (campaign.phase === "SURGE" && campaign.majorType) {
       const target = goals.find((g) => g.contentType === campaign.majorType);
-      if (target) return { contentType: target.contentType, gap: target.gapCount };
+      if (target && !(await surgeTurnIsOver(prisma, target.contentType))) {
+        return { contentType: target.contentType, gap: target.gapCount };
+      }
     }
   } catch {
     // fall through to normal ranking

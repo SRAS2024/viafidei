@@ -231,6 +231,12 @@ interface CursorState {
    * second page for the same episode; cleared as soon as a page succeeds.
    */
   escalatedAt: number | null;
+  /**
+   * Epoch ms of the last run that published at least one record — what tells
+   * the major-goal campaign this type has a productive structured channel (see
+   * `productiveStructuredTypes`). Stamped by `writeCursor`.
+   */
+  lastPublishedAt: number | null;
 }
 
 function cursorKey(id: string): string {
@@ -248,6 +254,7 @@ function parseCursor(value: unknown): CursorState {
     exhaustedUntil: num(v.exhaustedUntil),
     failures: Math.max(0, num(v.failures) ?? 0),
     escalatedAt: num(v.escalatedAt),
+    lastPublishedAt: num(v.lastPublishedAt),
   };
 }
 
@@ -284,6 +291,7 @@ async function writeCursor(
     exhaustedUntil: next.exhaustedUntil,
     failures: next.failures,
     escalatedAt: next.escalatedAt,
+    lastPublishedAt: counters.published > 0 ? Date.now() : next.lastPublishedAt,
   };
   await prisma.adminWorkerMemory
     .upsert({
@@ -304,6 +312,43 @@ async function writeCursor(
       },
     })
     .catch(() => undefined);
+}
+
+/**
+ * How recently an ingestor must have published for its type to count as having
+ * a productive structured channel. Longer than RESWEEP_INTERVAL_MS, so the rest
+ * after a productive full sweep does not flip the answer back and forth.
+ */
+export const STRUCTURED_PRODUCTIVE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The content types whose structured (Wikidata) ingestor published something
+ * within STRUCTURED_PRODUCTIVE_WINDOW_MS — i.e. a channel that is closing the
+ * gap on its own, so a web campaign on that type is mostly wasted effort. One
+ * read of the cursor rows; fail-open to "none" (no type gets discounted).
+ */
+export async function productiveStructuredTypes(
+  prisma: PrismaClient,
+  nowMs: number = Date.now(),
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  try {
+    const rows = await prisma.adminWorkerMemory.findMany({
+      where: {
+        memoryType: "GENERIC",
+        memoryKey: { in: STRUCTURED_INGESTORS.map((i) => cursorKey(i.id)) },
+      },
+      select: { memoryKey: true, memoryValue: true },
+    });
+    const byKey = new Map(rows.map((r) => [r.memoryKey, parseCursor(r.memoryValue)]));
+    for (const ing of STRUCTURED_INGESTORS) {
+      const at = byKey.get(cursorKey(ing.id))?.lastPublishedAt;
+      if (at != null && nowMs - at < STRUCTURED_PRODUCTIVE_WINDOW_MS) out.add(ing.contentType);
+    }
+  } catch {
+    // fail-open: no channel discount
+  }
+  return out;
 }
 
 /** The display name an entry should dedup on (title / canonicalName / slug). */
@@ -929,6 +974,7 @@ export async function runStructuredIngest(
       exhaustedUntil: now + RESWEEP_INTERVAL_MS,
       failures: 0,
       escalatedAt: null,
+      lastPublishedAt: state.lastPublishedAt,
     };
   } else {
     next = { ...state, offset, zeroStreak, failures: 0, escalatedAt: null };

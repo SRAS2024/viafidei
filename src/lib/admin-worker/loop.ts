@@ -493,8 +493,10 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   // then SURGE ALL resources on that goal until its gap closes, then move to the
   // next biggest. SURGE forces the mission target onto the campaign goal
   // (nextPriorityContentType); DRAIN pauses the discovery lanes. Fail-open.
+  // The ranking is channel-weighted and each campaign is time-boxed; this is
+  // the one evaluation per pass that records the campaign clock (`record`).
   const { evaluateMajorGoalCampaign } = await import("./major-goal-campaign");
-  const campaign = await evaluateMajorGoalCampaign(prisma).catch(() => ({
+  const campaign = await evaluateMajorGoalCampaign(prisma, { record: true }).catch(() => ({
     phase: "NORMAL" as const,
     majorType: null,
     majorGap: 0,
