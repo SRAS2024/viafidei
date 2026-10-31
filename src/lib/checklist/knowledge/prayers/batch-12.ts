@@ -29,8 +29,12 @@ import type { CuratedEntry } from "../index";
  *     followed: in Newman's prayers to Saint Philip "chose thee and made thee a
  *     saint" (the third prayer drops "thee"), "Salvator earum" for "Salvador",
  *     "Thou sayest" for "Thou savest", "Thou didst suffer" for "didst'", "my
- *     very body" for "my very, body", and "give us a safe lodging" where the
- *     transcription omits "a".
+ *     very body" for "my very, body", "give us a safe lodging" where the
+ *     transcription omits "a", "illustrations are given of" for "given to",
+ *     "where all are present" for "where all are at present", and a clause
+ *     the transcription repeats in The Infinite Knowledge of God ("to its
+ *     origin, and canst follow it into its whole growth") given once, as
+ *     printed. Each of these readings was confirmed in two separate scans.
  *
  * Saint John Henry Newman's prayers come from Meditations and Devotions
  * (Longmans, 1893), Verses on Various Occasions (1868) and Sermons Bearing on
@@ -725,6 +729,456 @@ export const prayerBatch12: CuratedEntry[] = [
       citations: [
         "https://www.newmanreader.org/works/verses/gerontius.html",
         "https://archive.org/details/a676839800newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-it-is-consummated",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations9.html#consummated",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-it-is-consummated",
+      title: "It Is Consummated (Saint John Henry Newman)",
+      body: "1. It is over now, O Lord, as with Thy sufferings, so with our humiliations. We have followed Thee from Thy fasting in the wilderness till Thy death on the Cross. For forty days we have professed to do penance. The time has been long and it has been short; but whether long or short, it is now over. It is over, and we feel a pleasure that it is over; it is a relief and a release. We thank Thee that it is over. We thank Thee for the time of sorrow, but we thank Thee more as we look forward to the time of festival. Pardon our shortcomings in Lent and reward us in Easter.\n\n2. We have, indeed, done very little for Thee, O Lord. We recollect well our listlessness and weariness; our indisposition to mortify ourselves when we had no plea of health to stand in the way; our indisposition to pray and to meditate—our disorder of mind—our discontent, our peevishness. Yet some of us, perhaps, have done something for Thee. Look on us as a whole, O Lord, look on us as a community, and let what some have done well plead for us all.\n\n3. O Lord, the end is come. We are conscious of our languor and lukewarmness; we do not deserve to rejoice in Easter, yet we cannot help doing so. We feel more of pleasure, we rejoice in Thee more than our past humiliation warrants us in doing; yet may that very joy be its own warrant. O be indulgent to us, for the merits of Thy own all-powerful Passion, and for the merits of Thy Saints. Accept us as Thy little flock, in the day of small things, in a fallen country, in an age when faith and love are scarce. Pity us and spare us and give us peace.\n\nO my own Saviour, now in the tomb but soon to arise, Thou hast paid the price; it is done—consummatum est—it is secured. O fulfil Thy resurrection in us, and as Thou hast purchased us, claim us, take possession of us, make us Thine.",
+      prayerType: "general",
+      category: "devotional",
+      language: "en",
+      summary:
+        'The last of Newman\'s meditations on the Passion, addressed to Christ lying in the tomb after the words "It is consummated" (John 19:30): Lent is over, the forty days of penance kept with him from his fasting in the wilderness to his death, and the speaker asks him to fulfil his resurrection in us and claim us as his own.',
+      occasions: ["good-friday", "holy-saturday", "holy-week", "lent"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations9.html#consummated",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-temples-of-the-holy-ghost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#doctrine6",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-temples-of-the-holy-ghost",
+      title: "The Temples of the Holy Ghost (Saint John Henry Newman)",
+      body: '1. I adore Thee, O Eternal Word, for Thy gracious condescension, in not only taking a created nature, a created spirit or soul, but a material body. The Most High decreed that for ever and ever He would subject Himself to a created prison. He who from eternity was nothing but infinite incomprehensible Spirit, beyond all laws but those of His own transcendent Greatness, willed that for the eternity to come He should be united, in the most intimate of unions, with that which was under the conditions of a creature. Thy omnipotence, O Lord, ever protects itself—but nothing short of that omnipotence could enable Thee so to condescend without a loss of power. Thy Body has part in Thy power, rather than Thou hast part in its weakness. For this reason, my God, it was, that Thou couldst not but rise again, if Thou wast to die—because Thy Body, once taken by Thee, never was or could be separated from Thee, even in the grave. It was Thy Body even then, it could see no corruption; it could not remain under the power of death, for Thou hadst already wonderfully made it Thine, and whatever was Thine must last in its perfection for ever. I adore Thy Most Holy Body, O my dear Jesus, the instrument of our redemption!\n\n2. I look at Thee, my Lord Jesus, and think of Thy Most Holy Body, and I keep it before me as the pledge of my own resurrection. Though I die, as die I certainly shall, nevertheless I shall not for ever die, for I shall rise again. My Lord, the heathen who knew Thee not, thought the body to be of a miserable and contemptible nature—they thought it the seat, the cause, the excuse of all moral evil. When their thoughts soared highest, and they thought of a future life, they considered that the destruction of the body was the condition of that higher existence. That the body was really part of themselves and that its restoration could be a privilege, was beyond their utmost imagination. And indeed, what mind of man, O Lord, could ever have fancied without Thy revelation that what, according to our experience, is so vile, so degraded, so animal, so sinful, which is our fellowship with the brutes, which is full of corruption and becomes dust and ashes, was in its very nature capable of so high a destiny! that it could become celestial and immortal, without ceasing to be a body! And who but Thou, who art omnipotent, could have made it so! No wonder then, that the wise men of the world, who did not believe in Thee, scoffed at the Resurrection. But I, by Thy grace, will ever keep before me how differently I have been taught by Thee. O best and first and truest of Teachers! O Thou who art the Truth, I know, and believe with my whole heart, that this very flesh of mine will rise again. I know, base and odious as it is at present, that it will one day, if I be worthy, be raised incorruptible and altogether beautiful and glorious. This I know; this, by Thy grace, I will ever keep before me.\n\n3. O my God, teach me so to live, as one who does believe the great dignity, the great sanctity of that material frame in which Thou hast lodged me. And therefore, O my dear Saviour! do I come so often and so earnestly to be partaker of Thy Body and Blood, that by means of Thy own ineffable holiness I may be made holy. O my Lord Jesus, I know what is written, that our bodies are the temples of the Holy Ghost. Should I not venerate that which Thou dost miraculously feed, and which Thy Co-equal Spirit inhabits! O my God, who wast nailed to the Cross, confige timore tuo carnes meas—"pierce Thou my flesh with Thy fear;" crucify my soul and body in all that is sinful in them, and make me pure as Thou art pure.',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "An Eastertide meditation-prayer on Christ's risen Body as the pledge of our own resurrection, leading to a prayer to live as one who believes in the sanctity of the body as a temple of the Holy Ghost.",
+      occasions: ["easter", "purity", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#doctrine6",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-forbearance-of-jesus",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#resurrection3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-forbearance-of-jesus",
+      title: "The Forbearance of Jesus (Saint John Henry Newman)",
+      body: "1. I adore Thee, O my Lord, for Thy wonderful patience and Thy compassionate tenderhearted condescension. Thy disciples, in spite of all Thy teaching and miracles, disbelieved Thee when they saw Thee die, and fled. Nor did they take courage afterwards, nor think of Thy promise of rising again on the third day. They did not believe Magdalen, nor the other women, who said they had seen Thee alive again. Yet Thou didst appear to them—Thou didst show them Thy wounds—Thou didst let them touch Thee—Thou didst eat before them, and give them Thy peace. O Jesu, is any obstinacy too great for Thy love? does any number of falls and relapses vanquish the faithfulness and endurance of Thy compassion? Thou dost forgive not only seven times, but to seventy times seven. Many waters cannot quench a love like Thine. And such Thou art all over the earth, even to the end—forgiving, sparing, forbearing, waiting, though sinners are ever provoking Thee; pitying and taking into account their ignorance, visiting all men, all Thine enemies, with the gentle pleadings of Thy grace, day after day, year after year, up to the hour of their death—for He knoweth whereof we are made; He knoweth we are but dust.\n\n2. My God, what hast Thou done for me! Men say of Thee, O my only Good, that Thy judgments are severe, and Thy punishments excessive. All I can say is, that I have not found them so in my own case. Let others speak for themselves, and Thou wilt meet and overcome them to their own confusion in the day of reckoning. With them I have nothing to do—Thou wilt settle with them—but for me the only experience that I have is Thy dealings with myself, and here I bear witness, as I know so entirely and feel so intimately, that to me Thou hast been nothing but forbearance and mercy. O how Thou dost forget that I have ever rebelled against Thee! Again and again dost Thou help me. I fall, yet Thou dost not cast me off. In spite of all my sins, Thou dost still love me, prosper me, comfort me, surround me with blessings, sustain me, and further me. I grieve Thy good grace, yet Thou dost give more. I insult Thee, yet Thou never dost take offence, but art as kind as if I had nothing to explain, to repent of, to amend—as if I were Thy best, most faithful, most steady and loyal friend. Nay, alas! I am even led to presume upon Thy love, it is so like easiness and indulgence, though I ought to fear Thee. I confess it, O my true Saviour, every day is but a fresh memorial of Thy unwearied, unconquerable love!\n\n3. O my God, suffer me still—bear with me in spite of my waywardness, perverseness, and ingratitude! I improve very slowly, but really I am moving on to heaven, or at least I wish to move. I am putting Thee before me, vile sinner as I am, and I am really thinking in earnest of saving my soul. Give me time to collect my thoughts, and make one good effort. I protest I will put off this languor and lukewarmness—I will shake myself from this sullenness and despondency and gloom—I will rouse myself, and be cheerful, and walk in Thy light. I will have no hope or joy but Thee. Only give me Thy grace—meet me with Thy grace, I will through Thy grace do what I can—and Thou shalt perfect it for me. Then I shall have happy days in Thy presence, and in the sight and adoration of Thy five Sacred Wounds.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's prayer of thanks for the patience of the risen Christ, who showed his hands to the doubting disciples and asked them for something to eat (Luke 24:39-41), and who bears with every soul's waywardness year after year.",
+      occasions: ["easter", "thanksgiving", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#resurrection3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-all-sufficient",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#doctrine8",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-all-sufficient",
+      title: "God All-Sufficient (Saint John Henry Newman)",
+      body: '1. The Son is in the Father and the Father in the Son. O adorable mystery which has been from eternity! I adore Thee, O my incomprehensible Creator, before whom I am an atom, a being of yesterday or an hour ago! Go back a few years and I simply did not exist; I was not in being, and things went on without me: but Thou art from eternity; and nothing whatever for one moment could go on without Thee. And from eternity too Thou hast possessed Thy Nature; Thou hast been—this awful glorious mystery—the Son in the Father and the Father in the Son. Whether we be in existence, or whether we be not, Thou art one and the same always, the Son sufficient for the Father, the Father for the Son—and all other things, in themselves, but vanity. All things once were not, all things might not be, but it would be enough for the Father that He had begotten His co-equal consubstantial Son, and for the Son that He was embraced in the Bosom of the Eternal Father. O adorable mystery! Human reason has not conducted me to it, but I believe. I believe, because Thou hast spoken, O Lord. I joyfully accept Thy word about Thyself. Thou must know what Thou art—and who else? Not I surely, dust and ashes, except so far as Thou tellest me. I take then Thy own witness, O my Creator! and I believe firmly, I repeat after Thee, what I do not understand, because I wish to live a life of faith; and I prefer faith in Thee to trust in myself.\n\n2. O my great God, from eternity Thou wast sufficient for Thyself! The Father was sufficient for the Son, and the Son for the Father; art Thou not then sufficient for me, a poor creature, Thou so great, I so little! I have a double all-sufficiency in the Father and the Son. I will take then St. Philip\'s word and say, Show us the Father, and it suffices us. It suffices us, for then are we full to overflowing, when we have Thee. O mighty God, strengthen me with Thy strength, console me with Thy everlasting peace, soothe me with the beauty of Thy countenance; enlighten me with Thy uncreated brightness; purify me with the fragrance of Thy ineffable holiness. Bathe me in Thyself, and give me to drink, as far as mortal man may ask, of the rivers of grace which flow from the Father and the Son, the grace of Thy consubstantial, co-eternal Love.\n\n3. O my God, let me never forget this truth—that not only art Thou my Life, but my only Life! Thou art the Way, the Truth, and the Life. Thou art my Life, and the Life of all who live. All men, all I know, all I meet, all I see and hear of, live not unless they live by Thee. They live in Thee, or else they live not at all. No one can be saved out of Thee. Let me never forget this in the business of the day. O give me a true love of souls, of those souls for whom Thou didst die. Teach me to pray for their conversion, to do my part towards effecting it. However able they are, however amiable, however high and distinguished, they cannot be saved unless they have Thee. O my all-sufficient Lord, Thou only sufficest! Thy blood is sufficient for the whole world. As Thou art sufficient for me, so Thou art sufficient for the entire race of Adam. O my Lord Jesus, let Thy Cross be more than sufficient for them, let it be effectual! Let it be effectual for me more than all, lest I "have all and abound," yet bring no fruit to perfection.',
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        'A meditation-prayer on Philip\'s request, "Show us the Father, and it is enough for us" (John 14:8-9): God was sufficient to himself from eternity, and Christ, in whom the Father is seen, is the one and only life of the soul.',
+      occasions: ["trinity-sunday", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#doctrine8",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-alone-unchangeable",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-alone-unchangeable",
+      title: "God Alone Unchangeable (Saint John Henry Newman)",
+      body: '1. Thou alone, O my God, art what Thou ever hast been! Man changes. Thou art unchangeable; nay, even as man Thou hast ever been unchangeable, for Jesus is yesterday and today Himself, and for ever. Thy word endureth in heaven and earth. Thy decrees are fixed; Thy gifts are without repentance. Thy Nature, Thy Attributes, are ever the same. There ever was Father, ever Son, ever Holy Ghost. I adore Thee in the peace and serenity of Thy unchangeableness. I adore Thee in that imperturbable heaven, which is Thyself. Thou wast perfect from the first; nothing couldest Thou gain, and nothing mightest Thou lose. There was nothing that could touch Thee, because there was nothing but what Thou didst create and couldst destroy. Again, I adore Thee in this Thy infinite stability, which is the centre and stay of all created things.\n\n2. Man on the contrary is ever changing. Not a day passes but I am nearer the grave. Whatever be my age, whatever the number of my years, I am ever narrowing the interval between time and eternity. I am ever changing in myself. Youth is not like age; and I am continually changing, as I pass along out of youth towards the end of life. O my God, I am crumbling away, as I go on! I am already dissolving into my first elements. My soul indeed cannot die, for Thou hast made it immortal; but my bodily frame is continually resolving into that dust out of which it was taken. All below heaven changes: spring, summer, autumn, each has its turn. The fortunes of the world change; what was high, lies low; what was low rises high. Riches take wings and flee away; bereavements happen. Friends become enemies, and enemies friends. Our wishes, aims, and plans change. There is nothing stable but Thou, O my God! And Thou art the centre and life of all who change, who trust Thee as their Father, who look to Thee, and who are content to put themselves into Thy hands.\n\n3. I know, O my God, I must change, if I am to see Thy face! I must undergo the change of death. Body and soul must die to this world. My real self, my soul, must change by a true regeneration. None but the holy can see Thee. Like Peter, I cannot have a blessing now, which I shall have afterwards. "Thou canst not follow me now, but thou shalt follow hereafter." Oh, support me, as I proceed in this great, awful, happy change, with the grace of Thy unchangeableness. My unchangeableness here below is perseverance in changing. Let me day by day be moulded upon Thee, and be changed from glory to glory, by ever looking towards Thee, and ever leaning on Thy arm. I know, O Lord, I must go through trial, temptation, and much conflict, if I am to come to Thee. I know not what lies before me, but I know as much as this. I know, too, that if Thou art not with me, my change will be for the worse, not for the better. Whatever fortune I have, be I rich or poor, healthy or sick, with friends or without, all will turn to evil if I am not sustained by the Unchangeable; all will turn to good if I have Jesus with me, yesterday and today the same, and for ever.',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's prayer to the unchangeable God amid a life of constant change, accepting the great change of death that must come before one sees his face, with confidence that all will turn to good with Jesus, the same yesterday and today.",
+      occasions: ["meditation", "trust", "preparation-for-death"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-sanctity-of-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine11",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-sanctity-of-god",
+      title: "The Sanctity of God (Saint John Henry Newman)",
+      body: "1. Thou art holy, O Lord, in that Thou art infinitely separate from everything but Thyself, and incommunicable. I adore Thee, O Lord, in this Thy proper sanctity and everlasting purity, for that all Thy blessedness comes from within, and nothing touches Thee from without. I adore Thee as infinitely blessed, yet having all Thy blessedness in Thyself. I adore Thee in that perfect and most holy knowledge of Thyself, in which we conceive the generation of the Word. I adore Thee in that infinite and most pure love of Thyself, a love of Thy Son, and Thy Son's love for Thee, in which we conceive the procession of the Holy Ghost. I adore Thee in that blessedness which Thou didst possess in Thyself from all eternity. My God, I do not understand these heavenly things. I use words which I cannot master; but I believe, O God, that to be true, which I thus feebly express in human language.\n\n2. My God, I adore Thee, as holy without, as well as holy within. I adore Thee as holy in all Thy works as well as in Thy own nature. No creature can approach Thy incommunicable sanctity, but Thou dost approach, and touch, and compass, and possess, all creatures; and nothing lives but in Thee, and nothing hast Thou created but what is good. I adore Thee, as having made everything good after its kind. I adore Thee, as having infused Thy preserving and sustaining power into all things, while Thou didst create them, so that they continue to live, though Thou dost not touch them, and do not crumble back into nothing. I adore Thee, as having put real power into them, so that they are able to act, although from Thee and with Thee and yet of themselves. I adore Thee as having given power to will what is right, and Thy holy grace to Thy rational creatures. I adore Thee as having created man upright, and having bountifully given him an integrity of nature, and having filled him with Thy free grace, so that he was like an Angel upon earth; and I adore Thee still more, for having given him Thy grace over again in still more copious measure, and with far more lasting fruits, through Thy Eternal Son incarnate. In all Thy works Thou art holy, O my God, and I adore Thee in them all.\n\n3. Holy art Thou in all Thy works, O Lord, and, if there is sin in the world it is not from Thee—it is from an enemy, it is from me and mine. To me, to man, be the shame, for we might will what is right, and we will what is evil. What a gulf is there between Thee and me, O my Creator—not only as to nature but as to will! Thy will is ever holy; how, O Lord, shall I ever dare approach Thee? What have I to do with Thee? Yet I must approach Thee; Thou wilt call me to Thee when I die, and judge me. Woe is me, for I am a man of unclean lips, and dwell in the midst of a people of unclean lips! Thy Cross, O Lord, shows the distance that is between Thee and me, while it takes it away. It shows both my great sinfulness and Thy utter abhorrence of sin. Impart to me, my dear Lord, the doctrine of the Cross in its fulness, that it may not only teach me my alienation from Thee, but convey to me the virtue of Thy reconciliation.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A meditation-prayer adoring God's holiness, within himself and in all his works, and asking that the sight of sin in the world may teach the soul its alienation from God and bring it the grace of his reconciliation.",
+      occasions: ["meditation", "adoration"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine11",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-kingdom-of-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine12",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-kingdom-of-god",
+      title: "The Kingdom of God (Saint John Henry Newman)",
+      body: "1. My Lord Jesus, how wonderful were those conversations which Thou didst hold from time to time with Thy disciples after Thy resurrection. When Thou wentest with two of them to Emmaus, Thou didst explain all the prophecies which related to Thyself. And Thou didst commit to the Apostles the Sacraments in fulness, and the truths which it was Thy will to reveal, and the principles and maxims by which Thy Church was to be maintained and governed. And thus Thou didst prepare them against the day of Pentecost (as the risen bodies were put into shape for the Spirit in the Prophet's Vision), when life and illumination was to be infused into them. I will think over all Thou didst say to them with a true and simple faith. The \"kingdom of God\" was Thy sacred subject. Let me never for an instant forget that Thou hast established on earth a kingdom of Thy own, that the Church is Thy work, Thy establishment, Thy instrument; that we are under Thy rule, Thy laws and Thy eye—that when the Church speaks Thou dost speak. Let not familiarity with this wonderful truth lead me to be insensible to it—let not the weakness of Thy human representatives lead me to forget that it is Thou who dost speak and act through them. It was just when Thou wast going away, that then Thou didst leave this kingdom of Thine to take Thy place on to the end of the world, to speak for Thee, as Thy visible form, when Thy Personal Presence, sensible to man, was departing. I will in true loving faith bring Thee before me, teaching all the truths and laws of this kingdom to Thy Apostles, and I will adore Thee, while in my thoughts I gaze upon Thee and listen to Thy words.\n\n2. Come, O my dear Lord, and teach me in like manner. I need it not, and do not ask it, as far as this, that the word of truth which in the beginning was given to the Apostles by Thee, has been handed down from age to age, and has already been taught to me, and Thy Infallible Church is the warrant of it. But I need Thee to teach me day by day, according to each day's opportunities and needs. I need Thee to give me that true Divine instinct about revealed matters that, knowing one part, I may be able to anticipate or to approve of others. I need that understanding of the truths about Thyself which may prepare me for all Thy other truths—or at least may save me from conjecturing wrongly about them or commenting falsely upon them. I need the mind of the Spirit, which is the mind of the holy Fathers, and of the Church by which I may not only say what they say on definite points, but think what they think; in all I need to be saved from an originality of thought, which is not true if it leads away from Thee. Give me the gift of discriminating between true and false in all discourse of mind.\n\n3. And, for that end, give me, O my Lord, that purity of conscience which alone can receive, which alone can improve Thy inspirations. My ears are dull, so that I cannot hear Thy voice. My eyes are dim, so that I cannot see Thy tokens. Thou alone canst quicken my hearing, and purge my sight, and cleanse and renew my heart. Teach me, like Mary, to sit at Thy feet, and to hear Thy word. Give me that true wisdom, which seeks Thy will by prayer and meditation, by direct intercourse with Thee, more than by reading and reasoning. Give me the discernment to know Thy voice from the voice of strangers, and to rest upon it and to seek it in the first place, as something external to myself; and answer me through my own mind, if I worship and rely on Thee as above and beyond it.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's prayer on the forty days in which the risen Christ spoke to the apostles of the kingdom of God (Acts 1:3), asking to be taught in the same way, given a pure conscience and the gift of discerning true from false.",
+      occasions: ["easter-season", "discernment", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine12",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-our-lords-parting-with-his-apostles",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#fortydays3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-our-lords-parting-with-his-apostles",
+      title: "Our Lord's Parting with His Apostles (Saint John Henry Newman)",
+      body: "1. I adore Thee, O my God! together with Thy Apostles, during the forty days in which Thou didst visit them after Thy resurrection. So blessed was the time, so calm, so undisturbed from without, that it was good to be there with Thee, and when it was over, they could hardly believe that it was more than begun. How quickly must that first Tempus Paschale have flown! and they perhaps hardly knew when it was to end. At least, they did not like to anticipate its ending, but were engrossed with the joy of the present moment. O what a time of consolation! What a contrast to what had lately taken place! It was their happy time on earth—the foretaste of heaven; not noticed, not interfered with, by man. They passed it in wonder, in musing, in adoration, rejoicing in Thy light, O my risen God!\n\n2. But Thou, O my dear Lord, didst know better than they! They hoped and desired, perhaps fancied, that that resting time, that refrigerium, never would end till it was superseded by something better; but Thou didst know, in Thy eternal wisdom, that, in order to arrive at what was higher than any blessing which they were then enjoying, it was fitting, it was necessary, that they should sustain conflict and suffering. Thou knewest well, that unless Thou hadst departed, the Paraclete could not have come to them; and therefore Thou didst go, that they might gain more by Thy sorrowful absence than by Thy sensible visitations. I adore Thee, O Father, for sending the Son and the Holy Ghost! I adore Thee, O Son, and Thee, O Holy Ghost, for vouchsafing to be sent to us!\n\n3. O my God, let me never forget that seasons of consolation are refreshments here, and nothing more; not our abiding state. They will not remain with us except in heaven. Here they are only intended to prepare us for doing and suffering. I pray Thee, O my God, to give them to me from time to time. Shed over me the sweetness of Thy Presence, lest I faint by the way; lest I find religious service wearisome, through my exceeding infirmity, and give over prayer and meditation; lest I go about my daily work in a dry spirit, or am tempted to take pleasure in it for its own sake, and not for Thee. Give me Thy Divine consolations from time to time; but let me not rest in them. Let me use them for the purpose for which Thou givest them. Let me not think it grievous, let me not be downcast, if they go. Let them carry me forward to the thought and the desire of heaven.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A meditation-prayer on the joy of the forty days with the risen Lord and on his departure, which was for the apostles' good, closing with the prayer that seasons of consolation be taken as refreshments on the way and not as one's end.",
+      occasions: ["easter-season", "ascension", "trust"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#fortydays3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-gods-ways-not-our-ways",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#fortydays4",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-gods-ways-not-our-ways",
+      title: "God's Ways Not Our Ways (Saint John Henry Newman)",
+      body: '1. O my Saviour, I adore Thee for Thy infinite wisdom, which sees what we do not see, and orderest all things in its own most perfect way. When Thou didst say to the Apostles that Thou wast going away, they cried out, as if Thou hadst, if it may be so said, broken faith with them. They seemed to say to Thee, "O Jesu, did we not leave all things for Thee? Did we not give up home and family, father and wife, friends and neighbours, our habits, our accustomed way of living, that we might join Thee? Did we not divorce ourselves from the world, or rather die to it, that we might be eternally united and live to Thee? And now Thou sayest that Thou art leaving us. Is this reasonable? is this just? is this faithfulness to Thy promise? Did we bargain for this? O Lord Jesus, we adore Thee, but we are confounded, and we know not what to say!"\n\n2. Yet let God be true, and every man a liar. Let the Divine Word triumph in our minds over every argument and persuasion of sensible appearances. Let faith rule us and not sight. Thou art justified, O Lord, when Thou art arraigned, and dost gain the cause when Thou art judged. For Thou didst know that the true way of possessing Thee was to lose Thee. Thou didst know that what man stands most of all in need of, and in the first place, is not an outward guide, though that he needs too, but an inward, intimate, invisible aid. Thou didst intend to heal him thoroughly, not slightly; not merely to reform the surface, but to remove and destroy the heart and root of all his ills. Thou then didst purpose to visit his soul, and Thou didst depart in body, that Thou mightest come again to him in spirit. Thou didst not stay with Thy Apostles therefore, as in the days of Thy flesh, but Thou didst come to them and abide with them for ever, with a much more immediate and true communion in the power of the Paraclete.\n\n3. O my God, in Thy sight, I confess and bewail my extreme weakness, in distrusting, if not Thee, at least Thy own servants and representatives, when things do not turn out as I would have them, or expected! Thou hast given me St. Philip, that great creation of Thy grace, for my master and patron—and I have committed myself to him—and he has done very great things for me, and has in many ways fulfilled towards me all that I can fairly reckon he had promised. But, because in some things he has disappointed me, and delayed, I have got impatient; and have served him, though without conscious disloyalty, yet with peevishness and coldness. O my dear Lord, give me a generous faith in Thee and in Thy servants!',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's meditation-prayer on Christ's words \"It is expedient for you that I go\" (John 16:7): God's wisdom sees what we cannot, and the speaker confesses his distrust and asks for a generous faith in God and in his servants.",
+      occasions: ["easter-season", "trust", "discernment"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#fortydays4",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-he-ascended",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine13",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-he-ascended",
+      title: "He Ascended (Saint John Henry Newman)",
+      body: '1. My Lord, I follow Thee up to heaven; as Thou goest up, my heart and mind go with Thee. Never was triumph like this. Thou didst appear a babe in human flesh at Bethlehem. That flesh, taken from the Blessed Virgin, was not before Thou didst form it into a body; it was a new work of Thy hands. And Thy soul was new altogether, created by Thy Omnipotence, at the moment when Thou didst enter into her sacred breast. That pure soul and body, taken as a garment for Thyself, began on earth, and never had been elsewhere. This is the triumph. Earth rises to heaven. I see Thee going up. I see that Form which hung upon the Cross, those scarred hands and feet, that pierced side; they are mounting up to heaven. And the Angels are full of jubilee; the myriads of blessed spirits, which people the glorious expanse, part like the waters to let Thee pass. And the living pavement of God\'s palaces is cleft in twain, and the Cherubim with flaming swords, who form the rampart of heaven against fallen man, give way and open out, that Thou mayest enter, and Thy saints after Thee. O memorable day!\n\n2. O memorable day! The Apostles feel it to be so, now that it is come, though they felt so differently before it came. When it was coming they dreaded it. They could not think but it would be a great bereavement; but now, as we read, they returned to Jerusalem "with great joy." O what a time of triumph! They understood it now. They understood how weak it had been in them to grudge their Lord and Master, the glorious Captain of their salvation, the Champion and First fruits of the human family, this crown of His great work. It was the triumph of redeemed man. It is the completion of his redemption. It was the last act, making the whole sure, for now man is actually in heaven. He has entered into possession of his inheritance. The sinful race has now one of its own children there, its own flesh and blood, in the person of the Eternal Son. O what a wonderful marriage between heaven and earth! It began in sorrow; but now the long travail of that mysterious wedding day is over; the marriage feast is begun; marriage and birth have gone together; man is new born when Emmanuel enters heaven.\n\n3. O Emmanuel, O God in our flesh! we too hope, by Thy grace, to follow Thee. We will cling to the skirts of Thy garments, as Thou goest up; for without Thee we cannot ascend. O Emmanuel, what a day of joy when we shall enter heaven! O inexpressible ecstasy, after all trouble! There is none strong but Thou. Tenuisti manum dexteram meam: et in voluntate tua deduxisti me, et cum gloria suscepisti me. Quid enim mihi est in cœlo, et a Te quid volui super terram? Defecit caro mea et cor meum; Deus cordis mei, et pars mea Deus in æternum.—"Thou hast held me by my right hand; and by Thy will Thou hast conducted me, and with Thy glory Thou hast received me. For what have I in heaven? And besides Thee what do I desire upon earth? For Thee my flesh and my heart hath fainted away: Thou art the God of my heart, and the God that is my portion for ever."',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A prayer for the Ascension, following Christ in heart and mind as the gates of heaven open to him and to his saints after him, and resolving by his grace to cling to him who has gone before.",
+      occasions: ["ascension", "easter-season"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine13",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-ascendit-in-coelum",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#ascension2",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-ascendit-in-coelum",
+      title: "Ascendit in Coelum: He Ascended into Heaven (Saint John Henry Newman)",
+      body: "1. My Lord is gone up into heaven. I adore Thee, Son of Mary, Jesu Emmanuel, my God and my Saviour. I am allowed to adore Thee, my Saviour and my own Brother, for Thou art God. I follow Thee in my thoughts, O Thou First fruits of our race, as I hope one day by Thy grace to follow Thee in my person. To go to heaven is to go to God. God is there and God alone: for perfect bliss is there and nothing else, and none can be blessed who is not bathed and hidden and absorbed in the glory of the Divine Nature. All holy creatures are but the vestment of the Highest, which He has put on for ever, and which is bright with His uncreated light. There are many things on earth, and each is its own centre, but one Name alone is named above. It is God alone. This is that true supernatural life; and if I would live a supernatural life on earth, and attain to the supernatural eternal life which is in heaven, I have one thing to do, viz. to live on the thought of God here. Teach me this, O God; give me Thy supernatural grace to practise it; to have my reason, affections, intentions, aims, all penetrated and possessed by the love of Thee, plunged and drowned in the one Vision of Thee.\n\n2. There is but one Name and one Thought above: there are many thoughts below. This is the earthly life, which leads to death, viz. to follow the numberless objects and aims and toils and amusements which men pursue on earth. Even the good that is here below does not lead to heaven; it is spoilt in the handselling; it perishes in the using; it has no stay, no integrity, no consistency. It runs off into evil before it has well ceased, before it has well begun to be good. It is at best vanity, when it is nothing worse. It has in it commonly the seeds of real sin. My God, I acknowledge all this. My Lord Jesu, I confess and know that Thou only art the True, the Beautiful, and the Good. Thou alone canst make me bright and glorious, and canst lead me up after Thee. Thou art the way, the truth, and the life, and none but Thou. Earth will never lead me to heaven. Thou alone art the Way; Thou alone.\n\n3. My God, shall I for one moment doubt where my path lies? Shall I not at once take Thee for my portion? To whom should I go? Thou hast the words of Eternal Life. Thou camest down for the very purpose of doing that which no one here below could do for me. None but He who is in heaven can bring me to heaven. What strength have I to scale the high mountain? Though I served the world ever so well, though I did my duty in it (as men speak), what could the world do for me, however hard it tried? Though I filled my station well, did good to my fellows, had a fair name or a wide reputation, though I did great deeds and was celebrated, though I had the praise of history, how would all this bring me to heaven? I choose Thee then for my One Portion, because Thou livest and diest not. I cast away all idols. I give myself to Thee. I pray Thee to teach me, guide me, enable me, and receive me to Thee.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's second Ascension prayer: in heaven there is one Name and one Thought, while earth is full of distractions; Christ alone is the Way, and the speaker gives himself to him to be taught, guided and received.",
+      occasions: ["ascension", "easter-season", "discernment"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#ascension2",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-paraclete-the-life-of-all-things",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine14",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-paraclete-the-life-of-all-things",
+      title: "The Paraclete, the Life of All Things (Saint John Henry Newman)",
+      body: "1. I adore Thee, my Lord and God, the Eternal Paraclete, co-equal with the Father and the Son. I adore Thee as the Life of all that live. Through Thee the whole material Universe hangs together and consists, remains in its place, and moves internally in the order and reciprocity of its several parts. Through Thee the earth was brought into its present state, and was matured through its six days to be a habitation for man. Through Thee, all trees, herbs, fruits, thrive and are perfected. Through Thee, spring comes after winter and renews all things. That wonderful and beautiful, that irresistible burst into life again, in spite of all obstacles, that awful triumph of nature, is but Thy glorious Presence. Through Thee the many tribes of brute animals live day by day, drawing in their breath from Thee. Thou art the life of the whole creation, O Eternal Paraclete—and if of this animal and material framework, how much more of the world of spirits! Through Thee, Almighty Lord, the angels and saints sing Thee praises in heaven. Through Thee our own dead souls are quickened to serve Thee. From Thee is every good thought and desire, every good purpose, every good effort, every good success. It is by Thee that sinners are turned into saints. It is by Thee the Church is refreshed and strengthened, and champions start forth, and martyrs are carried on to their crown. Through Thee new religious orders, new devotions in the Church come into being; new countries are added to the faith, new manifestations and illustrations are given of the ancient Apostolic creed. I praise and adore Thee, my Sovereign Lord God, the Holy Ghost.\n\n2. I adore Thee, O dread Lord, for what Thou hast done for my soul. I acknowledge and feel, not only as a matter of faith but of experience, that I cannot have one good thought or do one good act without Thee. I know, that if I attempt anything good in my own strength, I shall to a certainty fail. I have bitter experience of this. My God, I am only safe when Thou dost breathe upon me. If Thou withdraw Thy breath, forthwith my three mortal enemies rush on me and overcome me. I am as weak as water, I am utterly impotent without Thee. The minute Thou dost cease to act in me, I begin to languish, to gasp, and to faint away. Of my good desires, whatever they may be, of my good aims, aspirations, attempts, successes, habits, practices, Thou art the sole cause and present continual source. I have nothing but what I have received, and I protest now in Thy presence, O Sovereign Paraclete, that I have nothing to glory in, and everything to be humbled at.\n\n3. O my dear Lord, how merciful Thou hast been to me. When I was young, Thou didst put into my heart a special devotion to Thee. Thou hast taken me up in my youth, and in my age Thou wilt not forsake me. Not for my merit, but from Thy free and bountiful love Thou didst put good resolutions into me when I was young, and didst turn me to Thee. Thou wilt never forsake me. I do earnestly trust so—never certainly without fearful provocation on my part. Yet I trust and pray, that Thou wilt keep me from that provocation. O keep me from the provocation of lukewarmness and sloth. O my dear Lord, lead me forward from strength to strength, gently, sweetly, tenderly, lovingly, powerfully, effectually, remembering my fretfulness and feebleness, till Thou bringest me into Thy heaven.",
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "The first of Newman's four meditations on the Holy Ghost: adoration of the Paraclete, co-equal with the Father and the Son, as the life of all creation, and thanks for all he has done in the speaker's own soul from childhood.",
+      occasions: ["pentecost", "confirmation", "thanksgiving"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine14",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-paraclete-the-life-of-the-church",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#paraclete2",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-paraclete-the-life-of-the-church",
+      title: "The Paraclete, the Life of the Church (Saint John Henry Newman)",
+      body: "1. I adore Thee, O my Lord, the Third Person of the All-Blessed Trinity, that Thou hast set up in this world of sin a great light upon a hill. Thou hast founded the Church, Thou hast established and maintained it. Thou fillest it continually with Thy gifts, that men may see, and draw near, and take, and live. Thou hast in this way brought down heaven upon earth. For Thou hast set up a great company which Angels visit by that ladder which the Patriarch saw in vision. Thou hast by Thy Presence restored the communion between God above and man below. Thou hast given him that light of grace which is one with and the commencement of the light of glory. I adore and praise Thee for Thy infinite mercy towards us, O my Lord and God.\n\n2. I adore Thee, O Almighty Lord, the Paraclete, because Thou in Thy infinite compassion hast brought me into this Church, the work of Thy supernatural power. I had no claim on Thee for so wonderful a favour over anyone else in the whole world. There were many men far better than I by nature, gifted with more pleasing natural gifts, and less stained with sin. Yet Thou, in Thy inscrutable love for me, hast chosen me and brought me into Thy fold. Thou hast a reason for everything Thou dost. I know there must have been an all-wise reason, as we speak in human language, for Thy choosing me and not another—but I know that that reason was something external to myself. I did nothing towards it—I did everything against it. I did everything to thwart Thy purpose. And thus I owe all to Thy grace. I should have lived and died in darkness and sin; I should have become worse and worse the longer I lived; I should have got more to hate and abjure Thee, O Source of my bliss; I should have got yearly more fit for hell, and at length I should have gone there, but for Thy incomprehensible love to me. O my God, that overpowering love took me captive. Was any boyhood so impious as some years of mine! Did I not in fact dare Thee to do Thy worst? Ah, how I struggled to get free from Thee; but Thou art stronger than I and hast prevailed. I have not a word to say, but to bow down in awe before the depths of Thy love.\n\n3. And then, in course of time, slowly but infallibly did Thy grace bring me on into Thy Church. Now then give me this further grace, Lord, to use all this grace well, and to turn it to my salvation. Teach me, make me, to come to the fountains of mercy continually with an awakened, eager mind, and with lively devotion. Give me a love of Thy Sacraments and Ordinances. Teach me to value as I ought, to prize as the inestimable pearl, that pardon which again and again Thou givest me, and the great and heavenly gift of the Presence of Him whose Spirit Thou art, upon the Altar. Without Thee I can do nothing, and Thou art there where Thy Church is and Thy Sacraments. Give me grace to rest in them for ever, till they are lost in the glory of Thy manifestation in the world to come.",
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "Newman's adoration of the Holy Ghost as the life of the Church, who keeps her from error, and his thanks for the grace that slowly but surely brought him into the Catholic Church.",
+      occasions: ["pentecost", "for-the-church", "conversion"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#paraclete2",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-food-of-the-soul",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#communion3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-food-of-the-soul",
+      title: "The Food of the Soul (Saint John Henry Newman)",
+      body: '1. In Thee, O Lord, all things live, and Thou dost give them their food. Oculi omnium in Te sperant—"the eyes of all hope in Thee." To the beasts of the field Thou givest meat and drink. They live on day by day, because Thou dost give them day by day to live. And, if Thou givest not, they feel their misery at once. Nature witnesses to this great truth, for they are visited at once with great agony, and they cry out and wildly wander about, seeking what they need. But, as to us Thy children, Thou feedest us with another food. Thou knowest, O my God, who madest us, that nothing can satisfy us but Thyself, and therefore Thou hast caused Thy own self to be meat and drink to us. O most adorable mystery! O most stupendous of mercies! Thou most Glorious, and Beautiful, and Strong, and Sweet, Thou didst know well that nothing else would support our immortal natures, our frail hearts, but Thyself; and so Thou didst take a human flesh and blood, that they, as being the flesh and blood of God, might be our life.\n\n2. O what an awful thought! Thou dealest otherwise with others, but, as to me, the flesh and blood of God is my sole life. I shall perish without it; yet shall I not perish with it and by it? How can I raise myself to such an act as to feed upon God? O my God, I am in a strait—shall I go forward, or shall I go back? I will go forward: I will go to meet Thee. I will open my mouth, and receive Thy gift. I do so with great awe and fear, but what else can I do? to whom should I go but to Thee? Who can save me but Thou? Who can cleanse me but Thou? Who can make me overcome myself but Thou? Who can raise my body from the grave but Thou? Therefore I come to Thee in all these my necessities, in fear, but in faith.\n\n3. My God, Thou art my life; if I leave Thee, I cannot but thirst. Lost spirits thirst in hell, because they have not God. They thirst, though they fain would have it otherwise, from the necessity of their original nature. But I, my God, wish to thirst for Thee with a better thirst. I wish to be clad in that new nature, which so longs for Thee from loving Thee, as to overcome in me the fear of coming to Thee. I come to Thee, O Lord, not only because I am unhappy without Thee, not only because I feel I need Thee, but because Thy grace draws me on to seek Thee for Thy own sake, because Thou art so glorious and beautiful. I come in great fear, but in greater love. O may I never lose, as years pass away, and the heart shuts up, and all things are a burden, let me never lose this youthful, eager, elastic love of Thee. Make Thy grace supply the failure of nature. Do the more for me, the less I can do for myself. The more I refuse to open my heart to Thee, so much the fuller and stronger be Thy supernatural visitings, and the more urgent and efficacious Thy presence in me.',
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "A Eucharistic meditation-prayer: all creatures live by the food God gives, and the soul's food is the flesh and blood of the Son of God; the speaker, thirsting for God, asks that his presence and visits may be ever more frequent and effectual.",
+      occasions: ["after-communion", "corpus-christi", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#communion3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-infinite-perfection-of-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine17",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-infinite-perfection-of-god",
+      title: "The Infinite Perfection of God (Saint John Henry Newman)",
+      body: '1. Ex ipso. I adore Thee, O my God, as the origin and source of all that is in the world. Once nothing was in being but Thou. It was so for a whole eternity. Thou alone hast had no beginning. Thou hast ever been in being without beginning. Thou hast necessarily been a whole eternity by Thyself, having in Thee all perfections stored up in Thyself, by Thyself; a world of worlds; an infinite abyss of all that is great and wonderful, beautiful and holy; a treasury of infinite attributes, all in one; infinitely one while thus infinitely various. My God, the thought simply exceeds a created nature, much more mine. I cannot attain to it; I can but use the words, and say "I believe," without comprehending. But this I can do. I can adore Thee, O my great and good God, as the one source of all perfection, and that I do, and with Thy grace will do always.\n\n2. Per ipsum. And when other beings began to be, they lived through Thee. They did not begin of themselves. They did not come into existence except by Thy determinate will, by Thy eternal counsel, by Thy sole operation. They are wholly from Thee. From eternity, in the deep ocean of Thy blessedness, Thou didst predestinate everything which in its hour took place. Not a substance, ever so insignificant, but is Thy design and Thy work. Much more, not a soul comes into being, but by Thy direct appointment and act. Thou seest, Thou hast seen from all eternity, every individual of Thy creatures. Thou hast seen me, O my God, from all eternity. Thou seest distinctly, and ever hast seen, whether I am to be saved or to be lost. Thou seest my history through all ages in heaven or in hell. O awful thought! My God, enable me to bear it, lest the thought of Thee confound me utterly; and lead me forward to salvation.\n\n3. In ipso. And I believe and know, moreover, that all things live in Thee. Whatever there is of being, of life, of excellence, of enjoyment, of happiness, in the whole creation, is, in its substance, simply and absolutely Thine. It is by dipping into the ocean of Thy infinite perfections that all beings have whatever they have of good. All the beautifulness and majesty of the visible world is a shadow or a glimpse of Thee, or the manifestation or operation in a created medium of one or other of Thy attributes. All that is wonderful in the way of talent or genius is but an unworthy reflexion of the faintest gleam of the Eternal Mind. Whatever we do well, is not only by Thy help, but is after all scarcely an imitation of that sanctity which is in fulness in Thee. O my God, shall I one day see Thee? what sight can compare to that great sight! Shall I see the source of that grace which enlightens me, strengthens me, and consoles me? As I came from Thee, as I am made through Thee, as I live in Thee, so, O my God, may I at last return to Thee, and be with Thee for ever and ever.',
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        'Newman\'s meditation-prayer on Romans 11:36, "of him, and by him, and in him, are all things": adoration of God as the source, the sustainer and the end of all that exists.',
+      occasions: ["trinity-sunday", "meditation", "adoration"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine17",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-infinite-knowledge-of-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine18",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-infinite-knowledge-of-god",
+      title: "The Infinite Knowledge of God (Saint John Henry Newman)",
+      body: "1. My God, I adore Thee, as beholding all things. Thou knowest in a way altogether different and higher than any knowledge which can belong to creatures. We know by means of sight and thought; there are few things we know in any other way; but how unlike this knowledge, not only in extent, but in its nature and its characteristics, is Thy knowledge! The Angels know many things, but their knowledge compared to Thine is mere ignorance. The human soul, which Thou didst take into Thyself when Thou didst become man, was filled from the first with all the knowledge possible to human nature: but even that was nothing but a drop compared to the abyss of that knowledge, and its keen luminousness, which is Thine as God.\n\n2. My God, could it be otherwise? for from the first and from everlasting Thou wast by Thyself; and Thy blessedness consisted in knowing and contemplating Thyself, the Father in the Son and Spirit, and the Son and Spirit severally in each other and in the Father, thus infinitely comprehending the infinite. If Thou didst know Thy infinite self thus perfectly, Thou didst know that which was greater and more than anything else could be. All that the whole universe contains, put together, is after all but finite. It is finite, though it be illimitable! it is finite, though it be so multiform; it is finite, though it be so marvellously skilful, beautiful, and magnificent; but Thou art the infinite God, and, knowing Thyself, much more dost Thou know the whole universe, however vast, however intricate and various, and all that is in it.\n\n3. My great God, Thou knowest all that is in the universe, because Thou Thyself didst make it. It is the very work of Thy hands. Thou art Omniscient, because Thou art omni-creative. Thou knowest each part, however minute, as perfectly as Thou knowest the whole. Thou knowest mind as perfectly as Thou knowest matter. Thou knowest the thoughts and purposes of every soul as perfectly as if there were no other soul in the whole of Thy creation. Thou knowest me through and through; all my present, past, and future are before Thee as one whole. Thou seest all those delicate and evanescent motions of my thought which altogether escape myself. Thou canst trace every act, whether deed or thought, to its origin, and canst follow it into its whole growth and consequences. Thou knowest how it will be with me at the end; Thou hast before Thee that hour when I shall come to Thee to be judged. How awful is the prospect of finding myself in the presence of my Judge! Yet, O Lord, I would not that Thou shouldst not know me. It is my greatest stay to know that Thou readest my heart. O give me more of that open-hearted sincerity which I have desired. Keep me ever from being afraid of Thy eye, from the inward consciousness that I am not honestly trying to please Thee. Teach me to love Thee more, and then I shall be at peace, without any fear of Thee at all.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A meditation-prayer on Hebrews 4:13, that all things are naked and open to God's eyes: adoration of a knowledge infinitely beyond our own, ending with a prayer to love God more and so to be at peace without fear of him.",
+      occasions: ["meditation", "trust"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine18",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-is-all-in-all",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine20",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-is-all-in-all",
+      title: "God Is All in All (Saint John Henry Newman)",
+      body: "1. God alone is in heaven; God is all in all. Eternal Lord, I acknowledge this truth, and I adore Thee in this sovereign and most glorious mystery. There is One God, and He fills heaven; and all blessed creatures, though they ever remain in their individuality, are, as the very means of their blessedness, absorbed, and (as it were) drowned in the fulness of Him who is super omnes, et per omnia, et in omnibus. If ever, through Thy grace, I attain to see Thee in heaven, I shall see nothing else but Thee, because I shall see all whom I see in Thee, and seeing them I shall see Thee. As I cannot see things here below without light, and to see them is to see the rays which come from them, so in that Eternal City claritas Dei illuminavit eam, et lucerna ejus est Agnus—the glory of God hath enlightened it, and the Lamb is the lamp thereof. My God, I adore Thee now (at least I will do so to the best of my powers) as the One Sole True Life and Light of the soul, as I shall know and see Thee to be hereafter, if by Thy grace I attain to heaven.\n\n2. Eternal, Incomprehensible God, I believe, and confess, and adore Thee, as being infinitely more wonderful, resourceful, and immense, than this universe which I see. I look into the depths of space, in which the stars are scattered about, and I understand that I should be millions upon millions of years in creeping along from one end of it to the other, if a bridge were thrown across it. I consider the overpowering variety, richness, intricacy of Thy work; the elements, principles, laws, results which go to make it up. I try to recount the multitudes of kinds of knowledge, of sciences, and of arts of which it can be made the subject. And, I know, I should be ages upon ages in learning everything that is to be learned about this world, supposing me to have the power of learning it at all. And new sciences would come to light, at present unsuspected, as fast as I had mastered the old, and the conclusions of today would be nothing more than starting points of tomorrow. And I see moreover, and the more I examined it, the more I should understand, the marvellous beauty of these works of Thy hands. And so, I might begin again, after this material universe, and find a new world of knowledge, higher and more wonderful, in Thy intellectual creations, Thy angels and other spirits, and men. But all, all that is in these worlds, high and low, are but an atom compared with the grandeur, the height and depth, the glory, on which Thy saints are gazing in their contemplation of Thee. It is the occupation of eternity, ever new, inexhaustible, ineffably ecstatic, the stay and the blessedness of existence, thus to drink in and be dissolved in Thee.\n\n3. My God, it was Thy supreme blessedness in the eternity past, as it is Thy blessedness in all eternities, to know Thyself, as Thou alone canst know Thee. It was by seeing Thyself in Thy Co-equal Son and Thy Co-eternal Spirit, and in Their seeing Thee, that Father, Son, and Holy Ghost, Three Persons, One God, was infinitely blessed. O my God, what am I that Thou shouldst make my blessedness to consist in that which is Thy own! That Thou shouldst grant me to have not only the sight of Thee, but to share in Thy very own joy! O prepare me for it, teach me to thirst for it.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's meditation-prayer on God as all in all, the whole blessedness of heaven, where the saints will share his very own joy, closing with the plea to be prepared for it and taught to thirst for it.",
+      occasions: ["meditation", "all-saints", "preparation-for-death"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine20",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-communicated-to-us",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine22",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-communicated-to-us",
+      title: "God Communicated to Us (Saint John Henry Newman)",
+      body: '1. Thou hast, O Lord, an incommunicable perfection, but still that Omnipotence by which Thou didst create, is sufficient also to the work of communicating Thyself to the spirits which Thou hast created. Thy Almighty Life is not for our destruction, but for our living. Thou remainest ever one and the same in Thyself, but there goes from Thee continually a power and virtue, which by its contact is our strength and good. I do not know how this can be; my reason does not satisfy me here; but in nature I see intimations, and by faith I have full assurance of the truth of this mystery. By Thee we cross the gulf that lies between Thee and us. The Living God is lifegiving. Thou art the Fount and Centre, as well as the Seat, of all good. The traces of Thy glory, as the many-coloured rays of the sun, are scattered over the whole face of nature, without diminution of Thy perfections, or violation of Thy transcendent and unapproachable Essence. How it can be, I know not; but so it is. And thus, remaining one and sole and infinitely removed from all things, still Thou art the fulness of all things, in Thee they consist, of Thee they partake, and into Thee, retaining their own individuality, they are absorbed. And thus, while we droop and decay in our own nature, we live by Thy breath; and Thy grace enables us to endure Thy presence.\n\n2. Make me then like Thyself, O my God, since, in spite of myself, such Thou canst make me, such I can be made. Look on me, O my Creator, pity the work of Thy hands, ne peream in infirmitate meâ—"that I perish not in my infirmity." Take me out of my natural imbecility, since that is possible for me, which is so necessary. Thou hast shewn it to be possible in the face of the whole world by the most overwhelming proof, by taking our created nature on Thyself, and exalting it in Thee. Give me in my own self the benefit of this wondrous truth, now it has been so publicly ascertained and guaranteed. Let me have in my own person, what in Jesus Thou hast given to my nature. Let me be partaker of that Divine Nature in all the riches of Its attributes, which in fulness of substance and in personal presence became the Son of Mary. Give me that life, suitable to my own need, which is stored up for us all in Him who is the Life of men. Teach me and enable me to live the life of Saints and Angels. Take me out of the languor, the irritability, the sensitiveness, the incapability, the anarchy, in which my soul lies, and fill it with Thy fulness. Breathe on me, that the dead bones may live. Breathe on me with that Breath which infuses energy and kindles fervour. In asking for fervour, I ask for all that I can need, and all that Thou canst give; for it is the crown of all gifts and all virtues. It cannot really and fully be, except where all are present. It is the beauty and the glory, as it is also the continual safeguard and purifier of them all. In asking for fervour, I am asking for effectual strength, consistency, and perseverance; I am asking for deadness to every human motive, and simplicity of intention to please Thee: I am asking for faith, hope, and charity in their most heavenly exercise. In asking for fervour I am asking to be rid of the fear of man, and the desire of his praise; I am asking for the gift of prayer, because it will be so sweet; I am asking for that loyal perception of duty, which follows on yearning affection; I am asking for sanctity, peace, and joy all at once. In asking for fervour, I am asking for the brightness of the Cherubim and the fire of the Seraphim, and the whiteness of all Saints. In asking for fervour, I am asking for that which, while it implies all gifts, is that in which I signally fail. Nothing would be a trouble to me, nothing a difficulty, had I but fervour of soul.\n\n3. Lord, in asking for fervour, I am asking for Thyself, for nothing short of Thee, O my God, who hast given Thyself wholly to us. Enter my heart substantially and personally, and fill it with fervour by filling it with Thee. Thou alone canst fill the soul of man, and Thou hast promised to do so. Thou art the living Flame, and ever burnest with love of man: enter into me and set me on fire after Thy pattern and likeness.',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A meditation-prayer asking God, who communicates himself to us by grace, for fervour of soul, which is nothing less than God himself, and to set the heart on fire after the pattern of Christ.",
+      occasions: ["pentecost", "meditation", "act-of-love"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine22",
+        "https://archive.org/details/a600404300newmuoft",
       ],
     },
   },
@@ -2120,6 +2574,120 @@ export const prayerBatch12: CuratedEntry[] = [
       occasions: ["precious-blood", "july", "lent", "fridays"],
       relatedSaints: [],
       citations: ["https://archive.org/details/manualofprayersf00wood/page/n305/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-in-the-beginning-of-sickness",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n466/mode/1up"],
+    payload: {
+      slug: "prayer-in-the-beginning-of-sickness",
+      title: "Prayer in the Beginning of Sickness",
+      body: "O heavenly Father, who in Thy wisdom knowest what is best for me, glory be to Thee. Lord, if it seem good in Thy sight, remove from me this sickness which I now feel seizing upon me, that I may employ my health to Thy glory, and praise Thy name. But if Thou art pleased it should grow on me, I willingly submit to Thy afflicting hand, for Thou art wont to chasten those whom Thou dost love, and Thou hast promised not to lay on me any more than Thou wilt enable me to bear. I know, O my God, that Thou sendest this sickness on me for my good, even to humble and to prove me; O grant that it may not fail to work that saving effect in me. O Lord, create in me a true sorrow for all my past sins, a firm faith in Thee, and sincere resolutions of amendment for the time to come. Deliver me from all fretfulness and impatience, and give me an entire resignation to Thy divine will: O suffer not my sickness to take away my senses, and do Thou continually supply my thoughts with holy ejaculations. Lord, bless all the means that are used for my recovery, and restore me to my health, if it be Thy will, in Thy good time; but if Thou hast appointed otherwise for me, Thy blessed will be done. O wean my affections from all things of earth, and fill me with ardent desires after heaven: Lord, fit me for Thyself, and then call me, when Thou pleasest, to that joy unspeakable and full of glory; for the sake of Thine Only Son, Jesus Christ, my Lord and Saviour. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A prayer for the first days of an illness, asking for recovery if God wills it, and otherwise for patience, true sorrow for sin and entire resignation, and for a blessing on every means used for one's recovery. From the devotions for the sick in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["sickness", "illness", "trust"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n466/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "daily-prayer-in-sickness",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n467/mode/1up"],
+    payload: {
+      slug: "daily-prayer-in-sickness",
+      title: "Daily Prayer in Sickness",
+      body: "O Almighty God, behold I receive this sickness, with which Thou art pleased to visit me, as coming from Thy Fatherly hand. It is Thy will that it should be thus with me. Thy will be done in earth, as it is in heaven. May this sickness be to the honor of Thy holy name and for the good of my soul. For these ends I here offer myself to Thee with entire submission; to suffer what Thou pleasest, as long as Thou pleasest, and in what manner Thou pleasest: for I am Thy creature and Thy child, who have most ungratefully offended Thee. I have truly deserved Thy chastisement, and far more than Thou layest on me, but, O Lord, rebuke me not in Thine indignation, neither chasten me in Thy sore displeasure. Look upon my weakness, and be merciful unto me, for Thou knowest whereof I am made, Thou rememberest that I am but dust; deal not with me therefore after my sins, nor reward me according to mine iniquities; but according to the multitude of Thy tender mercies have compassion upon me. Assist me, I pray Thee, with Thy heavenly grace, and give me strength, that I may be able to bear with Christian patience all the pains, uneasiness, and trials of my sickness. Preserve me from all temptations so far as Thou seest fit, and be Thou my defence against all the assaults of the enemy, that I may in nowise offend Thee; and if it be Thy will that this sickness should be my last, I beg of Thee so to direct me by Thy grace that I may in no way neglect or be deprived of those Sacraments which Thou hast ordained for the good of my soul, to prepare it for its passage into eternity; so that, being cleansed from all my sins, I may put my whole trust in Thee, and love Thee above all things; and that finally, through the merits of the Passion and Death of Thy Son, I may be admitted into the company of the Blessed, there to praise Thee for ever, through the same Jesus Christ our Lord. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The Manual's daily prayer for a sick person, accepting the illness from God's fatherly hand, asking for Christian patience under its pains, and praying, if it should prove one's last, not to be deprived of the sacraments. From the devotions for the sick in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["sickness", "illness", "suffering"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n467/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "acts-of-the-necessary-virtues-for-the-sick",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n469/mode/1up"],
+    payload: {
+      slug: "acts-of-the-necessary-virtues-for-the-sick",
+      title: "Acts of the Most Necessary Virtues for the Sick",
+      body: "Act of Resignation.\nLord, I accept this sickness from Thy Fatherly hands; I entirely resign myself to Thy blessed will, whether it be for life or death. Not my will, but Thine be done; Thy will be done in earth, as it is in heaven.\n\nAct of Submission.\nLord, I submit to all the pains and uneasiness of this my illness: my sins have deserved infinitely more. Thou art just, O Lord, and Thy judgment is right.\n\nAct of Self-Oblation.\nLord, I offer up to Thee all that I now suffer, or may have to suffer, to be united to the sufferings of my Saviour, and to be sanctified by His Passion.\n\nAct of Adoration.\nI adore Thee, O my God and my All, as my First Beginning and my Last End; I desire to pay Thee the best homage that I am able, and to bow down all the powers of my soul to Thee.\n\nAct of Praise.\nLord, I desire to praise Thee for ever, in sickness as well as in health; I desire to join my heart and voice with the whole Church of heaven and earth, in blessing Thee for ever.\n\nAct of Thanksgiving.\nI give Thee thanks, O Lord, from the bottom of my heart, for all the mercies and blessings which Thou hast bestowed upon me and on Thy whole Church through Jesus Christ Thy Son; above all, because Thou hast loved me from all eternity, and hast sent Thy Son to redeem me with His precious Blood. O let not that Blood be shed for me in vain.\n\nAct of Faith.\nLord, I believe all those heavenly truths which Thou hast revealed, and which Thy Holy Catholic Church believes and teaches. Thou art the Sovereign Truth, who neither canst deceive nor be deceived. Thou hast promised Thy Spirit of Truth to guide Thy Church into all truth. In this Faith I resolve, through Thy grace, both to live and die. O Lord, strengthen and increase this my faith.\n\nAct of Hope.\nO my God, all my hope is in Thee! Through Jesus Christ, my Redeemer, through His Passion and Death, I hope for mercy, grace, and salvation from Thee. In Thee, O Lord, have I put my trust: let me never be confounded. O Sweet Jesus, receive me into Thine arms in this day of my distress; hide me in Thy Wounds, bathe my soul in Thy precious Blood.\n\nAct of Love.\nI love Thee, O my God, with my whole heart and soul, above all things: at least I desire so to love Thee. O come now and take full possession of my soul, and teach me to love Thee for ever. I desire to depart, and to be with Christ. O when will Thy kingdom come? O Lord, when wilt Thou perfectly reign in all hearts? When shall sin be no more?\n\nAct of Love of One's Neighbor.\nI desire to love my neighbor with perfect charity for the love of Thee. I forgive from my heart all who have in any way offended or injured me, and I ask pardon of all whom I have in any way offended or injured.\n\nAct of Contrition.\nHave mercy upon me, O God, according to Thy great mercy: and according to the multitude of Thy tender mercies blot out my iniquity. O who will give water to my head, and a fountain of tears to my eyes, that, day and night, I may bewail my sins? O that I had never offended so good a God! O that I had never sinned! Happy those souls that have always preserved their baptismal innocence! Lord, be merciful to me a sinner; Holy Jesus, Son of the Living God, have mercy upon me.\n\nAct of Commendation to God.\nI commend my soul to God my Maker, who created me from nothing; to Jesus Christ my Saviour, who redeemed me with His Blood; to the Holy Ghost, who sanctified me in baptism. Into Thy hands, O Lord, I commend my spirit.\n\nAct of Renunciation of Evil.\nI renounce, from this moment and for all eternity, the devil and all his works and pomps. I abhor all his suggestions and temptations. Suffer not, O Lord, this mortal enemy of my soul to have any power over me, either now or at my last hour. Let Thy holy Angels ever keep me and defend me against all the powers of darkness.\n\nO holy Mary, Mother of God, who wert present beneath the Cross at the death of thy beloved Son Jesus, obtain for me the grace of a happy death.\nHail Mary.\n\nGlorious St. Michael, Prince of the heavenly host, intercede for me at the hour of my death.\n\nO holy Guardian Angel, to whose care God, in His mercy, has committed me, stand by me at the last hour; protect me against all the powers of darkness; defend me from all my enemies, and conduct my soul to the mansions of bliss.\n\nO all ye blessed Angels and Saints of God, assist me by your intercession in the passage from time to eternity. Amen.",
+      prayerType: "act",
+      category: "act",
+      language: "en",
+      summary:
+        "A sequence of short acts for the sick and dying, of resignation, submission, self-oblation, adoration, praise, thanksgiving, faith, hope, love of God and neighbour, contrition, commendation and renunciation of evil, closing with invocations of the Blessed Virgin, Saint Michael, the guardian angel and all the saints. From the devotions for the sick in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["sickness", "deathbed", "preparation-for-death"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n469/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-patience-in-sickness",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n472/mode/1up"],
+    payload: {
+      slug: "prayer-for-patience-in-sickness",
+      title: "Prayer for Patience in Sickness",
+      body: "Remember, O most pitying Father, what this frail and feeble work of Thy hands can bear without fainting; nothing, indeed, of itself, but all things in Thee, if strengthened by Thy grace. Wherefore grant me strength, that I may suffer and endure; patience alone I ask. Lord, give me this, and behold my heart is ready, O God, my heart is ready to receive whatsoever shall be laid upon me; may it even be a consolation to me that, afflicting me with pain, Thou sparest not here, that Thou mayest spare hereafter. Grant, O Lord, that in my patience I may possess my soul; to that end may I often look upon the Face of Christ Thy Son, that as He hath suffered such terrible things in the flesh, I may endeavor to be armed with the same mind. Wherefore I commit my strength unto Thee, O Lord; for Thou art my Strength and my Refuge; Thou dost uphold my life. Behold, O Lord, now am I in the midst of the fire, and how long I shall be there Thou knowest. Keep me, Thou who didst preserve unhurt the Three Children in the furnace of fire, and bring me safe out of this trial when it shall please Thee, as Thou didst deliver them, that I also may bless Thee with all Thy creatures for ever. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A sick person's prayer for patience alone, recalling Christ's sufferings in the flesh and the Three Children kept unhurt in the fiery furnace (Daniel 3). From the devotions for the sick in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["sickness", "suffering", "illness"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n472/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-in-suffering",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n473/mode/1up"],
+    payload: {
+      slug: "prayer-in-suffering",
+      title: "Prayer in Suffering",
+      body: "O Lord Jesus Christ, accept my sufferings which I desire to unite with Thine. Sanctify this affliction, so that every pang I feel may purify my soul and bring it nearer to Thee, to be made more one with Thee; grant that I may welcome the sufferings which will make me more like to Thee.\n\nO my Lord, stand Thou by me with Thy supporting grace; sanctify each pang, sustain my weakness. And then order for me what Thou pleasest. Come now to my help, O Lord, and so purify my soul that I may be spared the last, the eternal suffering; let me fly to the embrace of Thy love for ever.\n\nLord Jesus, hast Thou not invited all that labor and are heavy-burdened to come to Thee for refreshment? Behold now Thy servant, afflicted and oppressed, comes to Thee for help; relieve me, I beseech Thee, Thou who art Infinite in mercy.\n\nO Thou who hast comforted the Martyrs in their torments, and refreshed them with heavenly sweetness on the rack and in the fire, renew Thy mercies to me Thine unworthy servant; defend me against all temptation, suffer not the enemy to take advantage of me, but grant me Thy heavenly strength, the fulness of Thy grace and peace. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A prayer uniting one's sufferings with Christ's, asking him to sanctify every pang, to give the rest he promised to all who labour and are burdened (Matthew 11:28), and to comfort the sufferer as he comforted the martyrs. From the devotions for the sick in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["suffering", "sickness", "illness"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n473/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "thanksgiving-for-recovery-from-sickness",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n477/mode/1up"],
+    payload: {
+      slug: "thanksgiving-for-recovery-from-sickness",
+      title: "Thanksgiving for Recovery from Sickness",
+      body: "Glory be to Thee, O heavenly Father, for the sickness Thou hast in mercy sent me. Lord, the stripes Thou didst lay on me were the stripes of love; glory be to Thee. Before I was humbled I did wickedly; but now will I keep Thy word. It is good for me that Thou hast humbled me, that I might learn Thine ordinances.\n\nGlory be to Thee, O Lord, glory be to Thee, for delivering me from the terrors of death, and restoring me to my health again; glory be to Thee. I called upon the Lord in my trouble, and the Lord heard me. I shall not die, but live and declare the works of the Lord. Bless the Lord, therefore, O my soul: as long as I have my life, which at first God gave me, and which He has now restored to me, I will sing praises unto my God.\n\nO Lord God, who hast in Thy tender mercy prolonged my days in this world, give me grace to spend this life, which Thou hast now lengthened, in Thy service. O give me grace to perform all my resolutions of new obedience, and so to live in the filial fear of Thee all the remainder of my time that I may at last die at peace with myself, at peace with the whole world, and at peace with Thee; for the sake of Thy Dearly-beloved Son, our Lord and Saviour.\n\nOur Father. Hail Mary. Glory be to the Father.\n\nThe blessing of God Almighty, the Father, the Son, and the Holy Ghost, descend upon me and all belonging to me, and dwell in my heart and be with me in my going out and coming in, now and for ever. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        'A prayer of thanks on recovering from illness, woven from the Psalms ("It is good for me that Thou hast humbled me"; "I shall not die, but live"), asking grace to spend the lengthened life in God\'s service, and ending with a blessing on oneself and one\'s household. From the devotions for the sick in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["thanksgiving", "healing", "sickness"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n477/mode/1up"],
     },
   },
 ];
