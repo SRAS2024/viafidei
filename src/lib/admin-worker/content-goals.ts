@@ -45,7 +45,7 @@ export const DEFAULT_GOAL_SEEDS: readonly ContentGoalSeed[] = [
   { contentType: "PRAYER", targetGoal: 1000, canonicalMax: null, priority: 10 },
   { contentType: "POPE", targetGoal: 267, canonicalMax: null, priority: 15 },
   { contentType: "SAINT", targetGoal: 4500, canonicalMax: null, priority: 20 },
-  { contentType: "DOCTOR", targetGoal: 37, canonicalMax: null, priority: 25 },
+  { contentType: "DOCTOR", targetGoal: 38, canonicalMax: null, priority: 25 },
   { contentType: "DEVOTION", targetGoal: 100, canonicalMax: null, priority: 30 },
   { contentType: "NOVENA", targetGoal: 100, canonicalMax: null, priority: 40 },
   { contentType: "MARIAN_TITLE", targetGoal: 50, canonicalMax: null, priority: 50 },

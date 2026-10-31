@@ -37,7 +37,7 @@ function doctor(
 }
 
 /**
- * The thirty-seven Doctors of the Church — saints the Church has formally
+ * The thirty-eight Doctors of the Church — saints the Church has formally
  * recognized for an eminent contribution to theology or doctrine. Each entry
  * carries the saint's doctoral epithet, feast day, and a short biography drawn
  * from the proclamation of the doctorate and standard Catholic reference
@@ -340,4 +340,22 @@ export const doctorKnowledge: CuratedEntry[] = [
     "bishop",
     "Saint Irenaeus (c. 130-202), bishop of Lyon and disciple of Saint Polycarp, refuted Gnosticism and articulated the rule of faith and apostolic succession in Against Heresies. Declared a Doctor of the Church — the Doctor of Unity — by Pope Francis in 2022.",
   ),
+  // No doctoral epithet was conferred, so none is given (as for Gregory of Narek).
+  withCitation(
+    doctor(
+      "doctor-john-henry-newman",
+      "Saint John Henry Newman",
+      "Doctor of the Church",
+      "10-09",
+      "priest",
+      "Saint John Henry Newman (1801-1890), Anglican priest and leader of the Oxford Movement, was received into the Catholic Church in 1845, founded the English Oratory, and was created a cardinal by Pope Leo XIII in 1879; his works include the Apologia Pro Vita Sua and An Essay on the Development of Christian Doctrine. Canonized in 2019, he was declared a Doctor of the Church by Pope Leo XIV on 1 November 2025 and named co-patron of Catholic education.",
+    ),
+    "https://en.wikipedia.org/wiki/John_Henry_Newman",
+  ),
 ];
+
+/** Add a source that documents a recent proclamation to one entry. */
+function withCitation(entry: CuratedEntry, url: string): CuratedEntry {
+  const citations = [...entry.citations, url];
+  return { ...entry, citations, payload: { ...entry.payload, citations } };
+}

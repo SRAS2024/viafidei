@@ -89,7 +89,7 @@ export const CONTENT_CATALOG: CatalogCategory[] = [
     label: "Doctors of the Church",
     page: "/doctors",
     types: ["DOCTOR"],
-    target: 37,
+    target: 38,
   },
   { key: "popes", label: "Popes", page: "/popes", types: ["POPE"], target: 267 },
   {
