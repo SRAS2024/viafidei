@@ -5,6 +5,7 @@ import { GuidePrayers, PublishedDetail } from "@/components/ui";
 import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { loadPrayersForText } from "@/lib/data/prayer-sets";
+import { localizeItem, localizePrayers } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +25,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default async function SpiritualLifeDetailPage({ params }: Props) {
   const { slug } = await params;
-  const practice = await getPublishedBySlug("SPIRITUAL_PRACTICE", slug);
+  const practice = await localizeItem(await getPublishedBySlug("SPIRITUAL_PRACTICE", slug));
   if (practice) {
     const instructions = practice.payload.instructions;
-    const { prayers, ordered } = await loadPrayersForText(
+    const { prayers: named, ordered } = await loadPrayersForText(
       practice.payload.relatedPrayers,
       typeof instructions === "string" ? [instructions] : [],
     );
+    // Chosen from the stored instructions; shown in the reader's language.
+    const prayers = await localizePrayers(named);
     const minutes = practice.payload.durationMinutes;
     return (
       <>

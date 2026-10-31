@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { PublishedDetail } from "@/components/ui";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { localizeItem } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ function birthNameLine(title: string, value: unknown): string | null {
  */
 export default async function PopeDetailPage({ params }: Props) {
   const { slug } = await params;
-  const item = await getPublishedBySlug("POPE", slug);
+  const item = await localizeItem(await getPublishedBySlug("POPE", slug));
   if (!item) notFound();
   return (
     <PublishedDetail

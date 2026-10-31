@@ -32,6 +32,12 @@ export interface PrayerVariant {
   preserve: boolean;
   /** True for a machine translation (`machineTranslated`), not received text. */
   unofficial?: boolean;
+  /**
+   * The language `text` is actually written in, when it is not `code`: the
+   * vernacular slot ("en") holding the reader's machine translation
+   * (src/lib/translation). Renderers use it for the `lang` attribute.
+   */
+  lang?: string;
 }
 
 /** A published prayer as the language-aware prayer lists and inline panels need it. */

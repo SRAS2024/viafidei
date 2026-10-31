@@ -11,6 +11,7 @@ import { LITURGICAL_FILTERS } from "@/lib/content-shared/liturgical-categories";
 import { applyPayloadFilter, resolvePayloadFilter } from "@/lib/content-shared/payload-filter";
 import { getTranslator } from "@/lib/i18n/server";
 import { countPublishedBySubtype, listPublished } from "@/lib/data/published";
+import { localizeItems } from "@/lib/translation/localize";
 
 /**
  * The stored `kind` values behind each chip. `PublishedContent.subtype` carries
@@ -85,7 +86,11 @@ export default async function LiturgyPage({
       ) : (
         <>
           {/* The eyebrow is the humanised kind — never `liturgical_season`. */}
-          <PublishedList items={page.items} baseHref="/liturgy-history" eyebrowField="kind" />
+          <PublishedList
+            items={await localizeItems(page.items, { depth: "card" })}
+            baseHref="/liturgy-history"
+            eyebrowField="kind"
+          />
           <Pagination
             basePath="/liturgy"
             page={page.page}

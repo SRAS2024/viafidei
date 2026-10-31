@@ -66,7 +66,8 @@ function InlinePrayerPanel({
           <p
             className="mt-2 whitespace-pre-line font-serif text-sm leading-relaxed text-ink-soft"
             translate={shown.preserve ? "no" : undefined}
-            lang={shown.code}
+            // The reader's language when the vernacular holds their translation.
+            lang={shown.lang ?? shown.code}
           >
             {shown.text}
           </p>

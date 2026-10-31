@@ -12,6 +12,7 @@ import {
 import { apparitionEyebrow } from "@/lib/content-shared/apparitions";
 import { OUR_LADY_FILTERS, resolveOurLadyFilter } from "@/lib/content-shared/our-lady";
 import { listPublished } from "@/lib/data/published";
+import { localizeItems } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Our Lady" };
@@ -78,7 +79,10 @@ export default async function OurLadyPage({
             </p>
           ) : (
             <>
-              <PublishedList items={titlePage.items} baseHref="/our-lady" />
+              <PublishedList
+                items={await localizeItems(titlePage.items, { depth: "card" })}
+                baseHref="/our-lady"
+              />
               <Pagination
                 basePath="/our-lady"
                 page={titlePage.page}
@@ -103,7 +107,7 @@ export default async function OurLadyPage({
           ) : (
             <>
               <PublishedList
-                items={apparitionPage.items}
+                items={await localizeItems(apparitionPage.items, { depth: "card" })}
                 baseHref="/our-lady"
                 eyebrowFor={(item) => apparitionEyebrow(entryPayload(item))}
               />

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { PublishedDetail } from "@/components/ui";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { localizeItem } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default async function DoctorDetailPage({ params }: Props) {
   const { slug } = await params;
-  const item = await getPublishedBySlug("DOCTOR", slug);
+  const item = await localizeItem(await getPublishedBySlug("DOCTOR", slug));
   if (!item) notFound();
   return (
     <PublishedDetail

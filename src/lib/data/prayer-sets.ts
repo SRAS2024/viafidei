@@ -3,6 +3,11 @@
  * chips: a guide's, a novena's, a devotion's, a Marian title's, and the prayers
  * a Rosary or chaplet prayer names. Each set is ONE memoised query
  * (`listPublishedBySlugs`); the building-block set is the same query on every page.
+ *
+ * The matching and ordering here read the stored English titles and texts, like
+ * all page logic. A page hands the prayers it ends up showing to
+ * `localizePrayers` (src/lib/translation), which puts them in the reader's
+ * language before they reach the prayer components.
  */
 
 import { litanyKnowledge } from "@/lib/checklist/knowledge/litanies";
@@ -18,6 +23,7 @@ import {
   type MentionOptions,
 } from "@/lib/content-shared/prayer-mentions";
 import { listPublishedBySlugs } from "@/lib/data/published";
+import { listedPrayer } from "@/lib/translation/localize";
 
 /** Whitespace folded, so a re-wrapped copy of a text still compares equal. */
 function foldText(text: string): string {
@@ -75,18 +81,16 @@ function slugList(value: unknown): string[] {
 /**
  * The published prayers behind `slugs`, in that order, each with its language
  * variants. Unpublished slugs and prayers with no text are dropped. Never
- * throws: a failed lookup costs the list, not the page.
+ * throws: a failed lookup costs the list, not the page. Each prayer remembers
+ * its item, so `localizePrayers` can show it in the reader's language once the
+ * matching below, which keys on the stored English, is done.
  */
 export async function loadPrayerSet(slugs: unknown): Promise<PrayerWithVariants[]> {
   const list = slugList(slugs);
   if (list.length === 0) return [];
   const items = await listPublishedBySlugs("PRAYER", list).catch(() => []);
   return items
-    .map((p) => ({
-      slug: p.slug,
-      title: p.title,
-      variants: publishedPrayerVariants(p.slug, p.payload),
-    }))
+    .map((p) => listedPrayer(p, (payload) => publishedPrayerVariants(p.slug, payload)))
     .filter((p) => p.variants.length > 0);
 }
 

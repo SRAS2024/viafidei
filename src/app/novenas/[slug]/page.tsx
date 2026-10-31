@@ -6,6 +6,7 @@ import { GuidePrayers, PublishedDetail } from "@/components/ui";
 import { toDisclosureItems } from "@/lib/content-shared/structured-content";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { loadPrayersForText } from "@/lib/data/prayer-sets";
+import { localizeItem, localizePrayers } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -39,10 +40,13 @@ async function novenaPrayers(payload: Record<string, unknown>) {
  */
 export default async function NovenaDetailPage({ params }: Props) {
   const { slug } = await params;
-  const item = await getPublishedBySlug("NOVENA", slug);
+  const item = await localizeItem(await getPublishedBySlug("NOVENA", slug));
   if (!item) notFound();
 
-  const { prayers, ordered } = await novenaPrayers(item.payload);
+  // Chosen from the stored days; shown in the reader's language like the
+  // novena itself (src/lib/translation).
+  const { prayers: named, ordered } = await novenaPrayers(item.payload);
+  const prayers = await localizePrayers(named);
   const begins =
     typeof item.payload.typicalStartDate === "string" && item.payload.typicalStartDate.trim()
       ? `Begins: ${item.payload.typicalStartDate.trim()}`

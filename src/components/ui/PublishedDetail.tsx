@@ -14,6 +14,7 @@
  */
 
 import { contentTypeLabel, type PublishedItem } from "@/lib/data/published";
+import { displayItem } from "@/lib/translation/display";
 import { documentDatePrecision } from "@/lib/content-shared/church-history/timeline";
 import { formatHistoryDate } from "@/lib/content-shared/church-history/types";
 import { toDisclosureItems } from "@/lib/content-shared/structured-content";
@@ -96,19 +97,27 @@ export interface PublishedDetailProps {
  * every leaf string comes from `presentValue`, so nothing here can print a
  * camelCase key, a raw enum, or "[object Object]" — a value that cannot be
  * presented arrives as `null` and the caller drops the section entirely.
+ *
+ * `layout` is the same field as stored. The page is laid out by it and only the
+ * text comes from `value`, so a page in the reader's language
+ * (src/lib/translation) keeps the stored layout: a translated theme longer than
+ * a chip does not turn the row of chips into a bulleted list for that reader.
  */
-function renderPresented(value: PresentedValue, depth = 0): React.ReactNode {
+function renderPresented(
+  value: PresentedValue,
+  depth = 0,
+  layout: PresentedValue = value,
+): React.ReactNode {
   if (value.kind === "text") {
-    return value.multiline ? (
-      <p className="whitespace-pre-line">{value.text}</p>
-    ) : (
-      <p>{value.text}</p>
-    );
+    const multiline = layout.kind === "text" ? layout.multiline : value.multiline;
+    return multiline ? <p className="whitespace-pre-line">{value.text}</p> : <p>{value.text}</p>;
   }
   if (value.kind === "list") {
+    const shape =
+      layout.kind === "list" && layout.items.length === value.items.length ? layout : value;
     // Short single-line entries (patronages, "what you need") read better as
     // chips than as a bulleted column.
-    if (isChipList(value)) {
+    if (isChipList(shape)) {
       return (
         <ul className="flex flex-wrap gap-2">
           {value.items.map((item, i) => (
@@ -122,23 +131,25 @@ function renderPresented(value: PresentedValue, depth = 0): React.ReactNode {
         </ul>
       );
     }
-    const ListTag = value.ordered ? "ol" : "ul";
+    const ListTag = shape.ordered ? "ol" : "ul";
     return (
-      <ListTag className={`ml-6 ${value.ordered ? "list-decimal" : "list-disc"}`}>
+      <ListTag className={`ml-6 ${shape.ordered ? "list-decimal" : "list-disc"}`}>
         {value.items.map((item, i) => (
           <li key={i} className="mt-2">
-            {renderPresented(item, depth + 1)}
+            {renderPresented(item, depth + 1, shape.items[i])}
           </li>
         ))}
       </ListTag>
     );
   }
+  const shape =
+    layout.kind === "pairs" && layout.pairs.length === value.pairs.length ? layout : value;
   return (
     <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1">
-      {value.pairs.map((pair) => (
+      {value.pairs.map((pair, i) => (
         <div key={pair.label} className="contents">
           <dt className="font-medium text-ink-soft">{pair.label}</dt>
-          <dd>{renderPresented(pair.value, depth + 1)}</dd>
+          <dd>{renderPresented(pair.value, depth + 1, shape.pairs[i]?.value)}</dd>
         </div>
       ))}
     </dl>
@@ -216,9 +227,19 @@ export function PublishedDetail({
   lede = true,
   headings,
 }: PublishedDetailProps) {
+  // What is shown, and in what order, is decided on the stored fields; the
+  // text comes from `shown`, the reader's language when the item carries a
+  // translation overlay (src/lib/translation) and the item itself otherwise.
+  // Its payload has the stored shape, with only the prose translated.
   const payload = item.payload;
+  const shown = displayItem(item);
+  const shownPayload = shown.payload;
   const summary =
     typeof payload.summary === "string" && payload.summary.trim() ? payload.summary : undefined;
+  const shownSummary =
+    typeof shownPayload.summary === "string" && shownPayload.summary.trim()
+      ? shownPayload.summary
+      : summary;
   // The eyebrow is a word, not an enum: "MARIAN_TITLE" used to print here.
   // `subtype` refines it (a PRAYER whose prayerType is "litany" reads "Litany").
   const eyebrowLabel =
@@ -243,7 +264,7 @@ export function PublishedDetail({
         typeof payload[key] === "string" &&
         foldProse(payload[key] as string).includes(foldedSummary),
     )
-      ? summary
+      ? shownSummary
       : null;
 
   const linked = linkedPrayers && linkedPrayers.length > 0 ? linkedPrayers : null;
@@ -275,10 +296,12 @@ export function PublishedDetail({
     if (/(?:Slug|Slugs|Url)$/.test(key)) return null;
     if (keysShown.has(key)) return null;
     keysShown.add(key);
-    const value = payload[key];
-    if (value == null) return null;
-    if (typeof value === "string" && !value.trim()) return null;
-    if (Array.isArray(value) && value.length === 0) return null;
+    const stored = payload[key];
+    if (stored == null) return null;
+    if (typeof stored === "string" && !stored.trim()) return null;
+    if (Array.isArray(stored) && stored.length === 0) return null;
+    // The reader's text, in the stored shape (the stored value when untranslated).
+    const value = shownPayload[key] ?? stored;
     // Caller-supplied renderer for this field (e.g. address → Maps link).
     const custom = fieldRenderers?.[key];
     if (custom) {
@@ -325,9 +348,12 @@ export function PublishedDetail({
     }
     // Everything else goes through the presenter layer; a value it cannot
     // present honestly returns null and the whole section is dropped rather
-    // than printing "[object Object]" or a bare flag.
-    const presented = presentValue(key, value);
-    if (!presented) return null;
+    // than printing "[object Object]" or a bare flag. Whether it is shown, and
+    // how it is laid out, is decided on the stored value; the text is the
+    // reader's.
+    const layout = presentValue(key, stored);
+    if (!layout) return null;
+    const presented = value === stored ? layout : (presentValue(key, value) ?? layout);
     return section(
       key,
       <div className="mt-2 font-serif leading-relaxed text-ink">
@@ -335,7 +361,7 @@ export function PublishedDetail({
           // Instructions name prayers in running prose ("pray the Our Father").
           <PrayerLinkedText text={presented.text} prayers={linked} headingLevel={panelLevel(key)} />
         ) : (
-          renderPresented(presented)
+          renderPresented(presented, 0, layout)
         )}
       </div>,
     );
@@ -347,13 +373,13 @@ export function PublishedDetail({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             {eyebrowLabel ? <p className="vf-eyebrow mb-2">{eyebrowLabel}</p> : null}
-            <h1 className="break-words font-display text-4xl text-ink">{item.title}</h1>
-            {showSubtitle && item.subtitle ? (
-              <p className="mt-1 font-serif text-base italic text-ink-soft">{item.subtitle}</p>
+            <h1 className="break-words font-display text-4xl text-ink">{shown.title}</h1>
+            {showSubtitle && shown.subtitle ? (
+              <p className="mt-1 font-serif text-base italic text-ink-soft">{shown.subtitle}</p>
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-1">
-            <ShareButton title={item.title} text={summary ?? item.title} />
+            <ShareButton title={shown.title} text={shownSummary ?? shown.title} />
             {action}
           </div>
         </div>
@@ -379,6 +405,7 @@ export function PublishedDetail({
           {footer}
         </footer>
       ) : null}
+      {/* Which article to credit is read from the stored record. */}
       <WikipediaAttribution contentType={item.contentType} payload={payload} />
     </article>
   );

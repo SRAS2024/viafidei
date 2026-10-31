@@ -12,6 +12,7 @@ import {
   saintLifeDates,
 } from "@/lib/content-shared/saints";
 import { getTranslator } from "@/lib/i18n/server";
+import { localizeItem } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,9 @@ export default async function SaintDetailPage({ params }: Props) {
   const stored = await getPublishedBySlug("SAINT", slug);
   if (!stored) notFound();
   const { t } = await getTranslator();
+  // The card's own lines, from the stored record as on the card. Their wording
+  // is the dictionaries' (English until a dictionary carries it), so a machine-
+  // translated patronage would put two languages in one line.
   const facts = [
     ...saintCardDetailLines(saintCardDetails(stored.payload), t),
     saintLifeDates(stored.payload),
@@ -43,8 +47,12 @@ export default async function SaintDetailPage({ params }: Props) {
   // Rendering only: the stored biography (and its record) is untouched.
   const biography = stored.payload.biography;
   const shown = typeof biography === "string" ? saintBiographyForDisplay(biography) : biography;
-  const item =
+  const trimmed =
     shown === biography ? stored : { ...stored, payload: { ...stored.payload, biography: shown } };
+  // In the reader's language (src/lib/translation), localized only once the
+  // source pointer is gone, so no translation of it can reach the page. The
+  // saint's name comes from the dictionaries alone and is never translated.
+  const item = (await localizeItem(trimmed)) ?? trimmed;
   return (
     <PublishedDetail
       item={item}

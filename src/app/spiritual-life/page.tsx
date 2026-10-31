@@ -11,6 +11,7 @@ import { SPIRITUAL_FILTERS } from "@/lib/content-shared/spiritual-categories";
 import { applyPayloadFilter, resolvePayloadFilter } from "@/lib/content-shared/payload-filter";
 import { getTranslator } from "@/lib/i18n/server";
 import { countPublishedBySubtype, listPublished } from "@/lib/data/published";
+import { localizeItems } from "@/lib/translation/localize";
 
 /**
  * The stored `practiceKind` values behind each chip. `PublishedContent.subtype`
@@ -85,7 +86,7 @@ export default async function SpiritualLifePage({
         <>
           {/* The eyebrow is the humanised practice kind — never `lectio_divina`. */}
           <PublishedList
-            items={page.items}
+            items={await localizeItems(page.items, { depth: "card" })}
             baseHref="/spiritual-life"
             eyebrowField="practiceKind"
           />

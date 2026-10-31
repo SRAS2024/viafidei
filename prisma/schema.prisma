@@ -3176,3 +3176,45 @@ model AdminTwoFactorChallenge {
   @@index([adminSessionHash])
   @@index([expiresAt])
 }
+
+/// Machine translations of published content (migration 0062_content_translation).
+///
+/// One row per (target language, unit): a unit is one English sentence or
+/// phrase of a published item, keyed by `sourceHash`
+/// (src/lib/translation/segments.ts). Parish names are never translated
+/// (they are transliterated on the page, rules.ts rule b). The translator
+/// (scripts/translate-content.ts) fills `text`; the web server reads it and,
+/// when a visitor's page needs a unit that is not translated yet, files a
+/// `pending` row so the translator does that page first. The original is shown
+/// until a row is `done` — nothing a page renders ever waits for a model.
+///
+/// Latin and Greek never become rows (src/lib/translation/rules.ts).
+model ContentTranslation {
+  id          String    @id @default(cuid())
+  /// Target locale: es, fr, it, de, pt, pl, tl, vi, zh (Korean has no model yet).
+  lang        String
+  sourceHash  String
+  /// "title" | "text"
+  kind        String    @default("text")
+  /// Language of `source` (always "en": content is authored in English).
+  sourceLang  String    @default("en")
+  source      String
+  /// Latin/Greek spans that must survive verbatim.
+  protect     String[]  @default([])
+  /// The raw translation; null while pending.
+  text        String?
+  /// "<repo>@<revision>" of the model that produced `text`.
+  model       String?
+  /// pending | done | untranslated
+  status      String    @default("pending")
+  attempts    Int       @default(0)
+  /// When a visitor's page last needed it (pending rows only).
+  requestedAt DateTime?
+  claimedAt   DateTime?
+  claimedBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([lang, sourceHash])
+  @@index([status, requestedAt])
+}

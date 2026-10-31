@@ -16,6 +16,7 @@ import {
   type PublishedItem,
 } from "@/lib/data/published";
 import { loadPrayersForText } from "@/lib/data/prayer-sets";
+import { localizeItem, localizePrayers } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -76,15 +77,18 @@ async function devotionGuides(devotion: PublishedItem) {
  */
 export default async function DevotionDetailPage({ params }: Props) {
   const { slug } = await params;
-  const item = await getPublishedBySlug("DEVOTION", slug);
+  const item = await localizeItem(await getPublishedBySlug("DEVOTION", slug));
   if (!item) notFound();
   const instructions = INSTRUCTION_FIELDS.map((key) => item.payload[key]).filter(
     (text): text is string => typeof text === "string",
   );
-  const [{ prayers, ordered }, guides] = await Promise.all([
+  const [{ prayers: named, ordered }, guides] = await Promise.all([
     loadPrayersForText(item.payload.relatedPrayers, instructions),
     devotionGuides(item),
   ]);
+  // Chosen and ordered from the stored English above; shown in the reader's
+  // language (src/lib/translation), like the instructions that name them.
+  const prayers = await localizePrayers(named);
   const minutes = item.payload.durationMinutes;
   return (
     <>

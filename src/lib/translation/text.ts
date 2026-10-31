@@ -1,0 +1,797 @@
+/**
+ * Text handling around the translation model: sentence splitting, preparing
+ * Title Case headings so the model reads them as phrases, target-language
+ * typography for the output, and the checks that reject a degenerate or
+ * embellished translation.
+ *
+ * Ported from The Augustine Journal (src/lib/translation/text.js), where it
+ * runs in production, and adapted to Via Fidei's ten target languages: CJK
+ * output is far shorter than its English source, Italian and Polish have their
+ * own quotation marks and era markers, and the guard against Islamic wording
+ * the models learned from Qur'an translations covers Korean, Chinese and
+ * Vietnamese as well.
+ */
+
+import type { MtLocale } from "./languages";
+
+const ABBREVIATIONS = new Set([
+  // titles and common abbreviations
+  "mr",
+  "mrs",
+  "ms",
+  "dr",
+  "st",
+  "sts",
+  "sr",
+  "jr",
+  "fr",
+  "rev",
+  "revd",
+  "msgr",
+  "prof",
+  "gen",
+  "gov",
+  "sen",
+  "rep",
+  "mt",
+  "mgr",
+  "bros",
+  "co",
+  "corp",
+  "inc",
+  "ltd",
+  "vs",
+  "etc",
+  "cf",
+  "viz",
+  "al",
+  "ca",
+  "approx",
+  "no",
+  "nos",
+  "vol",
+  "vols",
+  "ed",
+  "eds",
+  "trans",
+  "pp",
+  "p",
+  "ch",
+  "chap",
+  "fig",
+  "par",
+  "sec",
+  "art",
+  "op",
+  "bl",
+  "ven",
+  "card",
+  "abp",
+  "bp",
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "sept",
+  "oct",
+  "nov",
+  "dec",
+  // books of the Bible
+  "ex",
+  "exod",
+  "lev",
+  "num",
+  "deut",
+  "josh",
+  "judg",
+  "sam",
+  "kgs",
+  "chr",
+  "neh",
+  "esth",
+  "ps",
+  "pss",
+  "prov",
+  "eccl",
+  "eccles",
+  "isa",
+  "jer",
+  "lam",
+  "bar",
+  "ezek",
+  "dan",
+  "hos",
+  "obad",
+  "mic",
+  "nah",
+  "hab",
+  "zeph",
+  "hag",
+  "zech",
+  "mal",
+  "tob",
+  "jdt",
+  "wis",
+  "sir",
+  "macc",
+  "matt",
+  "mk",
+  "lk",
+  "jn",
+  "rom",
+  "cor",
+  "gal",
+  "eph",
+  "phil",
+  "col",
+  "thess",
+  "tim",
+  "tit",
+  "philem",
+  "heb",
+  "jas",
+  "pet",
+  "jud",
+]);
+
+const CLOSERS = "\"”’')]»";
+const OPENERS = "\"“‘'([«¿¡";
+
+function isUpperStart(ch: string): boolean {
+  return /[\p{Lu}\p{Lt}0-9]/u.test(ch);
+}
+
+export interface SentencePiece {
+  text: string;
+  /** The whitespace that followed the sentence in the source. */
+  after: string;
+}
+
+/**
+ * Returns a function telling whether position i lies inside a quotation that
+ * is closed later in the same text (unclosed quotes are ignored).
+ */
+function quoteRanges(text: string): (i: number) => boolean {
+  const ranges: Array<[number, number]> = [];
+  const stack: number[] = [];
+  let straightOpen = -1;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === "“" || c === "«") stack.push(i);
+    else if ((c === "”" || c === "»") && stack.length) ranges.push([stack.pop()!, i]);
+    else if (c === '"') {
+      if (straightOpen < 0) straightOpen = i;
+      else {
+        ranges.push([straightOpen, i]);
+        straightOpen = -1;
+      }
+    }
+  }
+  return (i) => ranges.some(([a, b]) => i > a && i < b - 1);
+}
+
+/** Split English text into sentences, never inside a closed quotation. */
+export function splitSentences(text: string): SentencePiece[] {
+  const out: SentencePiece[] = [];
+  let start = 0;
+  const n = text.length;
+  const openQuotes = quoteRanges(text);
+  for (let i = 0; i < n; i++) {
+    const ch = text[i];
+    if (ch !== "." && ch !== "!" && ch !== "?" && ch !== "…") continue;
+    if (openQuotes(i)) continue;
+    // Extend over repeated terminators and closing quotes/brackets.
+    let j = i + 1;
+    while (j < n && (text[j] === "." || text[j] === "!" || text[j] === "?" || text[j] === "…")) j++;
+    while (j < n && CLOSERS.includes(text[j]!)) j++;
+    if (j >= n || !/\s/.test(text[j]!)) continue;
+    let k = j;
+    while (k < n && /\s/.test(text[k]!)) k++;
+    if (k >= n) break;
+    let m = k;
+    while (m < n && OPENERS.includes(text[m]!)) m++;
+    if (m >= n || !isUpperStart(text[m]!)) continue;
+
+    if (ch === ".") {
+      // The word ending at this period.
+      let w = i;
+      while (w > start && /[\p{L}\p{N}.]/u.test(text[w - 1]!)) w--;
+      const word = text.slice(w, i);
+      const bare = word.replace(/\./g, "").toLowerCase();
+      if (/^\p{L}$/u.test(word.replace(/\.$/, "").slice(-1)) && /^(\p{L}\.)*\p{L}$/u.test(word))
+        continue; // initials: "F." "J.R.R."
+      if (ABBREVIATIONS.has(bare) || /^(e\.g|i\.e|n\.d|a\.m|p\.m|u\.s|u\.k)$/i.test(word)) continue;
+      if (/^\d+$/.test(word) && /^\d/.test(text[m]!)) continue; // "chapter 3. 4" numbering
+    }
+
+    out.push({ text: text.slice(start, j), after: text.slice(j, k) });
+    start = k;
+    i = k - 1;
+  }
+  if (start < n) out.push({ text: text.slice(start), after: "" });
+  return out.filter((s) => s.text.length);
+}
+
+/**
+ * Break very long sentences at clause boundaries so the model never sees an
+ * input longer than about `maxChars` characters.
+ */
+export function limitLength(sentence: string, maxChars = 480): SentencePiece[] {
+  if (sentence.length <= maxChars) return [{ text: sentence, after: "" }];
+  for (const re of [/;\s+/g, /:\s+/g, /,\s+/g, /\s+—\s*|\s*—\s+/g, /\s+/g]) {
+    const cuts: Array<{ at: number; end: number }> = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(sentence))) cuts.push({ at: m.index, end: m.index + m[0].length });
+    if (!cuts.length) continue;
+    // Prefer the cut closest to the middle.
+    const mid = sentence.length / 2;
+    cuts.sort((a, b) => Math.abs(a.at - mid) - Math.abs(b.at - mid));
+    const c = cuts[0]!;
+    const sep = sentence.slice(c.at, c.end);
+    const head = sentence.slice(0, c.at) + sep.trimEnd();
+    const tail = sentence.slice(c.end);
+    if (!head.trim() || !tail.trim()) continue;
+    const left = limitLength(head, maxChars);
+    // The whitespace that really follows the cut (none for "word —next").
+    left[left.length - 1]!.after = sep.match(/\s+$/)?.[0] ?? "";
+    return [...left, ...limitLength(tail, maxChars)];
+  }
+  return [{ text: sentence, after: "" }];
+}
+
+/* ------------------------------------------------------------------ */
+/*  Title Case                                                        */
+/* ------------------------------------------------------------------ */
+
+const SMALL_WORDS = new Set([
+  "a",
+  "an",
+  "the",
+  "and",
+  "but",
+  "or",
+  "nor",
+  "for",
+  "so",
+  "yet",
+  "as",
+  "at",
+  "by",
+  "in",
+  "of",
+  "off",
+  "on",
+  "per",
+  "to",
+  "up",
+  "via",
+  "with",
+  "from",
+  "into",
+  "onto",
+  "upon",
+  "over",
+  "than",
+  "vs",
+]);
+
+/** Words a Catholic site always capitalizes, even before corpus statistics exist. */
+const ALWAYS_PROPER = new Set([
+  "god",
+  "lord",
+  "christ",
+  "jesus",
+  "mary",
+  "joseph",
+  "spirit",
+  "holy",
+  "trinity",
+  "father",
+  "son",
+  "savior",
+  "saviour",
+  "messiah",
+  "gospel",
+  "gospels",
+  "scripture",
+  "scriptures",
+  "bible",
+  "church",
+  "eucharist",
+  "lady",
+  "virgin",
+  "pope",
+  "saint",
+  "st",
+  "sts",
+  "catholic",
+  "christian",
+  "christians",
+  "christianity",
+  "rosary",
+  "mass",
+  "sacrament",
+  "sacred",
+  "heart",
+  "immaculate",
+  "conception",
+  "assumption",
+  "annunciation",
+  "nativity",
+  "advent",
+  "lent",
+  "easter",
+  "pentecost",
+  "christmas",
+  "epiphany",
+  "apostle",
+  "apostles",
+  "i",
+]);
+
+const WORD_RE = /[\p{L}\p{M}][\p{L}\p{M}'’-]*/gu;
+
+/** Names of prayers and devotions whose words are never lower-cased (see sentenceCase). */
+const PROPER_PHRASES =
+  /\b(?:Hail Marys?|Hail,? Holy Queen|Our Father|Glory Be|Our Lady|Holy Ghost|Holy Spirit|Sign of the Cross|Way of the Cross|Stations of the Cross|Divine Mercy|Act of Contrition|Apostles['’] Creed|Nicene Creed|Morning Offering)\b/g;
+
+export type CaseStats = Map<string, { upper: number; lower: number }>;
+
+/**
+ * Corpus statistics: for each lower-cased word, how often it appears
+ * capitalized vs. lower-case in the middle of a sentence.
+ */
+export function buildCaseStats(texts: Iterable<string>): CaseStats {
+  const stats: CaseStats = new Map();
+  for (const text of texts) {
+    for (const s of splitSentences(String(text || "").replace(/\s+/g, " "))) {
+      let first = true;
+      for (const m of s.text.matchAll(WORD_RE)) {
+        const word = m[0];
+        if (first) {
+          first = false;
+          continue;
+        }
+        const key = word.toLowerCase();
+        const entry = stats.get(key) ?? { upper: 0, lower: 0 };
+        if (/^\p{Lu}/u.test(word)) entry.upper++;
+        else entry.lower++;
+        stats.set(key, entry);
+      }
+    }
+  }
+  return stats;
+}
+
+/** Is this short text written in Title Case (a heading or an item title)? */
+export function isTitleCase(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.length > 140 || (/[.!?]["”’)]*$/.test(t) && t.split(/\s+/).length > 12)) return false;
+  const words = t.match(WORD_RE) ?? [];
+  if (words.length < 2 || words.length > 14) return false;
+  const content = words.slice(1).filter((w) => !SMALL_WORDS.has(w.toLowerCase()));
+  if (!content.length) return false;
+  const capitalized = content.filter((w) => /^\p{Lu}/u.test(w));
+  return capitalized.length / content.length >= 0.75;
+}
+
+/**
+ * Turn "To Bear One’s Cross" into "To bear one’s cross" (keeping proper
+ * nouns), which machine translation reads as a phrase instead of a list of
+ * names.
+ */
+export function sentenceCase(text: string, stats: CaseStats = new Map()): string {
+  // The names of prayers keep their capitals: lower-cased, "the hail Mary"
+  // reads as weather to the models ("z gradem Mary").
+  const proper: Array<[number, number]> = [];
+  for (const m of text.matchAll(PROPER_PHRASES)) proper.push([m.index, m.index + m[0].length]);
+  let index = 0;
+  return text.replace(WORD_RE, (word, offset: number) => {
+    const i = index++;
+    if (i === 0) return word;
+    if (proper.some(([a, b]) => offset >= a && offset < b)) return word;
+    if (word.length > 1 && word === word.toUpperCase()) return word; // acronyms, numerals
+    if (!/^\p{Lu}/u.test(word)) return word;
+    const key = word.toLowerCase();
+    const base = key.replace(/['’]s$/, "");
+    if (ALWAYS_PROPER.has(base)) return word;
+    if (/\p{Lu}/u.test(word.slice(1))) return word; // names such as "McDonald"
+    const s = stats.get(key) ?? stats.get(base);
+    return s && s.upper > 0 && s.upper >= s.lower ? word : word.toLowerCase();
+  });
+}
+
+export function capitalizeFirst(text: string): string {
+  return text.replace(/^(\P{L}*)(\p{Ll})/u, (_, pre: string, ch: string) => pre + ch.toUpperCase());
+}
+
+/* ------------------------------------------------------------------ */
+/*  Source preparation                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Rewrite a few English conventions the models handle poorly:
+ *  - verse ranges written out ("John 20:19 through 23") become "20:19-23",
+ *  - "the Advocate" (the Holy Spirit) becomes "the Paraclete", which the
+ *    models translate as the theological term rather than "lawyer".
+ */
+export function prepareSource(text: string): string {
+  return String(text)
+    .replace(
+      /\b(\d+):(\d+)\s+(?:through|thru|to)\s+(\d+)(?::(\d+))?\b/g,
+      (_, c1: string, v1: string, x: string, v2?: string) =>
+        v2 ? `${c1}:${v1}-${x}:${v2}` : `${c1}:${v1}-${x}`,
+    )
+    .replace(/\b(the|The|our|Our|another|Another)\s+Advocate\b/g, "$1 Paraclete");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Output typography                                                 */
+/* ------------------------------------------------------------------ */
+
+const NNBSP = " "; // narrow no-break space (French typography)
+
+const QUOTES: Partial<Record<MtLocale, [string, string]>> = {
+  es: ["“", "”"],
+  pt: ["“", "”"],
+  fr: ["«" + NNBSP, NNBSP + "»"],
+  de: ["„", "“"],
+  it: ["«", "»"],
+  pl: ["„", "”"],
+  tl: ["“", "”"],
+  vi: ["“", "”"],
+  ko: ["“", "”"],
+  zh: ["“", "”"],
+};
+
+/** Replace straight double quotes with the target language's quotation marks. */
+function smartQuotes(text: string, lang: MtLocale): string {
+  const q = QUOTES[lang];
+  let out = text;
+  if (q) {
+    let open = false;
+    out = text.replace(/"/g, (_, offset: number) => {
+      const prev = offset > 0 ? text[offset - 1]! : " ";
+      if (open) {
+        open = false;
+        return q[1];
+      }
+      if (offset === 0 || /[\s([{\-—–/]/.test(prev)) {
+        open = true;
+        return q[0];
+      }
+      return q[1]; // a stray closing quote
+    });
+  }
+  // Apostrophes between letters become typographic.
+  return out.replace(/(\p{L})'(\p{L})/gu, "$1’$2");
+}
+
+/** French puts a narrow no-break space before ; : ! ? and inside guillemets. */
+function frenchSpacing(text: string): string {
+  return text
+    .replace(/[   ]*([;:!?»]+)/g, (m: string, p: string, offset: number, whole: string) => {
+      const before = whole.slice(0, offset);
+      if (!before) return m;
+      // Keep times and verse references (10:30, 20:19) and URLs (https://) intact.
+      if (p[0] === ":" && (/\d$/.test(before) || whole.startsWith("//", offset + m.length)))
+        return m;
+      return NNBSP + p;
+    })
+    .replace(/«[   ]*/g, "«" + NNBSP);
+}
+
+// German words that are written lower-case inside a sentence.
+const GERMAN_LOWER_STARTS = new Set(
+  (
+    "der die das den dem des ein eine einen einem einer eines kein keine keinen keinem keiner " +
+    "und oder aber denn sondern doch dass ob wenn als wie weil da damit sowie sowohl weder noch " +
+    "in im ins an am ans auf aus bei beim mit nach seit von vom zu zum zur durch für gegen ohne um " +
+    "über unter vor hinter neben zwischen während wegen trotz bis ab außer " +
+    "er sie es wir ihr ich du man sich ihn ihm ihnen uns euch mich mir dich dir " +
+    "sein seine seinen seinem seiner seines ihre ihren ihrem ihrer ihres unser unsere unseren unserem " +
+    "dies diese dieser dieses diesen diesem jede jeder jedes jeden jedem alle allen aller " +
+    "welche welcher welches was wer wo wann warum " +
+    "ist sind war waren wird werden wurde wurden hat haben hatte hatten kann können muss müssen " +
+    "soll sollen will wollen sagt sagte sagen gibt nicht auch nur so noch schon sehr immer nie hier dort dann"
+  ).split(" "),
+);
+
+const firstWord = (text: string): string => (text.match(/\p{L}+/u) ?? [""])[0]!.toLowerCase();
+
+const ERA: Partial<Record<MtLocale, { ad: string; bc: string }>> = {
+  es: { ad: "d. C.", bc: "a. C." },
+  pt: { ad: "d.C.", bc: "a.C." },
+  fr: { ad: "apr. J.-C.", bc: "av. J.-C." },
+  de: { ad: "n. Chr.", bc: "v. Chr." },
+  it: { ad: "d.C.", bc: "a.C." },
+  pl: { ad: "n.e.", bc: "p.n.e." },
+};
+// Ways the models write era markers after a year (removed before the standard form is added).
+const ERA_VARIANTS =
+  /^(?:\s*(?:AD|A\.D\.|BC|B\.C\.|d\.?\s*C\.?|dC|a\.?\s*C\.?|aC|[da]\.(?=\s|$|[,;:)])|apr(?:ès|\.)\s*J\.?-?C\.?|av(?:ant|\.)\s*J\.?-?C\.?|après\s+JC|avant\s+JC|n\.\s*Chr\.|v\.\s*Chr\.|p\.\s*n\.\s*e\.|n\.\s*e\.|po\s+Chr\.|przed\s+Chr\.))+/u;
+
+const BIBLE_VERSIONS =
+  /\b(ESV|DRB|DR|NABRE|NAB|RSV-2CE|RSV-CE|RSVCE|RSV|KJV|NKJV|NIV|NRSV|NRSVCE|NASB|NJB|JB|USCCB|CCC)\b/;
+
+/**
+ * Bible references and dates: no space after a chapter colon, the source's
+ * era markers in the target language's style, and Bible version tags (which
+ * the models sometimes drop or swap for a local edition) put back.
+ */
+function fixReferences(source: string, out: string, lang: MtLocale): string {
+  let text = out.replace(/(\d):\s+(\d)/g, "$1:$2");
+
+  const era = ERA[lang];
+  if (era) {
+    const years = [...source.matchAll(/(?<![\w-])(\d{1,4})\s*(A\.D\.|AD|B\.C\.|BC)\b/g)];
+    for (const [, year, marker] of years) {
+      const kind = /^B/.test(marker!) ? "bc" : "ad";
+      // The year itself, not the same number used as a chapter or verse.
+      const re = new RegExp(`(?<![\\d:])${year}(?!\\d|:\\d)`, "gu");
+      const hits = [...text.matchAll(re)].map((m) => m.index + year!.length);
+      const marked = hits.find((at) => ERA_VARIANTS.test(text.slice(at)));
+      // Without a marker from the model, only an unambiguous year gets one.
+      const at = marked ?? (hits.length === 1 ? hits[0] : undefined);
+      if (at === undefined) continue;
+      let rest = text.slice(at);
+      const variant = ERA_VARIANTS.exec(rest);
+      if (variant) rest = rest.slice(variant[0].length);
+      const marker2 = era[kind];
+      text = `${text.slice(0, at)} ${marker2}${rest.startsWith(".") && marker2.endsWith(".") ? rest.slice(1) : rest}`;
+    }
+  }
+
+  // "(Matthew 25:40, DRB)" -> keep "DRB" in the translated citation.
+  for (const m of source.matchAll(/\(([^()]*?\d+:\d+[^()]*?),\s*([A-Z][A-Z0-9-]{1,7})\)/g)) {
+    const version = m[2]!;
+    if (!BIBLE_VERSIONS.test(version) || text.includes(version)) continue;
+    const verse = (/\d+:\d+/.exec(m[1]!) ?? [""])[0];
+    const open = text.indexOf("(", Math.max(0, text.indexOf(verse) - 60));
+    const close = open >= 0 ? text.indexOf(")", open) : -1;
+    if (open < 0 || close < 0 || !text.slice(open, close).includes(verse)) continue;
+    const inner = text.slice(open + 1, close).replace(/,\s*[A-Z][A-Z0-9-]{1,7}\s*$/, "");
+    text = `${text.slice(0, open + 1)}${inner}, ${version}${text.slice(close)}`;
+  }
+  return text;
+}
+
+/** Theological terms the models render as everyday words. */
+function fixTerms(source: string, out: string, lang: MtLocale): string {
+  let text = out;
+  if (/\bPassion\b/.test(source)) {
+    if (lang === "de") text = text.replace(/\bLeidenschaft\b/g, "Passion");
+    if (lang === "es") text = text.replace(/\bpasión\b/g, "Pasión");
+    if (lang === "fr") text = text.replace(/\bpassion\b/g, "Passion");
+    if (lang === "pt") text = text.replace(/\bpaixão\b/g, "Paixão");
+    if (lang === "it") text = text.replace(/\bpassione\b/g, "Passione");
+  }
+  // "Conviction" here is a firm belief ("conviction"), not a court sentence.
+  if (
+    lang === "fr" &&
+    /\bconvictions?\b/i.test(source) &&
+    !/\b(?:condemn\w*|court|guilty|jury|criminal)\b/i.test(source)
+  ) {
+    text = text.replace(
+      /\b([Cc])ondamnation(s?)\b/g,
+      (_, c: string, plural: string) => `${c}onviction${plural}`,
+    );
+  }
+  // The English spelling (also from prepareSource's "Advocate" rewrite).
+  if (lang === "de") text = text.replace(/\bParaclete\b/g, "Paraklet");
+  return text;
+}
+
+/**
+ * Final touches on one translated sentence: whitespace, the source's casing
+ * of the first letter and its lack of final punctuation (for fragments and
+ * labels), and target-language quotation marks and spacing.
+ */
+export function polishTranslation(source: string, text: string, lang: MtLocale): string {
+  let out = text.replace(/\s+/g, " ").trim();
+  const cjk = lang === "zh" || lang === "ko";
+  if (lang === "zh") {
+    out = out
+      .replace(/(\p{Script=Han})\s+(?=\p{Script=Han})/gu, "$1")
+      // No space next to full-width punctuation: "祈祷 。" → "祈祷。".
+      .replace(/\s+(?=[，。！？；：、）》」』])/gu, "")
+      .replace(/([（《「『])\s+/gu, "$1");
+  }
+  const firstSrc = (source.match(/\p{L}/u) ?? [""])[0]!;
+  const isUpper = (c: string) => !!c && c === c.toUpperCase() && c !== c.toLowerCase();
+  const isLower = (c: string) => !!c && c === c.toLowerCase() && c !== c.toUpperCase();
+  if (!cjk) {
+    if (isUpper(firstSrc)) out = capitalizeFirst(out);
+    else if (isLower(firstSrc) && (lang !== "de" || GERMAN_LOWER_STARTS.has(firstWord(out)))) {
+      // A fragment (a chip, a list item) keeps its lower-case start. German
+      // capitalizes every noun, so there only function words are lowered.
+      out = out.replace(
+        /^(\P{L}*)(\p{Lu})(?=\p{Ll}|[^\p{L}]|$)/u,
+        (_, pre: string, ch: string) => pre + ch.toLowerCase(),
+      );
+    }
+  }
+  out = fixReferences(source, out, lang);
+  out = fixTerms(source, out, lang);
+  const srcEnd = source.trim().slice(-1);
+  // A source without final punctuation (a title, a chip) gets none either.
+  if (srcEnd && !/[.!?…:;"”’»)\]]/.test(srcEnd)) {
+    if (/[^.]\.$/.test(out)) out = out.slice(0, -1);
+    else if (/[。．]$/.test(out)) out = out.slice(0, -1);
+  }
+  out = smartQuotes(out, lang);
+  if (lang === "fr") out = frenchSpacing(out.replace(/(\p{L})- (mêmes?)(?!\p{L})/gu, "$1-$2"));
+  if (lang === "es") out = out.replace(/\b([Ss])ólo\b/g, "$1olo");
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Rejecting bad output                                              */
+/* ------------------------------------------------------------------ */
+
+/** The most times any 4-word sequence occurs in the text. */
+function maxRepeat(text: string): number {
+  const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+  const counts = new Map<string, number>();
+  let max = 0;
+  for (let i = 0; i + 4 <= words.length; i++) {
+    const g = words.slice(i, i + 4).join(" ");
+    const c = (counts.get(g) ?? 0) + 1;
+    counts.set(g, c);
+    if (c > max) max = c;
+  }
+  return max;
+}
+
+/** Shortest plausible output, as a share of the English source's length. */
+const MIN_LENGTH_RATIO: Partial<Record<MtLocale | "en", number>> = { zh: 0.12, ko: 0.2 };
+/** CJK repeats show up as repeated characters, not words. */
+function maxCharRepeat(text: string): number {
+  const counts = new Map<string, number>();
+  let max = 0;
+  const chars = Array.from(text.replace(/\s+/g, ""));
+  for (let i = 0; i + 6 <= chars.length; i++) {
+    const g = chars.slice(i, i + 6).join("");
+    const c = (counts.get(g) ?? 0) + 1;
+    counts.set(g, c);
+    if (c > max) max = c;
+  }
+  return max;
+}
+
+/**
+ * Heuristic check that a translation is not degenerate (empty, truncated or
+ * looping), is written in the target language's script, adds nothing the
+ * source does not say (see addsToSource) and does not garble the Church's
+ * names for Our Lady and her prayer (see distortsCatholicTerms).
+ */
+export function looksBroken(source: string, output: string, lang: MtLocale | "en"): boolean {
+  const src = String(source ?? "").trim();
+  const out = String(output ?? "").trim();
+  if (!out) return true;
+  const minRatio = MIN_LENGTH_RATIO[lang] ?? 0.3;
+  if (
+    src.length >= 12 &&
+    (out.length < src.length * minRatio || out.length > src.length * 3.5 + 20)
+  )
+    return true;
+  if (lang === "zh" && !/\p{Script=Han}/u.test(out) && /\p{L}/u.test(src)) return true;
+  if (lang === "ko" && !/\p{Script=Hangul}/u.test(out) && /\p{L}/u.test(src)) return true;
+  if (addsToSource(src, out)) return true;
+  if (lang !== "en" && distortsCatholicTerms(src, out, lang)) return true;
+  // A phrase repeated more often than anything in the source (a decoding loop).
+  if (lang === "zh" || lang === "ko") {
+    const r = maxCharRepeat(out);
+    if (r >= 4 && r > maxCharRepeat(src) + 1) return true;
+  }
+  const outRepeat = maxRepeat(out);
+  return outRepeat >= 4 && outRepeat > maxRepeat(src) + 1;
+}
+
+// The models learned partly from translations of the Qur'an: "God" can come
+// out as "Allah", a prophet can gain an Islamic blessing. Sentences that name
+// Islam themselves are left alone.
+const ISLAMIC_RE = new RegExp(
+  "(?<!\\p{L})(?:allah\\p{L}*|alá|ﷺ|pbuh|(?:que la )?paix (?:et bénédictions? )?(?:soit )?sur lui" +
+    "|la paz sea con él|friede sei mit ihm|que a paz esteja com ele|pace su di lui|pokój z nim" +
+    "|알라|真主|安拉|阿拉)(?!\\p{L})",
+  "iu",
+);
+const ISLAMIC_SOURCE_RE = /allah|qur['’]?an|koran|islam|muslim|muhammad|mohammed|mosque|imam/i;
+
+const verseRefs = (text: string) =>
+  new Set([...String(text).matchAll(/(\d+)\s*:\s*(\d+)/g)].map((m) => `${m[1]}:${m[2]}`));
+
+/**
+ * Does the translation say something the English does not: a bracketed aside
+ * or citation, a Bible reference, or Islamic wording?
+ */
+export function addsToSource(source: string, output: string): boolean {
+  const src = String(source ?? "");
+  const out = String(output ?? "");
+  const paren = /[()（）]/;
+  if (paren.test(out) && !paren.test(src)) return true;
+  if (/[(（][^)）]*$/.test(out) && !/[(（][^)）]*$/.test(src)) return true; // a citation cut off
+  const refs = verseRefs(src);
+  for (const ref of verseRefs(out)) if (!refs.has(ref)) return true;
+  return ISLAMIC_RE.test(out) && !ISLAMIC_SOURCE_RE.test(src);
+}
+
+/*
+ * Catholic names the models garble in ways a reader must never see. Measured
+ * on the pinned models (2026-10-31): "Our Lady of Guadalupe" came back as
+ * "Nữ thần … guadalupe" (a goddess) in Vietnamese and "我们的…夫人" (our
+ * madam) in Chinese, and "Pray the Hail Mary" as "Módl się z gradem Mary"
+ * (hail, the weather) in Polish. Such a sentence is rejected like any broken
+ * one: the engine retries it, and failing that the page keeps the English.
+ */
+
+/** A goddess, in each target language. Mary is never one. */
+const GODDESS_RE: Partial<Record<MtLocale, RegExp>> = {
+  es: /(?<!\p{L})diosas?(?!\p{L})/iu,
+  pt: /(?<!\p{L})deusas?(?!\p{L})/iu,
+  fr: /(?<!\p{L})déesses?(?!\p{L})/iu,
+  it: /(?<!\p{L})(?:dea|dee)(?!\p{L})/iu,
+  de: /(?<!\p{L})göttin(?:nen)?(?!\p{L})/iu,
+  pl: /(?<!\p{L})bogi(?:ni|nię|nią|nie|ń|niom|niami|niach)(?!\p{L})/iu,
+  tl: /(?<!\p{L})diyosa(?!\p{L})/iu,
+  vi: /nữ thần/iu,
+  zh: /女神/u,
+  ko: /여신/u,
+};
+/** A source that is itself about goddesses (paganism, a pagan shrine) may name one. */
+const GODDESS_SOURCE_RE =
+  /goddess|pagan|idol|deit(?:y|ies)|myth|diana|artemis|isis|venus|minerva|juno|cybele/i;
+
+/** How each language names Our Lady: one of these must be in a translation of "Our Lady". */
+const OUR_LADY_RE: Partial<Record<MtLocale, RegExp>> = {
+  es: /Nuestra Señora|Virgen|Señora/iu,
+  pt: /Nossa Senhora|Virgem|Senhora/iu,
+  fr: /Notre[- ]Dame|Vierge/iu,
+  it: /Madonna|Nostra Signora|Vergine|Signora|Maria/iu,
+  de: /Unsere[rn]? Lieben? Frau|Mutter ?gottes|Gottesmutter|Madonna|Jungfrau|Maria|Frau/iu,
+  pl: /Matk[aiąęo]|Maryj|Najświętsz|Pan(?:i|ią|ny|no)(?!\p{L})/iu,
+  tl: /Birhen|Mahal na|Ina|Maria|Ginang/iu,
+  vi: /Đức Mẹ|Đức Bà|Đức Trinh Nữ|Đức Maria|Mẹ Maria/iu,
+  zh: /圣母|聖母/u,
+};
+
+/** Hail the weather, in each language: never the Hail Mary. */
+const HAIL_WEATHER_RE: Partial<Record<MtLocale, RegExp>> = {
+  es: /granizo/iu,
+  pt: /granizo/iu,
+  fr: /grêle/iu,
+  it: /grandine/iu,
+  de: /hagel/iu,
+  pl: /(?<!\p{L})grad(?:u|em|zie|y|ów|ami)?(?!\p{L})/iu,
+  tl: /graniso|yelo/iu,
+  vi: /mưa đá/iu,
+  zh: /冰雹/u,
+};
+
+/**
+ * Does the translation misname Our Lady (a goddess, a madam) or turn the
+ * Hail Mary into weather? English sources that really speak of goddesses or
+ * hailstorms are left alone.
+ */
+export function distortsCatholicTerms(source: string, output: string, lang: MtLocale): boolean {
+  const goddess = GODDESS_RE[lang];
+  if (goddess?.test(output) && !GODDESS_SOURCE_RE.test(source)) return true;
+  // Kept as "Our Lady" (as Filipino often does) is fine; misnamed is not.
+  if (/\b[Oo]ur Lady\b/.test(source) && !/\b[Oo]ur Lady\b/.test(output)) {
+    const ourLady = OUR_LADY_RE[lang];
+    if (ourLady && !ourLady.test(output)) return true;
+  }
+  if (
+    /\bhail marys?\b/i.test(source) &&
+    !/hailstones?|hailstorms?|\bhail\b(?! mary)/i.test(source)
+  ) {
+    const hail = HAIL_WEATHER_RE[lang];
+    if (hail?.test(output)) return true;
+  }
+  return false;
+}

@@ -15,6 +15,7 @@ import Link from "next/link";
 
 import { formatEnumValue } from "@/lib/content-shared/field-presenters";
 import type { PublishedItem, PublishedListItem } from "@/lib/data/published";
+import { displayItem } from "@/lib/translation/display";
 
 import { PaginatedGrid } from "./PaginatedGrid";
 
@@ -99,7 +100,11 @@ export function PublishedList({
       : [...items];
 
   const cards = ordered.map((item) => {
+    // Eyebrows and ordering read the stored (English) fields; the card shows
+    // the reader's language when the item carries a translation overlay.
+    const shown = displayItem(item);
     const payload = payloadOf(item);
+    const shownPayload = payloadOf(shown);
     const rawEyebrow = eyebrowField
       ? payload
         ? payload[eyebrowField]
@@ -112,17 +117,17 @@ export function PublishedList({
         : undefined;
     const summary = !showSummary
       ? ""
-      : payload
-        ? ((payload[summaryField] as string | undefined) ?? "")
+      : shownPayload
+        ? ((shownPayload[summaryField] as string | undefined) ?? "")
         : showSubtitle
-          ? item.subtitle
+          ? shown.subtitle
           : "";
     const details = (detailLinesFor?.(item) ?? []).filter((line) => line.trim());
     return (
       <Link key={item.id} href={`${baseHref}/${item.slug}`} className="block h-full">
         <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30 sm:p-7">
           {eyebrow && <p className="vf-eyebrow">{eyebrow}</p>}
-          <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{item.title}</h2>
+          <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{shown.title}</h2>
           {details.length > 0 && (
             <div className="mt-2 space-y-1">
               {details.map((line, i) => (

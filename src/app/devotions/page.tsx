@@ -10,6 +10,7 @@ import {
 } from "@/components/ui";
 import { getTranslator } from "@/lib/i18n/server";
 import { listPublished } from "@/lib/data/published";
+import { localizeItems } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Devotions" };
@@ -39,7 +40,11 @@ export default async function DevotionsPage({
         </Link>
       </p>
       {/* The eyebrow is the humanised devotion type — never the stored value. */}
-      <PublishedList items={page.items} baseHref="/devotions" eyebrowField="devotionType" />
+      <PublishedList
+        items={await localizeItems(page.items, { depth: "card" })}
+        baseHref="/devotions"
+        eyebrowField="devotionType"
+      />
       <Pagination basePath="/devotions" page={page.page} totalPages={page.pageCount} />
     </div>
   );

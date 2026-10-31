@@ -16,6 +16,7 @@ import {
   type PublishedItem,
 } from "@/lib/data/published";
 import { loadPrayerSet } from "@/lib/data/prayer-sets";
+import { localizeItem, localizePrayers } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -46,11 +47,12 @@ function feastLine(item: PublishedItem): string | null {
  */
 export default async function SpiritualGuidanceDetailPage({ params }: Props) {
   const { slug } = await params;
-  const marian = await getPublishedBySlug("MARIAN_TITLE", slug);
+  const marian = await localizeItem(await getPublishedBySlug("MARIAN_TITLE", slug));
   if (marian) {
     // The apparition cross-reference is a slug, resolved here into a titled
     // link so the page never prints "our-lady-of-lourdes" as text. The prayers
-    // are shown in full, as dropdowns with the Latin / Greek chips.
+    // are shown in full, as dropdowns with the Latin / Greek chips, in the
+    // reader's language (src/lib/translation).
     const [apparitions, prayers] = await Promise.all([
       resolveRelatedLinks(
         "APPARITION",
@@ -58,7 +60,7 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
           ? [marian.payload.associatedApparitionSlug]
           : [],
       ),
-      loadPrayerSet(marian.payload.associatedPrayers),
+      loadPrayerSet(marian.payload.associatedPrayers).then((set) => localizePrayers(set)),
     ]);
     return (
       <>
@@ -81,7 +83,7 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
       </>
     );
   }
-  const apparition = await getPublishedBySlug("APPARITION", slug);
+  const apparition = await localizeItem(await getPublishedBySlug("APPARITION", slug));
   if (apparition) {
     const titles = await resolveRelatedLinks(
       "MARIAN_TITLE",

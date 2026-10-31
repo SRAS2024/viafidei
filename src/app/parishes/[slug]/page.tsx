@@ -5,6 +5,7 @@ import { SaveContentButton } from "@/components/profile";
 import { ShareButton } from "@/components/ui";
 import { ParishCard } from "@/components/ui/ParishCard";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { localizeParishes } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -39,26 +40,38 @@ export default async function ParishDetailPage({ params }: Props) {
   if (!item) notFound();
 
   const payload = item.payload as Record<string, unknown>;
+  // The name and country as this reader should see them (rule b: a name in
+  // another script is transliterated, with the original beside it), in memory:
+  // no cache lookup, no model. A country named in the reader's language keeps
+  // its code, which places the postal code in the address.
+  const [shown] = await localizeParishes([
+    {
+      title: item.title,
+      country: text(payload, "country"),
+      countryCode: text(payload, "countryCode"),
+      payload,
+    },
+  ]);
   const latitude = typeof payload.latitude === "number" ? payload.latitude : null;
   const longitude = typeof payload.longitude === "number" ? payload.longitude : null;
 
   return (
     <ParishCard
       variant="detail"
-      name={item.title}
+      name={shown!.title}
       designation={text(payload, "designation")}
       address={text(payload, "address")}
       postalCode={text(payload, "postalCode")}
       city={text(payload, "city")}
       state={text(payload, "state")}
-      country={text(payload, "country")}
-      countryCode={text(payload, "countryCode")}
+      country={shown!.country}
+      countryCode={shown!.countryCode}
       latitude={latitude}
       longitude={longitude}
       // Controls, not parish information: saving and sharing stay available.
       action={
         <>
-          <ShareButton title={item.title} />
+          <ShareButton title={shown!.title} />
           <SaveContentButton contentType="PARISH" slug={slug} />
         </>
       }

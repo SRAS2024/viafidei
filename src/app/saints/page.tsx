@@ -19,6 +19,7 @@ import {
   listPublishedPage,
   listSaintCardDetails,
 } from "@/lib/data/published";
+import { localizeItems } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Saints" };
@@ -85,7 +86,7 @@ export default async function SaintsPage({
           {/* Earliest saints first (Apostles → modern), each tagged with the
               one title label the spec permits for its type. */}
           <PublishedList
-            items={result.items}
+            items={await localizeItems(result.items, { depth: "card" })}
             baseHref="/saints"
             eyebrowFor={(item) => saintSubtypeLabel("subtype" in item ? item.subtype : null)}
             detailLinesFor={(item) => saintCardDetailLines(details.get(item.id), t)}

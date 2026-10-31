@@ -8,6 +8,8 @@ import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
 import { toGuideSteps } from "@/lib/content-shared/structured-content";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { loadPrayerSet } from "@/lib/data/prayer-sets";
+import { displayItem } from "@/lib/translation/display";
+import { localizeItem, localizePrayers } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -40,23 +42,27 @@ function stringList(payload: Record<string, unknown>, key: string): string[] {
  */
 export default async function GuideDetailPage({ params }: Props) {
   const { slug } = await params;
-  const guide = await getPublishedBySlug("GUIDE", slug);
+  const guide = await localizeItem(await getPublishedBySlug("GUIDE", slug));
   if (!guide) notFound();
 
   const payload = guide.payload;
+  // What the reader sees, in their language (src/lib/translation); slugs and
+  // links keep reading the stored payload.
+  const shownGuide = displayItem(guide);
+  const shown = shownGuide.payload;
 
   // The guide's applicable prayers, in the order they are prayed — fetched in
   // one query so they can be shown at the bottom as dropdowns with the shared
   // Latin / Greek chips, and so prayer names inside the steps become
-  // inline-expandable.
-  const prayers = await loadPrayerSet(payload.relatedPrayers);
+  // inline-expandable. Titles and texts in the reader's language, like the steps.
+  const prayers = await localizePrayers(await loadPrayerSet(payload.relatedPrayers));
 
-  const steps = toGuideSteps(payload.steps) ?? [];
-  const summary = stringField(payload, "summary");
-  const intro = stringField(payload, "intro");
-  const whenToPray = stringField(payload, "whenToPray");
-  const whatYouNeed = stringList(payload, "whatYouNeed");
-  const tips = stringList(payload, "tips");
+  const steps = toGuideSteps(shown.steps) ?? [];
+  const summary = stringField(shown, "summary");
+  const intro = stringField(shown, "intro");
+  const whenToPray = stringField(shown, "whenToPray");
+  const whatYouNeed = stringList(shown, "whatYouNeed");
+  const tips = stringList(shown, "tips");
   const durationMinutes =
     typeof payload.durationMinutes === "number" ? payload.durationMinutes : null;
   // "6 steps · About 20 minutes" — the duration is a chip in the header, never
@@ -73,10 +79,12 @@ export default async function GuideDetailPage({ params }: Props) {
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="vf-eyebrow">{guideEyebrow(payload)}</p>
-              <h1 className="mt-2 break-words font-display text-4xl text-ink">{guide.title}</h1>
+              <h1 className="mt-2 break-words font-display text-4xl text-ink">
+                {shownGuide.title}
+              </h1>
             </div>
             <div className="flex shrink-0 items-center gap-2 pt-1">
-              <ShareButton title={guide.title} text={summary ?? guide.title} />
+              <ShareButton title={shownGuide.title} text={summary ?? shownGuide.title} />
             </div>
           </div>
           {summary ? (
@@ -95,8 +103,9 @@ export default async function GuideDetailPage({ params }: Props) {
           <section className="mt-6">
             <h2 className="font-display text-xl text-ink">What you need</h2>
             <ul className="mt-2 ml-6 list-disc font-serif leading-relaxed text-ink">
-              {whatYouNeed.map((need) => (
-                <li key={need}>{need}</li>
+              {whatYouNeed.map((need, i) => (
+                // By position: two items can read the same once translated.
+                <li key={i}>{need}</li>
               ))}
             </ul>
           </section>
@@ -124,8 +133,8 @@ export default async function GuideDetailPage({ params }: Props) {
           <section className="mt-8">
             <h2 className="font-display text-xl text-ink">Tips</h2>
             <ul className="mt-2 ml-6 list-disc font-serif leading-relaxed text-ink">
-              {tips.map((tip) => (
-                <li key={tip} className="mt-1">
+              {tips.map((tip, i) => (
+                <li key={i} className="mt-1">
                   {tip}
                 </li>
               ))}

@@ -27,7 +27,9 @@ import { PrayerLinkedText } from "./PrayerLinkedText";
  *
  * Latin / Greek variants are marked `translate="no"` so device or future
  * auto-translation never rewrites the verbatim liturgical text, and a machine
- * translation says so under the text (`UnofficialTranslationNote`).
+ * translation says so under the text (`UnofficialTranslationNote`). When the
+ * vernacular holds the reader's translation (src/lib/translation), its `lang`
+ * is the reader's language, never the English it was translated from.
  *
  * `linkedPrayers` are the prayers the vernacular text names ("pray the Our
  * Father", "three Hail Marys"), as in the Rosary and chaplet prayers: each name
@@ -57,13 +59,16 @@ export function PrayerLanguageToggle({
         className="mb-4"
       />
       {linked ? (
-        <div lang={shown.code} className="font-serif text-lg leading-relaxed text-ink">
+        <div
+          lang={shown.lang ?? shown.code}
+          className="font-serif text-lg leading-relaxed text-ink"
+        >
           {/* The page's title is the h1; an opened prayer is the next level. */}
           <PrayerLinkedText text={shown.text} prayers={linked} matchCase headingLevel={2} />
         </div>
       ) : (
         <p
-          lang={shown.code}
+          lang={shown.lang ?? shown.code}
           translate={shown.preserve ? "no" : undefined}
           className="whitespace-pre-line font-serif text-lg leading-relaxed text-ink"
         >

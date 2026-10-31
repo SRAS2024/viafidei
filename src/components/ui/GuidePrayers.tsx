@@ -95,7 +95,9 @@ export function GuidePrayers({
                   <p
                     className="whitespace-pre-line"
                     translate={shown.preserve ? "no" : undefined}
-                    lang={shown.code}
+                    // The reader's language when the vernacular holds their
+                    // translation (src/lib/translation), never "en".
+                    lang={shown.lang ?? shown.code}
                   >
                     {shown.text}
                   </p>
