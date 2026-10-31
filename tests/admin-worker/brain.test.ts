@@ -153,7 +153,10 @@ describe("AdminWorkerBrain.decide", () => {
     expect(d.missionStage).toBe("SOURCE_FETCH");
   });
 
-  it("picks BUILD_CONTENT when pending build jobs sit on the queue", () => {
+  // WorkerBuildJob intents have no executor: PACKAGE_BUILD reports idle for
+  // them on every call. Pending intents used to give PACKAGE_BUILD urgency up
+  // to 60, so a stale intent won the pass and the dispatch did nothing.
+  it("never picks PACKAGE_BUILD for pending build intents (no executor)", () => {
     const d = decide({
       ...HEALTHY,
       contentGoalGap: 5,
@@ -161,20 +164,28 @@ describe("AdminWorkerBrain.decide", () => {
       candidateUrlsAvailable: 0,
       pendingBuildJobs: 5,
     });
-    expect(d.chosenTaskType).toBe("BUILD_CONTENT");
-    expect(d.missionStage).toBe("PACKAGE_BUILD");
+    expect(d.missionStage).not.toBe("PACKAGE_BUILD");
+    // Same choice as the identical world without the intents.
+    expect(d.chosenTaskType).toBe("DISCOVER_SOURCE");
+    const build = rankActions({ ...HEALTHY, pendingBuildJobs: 5 }).find(
+      (a) => a.missionStage === "PACKAGE_BUILD",
+    );
+    expect(build?.safe).toBe(false);
+    expect(build?.rejectionReason).toMatch(/no executor/);
   });
 
-  it("repairs when failed jobs exist", () => {
-    const d = decide({ ...HEALTHY, failedBuildJobs: 3 });
-    expect(d.chosenPriority).toBe("SOURCE_REPAIR");
-    expect(d.chosenMode).toBe("REPAIR");
+  it("does not repair for failed build intents alone; pending repair plans still repair", () => {
+    const intentsOnly = decide({ ...HEALTHY, failedBuildJobs: 3 });
+    expect(intentsOnly.chosenMode).toBe("MAINTENANCE");
+    const plans = decide({ ...HEALTHY, pendingRepairPlans: 3 });
+    expect(plans.chosenPriority).toBe("SOURCE_REPAIR");
+    expect(plans.chosenMode).toBe("REPAIR");
   });
 
-  it("drains the queue when build jobs are pending", () => {
+  it("pending build intents leave a healthy worker in maintenance", () => {
     const d = decide({ ...HEALTHY, pendingBuildJobs: 5 });
-    expect(d.chosenPriority).toBe("CONTENT_BUILD");
-    expect(d.chosenTaskType).toBe("BUILD_CONTENT");
+    expect(d.chosenTaskType).not.toBe("BUILD_CONTENT");
+    expect(d.chosenMode).toBe("MAINTENANCE");
   });
 
   it("refreshes the homepage when the score is low", () => {

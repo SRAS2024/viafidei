@@ -50,21 +50,43 @@ export async function recoverStuckQueue(prisma: PrismaClient): Promise<RepairOut
       reason: "no stuck jobs",
     };
   }
-  await prisma.workerBuildJob.updateMany({
-    where: { id: { in: stuck.map((s) => s.id) } },
-    data: { status: "pending", leasedBy: null, leaseExpiresAt: null },
-  });
+  // A stuck intent whose item is already published is never owed work, so it
+  // is cancelled rather than released back to pending (re-enqueued).
+  const published = await publishedChecklistItemIds(prisma, [
+    ...new Set(stuck.map((s) => s.checklistItemId)),
+  ]);
+  const cancel = stuck.filter((s) => published.has(s.checklistItemId)).map((s) => s.id);
+  const release = stuck.filter((s) => !published.has(s.checklistItemId)).map((s) => s.id);
+  if (cancel.length > 0) {
+    await prisma.workerBuildJob.updateMany({
+      where: { id: { in: cancel } },
+      data: {
+        status: "cancelled",
+        finishedAt: new Date(),
+        leasedBy: null,
+        leaseExpiresAt: null,
+        errorMessage: "cancelled: checklist item already published (no build executor)",
+      },
+    });
+  }
+  if (release.length > 0) {
+    await prisma.workerBuildJob.updateMany({
+      where: { id: { in: release } },
+      data: { status: "pending", leasedBy: null, leaseExpiresAt: null },
+    });
+  }
   await writeAdminWorkerLog(prisma, {
     category: "REPAIR",
     severity: "WARN",
     eventName: "queue_recovered",
-    message: `Released ${stuck.length} stuck running build job(s).`,
+    message: `Released ${release.length} stuck running build job(s); cancelled ${cancel.length} for already-published items.`,
+    safeMetadata: { released: release.length, cancelled: cancel.length },
   });
   return {
     kind: "queue_stuck",
     attempted: true,
     succeeded: true,
-    reason: `released ${stuck.length} stuck job(s)`,
+    reason: `released ${release.length} stuck job(s), cancelled ${cancel.length}`,
   };
 }
 
@@ -396,53 +418,85 @@ export async function reportValidationEvidenceMissing(
   };
 }
 
+/** Build-intent statuses that still claim work is owed. */
+const OPEN_BUILD_INTENT_STATUSES = ["pending", "retrying", "running"] as const;
+
 /**
- * Source-jobs-missing repair (spec §20). Re-enqueues every approved
- * checklist item that has no live WorkerBuildJob — covers the case
- * where a queue purge or migration left orphaned approved items
- * behind. Uses the existing `enqueueBuild` so the lease guard +
- * priority + retry budget stay consistent.
+ * Of these checklist item ids, the ones that already back a published row.
+ * Fail-closed for the caller's purpose: an unreadable store answers "none", so
+ * nothing is cancelled on a guess.
+ */
+async function publishedChecklistItemIds(
+  prisma: PrismaClient,
+  checklistItemIds: string[],
+): Promise<Set<string>> {
+  if (checklistItemIds.length === 0) return new Set();
+  const rows = await prisma.publishedContent
+    .findMany({
+      where: { checklistItemId: { in: checklistItemIds }, isPublished: true },
+      select: { checklistItemId: true },
+    })
+    .catch(() => [] as Array<{ checklistItemId: string }>);
+  return new Set(rows.map((r) => r.checklistItemId));
+}
+
+/**
+ * Source-jobs-missing repair (spec §20), retired as an enqueuer.
+ *
+ * It used to re-enqueue up to 25 APPROVED_FOR_BUILD / SOURCE_VERIFIED checklist
+ * items with no live WorkerBuildJob on every run. Nothing consumes those
+ * intents (PACKAGE_BUILD reports idle for them), and APPROVED_FOR_BUILD is also
+ * the status every curated, structured, liturgical and OSM-parish item keeps
+ * after it is published, so each run minted dead intents for live content —
+ * which then gave PACKAGE_BUILD scheduling urgency. Content is built by the
+ * artifact pipeline, so this repair now creates no intent at all. It only
+ * cancels open intents whose item is already published, which can never be
+ * owed work. Intents for unpublished items are left as they are: they are
+ * inert (no stage scores or consumes them) and an operator may have filed them.
  */
 export async function recreateMissingSourceJobs(prisma: PrismaClient): Promise<RepairOutcome> {
-  const candidates = await prisma.checklistItem.findMany({
-    where: {
-      approvalStatus: { in: ["APPROVED_FOR_BUILD", "SOURCE_VERIFIED"] },
-      buildJobs: { none: { status: { in: ["pending", "running"] } } },
-    },
-    take: 25,
-    select: { id: true },
-  });
-  if (candidates.length === 0) {
+  const open = await prisma.workerBuildJob
+    .findMany({
+      where: { status: { in: [...OPEN_BUILD_INTENT_STATUSES] } },
+      take: 200,
+      select: { id: true, checklistItemId: true },
+    })
+    .catch(() => [] as Array<{ id: string; checklistItemId: string }>);
+  const published = await publishedChecklistItemIds(prisma, [
+    ...new Set(open.map((j) => j.checklistItemId)),
+  ]);
+  const moot = open.filter((j) => published.has(j.checklistItemId)).map((j) => j.id);
+  if (moot.length === 0) {
     return {
       kind: "source_jobs_missing",
       attempted: false,
       succeeded: true,
-      reason: "no orphaned approved items",
+      reason: "no build intents to retire; build intents are no longer enqueued",
     };
   }
-  const { enqueueBuild } = await import("@/lib/checklist");
-  let enqueued = 0;
-  for (const item of candidates) {
-    try {
-      await enqueueBuild(prisma, {
-        checklistItemId: item.id,
-        triggeredBy: "admin_worker_repair",
-      });
-      enqueued += 1;
-    } catch {
-      // best effort
-    }
-  }
+  const res = await prisma.workerBuildJob
+    .updateMany({
+      where: { id: { in: moot }, status: { in: [...OPEN_BUILD_INTENT_STATUSES] } },
+      data: {
+        status: "cancelled",
+        finishedAt: new Date(),
+        leasedBy: null,
+        leaseExpiresAt: null,
+        errorMessage: "cancelled: checklist item already published (no build executor)",
+      },
+    })
+    .catch(() => ({ count: 0 }));
   await writeAdminWorkerLog(prisma, {
     category: "REPAIR",
     severity: "INFO",
-    eventName: "source_jobs_recreated",
-    message: `Re-enqueued ${enqueued} approved checklist item(s) with no live build job.`,
+    eventName: "build_intents_retired",
+    message: `Cancelled ${res.count} build intent(s) for already-published checklist items; none re-enqueued (build intents have no executor).`,
+    safeMetadata: { cancelled: res.count },
   });
   return {
     kind: "source_jobs_missing",
     attempted: true,
     succeeded: true,
-    reason: `enqueued ${enqueued} item(s)`,
+    reason: `cancelled ${res.count} intent(s) for published items; none enqueued`,
   };
 }

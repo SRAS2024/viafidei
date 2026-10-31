@@ -254,17 +254,19 @@ export function enumerateCandidateActions(world: WorldState): BrainAction[] {
       safe: true,
       rejectionReason: null,
     },
-    // Build — pending build jobs or content-type gap with candidates available.
+    // Build — kept in the ranked list for the audit view only. The stage has
+    // no executor (WorkerBuildJob intents are never consumed), so scoring
+    // always rejects it and pending intents no longer raise its priority.
     {
       actionType: "BUILD_CONTENT",
       missionStage: "PACKAGE_BUILD",
       mode: "CONSTANT_FILL",
-      priority: world.pendingBuildJobs > 0 ? "CONTENT_BUILD" : "CONTENT_GOAL",
+      priority: "CONTENT_GOAL",
       passType: "CONTENT_GOAL",
       contentType: ct,
       sourceTarget: null,
       candidateUrl: null,
-      expectedOutput: "Run a build cycle: pick the next job, build a package.",
+      expectedOutput: "Nothing: artifacts advance via cross-source verification and strict QA.",
       confidenceScore: 0.9,
       riskScore: 0.15,
       qualityExpectation: 0.75,
@@ -273,8 +275,8 @@ export function enumerateCandidateActions(world: WorldState): BrainAction[] {
       repairScore: 0,
       finalScore: 0,
       fallbackAction: "maintenance",
-      stopCondition: "no pending build jobs",
-      reasonSummary: `Build queue: ${world.pendingBuildJobs} pending, ${world.runningBuildJobs} running.`,
+      stopCondition: "always (no build executor)",
+      reasonSummary: `Build intents: ${world.pendingBuildJobs} pending, ${world.runningBuildJobs} running (not consumed by any stage).`,
       rulesEvaluated: {
         pendingBuildJobs: world.pendingBuildJobs,
         contentGoalGap: world.contentGoalGap,
@@ -388,7 +390,8 @@ export function enumerateCandidateActions(world: WorldState): BrainAction[] {
       safe: true,
       rejectionReason: null,
     },
-    // Source repair — failed jobs / pending repair plans.
+    // Source repair — pending repair plans (failed build intents are inert
+    // legacy rows and no longer count).
     {
       actionType: "REPAIR",
       missionStage: "REPAIR",
@@ -398,7 +401,7 @@ export function enumerateCandidateActions(world: WorldState): BrainAction[] {
       contentType: null,
       sourceTarget: null,
       candidateUrl: null,
-      expectedOutput: "Drain failed build jobs + execute pending repair plans.",
+      expectedOutput: "Execute pending repair plans.",
       confidenceScore: 0.75,
       riskScore: 0.25,
       qualityExpectation: 0.6,
@@ -407,8 +410,8 @@ export function enumerateCandidateActions(world: WorldState): BrainAction[] {
       repairScore: 0,
       finalScore: 0,
       fallbackAction: "diagnostics",
-      stopCondition: "no failed jobs and no pending repair plans",
-      reasonSummary: `${world.failedBuildJobs} failed jobs, ${world.pendingRepairPlans} repair plans.`,
+      stopCondition: "no pending repair plans",
+      reasonSummary: `${world.pendingRepairPlans} repair plans.`,
       rulesEvaluated: {
         failedBuildJobs: world.failedBuildJobs,
         pendingRepairPlans: world.pendingRepairPlans,
