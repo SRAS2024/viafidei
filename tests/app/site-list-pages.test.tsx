@@ -285,14 +285,28 @@ describe("/parishes", () => {
     expect(hrefs()).toContain("/parishes?class=basilica&q=mary&page=2");
     // Chips reflect the indexed counts: no cathedrals published → no chip.
     expect(screen.queryByRole("link", { name: /Cathedrals/ })).not.toBeInTheDocument();
-    // The owner removed the designation from the parish card: the directory
-    // card and the parish page are now the same ParishCard, which shows the
-    // name, the place, the address and the website and nothing else. The raw
-    // stored value was never shown and still is not.
+    // The directory card is the parish page's ParishCard: the name, what the
+    // church is (a basilica always says minor or major), then the address —
+    // never the raw stored value, a website or a "Diocese" line.
     expect(screen.getByRole("heading", { name: "St. Mary" })).toBeInTheDocument();
+    expect(screen.getByText("Minor Basilica")).toBeInTheDocument();
+    expect(screen.getByText("Chicago, IL")).toBeInTheDocument();
     expect(screen.queryByText("minor-basilica")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Diocese|Website/)).not.toBeInTheDocument();
     // No location: the visitor has not located themselves, so no distance.
     expect(screen.queryByText(/away$/)).not.toBeInTheDocument();
+  });
+
+  it("files oratories under Chapels, the chip and the query alike", async () => {
+    listParishPage.mockResolvedValue(page([], { total: 0 }));
+    // An oratory and no chapel published: Chapels is still offered, and it asks
+    // SQL for both stored designations.
+    countPublishedBySubtype.mockResolvedValue({ parish: 970, oratory: 12 });
+    render(await ParishesPage({ searchParams: Promise.resolve({ class: "chapel" }) }));
+    expect(listParishPage).toHaveBeenCalledWith(
+      expect.objectContaining({ class: ["chapel", "oratory"] }),
+    );
+    expect(screen.getByRole("link", { name: /Chapels/ })).toBeInTheDocument();
   });
 
   it("says so plainly when a search matches nothing", async () => {
