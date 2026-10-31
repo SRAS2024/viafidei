@@ -52,3 +52,36 @@ export async function fetchSummaryForArticleUrl(
   if (!extract) return null;
   return { extract, url: data?.content_urls?.desktop?.page ?? articleUrl, lang: parsed.lang };
 }
+
+interface IntroResponse {
+  query?: { pages?: Array<{ extract?: string; missing?: boolean }> };
+}
+
+/**
+ * The article's whole INTRODUCTION as plain text — every lead paragraph, with
+ * the parenthetical names and dates — from the Action API's TextExtracts. The
+ * REST summary above is only the first paragraph with its parentheses removed,
+ * which leaves many saints under the 100-character biography floor: Eugendus's
+ * summary is "Eugendus was the fourth abbot of Condat Abbey, at Saint-Claude,
+ * Jura." (69 characters). Null when unavailable; a read that failed
+ * transiently is recorded in `opts.ledger`.
+ */
+export async function fetchIntroForArticleUrl(
+  articleUrl: string,
+  opts: { ledger?: SourceReadLedger } = {},
+): Promise<string | null> {
+  const parsed = parseWikipediaArticleUrl(articleUrl);
+  if (!parsed) return null;
+  let title: string;
+  try {
+    title = decodeURIComponent(parsed.title);
+  } catch {
+    title = parsed.title;
+  }
+  const api =
+    `https://${parsed.lang}.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1` +
+    `&explaintext=1&redirects=1&format=json&formatversion=2&titles=${encodeURIComponent(title)}`;
+  const data = await fetchJson<IntroResponse>(api, { ledger: opts.ledger });
+  const extract = data?.query?.pages?.[0]?.extract?.trim();
+  return extract ? extract : null;
+}

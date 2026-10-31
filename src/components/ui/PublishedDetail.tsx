@@ -27,6 +27,7 @@ import {
 import { Disclosure } from "./Disclosure";
 import { PrayerLinkedText } from "./PrayerLinkedText";
 import { ShareButton } from "./ShareButton";
+import { WikipediaAttribution } from "./WikipediaAttribution";
 import type { GuidePrayerData } from "./GuidePrayers";
 
 export interface PublishedDetailProps {
@@ -159,6 +160,12 @@ const HIDDEN_FIELDS = new Set([
   "catechismReferences",
   "sacramentKey",
   "riteKey",
+  // Worker bookkeeping on structured saints: the feast is shown once, from
+  // `feastDay`; its month/day split and the Wikidata id ("Feast month 6",
+  // "Wikidata qid Q78679") are internal.
+  "feastMonth",
+  "feastDayOfMonth",
+  "wikidataQid",
   // Cross-content reference lists. They hold slugs, and a slug is never
   // content: printing them produced "apostles-creed, our-father" under a
   // "Related Prayers" heading. Pages that want them resolve the real titles
@@ -372,6 +379,7 @@ export function PublishedDetail({
           {footer}
         </footer>
       ) : null}
+      <WikipediaAttribution contentType={item.contentType} payload={payload} />
     </article>
   );
 }

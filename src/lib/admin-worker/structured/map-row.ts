@@ -23,27 +23,56 @@ import { isRejection, reject, type MapResult } from "./reject";
 import { isRememberedRejection } from "./reject-memory";
 import type { SparqlBinding } from "./wikidata";
 
+/** One mapped row, and whether its sources answered. */
+export interface MappedRow {
+  result: MapResult;
+  /**
+   * Source reads that did NOT complete while the row was mapped (no response,
+   * timeout, 408/425/429/5xx, network gate closed). Zero means every source
+   * answered — a 404 or an empty article IS an answer — so a rejection with
+   * no unread source says nothing about whether the source is up.
+   */
+  unreadSources: number;
+}
+
 /**
- * Map one row. A thrown mapper becomes `map_threw`; a remembered-kind
- * rejection reached after a read that did not complete becomes
- * `source_read_failed`. Never throws.
+ * Map one row, reporting the reads that did not complete alongside the
+ * verdict: the ingest's outage detection (`WIKIPEDIA_FAILURE_STREAK_LIMIT`)
+ * counts only rows whose sources did not answer. A thrown mapper becomes
+ * `map_threw`; a remembered-kind rejection reached after a read that did not
+ * complete becomes `source_read_failed`. Never throws.
  */
-export async function mapSourceRow(
+export async function mapSourceRowDetailed(
   ingestor: StructuredIngestor,
   row: SparqlBinding,
-): Promise<MapResult> {
+): Promise<MappedRow> {
   const reads: SourceReadLedger = { unread: [] };
   let result: MapResult;
   try {
     result = await ingestor.map(row, { reads });
   } catch (err) {
-    return reject("map_threw", err instanceof Error ? err.message : String(err));
+    return {
+      result: reject("map_threw", err instanceof Error ? err.message : String(err)),
+      unreadSources: reads.unread.length,
+    };
   }
-  if (!isRejection(result) || reads.unread.length === 0 || !isRememberedRejection(result.code)) {
-    return result;
+  const unreadSources = reads.unread.length;
+  if (!isRejection(result) || unreadSources === 0 || !isRememberedRejection(result.code)) {
+    return { result, unreadSources };
   }
-  return reject(
-    "source_read_failed",
-    `${result.code}${result.detail ? ` (${result.detail})` : ""}; unread: ${reads.unread.join(" ")}`,
-  );
+  return {
+    result: reject(
+      "source_read_failed",
+      `${result.code}${result.detail ? ` (${result.detail})` : ""}; unread: ${reads.unread.join(" ")}`,
+    ),
+    unreadSources,
+  };
+}
+
+/** `mapSourceRowDetailed`, verdict only (the read-only diagnostic's view). */
+export async function mapSourceRow(
+  ingestor: StructuredIngestor,
+  row: SparqlBinding,
+): Promise<MapResult> {
+  return (await mapSourceRowDetailed(ingestor, row)).result;
 }

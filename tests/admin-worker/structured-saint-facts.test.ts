@@ -15,7 +15,6 @@ import {
   feastMentionIndexLocalized,
 } from "@/lib/admin-worker/structured/corroboration";
 import {
-  composeStructuredBiography,
   deriveSaintType,
   isProvenNonCatholic,
   parseSaintFacts,
@@ -228,37 +227,6 @@ describe("parseSaintFacts", () => {
     expect(f.enArticle).toBeNull();
     expect(f.altArticles).toEqual(["https://es.wikipedia.org/wiki/Rosa_de_Lima"]);
     expect(parseSaintFacts({ ...row, label: { type: "literal", value: "Q170145" } })).toBeNull();
-  });
-});
-
-describe("composeStructuredBiography (non-English article branch)", () => {
-  it("composes an English biography from the cited facts only", () => {
-    const text = composeStructuredBiography({
-      facts: facts({
-        label: "Bartolomea Capitanio",
-        description: "Italian Roman Catholic nun and saint",
-        birthYear: 1807,
-        deathYear: 1833,
-      }),
-      status: "canonized",
-      feastText: "July 26",
-      articleLang: "it",
-    })!;
-    expect(text).toContain("Bartolomea Capitanio (1807–1833) was an Italian Roman Catholic nun");
-    expect(text).toContain("as a saint");
-    expect(text).toContain("July 26");
-    expect(text).toContain("Italian-language Wikipedia");
-  });
-
-  it("returns null without a description to build on", () => {
-    expect(
-      composeStructuredBiography({
-        facts: facts({ description: "saint" }),
-        status: "canonized",
-        feastText: "July 26",
-        articleLang: "it",
-      }),
-    ).toBeNull();
   });
 });
 
