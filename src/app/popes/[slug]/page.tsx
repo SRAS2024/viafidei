@@ -13,15 +13,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildPublishedMetadata(await getPublishedBySlug("POPE", slug));
 }
 
+/**
+ * A pope: the name, the papacy (the subtitle, "Pope from 1958 to 1963"), the
+ * birth name, then his life. The summary ("Pope John, who reigned as Roman
+ * Pontiff from 1958–1963.") only restated the subtitle and was printed twice,
+ * and "Papacy began", "Papacy ended" and "Content subtype" rows are gone.
+ */
 export default async function PopeDetailPage({ params }: Props) {
   const { slug } = await params;
   const item = await getPublishedBySlug("POPE", slug);
   if (!item) notFound();
+  const birthName =
+    typeof item.payload.birthName === "string" && item.payload.birthName.trim()
+      ? item.payload.birthName.trim()
+      : null;
   return (
     <PublishedDetail
       item={item}
-      primaryFields={["background", "summary"]}
-      secondaryFields={["papacyStart", "papacyEnd", "birthName"]}
+      lede={false}
+      facts={[birthName ? `Born ${birthName}` : null]}
+      primaryFields={["background"]}
+      headings={{ background: null }}
     />
   );
 }

@@ -1,14 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import {
-  GuidePrayers,
-  GuideSteps,
-  RelatedContentLinks,
-  RosaryMysteries,
-  ShareButton,
-  resolveRelatedLinks,
-} from "@/components/ui";
+import { GuidePrayers, GuideSteps, RosaryMysteries, ShareButton } from "@/components/ui";
 import { isRosaryGuide } from "@/lib/content-shared/rosary";
 import { guideEyebrow } from "@/lib/content-shared/guide-categories";
 import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
@@ -40,8 +33,10 @@ function stringList(payload: Record<string, unknown>, key: string): string[] {
  * A guide is a how-to, so it gets a purpose-built layout rather than the
  * generic field renderer: header (kind chip, duration, step count) → intro →
  * what you need → when to pray → OPEN numbered steps → tips → rosary mysteries
- * → the guide's prayers in prayed order → see also. Every cross-reference is
- * resolved to a real title; a raw slug never reaches the page.
+ * → the guide's prayers in prayed order, each a dropdown with the Latin / Greek
+ * chips. That is the whole page: the subtitle only repeated the eyebrow and the
+ * step count, and the "Related devotions / practices / saints" rows were not
+ * part of praying the guide.
  */
 export default async function GuideDetailPage({ params }: Props) {
   const { slug } = await params;
@@ -54,12 +49,7 @@ export default async function GuideDetailPage({ params }: Props) {
   // one query so they can be shown at the bottom as dropdowns with the shared
   // Latin / Greek chips, and so prayer names inside the steps become
   // inline-expandable.
-  const [prayers, devotions, practices, saints] = await Promise.all([
-    loadPrayerSet(payload.relatedPrayers),
-    resolveRelatedLinks("DEVOTION", payload.relatedDevotions),
-    resolveRelatedLinks("SPIRITUAL_PRACTICE", payload.relatedPractices),
-    resolveRelatedLinks("SAINT", payload.relatedSaints),
-  ]);
+  const prayers = await loadPrayerSet(payload.relatedPrayers);
 
   const steps = toGuideSteps(payload.steps) ?? [];
   const summary = stringField(payload, "summary");
@@ -81,12 +71,9 @@ export default async function GuideDetailPage({ params }: Props) {
       <article className="mx-auto max-w-3xl px-4 py-10">
         <header className="mb-8">
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <p className="vf-eyebrow">{guideEyebrow(payload)}</p>
-              <h1 className="mt-2 font-display text-4xl text-ink">{guide.title}</h1>
-              {guide.subtitle ? (
-                <p className="mt-1 font-serif text-base italic text-ink-soft">{guide.subtitle}</p>
-              ) : null}
+              <h1 className="mt-2 break-words font-display text-4xl text-ink">{guide.title}</h1>
             </div>
             <div className="flex shrink-0 items-center gap-2 pt-1">
               <ShareButton title={guide.title} text={summary ?? guide.title} />
@@ -145,10 +132,6 @@ export default async function GuideDetailPage({ params }: Props) {
             </ul>
           </section>
         ) : null}
-
-        <RelatedContentLinks title="Related devotions" links={devotions} />
-        <RelatedContentLinks title="Related practices" links={practices} />
-        <RelatedContentLinks title="Related saints" links={saints} />
       </article>
 
       {isRosaryGuide(payload) && (

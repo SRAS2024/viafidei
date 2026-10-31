@@ -13,6 +13,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildPublishedMetadata(await getPublishedBySlug("SACRAMENT", slug));
 }
 
+/**
+ * A sacrament: what the Church teaches, its institution, matter and form,
+ * minister, recipient, effects and preparation. The Catechism paragraph
+ * references are sources and are no longer printed (structured data keeps
+ * them); the lede is dropped automatically when it repeats the overview.
+ */
 export default async function SacramentDetailPage({ params }: Props) {
   const { slug } = await params;
   const item = await getPublishedBySlug("SACRAMENT", slug);
@@ -20,15 +26,14 @@ export default async function SacramentDetailPage({ params }: Props) {
   return (
     <PublishedDetail
       item={item}
-      primaryFields={["theologicalOverview", "institution"]}
-      secondaryFields={[
+      primaryFields={[
+        "theologicalOverview",
+        "institution",
         "matterAndForm",
         "minister",
         "recipient",
         "effects",
         "preparation",
-        "relatedRites",
-        "catechismReferences",
       ]}
     />
   );

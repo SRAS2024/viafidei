@@ -147,16 +147,22 @@ describe("guide detail page", () => {
     expect(text).not.toContain("how-to-pray-the-rosary");
   });
 
-  it("resolves related devotions and saints to titled links", async () => {
-    await renderGuide();
-    expect(screen.getByRole("link", { name: "Devotion to the Sacred Heart" })).toHaveAttribute(
-      "href",
-      "/devotions/sacred-heart",
-    );
-    expect(screen.getByRole("link", { name: "Saint Dominic" })).toHaveAttribute(
-      "href",
-      "/saints/st-dominic",
-    );
+  it("shows what praying the guide needs and nothing else", async () => {
+    // The owner: the guide and its prayers — no subtitle repeating the eyebrow
+    // and the step count, no related devotions / practices / saints rows.
+    published.clear();
+    seed();
+    published.get("GUIDE:how-to-pray-the-rosary")!.subtitle = "How to pray the Rosary · 2 steps";
+    const ui = await GuideDetailPage({
+      params: Promise.resolve({ slug: "how-to-pray-the-rosary" }),
+    });
+    const { container } = render(ui);
+    const text = container.textContent ?? "";
+    expect(text).not.toContain("How to pray the Rosary · 2 steps");
+    expect(text).not.toContain("Devotion to the Sacred Heart");
+    expect(text).not.toContain("Saint Dominic");
+    expect(screen.queryByRole("heading", { name: /^Related/ })).not.toBeInTheDocument();
+    expect(container.querySelector('a[href^="/saints/"], a[href^="/devotions/"]')).toBeNull();
   });
 
   it("shows the guide's prayers at the bottom with their full text available", async () => {

@@ -13,9 +13,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildPublishedMetadata(await getPublishedBySlug("RITE", slug));
 }
 
+/**
+ * A rite: its history, its liturgy, where it is celebrated and by how many.
+ * "Family: alexandrian", "Entry kind: liturgical_rite", "Content subtype" and a
+ * second copy of the summary are gone.
+ */
 export default async function RiteDetailPage({ params }: Props) {
   const { slug } = await params;
   const item = await getPublishedBySlug("RITE", slug);
   if (!item) notFound();
-  return <PublishedDetail item={item} primaryFields={["history", "background", "summary"]} />;
+  return (
+    <PublishedDetail
+      item={item}
+      primaryFields={["history", "background", "region", "faithfulEstimate"]}
+      headings={{ faithfulEstimate: "Faithful" }}
+    />
+  );
 }

@@ -203,6 +203,156 @@ export interface SaintCardDetails {
 }
 
 /**
+ * The saint fields the patronage and feast lines are read from — a full
+ * payload, or the narrow JSON projection the /saints list queries.
+ */
+export interface SaintFactSource {
+  patronages?: unknown;
+  patronage?: unknown;
+  feastDay?: unknown;
+  feastMonth?: unknown;
+  feastDayOfMonth?: unknown;
+}
+
+/**
+ * The patronage and feast a saint's card and page show. Patronages in stored
+ * order (the legacy single `patronage` string when there is no list); the feast
+ * from the indexed month/day, or the stored text for a movable feast ("The
+ * Tuesday after Pentecost"), which passes through as written.
+ */
+export function saintCardDetails(source: SaintFactSource): SaintCardDetails {
+  const list = Array.isArray(source.patronages)
+    ? source.patronages
+        .filter((p): p is string => typeof p === "string")
+        .map((p) => p.trim())
+        .filter(Boolean)
+    : [];
+  const legacy = typeof source.patronage === "string" ? source.patronage.trim() : "";
+  const patronages = list.length > 0 ? list : legacy ? [legacy] : [];
+
+  const month = typeof source.feastMonth === "number" ? source.feastMonth : null;
+  const day = typeof source.feastDayOfMonth === "number" ? source.feastDayOfMonth : null;
+  const feast =
+    month != null && day != null
+      ? formatFeastDay(`${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`)
+      : formatFeastDay(source.feastDay);
+  return { patronages, feast: feast ?? null };
+}
+
+const MONTH_NAME = new RegExp(`\\b(?:${MONTHS.join("|")})\\b`, "i");
+
+/**
+ * One end of a saint's life as a reader expects it: a year, "c. 1715" when the
+ * record is approximate or gives a span ("302 or 303", "c. 700/703",
+ * "1589-1590", "173?"), "4th century" kept as a century, "100 BC", "after 673".
+ * Only what the record states: a day and month are dropped, never guessed, and
+ * a value naming two people ("550 (Severinus); 543 (Victorinus)") or no year
+ * at all gives null.
+ */
+function lifeYear(raw: unknown): { label: string; year: number | null } | null {
+  if (typeof raw !== "string") return null;
+  let s = raw
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\([^)]*\)/g, " ") // "(aged 59)", "(traditional)"
+    .replace(/^\s*[a-z]+=[a-z]+\s+/i, "") // stray wiki markup: "lk=no 360"
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!s || s.includes(";")) return null;
+
+  const bc = /\b(?:BCE?|B\.C\.(?:E\.)?)(?=\s|$)/i.test(s);
+  let prefix = "";
+  const qualifier = s.match(/^(after|before)\s+/i);
+  if (qualifier) {
+    prefix = `${qualifier[1]!.toLowerCase()} `;
+    s = s.slice(qualifier[0].length);
+  }
+  let circa = false;
+  const approx = s.match(/^(?:c\.|ca\.?|circa|about|approximately|approx\.?|~)\s*/i);
+  if (approx) {
+    circa = true;
+    s = s.slice(approx[0].length);
+  } else if (/^c\s*\d/i.test(s)) {
+    circa = true;
+    s = s.replace(/^c\s*/i, "");
+  }
+  // "173?", "649 or 650", "700/703", "unknown, 660": the record itself is unsure.
+  if (/\?|\bor\b|\/|\bunknown\b/i.test(s)) circa = true;
+
+  const century = s.match(/\b(\d{1,2})(st|nd|rd|th)\s+century\b/i);
+  if (century) {
+    return { label: `${prefix}${century[1]}${century[2]} century${bc ? " BC" : ""}`, year: null };
+  }
+
+  let year: number | null = null;
+  const iso = s.match(/^(\d{1,4})-\d{2}-\d{2}\b/);
+  if (iso) {
+    year = Number(iso[1]);
+  } else {
+    const runs = [...s.matchAll(/\d{1,4}/g)].map((m) => m[0]);
+    const numbers = runs.map(Number);
+    if (numbers.length === 0) return null;
+    if (MONTH_NAME.test(s)) {
+      // "10 April 1028", "April 16, 1127", "580, traditionally 21 September":
+      // the year is the first run long enough not to be a day of the month,
+      // else ("5 March 33") the last number.
+      const long = runs.find((r) => r.length >= 3);
+      year = long ? Number(long) : numbers[numbers.length - 1]!;
+      if (runs.filter((r) => r.length >= 3).length > 1) circa = true;
+    } else {
+      // "1589-1590", "302 or 303", "700/703": a span — its first year, approximately.
+      year = numbers[0]!;
+      if (numbers.length > 1) circa = true;
+    }
+  }
+  if (!year) return null;
+  const label = `${prefix}${circa ? "c. " : ""}${year}${bc ? " BC" : ""}`;
+  return { label, year: bc ? -year : year };
+}
+
+/**
+ * The dates a saint lived, for the line under the name: "1910 – 1946",
+ * "c. 1715 – 1794", "Died 304", "Born 1962". Null when the record has neither
+ * date, or when its dates contradict each other (a birth after the death) —
+ * a wrong-looking fact is worse than a missing line.
+ */
+export function saintLifeDates(payload: Record<string, unknown>): string | null {
+  const born = lifeYear(payload.birthDate);
+  const died = lifeYear(payload.deathDate);
+  if (born && died) {
+    if (born.year != null && died.year != null && born.year > died.year) return null;
+    return `${born.label} – ${died.label}`;
+  }
+  if (died) return `Died ${died.label}`;
+  if (born) return `Born ${born.label}`;
+  return null;
+}
+
+/** "Saint", "Blessed", "Venerable" or "Servant of God", from `canonizationStatus`. */
+const STATUS_LABELS: Record<string, string> = {
+  canonized: "Saint",
+  beatified: "Blessed",
+  venerable: "Venerable",
+  servant_of_god: "Servant of God",
+};
+
+/**
+ * The eyebrow over a saint's name on the saint's own page: the one permitted
+ * title label (Apostle, Doctor of the Church, a dated papacy, a curated
+ * `titleLabel`), else the stage of the cause ("Blessed", "Venerable"), so a
+ * beatus is never introduced as a saint. The feast day is no longer folded in:
+ * it has its own line under the name.
+ */
+export function saintDetailEyebrow(payload: Record<string, unknown>): string | undefined {
+  const label = saintTitleLabel(payload);
+  if (label) return label;
+  const status =
+    typeof payload.canonizationStatus === "string"
+      ? payload.canonizationStatus.trim().toLowerCase()
+      : "";
+  return STATUS_LABELS[status];
+}
+
+/**
  * The lines a saint's catalogue card shows beneath the name, in order: the
  * patronage ("Patron of the papacy, fishermen, Rome"), then the feast day
  * ("Feast day: June 29"). A line is left out when that fact is not recorded.

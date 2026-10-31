@@ -3,16 +3,17 @@ import { notFound } from "next/navigation";
 
 import {
   GuidePrayers,
-  OfficialSourceLink,
   PublishedDetail,
   RelatedContentLinks,
   resolveRelatedLinks,
 } from "@/components/ui";
 import { SaveContentButton } from "@/components/profile";
+import { formatFeastDay } from "@/lib/content-shared/saints";
 import {
   getPublishedBySlug,
   getAnyPublishedBySlug,
   buildPublishedMetadata,
+  type PublishedItem,
 } from "@/lib/data/published";
 import { loadPrayerSet } from "@/lib/data/prayer-sets";
 
@@ -25,6 +26,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildPublishedMetadata(await getAnyPublishedBySlug(slug, ["MARIAN_TITLE", "APPARITION"]));
 }
 
+/**
+ * "Feast day: May 13", unless the subtitle under the title already says it
+ * ("Title of the Blessed Virgin Mary · Feast May 13"). A dogma's subtitle
+ * ("Marian dogma · defined 1854") and an apparition's do not carry the feast.
+ */
+function feastLine(item: PublishedItem): string | null {
+  const feast = formatFeastDay(item.payload.feastDay);
+  if (!feast || item.subtitle.includes(feast)) return null;
+  return `Feast day: ${feast}`;
+}
+
+/**
+ * Our Lady: a Marian title or an approved apparition. The stored subtitle is
+ * kept — it is the compact line a reader wants ("Church-approved Marian
+ * apparition · Lourdes, France, 1858") — so the separate place, country,
+ * status, year and region sections that repeated it are gone, as are aliases,
+ * the worker's subtype and the approving document's source link.
+ */
 export default async function SpiritualGuidanceDetailPage({ params }: Props) {
   const { slug } = await params;
   const marian = await getPublishedBySlug("MARIAN_TITLE", slug);
@@ -45,8 +64,9 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
       <>
         <PublishedDetail
           item={marian}
-          primaryFields={["origin", "theologicalSignificance"]}
-          secondaryFields={["feastDay", "region", "iconographyNotes"]}
+          facts={[feastLine(marian)]}
+          primaryFields={["origin", "theologicalSignificance", "iconographyNotes"]}
+          headings={{ iconographyNotes: "Iconography" }}
           linkedPrayers={prayers}
           footer={
             apparitions.length > 0 ? (
@@ -68,29 +88,16 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
         ? [apparition.payload.associatedMarianTitleSlug]
         : [],
     );
-    const officialUrl =
-      typeof apparition.payload.officialDocumentUrl === "string"
-        ? apparition.payload.officialDocumentUrl
-        : null;
     return (
       <PublishedDetail
         item={apparition}
         action={<SaveContentButton contentType="APPARITION" slug={slug} />}
-        primaryFields={["background"]}
-        secondaryFields={[
-          "location",
-          "country",
-          "approvedStatus",
-          "yearOfApparition",
-          "visionaries",
-          "messageHighlights",
-        ]}
+        facts={[feastLine(apparition)]}
+        primaryFields={["background", "visionaries", "messageHighlights"]}
         footer={
-          titles.length > 0 || officialUrl ? (
+          titles.length > 0 ? (
             <div className="w-full">
               <RelatedContentLinks title="Under the title" links={titles} />
-              {/* The approving document itself, as a button — not a naked URL. */}
-              <OfficialSourceLink url={officialUrl} />
             </div>
           ) : null
         }

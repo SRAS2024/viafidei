@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { PublishedDetail, RelatedContentLinks, resolveRelatedLinks } from "@/components/ui";
+import { PublishedDetail } from "@/components/ui";
 import { SaveContentButton } from "@/components/profile";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
-import { saintEyebrow } from "@/lib/content-shared/saints";
+import {
+  saintCardDetailLines,
+  saintCardDetails,
+  saintDetailEyebrow,
+  saintLifeDates,
+} from "@/lib/content-shared/saints";
+import { getTranslator } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -15,42 +21,34 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildPublishedMetadata(await getPublishedBySlug("SAINT", slug));
 }
 
+/**
+ * A saint's page, in the owner's order: the name, then the patronage, then the
+ * feast day, then the dates the saint lived, then the biography — and nothing
+ * else. The patronage and feast lines are the catalogue card's own lines, so the
+ * card and the page always agree. No "Biography" heading over the life, no
+ * canonization record, no feast-month or Wikidata rows, no sources.
+ */
 export default async function SaintDetailPage({ params }: Props) {
   const { slug } = await params;
   const item = await getPublishedBySlug("SAINT", slug);
   if (!item) notFound();
-  // Cross-references are slug lists; resolved here so the page shows titles.
-  const [prayers, devotions] = await Promise.all([
-    resolveRelatedLinks("PRAYER", item.payload.relatedPrayers),
-    resolveRelatedLinks("DEVOTION", item.payload.relatedDevotions),
-  ]);
+  const { t } = await getTranslator();
+  const facts = [
+    ...saintCardDetailLines(saintCardDetails(item.payload), t),
+    saintLifeDates(item.payload),
+  ];
   return (
     <PublishedDetail
       item={item}
-      // "Doctor of the Church · Feast July 25" says more than "Saint".
-      eyebrow={saintEyebrow(item.payload)}
+      eyebrow={saintDetailEyebrow(item.payload)}
+      // The stored subtitle ("Religious, patron of Noyon · Feast April 11")
+      // repeats the lines below it, and the summary repeats the biography.
+      showSubtitle={false}
+      lede={false}
+      facts={facts}
       action={<SaveContentButton contentType="SAINT" slug={slug} />}
-      primaryFields={["background", "biography"]}
-      secondaryFields={[
-        "feastDay",
-        "patronage",
-        "patronages",
-        "birthplace",
-        "birthDate",
-        "deathDate",
-        "canonizationYear",
-        "canonizationStatus",
-        "canonizationDate",
-        "canonizedBy",
-      ]}
-      footer={
-        prayers.length > 0 || devotions.length > 0 ? (
-          <div className="w-full">
-            <RelatedContentLinks title="Related prayers" links={prayers} />
-            <RelatedContentLinks title="Related devotions" links={devotions} />
-          </div>
-        ) : null
-      }
+      primaryFields={["biography", "background"]}
+      headings={{ biography: null, background: null }}
     />
   );
 }

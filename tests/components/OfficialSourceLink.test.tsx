@@ -53,6 +53,19 @@ describe("OfficialSourceLink", () => {
     expect(screen.getByText(/Official source/i)).toBeInTheDocument();
   });
 
+  it("renders the link alone when the caption is turned off", () => {
+    // A Church document's footer: the full text, not a "source" citation.
+    const { container } = render(
+      <OfficialSourceLink
+        url="https://www.vatican.va/x"
+        label="Read the full document"
+        caption={null}
+      />,
+    );
+    expect(screen.queryByText(/Official source/i)).not.toBeInTheDocument();
+    expect(container.firstChild).toBe(screen.getByRole("link", { name: /Read the full document/ }));
+  });
+
   it("accepts plain http:// urls (the source attribution allows either scheme)", () => {
     render(<OfficialSourceLink url="http://example.org/legacy" />);
     expect(screen.getByRole("link")).toHaveAttribute("href", "http://example.org/legacy");

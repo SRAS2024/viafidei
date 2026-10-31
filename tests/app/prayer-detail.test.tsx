@@ -6,8 +6,9 @@
  *
  * The audit found /prayers/our-father printing the Our Father twice — once as
  * an "Official prayer" grey box, then again as the main text — because
- * `officialPrayer` is usually the body flattened onto one line. It also showed
- * no source, no occasions and no related saints at all.
+ * `officialPrayer` is usually the body flattened onto one line. The owner then
+ * asked for the title and the prayer and nothing else, so the official-text
+ * box, occasions, related saints, sources, subtitle and summary are all gone.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -93,62 +94,41 @@ describe("prayer detail page", () => {
     expect(occurrences).toBe(1);
   });
 
-  it("still shows the official text when it is genuinely a different text", async () => {
-    seed({
-      body: OUR_FATHER_BODY,
-      officialPrayer: "Pater noster, qui es in caelis, sanctificetur nomen tuum.",
-      prayerType: "general",
-      category: "general",
-    });
-    await renderPrayer();
-    expect(screen.getByText("Official text")).toBeInTheDocument();
-    expect(screen.getByText(/Pater noster/)).toBeInTheDocument();
-  });
-
-  it("shows citations as source links", async () => {
-    seed({
-      body: OUR_FATHER_BODY,
-      prayerType: "general",
-      category: "general",
-      citations: ["https://www.usccb.org/prayers/our-father", "not-a-url"],
-    });
-    await renderPrayer();
-    expect(screen.getByText("Sources")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: /usccb.org/ });
-    expect(link).toHaveAttribute("href", "https://www.usccb.org/prayers/our-father");
-    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
-  });
-
-  it("shows the occasions the prayer is prayed on", async () => {
-    seed({
-      body: OUR_FATHER_BODY,
-      prayerType: "general",
-      category: "general",
-      occasions: ["Every Mass", "Each decade of the Rosary"],
-    });
-    await renderPrayer();
-    expect(screen.getByRole("heading", { name: "When it is prayed" })).toBeInTheDocument();
-    expect(screen.getByText("Every Mass")).toBeInTheDocument();
-  });
-
-  it("resolves related saints to titled links, never slugs", async () => {
+  it("shows the title and the prayer, and nothing else the payload carries", async () => {
+    // The owner: "for prayer just the prayer title and then its actual prayer".
     seed(
       {
         body: OUR_FATHER_BODY,
+        officialPrayer: "O God, Who by the life, death, and resurrection of Thy only-begotten Son",
+        summary: "The prayer Christ himself taught the disciples.",
         prayerType: "general",
         category: "general",
-        relatedSaints: ["st-teresa-of-avila", "not-published"],
+        occasions: ["three-oclock-hour", "Every Mass"],
+        relatedSaints: ["st-teresa-of-avila"],
+        citations: ["https://www.usccb.org/prayers/our-father"],
       },
       [["SAINT:st-teresa-of-avila", "st-teresa-of-avila", "Saint Teresa of Ávila"]],
     );
+    published.get("PRAYER:our-father")!.subtitle = "Catholic prayer · Latin text";
     const { container } = await renderPrayer();
-    expect(screen.getByRole("link", { name: "Saint Teresa of Ávila" })).toHaveAttribute(
-      "href",
-      "/saints/st-teresa-of-avila",
-    );
-    // The unpublished reference simply disappears — no dead link, no slug.
-    expect(container.textContent).not.toContain("not-published");
-    expect(container.textContent).not.toContain("st-teresa-of-avila");
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Our Father");
+    expect(screen.getByText(/hallowed be thy name/)).toBeInTheDocument();
+    const text = container.textContent ?? "";
+    for (const gone of [
+      "Official text",
+      "O God, Who by the life",
+      "The prayer Christ himself taught",
+      "Catholic prayer · Latin text",
+      "When it is prayed",
+      "three-oclock-hour",
+      "Saint Teresa of Ávila",
+      "Sources",
+      "usccb.org",
+    ]) {
+      expect(text, gone).not.toContain(gone);
+    }
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("opens the prayers a Rosary or chaplet prayer names, in place, with their Latin", async () => {

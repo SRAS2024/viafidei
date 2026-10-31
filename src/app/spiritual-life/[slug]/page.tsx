@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import {
-  GuidePrayers,
-  PublishedDetail,
-  RelatedContentLinks,
-  resolveRelatedLinks,
-} from "@/components/ui";
+import { GuidePrayers, PublishedDetail } from "@/components/ui";
+import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { loadPrayerSet } from "@/lib/data/prayer-sets";
 
@@ -19,30 +15,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildPublishedMetadata(await getPublishedBySlug("SPIRITUAL_PRACTICE", slug));
 }
 
+/**
+ * A spiritual practice: its title and subtitle ("Lectio divina · Benedictine
+ * tradition", which already names the kind and the tradition), how to practise
+ * it, its background, when it is kept, and the prayers it uses — in full, with
+ * the Latin / Greek chips.
+ */
 export default async function SpiritualLifeDetailPage({ params }: Props) {
   const { slug } = await params;
   const practice = await getPublishedBySlug("SPIRITUAL_PRACTICE", slug);
   if (practice) {
-    // The practice's prayers open in place from its instructions and are listed
-    // below with the Latin / Greek chips; saints stay titled links, never slugs.
-    const [prayers, saints] = await Promise.all([
-      loadPrayerSet(practice.payload.relatedPrayers),
-      resolveRelatedLinks("SAINT", practice.payload.relatedSaints),
-    ]);
+    const prayers = await loadPrayerSet(practice.payload.relatedPrayers);
+    const minutes = practice.payload.durationMinutes;
     return (
       <>
         <PublishedDetail
           item={practice}
-          primaryFields={["instructions", "background"]}
-          secondaryFields={["practiceKind", "tradition", "durationMinutes", "frequency"]}
+          facts={[typeof minutes === "number" ? formatDurationMinutes(minutes) : null]}
+          primaryFields={["instructions", "background", "frequency"]}
+          headings={{ instructions: "How to practice", frequency: "When" }}
           linkedPrayers={prayers}
-          footer={
-            saints.length > 0 ? (
-              <div className="w-full">
-                <RelatedContentLinks title="Related saints" links={saints} />
-              </div>
-            ) : null
-          }
         />
         <GuidePrayers prayers={prayers} heading="Prayers" />
       </>
