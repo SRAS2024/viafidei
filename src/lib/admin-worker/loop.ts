@@ -122,9 +122,11 @@ export function leaseRenewedByHost(): boolean {
  * A pass that did no work still costs ~140 database round trips of bookkeeping,
  * so the less a pass can possibly achieve, the longer the loop waits before the
  * next one: an ordinary idle pass waits the configured start value, a
- * brain-degraded pass at least 30s (no content lane can run), and a PAUSED pass
- * at least 60s — it can do nothing at all until an operator resumes it. An
- * explicit 0 (tests / manual runs) disables the floor along with the backoff.
+ * brain-degraded pass at least 30s (the web funnel is paused, and the
+ * deterministic content lanes that still run are throttled to minutes each),
+ * and a PAUSED pass at least 60s — it can do nothing at all until an operator
+ * resumes it. An explicit 0 (tests / manual runs) disables the floor along with
+ * the backoff. A degraded pass that published is not idle and is not slowed.
  *
  * Exported because it is the rule that stops the loop_paused hot loop, and a
  * rule worth pinning in a test rather than inferring from timing.
@@ -220,9 +222,11 @@ export async function runAdminWorkerLoop(
     opts.idleBackoffMaxMs ??
       envInt("ADMIN_WORKER_IDLE_BACKOFF_MAX_MS", 120_000, { allowZero: true }),
   );
-  // While the Python brain is degraded no content lane can run, so idling
-  // faster than this just multiplies the (throttled) degraded-mode log rows.
-  // An explicit 0 (tests / manual runs) disables the floor along with the rest.
+  // While the Python brain is degraded the web funnel is paused and only the
+  // deterministic content lanes run, each throttled to its own cadence, so an
+  // idle degraded pass re-run faster than this just multiplies the (throttled)
+  // degraded-mode log rows. An explicit 0 (tests / manual runs) disables the
+  // floor along with the rest.
   const degradedFloorMs = backoffFloorMs("degraded", idleBackoffStartMs, idleBackoffMaxMs);
   // A PAUSED loop does no work at all, so it gets the highest floor of the
   // three. Production wrote 649,793 `loop_paused` rows because a paused pass
