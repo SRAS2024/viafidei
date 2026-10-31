@@ -81,6 +81,23 @@ describe("parseInfobox", () => {
   it("returns {} for wikitext without an infobox", () => {
     expect(parseInfobox("no box here")).toEqual({});
   });
+
+  it("reads the one-line {{Saint}} redirect to Infobox saint (Edward Colman)", () => {
+    const box = parseInfobox(
+      "{{Short description|English Catholic courtier and martyr}}\n" +
+        "{{Saint|name=Edward Coleman|titles=Layman|death_date=3 December 1678 (aged 42)" +
+        "|feast_day=3 December|honored_in=[[Roman Catholic Church]]" +
+        "|beatified_date=15 December 1929 by [[Pope Pius XI]]|honorific-prefix=Blessed}}" +
+        "Edward Colman was a courtier.",
+    );
+    expect(box.feast_day).toBe("3 December");
+    expect(box.honored_in).toBe("Roman Catholic Church");
+    expect(box.honorific_prefix).toBe("Blessed");
+    expect(box.beatified_date).toContain("15 December 1929");
+    // Only the whole template name: a template that merely starts with
+    // "Saint" is not an infobox.
+    expect(parseInfobox("{{Saints of the day|feast_day=1 May}}")).toEqual({});
+  });
 });
 
 /**

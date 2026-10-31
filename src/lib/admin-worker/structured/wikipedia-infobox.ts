@@ -19,11 +19,15 @@ import { parseWikipediaArticleUrl } from "./wikipedia-url";
 
 /**
  * Template names that act as a person/saint infobox across the language
- * editions the ingest reads: enwiki `{{Infobox saint}}`, itwiki `{{Santo}}` /
- * `{{Bio}}`, eswiki `{{Ficha de santo}}`, frwiki `{{Infobox Saint}}`, plwiki
- * `{{Święty infobox}}`, dewiki `{{Infobox …}}` (rare for persons).
+ * editions the ingest reads: enwiki `{{Infobox saint}}` and its redirect
+ * `{{Saint}}`, itwiki `{{Santo}}` / `{{Bio}}`, eswiki `{{Ficha de santo}}`,
+ * frwiki `{{Infobox Saint}}`, plwiki `{{Święty infobox}}`, dewiki
+ * `{{Infobox …}}` (rare for persons). `{{Saint}}` is matched only as the
+ * whole template name: Edward Colman's and Humphrey Middlemore's articles
+ * state their feasts in one, and missing it sent both to the weaker prose rule.
  */
-const INFOBOX_START_RE = /\{\{\s*(?:Infobox|Ficha de|Santo\b|Bio\b|Święty infobox|Personendaten)/i;
+const INFOBOX_START_RE =
+  /\{\{\s*(?:Infobox|Ficha de|Santo\b|Bio\b|Święty infobox|Personendaten|Saint\s*(?=\||\n|\}\}))/i;
 
 /** Extract the first `{{Infobox …}}` block from wikitext (brace-balanced). */
 export function extractInfoboxBlock(wikitext: string): string | null {

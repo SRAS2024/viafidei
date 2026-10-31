@@ -620,12 +620,13 @@ export function statusFromInfobox(infobox: Record<string, string>): Canonization
 
 /**
  * The bodies an article's infobox says venerate the person. {{Infobox saint}}
- * documents `venerated_in`, but many articles fill the older `venerated`
- * instead — Bellinus of Padua's reads `venerated = Roman Catholic Church` and
- * has no `venerated_in` — so both are read.
+ * documents `venerated_in`, but many articles fill the older `venerated` or
+ * `honored_in` instead — Bellinus of Padua's reads `venerated = Roman Catholic
+ * Church`, Edward Colman's `honored_in = Roman Catholic Church` — so all three
+ * are read.
  */
 export function veneratedIn(infobox: Record<string, string>): string {
-  return [infobox.venerated_in, infobox.venerated]
+  return [infobox.venerated_in, infobox.venerated, infobox.honored_in]
     .map((v) => (v ?? "").trim())
     .filter(Boolean)
     .join("; ");

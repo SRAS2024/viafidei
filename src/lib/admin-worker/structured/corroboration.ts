@@ -352,14 +352,47 @@ export function feastStatedWithWording(
     // Feast of St. Michael the Archangel, 29 September 1642": feast wording
     // right beside Wikidata's date, and not his feast at all.
     if (DATED_EVENT_RE.test(t.slice(end, end + 8))) continue;
-    const around = t.slice(Math.max(0, start - window), Math.min(t.length, end + window));
-    if (wording.test(around)) return true;
+    const lo = Math.max(0, start - window);
+    const around = t.slice(lo, Math.min(t.length, end + window));
+    if (!wording.test(around)) continue;
+    // A second calendar day kept every year in the same window means the
+    // sentence is about TWO dates, and the prose cannot say which one is the
+    // feast today: Ansfried of Utrecht's article reads "His feast day was
+    // 3 May but was later moved to 11 May", and Wikidata still says 3 May.
+    if (competingDayIn(around, [start - lo, end - lo], month, day, lang)) continue;
+    return true;
   }
   return false;
 }
 
 /** A year right after a day-and-month: "29 September 1642", "14 luglio, 1614". */
 const DATED_EVENT_RE = /^\s*,?\s*\d{3,4}(?!\d)/;
+
+/**
+ * Does `text` name a calendar day OTHER than (month, day), outside `own` (the
+ * span of the date being tested)? A dated event ("beatified on 3 May 1990")
+ * is not a competing day: it happened once.
+ */
+function competingDayIn(
+  text: string,
+  own: [number, number],
+  month: number,
+  day: number,
+  lang: string,
+): boolean {
+  // Cheap pre-filter: no other digit, no other date.
+  if (!/\d/.test(text.slice(0, own[0]) + text.slice(own[1]))) return false;
+  for (let m = 1; m <= 12; m += 1) {
+    for (let d = 1; d <= 31; d += 1) {
+      if (m === month && d === day) continue;
+      for (const [s, e] of feastMentionSpans(m, d, text, lang)) {
+        if (s < own[1] && e > own[0]) continue; // overlaps the tested date itself
+        if (!DATED_EVENT_RE.test(text.slice(e, e + 8))) return true;
+      }
+    }
+  }
+  return false;
+}
 
 /**
  * The FIRST calendar day named anywhere in `text`, in `lang` (null when none).

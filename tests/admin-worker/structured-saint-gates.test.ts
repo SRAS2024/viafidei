@@ -289,6 +289,13 @@ describe("Wikidata's stage must agree with the article", () => {
         venerated: "Roman Catholic Church",
       }),
     ).toBe("venerable");
+    // `honored_in` names the venerating body too (Edward Colman's infobox).
+    expect(
+      articleStageConflict("venerable", {
+        honorific_prefix: "Blessed",
+        honored_in: "Roman Catholic Church",
+      }),
+    ).toBe("beatified");
     // An honorific alone, with no Catholic venerating body, proves nothing.
     expect(articleStageConflict("venerable", { honorific_prefix: "Blessed" })).toBeNull();
     expect(
@@ -412,5 +419,301 @@ describe("no template biographies", () => {
     expect(entry).toMatchObject({
       payload: { provenance: { biography: "wikipedia", article: KOLPING.art } },
     });
+  });
+});
+
+/**
+ * The documented cases: the 30-saint sample of the not-yet-live corpus taken
+ * on 2026-10-31, Wikidata's P841 / P411 against each article's own infobox and
+ * lead as they read that day (leads abridged). Before these gates, seven of
+ * them published a feast their article contradicts — Wikidata's P841 was the
+ * death date, and the lead names the death date — and Józef Cebula published
+ * as canonized. Live, Eugendus and Cebula already stop earlier, at
+ * `description_too_short` (their REST summaries are 69 and 84 characters);
+ * here they get a full lead so that the gate itself is what rejects them.
+ */
+describe("the documented 2026-10-31 cases", () => {
+  interface Case {
+    name: string;
+    qid: string;
+    statuses: string;
+    feasts: string;
+    art: string;
+    lead: string;
+    infobox: Record<string, string>;
+    prose?: string;
+  }
+  const at = (title: string) => `https://en.wikipedia.org/wiki/${title}`;
+  const map = async (c: Case) => {
+    mockedSummary.mockResolvedValue({ extract: c.lead, url: c.art, lang: "en" });
+    mockedInfobox.mockResolvedValue(c.infobox);
+    setProse(c.prose ?? "");
+    return saintMap(
+      row({
+        s: `${WD}${c.qid}`,
+        label: c.name,
+        statuses: c.statuses,
+        feasts: c.feasts,
+        art: c.art,
+      }),
+    );
+  };
+
+  const MONTEGALLO_LEAD =
+    "Marco da Montegallo (1425 – 19 March 1496) was an Italian friar of the Order of Friars " +
+    "Minor, known for founding pawnshops for the poor across Italy. His feast is celebrated on " +
+    "20 March rather than on his death date of 19 March, the feast of Saint Joseph.";
+
+  const REJECTED: Array<Case & { code: string }> = [
+    {
+      name: "Adolph Kolping",
+      qid: "Q60619",
+      statuses: BLESSED,
+      feasts: "4 December",
+      art: at("Adolph_Kolping"),
+      lead:
+        "Adolph Kolping (8 December 1813 – 4 December 1865) was a German Catholic priest and the " +
+        "founder of the Kolping Association. He was beatified in 1991; his liturgical feast is " +
+        "kept not on the day of his death but on 6 December.",
+      infobox: {
+        venerated_in: "Catholic Church",
+        beatified_date: "27 October 1991",
+        feast_day: "6 December",
+      },
+      code: "feast_contradicted",
+    },
+    {
+      name: "Teresa Margaret Redi",
+      qid: "Q168304",
+      statuses: CATHOLIC_SAINT,
+      feasts: "7 March",
+      art: at("Teresa_Margaret_of_the_Sacred_Heart"),
+      lead:
+        "Teresa Margaret of the Sacred Heart (born Anna Maria Redi; 15 July 1747 – 7 March 1770) " +
+        "was an Italian Discalced Carmelite nun revered for her mystical gifts. She was canonized " +
+        "by Pope Pius XI in 1934.",
+      infobox: {
+        venerated_in: "Catholic Church",
+        beatified_date: "9 June 1929",
+        canonized_date: "19 March 1934",
+        feast_day: "1 September",
+      },
+      code: "feast_contradicted",
+    },
+    {
+      name: "René Goupil",
+      qid: "Q1524650",
+      statuses: CATHOLIC_SAINT,
+      feasts: "29 September",
+      art: at("Ren%C3%A9_Goupil"),
+      lead:
+        "René Goupil (15 May 1608 – 29 September 1642) was a French Jesuit lay missionary, the " +
+        "first of the eight North American Martyrs to die and the first canonized Catholic martyr " +
+        "of North America.",
+      infobox: {
+        venerated_in: "Roman Catholic Church",
+        beatified_date: "21 June 1925",
+        canonized_date: "29 June 1930",
+        feast_day: "26 September (Canada); 19 October (United States)",
+      },
+      prose: "Goupil was killed on the Feast of St. Michael the Archangel, 29 September 1642.",
+      code: "feast_contradicted",
+    },
+    {
+      name: "Zdenka Cecília Schelingová",
+      qid: "Q168952",
+      statuses: BLESSED,
+      feasts: "31 July",
+      art: at("Cec%C3%ADlia_Schelingov%C3%A1"),
+      lead:
+        "Zdenka Cecília Schelingová (24 December 1916 – 31 July 1955) was a Slovak religious sister " +
+        "of the Sisters of Charity of the Holy Cross who died after imprisonment by the communist " +
+        "regime. She was beatified in Bratislava on 14 September 2003.",
+      infobox: {
+        venerated_in: "Roman Catholic Church",
+        beatified_date: "14 September 2003",
+        feast_day: "23 November",
+      },
+      code: "feast_contradicted",
+    },
+    {
+      // Wikidata's day IS in the infobox — after another, as another rite's.
+      name: "Eugendus",
+      qid: "Q389249",
+      statuses: CATHOLIC_SAINT,
+      feasts: "1 January",
+      art: at("Eugendus"),
+      lead:
+        "Eugendus (also Augendus; French: Oyand; c. 449 – January 1, 510) was the fourth abbot of " +
+        "Condat Abbey, at Saint-Claude in the Jura, and is venerated as a saint.",
+      infobox: {
+        venerated_in: "Catholic Church; Eastern Orthodox Church",
+        feast_day: "4 January (formerly 2 January); 1 January in the Eastern Orthodox Church",
+      },
+      code: "feast_ambiguous",
+    },
+    {
+      name: "Luigi Beltrame Quattrocchi",
+      qid: "Q13586473",
+      statuses: BLESSED,
+      feasts: "9 November",
+      art: at("Luigi_Beltrame_Quattrocchi"),
+      lead:
+        "Luigi Beltrame Quattrocchi (12 January 1880 – 9 November 1951) and Maria Corsini were " +
+        "married Italian Catholic laypeople, the first couple to be beatified together, in 2001. " +
+        "Their feast is on 25 November, the anniversary of their wedding.",
+      infobox: {
+        venerated_in: "Catholic Church",
+        beatified_date: "21 October 2001",
+        feast_day: "25 November",
+      },
+      code: "feast_contradicted",
+    },
+    {
+      // Feast wording sits right beside Wikidata's 19 March: only the
+      // infobox-first rule — and the second date in the sentence — stop it.
+      name: "Marco da Montegallo",
+      qid: "Q15635147",
+      statuses: BLESSED,
+      feasts: "19 March",
+      art: at("Marco_da_Montegallo"),
+      lead: MONTEGALLO_LEAD,
+      infobox: {
+        venerated_in: "Roman Catholic Church",
+        beatified_date: "20 September 1839",
+        feast_day: "20 March",
+      },
+      code: "feast_contradicted",
+    },
+    {
+      // The feast agrees; the stage does not. Wikidata carries both
+      // "blessed" and "Catholic saint"; the article records the beatification.
+      name: "Józef Cebula",
+      qid: "Q475873",
+      statuses: `${BLESSED}||${CATHOLIC_SAINT}`,
+      feasts: "28 April",
+      art: at("J%C3%B3zef_Cebula"),
+      lead:
+        "Józef Cebula (23 March 1902 – 9 May 1941) was a Polish priest of the Missionary Oblates " +
+        "of Mary Immaculate, killed at the Mauthausen-Gusen concentration camp and beatified in " +
+        "1999.",
+      infobox: {
+        venerated_in: "Roman Catholic Church",
+        beatified_date: "13 June 1999",
+        feast_day: "April 28",
+      },
+      code: "status_contradicted",
+    },
+  ];
+
+  it.each(REJECTED)("rejects $name ($code)", async (c) => {
+    expect(rejectionOf(await map(c))?.code).toBe(c.code);
+  });
+
+  it("refuses Montegallo's death date from the prose alone, too", () => {
+    // Without the infobox, the second date in the sentence still decides.
+    expect(feastStatedWithWording(3, 19, MONTEGALLO_LEAD, "en")).toBe(false);
+    expect(feastStatedWithWording(3, 20, MONTEGALLO_LEAD, "en")).toBe(false);
+  });
+
+  it("refuses a feast the article says was moved (Ansfried of Utrecht)", async () => {
+    const entry = await map({
+      name: "Ansfried of Utrecht",
+      qid: "Q569687",
+      statuses: CATHOLIC_SAINT,
+      feasts: "3 May",
+      art: at("Ansfried_of_Utrecht"),
+      lead:
+        "Ansfried of Utrecht (died 3 May 1010 near Leusden) was Count of Huy and sword-bearer to " +
+        "Otto I, and became Bishop of Utrecht in 995.",
+      infobox: {},
+      prose: "Veneration. His feast day was 3 May but was later moved to 11 May.",
+    });
+    expect(rejectionOf(entry)?.code).toBe("feast_uncorroborated");
+  });
+
+  const ACCEPTED: Array<Case & { status: string; feastDay: string; via: string }> = [
+    {
+      name: "Randoald",
+      qid: "Q2130704",
+      statuses: CATHOLIC_SAINT,
+      feasts: "21 February",
+      art: at("Randoald_of_Grandval"),
+      lead:
+        "Randoald (also Rancald or Randaut; died 21 February 675) was prior of the Benedictine " +
+        "abbey of Moutier-Grandval under Germanus of Granfelden, venerated as a saint.",
+      infobox: {
+        venerated_in: "Eastern Orthodox Church; Roman Catholic Church",
+        canonized_date: "Pre-congregation",
+        feast_day: "21 February",
+      },
+      status: "canonized",
+      feastDay: "02-21",
+      via: "infobox",
+    },
+    {
+      // A one-line {{Saint}} infobox with `honored_in` (see wikipedia-infobox).
+      name: "Edward Colman",
+      qid: "Q3579783",
+      statuses: BLESSED,
+      feasts: "3 December",
+      art: at("Edward_Colman_(martyr)"),
+      lead:
+        "Edward Colman (17 May 1636 – 3 December 1678) was an English Catholic courtier under " +
+        "Charles II, executed for treason during the Popish Plot and beatified in 1929.",
+      infobox: {
+        honored_in: "Roman Catholic Church",
+        beatified_date: "15 December 1929 by Pope Pius XI",
+        honorific_prefix: "Blessed",
+        feast_day: "3 December",
+      },
+      status: "beatified",
+      feastDay: "12-03",
+      via: "{{Saint}} infobox",
+    },
+    {
+      name: "Humphrey Middlemore",
+      qid: "Q11938199",
+      statuses: BLESSED,
+      feasts: "19 June",
+      art: at("Humphrey_Middlemore"),
+      lead:
+        "Humphrey Middlemore (died 19 June 1535) was an English Carthusian monk of the London " +
+        "Charterhouse, executed under Henry VIII for refusing the Oath of Supremacy.",
+      infobox: {
+        honored_in: "Roman Catholic Church",
+        beatified_date: "29 December 1886",
+        honorific_prefix: "Blessed",
+        feast_day: "19 June and 4 May",
+      },
+      status: "beatified",
+      feastDay: "06-19",
+      via: "infobox, first of two dates",
+    },
+    {
+      // No infobox feast: the body states it, with feast wording and no
+      // second date.
+      name: "Randoald",
+      qid: "Q2130704",
+      statuses: CATHOLIC_SAINT,
+      feasts: "21 February",
+      art: at("Randoald_of_Grandval"),
+      lead:
+        "Randoald (also Rancald or Randaut; died 21 February 675) was prior of the Benedictine " +
+        "abbey of Moutier-Grandval under Germanus of Granfelden, venerated as a saint.",
+      infobox: {},
+      prose: "Their feast day is 21 February, the anniversary of their deaths.",
+      status: "canonized",
+      feastDay: "02-21",
+      via: "article body",
+    },
+  ];
+
+  it.each(ACCEPTED)("still publishes $name on $feastDay (from the $via)", async (c) => {
+    const entry = await map(c);
+    expect(rejectionOf(entry)).toBeNull();
+    const payload = (entry as { payload: Record<string, unknown> }).payload;
+    expect(payload).toMatchObject({ canonizationStatus: c.status, feastDay: c.feastDay });
+    expect(validatePayload("SAINT", payload).ok).toBe(true);
   });
 });
