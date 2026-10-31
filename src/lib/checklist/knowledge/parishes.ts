@@ -4,7 +4,13 @@ const GCATHOLIC = "https://gcatholic.org/";
 const VATICAN = "https://www.vatican.va/";
 const USCCB = "https://www.usccb.org/";
 
-type Designation = "parish" | "shrine" | "cathedral" | "major-basilica" | "minor-basilica";
+type Designation =
+  | "parish"
+  | "chapel"
+  | "shrine"
+  | "cathedral"
+  | "major-basilica"
+  | "minor-basilica";
 
 function parish(
   slug: string,

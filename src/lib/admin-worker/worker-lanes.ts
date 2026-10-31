@@ -394,6 +394,29 @@ export const OPS_LANES: LaneDef[] = [
     },
   },
   {
+    // Address research for published OSM parishes still missing a street,
+    // locality, postal code or country: Nominatim lookups by OSM id (50 per
+    // request, ≤ 10 per run, a shared 1.1 s slot, a daily budget, a 15-minute
+    // cooldown on refusal). Fills blanks only (enrich-only, versioned), fixes a
+    // disagreeing tile-fallback country on evidence, unpublishes what is not a
+    // parish, and restores parishes the old city-only address key unpublished.
+    // Deterministic (no brain judgement), self-throttled (~2 min) and bounded
+    // by its own 4-minute budget inside this watchdog; idle under
+    // ADMIN_WORKER_SKIP_NETWORK.
+    name: "research-parish-addresses",
+    capacity: 1,
+    activeOnly: false,
+    watchdogMs: 6 * 60 * 1000,
+    async run({ prisma, passId }) {
+      const { runParishAddressResearch } = await import("./parish-address-research");
+      const r = await runParishAddressResearch(prisma, { passId });
+      return {
+        advanced: r.completed + r.partial + r.restored,
+        detail: r.detail,
+      };
+    },
+  },
+  {
     // ALL Python-brain-calling work lives in ONE lane so it never issues
     // concurrent calls to the single resident brain subprocess.
     name: "intelligence",

@@ -20,14 +20,14 @@ describe("parish content type", () => {
     );
   });
 
-  it("only allows the canonical designations", () => {
+  it("only allows the seven canonical designations", () => {
     expect([...PARISH_DESIGNATIONS]).toEqual([
       "parish",
+      "chapel",
       "shrine",
       "cathedral",
       "major-basilica",
       "minor-basilica",
-      "chapel",
       "oratory",
     ]);
   });
@@ -50,5 +50,23 @@ describe("parish content type", () => {
       citations: [],
     });
     expect(bad.success).toBe(false);
+  });
+
+  it("stores a short postal code and the chapel designation", () => {
+    const base = {
+      slug: "kapelle-st-georg",
+      title: "Kapelle St. Georg",
+      latitude: 46.71,
+      longitude: 9.15,
+      citations: ["https://www.openstreetmap.org/way/698048027"],
+    };
+    expect(
+      parishSchema.schema.safeParse({ ...base, designation: "chapel", postalCode: "7134" }).success,
+    ).toBe(true);
+    expect(parishSchema.schema.safeParse({ ...base, postalCode: "" }).success).toBe(false);
+    expect(parishSchema.schema.safeParse({ ...base, postalCode: "x".repeat(17) }).success).toBe(
+      false,
+    );
+    expect(parishSchema.instruction.optionalFields).toContain("postalCode");
   });
 });

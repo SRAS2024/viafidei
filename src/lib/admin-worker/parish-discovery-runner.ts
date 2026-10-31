@@ -26,7 +26,8 @@ import { isDoctrinallySensitive } from "./content-type-profiles";
 import { runPublishOrchestrator } from "./publish-orchestrator";
 import { placesEnabled, searchCatholicParishes, type PlaceParish } from "./parish-places";
 import { inspectParishWebsite, type CommunionVerdict } from "./communion-verifier";
-import { parishAddressKey, findPublishedParishByAddressKey } from "./parish-address";
+import { findDuplicateParish, parishAddressKey } from "./parish-address";
+import { normalizePostalCode } from "./parish-address-format";
 import { writeAdminWorkerLog } from "./logs";
 
 export interface MapsParishDiscoveryResult {
@@ -35,7 +36,10 @@ export interface MapsParishDiscoveryResult {
   candidates: number;
   published: number;
   routedToReview: number;
+  /** Not in communion with Rome (from the parish's own website). */
   rejected: number;
+  /** Already published under the shared duplicate rule (parish-address.ts). */
+  duplicates: number;
   detail: string;
 }
 
@@ -59,11 +63,11 @@ export function slugify(value: string): string {
 
 export type ParishDesignation =
   | "parish"
+  | "chapel"
   | "shrine"
   | "cathedral"
   | "major-basilica"
   | "minor-basilica"
-  | "chapel"
   | "oratory";
 
 /** The four papal (major) basilicas — the only churches that are ever
@@ -76,11 +80,22 @@ const CATHEDRAL_RE =
   /\b(cathedral|catedral|cattedrale|kathedrale|katedra|cath[ée]drale|katedr[áa]la|catedrala|duomo|kathedraal|domkirche)\b/i;
 const SHRINE_RE =
   /\b(shrine|santuario|santu[áa]rio|sanctuaire|sanktuarium|wallfahrtskirche|heiligdom|santuari)\b/i;
+/**
+ * "Chapel" as its own word in the directory's main languages, or as the
+ * German / Dutch / Scandinavian compound suffix ("Marienkapelle",
+ * "Onze-Lieve-Vrouwekapel"). A word followed by a hyphen is a place name
+ * ("Kapelle-op-den-Bos"), not a chapel.
+ */
+const CHAPEL_WORD_RE =
+  /(?:^|[^\p{L}])(chapel|chapelle|cappella|capella|capilla|capela|kaple|kaplnka|kaplica|kaplička|kapela|kápolna|koplyčia|kapell|kapelle|kapel)(?![\p{L}-])/iu;
+const CHAPEL_COMPOUND_RE = /\p{L}(kapelle|kapell|kapel)(?![\p{L}-])/iu;
 
 /**
  * Designation from the source's own words: OSM tags first (`building=cathedral`,
- * `cathedral=yes`, `church:type=…`), then the name in any of the directory's
- * main languages. Never guesses "major": only the papal basilicas qualify.
+ * `cathedral=yes`, `church:type=…`, `building=chapel`, `place_of_worship=
+ * chapel`), then the name in any of the directory's main languages. Never
+ * guesses "major": only the papal basilicas qualify. A chapel is a chapel,
+ * not a parish — about 3,000 were published as "parish" before this rule.
  */
 export function designationFor(name: string, tags: Record<string, string> = {}): ParishDesignation {
   const tag = (k: string) => (tags[k] ?? "").trim().toLowerCase();
@@ -101,6 +116,13 @@ export function designationFor(name: string, tags: Record<string, string> = {}):
   )
     return "cathedral";
   if (churchType === "shrine" || SHRINE_RE.test(name)) return "shrine";
+  if (
+    tag("building") === "chapel" ||
+    tag("place_of_worship") === "chapel" ||
+    CHAPEL_WORD_RE.test(name) ||
+    CHAPEL_COMPOUND_RE.test(name)
+  )
+    return "chapel";
   return "parish";
 }
 
@@ -196,6 +218,7 @@ async function publishParish(
   const citations = [candidate.mapsUri, candidate.website].filter(
     (c): c is string => typeof c === "string" && c.length > 0,
   );
+  const postalCode = normalizePostalCode(candidate.postcode, candidate.countryCode);
   const payload: Record<string, unknown> = {
     slug,
     title: candidate.name,
@@ -204,12 +227,15 @@ async function publishParish(
     city,
     summary: `${candidate.name} is a Roman Catholic ${designationFor(candidate.name).replace("-", " ")} in ${city}, in communion with the Holy See (verified from the parish website).`,
     citations,
-    addressKey: parishAddressKey({
-      address: candidate.formattedAddress,
-      city,
-      state: candidate.state,
-    }),
   };
+  const addressKey = parishAddressKey({
+    address: candidate.formattedAddress,
+    city,
+    state: candidate.state,
+    postalCode,
+  });
+  if (addressKey) payload.addressKey = addressKey;
+  if (postalCode) payload.postalCode = postalCode;
   if (candidate.state) payload.state = candidate.state;
   if (candidate.country) payload.country = candidate.country;
   if (candidate.website) payload.website = candidate.website;
@@ -280,6 +306,7 @@ export async function runMapsParishDiscovery(
     published: 0,
     routedToReview: 0,
     rejected: 0,
+    duplicates: 0,
     detail: "",
   };
   if (!base.enabled) {
@@ -311,15 +338,26 @@ export async function runMapsParishDiscovery(
         .catch(() => null);
       if (exists) continue;
 
-      // …and by ADDRESS: same address as an already-published parish ⇒ same
-      // place, not published again.
+      // …and by ADDRESS under the shared rule: the same key as a published
+      // parish AND within 250 m of it (with the same name too when the street
+      // has no house number, or the same name alone when either lacks
+      // coordinates) ⇒ same place, not published again.
       const addressKey = parishAddressKey({
         address: candidate.formattedAddress,
         city,
         state: candidate.state,
+        postalCode: normalizePostalCode(candidate.postcode, candidate.countryCode),
       });
-      if (await findPublishedParishByAddressKey(prisma, addressKey)) {
-        base.rejected += 1;
+      const duplicate = await findDuplicateParish(prisma, {
+        addressKey,
+        address: candidate.formattedAddress,
+        countryCode: candidate.countryCode,
+        latitude: candidate.latitude,
+        longitude: candidate.longitude,
+        name: candidate.name,
+      });
+      if (duplicate) {
+        base.duplicates += 1;
         continue;
       }
 
@@ -379,6 +417,6 @@ export async function runMapsParishDiscovery(
     }
   }
 
-  base.detail = `${base.candidates} candidate(s) over ${base.queriesRun} query(ies): published ${base.published}, ${base.routedToReview} to review, ${base.rejected} rejected (not in communion with Rome)`;
+  base.detail = `${base.candidates} candidate(s) over ${base.queriesRun} query(ies): published ${base.published}, ${base.routedToReview} to review, ${base.duplicates} duplicate(s), ${base.rejected} rejected (not in communion with Rome)`;
   return base;
 }

@@ -18,14 +18,21 @@
  * run within its watchdog instead of stalling on 10-second site fetches.
  *
  * Nothing is invented: a candidate needs its OSM name plus EITHER a locality
- * tag OR coordinates; a missing city may be filled from `is_in` or one
- * bounded Nominatim reverse lookup, else the record publishes on its
- * coordinates with an empty city. Dedup runs cheapest-first — sourceRef,
- * addressKey, same-name-within-200 m, then slug (a collision gets a stable
- * suffix, never a silent skip) — and a re-swept parish enriches its own row
- * in place. Every run is bounded (publish cap checked BEFORE any per-candidate
- * work, a wall-clock deadline under the lane watchdog) and resumable
- * (per-tile progress is persisted).
+ * tag OR coordinates. Wayside shrines, crosses, grottoes and numbered Stations
+ * of the Cross are not parishes and are never candidates. Before a tile's new
+ * candidates are deduped they are looked up by OSM id on Nominatim in batches
+ * of 50 (nominatim-lookup.ts), which fills a blank street, postcode, locality
+ * and state — and replaces a TILE-fallback country, never an `addr:country`
+ * tag. When that lookup is unavailable (budget, cooldown) the parish publishes
+ * as before and the address-research lane completes it later; a missing city
+ * may still come from `is_in` or one bounded reverse lookup. Dedup runs
+ * cheapest-first — sourceRef, the shared address rule (same key AND within
+ * 250 m, plus the same name for a street without a house number;
+ * parish-address.ts), same-name-within-200 m, then slug (a collision
+ * gets a stable suffix, never a silent skip) — and a re-swept parish enriches
+ * its own row in place. Every run is bounded (publish cap checked BEFORE any
+ * per-candidate work, a wall-clock deadline under the lane watchdog) and
+ * resumable (per-tile progress is persisted).
  */
 
 import type { PrismaClient } from "@prisma/client";
@@ -34,8 +41,26 @@ import { validatePayload } from "@/lib/checklist";
 import { isDoctrinallySensitive } from "./content-type-profiles";
 import { applyProtectedContentUpdate } from "./content-protection";
 import { runPublishOrchestrator } from "./publish-orchestrator";
-import { designationFor, fileReview, slugify } from "./parish-discovery-runner";
-import { parishAddressKey, findPublishedParishByAddressKey } from "./parish-address";
+import {
+  designationFor,
+  fileReview,
+  slugify,
+  type ParishDesignation,
+} from "./parish-discovery-runner";
+import { findDuplicateParish, normalizedParishName, parishAddressKey } from "./parish-address";
+import { composeStreetLine, countryNameFor, normalizePostalCode } from "./parish-address-format";
+import {
+  addressPrecisionOf,
+  nextAddressResearchMeta,
+  type AddressPrecision,
+  type AddressResearchMeta,
+} from "./parish-address-status";
+import {
+  lookupOsmPlaces,
+  nominatimAddressParts,
+  NOMINATIM_MAX_IDS_PER_REQUEST,
+  type NominatimPlace,
+} from "./nominatim-lookup";
 import type { PlaceParish } from "./parish-places";
 import { writeAdminWorkerLog } from "./logs";
 import {
@@ -128,15 +153,121 @@ export function localityFromTags(tags: Record<string, string>): string {
   return "";
 }
 
-/** English display name for an ISO-3166 alpha-2 code ("PL" → "Poland"). */
-export function countryNameFor(code: string | undefined): string | undefined {
-  if (!code || !/^[A-Z]{2}$/.test(code)) return undefined;
-  try {
-    const name = new Intl.DisplayNames(["en"], { type: "region" }).of(code);
-    return name && name !== code ? name : undefined;
-  } catch {
-    return undefined;
-  }
+// Moved to the shared address modules; re-exported for existing callers.
+export { countryNameFor, normalizedParishName };
+
+// ── Not a parish: wayside shrines, crosses and Stations of the Cross ────────
+
+/** Typed reason a mapped place of worship is not a parish. */
+export type ParishExclusionReason =
+  | "wayside-shrine"
+  | "wayside-chapel"
+  | "wayside-cross"
+  | "lourdes-grotto"
+  | "cross"
+  | "stations-of-the-cross";
+
+export interface ParishExclusion {
+  reason: ParishExclusionReason;
+  /** The tag or name that decided it, for the audit trail. */
+  evidence: string;
+}
+
+const EXCLUDED_PLACE_OF_WORSHIP = new Map<string, ParishExclusionReason>([
+  ["wayside_shrine", "wayside-shrine"],
+  ["wayside_chapel", "wayside-chapel"],
+  ["cross", "cross"],
+  ["lourdes_grotto", "lourdes-grotto"],
+]);
+const EXCLUDED_HISTORIC = new Map<string, ParishExclusionReason>([
+  ["wayside_shrine", "wayside-shrine"],
+  ["wayside_cross", "wayside-cross"],
+]);
+/**
+ * Whole names that are unambiguously one numbered Station of the Cross:
+ * "Kreuzwegstation V", "2e Statie" … "14e Statie", "Statie I" … "Statie XIV",
+ * "Die dritte Schmerz Mariens". Name patterns are otherwise unreliable ("Grote
+ * of Sint-Laurenskerk" is a large church), so the tags decide everything else.
+ */
+const STATIONS_OF_THE_CROSS_RE: readonly RegExp[] = [
+  /^kreuzwegstation\s+([ivxlc]+|\d+)$/i,
+  /^\d+(e|de|ste)?\s+statie$/i,
+  /^statie\s+([ivxlc]+|\d+)$/i,
+  /^((der|die)\s+)?(erste|zweite|dritte|vierte|f(ü|ue)nfte|sechste|sieb(en)?te|\d+\.)\s+schmerz(en)?\s+mariens$/i,
+];
+
+/**
+ * Why a Catholic place of worship is NOT a parish, from its OSM tags
+ * (`place_of_worship`, `historic`, `man_made`) or a strict Stations-of-the-
+ * Cross name — or null. Used for new candidates (Overpass tags) and for
+ * already-published rows (Nominatim extratags) alike.
+ */
+export function parishExclusionFor(
+  name: string,
+  tags: Record<string, string> = {},
+): ParishExclusion | null {
+  const tag = (k: string) => (tags[k] ?? "").trim().toLowerCase();
+  const pow = EXCLUDED_PLACE_OF_WORSHIP.get(tag("place_of_worship"));
+  if (pow) return { reason: pow, evidence: `place_of_worship=${tag("place_of_worship")}` };
+  const historic = EXCLUDED_HISTORIC.get(tag("historic"));
+  if (historic) return { reason: historic, evidence: `historic=${tag("historic")}` };
+  if (tag("man_made") === "cross") return { reason: "cross", evidence: "man_made=cross" };
+  const trimmed = name.trim();
+  if (STATIONS_OF_THE_CROSS_RE.some((re) => re.test(trimmed)))
+    return { reason: "stations-of-the-cross", evidence: `name "${trimmed}"` };
+  return null;
+}
+
+/** How long discovery stays away from a row kept down as not a parish. */
+export const EXCLUDED_SKIP_MS = 365 * DAY_MS;
+
+// ── The published summary sentence ──────────────────────────────────────────
+
+const DESIGNATION_WORD: Record<ParishDesignation, string> = {
+  parish: "parish",
+  chapel: "chapel",
+  shrine: "shrine",
+  cathedral: "cathedral",
+  "major-basilica": "major basilica",
+  "minor-basilica": "minor basilica",
+  oratory: "oratory",
+};
+
+/** The one factual sentence an OSM parish is published with. */
+export function osmParishSummary(input: {
+  name: string;
+  designation: ParishDesignation;
+  denomination?: string;
+  city?: string;
+  country?: string;
+}): string {
+  const body = input.denomination === "roman_catholic" ? "Roman Catholic" : "Catholic";
+  const where = [input.city, input.country]
+    .map((v) => (v ?? "").trim())
+    .filter(Boolean)
+    .join(", ");
+  const kind = DESIGNATION_WORD[input.designation] ?? "parish";
+  return `${input.name} is a ${body} ${kind}${where ? ` in ${where}` : ""}, listed in OpenStreetMap as a Catholic place of worship.`;
+}
+
+/** Both machine forms: the current sentence and the original one, which ended
+ * with `(denomination "…")`. */
+const MACHINE_SUMMARY_RE =
+  /^(.+) is a (Roman Catholic|Catholic) (parish|chapel|shrine|cathedral|major basilica|minor basilica)(?: in (.+?))?, listed in OpenStreetMap as a Catholic place of worship(?: \(denomination "(?:roman_catholic|catholic)"\))?\.$/;
+
+/**
+ * When `summary` is still the machine-written sentence for `title` (so it may
+ * be regenerated as its facts change), its denomination; null for anything a
+ * person wrote or edited.
+ */
+export function machineParishSummary(
+  summary: unknown,
+  title: string,
+): { denomination: "roman_catholic" | "catholic" } | null {
+  if (typeof summary !== "string") return null;
+  const m = MACHINE_SUMMARY_RE.exec(summary.trim());
+  if (!m || m[1] !== title.trim()) return null;
+  return { denomination: m[2] === "Roman Catholic" ? "roman_catholic" : "catholic" };
 }
 
 export interface OsmCandidate extends PlaceParish {
@@ -146,15 +277,75 @@ export interface OsmCandidate extends PlaceParish {
   osmId: number;
   /** Slug base derived from the English name when the local one is non-Latin. */
   slugBase: string;
-  /** From OSM tags (`building`, `cathedral`, `church:type`) and the name. */
-  designation: ReturnType<typeof designationFor>;
+  /** The `name:en` tag, for the slug when the name itself has no Latin word. */
+  englishName?: string;
+  /** From OSM tags (`building`, `place_of_worship`, `church:type`, …) and the name. */
+  designation: ParishDesignation;
+  /**
+   * Where `countryCode` came from: the element's `addr:country` tag, the
+   * tile's fallback, or a Nominatim answer. Only a tile fallback may be
+   * replaced — a tag is the mapper's own statement.
+   */
+  countrySource?: "tag" | "tile" | "nominatim";
+  /**
+   * The element's own street, house number and postcode tags, as mapped. The
+   * street line's order and the postcode's format depend on the country, so
+   * both are derived again when a lookup replaces a tile-fallback country.
+   * `street` is empty when the line is `addr:full`, which is kept as written.
+   */
+  addressTags?: { street: string; houseNumber: string; postcode: string };
+  /** Set when a Nominatim lookup answered for this candidate at discovery; the
+   * row then publishes with its research state (`_meta.addressResearch`). */
+  addressLookup?: {
+    /** False when Nominatim answered without this object. */
+    returned: boolean;
+    /** True when the answer filled or corrected at least one field. */
+    used: boolean;
+    precision: AddressPrecision;
+    at: number;
+  };
+}
+
+/**
+ * A website tag as a usable https URL: a scheme-less value ("stmarys.org")
+ * gets https:// when it then parses as a URL with a real host; anything else
+ * (free text, credentials, another scheme) is dropped.
+ */
+function websiteFromTag(raw: string): string | undefined {
+  const value = raw.trim();
+  if (!value || /\s/.test(value)) return undefined;
+  const url = /^https?:\/\//i.test(value)
+    ? value
+    : /^[a-z][a-z0-9+.-]*:\/\//i.test(value)
+      ? ""
+      : `https://${value}`;
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    if (parsed.username || parsed.password || !parsed.hostname.includes(".")) return undefined;
+    return url;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The slug base for a church: its name — or `name:en` when the name is in a
+ * script slugify cannot spell — with the locality. "" when neither name has a
+ * Latin word: a locality alone ("new-york") names no church, and every
+ * non-Latin church in a city would compete for it.
+ */
+function parishSlugBase(name: string, englishName: string | undefined, locality: string): string {
+  const named = [name, englishName ?? ""].find((n) => slugify(n) !== "");
+  return named ? slugify(`${named} ${locality}`) : "";
 }
 
 /**
  * Map one Overpass element to a parish candidate, or null when it is not an
  * explicitly Catholic, named church that can be located (a locality tag OR
- * coordinates). `fallback` supplies the tile's country when the element has
- * no `addr:country`. Exported for testing.
+ * coordinates), or is not a parish at all (`parishExclusionFor`). `fallback`
+ * supplies the tile's country when the element has no `addr:country`.
+ * Exported for testing.
  */
 export function osmElementToParish(
   el: OverpassElement,
@@ -170,6 +361,8 @@ export function osmElementToParish(
   // A ruin or a closed church is not a parish anyone can attend.
   if (tags.ruins === "yes" || tags.disused === "yes" || tags.abandoned === "yes") return null;
   if (tags["disused:amenity"] || tags["abandoned:amenity"]) return null;
+  // Nor is a wayside shrine, a cross, a grotto or a Station of the Cross.
+  if (parishExclusionFor(name, tags)) return null;
   if (!el.type || el.id == null) return null;
 
   const lat = typeof el.lat === "number" ? el.lat : el.center?.lat;
@@ -178,27 +371,24 @@ export function osmElementToParish(
   const city = localityFromTags(tags);
   if (!city && !hasCoords) return null;
 
-  const full = (tags["addr:full"] ?? "").trim();
-  const street = (tags["addr:street"] ?? "").trim();
-  const houseNumber = (tags["addr:housenumber"] ?? "").trim();
-  const address = full || [houseNumber, street].filter(Boolean).join(" ").trim();
+  const rawCountry = (tags["addr:country"] ?? "").trim().toUpperCase();
+  const taggedCountry = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : undefined;
+  const countryCode = taggedCountry ?? fallback.countryCode;
 
-  let website = (tags.website || tags["contact:website"] || "").trim();
-  if (website && !/^https?:\/\//i.test(website)) website = "";
-  if (website) {
-    try {
-      new URL(website);
-    } catch {
-      website = "";
-    }
-  }
+  // The street line in the country's own order ("Hauptstraße 12", "12 Main
+  // St"). A hamlet addressed by place + number ("Lhota 12") uses addr:place
+  // as its street; a house number alone is no street line at all.
+  const full = (tags["addr:full"] ?? "").trim();
+  const houseNumber = (tags["addr:housenumber"] ?? "").trim();
+  const street =
+    (tags["addr:street"] ?? "").trim() || (houseNumber ? (tags["addr:place"] ?? "").trim() : "");
+  const address = full || composeStreetLine(street, houseNumber, countryCode);
+
+  const website = websiteFromTag(tags.website || tags["contact:website"] || "");
   const phone = (tags.phone || tags["contact:phone"] || "").trim() || undefined;
 
-  const rawCountry = (tags["addr:country"] ?? "").trim().toUpperCase();
-  const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : fallback.countryCode;
   const osmRef = `${el.type}/${el.id}`;
   const englishName = (tags["name:en"] ?? "").trim();
-  const slugBase = slugify(`${name} ${city}`) || slugify(`${englishName} ${city}`);
 
   return {
     name,
@@ -207,10 +397,16 @@ export function osmElementToParish(
     state: (tags["addr:state"] ?? tags["addr:province"] ?? "").trim() || undefined,
     country: countryNameFor(countryCode),
     countryCode,
-    postcode: (tags["addr:postcode"] ?? "").trim() || undefined,
+    countrySource: taggedCountry ? "tag" : countryCode ? "tile" : undefined,
+    postcode: normalizePostalCode(tags["addr:postcode"], countryCode),
+    addressTags: {
+      street: full ? "" : street,
+      houseNumber,
+      postcode: (tags["addr:postcode"] ?? "").trim(),
+    },
     latitude: hasCoords ? lat : undefined,
     longitude: hasCoords ? lon : undefined,
-    website: website || undefined,
+    website,
     phone,
     placeId: `osm:${osmRef}`,
     types: ["place_of_worship"],
@@ -218,80 +414,115 @@ export function osmElementToParish(
     denomination,
     osmType: el.type,
     osmId: el.id,
-    slugBase: slugBase || `parish-${el.type}-${el.id}`,
+    slugBase: parishSlugBase(name, englishName, city) || `parish-${el.type}-${el.id}`,
+    englishName: englishName || undefined,
     designation: designationFor(name, tags),
   };
 }
 
-// ── Dedup helpers ───────────────────────────────────────────────────────────
-
-const NAME_STOP_WORDS = new Set([
-  "st",
-  "saint",
-  "san",
-  "santa",
-  "santo",
-  "sao",
-  "ste",
-  "sainte",
-  "sankt",
-  "sw",
-  "church",
-  "parish",
-  "parroquia",
-  "paroisse",
-  "eglise",
-  "pfarrkirche",
-  "pfarrei",
-  "kirche",
-  "iglesia",
-  "igreja",
-  "chiesa",
-  "parrocchia",
-  "kosciol",
-  "parafia",
-  "catholic",
-  "roman",
-  "rc",
-  "of",
-  "the",
-  "de",
-  "del",
-  "della",
-  "di",
-  "da",
-  "do",
-  "dos",
-  "das",
-  "la",
-  "le",
-  "les",
-  "el",
-  "los",
-  "las",
-  "and",
-  "y",
-  "e",
-  "et",
-  "und",
-]);
+/**
+ * Derive again what depends on the country from the element's own tags, once
+ * a lookup has replaced its tile-fallback country: the street line's order (a
+ * Houston church on a Mexican tile was composed "Main Street 1505") and
+ * whether its postcode fits ("H2X 3J6" is no US ZIP but a Canadian code).
+ */
+function rederiveForCountry(candidate: OsmCandidate): void {
+  const tags = candidate.addressTags;
+  if (!tags) return;
+  if (tags.street) {
+    candidate.formattedAddress = composeStreetLine(
+      tags.street,
+      tags.houseNumber,
+      candidate.countryCode,
+    );
+  }
+  candidate.postcode = normalizePostalCode(tags.postcode, candidate.countryCode);
+}
 
 /**
- * Fold a parish name to its distinctive words so "St. Mary Catholic Church"
- * and "Parish of Saint Mary" compare equal. Empty when nothing distinctive
- * remains (then no name-based dedup is possible).
+ * Fill a NEW candidate's blanks from its Nominatim answer, before the address
+ * dedup sees it: street line, locality, state, postal code — and the country
+ * when the candidate's came from the tile fallback (or it had none), with the
+ * tagged street line and postcode derived again for it. A value the element's
+ * own tags supplied is never replaced. `place: null` means Nominatim answered
+ * without this object. Exported for testing.
  */
-export function normalizedParishName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .split(/\s+/)
-    .filter((w) => w && !NAME_STOP_WORDS.has(w))
-    .sort() // "Holy Cross Cathedral" ≡ "Cathedral of the Holy Cross"
-    .join(" ");
+export function applyLookupToCandidate(
+  candidate: OsmCandidate,
+  place: NominatimPlace | null,
+  now: number,
+): void {
+  if (!place) {
+    candidate.addressLookup = {
+      returned: false,
+      used: false,
+      precision: addressPrecisionOf(candidate.formattedAddress),
+      at: now,
+    };
+    return;
+  }
+  const parts = nominatimAddressParts(place);
+  let used = false;
+  // Country first: the street order and the postcode format depend on it.
+  if (
+    parts.countryCode &&
+    parts.countryCode !== candidate.countryCode &&
+    (!candidate.countryCode || candidate.countrySource === "tile")
+  ) {
+    candidate.countryCode = parts.countryCode;
+    candidate.country = parts.country;
+    candidate.countrySource = "nominatim";
+    rederiveForCountry(candidate);
+    used = true;
+  }
+  const sameCountry = !candidate.countryCode || candidate.countryCode === parts.countryCode;
+  let precision = addressPrecisionOf(candidate.formattedAddress);
+  if (!candidate.formattedAddress && parts.street && sameCountry) {
+    candidate.formattedAddress = composeStreetLine(
+      parts.street,
+      parts.houseNumber,
+      candidate.countryCode,
+    );
+    precision = parts.precision;
+    used = true;
+  }
+  if (!candidate.city && parts.locality) {
+    candidate.city = parts.locality;
+    candidate.slugBase =
+      parishSlugBase(candidate.name, candidate.englishName, parts.locality) || candidate.slugBase;
+    used = true;
+  }
+  if (!candidate.state && parts.state && sameCountry) {
+    candidate.state = parts.state;
+    used = true;
+  }
+  if (!candidate.postcode && parts.postalCode && sameCountry) {
+    candidate.postcode = parts.postalCode;
+    used = true;
+  }
+  candidate.addressLookup = { returned: true, used, precision, at: now };
 }
+
+/** The research state a looked-up candidate publishes with, from its final fields. */
+function candidateResearchMeta(candidate: OsmCandidate): AddressResearchMeta | null {
+  const lookup = candidate.addressLookup;
+  if (!lookup) return null;
+  return nextAddressResearchMeta({
+    previous: null,
+    payload: {
+      address: candidate.formattedAddress,
+      city: candidate.city,
+      postalCode: candidate.postcode,
+      countryCode: candidate.countryCode,
+    },
+    returned: lookup.returned,
+    precision: lookup.precision,
+    sources: lookup.used ? ["osm", "nominatim"] : ["osm"],
+    now: lookup.at,
+  });
+}
+
+// ── Dedup helpers ───────────────────────────────────────────────────────────
 
 type ExistingRow = {
   id: string;
@@ -353,14 +584,34 @@ function payloadOf(row: ExistingRow): Record<string, unknown> {
     : {};
 }
 
+/** True when the row was unpublished as a duplicate of a parish that is still live. */
+async function dedupKeeperIsLive(prisma: PrismaClient, row: ExistingRow): Promise<boolean> {
+  const meta = payloadOf(row)._meta;
+  const dedup =
+    meta && typeof meta === "object" && !Array.isArray(meta)
+      ? (meta as Record<string, unknown>).dedup
+      : null;
+  const keeperId =
+    dedup && typeof dedup === "object" ? (dedup as { keeperId?: unknown }).keeperId : null;
+  if (typeof keeperId !== "string" || !keeperId) return false;
+  const keeper = await prisma.publishedContent
+    .findFirst({
+      where: { id: keeperId, contentType: "PARISH" as never, isPublished: true },
+      select: { id: true },
+    })
+    .catch(() => null);
+  return Boolean(keeper);
+}
+
 function isBlank(v: unknown): boolean {
   return v == null || (typeof v === "string" && v.trim() === "");
 }
 
 /**
  * Enrich an existing row from a re-swept OSM element: fill ONLY empty fields
- * (phone, website, coordinates, city, address, country, sourceRef, addressKey)
- * through the protection gate. Never overwrites; returns true when applied.
+ * (phone, website, coordinates, city, address, postal code, country,
+ * sourceRef, addressKey) through the protection gate. Never overwrites;
+ * returns true when applied.
  */
 async function enrichExistingRow(
   prisma: PrismaClient,
@@ -380,6 +631,7 @@ async function enrichExistingRow(
   fill("city", candidate.city);
   fill("address", candidate.formattedAddress);
   fill("state", candidate.state);
+  fill("postalCode", candidate.postcode);
   fill("country", candidate.country);
   fill("countryCode", candidate.countryCode);
   fill("sourceRef", candidate.placeId);
@@ -387,6 +639,7 @@ async function enrichExistingRow(
     address: (proposed.address as string | undefined) ?? candidate.formattedAddress,
     city: (proposed.city as string | undefined) ?? candidate.city,
     state: (proposed.state as string | undefined) ?? candidate.state,
+    postalCode: (proposed.postalCode as string | undefined) ?? candidate.postcode,
   });
   fill("addressKey", key);
   if (Object.keys(proposed).length === Object.keys(current).length) return false;
@@ -459,25 +712,30 @@ async function publishOsmParish(
   );
   if (citations.length === 0) return { kind: "blocked", reason: "no citation" };
   const designation = candidate.designation;
-  const kindWord = designation.replace("-", " ");
-  const bodyWord = candidate.denomination === "roman_catholic" ? "Roman Catholic" : "Catholic";
-  const where = [city, candidate.country].filter(Boolean).join(", ");
 
   const payload: Record<string, unknown> = {
     slug,
     title: candidate.name,
     designation,
     // The summary states exactly what the source says and nothing more.
-    summary: `${candidate.name} is a ${bodyWord} ${kindWord}${where ? ` in ${where}` : ""}, listed in OpenStreetMap as a Catholic place of worship (denomination "${candidate.denomination}").`,
+    summary: osmParishSummary({
+      name: candidate.name,
+      designation,
+      denomination: candidate.denomination,
+      city,
+      country: candidate.country,
+    }),
     citations,
     sourceRef: candidate.placeId,
   };
   if (candidate.formattedAddress) payload.address = candidate.formattedAddress;
   if (city) payload.city = city;
+  if (candidate.postcode) payload.postalCode = candidate.postcode;
   const addressKey = parishAddressKey({
     address: candidate.formattedAddress,
     city,
     state: candidate.state,
+    postalCode: candidate.postcode,
   });
   if (addressKey) payload.addressKey = addressKey;
   if (candidate.state) payload.state = candidate.state;
@@ -487,6 +745,10 @@ async function publishOsmParish(
   if (candidate.phone) payload.phone = candidate.phone;
   if (typeof candidate.latitude === "number") payload.latitude = candidate.latitude;
   if (typeof candidate.longitude === "number") payload.longitude = candidate.longitude;
+  // Researched at discovery: the research lane picks the row up again only
+  // once it is due, instead of spending a second lookup on it straight away.
+  const addressResearch = candidateResearchMeta(candidate);
+  if (addressResearch) payload._meta = { addressResearch };
 
   const valid = validatePayload("PARISH", payload);
   if (!valid.ok) return { kind: "blocked", reason: `schema: ${valid.errors.join("; ")}` };
@@ -555,12 +817,31 @@ interface RunContext {
   brainActive: boolean;
   passId?: string;
   reverse: ReverseLookupBudget;
+  /**
+   * Nominatim answers prefetched for the current chunk's new candidates:
+   * sourceRef → place, or null when Nominatim answered without the object.
+   * A ref that is absent was not looked up (budget, cooldown, known row).
+   */
+  lookups?: Map<string, NominatimPlace | null>;
 }
 
-/** Stable, source-derived suffix for a slug collision (postcode, else OSM id). */
-function collisionSuffix(candidate: OsmCandidate): string {
-  const pc = candidate.postcode ? slugify(candidate.postcode) : "";
-  return pc || String(candidate.osmId).slice(-4);
+/**
+ * Stable, source-derived slugs for a collision, in the order they are tried:
+ * the postcode, the OSM id's last four digits, then the whole typed OSM id.
+ * The postcode alone is not unique — the lookup gives most candidates one,
+ * and barangay chapels or frazioni repeat a dedication within one locality
+ * and postcode — so the last option is the one only this element can hold.
+ */
+function collisionSlugs(candidate: OsmCandidate): string[] {
+  const withSuffix = (suffix: string) =>
+    `${candidate.slugBase.slice(0, Math.min(74, 79 - suffix.length))}-${suffix}`;
+  const id = String(candidate.osmId);
+  const options = [
+    candidate.postcode ? slugify(candidate.postcode) : "",
+    id.slice(-4),
+    `${candidate.osmType.charAt(0)}${id}`,
+  ].filter(Boolean);
+  return [...new Set(options.map(withSuffix))];
 }
 
 /**
@@ -579,14 +860,38 @@ export async function processOsmCandidate(
       ? "updated"
       : "duplicate";
   }
+  // Its own row was unpublished as a duplicate (`_meta.dedup`) of a parish
+  // that is still live: stay down. The candidate's fresh tags may lack the
+  // street the research lane filled in, so the address check below could miss
+  // it and the sweep would republish what the maintenance just took down.
+  if (bySource && (await dedupKeeperIsLive(prisma, bySource))) return "duplicate";
 
-  // 2. Same street address → same place under another name (or source).
+  // A new candidate's Nominatim answer (prefetched per chunk) fills its blanks
+  // first, so the address dedup below sees the street and postcode.
+  const lookedUp = ctx.lookups?.has(candidate.placeId) === true;
+  if (lookedUp) {
+    applyLookupToCandidate(candidate, ctx.lookups?.get(candidate.placeId) ?? null, Date.now());
+  }
+
+  // 2. Same street address AND within 250 m (or the same name when either has
+  //    no coordinates) → same place under another name or source. A shared
+  //    key alone — two street-less churches in one city — is not enough, and
+  //    a street without a house number (two churches on one Kirchplatz) also
+  //    needs the same name.
   const addressKey = parishAddressKey({
     address: candidate.formattedAddress,
     city: candidate.city,
     state: candidate.state,
+    postalCode: candidate.postcode,
   });
-  const byAddress = addressKey ? await findPublishedParishByAddressKey(prisma, addressKey) : null;
+  const byAddress = await findDuplicateParish(prisma, {
+    addressKey,
+    address: candidate.formattedAddress,
+    countryCode: candidate.countryCode,
+    latitude: candidate.latitude,
+    longitude: candidate.longitude,
+    name: candidate.name,
+  });
   if (byAddress) {
     const row = await findBySlug(prisma, byAddress.slug);
     if (row?.isPublished && !row.sourceRef)
@@ -607,27 +912,39 @@ export async function processOsmCandidate(
 
   // City fallback for coordinate-only candidates: one bounded reverse lookup
   // (address.city|town|village|municipality only). Runs AFTER the dedup so a
-  // known parish never spends a lookup.
+  // known parish never spends a lookup, and only when the id lookup did not
+  // already answer for this very object.
   if (
     !candidate.city &&
+    candidate.addressLookup?.returned !== true &&
     typeof candidate.latitude === "number" &&
     typeof candidate.longitude === "number"
   ) {
     const r = await reverseLookupCity(prisma, candidate.latitude, candidate.longitude, ctx.reverse);
     if (r.city) {
       candidate.city = r.city;
-      candidate.slugBase = slugify(`${candidate.name} ${r.city}`) || candidate.slugBase;
+      candidate.slugBase =
+        parishSlugBase(candidate.name, candidate.englishName, r.city) || candidate.slugBase;
     }
-    if (!candidate.countryCode && r.countryCode) {
+    // Nominatim's country is where the point lies: it replaces a tile
+    // fallback (which can be a neighbouring country's) but never a tag.
+    if (
+      r.countryCode &&
+      r.countryCode !== candidate.countryCode &&
+      (!candidate.countryCode || candidate.countrySource === "tile")
+    ) {
       candidate.countryCode = r.countryCode;
       candidate.country = countryNameFor(r.countryCode);
+      candidate.countrySource = "nominatim";
+      rederiveForCountry(candidate);
     }
   }
 
   // 4. Slug. Its own row may exist unpublished (a rollback): republish it under
   //    its slug — the orchestrator's update branch flips it live again. Else a
-  //    live collision with a DIFFERENT parish gets a stable suffix instead of
-  //    a silent skip, while an unpublished row with no other source is reused.
+  //    live collision with a DIFFERENT parish gets the first free stable
+  //    suffix instead of a silent skip, while an unpublished row with no other
+  //    source is reused.
   let slug = candidate.slugBase;
   if (bySource && !bySource.isPublished) {
     slug = bySource.slug;
@@ -635,8 +952,16 @@ export async function processOsmCandidate(
     const taken = (row: ExistingRow | null) =>
       Boolean(row && (row.isPublished || (row.sourceRef && row.sourceRef !== candidate.placeId)));
     if (taken(await findBySlug(prisma, slug))) {
-      slug = `${slug.slice(0, 74)}-${collisionSuffix(candidate)}`;
-      if (taken(await findBySlug(prisma, slug))) return "duplicate";
+      let free: string | null = null;
+      for (const option of collisionSlugs(candidate)) {
+        if (!taken(await findBySlug(prisma, option))) {
+          free = option;
+          break;
+        }
+      }
+      // Even the whole OSM id is held by another source: nothing stable is left.
+      if (!free) return "duplicate";
+      slug = free;
     }
   }
   if (await readSkip(prisma, slug)) return "skipped";
@@ -683,6 +1008,8 @@ export interface OsmParishResult {
   skipped: number;
   routedToReview: number;
   rejected: number;
+  /** Nominatim lookup requests spent on new candidates' addresses. */
+  addressLookups: number;
   budgetExhausted: boolean;
   detail: string;
 }
@@ -723,6 +1050,76 @@ function elementRef(el: OverpassElement): string {
   return `${el.type ?? "?"}/${el.id ?? "?"}`;
 }
 
+type SweepContext = RunContext & {
+  maxPublish: number;
+  deadline: number;
+  /** Set once a lookup was refused or failed: the rest of the run asks no more. */
+  lookupsStopped: boolean;
+};
+
+/** sourceRefs with an active skip memory (a remembered gate failure). */
+async function activeSkipRefs(prisma: PrismaClient, refs: string[]): Promise<Set<string>> {
+  try {
+    const rows = await prisma.adminWorkerMemory.findMany({
+      where: { memoryType: "GENERIC", memoryKey: { in: refs.map((r) => SKIP_PREFIX + r) } },
+      select: { memoryKey: true, memoryValue: true },
+    });
+    const now = Date.now();
+    return new Set(
+      rows
+        .filter((r) => {
+          const until = (r.memoryValue as { retryAfter?: number } | null)?.retryAfter;
+          return typeof until === "number" && until > now;
+        })
+        .map((r) => r.memoryKey.slice(SKIP_PREFIX.length)),
+    );
+  } catch {
+    // Unknown: spend no lookup budget on candidates that may be remembered.
+    return new Set(refs);
+  }
+}
+
+/**
+ * Look up the NEW candidates among the next chunk of elements on Nominatim, in
+ * one request (≤ 50 ids), before any of them is processed. A row already
+ * published is skipped (the research lane keeps those up to date), as is a
+ * candidate with an active skip memory. Fail-open: whatever goes unanswered is
+ * not looked up — it publishes as before and the research lane completes it.
+ */
+async function prefetchAddressLookups(
+  prisma: PrismaClient,
+  elements: OverpassElement[],
+  tile: OsmTile,
+  base: OsmParishResult,
+  ctx: SweepContext,
+): Promise<Map<string, NominatimPlace | null>> {
+  const out = new Map<string, NominatimPlace | null>();
+  if (ctx.lookupsStopped) return out;
+  const refs = elements
+    .map((el) => osmElementToParish(el, { countryCode: tile.countryCode }))
+    .filter((c): c is OsmCandidate => c !== null)
+    .map((c) => c.placeId);
+  if (refs.length === 0) return out;
+  const known = (await prisma.publishedContent
+    .findMany({
+      where: { contentType: "PARISH" as never, isPublished: true, sourceRef: { in: refs } },
+      select: { sourceRef: true },
+    })
+    .catch(() => null)) as Array<{ sourceRef: string | null }> | null;
+  if (!known) return out;
+  const skip = await activeSkipRefs(prisma, refs);
+  for (const row of known) if (row.sourceRef) skip.add(row.sourceRef);
+  const fresh = refs.filter((r) => !skip.has(r));
+  if (fresh.length === 0) return out;
+  const res = await lookupOsmPlaces(prisma, fresh, { maxRequests: 1 });
+  base.addressLookups += res.requests;
+  // Budget spent, a cooldown, or a failed request: stop asking for this run.
+  if (res.stopReason && res.stopReason !== "request-cap") ctx.lookupsStopped = true;
+  for (const [ref, place] of res.places) out.set(ref, place);
+  for (const ref of res.notReturned) out.set(ref, null);
+  return out;
+}
+
 /**
  * Sweep one tile: query it, split it when dense, and run its elements through
  * `processOsmCandidate` until the publish cap or the deadline. Progress is
@@ -733,7 +1130,7 @@ async function sweepTile(
   tile: OsmTile,
   initialState: OsmTileState,
   base: OsmParishResult,
-  ctx: RunContext & { maxPublish: number; deadline: number },
+  ctx: SweepContext,
 ): Promise<"done" | "stopped" | "failed" | "budget"> {
   let state = initialState;
   const now = Date.now();
@@ -794,7 +1191,9 @@ async function sweepTile(
 
   let resumeAfter = state.resumeAfter;
   let lastProcessed: string | null = null;
-  for (const el of elements) {
+  let prefetchedThrough = -1;
+  for (let i = 0; i < elements.length; i++) {
+    const el = elements[i]!;
     const ref = elementRef(el);
     if (resumeAfter) {
       if (ref === resumeAfter) resumeAfter = null;
@@ -812,6 +1211,17 @@ async function sweepTile(
       // The next run picks this tile up first, ahead of the cursor/queue.
       await markTileActive(prisma, tile.id);
       return "stopped";
+    }
+    // One Nominatim request covers the next 50 elements' new candidates.
+    if (i > prefetchedThrough) {
+      prefetchedThrough = i + NOMINATIM_MAX_IDS_PER_REQUEST - 1;
+      ctx.lookups = await prefetchAddressLookups(
+        prisma,
+        elements.slice(i, prefetchedThrough + 1),
+        tile,
+        base,
+        ctx,
+      );
     }
     const candidate = osmElementToParish(el, { countryCode: tile.countryCode });
     lastProcessed = ref;
@@ -873,6 +1283,7 @@ export async function runOsmParishDiscovery(
     skipped: 0,
     routedToReview: 0,
     rejected: 0,
+    addressLookups: 0,
     budgetExhausted: false,
     detail: "",
   };
@@ -904,12 +1315,13 @@ export async function runOsmParishDiscovery(
 
   const maxTiles = opts.maxQueries ?? osmEnvInt("ADMIN_WORKER_OSM_MAX_QUERIES", 1);
   const maxPublish = opts.maxPublishPerPass ?? osmEnvInt("ADMIN_WORKER_OSM_MAX_PUBLISH", 250);
-  const ctx = {
+  const ctx: SweepContext = {
     brainActive: opts.brainActive,
     passId: opts.passId,
     reverse: { remaining: reverseLookupCapPerRun() },
     maxPublish,
     deadline: Date.now() + RUN_BUDGET_MS,
+    lookupsStopped: false,
   };
 
   const claimed = await claimDueTiles(prisma, Math.min(maxTiles, remaining));
@@ -968,6 +1380,7 @@ export async function runOsmParishDiscovery(
         duplicates: base.duplicates,
         skipped: base.skipped,
         rejected: base.rejected,
+        addressLookups: base.addressLookups,
       },
     }).catch(() => undefined);
   }

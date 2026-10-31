@@ -75,6 +75,18 @@ describe("evaluateContentChange", () => {
     expect(a.kind).toBe("noop");
     expect(a.changedFields).toEqual([]);
   });
+
+  it("re-keying a parish whose street was just filled stays an enrichment", () => {
+    // addressKey is a fingerprint derived from the address fields, not content:
+    // filling a blank street re-derives it, and that must not need allowReplace.
+    const a = evaluateContentChange(
+      { city: "Rome", addressKey: "rome" },
+      { city: "Rome", address: "Via del Velabro", addressKey: "del velabro via rome" },
+    );
+    expect(a.kind).toBe("enrich");
+    expect(a.addedFields).toEqual(["address"]);
+    expect(a.changedFields).toEqual([]);
+  });
 });
 
 // ── Fake Prisma for the DB-touching functions ────────────────────────────────

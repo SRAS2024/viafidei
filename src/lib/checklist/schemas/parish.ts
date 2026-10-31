@@ -3,13 +3,13 @@ import type { ContentSchema } from "./index";
 
 export const PARISH_DESIGNATIONS = [
   "parish",
+  "chapel",
   "shrine",
   "cathedral",
   "major-basilica",
   "minor-basilica",
-  // A chapel or an oratory is a Catholic place of worship that is not itself
-  // a parish church; naming it as such keeps the directory accurate.
-  "chapel",
+  // An oratory, like a chapel, is a Catholic place of worship that is not
+  // itself a parish church; naming it as such keeps the directory accurate.
   "oratory",
 ] as const;
 
@@ -28,8 +28,8 @@ export const parishSchema: ContentSchema = {
       address: z.string().optional(),
       city: z.string().optional(),
       state: z.string().optional(),
-      /** Postal code exactly as the source prints it (never derived). */
-      postalCode: z.string().max(16).optional(),
+      /** Postal code as the country writes it ("00153", "3474 MC", "SW1A 1AA"). */
+      postalCode: z.string().min(1).max(16).optional(),
       country: z.string().optional(),
       /** ISO-3166 alpha-2 (the source tag), kept apart from the display name. */
       countryCode: z.string().length(2).optional(),
@@ -46,7 +46,9 @@ export const parishSchema: ContentSchema = {
       massTimes: z.string().optional(),
       confessionTimes: z.string().optional(),
       // Normalized address fingerprint for duplicate detection: two parishes with
-      // the same addressKey are the same place and must not both be published.
+      // the same addressKey within 250 m are the same place and must not both be
+      // published — when the street has no house number, only if their names
+      // agree as well (admin-worker/parish-address.ts).
       addressKey: z.string().optional(),
       // Stable source identity (`osm:node/123`, a Google place id, …) so a
       // re-swept source updates its own row instead of creating a duplicate.
@@ -68,23 +70,23 @@ export const parishSchema: ContentSchema = {
     ),
   instruction: {
     description:
-      "A real Catholic parish, shrine, cathedral, or basilica directory record with its location and designation.",
+      "A real Catholic parish, chapel, shrine, cathedral, or basilica directory record with its location and designation.",
     accuracyRules: [
-      "Only include real, verifiable parishes / shrines / cathedrals / basilicas from approved directory sources.",
-      "Do not invent addresses or dioceses; cite the official directory or diocesan source.",
-      "Classify the designation (parish, shrine, cathedral, major basilica, minor basilica) only when the source states it.",
+      "Only include real, verifiable parishes / chapels / shrines / cathedrals / basilicas from approved directory sources.",
+      "Do not invent addresses, postal codes or dioceses; cite the official directory or diocesan source.",
+      "Classify the designation (parish, chapel, shrine, cathedral, major basilica, minor basilica) only when the source states it.",
       "Locate every record by its address and city, or by exact coordinates when the source has no postal address.",
     ],
     requiredFields: ["slug", "title", "citations"],
     optionalFields: [
       "address",
       "city",
+      "postalCode",
       "designation",
       "diocese",
       "background",
       "summary",
       "state",
-      "postalCode",
       "country",
       "countryCode",
       "website",

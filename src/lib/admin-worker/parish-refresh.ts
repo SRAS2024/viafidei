@@ -5,10 +5,13 @@
  * 1. `runParishAddressMaintenance` (continuous, keyless): walks the whole
  *    published-parish catalog on a slow throttle, stamping each row's normalized
  *    `addressKey` (so publish-time duplicate detection is reliable) and
- *    unpublishing any parish whose address duplicates one already published —
- *    the operator's rule that two parishes at the same address are the same
- *    place. This is how "all previously published parishes are checked" for
- *    duplicates, not just newly discovered ones.
+ *    unpublishing any parish that duplicates an earlier published one under the
+ *    shared rule (same address key AND within 250 m — plus the same name when
+ *    the key's street has no house number — or the same name when a row has
+ *    no coordinates; parish-address.ts). The unpublished row records
+ *    which row it duplicated and why (`payload._meta.dedup`), so a mistake is
+ *    visible and reversible. This is how "all previously published parishes
+ *    are checked" for duplicates, not just newly discovered ones.
  *
  * 2. `runParishMonthlyRefresh` (last 7 days of each month): re-reads every
  *    published parish's website and refreshes its Mass times, confession times,
@@ -30,12 +33,18 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { derivedColumnsFor } from "@/lib/content-shared/derived-columns";
+
+import { computeContentChecksum } from "./cache-freshness";
 import { inspectParishWebsite } from "./communion-verifier";
-import { parishAddressKey } from "./parish-address";
+import { findDuplicateParish, parishAddressKeyForPayload } from "./parish-address";
 import { lastDayOfMonth, isLastDayOfMonth } from "./report-generator";
 import { writeAdminWorkerLog } from "./logs";
 
-const ADDRESS_MAINT_KEY = "parish-address-maint";
+// Versioned: the address key changed meaning (no key without a street line),
+// so the first lap after the change restarts at the start of the catalog
+// instead of resuming the old cursor mid-way with half the keys stale.
+const ADDRESS_MAINT_KEY = "parish-address-maint-v2";
 const MONTHLY_REFRESH_KEY = "parish-monthly-refresh";
 const ADDRESS_MAINT_THROTTLE_MS = 10 * 60 * 1000; // slow, keyless catalog sweep
 
@@ -103,15 +112,50 @@ async function lastUsedAt(prisma: PrismaClient, key: string): Promise<number> {
 
 type ParishRow = { id: string; slug: string; title: string; payload: unknown };
 
+type MaintenanceRow = ParishRow & {
+  latitude: number | null;
+  longitude: number | null;
+  addressKey: string | null;
+};
+
 function payloadObj(p: unknown): Record<string, unknown> {
   return p && typeof p === "object" && !Array.isArray(p)
     ? { ...(p as Record<string, unknown>) }
     : {};
 }
 
+function metaObj(payload: Record<string, unknown>): Record<string, unknown> {
+  return payloadObj(payload._meta);
+}
+
+/** The row's payload as stored right now, or null when it cannot be read. */
+async function freshPayload(
+  prisma: PrismaClient,
+  id: string,
+): Promise<Record<string, unknown> | null> {
+  const row = await prisma.publishedContent
+    .findUnique({ where: { id }, select: { payload: true } })
+    .catch(() => null);
+  return row ? payloadObj(row.payload) : null;
+}
+
+/** Why a row was unpublished as a duplicate (`payload._meta.dedup`). */
+export interface ParishDedupMeta {
+  keeperId: string;
+  keeperSlug: string;
+  key: string;
+  rule: string;
+  at: number;
+  distanceM?: number;
+}
+
+/** Keeper/victim pairs logged per run (bounded so one log row stays small). */
+const MAX_LOGGED_PAIRS = 25;
+
 export interface AddressMaintenanceResult {
   ran: boolean;
   scanned: number;
+  /** Rows whose stored key was stamped, re-derived, or cleared. */
   keyed: number;
   duplicatesRemoved: number;
   detail: string;
@@ -125,8 +169,9 @@ export interface AddressMaintenanceResult {
  */
 export async function runParishAddressMaintenance(
   prisma: PrismaClient,
-  opts: { passId?: string; force?: boolean } = {},
+  opts: { passId?: string; force?: boolean; now?: () => number } = {},
 ): Promise<AddressMaintenanceResult> {
+  const nowFn = opts.now ?? Date.now;
   const out: AddressMaintenanceResult = {
     ran: false,
     scanned: 0,
@@ -136,7 +181,7 @@ export async function runParishAddressMaintenance(
   };
   if (
     !opts.force &&
-    Date.now() - (await lastUsedAt(prisma, ADDRESS_MAINT_KEY)) < ADDRESS_MAINT_THROTTLE_MS
+    nowFn() - (await lastUsedAt(prisma, ADDRESS_MAINT_KEY)) < ADDRESS_MAINT_THROTTLE_MS
   ) {
     out.detail = "throttled";
     return out;
@@ -146,7 +191,7 @@ export async function runParishAddressMaintenance(
     cursorId: null,
   });
 
-  const rows = await prisma.publishedContent
+  const rows = (await prisma.publishedContent
     .findMany({
       where: {
         contentType: "PARISH" as never,
@@ -155,58 +200,111 @@ export async function runParishAddressMaintenance(
       },
       orderBy: { id: "asc" },
       take: batch,
-      select: { id: true, slug: true, title: true, payload: true },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        payload: true,
+        latitude: true,
+        longitude: true,
+        addressKey: true,
+      },
     })
-    .catch(() => [] as ParishRow[]);
+    .catch(() => [])) as MaintenanceRow[];
 
   out.ran = true;
-  // Track the address keys we've already accepted this run so two duplicates in
-  // the same batch resolve deterministically (keep the first, drop the rest).
+  const pairs: Array<Record<string, string>> = [];
   for (const row of rows) {
     out.scanned += 1;
     try {
       const payload = payloadObj(row.payload);
-      const key = parishAddressKey({
-        address: payload.address as string,
-        city: payload.city as string,
-        state: payload.state as string,
-      });
-      if (!key) continue;
+      const key = parishAddressKeyForPayload(payload);
 
-      // Is there an EARLIER published parish at this same address? (Lower id =
-      // seen first = the keeper.) If so, this row is the duplicate → unpublish.
-      // Probes the indexed `addressKey` column (written at publish time and by
-      // the hygiene sweep), not the JSON payload — one index lookup per row.
-      const earlier = await prisma.publishedContent
-        .findFirst({
-          where: {
-            contentType: "PARISH" as never,
-            isPublished: true,
-            id: { lt: row.id },
-            addressKey: key,
-          },
-          select: { id: true },
-        })
-        .catch(() => null);
-      if (earlier) {
+      // Is there an EARLIER published parish (lower id = seen first = the
+      // keeper) that this row duplicates under the shared rule? The key probe
+      // hits the indexed `addressKey` column; a key match only counts when the
+      // two are within 250 m (or share a name when one has no coordinates),
+      // and a street without a house number also needs the same name.
+      const keeper = key
+        ? await findDuplicateParish(
+            prisma,
+            {
+              addressKey: key,
+              address: typeof payload.address === "string" ? payload.address : null,
+              countryCode: typeof payload.countryCode === "string" ? payload.countryCode : null,
+              latitude: row.latitude,
+              longitude: row.longitude,
+              name: row.title,
+            },
+            { beforeId: row.id },
+          )
+        : null;
+      const storedKey = typeof payload.addressKey === "string" ? payload.addressKey : "";
+      const needsStamp = storedKey !== key || (row.addressKey ?? "") !== key;
+      if (!keeper && !needsStamp) continue;
+
+      // Every write lands on the row as it is NOW: the batch was read a while
+      // ago and another lane may have filled it since. A row whose address
+      // changed meanwhile is left for the next lap.
+      const current = await freshPayload(prisma, row.id);
+      if (current && parishAddressKeyForPayload(current) !== key) continue;
+      const base = current ?? payload;
+
+      if (keeper) {
+        const at = nowFn();
+        const dedup: ParishDedupMeta = {
+          keeperId: keeper.id,
+          keeperSlug: keeper.slug,
+          key,
+          rule: keeper.rule,
+          at,
+          ...(keeper.distanceM != null ? { distanceM: keeper.distanceM } : {}),
+        };
+        const next = { ...base, addressKey: key, _meta: { ...metaObj(base), dedup } };
+        // Unpublished, never deleted: the row keeps its payload and says which
+        // row it duplicated, so a wrong call can be found and reversed.
         await prisma.publishedContent
           .update({
             where: { id: row.id },
-            data: { isPublished: false, unpublishedAt: new Date() },
+            data: {
+              isPublished: false,
+              unpublishedAt: new Date(at),
+              payload: next as never,
+              contentChecksum: computeContentChecksum(row.title, next),
+              ...derivedColumnsFor("PARISH", next),
+            },
           })
           .catch(() => undefined);
         out.duplicatesRemoved += 1;
+        if (pairs.length < MAX_LOGGED_PAIRS) {
+          pairs.push({
+            victimId: row.id,
+            victimSlug: row.slug,
+            keeperId: keeper.id,
+            keeperSlug: keeper.slug,
+            rule: keeper.rule,
+          });
+        }
         continue;
       }
 
-      // Stamp the addressKey (payload + indexed column) if it isn't already correct.
-      if (payload.addressKey !== key) {
-        payload.addressKey = key;
-        await prisma.publishedContent
-          .update({ where: { id: row.id }, data: { payload: payload as never, addressKey: key } })
-          .catch(() => undefined);
-        out.keyed += 1;
-      }
+      // Stamp the key (payload + indexed column) when it is missing, stale, or
+      // — under the street rule — no longer exists at all (a city-only key
+      // such as "rome" is cleared, not kept).
+      const next = { ...base };
+      if (key) next.addressKey = key;
+      else delete next.addressKey;
+      await prisma.publishedContent
+        .update({
+          where: { id: row.id },
+          data: {
+            payload: next as never,
+            addressKey: key || null,
+            contentChecksum: computeContentChecksum(row.title, next),
+          },
+        })
+        .catch(() => undefined);
+      out.keyed += 1;
     } catch {
       /* fail-open per row */
     }
@@ -226,7 +324,12 @@ export async function runParishAddressMaintenance(
       eventName: "parish_address_maintenance",
       message: out.detail,
       contentType: "PARISH",
-      safeMetadata: { scanned: out.scanned, keyed: out.keyed, deduped: out.duplicatesRemoved },
+      safeMetadata: {
+        scanned: out.scanned,
+        keyed: out.keyed,
+        deduped: out.duplicatesRemoved,
+        ...(pairs.length > 0 ? { pairs } : {}),
+      },
     }).catch(() => undefined);
   }
   return out;
@@ -362,17 +465,17 @@ export async function runParishMonthlyRefresh(
         const website = typeof payload.website === "string" ? payload.website : "";
         if (!website) {
           // Nothing to re-read; just make sure the addressKey is stamped.
-          const key = parishAddressKey({
-            address: payload.address as string,
-            city: payload.city as string,
-            state: payload.state as string,
-          });
+          const key = parishAddressKeyForPayload(payload);
           if (key && payload.addressKey !== key) {
             payload.addressKey = key;
             await prisma.publishedContent
               .update({
                 where: { id: row.id },
-                data: { payload: payload as never, addressKey: key },
+                data: {
+                  payload: payload as never,
+                  addressKey: key,
+                  contentChecksum: computeContentChecksum(row.title, payload),
+                },
               })
               .catch(() => undefined);
           }
@@ -396,11 +499,7 @@ export async function runParishMonthlyRefresh(
         }
         // Never overwrite a curated address from a scrape — only backfill the
         // normalized key if it's missing (keeps dedup honest).
-        const key = parishAddressKey({
-          address: payload.address as string,
-          city: payload.city as string,
-          state: payload.state as string,
-        });
+        const key = parishAddressKeyForPayload(payload);
         if (key && payload.addressKey !== key) changes.addressKey = key;
 
         if (Object.keys(changes).length > 0) {
@@ -410,6 +509,9 @@ export async function runParishMonthlyRefresh(
               where: { id: row.id },
               data: {
                 payload: updated as never,
+                // The freshness marker hashes the payload: a write that left it
+                // stale made cache verification flag the parish as unserved.
+                contentChecksum: computeContentChecksum(row.title, updated),
                 ...("addressKey" in changes ? { addressKey: changes.addressKey as string } : {}),
               },
             })
