@@ -63,6 +63,7 @@ export function slugify(value: string): string {
 
 export type ParishDesignation =
   | "parish"
+  | "chapel"
   | "shrine"
   | "cathedral"
   | "major-basilica"
@@ -78,11 +79,22 @@ const CATHEDRAL_RE =
   /\b(cathedral|catedral|cattedrale|kathedrale|katedra|cath[ée]drale|katedr[áa]la|catedrala|duomo|kathedraal|domkirche)\b/i;
 const SHRINE_RE =
   /\b(shrine|santuario|santu[áa]rio|sanctuaire|sanktuarium|wallfahrtskirche|heiligdom|santuari)\b/i;
+/**
+ * "Chapel" as its own word in the directory's main languages, or as the
+ * German / Dutch / Scandinavian compound suffix ("Marienkapelle",
+ * "Onze-Lieve-Vrouwekapel"). A word followed by a hyphen is a place name
+ * ("Kapelle-op-den-Bos"), not a chapel.
+ */
+const CHAPEL_WORD_RE =
+  /(?:^|[^\p{L}])(chapel|chapelle|cappella|capella|capilla|capela|kaple|kaplnka|kaplica|kaplička|kapela|kápolna|koplyčia|kapell|kapelle|kapel)(?![\p{L}-])/iu;
+const CHAPEL_COMPOUND_RE = /\p{L}(kapelle|kapell|kapel)(?![\p{L}-])/iu;
 
 /**
  * Designation from the source's own words: OSM tags first (`building=cathedral`,
- * `cathedral=yes`, `church:type=…`), then the name in any of the directory's
- * main languages. Never guesses "major": only the papal basilicas qualify.
+ * `cathedral=yes`, `church:type=…`, `building=chapel`, `place_of_worship=
+ * chapel`), then the name in any of the directory's main languages. Never
+ * guesses "major": only the papal basilicas qualify. A chapel is a chapel,
+ * not a parish — about 3,000 were published as "parish" before this rule.
  */
 export function designationFor(name: string, tags: Record<string, string> = {}): ParishDesignation {
   const tag = (k: string) => (tags[k] ?? "").trim().toLowerCase();
@@ -103,6 +115,13 @@ export function designationFor(name: string, tags: Record<string, string> = {}):
   )
     return "cathedral";
   if (churchType === "shrine" || SHRINE_RE.test(name)) return "shrine";
+  if (
+    tag("building") === "chapel" ||
+    tag("place_of_worship") === "chapel" ||
+    CHAPEL_WORD_RE.test(name) ||
+    CHAPEL_COMPOUND_RE.test(name)
+  )
+    return "chapel";
   return "parish";
 }
 

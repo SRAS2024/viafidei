@@ -567,6 +567,7 @@ function riteSubtitle(f: Fields): string {
 
 const DESIGNATION_LABELS: Record<string, string> = {
   parish: "Parish",
+  chapel: "Chapel",
   shrine: "Shrine",
   cathedral: "Cathedral",
   "major-basilica": "Major basilica",

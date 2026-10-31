@@ -3,6 +3,7 @@ import type { ContentSchema } from "./index";
 
 export const PARISH_DESIGNATIONS = [
   "parish",
+  "chapel",
   "shrine",
   "cathedral",
   "major-basilica",
@@ -64,11 +65,11 @@ export const parishSchema: ContentSchema = {
     ),
   instruction: {
     description:
-      "A real Catholic parish, shrine, cathedral, or basilica directory record with its location and designation.",
+      "A real Catholic parish, chapel, shrine, cathedral, or basilica directory record with its location and designation.",
     accuracyRules: [
-      "Only include real, verifiable parishes / shrines / cathedrals / basilicas from approved directory sources.",
+      "Only include real, verifiable parishes / chapels / shrines / cathedrals / basilicas from approved directory sources.",
       "Do not invent addresses, postal codes or dioceses; cite the official directory or diocesan source.",
-      "Classify the designation (parish, shrine, cathedral, major basilica, minor basilica) only when the source states it.",
+      "Classify the designation (parish, chapel, shrine, cathedral, major basilica, minor basilica) only when the source states it.",
       "Locate every record by its address and city, or by exact coordinates when the source has no postal address.",
     ],
     requiredFields: ["slug", "title", "citations"],

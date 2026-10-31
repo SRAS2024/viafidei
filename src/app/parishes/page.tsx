@@ -17,6 +17,7 @@ const PARISH_FILTER_SUBTYPES: Readonly<Record<string, readonly string[]>> = {
   cathedral: ["cathedral"],
   basilica: ["major-basilica", "minor-basilica", "basilica"],
   shrine: ["shrine"],
+  chapel: ["chapel"],
 };
 
 export default async function ParishesPage({
@@ -59,7 +60,7 @@ export default async function ParishesPage({
       <PageHero
         eyebrow="Find a parish"
         title="Parishes"
-        subtitle="Catholic parishes, shrines, cathedrals, and basilicas — use your location to find the nearest."
+        subtitle="Catholic parishes, chapels, shrines, cathedrals, and basilicas — use your location to find the nearest."
       />
 
       {/* A plain GET form: searching is a real URL, so a result page can be

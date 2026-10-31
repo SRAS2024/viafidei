@@ -18,7 +18,9 @@
  * run within its watchdog instead of stalling on 10-second site fetches.
  *
  * Nothing is invented: a candidate needs its OSM name plus EITHER a locality
- * tag OR coordinates; a missing city may be filled from `is_in` or one
+ * tag OR coordinates, and wayside shrines, crosses, grottoes and numbered
+ * Stations of the Cross are not parishes at all; a missing city may be filled
+ * from `is_in` or one
  * bounded Nominatim reverse lookup, else the record publishes on its
  * coordinates with an empty city. Dedup runs cheapest-first — sourceRef, the
  * shared address rule (same key AND within 250 m, parish-address.ts),
@@ -35,7 +37,12 @@ import { validatePayload } from "@/lib/checklist";
 import { isDoctrinallySensitive } from "./content-type-profiles";
 import { applyProtectedContentUpdate } from "./content-protection";
 import { runPublishOrchestrator } from "./publish-orchestrator";
-import { designationFor, fileReview, slugify } from "./parish-discovery-runner";
+import {
+  designationFor,
+  fileReview,
+  slugify,
+  type ParishDesignation,
+} from "./parish-discovery-runner";
 import { findDuplicateParish, normalizedParishName, parishAddressKey } from "./parish-address";
 import { composeStreetLine, countryNameFor, normalizePostalCode } from "./parish-address-format";
 import type { PlaceParish } from "./parish-places";
@@ -133,6 +140,116 @@ export function localityFromTags(tags: Record<string, string>): string {
 // Moved to the shared address-format module; re-exported for existing callers.
 export { countryNameFor };
 
+// ── Not a parish: wayside shrines, crosses and Stations of the Cross ────────
+
+/** Typed reason a mapped place of worship is not a parish. */
+export type ParishExclusionReason =
+  | "wayside-shrine"
+  | "wayside-chapel"
+  | "wayside-cross"
+  | "lourdes-grotto"
+  | "cross"
+  | "stations-of-the-cross";
+
+export interface ParishExclusion {
+  reason: ParishExclusionReason;
+  /** The tag or name that decided it, for the audit trail. */
+  evidence: string;
+}
+
+const EXCLUDED_PLACE_OF_WORSHIP = new Map<string, ParishExclusionReason>([
+  ["wayside_shrine", "wayside-shrine"],
+  ["wayside_chapel", "wayside-chapel"],
+  ["cross", "cross"],
+  ["lourdes_grotto", "lourdes-grotto"],
+]);
+const EXCLUDED_HISTORIC = new Map<string, ParishExclusionReason>([
+  ["wayside_shrine", "wayside-shrine"],
+  ["wayside_cross", "wayside-cross"],
+]);
+/**
+ * Whole names that are unambiguously one numbered Station of the Cross:
+ * "Kreuzwegstation V", "2e Statie" … "14e Statie", "Statie I" … "Statie XIV",
+ * "Die dritte Schmerz Mariens". Name patterns are otherwise unreliable ("Grote
+ * of Sint-Laurenskerk" is a large church), so the tags decide everything else.
+ */
+const STATIONS_OF_THE_CROSS_RE: readonly RegExp[] = [
+  /^kreuzwegstation\s+([ivxlc]+|\d+)$/i,
+  /^\d+(e|de|ste)?\s+statie$/i,
+  /^statie\s+([ivxlc]+|\d+)$/i,
+  /^((der|die)\s+)?(erste|zweite|dritte|vierte|f(ü|ue)nfte|sechste|sieb(en)?te|\d+\.)\s+schmerz(en)?\s+mariens$/i,
+];
+
+/**
+ * Why a Catholic place of worship is NOT a parish, from its OSM tags
+ * (`place_of_worship`, `historic`, `man_made`) or a strict Stations-of-the-
+ * Cross name — or null. Used for new candidates (Overpass tags) and for
+ * already-published rows (Nominatim extratags) alike.
+ */
+export function parishExclusionFor(
+  name: string,
+  tags: Record<string, string> = {},
+): ParishExclusion | null {
+  const tag = (k: string) => (tags[k] ?? "").trim().toLowerCase();
+  const pow = EXCLUDED_PLACE_OF_WORSHIP.get(tag("place_of_worship"));
+  if (pow) return { reason: pow, evidence: `place_of_worship=${tag("place_of_worship")}` };
+  const historic = EXCLUDED_HISTORIC.get(tag("historic"));
+  if (historic) return { reason: historic, evidence: `historic=${tag("historic")}` };
+  if (tag("man_made") === "cross") return { reason: "cross", evidence: "man_made=cross" };
+  const trimmed = name.trim();
+  if (STATIONS_OF_THE_CROSS_RE.some((re) => re.test(trimmed)))
+    return { reason: "stations-of-the-cross", evidence: `name "${trimmed}"` };
+  return null;
+}
+
+// ── The published summary sentence ──────────────────────────────────────────
+
+const DESIGNATION_WORD: Record<ParishDesignation, string> = {
+  parish: "parish",
+  chapel: "chapel",
+  shrine: "shrine",
+  cathedral: "cathedral",
+  "major-basilica": "major basilica",
+  "minor-basilica": "minor basilica",
+};
+
+/** The one factual sentence an OSM parish is published with. */
+export function osmParishSummary(input: {
+  name: string;
+  designation: ParishDesignation;
+  denomination?: string;
+  city?: string;
+  country?: string;
+}): string {
+  const body = input.denomination === "roman_catholic" ? "Roman Catholic" : "Catholic";
+  const where = [input.city, input.country]
+    .map((v) => (v ?? "").trim())
+    .filter(Boolean)
+    .join(", ");
+  const kind = DESIGNATION_WORD[input.designation] ?? "parish";
+  return `${input.name} is a ${body} ${kind}${where ? ` in ${where}` : ""}, listed in OpenStreetMap as a Catholic place of worship.`;
+}
+
+/** Both machine forms: the current sentence and the original one, which ended
+ * with `(denomination "…")`. */
+const MACHINE_SUMMARY_RE =
+  /^(.+) is a (Roman Catholic|Catholic) (parish|chapel|shrine|cathedral|major basilica|minor basilica)(?: in (.+?))?, listed in OpenStreetMap as a Catholic place of worship(?: \(denomination "(?:roman_catholic|catholic)"\))?\.$/;
+
+/**
+ * When `summary` is still the machine-written sentence for `title` (so it may
+ * be regenerated as its facts change), its denomination; null for anything a
+ * person wrote or edited.
+ */
+export function machineParishSummary(
+  summary: unknown,
+  title: string,
+): { denomination: "roman_catholic" | "catholic" } | null {
+  if (typeof summary !== "string") return null;
+  const m = MACHINE_SUMMARY_RE.exec(summary.trim());
+  if (!m || m[1] !== title.trim()) return null;
+  return { denomination: m[2] === "Roman Catholic" ? "roman_catholic" : "catholic" };
+}
+
 export interface OsmCandidate extends PlaceParish {
   /** The OSM denomination value that admitted it (`roman_catholic` | `catholic`). */
   denomination: string;
@@ -140,8 +257,8 @@ export interface OsmCandidate extends PlaceParish {
   osmId: number;
   /** Slug base derived from the English name when the local one is non-Latin. */
   slugBase: string;
-  /** From OSM tags (`building`, `cathedral`, `church:type`) and the name. */
-  designation: ReturnType<typeof designationFor>;
+  /** From OSM tags (`building`, `place_of_worship`, `church:type`, …) and the name. */
+  designation: ParishDesignation;
 }
 
 /**
@@ -170,8 +287,9 @@ function websiteFromTag(raw: string): string | undefined {
 /**
  * Map one Overpass element to a parish candidate, or null when it is not an
  * explicitly Catholic, named church that can be located (a locality tag OR
- * coordinates). `fallback` supplies the tile's country when the element has
- * no `addr:country`. Exported for testing.
+ * coordinates), or is not a parish at all (`parishExclusionFor`). `fallback`
+ * supplies the tile's country when the element has no `addr:country`.
+ * Exported for testing.
  */
 export function osmElementToParish(
   el: OverpassElement,
@@ -187,6 +305,8 @@ export function osmElementToParish(
   // A ruin or a closed church is not a parish anyone can attend.
   if (tags.ruins === "yes" || tags.disused === "yes" || tags.abandoned === "yes") return null;
   if (tags["disused:amenity"] || tags["abandoned:amenity"]) return null;
+  // Nor is a wayside shrine, a cross, a grotto or a Station of the Cross.
+  if (parishExclusionFor(name, tags)) return null;
   if (!el.type || el.id == null) return null;
 
   const lat = typeof el.lat === "number" ? el.lat : el.center?.lat;
@@ -431,16 +551,19 @@ async function publishOsmParish(
   );
   if (citations.length === 0) return { kind: "blocked", reason: "no citation" };
   const designation = candidate.designation;
-  const kindWord = designation.replace("-", " ");
-  const bodyWord = candidate.denomination === "roman_catholic" ? "Roman Catholic" : "Catholic";
-  const where = [city, candidate.country].filter(Boolean).join(", ");
 
   const payload: Record<string, unknown> = {
     slug,
     title: candidate.name,
     designation,
     // The summary states exactly what the source says and nothing more.
-    summary: `${candidate.name} is a ${bodyWord} ${kindWord}${where ? ` in ${where}` : ""}, listed in OpenStreetMap as a Catholic place of worship (denomination "${candidate.denomination}").`,
+    summary: osmParishSummary({
+      name: candidate.name,
+      designation,
+      denomination: candidate.denomination,
+      city,
+      country: candidate.country,
+    }),
     citations,
     sourceRef: candidate.placeId,
   };

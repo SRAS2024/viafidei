@@ -40,8 +40,11 @@ import type { PrismaClient } from "@prisma/client";
 
 import {
   localityFromTags,
+  machineParishSummary,
   normalizedParishName,
   osmElementToParish,
+  osmParishSummary,
+  parishExclusionFor,
   runOsmParishDiscovery,
 } from "@/lib/admin-worker/parish-osm";
 import { runPublishOrchestrator } from "@/lib/admin-worker/publish-orchestrator";
@@ -280,6 +283,117 @@ describe("osmElementToParish — address mapping", () => {
     expect(at({ ...base, website: "localhost" })!.website).toBeUndefined();
     expect(at({ ...base, website: "mailto:x@example.org" })!.website).toBeUndefined();
     expect(at({ ...base, website: "ftp://files.example.org" })!.website).toBeUndefined();
+  });
+
+  it("designates chapels by tag or a clear name, never by a place name", () => {
+    expect(at({ ...base, building: "chapel" })!.designation).toBe("chapel");
+    expect(at({ ...base, place_of_worship: "chapel" })!.designation).toBe("chapel");
+    expect(at({ ...base, name: "Marienkapelle" })!.designation).toBe("chapel");
+    expect(at({ ...base, name: "Onze-Lieve-Vrouwekapel" })!.designation).toBe("chapel");
+    expect(at({ ...base, name: "Chapelle Notre-Dame-de-Pitié" })!.designation).toBe("chapel");
+    expect(at({ ...base, name: "Kaplica św. Anny" })!.designation).toBe("chapel");
+    expect(at({ ...base, name: "Sint-Niklaaskerk Kapelle-op-den-Bos" })!.designation).toBe(
+      "parish",
+    );
+    expect(at({ ...base, name: "Grote of Sint-Laurenskerk" })!.designation).toBe("parish");
+    // A basilica / cathedral / shrine keeps its own designation.
+    expect(at({ ...base, name: "Basilique Notre-Dame", building: "chapel" })!.designation).toBe(
+      "minor-basilica",
+    );
+  });
+});
+
+describe("parishExclusionFor — not a parish", () => {
+  const base = { religion: "christian", denomination: "roman_catholic" };
+
+  it("excludes wayside shrines, wayside crosses, crosses and grottoes by tag", () => {
+    expect(parishExclusionFor("Bildstock", { place_of_worship: "wayside_shrine" })).toEqual({
+      reason: "wayside-shrine",
+      evidence: "place_of_worship=wayside_shrine",
+    });
+    expect(parishExclusionFor("Feldkapelle", { place_of_worship: "wayside_chapel" })?.reason).toBe(
+      "wayside-chapel",
+    );
+    expect(parishExclusionFor("Wegkreuz", { historic: "wayside_cross" })?.reason).toBe(
+      "wayside-cross",
+    );
+    expect(parishExclusionFor("Marterl", { historic: "wayside_shrine" })?.reason).toBe(
+      "wayside-shrine",
+    );
+    expect(parishExclusionFor("Gipfelkreuz", { man_made: "cross" })?.reason).toBe("cross");
+    expect(parishExclusionFor("Grotte", { place_of_worship: "lourdes_grotto" })?.reason).toBe(
+      "lourdes-grotto",
+    );
+  });
+
+  it("excludes only strictly numbered Stations of the Cross by name", () => {
+    for (const name of [
+      "2e Statie",
+      "14e Statie",
+      "1ste Statie",
+      "3de Statie",
+      "Statie I",
+      "Statie XIV",
+      "Kreuzwegstation V",
+      "Die dritte Schmerz Mariens",
+      "Der siebte Schmerz Mariens",
+    ]) {
+      expect(parishExclusionFor(name)?.reason, name).toBe("stations-of-the-cross");
+    }
+    for (const name of [
+      "Grote of Sint-Laurenskerk",
+      "Statiekerk",
+      "Kreuzwegkapelle",
+      "Kapelle der Schmerzhaften Mutter",
+      "St. Statius",
+    ]) {
+      expect(parishExclusionFor(name), name).toBeNull();
+    }
+    // A prototype key is not a tag value.
+    expect(parishExclusionFor("St. Mary", { place_of_worship: "constructor" })).toBeNull();
+  });
+
+  it("keeps an excluded element out of the candidates entirely", () => {
+    const el = (tags: Record<string, string>) =>
+      osmElementToParish({ type: "node", id: 5, lat: 52.3, lon: 4.69, tags: { ...base, ...tags } });
+    expect(el({ name: "2e Statie" })).toBeNull();
+    expect(el({ name: "Statie XIV" })).toBeNull();
+    expect(el({ name: "Mariabeeld", place_of_worship: "wayside_shrine" })).toBeNull();
+    expect(el({ name: "Grote of Sint-Laurenskerk" })).not.toBeNull();
+  });
+});
+
+describe("the published summary sentence", () => {
+  it("names the designation and the place, and nothing more", () => {
+    expect(
+      osmParishSummary({
+        name: "Kapelle St. Georg",
+        designation: "chapel",
+        denomination: "roman_catholic",
+        city: "Obersaxen-Mundaun",
+        country: "Switzerland",
+      }),
+    ).toBe(
+      "Kapelle St. Georg is a Roman Catholic chapel in Obersaxen-Mundaun, Switzerland, listed in OpenStreetMap as a Catholic place of worship.",
+    );
+    expect(osmParishSummary({ name: "X", designation: "minor-basilica" })).toBe(
+      "X is a Catholic minor basilica, listed in OpenStreetMap as a Catholic place of worship.",
+    );
+  });
+
+  it("recognises both machine forms for the row's own title — and nothing a person wrote", () => {
+    const old =
+      'Eglise Saint-Leon is a Catholic parish in Paris, France, listed in OpenStreetMap as a Catholic place of worship (denomination "catholic").';
+    expect(machineParishSummary(old, "Eglise Saint-Leon")).toEqual({ denomination: "catholic" });
+    const current = osmParishSummary({
+      name: "St. Mary",
+      designation: "parish",
+      denomination: "roman_catholic",
+    });
+    expect(machineParishSummary(current, "St. Mary")).toEqual({ denomination: "roman_catholic" });
+    expect(machineParishSummary(current, "St. Joseph")).toBeNull();
+    expect(machineParishSummary("A beloved parish founded in 1890.", "St. Mary")).toBeNull();
+    expect(machineParishSummary(undefined, "St. Mary")).toBeNull();
   });
 });
 
