@@ -60,10 +60,11 @@ export interface PublishedDetailProps {
   /**
    * Overrides the eyebrow above the title. Defaults to the human content-type
    * label ("Our Lady", "Church Document") — never the raw enum. Pages with a
-   * more specific word for the item (a saint's "Blessed", a guide's "Rosary")
-   * pass it here.
+   * more specific word for the item (a saint's "Doctor of the Church", a
+   * guide's "Rosary") pass it here, and `null` shows none: "Saint" over
+   * "Saint Godeberta" only repeats the name.
    */
-  eyebrow?: string;
+  eyebrow?: string | null;
   /**
    * Show the stored one-line subtitle under the title (default). Pages whose
    * `facts` already say what the subtitle says turn it off rather than show
@@ -214,11 +215,12 @@ export function PublishedDetail({
   // The eyebrow is a word, not an enum: "MARIAN_TITLE" used to print here.
   // `subtype` refines it (a PRAYER whose prayerType is "litany" reads "Litany").
   const eyebrowLabel =
-    eyebrow ??
-    contentTypeLabel(
-      item.contentType,
-      typeof payload.prayerType === "string" ? payload.prayerType : null,
-    );
+    eyebrow === undefined
+      ? contentTypeLabel(
+          item.contentType,
+          typeof payload.prayerType === "string" ? payload.prayerType : null,
+        )
+      : eyebrow;
 
   const primary = primaryFields ?? [];
   const secondary = secondaryFields ?? [];
@@ -326,8 +328,8 @@ export function PublishedDetail({
       <header className="mb-8">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="vf-eyebrow">{eyebrowLabel}</p>
-            <h1 className="mt-2 break-words font-display text-4xl text-ink">{item.title}</h1>
+            {eyebrowLabel ? <p className="vf-eyebrow mb-2">{eyebrowLabel}</p> : null}
+            <h1 className="break-words font-display text-4xl text-ink">{item.title}</h1>
             {showSubtitle && item.subtitle ? (
               <p className="mt-1 font-serif text-base italic text-ink-soft">{item.subtitle}</p>
             ) : null}

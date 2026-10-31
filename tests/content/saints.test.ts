@@ -195,6 +195,27 @@ describe("saintDetailEyebrow (the saint's own page)", () => {
     expect(saintDetailEyebrow({ canonizationStatus: "canonized" })).toBe("Saint");
     expect(saintDetailEyebrow({})).toBeUndefined();
   });
+
+  it("adds nothing the name already says", () => {
+    const canonized = { canonizationStatus: "canonized" };
+    expect(saintDetailEyebrow(canonized, "Saint Godeberta")).toBeUndefined();
+    expect(saintDetailEyebrow(canonized, "St. Agnes of Rome")).toBeUndefined();
+    expect(saintDetailEyebrow(canonized, "Pope Saint Gregory the Great")).toBeUndefined();
+    expect(saintDetailEyebrow(canonized, "Saints Cyril and Methodius")).toBeUndefined();
+    expect(saintDetailEyebrow(canonized, "Juan Diego Cuauhtlatoatzin")).toBe("Saint");
+    const beatified = { canonizationStatus: "beatified" };
+    expect(saintDetailEyebrow(beatified, "Blessed Carlo Acutis")).toBeUndefined();
+    expect(saintDetailEyebrow(beatified, "Bl. Miguel Pro")).toBeUndefined();
+    // A beatus named without the title is still introduced as Blessed.
+    expect(saintDetailEyebrow(beatified, "Anna Maria Adorni")).toBe("Blessed");
+    expect(saintDetailEyebrow({ canonizationStatus: "venerable" }, "Venerable Fulton Sheen")).toBe(
+      undefined,
+    );
+    // A real title is never dropped because of the name.
+    expect(saintDetailEyebrow({ saintType: "doctor_of_the_church" }, "Saint Teresa of Ávila")).toBe(
+      "Doctor of the Church",
+    );
+  });
 });
 
 describe("saintCardDetails (shared by the /saints card and the saint's page)", () => {

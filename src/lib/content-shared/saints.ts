@@ -400,21 +400,36 @@ const STATUS_LABELS: Record<string, string> = {
   servant_of_god: "Servant of God",
 };
 
+/** How a name already says the stage of the cause: "St. Agnes", "Bl. Carlo". */
+const STATUS_IN_NAME: Record<string, RegExp> = {
+  Saint: /\b(?:saints?|st|sts|ste|san|santa|santo|sankt|sainte)\b\.?/i,
+  Blessed: /\b(?:blessed|bl)\b\.?/i,
+  Venerable: /\b(?:venerable|ven)\b\.?/i,
+  "Servant of God": /\bservants? of god\b/i,
+};
+
 /**
  * The eyebrow over a saint's name on the saint's own page: the one permitted
  * title label (Apostle, Doctor of the Church, a dated papacy, a curated
- * `titleLabel`), else the stage of the cause ("Blessed", "Venerable"), so a
- * beatus is never introduced as a saint. The feast day is no longer folded in:
- * it has its own line under the name.
+ * `titleLabel`), else the stage of the cause ("Blessed", "Venerable") when the
+ * name does not already say it — so a beatus is never introduced as a saint,
+ * and "Saint" is never printed over "Saint Godeberta". Undefined when there is
+ * nothing to add. The feast day is no longer folded in: it has its own line
+ * under the name.
  */
-export function saintDetailEyebrow(payload: Record<string, unknown>): string | undefined {
+export function saintDetailEyebrow(
+  payload: Record<string, unknown>,
+  name = "",
+): string | undefined {
   const label = saintTitleLabel(payload);
   if (label) return label;
   const status =
     typeof payload.canonizationStatus === "string"
       ? payload.canonizationStatus.trim().toLowerCase()
       : "";
-  return STATUS_LABELS[status];
+  const stage = STATUS_LABELS[status];
+  if (!stage || STATUS_IN_NAME[stage]!.test(name)) return undefined;
+  return stage;
 }
 
 /**

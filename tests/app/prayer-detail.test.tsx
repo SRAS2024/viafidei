@@ -161,7 +161,7 @@ describe("prayer detail page", () => {
     ]);
   });
 
-  it("uses the prayer's canonical category as the eyebrow, never a stored raw string", async () => {
+  it("shows the title and the prayer — no category eyebrow, never a stored raw string", async () => {
     seed({
       body: OUR_FATHER_BODY,
       prayerType: "general",
@@ -169,5 +169,11 @@ describe("prayer detail page", () => {
     });
     const { container } = await renderPrayer();
     expect(container.textContent).not.toContain("dominical");
+    // "General" over the Our Father said nothing; the title opens the page.
+    expect(container.querySelector(".vf-eyebrow")).toBeNull();
+    expect(container.textContent).not.toContain("General");
+    expect(container.querySelector("header")?.firstElementChild?.textContent).toMatch(
+      /^Our Father/,
+    );
   });
 });

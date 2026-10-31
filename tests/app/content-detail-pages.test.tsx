@@ -126,9 +126,11 @@ describe("/saints/[slug]", () => {
   it("reads name, patronage, feast day, dates lived, then the biography — in that order", async () => {
     const { container } = render(await SaintDetailPage(params("saint-godeberta")));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Saint Godeberta");
-    const flow = Array.from(container.querySelectorAll("h1, header p, article > section p"))
-      .map((el) => el.textContent ?? "")
-      .filter((t) => t !== "Saint"); // the eyebrow
+    // No "Saint" eyebrow over "Saint Godeberta": it only repeated the name.
+    expect(container.querySelector(".vf-eyebrow")).toBeNull();
+    const flow = Array.from(container.querySelectorAll("h1, header p, article > section p")).map(
+      (el) => el.textContent ?? "",
+    );
     expect(flow).toEqual([
       "Saint Godeberta",
       "Patron of Noyon, invoked against drought",
@@ -155,7 +157,7 @@ describe("/saints/[slug]", () => {
   });
 
   it("introduces a beatus as Blessed, and leaves out a fact the record lacks", async () => {
-    put("SAINT", "blessed-x", "Blessed Anna Maria Adorni", {
+    put("SAINT", "blessed-x", "Anna Maria Adorni", {
       canonizationStatus: "beatified",
       feastDay: "02-07",
       patronages: [],
@@ -165,6 +167,22 @@ describe("/saints/[slug]", () => {
     expect(container.querySelector("header .vf-eyebrow")).toHaveTextContent("Blessed");
     expectAbsent("Patron of", "Born", "Died");
     expect(screen.getByText("Feast day: February 7")).toBeInTheDocument();
+    cleanup();
+
+    // Named "Blessed …" already: no eyebrow repeating it.
+    put("SAINT", "blessed-y", "Blessed Anna Maria Adorni", { canonizationStatus: "beatified" });
+    const named = render(await SaintDetailPage(params("blessed-y")));
+    expect(named.container.querySelector(".vf-eyebrow")).toBeNull();
+  });
+
+  it("keeps a real title over the name", async () => {
+    put("SAINT", "saint-teresa", "Saint Teresa of Ávila", {
+      saintType: "doctor_of_the_church",
+      canonizationStatus: "canonized",
+      biography: "Carmelite reformer.",
+    });
+    const { container } = render(await SaintDetailPage(params("saint-teresa")));
+    expect(container.querySelector("header .vf-eyebrow")).toHaveTextContent("Doctor of the Church");
   });
 });
 
