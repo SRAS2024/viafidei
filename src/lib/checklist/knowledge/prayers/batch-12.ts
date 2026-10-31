@@ -83,6 +83,14 @@ import type { CuratedEntry } from "../index";
  * Christ" was left out as well, since its second half is Saint Ignatius's
  * Suscipe.
  *
+ * The Sunday collects are those of the Third to the Twenty-fourth Sundays
+ * after Pentecost from the Manual's Introits, Collects, Epistles, Gospels and
+ * Postcommunions. Each is given as the book prints it after the word
+ * "Collect", with its abbreviated conclusion ("Through our Lord Jesus Christ,
+ * etc. Amen."); the rubric that follows it ("Others as on third Sunday") is
+ * dropped. The collect of the Second Sunday, which closes the Litany of the
+ * Holy Name, was left out, being already in the catalogue.
+ *
  * Saint Anselm's prayers are the first and last chapters of the Proslogium in
  * Sidney Norton Deane's translation (Chicago: Open Court, 1903); the
  * transcription's "all the blessing I enjoy" is given as printed, "all the
@@ -3785,6 +3793,434 @@ export const prayerBatch12: CuratedEntry[] = [
         "https://www.newmanreader.org/works/meditations/meditations6.html#friday12",
         "https://archive.org/details/a600404300newmuoft",
       ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-third-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n734/mode/1up"],
+    payload: {
+      slug: "collect-of-the-third-sunday-after-pentecost",
+      title: "Collect of the Third Sunday after Pentecost (Protector in te sperantium)",
+      body: "O God, the Protector of all that trust in Thee, without whom nothing is strong, nothing is holy: increase and multiply upon us Thy mercy; that, Thou being our ruler and guide, we may so pass through temporal blessings that we finally lose not those which are eternal. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Third Sunday after Pentecost in the Roman Missal (Protector in te sperantium), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, without whom nothing is strong or holy, so to guide us through the good things of time that we do not lose those of eternity. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n734/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fourth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n735/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fourth-sunday-after-pentecost",
+      title: "Collect of the Fourth Sunday after Pentecost (Da nobis, quaesumus, Domine)",
+      body: "Grant, O Lord, we beseech Thee, both that the course of this world may be peaceably ordered by Thy governance, and that Thy Church may joyfully serve Thee in tranquil devotion. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Fourth Sunday after Pentecost in the Roman Missal (Da nobis, quaesumus, Domine), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that the course of the world may be ordered in peace and the Church serve God in quiet devotion. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n735/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fifth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n736/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fifth-sunday-after-pentecost",
+      title: "Collect of the Fifth Sunday after Pentecost (Deus, qui diligentibus te)",
+      body: "O God, who hast prepared for those who love Thee good things beyond the vision of man: pour into our hearts such love toward Thee that we, loving Thee in all things and above all things, may obtain Thy promises, which exceed all that we can desire. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Fifth Sunday after Pentecost in the Roman Missal (Deus, qui diligentibus te), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls the good things God has prepared for those who love him, beyond the sight of man, and asks for a love of him above all things. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n736/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-sixth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n738/mode/1up"],
+    payload: {
+      slug: "collect-of-the-sixth-sunday-after-pentecost",
+      title: "Collect of the Sixth Sunday after Pentecost (Deus virtutum)",
+      body: "O God of all power and might, to whom belongeth everything that is best: implant in our hearts the love of Thy name, and increase within us true religion; that Thou mayest nourish in us those things that are good, and by the zeal of our devotion mayest preserve what Thou hast nourished. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Sixth Sunday after Pentecost in the Roman Missal (Deus virtutum), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks the God of all power to plant the love of his name in our hearts and to nourish and keep what is good in us. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n738/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-seventh-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n739/mode/1up"],
+    payload: {
+      slug: "collect-of-the-seventh-sunday-after-pentecost",
+      title: "Collect of the Seventh Sunday after Pentecost (Deus, cuius providentia)",
+      body: "O God, the ordering of whose providence never erreth: we humbly beseech Thee to put away from us all hurtful things, and to give us all those things which are profitable for us. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Seventh Sunday after Pentecost in the Roman Missal (Deus, cuius providentia), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it trusts the providence that never errs to take away whatever harms us and give whatever is profitable. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n739/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-eighth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n740/mode/1up"],
+    payload: {
+      slug: "collect-of-the-eighth-sunday-after-pentecost",
+      title: "Collect of the Eighth Sunday after Pentecost (Largire nobis, quaesumus, Domine)",
+      body: "Mercifully grant to us, O Lord, we beseech Thee, the spirit to think and do always such things as are right; that we, who cannot exist without Thee, may by Thee be enabled to live according to Thy will. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Eighth Sunday after Pentecost in the Roman Missal (Largire nobis, quaesumus, Domine), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks for the spirit to think and do always what is right, since we cannot exist without God. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n740/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-ninth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n741/mode/1up"],
+    payload: {
+      slug: "collect-of-the-ninth-sunday-after-pentecost",
+      title: "Collect of the Ninth Sunday after Pentecost (Pateant aures misericordiae tuae)",
+      body: "Let Thy merciful ears, O Lord, be open to the prayers of Thy suppliant people; and that Thou mayest grant them their desires, make them to ask such things as please Thee. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Ninth Sunday after Pentecost in the Roman Missal (Pateant aures misericordiae tuae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to open his ears to his people\'s prayers and to make them ask only what pleases him. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n741/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-tenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n743/mode/1up"],
+    payload: {
+      slug: "collect-of-the-tenth-sunday-after-pentecost",
+      title: "Collect of the Tenth Sunday after Pentecost (Deus, qui omnipotentiam tuam)",
+      body: "O God, who dost manifest Thine Almighty power chiefly in showing pardon and pity: increase and multiply upon us Thy mercy; that we, running the way towards the attainment of Thy promises, may be made partakers of Thy heavenly treasures. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Tenth Sunday after Pentecost in the Roman Missal (Deus, qui omnipotentiam tuam), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it praises the God who shows his almighty power chiefly in sparing and pitying, and asks to share in his heavenly treasures. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n743/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-eleventh-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n744/mode/1up"],
+    payload: {
+      slug: "collect-of-the-eleventh-sunday-after-pentecost",
+      title:
+        "Collect of the Eleventh Sunday after Pentecost (Omnipotens sempiterne Deus, qui abundantia pietatis tuae)",
+      body: "Almighty, Everlasting God, who, in the abundance of Thy loving-kindness, dost exceed both the merits and the desires of those who pray unto Thee: pour down upon us Thy mercy; forgiving us those things of which our conscience is afraid, and granting us those good things which our prayer does not presume to ask. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Eleventh Sunday after Pentecost in the Roman Missal (Omnipotens sempiterne Deus, qui abundantia pietatis tuae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, whose goodness exceeds what we deserve and desire, to forgive what our conscience fears and grant what we dare not ask. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n744/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-twelfth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n745/mode/1up"],
+    payload: {
+      slug: "collect-of-the-twelfth-sunday-after-pentecost",
+      title:
+        "Collect of the Twelfth Sunday after Pentecost (Omnipotens et misericors Deus, de cuius munere)",
+      body: "Almighty and merciful God, of whose gift it cometh that Thy faithful people do Thee worthy and laudable service: grant, we beseech Thee, that we run without stumbling to the attainment of Thy promises. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Twelfth Sunday after Pentecost in the Roman Missal (Omnipotens et misericors Deus, de cuius munere), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it acknowledges that every worthy service of the faithful is God\'s gift, and asks to run without stumbling towards his promises. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n745/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-thirteenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n747/mode/1up"],
+    payload: {
+      slug: "collect-of-the-thirteenth-sunday-after-pentecost",
+      title:
+        "Collect of the Thirteenth Sunday after Pentecost (Omnipotens sempiterne Deus, da nobis fidei, spei et caritatis augmentum)",
+      body: "Almighty and Everlasting God, give unto us an increase of Faith, Hope, and Charity; and, that we may worthily obtain that which Thou dost promise, make us to love that which Thou dost command. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Thirteenth Sunday after Pentecost in the Roman Missal (Omnipotens sempiterne Deus, da nobis fidei, spei et caritatis augmentum), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks for an increase of faith, hope and charity, and to love what God commands. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n747/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fourteenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n748/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fourteenth-sunday-after-pentecost",
+      title:
+        "Collect of the Fourteenth Sunday after Pentecost (Custodi, Domine, quaesumus, Ecclesiam tuam)",
+      body: "Keep, we beseech Thee, O Lord, Thy Church with Thy perpetual favor; and, because the frailty of man without Thee cannot but fall, keep it ever by Thy help from all things hurtful, and lead it to all things profitable to salvation. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Fourteenth Sunday after Pentecost in the Roman Missal (Custodi, Domine, quaesumus, Ecclesiam tuam), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to keep his Church, which cannot but fall without him, from all harm and lead it to salvation. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n748/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fifteenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n750/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fifteenth-sunday-after-pentecost",
+      title:
+        "Collect of the Fifteenth Sunday after Pentecost (Ecclesiam tuam, Domine, miseratio continuata)",
+      body: "O Lord, let Thy continual pity cleanse and defend Thy Church: and, because it cannot continue in safety without Thee, govern it evermore by Thy help. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Fifteenth Sunday after Pentecost in the Roman Missal (Ecclesiam tuam, Domine, miseratio continuata), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God\'s unfailing pity to cleanse, defend and govern the Church. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n750/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-sixteenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n751/mode/1up"],
+    payload: {
+      slug: "collect-of-the-sixteenth-sunday-after-pentecost",
+      title: "Collect of the Sixteenth Sunday after Pentecost (Tua nos, quaesumus, Domine, gratia)",
+      body: "O Lord, we pray Thee that Thy grace may always precede and follow us, and make us continually to be given to all good works. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Sixteenth Sunday after Pentecost in the Roman Missal (Tua nos, quaesumus, Domine, gratia), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that God\'s grace may always go before and follow us and keep us busy in good works. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n751/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-seventeenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n752/mode/1up"],
+    payload: {
+      slug: "collect-of-the-seventeenth-sunday-after-pentecost",
+      title:
+        "Collect of the Seventeenth Sunday after Pentecost (Da, quaesumus, Domine, populo tuo)",
+      body: "Grant to Thy people, we beseech Thee, O Lord, to avoid the defilements of the devil; and with a pure mind to follow Thee, the only God. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Seventeenth Sunday after Pentecost in the Roman Missal (Da, quaesumus, Domine, populo tuo), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks for grace to avoid the defilements of the devil and to follow the one God with a pure mind. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n752/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-eighteenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n753/mode/1up"],
+    payload: {
+      slug: "collect-of-the-eighteenth-sunday-after-pentecost",
+      title: "Collect of the Eighteenth Sunday after Pentecost (Dirigat corda nostra)",
+      body: "Direct our hearts, we beseech Thee, O Lord, by the working of Thy mercy; because without Thee we are not able to please Thee. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Eighteenth Sunday after Pentecost in the Roman Missal (Dirigat corda nostra), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that God\'s mercy may direct our hearts, since without him we cannot please him. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n753/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-nineteenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n754/mode/1up"],
+    payload: {
+      slug: "collect-of-the-nineteenth-sunday-after-pentecost",
+      title:
+        "Collect of the Nineteenth Sunday after Pentecost (Omnipotens et misericors Deus, universa nobis adversantia)",
+      body: "O Almighty and merciful God, graciously keep us from all things that may hurt us; that we, being freed both in mind and body, may with ready hearts accomplish those things which Thou commandest. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Nineteenth Sunday after Pentecost in the Roman Missal (Omnipotens et misericors Deus, universa nobis adversantia), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to keep from us all that may hurt us, so that we may do his will with ready hearts. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n754/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-twentieth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n756/mode/1up"],
+    payload: {
+      slug: "collect-of-the-twentieth-sunday-after-pentecost",
+      title:
+        "Collect of the Twentieth Sunday after Pentecost (Largire, quaesumus, Domine, fidelibus tuis)",
+      body: "Grant, in Thy mercy, we beseech Thee, O Lord, to Thy faithful people pardon and peace, that they may be cleansed from all their offences, and serve Thee with a quiet mind. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Twentieth Sunday after Pentecost in the Roman Missal (Largire, quaesumus, Domine, fidelibus tuis), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks pardon and peace for the faithful, that they may be cleansed and serve God with a quiet mind. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n756/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-twenty-first-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n757/mode/1up"],
+    payload: {
+      slug: "collect-of-the-twenty-first-sunday-after-pentecost",
+      title:
+        "Collect of the Twenty-first Sunday after Pentecost (Familiam tuam, quaesumus, Domine)",
+      body: "Keep, O Lord, we beseech Thee, Thy family by Thy continued goodness; that, through Thy protection, it may be free from all adversities, and devoted in good works to the glory of Thy name. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Twenty-first Sunday after Pentecost in the Roman Missal (Familiam tuam, quaesumus, Domine), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to keep his family by his continual goodness, free from adversity and devoted to good works. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n757/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-twenty-second-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n759/mode/1up"],
+    payload: {
+      slug: "collect-of-the-twenty-second-sunday-after-pentecost",
+      title:
+        "Collect of the Twenty-second Sunday after Pentecost (Deus, refugium nostrum et virtus)",
+      body: "O God, our refuge and strength, who art the Author of all goodness: hear, we beseech Thee, the devout prayers of Thy Church; and grant that what we faithfully ask we may effectually obtain. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Twenty-second Sunday after Pentecost in the Roman Missal (Deus, refugium nostrum et virtus), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, our refuge and strength, to hear the prayers of his Church and grant what it asks in faith. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n759/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-twenty-third-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n760/mode/1up"],
+    payload: {
+      slug: "collect-of-the-twenty-third-sunday-after-pentecost",
+      title: "Collect of the Twenty-third Sunday after Pentecost (Absolve, quaesumus, Domine)",
+      body: "O Lord, we beseech Thee, absolve Thy people from their offences; that through Thy bountiful goodness we may be delivered from the bonds of those sins which by our frailty we have taken upon ourselves. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Twenty-third Sunday after Pentecost in the Roman Missal (Absolve, quaesumus, Domine), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to absolve his people from the bonds of the sins they have contracted through frailty. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n760/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-twenty-fourth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n761/mode/1up"],
+    payload: {
+      slug: "collect-of-the-twenty-fourth-sunday-after-pentecost",
+      title: "Collect of the Twenty-fourth Sunday after Pentecost (Excita, quaesumus, Domine)",
+      body: "Quicken, O Lord, we beseech Thee, the wills of Thy faithful people; that they, more earnestly seeking after the fruit of divine grace, may more abundantly receive the healing gifts of Thy mercy. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Twenty-fourth Sunday after Pentecost in the Roman Missal (Excita, quaesumus, Domine), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to stir up the wills of the faithful so that they may receive more abundantly the healing gifts of his mercy. The Mass of this Sunday is always said on the last Sunday of the Church\'s year. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n761/mode/1up"],
     },
   },
 ];
