@@ -131,7 +131,10 @@ const LITTLE_OFFICE_1915 = "https://archive.org/details/littleofficeofbl00newy/p
  * are kept as the cited page prints them.
  *
  * Four chants of Holy Week, the Exultet, the Ubi caritas of the washing of the
- * feet, the Reproaches and the antiphon Crucem tuam adoramus, are copied from
+ * feet, the Reproaches and the antiphon Crucem tuam adoramus, and eight
+ * responsories of Tenebrae (In monte Oliveti, Tristis est anima mea, Una hora,
+ * Tenebrae factae sunt, Caligaverunt, O vos omnes, Ecce quomodo moritur justus
+ * and Sepulto Domino) are copied from
  * The Complete Office of Holy Week, according to the Roman Missal and
  * Breviary, in Latin and English (New York: Benziger, 1875), which prints the
  * Latin and an anonymous English version side by side. Only the sung text is
@@ -4513,6 +4516,174 @@ export const prayerBatch11: CuratedEntry[] = [
       occasions: ["praise", "daily", "trust"],
       relatedSaints: ["saint-jude-thaddeus"],
       citations: [`${DRBO}72001.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "in-monte-oliveti",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${HOLY_WEEK_1875}198/mode/1up`],
+    payload: {
+      slug: "in-monte-oliveti",
+      title: "In monte Oliveti (He prayed to his Father on Mount Olivet): Tenebrae Responsory",
+      body: "R. He prayed to his Father on Mount Olivet: Father! if it is possible, let this chalice pass from me. * The Spirit indeed is willing, but the flesh is weak.\nV. Watch and pray, that ye enter not into temptation. * The Spirit indeed, etc.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "R. In monte Oliveti oravit ad Patrem: Pater, si fieri potest, transeat a me calix iste: * Spiritus quidem promptus est, caro autem infirma.\nV. Vigilate, et orate, ut non intretis in tentationem. * Spiritus quidem, etc.",
+      summary:
+        "The first responsory of Tenebrae, the Matins of Maundy Thursday, sung after the first lesson from the Lamentations: Christ's prayer in the garden that the chalice might pass from him, and his warning to watch and pray, for the spirit is willing but the flesh is weak (Matthew 26:39-41). Latin and English are taken from The Complete Office of Holy Week (New York: Benziger, 1875), which prints them side by side and abbreviates the repeated part as shown.",
+      occasions: ["holy-thursday", "holy-week", "passion"],
+      relatedSaints: [],
+      citations: [`${HOLY_WEEK_1875}198/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "tristis-est-anima-mea",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${HOLY_WEEK_1875}200/mode/1up`],
+    payload: {
+      slug: "tristis-est-anima-mea",
+      title: "Tristis est anima mea (My soul is sorrowful even unto death): Tenebrae Responsory",
+      body: "R. My soul is sorrowful even unto death; stay you here, and watch with me. Now ye shall see a multitude, that will surround me. * Ye shall run away, and I will go to be sacrificed for you.\nV. Behold the hour is at hand, and the Son of Man shall be betrayed into the hands of sinners. * Ye shall.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "R. Tristis est anima mea usque ad mortem: sustinete hic, et vigilate mecum: nunc videbitis turbam, quæ circumdabit me. * Vos fugam capietis, et ego vadam immolari pro vobis.\nV. Ecce appropinquat hora, et Filius hominis tradetur in manus peccatorum. * Vos.",
+      summary:
+        "The second responsory of Tenebrae on Maundy Thursday: Christ's words in Gethsemane, my soul is sorrowful even unto death, stay here and watch with me, with the foretelling that the disciples will flee while he goes to be sacrificed for them, and the warning that the hour is at hand (Matthew 26:38, 45). Latin and English are taken from The Complete Office of Holy Week (New York: Benziger, 1875).",
+      occasions: ["holy-thursday", "holy-week", "passion"],
+      relatedSaints: [],
+      citations: [`${HOLY_WEEK_1875}200/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "una-hora-non-potuistis",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${HOLY_WEEK_1875}228/mode/1up`, `${HOLY_WEEK_1875}229/mode/1up`],
+    payload: {
+      slug: "una-hora-non-potuistis",
+      title: "Una hora non potuistis (Could you not watch one hour with me?): Tenebrae Responsory",
+      body: "R. Could you not watch one hour with me, you that were resolved to die for me? Or do you not see Judas, how he sleeps not, but makes haste to betray me to the Jews?\nV. Why do ye sleep? Arise and pray, that ye enter not into temptation. Or do ye not see, etc.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "R. Una hora non potuistis vigilare mecum, qui exhortabamini mori pro me? * Vel Judam non videtis, quomodo non dormit, sed festinat tradere me Judæis?\nV. Quid dormitis? surgite et orate, ne intretis in tentationem. * Vel Judam, etc.",
+      summary:
+        "The eighth responsory of Tenebrae on Maundy Thursday: Christ's reproach to the sleeping apostles, who had resolved to die for him yet could not watch one hour, set against Judas, who does not sleep but hastens to betray him (after Matthew 26:40-41 and Luke 22:46). Latin and English are taken from The Complete Office of Holy Week (New York: Benziger, 1875).",
+      occasions: ["holy-thursday", "holy-week", "passion"],
+      relatedSaints: [],
+      citations: [`${HOLY_WEEK_1875}228/mode/1up`, `${HOLY_WEEK_1875}229/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "tenebrae-factae-sunt",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${HOLY_WEEK_1875}309/mode/1up`],
+    payload: {
+      slug: "tenebrae-factae-sunt",
+      title: "Tenebrae factae sunt (Darkness covered the earth): Tenebrae Responsory",
+      body: "R. Darkness covered the earth whilst the Jews crucified Jesus, and about the ninth hour Jesus cried out with a loud voice: My God! why hast thou forsaken me? * And bowing down his head, he gave up the ghost.\nV. Jesus crying with a loud voice, said: Father! into thy hands I commend my spirit. * And bowing down, etc.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "R. Tenebræ factæ sunt, dum crucifixissent Jesum Judæi; et circa horam nonam, exclamavit Jesus voce magna: Deus meus, ut quid me dereliquisti? * Et inclinato capite, emisit spiritum.\nV. Exclamans Jesus voce magna, ait: Pater, in manus tuas commendo spiritum meum. * Et inclinato, etc.",
+      summary:
+        "The fifth responsory of Tenebrae, the Matins of Good Friday: darkness fell while Jesus was crucified, and at the ninth hour he cried, My God, why hast thou forsaken me, and bowing his head gave up his spirit, commending it into his Father's hands (Matthew 27:45-46, Luke 23:46, John 19:30). Latin and English are taken from The Complete Office of Holy Week (New York: Benziger, 1875).",
+      occasions: ["good-friday", "holy-week", "passion"],
+      relatedSaints: [],
+      citations: [`${HOLY_WEEK_1875}309/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "caligaverunt-oculi-mei",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${HOLY_WEEK_1875}325/mode/1up`, `${HOLY_WEEK_1875}326/mode/1up`],
+    payload: {
+      slug: "caligaverunt-oculi-mei",
+      title: "Caligaverunt oculi mei (My eyes are darkened by my tears): Tenebrae Responsory",
+      body: "R. My eyes are darkened by my tears; for he is far from me that comforted me. See, all people! * if there be any sorrow like to my sorrow.\nV. O all ye that pass by the way! attend and see. * If there be, etc. My eyes, etc.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "R. Caligaverunt oculi mei a fletu meo: quia elongatus est a me, qui consolabatur me. Videte omnes populi, * Si est dolor similis sicut dolor meus.\nV. O vos omnes, qui transitis per viam, attendite et videte. * Si est dolor, etc. Caligaverunt, etc.",
+      summary:
+        "The last responsory of Tenebrae on Good Friday, after the ninth lesson: words of the Lamentations (1:16, 12) put on the lips of the suffering Christ, my eyes are darkened by weeping, for he who comforted me is far from me; see, all you people, if there is any sorrow like my sorrow. Latin and English are taken from The Complete Office of Holy Week (New York: Benziger, 1875).",
+      occasions: ["good-friday", "holy-week", "passion", "our-lady-of-sorrows"],
+      relatedSaints: [],
+      citations: [`${HOLY_WEEK_1875}325/mode/1up`, `${HOLY_WEEK_1875}326/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "o-vos-omnes-tenebrae-responsory",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${HOLY_WEEK_1875}399/mode/1up`, `${HOLY_WEEK_1875}400/mode/1up`],
+    payload: {
+      slug: "o-vos-omnes-tenebrae-responsory",
+      title: "O vos omnes (O all ye that pass by the way): Tenebrae Responsory",
+      body: "R. O all ye that pass by the way! attend and see, * if there be any sorrow like to my sorrow.\nV. Attend, all ye people! and see my grief. * If there, etc.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "R. O vos omnes, qui transitis per viam, attendite et videte * Si est dolor similis sicut dolor meus.\nV. Attendite, universi populi, et videte dolorem meum. * Si est dolor, etc.",
+      summary:
+        "The fifth responsory of Tenebrae, the Matins of Holy Saturday: O all you that pass by the way, attend and see if there is any sorrow like my sorrow (Lamentations 1:12, 18), the cry the Church places on the lips of the crucified Christ and that devotion also gives to his sorrowful Mother. Latin and English are taken from The Complete Office of Holy Week (New York: Benziger, 1875).",
+      occasions: ["holy-week", "passion", "our-lady-of-sorrows", "lent"],
+      relatedSaints: [],
+      citations: [`${HOLY_WEEK_1875}399/mode/1up`, `${HOLY_WEEK_1875}400/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "ecce-quomodo-moritur-justus",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${HOLY_WEEK_1875}401/mode/1up`, `${HOLY_WEEK_1875}402/mode/1up`],
+    payload: {
+      slug: "ecce-quomodo-moritur-justus",
+      title: "Ecce quomodo moritur justus (Behold how the just man dies): Tenebrae Responsory",
+      body: "R. Behold how the just man dies, and nobody takes it to heart; and just men are taken away, and nobody considers it. The just man is taken away from the face of iniquity, * and his memory shall be in peace.\nV. He was dumb as a lamb before his shearer, and opened not his mouth; he was taken away from distress, and from judgment. * And his memory shall be in peace. Behold, etc.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "R. Ecce quomodo moritur justus, et nemo percipit corde; et viri justi tolluntur, et nemo considerat. A facie iniquitatis sublatus est justus, * et erit in pace memoria ejus.\nV. Tamquam agnus coram tondente se obmutuit, et non aperuit os suum: de angustia et de judicio sublatus est. * Et erit in pace memoria ejus. Ecce quomodo, etc.",
+      summary:
+        "The sixth responsory of Tenebrae on Holy Saturday: behold how the just man dies and no one takes it to heart; he is taken away from the face of iniquity and his memory shall be in peace, joined to the prophecy of the lamb dumb before its shearer (Isaias 57:1-2, 53:7-8). Latin and English are taken from The Complete Office of Holy Week (New York: Benziger, 1875).",
+      occasions: ["holy-week", "passion", "funerals"],
+      relatedSaints: [],
+      citations: [`${HOLY_WEEK_1875}401/mode/1up`, `${HOLY_WEEK_1875}402/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "sepulto-domino",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${HOLY_WEEK_1875}411/mode/1up`],
+    payload: {
+      slug: "sepulto-domino",
+      title: "Sepulto Domino (When the Lord was buried): Tenebrae Responsory",
+      body: "R. When the Lord was buried, they sealed up the sepulchre, rolling a stone before the mouth of the sepulchre, * and placing soldiers to guard him.\nV. The chief priests went to Pilate and asked him. * And placing soldiers, etc. When the Lord, etc.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "R. Sepulto Domino, signatum est monumentum, volventes lapidem ad ostium monumenti; * Ponentes milites, qui custodirent illum.\nV. Accedentes principes sacerdotum ad Pilatum, petierunt illum. * Ponentes, etc. Sepulto Domino, etc.",
+      summary:
+        "The last responsory of Tenebrae on Holy Saturday, after the ninth lesson: when the Lord was buried the tomb was sealed, a stone rolled against its door and soldiers set to guard it, at the request of the chief priests to Pilate (Matthew 27:60-66). Latin and English are taken from The Complete Office of Holy Week (New York: Benziger, 1875).",
+      occasions: ["holy-week", "passion", "easter-vigil"],
+      relatedSaints: [],
+      citations: [`${HOLY_WEEK_1875}411/mode/1up`],
     },
   },
 ];
