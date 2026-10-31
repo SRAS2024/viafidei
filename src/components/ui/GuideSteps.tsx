@@ -45,7 +45,8 @@ export function GuideSteps({
             </h3>
             <div className="mt-1 font-serif leading-relaxed text-ink">
               {linked ? (
-                <PrayerLinkedText text={step.body} prayers={linked} />
+                // The step's title is an h3, so a prayer opened in it is an h4.
+                <PrayerLinkedText text={step.body} prayers={linked} headingLevel={4} />
               ) : (
                 <p className="whitespace-pre-line">{step.body}</p>
               )}

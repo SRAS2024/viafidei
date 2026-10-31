@@ -340,7 +340,6 @@ export function HistoryTimelineClient({ events, eras, minYear, maxYear }: Props)
                   significance={event.significance}
                   body={event.excerpt}
                   links={event.links}
-                  citation={event.citation}
                 />
               ))}
             </section>

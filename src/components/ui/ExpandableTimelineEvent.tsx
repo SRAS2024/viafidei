@@ -18,20 +18,10 @@ type Props = {
   body?: string;
   /** Related pages: document, official text, popes, saints, doctors, apparitions. */
   links?: TimelineEventLink[];
-  /** The one authoritative source for a static event. */
-  citation?: string;
   initiallyOpen?: boolean;
   /** DOM id for jump-to-era scrolling. */
   id?: string;
 };
-
-function hostOf(url: string): string {
-  try {
-    return new URL(url).host.replace(/^www\./, "");
-  } catch {
-    return "source";
-  }
-}
 
 /**
  * Expandable timeline event used in the Church history timeline.
@@ -39,7 +29,9 @@ function hostOf(url: string): string {
  * Mirrors the ExpandablePrayer pattern: arrow points right when collapsed,
  * arrow points down when expanded. The trigger shows the formatted date, a
  * kind badge and the title; the body shows location, context, significance,
- * an optional excerpt, a "Related" chip row and the source citation.
+ * an optional excerpt and a "Related" chip row. No "Source:" line: a reader's
+ * page shows no sources (the owner's rule). Each event's citation stays in the
+ * timeline data, where the event's provenance is kept.
  */
 export function ExpandableTimelineEvent({
   title,
@@ -51,7 +43,6 @@ export function ExpandableTimelineEvent({
   significance,
   body,
   links,
-  citation,
   initiallyOpen = false,
   id,
 }: Props) {
@@ -160,19 +151,6 @@ export function ExpandableTimelineEvent({
                 })}
               </ul>
             </div>
-          ) : null}
-          {citation ? (
-            <p className="mt-3 font-sans text-[0.7rem] uppercase tracking-[0.18em] text-ink-faint">
-              Source:{" "}
-              <a
-                href={citation}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline decoration-ink/30 underline-offset-2 hover:text-ink"
-              >
-                {hostOf(citation)}
-              </a>
-            </p>
           ) : null}
         </div>
       ) : null}

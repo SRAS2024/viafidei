@@ -30,6 +30,12 @@ describe("classifyParish", () => {
     expect(classifyParish("parish")).toBe("parish");
     expect(classifyParish(undefined)).toBe("parish");
   });
+  it("files an oratory under Chapels: like a chapel, it is not a parish church", () => {
+    // The card still names it "Oratory"; only the directory filter groups it.
+    expect(classifyParish("oratory")).toBe("chapel");
+    expect(parishMatchesFilter("oratory", "chapel")).toBe(true);
+    expect(parishMatchesFilter("oratory", "parish")).toBe(false);
+  });
 });
 
 describe("parish filter behavior", () => {

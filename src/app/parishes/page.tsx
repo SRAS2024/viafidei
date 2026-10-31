@@ -11,14 +11,17 @@ export const metadata = { title: "Parishes" };
 /**
  * The stored `designation` values behind each classification chip. The
  * directory filters and counts on the indexed `subtype` column, which carries
- * the designation verbatim, so "Basilicas" has to name both stored forms.
+ * the designation verbatim, so "Basilicas" has to name both stored forms and
+ * "Chapels" takes the oratories too (`classifyParish` files them there): with
+ * no chip naming "oratory", the 2,241 published oratories were reachable from
+ * "All" alone.
  */
 const PARISH_FILTER_SUBTYPES: Readonly<Record<string, readonly string[]>> = {
   parish: ["parish"],
   cathedral: ["cathedral"],
   basilica: ["major-basilica", "minor-basilica", "basilica"],
   shrine: ["shrine"],
-  chapel: ["chapel"],
+  chapel: ["chapel", "oratory"],
 };
 
 export default async function ParishesPage({

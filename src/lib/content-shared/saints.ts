@@ -203,6 +203,252 @@ export interface SaintCardDetails {
 }
 
 /**
+ * The saint fields the patronage and feast lines are read from — a full
+ * payload, or the narrow JSON projection the /saints list queries.
+ */
+export interface SaintFactSource {
+  patronages?: unknown;
+  patronage?: unknown;
+  feastDay?: unknown;
+  feastMonth?: unknown;
+  feastDayOfMonth?: unknown;
+}
+
+/**
+ * The patronage and feast a saint's card and page show. Patronages in stored
+ * order (the legacy single `patronage` string when there is no list); the feast
+ * from the indexed month/day, or the stored text for a movable feast ("The
+ * Tuesday after Pentecost"), which passes through as written.
+ */
+export function saintCardDetails(source: SaintFactSource): SaintCardDetails {
+  const list = Array.isArray(source.patronages)
+    ? source.patronages
+        .filter((p): p is string => typeof p === "string")
+        .map((p) => p.trim())
+        .filter(Boolean)
+    : [];
+  const legacy = typeof source.patronage === "string" ? source.patronage.trim() : "";
+  const patronages = list.length > 0 ? list : legacy ? [legacy] : [];
+
+  const month = typeof source.feastMonth === "number" ? source.feastMonth : null;
+  const day = typeof source.feastDayOfMonth === "number" ? source.feastDayOfMonth : null;
+  const feast =
+    month != null && day != null
+      ? formatFeastDay(`${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`)
+      : formatFeastDay(source.feastDay);
+  return { patronages, feast: feast ?? null };
+}
+
+const MONTH_NAME = new RegExp(`\\b(?:${MONTHS.join("|")})\\b`, "i");
+
+/** Words that hedge a recorded date wherever they stand ("probably 13 January 731"). */
+const HEDGE =
+  /\b(?:probably|possibly|perhaps|purportedly|presumably|reportedly|allegedly|likely|around|about|approximately|approx|estimated)\b/i;
+
+/**
+ * The widest spread of years one date may name and still read as "c." its
+ * first year ("302 or 303", "c. 98–117"). A wider one ("1745–1862" for the
+ * Vietnamese Martyrs, "c. 1715–1765", "774 or 714") is a group's dates or a
+ * guess, and printing its first year would state a fact the record does not.
+ */
+const MAX_SPREAD_YEARS = 20;
+
+/**
+ * The years a date names, in order: an ISO date by its year, every other run
+ * of digits — in a date that names a month, only runs too long to be a day —
+ * and an abbreviated second year read from the first ("1293–4" → 1294,
+ * "1885–87" → 1887, "643/47" → 647).
+ */
+function yearsNamed(s: string): number[] {
+  const monthNamed = MONTH_NAME.test(s);
+  const years: number[] = [];
+  let prevRun = "";
+  for (const m of s.matchAll(/(\d{1,4})-\d{2}-\d{2}\b|\d{1,4}/g)) {
+    const iso = m[1] != null;
+    const run = iso ? m[1]! : m[0];
+    if (!iso && monthNamed && run.length < 3) continue;
+    let year = Number(run);
+    const prev = years[years.length - 1];
+    if (!iso && prev != null && run.length < prevRun.length && year < prev) {
+      const base = 10 ** run.length;
+      year = prev - (prev % base) + year;
+      if (year < prev) year += base;
+    }
+    years.push(year);
+    prevRun = run;
+  }
+  return years;
+}
+
+/**
+ * One end of a saint's life as a reader expects it: a year, "c. 1715" when the
+ * record is approximate, hedged or gives a short span ("302 or 303", "c.
+ * 700/703", "1589-1590", "173?", "probably 731", "1225 (purportedly)"), "820s"
+ * and "4th century" kept as written, "100 BC", "after 673" ("shortly after
+ * 465"), "before 819" ("prior to 819"). Only what the record states: a day and
+ * month are dropped, never guessed. Null when the record gives no single
+ * date: no year, a disputed one ("disputed: 209, 251 or 304"), candidates
+ * spread wider than MAX_SPREAD_YEARS however many there are, or two people's
+ * dates ("550 (Severinus); 543 (Victorinus)", "869-02-14 and 885-04-06").
+ */
+function lifeYear(raw: unknown): { label: string; year: number | null } | null {
+  if (typeof raw !== "string") return null;
+  let s = raw
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!s || /\bdisputed\b/i.test(s)) return null;
+
+  let circa = false;
+  // A parenthetical about the age ("(aged 59)") or the tradition
+  // ("(traditional)") says nothing about the date; one that hedges
+  // ("(purportedly)", "(?)", "(circa)") or offers another year ("(973 by some
+  // sources)") makes it approximate.
+  for (const [, inner = ""] of s.matchAll(/\(([^)]*)\)/g)) {
+    if (/\bage[ds]?\b|\byears old\b/i.test(inner)) continue;
+    if (HEDGE.test(inner) || /\?|\bcirca\b|\d{3}/i.test(inner)) circa = true;
+  }
+  s = s
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/^\s*[a-z]+=[a-z]+\s+/i, "") // stray wiki markup: "lk=no 360"
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!s || s.includes(";")) return null;
+  // Two people's dates: "Francisco: 1908-06-11 Jacinta: 1910-03-05".
+  if ((s.match(/\p{L}+:\s*\d/gu) ?? []).length >= 2) return null;
+  // "After 517 and before 519" is a range; any other "and" joins two dates.
+  s = s.replace(/^after\s+(.+?)\s+and\s+before\s+/i, "between $1 and ");
+  const between = /^between\s+/i.exec(s);
+  if (between) s = s.slice(between[0].length);
+  else if (/\band\b/i.test(s)) return null;
+
+  const bc = /\b(?:BCE?|B\.C\.(?:E\.)?)(?=\s|$)/i.test(s);
+  let prefix = "";
+  const qualifier = s.match(/^(shortly after|after|before|prior to)\s+/i);
+  if (qualifier) {
+    prefix = /^(?:before|prior)/i.test(qualifier[1]!) ? "before " : "after ";
+    s = s.slice(qualifier[0].length);
+  }
+  const approx = s.match(/^(?:c\.|ca\.?|circa|about|around|approximately|approx\.?|~)\s*/i);
+  if (approx) {
+    circa = true;
+    s = s.slice(approx[0].length);
+  } else if (/^c\s*\d/i.test(s)) {
+    circa = true;
+    s = s.replace(/^c\s*/i, "");
+  }
+  // "100 AD. ca.": the hedge written after the year.
+  const trailing = /\s*\b(?:c|ca|circa)\.?\s*$/i.exec(s);
+  if (trailing) {
+    circa = true;
+    s = s.slice(0, trailing.index).trim();
+  }
+  // "173?", "649 or 650", "700/703", "unknown, 660", "~1204": the record itself is unsure.
+  if (/\?|~|\bor\b|\/|\bunknown\b/i.test(s) || HEDGE.test(s)) circa = true;
+
+  const century = s.match(/\b(\d{1,2})(st|nd|rd|th)\s+century\b/i);
+  if (century) {
+    return { label: `${prefix}${century[1]}${century[2]} century${bc ? " BC" : ""}`, year: null };
+  }
+  // "820s": a decade, already approximate, kept as written.
+  const decade = s.match(/\b(\d{1,3}0)s\b/);
+  if (decade) {
+    const year = Number(decade[1]);
+    return { label: `${prefix}${decade[1]}s${bc ? " BC" : ""}`, year: bc ? -year : year };
+  }
+
+  const years = yearsNamed(s);
+  if (new Set(years).size > 1) {
+    if (Math.max(...years) - Math.min(...years) > MAX_SPREAD_YEARS) return null;
+    circa = true; // "1589-1590", "302 or 303": a span — its first year, approximately.
+  }
+  // "10 April 1028", "April 16, 1127": the first year too long to be a day;
+  // "5 March 33": no such run, so the year is the last number.
+  let year = years[0];
+  if (year == null) {
+    const runs = [...s.matchAll(/\d{1,4}/g)].map((m) => Number(m[0]));
+    year = runs[runs.length - 1];
+  }
+  if (!year) return null;
+  const label = `${prefix}${circa ? "c. " : ""}${year}${bc ? " BC" : ""}`;
+  return { label, year: bc ? -year : year };
+}
+
+/**
+ * The dates a saint lived, for the line under the name: "1910 – 1946",
+ * "c. 1715 – 1794", "Died 304", "Born 1962". Null when the record has neither
+ * date, or when its dates contradict each other (a birth after the death) —
+ * a wrong-looking fact is worse than a missing line.
+ */
+export function saintLifeDates(payload: Record<string, unknown>): string | null {
+  const born = lifeYear(payload.birthDate);
+  const died = lifeYear(payload.deathDate);
+  if (born && died) {
+    if (born.year != null && died.year != null && born.year > died.year) return null;
+    return `${born.label} – ${died.label}`;
+  }
+  if (died) return `Died ${died.label}`;
+  if (born) return `Born ${born.label}`;
+  return null;
+}
+
+/**
+ * The closing sentence the structured ingest wrote under every biography it
+ * composed from Wikidata facts for a saint with no English article: "A fuller
+ * biography is recorded in the Polish-language Wikipedia article and on
+ * Wikidata." (462 published saints). It points the reader to sources, and a
+ * reader's page shows none (the owner's rule), so the saint page leaves it off.
+ * Only that exact closing sentence goes; the stored text keeps it.
+ */
+const COMPOSED_SOURCE_POINTER =
+  /\s*A fuller biography is recorded in the \S+-language Wikipedia article and on Wikidata\.\s*$/;
+
+/** A saint's biography as its page shows it: the stored text, minus a source pointer. */
+export function saintBiographyForDisplay(biography: string): string {
+  return biography.replace(COMPOSED_SOURCE_POINTER, "");
+}
+
+/** "Saint", "Blessed", "Venerable" or "Servant of God", from `canonizationStatus`. */
+const STATUS_LABELS: Record<string, string> = {
+  canonized: "Saint",
+  beatified: "Blessed",
+  venerable: "Venerable",
+  servant_of_god: "Servant of God",
+};
+
+/** How a name already says the stage of the cause: "St. Agnes", "Bl. Carlo". */
+const STATUS_IN_NAME: Record<string, RegExp> = {
+  Saint: /\b(?:saints?|st|sts|ste|san|santa|santo|sankt|sainte)\b\.?/i,
+  Blessed: /\b(?:blessed|bl)\b\.?/i,
+  Venerable: /\b(?:venerable|ven)\b\.?/i,
+  "Servant of God": /\bservants? of god\b/i,
+};
+
+/**
+ * The eyebrow over a saint's name on the saint's own page: the one permitted
+ * title label (Apostle, Doctor of the Church, a dated papacy, a curated
+ * `titleLabel`), else the stage of the cause ("Blessed", "Venerable") when the
+ * name does not already say it — so a beatus is never introduced as a saint,
+ * and "Saint" is never printed over "Saint Godeberta". Undefined when there is
+ * nothing to add. The feast day is no longer folded in: it has its own line
+ * under the name.
+ */
+export function saintDetailEyebrow(
+  payload: Record<string, unknown>,
+  name = "",
+): string | undefined {
+  const label = saintTitleLabel(payload);
+  if (label) return label;
+  const status =
+    typeof payload.canonizationStatus === "string"
+      ? payload.canonizationStatus.trim().toLowerCase()
+      : "";
+  const stage = STATUS_LABELS[status];
+  if (!stage || STATUS_IN_NAME[stage]!.test(name)) return undefined;
+  return stage;
+}
+
+/**
  * The lines a saint's catalogue card shows beneath the name, in order: the
  * patronage ("Patron of the papacy, fishermen, Rome"), then the feast day
  * ("Feast day: June 29"). A line is left out when that fact is not recorded.

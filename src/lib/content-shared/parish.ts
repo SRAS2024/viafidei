@@ -59,7 +59,7 @@ export function parishMatchesFilter(designation: unknown, filter: ParishFilter):
  * database write and no republish. Nothing here reads or reshapes stored data.
  */
 
-/** The parts of a parish record its place line is built from. */
+/** The place parts of a parish record: town, region and country. */
 export type ParishPlaceParts = {
   city?: string | null;
   state?: string | null;
@@ -71,46 +71,6 @@ export type ParishPlaceParts = {
 
 function trimmed(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
-}
-
-/** Countries that write the postal code AFTER the locality ("Springfield, IL 62701"). */
-const POSTCODE_AFTER_LOCALITY: ReadonlySet<string> = new Set([
-  "US",
-  "CA",
-  "GB",
-  "IE",
-  "AU",
-  "NZ",
-  "IN",
-  "PH",
-  "ZA",
-  "SG",
-]);
-
-/**
- * The place line under the street: postal code, locality, state and country
- * in the country's usual order — "00153 Roma, Lazio, Italy", "Springfield,
- * Illinois 62701, United States" — with missing parts dropped.
- *
- * This is a LOCATION, not a diocese (the card used to label it "Diocese";
- * only `payload.diocese` names one). Returns null when the record has none of
- * the parts, so the caller omits the line rather than printing an empty row.
- */
-export function parishPlaceLine(parts: ParishPlaceParts): string | null {
-  const postal = trimmed(parts.postalCode);
-  const city = trimmed(parts.city);
-  const state = trimmed(parts.state);
-  const country = trimmed(parts.country);
-  let segments: string[];
-  if (POSTCODE_AFTER_LOCALITY.has(trimmed(parts.countryCode).toUpperCase())) {
-    segments = state
-      ? [city, [state, postal].filter(Boolean).join(" ")]
-      : [[city, postal].filter(Boolean).join(" ")];
-  } else {
-    segments = [[postal, city].filter(Boolean).join(" "), state];
-  }
-  const joined = [...segments, country].filter(Boolean).join(", ");
-  return joined || null;
 }
 
 /**
@@ -137,26 +97,113 @@ export function parishStreetAddress(
 }
 
 /**
- * The destination handed to Maps: the street address plus the place parts, so
- * "123 Main St" resolves to the right "123 Main St" on earth. MapsAddressLink
- * still prefers exact coordinates when the record carries them.
+ * The destination handed to Maps: the whole address the card shows (street,
+ * postal code, town, region, country), so "123 Main St" resolves to the right
+ * "123 Main St" on earth. MapsAddressLink still prefers exact coordinates when
+ * the record carries them.
  */
-export function parishDirectionsAddress(
-  parts: ParishPlaceParts & { address?: string | null },
-): string {
-  return [trimmed(parts.address), parishPlaceLine(parts) ?? ""].filter(Boolean).join(", ");
+export function parishDirectionsAddress(parts: ParishAddressParts): string {
+  return parishAddressLines(parts).join(", ");
 }
 
 /**
- * A parish website as an (href, label) pair, or null when the record has no
- * usable one. Stored values are inconsistent about the scheme, so a bare
- * "stmarys.org" still becomes a working https link, and the label drops the
- * scheme and any trailing slash so the card shows a domain, not a raw URL.
+ * What a church is, as its card says it under the name: "Parish",
+ * "Cathedral", "Shrine", "Chapel", "Oratory", and always "Minor Basilica" or
+ * "Major Basilica" — the stored designations are `minor-basilica` /
+ * `major-basilica`. A bare "basilica" (no record carries one today) says only
+ * "Basilica" rather than guess which. A designation this list does not know
+ * returns null, so a raw token never reaches the card.
  */
-export function parishWebsite(value: unknown): { href: string; label: string } | null {
-  const raw = trimmed(value);
-  if (!raw) return null;
-  const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-  const label = href.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
-  return label ? { href, label } : null;
+const DESIGNATION_LABELS: Readonly<Record<string, string>> = {
+  parish: "Parish",
+  cathedral: "Cathedral",
+  shrine: "Shrine",
+  chapel: "Chapel",
+  oratory: "Oratory",
+  "minor-basilica": "Minor Basilica",
+  "major-basilica": "Major Basilica",
+  basilica: "Basilica",
+};
+
+export function parishDesignationLabel(designation: unknown): string | null {
+  const key =
+    typeof designation === "string"
+      ? designation
+          .trim()
+          .toLowerCase()
+          .replace(/[\s_]+/g, "-")
+      : "";
+  return DESIGNATION_LABELS[key] ?? null;
+}
+
+/** Every part of a church's postal address a record may carry. */
+export type ParishAddressParts = ParishPlaceParts & {
+  /** The street line ("6135 South Austin Avenue"). */
+  address?: string | null;
+  postalCode?: string | null;
+  /** ISO 3166-1 alpha-2, which decides where the postal code goes. */
+  countryCode?: string | null;
+};
+
+/**
+ * Countries whose addresses put the postal code after the town and region
+ * ("Chicago, IL 60629", "Singapore 048616"); everywhere else it leads the town
+ * ("00184 Roma").
+ */
+const POSTCODE_AFTER_LOCALITY: ReadonlySet<string> = new Set([
+  "US",
+  "CA",
+  "GB",
+  "IE",
+  "AU",
+  "NZ",
+  "IN",
+  "PH",
+  "ZA",
+  "SG",
+  "BR",
+]);
+
+/** The same, for a record that names its country but carries no code. */
+const COUNTRY_CODES_BY_NAME: Readonly<Record<string, string>> = {
+  "united states": "US",
+  "united states of america": "US",
+  usa: "US",
+  canada: "CA",
+  australia: "AU",
+  "new zealand": "NZ",
+  "united kingdom": "GB",
+  ireland: "IE",
+  india: "IN",
+  philippines: "PH",
+  "south africa": "ZA",
+  singapore: "SG",
+  brazil: "BR",
+  brasil: "BR",
+};
+
+/**
+ * A church's address as the lines of an envelope: the street, then the
+ * locality (postal code, town and region, in the country's own order), then
+ * the country. Missing parts are dropped, and a record with none of them
+ * yields []. Nothing is reshaped or looked up — only what the record stores.
+ */
+export function parishAddressLines(parts: ParishAddressParts): string[] {
+  const street = trimmed(parts.address);
+  const postal = trimmed(parts.postalCode);
+  const city = trimmed(parts.city);
+  const region = trimmed(parts.state);
+  const country = trimmed(parts.country);
+  const code =
+    trimmed(parts.countryCode).toUpperCase() || COUNTRY_CODES_BY_NAME[country.toLowerCase()] || "";
+
+  let locality: string;
+  if (postal && POSTCODE_AFTER_LOCALITY.has(code)) {
+    const place = [city, region].filter(Boolean).join(", ");
+    locality = place ? `${place} ${postal}` : postal;
+  } else {
+    const town = [postal, city].filter(Boolean).join(" ");
+    locality = [town, region].filter(Boolean).join(", ");
+  }
+  return [street, locality, country].filter(Boolean);
 }

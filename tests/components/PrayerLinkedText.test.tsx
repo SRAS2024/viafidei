@@ -6,13 +6,15 @@
  * with its own language toggle and verbatim (translate="no") Latin/Greek. Text
  * that names no known prayer renders untouched.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { PrayerLinkedText } from "@/components/ui/PrayerLinkedText";
 import type { GuidePrayerData } from "@/components/ui/GuidePrayers";
 
 afterEach(() => cleanup());
+// The language choice is session-wide, so one test's Latin must not leak into the next.
+beforeEach(() => window.sessionStorage.clear());
 
 const OUR_FATHER: GuidePrayerData = {
   slug: "our-father",
@@ -83,5 +85,94 @@ describe("PrayerLinkedText", () => {
     // "father" alone must not match the "Our Father" entry.
     render(<PrayerLinkedText text="Honor your father and mother." prayers={[OUR_FATHER]} />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("offers the same Latin chip as the prayer page, never an English one", () => {
+    render(<PrayerLinkedText text="Pray the Our Father." prayers={[OUR_FATHER]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Our Father/ }));
+    expect(screen.getByRole("group", { name: "Our Father language" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "English" })).not.toBeInTheDocument();
+  });
+
+  it("shows no chip for a prayer that has only its vernacular", () => {
+    render(<PrayerLinkedText text="Pray the Glory Be." prayers={[GLORY_BE]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Glory Be/ }));
+    expect(screen.queryByRole("group")).not.toBeInTheDocument();
+  });
+
+  it("gives each opened panel its own id, even when two texts open the same prayer", () => {
+    render(
+      <>
+        <PrayerLinkedText text="Day one: pray one Our Father." prayers={[OUR_FATHER]} />
+        <PrayerLinkedText text="Day two: pray one Our Father." prayers={[OUR_FATHER]} />
+      </>,
+    );
+    const [first, second] = screen.getAllByRole("button", { name: /Our Father/ });
+    fireEvent.click(first!);
+    fireEvent.click(second!);
+    const ids = [first!, second!].map((b) => b.getAttribute("aria-controls")!);
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) {
+      expect(document.querySelectorAll(`[id="${id}"]`)).toHaveLength(1);
+      expect(document.getElementById(id)).toHaveTextContent("Our Father, who art in heaven...");
+    }
+  });
+
+  it("titles an opened prayer at the heading level its place in the page needs", () => {
+    const { unmount } = render(
+      <PrayerLinkedText text="Pray the Our Father." prayers={[OUR_FATHER]} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Our Father/ }));
+    expect(screen.getByRole("heading", { level: 3, name: "Our Father" })).toBeInTheDocument();
+    unmount();
+
+    // Straight under a prayer page's h1: an h2, never a skipped level.
+    render(
+      <PrayerLinkedText text="Pray the Our Father." prayers={[OUR_FATHER]} headingLevel={2} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Our Father/ }));
+    expect(screen.getByRole("heading", { level: 2, name: "Our Father" })).toBeInTheDocument();
+  });
+
+  it("says when the language shown is a machine translation, and only then", () => {
+    const CREED: GuidePrayerData = {
+      slug: "apostles-creed",
+      title: "Apostles' Creed",
+      variants: [
+        { code: "en", label: "English", text: "I believe in God...", preserve: false },
+        { code: "la", label: "Latin", text: "Credo in Deum...", preserve: true },
+        {
+          code: "el",
+          label: "Greek",
+          text: "Πιστεύω εἰς Θεὸν...",
+          preserve: true,
+          unofficial: true,
+        },
+      ],
+    };
+    render(<PrayerLinkedText text="Pray the Apostles' Creed." prayers={[CREED]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Apostles' Creed/ }));
+    const note = /Unofficial translation/;
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Latin" }));
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Greek" }));
+    expect(screen.getByText("Πιστεύω εἰς Θεὸν...")).toHaveAttribute("translate", "no");
+    expect(screen.getByText(note)).toBeInTheDocument();
+  });
+
+  it("with matchCase, links only names capitalised as names (the text is itself prayer)", () => {
+    render(
+      <PrayerLinkedText
+        text={"Joseph is our father in faith.\nOur Father, Hail Mary, Glory Be"}
+        prayers={[OUR_FATHER, GLORY_BE]}
+        matchCase
+      />,
+    );
+    const links = screen.getAllByRole("button");
+    expect(links.map((b) => b.textContent?.replace(/[▾▴]/g, ""))).toEqual([
+      "Our Father",
+      "Glory Be",
+    ]);
   });
 });

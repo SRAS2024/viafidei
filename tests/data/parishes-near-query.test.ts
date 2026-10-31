@@ -103,4 +103,26 @@ describe("the projected parish row", () => {
     expect(item.website).toBeNull();
     expect(item.address).toBeNull();
   });
+
+  it("carries the designation, postal code and country code the card's address needs", async () => {
+    queryRaw.mockResolvedValue([
+      row({ subtype: "minor-basilica", postalCode: "60602", countryCode: "US" }),
+    ]);
+    const [item] = await listParishesNear({ latitude: 41.88, longitude: -87.63 });
+    expect(item).toMatchObject({
+      designation: "minor-basilica",
+      postalCode: "60602",
+      countryCode: "US",
+    });
+    const text = textOf(lastSql());
+    expect(text).toContain("payload->>'postalCode'");
+    expect(text).toContain("payload->>'countryCode'");
+  });
+
+  it("reads a record with no postal code yet (most of them) as null", async () => {
+    queryRaw.mockResolvedValue([row()]);
+    const [item] = await listParishesNear({ latitude: 41.88, longitude: -87.63 });
+    expect(item.postalCode).toBeNull();
+    expect(item.countryCode).toBeNull();
+  });
 });

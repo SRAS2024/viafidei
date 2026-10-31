@@ -104,4 +104,38 @@ describe("PrayerLanguageToggle", () => {
     render(<PrayerLanguageToggle variants={[EN, LA, ES]} />);
     expect(screen.getByText("Dios te salve...")).toBeInTheDocument();
   });
+
+  // The Rosary and chaplet prayers name the prayers they are built from; each
+  // name opens that prayer in place, with its own Latin chip.
+  describe("prayers the text names", () => {
+    const OPENING = "On the single bead, pray the Our Father.";
+    const OUR_FATHER = {
+      slug: "our-father",
+      title: "Our Father",
+      variants: [
+        { code: "en", label: "English", text: "Our Father, who art in heaven...", preserve: false },
+        { code: "la", label: "Latin", text: "Pater noster, qui es in caelis...", preserve: true },
+      ],
+    };
+    const variants: PrayerVariant[] = [
+      { code: "en", label: "English", text: OPENING, preserve: false },
+    ];
+
+    it("opens a named prayer inline, in Latin when the reader picks Latin", () => {
+      render(<PrayerLanguageToggle variants={variants} linkedPrayers={[OUR_FATHER]} />);
+      const name = screen.getByRole("button", { name: /Our Father/ });
+      expect(name).toHaveAttribute("aria-expanded", "false");
+
+      fireEvent.click(name);
+      expect(screen.getByText(/who art in heaven/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Latin" }));
+      expect(screen.getByText(/Pater noster/)).toHaveAttribute("translate", "no");
+    });
+
+    it("reads the text plainly when it names nothing it was given", () => {
+      render(<PrayerLanguageToggle variants={variants} linkedPrayers={[]} />);
+      expect(screen.getByText(OPENING)).toBeInTheDocument();
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    });
+  });
 });

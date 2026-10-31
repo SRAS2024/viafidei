@@ -1,6 +1,16 @@
 /**
- * Generic detail renderer for any published checklist item.
- * Renders title, summary, body fields, structured fields, and citations.
+ * Generic detail renderer for a published checklist item: the title, then the
+ * fields the page names and nothing else.
+ *
+ * A content page shows its title and the information that matters (the owner's
+ * rule): no sources or citations, no field label where the content speaks for
+ * itself, no internal metadata. That is why there is no catch-all any more. The
+ * renderer used to print every payload key a page had not named, which is how
+ * "Feast month: 11", "Wikidata qid: Q2123866", "Content subtype:
+ * pope_biography", "Structure: nine_days" and a duplicated "Summary" reached
+ * readers. A page now lists exactly the fields it shows, in order; a field the
+ * worker adds later stays in the payload (and in search and structured data)
+ * until a page decides it matters.
  */
 
 import { contentTypeLabel, type PublishedItem } from "@/lib/data/published";
@@ -21,15 +31,18 @@ import type { GuidePrayerData } from "./GuidePrayers";
 
 export interface PublishedDetailProps {
   item: PublishedItem;
+  /** The payload fields to show, in order. Nothing else in the payload is shown. */
   primaryFields?: string[];
+  /** More fields to show after `primaryFields`, in order. */
   secondaryFields?: string[];
   /** Optional header action (e.g. the Save/Add button) shown beside the title. */
   action?: React.ReactNode;
   /**
-   * Prayers this item uses (guides / novenas). When provided, any prayer named
-   * inside a disclosure body (a step or a day) becomes inline-expandable — tap
-   * the name to drop the full prayer open in place. Omitted everywhere else, so
-   * those pages render exactly as before.
+   * Prayers this item uses (novenas, devotions, practices, Marian titles). When
+   * provided, any of them named inside a disclosure body (a day) or a text field
+   * (how to practise) becomes inline-expandable — tap the name to drop the full
+   * prayer open in place, with its Latin / Greek chips. Omitted everywhere else,
+   * so those pages render exactly as before.
    */
   linkedPrayers?: GuidePrayerData[];
   /**
@@ -41,16 +54,40 @@ export interface PublishedDetailProps {
   fieldRenderers?: Record<string, (value: unknown) => React.ReactNode>;
   /**
    * Optional footer content rendered left-aligned at the bottom of the card
-   * (e.g. a parish's "Go to site" button). Omitted everywhere else.
+   * (e.g. a related apparition). Omitted everywhere else.
    */
   footer?: React.ReactNode;
   /**
    * Overrides the eyebrow above the title. Defaults to the human content-type
    * label ("Our Lady", "Church Document") — never the raw enum. Pages with a
-   * more specific word for the item (a saint's "Martyr", a guide's "Rosary")
-   * pass it here.
+   * more specific word for the item (a saint's "Doctor of the Church", a
+   * guide's "Rosary") pass it here, and `null` shows none: "Saint" over
+   * "Saint Godeberta" only repeats the name.
    */
-  eyebrow?: string;
+  eyebrow?: string | null;
+  /**
+   * Show the stored one-line subtitle under the title (default). Pages whose
+   * `facts` already say what the subtitle says turn it off rather than show
+   * the same feast day twice.
+   */
+  showSubtitle?: boolean;
+  /**
+   * Short lines directly under the title, in order — "Patron of …", "Feast day:
+   * …", "1910 – 1946". The page writes them, so each reads as a sentence, not a
+   * labelled form field.
+   */
+  facts?: ReadonlyArray<string | null | undefined>;
+  /**
+   * Show the payload's `summary` as a lede under the title (default). It is
+   * left out anyway when a shown field already contains it, so a sacrament's
+   * overview is not printed twice.
+   */
+  lede?: boolean;
+  /**
+   * Heading overrides by field. `null` shows the field with no heading at all —
+   * a saint's biography is the page's prose, not a section called "Biography".
+   */
+  headings?: Readonly<Record<string, string | null>>;
 }
 
 /**
@@ -107,97 +144,33 @@ function renderPresented(value: PresentedValue, depth = 0): React.ReactNode {
   );
 }
 
-// Never rendered, even when a page lists them explicitly in primary/secondary
-// fields. These are pure internal references with no user-facing meaning —
-// slug/title/citations are handled elsewhere, and *Key fields (e.g.
-// sacramentKey, riteKey) are routing links between content, not content. This
-// is the hard guard behind isMetaField: isMetaField only filters the catch-all
-// "remaining" section, so an internal key a page named directly (the
-// "Sacrament Key: reconciliation" leak) still needs blocking here.
+// Never rendered, even when a page lists them. These are pure internal
+// references or sources with no place on a reader's page — slug/title are the
+// header, `summary` is the lede, citations and catechism references are
+// sources (structured data keeps them), and *Key fields (sacramentKey,
+// riteKey) are routing links between content, not content — the "Sacrament
+// Key: reconciliation" leak.
 const HIDDEN_FIELDS = new Set([
   "slug",
   "title",
+  "summary",
   "citations",
+  "sources",
+  "catechismReferences",
   "sacramentKey",
   "riteKey",
   // Cross-content reference lists. They hold slugs, and a slug is never
   // content: printing them produced "apostles-creed, our-father" under a
   // "Related Prayers" heading. Pages that want them resolve the real titles
-  // from the data layer and render them as links (see RelatedContentLinks).
+  // from the data layer (RelatedContentLinks, or the prayers themselves).
   "relatedPrayers",
+  "associatedPrayers",
   "relatedDevotions",
   "relatedPractices",
   "relatedSaints",
   "relatedGuides",
+  "relatedDocuments",
 ]);
-
-// Structural / worker-metadata keys that must never auto-render in the
-// catch-all "remaining" section (they would surface as stray headings like
-// "Rite Key", "Approved Status", or "Requires Human Review"). A page that
-// genuinely wants one of these still lists it explicitly in primary/secondary
-// fields, which bypasses this filter.
-const META_FIELDS = new Set([
-  "summary", // rendered in the header
-  "contentType",
-  "type",
-  "kind",
-  "subtype",
-  "language",
-  "locale",
-  "canonicalName",
-  "canonicalSlug",
-  "canonicalUrl",
-  "officialDocumentUrl",
-  "approvalStatus",
-  "approvedStatus",
-  "authorityLevel",
-  "titleLabel",
-  "order",
-  "orderRank",
-  "rank",
-  "confidence",
-  "confidenceScore",
-  "provenance",
-  "sourceEvidence",
-  "qualityScore",
-  "score",
-  "checksum",
-  "ok",
-  "errors",
-  "schema",
-  "payload",
-  "optionalFields",
-  "requiredFields",
-  "requiresHumanReview",
-  "minCitations",
-  "preferredSourceHosts",
-  "accuracyRules",
-  "claimed",
-  "dropdownMetadata",
-  "machineTranslated",
-  "version",
-  "status",
-  "id",
-  "createdAt",
-  "updatedAt",
-  "publishedAt",
-]);
-
-/**
- * Whether a payload key is structural metadata (not user-facing prose) and so
- * should be skipped by the catch-all renderer. Covers the explicit META_FIELDS
- * plus, by suffix:
- *   - Key / Slug / Slugs / Url — internal references (riteKey, associatedSaintSlug, canonicalUrl)
- *   - Title / Name — the worker's name fields (saintName, devotionTitle) that just duplicate the page title
- *   - Type — classification metadata (saintType, devotionType, liturgyType)
- * A page that genuinely wants one of these (e.g. a Doctor's `doctorTitle` or a
- * Pope's `birthName`) lists it explicitly in primary/secondary fields, which
- * bypasses this filter. Content fields like `keyThemes`, `mysterySets`,
- * `openingPrayers`, or `practiceKind` don't match these suffixes and still render.
- */
-function isMetaField(key: string): boolean {
-  return META_FIELDS.has(key) || /(?:Key|Slug|Slugs|Url|Title|Name|Type)$/.test(key);
-}
 
 /**
  * HIST-02: a curated council was seeded with a "-01-01" placeholder day, so the
@@ -214,6 +187,14 @@ function formatIssuedDate(value: unknown, documentType: unknown): string | null 
   return placed ? formatHistoryDate(placed) : null;
 }
 
+/** Letters and digits only, for "does this field already say the summary?". */
+function foldProse(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
 export function PublishedDetail({
   item,
   primaryFields,
@@ -223,26 +204,67 @@ export function PublishedDetail({
   fieldRenderers,
   footer,
   eyebrow,
+  showSubtitle = true,
+  facts,
+  lede = true,
+  headings,
 }: PublishedDetailProps) {
   const payload = item.payload;
-  const summary = payload.summary as string | undefined;
+  const summary =
+    typeof payload.summary === "string" && payload.summary.trim() ? payload.summary : undefined;
   // The eyebrow is a word, not an enum: "MARIAN_TITLE" used to print here.
   // `subtype` refines it (a PRAYER whose prayerType is "litany" reads "Litany").
   const eyebrowLabel =
-    eyebrow ??
-    contentTypeLabel(
-      item.contentType,
-      typeof payload.prayerType === "string" ? payload.prayerType : null,
-    );
+    eyebrow === undefined
+      ? contentTypeLabel(
+          item.contentType,
+          typeof payload.prayerType === "string" ? payload.prayerType : null,
+        )
+      : eyebrow;
 
+  const primary = primaryFields ?? [];
+  const secondary = secondaryFields ?? [];
+  const factLines = (facts ?? []).filter((line): line is string => !!line && !!line.trim());
+  // The summary is the lede unless a shown field already says it.
+  const foldedSummary = summary ? foldProse(summary) : "";
+  const ledeText =
+    lede &&
+    summary &&
+    ![...primary, ...secondary].some(
+      (key) =>
+        !HIDDEN_FIELDS.has(key) &&
+        typeof payload[key] === "string" &&
+        foldProse(payload[key] as string).includes(foldedSummary),
+    )
+      ? summary
+      : null;
+
+  const linked = linkedPrayers && linkedPrayers.length > 0 ? linkedPrayers : null;
   const keysShown = new Set<string>();
+
+  /** A field's section heading, or null when the page shows it unheaded. */
+  const headingFor = (key: string) =>
+    headings && key in headings ? headings[key] : fieldLabel(key);
+  /** A prayer opened inside a field sits one level under that field's heading. */
+  const panelLevel = (key: string) => (headingFor(key) ? 3 : 2);
+
+  /** The section around a field's content, headed unless the page said null. */
+  const section = (key: string, body: React.ReactNode) => {
+    const heading = headingFor(key);
+    return (
+      <section key={key} className="mt-6">
+        {heading ? <h2 className="font-display text-xl text-ink">{heading}</h2> : null}
+        {body}
+      </section>
+    );
+  };
+
   const renderField = (key: string) => {
     if (HIDDEN_FIELDS.has(key)) return null;
     // Slug and URL fields are references, never prose: printed directly they
     // produce "associated-saint-slugs: st-gregory" or a naked https:// line.
-    // Unlike the Key/Title/Name/Type suffixes this guard is unconditional —
-    // a page that wants the target renders it as a resolved link or a source
-    // button instead (RelatedContentLinks / OfficialSourceLink).
+    // A page that wants the target renders it as a resolved link or a button
+    // instead (RelatedContentLinks / OfficialSourceLink).
     if (/(?:Slug|Slugs|Url)$/.test(key)) return null;
     if (keysShown.has(key)) return null;
     keysShown.add(key);
@@ -255,71 +277,71 @@ export function PublishedDetail({
     if (custom) {
       const rendered = custom(value);
       if (rendered == null) return null;
-      return (
-        <section key={key} className="mt-6">
-          <h2 className="font-display text-xl text-ink">{fieldLabel(key)}</h2>
-          <div className="mt-2 font-serif leading-relaxed text-ink">{rendered}</div>
-        </section>
+      return section(
+        key,
+        <div className="mt-2 font-serif leading-relaxed text-ink">{rendered}</div>,
       );
     }
     if (key === "issuedDate") {
       const formatted = formatIssuedDate(value, payload.documentType);
       if (formatted) {
-        return (
-          <section key={key} className="mt-6">
-            <h2 className="font-display text-xl text-ink">{fieldLabel(key)}</h2>
-            <div className="mt-2 font-serif leading-relaxed text-ink">{formatted}</div>
-          </section>
+        return section(
+          key,
+          <div className="mt-2 font-serif leading-relaxed text-ink">{formatted}</div>,
         );
       }
     }
     // Novena days / guide prayers / rosary mysteries → expandable dropdowns
-    // (title + chevron → full text), so guides stay concise.
+    // (title + chevron → full text), so long pages stay concise.
     const disclosures = toDisclosureItems(value);
+    if (disclosures) {
+      return section(
+        key,
+        <div className="mt-3 flex flex-col gap-3">
+          {disclosures.map((d, i) => (
+            <Disclosure key={`${key}-${i}`} title={d.title} eyebrow={d.eyebrow}>
+              {linked ? (
+                // A day's text is itself prayer: only capitalised names link.
+                <PrayerLinkedText
+                  text={d.body}
+                  prayers={linked}
+                  matchCase
+                  headingLevel={panelLevel(key)}
+                />
+              ) : (
+                <p className="whitespace-pre-line">{d.body}</p>
+              )}
+            </Disclosure>
+          ))}
+        </div>,
+      );
+    }
     // Everything else goes through the presenter layer; a value it cannot
     // present honestly returns null and the whole section is dropped rather
     // than printing "[object Object]" or a bare flag.
-    const presented = disclosures ? null : presentValue(key, value);
-    if (!disclosures && !presented) return null;
-    return (
-      <section key={key} className="mt-6">
-        <h2 className="font-display text-xl text-ink">{fieldLabel(key)}</h2>
-        {disclosures ? (
-          <div className="mt-3 flex flex-col gap-3">
-            {disclosures.map((d, i) => (
-              <Disclosure key={`${key}-${i}`} title={d.title}>
-                {linkedPrayers && linkedPrayers.length > 0 ? (
-                  <PrayerLinkedText text={d.body} prayers={linkedPrayers} />
-                ) : (
-                  <p className="whitespace-pre-line">{d.body}</p>
-                )}
-              </Disclosure>
-            ))}
-          </div>
+    const presented = presentValue(key, value);
+    if (!presented) return null;
+    return section(
+      key,
+      <div className="mt-2 font-serif leading-relaxed text-ink">
+        {linked && presented.kind === "text" ? (
+          // Instructions name prayers in running prose ("pray the Our Father").
+          <PrayerLinkedText text={presented.text} prayers={linked} headingLevel={panelLevel(key)} />
         ) : (
-          <div className="mt-2 font-serif leading-relaxed text-ink">
-            {renderPresented(presented as PresentedValue)}
-          </div>
+          renderPresented(presented)
         )}
-      </section>
+      </div>,
     );
   };
-
-  const primary = primaryFields ?? [];
-  const secondary = secondaryFields ?? [];
-  const remaining = Object.keys(payload).filter(
-    (k) =>
-      !primary.includes(k) && !secondary.includes(k) && !HIDDEN_FIELDS.has(k) && !isMetaField(k),
-  );
 
   return (
     <article className="mx-auto max-w-3xl px-4 py-10">
       <header className="mb-8">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="vf-eyebrow">{eyebrowLabel}</p>
-            <h1 className="mt-2 font-display text-4xl text-ink">{item.title}</h1>
-            {item.subtitle ? (
+          <div className="min-w-0">
+            {eyebrowLabel ? <p className="vf-eyebrow mb-2">{eyebrowLabel}</p> : null}
+            <h1 className="break-words font-display text-4xl text-ink">{item.title}</h1>
+            {showSubtitle && item.subtitle ? (
               <p className="mt-1 font-serif text-base italic text-ink-soft">{item.subtitle}</p>
             ) : null}
           </div>
@@ -328,12 +350,22 @@ export function PublishedDetail({
             {action}
           </div>
         </div>
-        {summary && <p className="mt-3 font-serif leading-relaxed text-ink-soft">{summary}</p>}
+        {factLines.length > 0 ? (
+          <div className="mt-3 space-y-1">
+            {factLines.map((line, i) => (
+              <p key={`${i}:${line}`} className="font-serif leading-snug text-ink-soft">
+                {line}
+              </p>
+            ))}
+          </div>
+        ) : null}
+        {ledeText ? (
+          <p className="mt-3 font-serif leading-relaxed text-ink-soft">{ledeText}</p>
+        ) : null}
       </header>
 
       {primary.map(renderField)}
       {secondary.map(renderField)}
-      {remaining.map(renderField)}
 
       {footer ? (
         <footer className="mt-10 flex flex-wrap items-center gap-3 border-t border-[rgba(17,17,17,0.12)] pt-6">

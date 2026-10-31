@@ -10,6 +10,12 @@ type Props = {
    * — defaults to a friendly summary derived from the URL host.
    */
   label?: string;
+  /**
+   * The quiet heading over the link (default "Official source"). `null` renders
+   * the link alone, for a page footer that already frames it — a Church
+   * document's "Read the full document" is the document, not a citation.
+   */
+  caption?: string | null;
 };
 
 function hostLabel(url: string): string {
@@ -30,13 +36,25 @@ function hostLabel(url: string): string {
  * deliberately small and visually quiet so it does not compete with
  * the body of the page.
  */
-export function OfficialSourceLink({ url, label }: Props) {
+export function OfficialSourceLink({ url, label, caption = "Official source" }: Props) {
   if (!url) return null;
   if (!/^https?:\/\//i.test(url)) return null;
   const friendly = label ?? `Read on ${hostLabel(url)}`;
+  if (caption === null) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="vf-nav-link inline-block break-all"
+      >
+        {friendly} ↗
+      </a>
+    );
+  }
   return (
     <div className="mt-10 border-t border-ink/10 pt-6 text-center">
-      <p className="vf-eyebrow text-ink-faint">Official source</p>
+      <p className="vf-eyebrow text-ink-faint">{caption}</p>
       <a
         href={url}
         target="_blank"

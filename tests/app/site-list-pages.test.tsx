@@ -53,6 +53,7 @@ import GuidesPage from "@/app/guides/page";
 import LitaniesPage from "@/app/litanies/page";
 import ParishesPage from "@/app/parishes/page";
 import LiturgyPage from "@/app/liturgy/page";
+import ChurchDocumentsPage from "@/app/church-documents/page";
 
 function projected(over: Partial<PublishedListItem> & { id: string }): PublishedListItem {
   return {
@@ -284,14 +285,28 @@ describe("/parishes", () => {
     expect(hrefs()).toContain("/parishes?class=basilica&q=mary&page=2");
     // Chips reflect the indexed counts: no cathedrals published → no chip.
     expect(screen.queryByRole("link", { name: /Cathedrals/ })).not.toBeInTheDocument();
-    // The owner removed the designation from the parish card: the directory
-    // card and the parish page are now the same ParishCard, which shows the
-    // name, the place, the address and the website and nothing else. The raw
-    // stored value was never shown and still is not.
+    // The directory card is the parish page's ParishCard: the name, what the
+    // church is (a basilica always says minor or major), then the address —
+    // never the raw stored value, a website or a "Diocese" line.
     expect(screen.getByRole("heading", { name: "St. Mary" })).toBeInTheDocument();
+    expect(screen.getByText("Minor Basilica")).toBeInTheDocument();
+    expect(screen.getByText("Chicago, IL")).toBeInTheDocument();
     expect(screen.queryByText("minor-basilica")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Diocese|Website/)).not.toBeInTheDocument();
     // No location: the visitor has not located themselves, so no distance.
     expect(screen.queryByText(/away$/)).not.toBeInTheDocument();
+  });
+
+  it("files oratories under Chapels, the chip and the query alike", async () => {
+    listParishPage.mockResolvedValue(page([], { total: 0 }));
+    // An oratory and no chapel published: Chapels is still offered, and it asks
+    // SQL for both stored designations.
+    countPublishedBySubtype.mockResolvedValue({ parish: 970, oratory: 12 });
+    render(await ParishesPage({ searchParams: Promise.resolve({ class: "chapel" }) }));
+    expect(listParishPage).toHaveBeenCalledWith(
+      expect.objectContaining({ class: ["chapel", "oratory"] }),
+    );
+    expect(screen.getByRole("link", { name: /Chapels/ })).toBeInTheDocument();
   });
 
   it("says so plainly when a search matches nothing", async () => {
@@ -334,5 +349,40 @@ describe("/liturgy chips", () => {
 
     render(await LiturgyPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByRole("link", { name: /Feasts & Solemnities/ })).toBeInTheDocument();
+  });
+});
+
+describe("/church-documents", () => {
+  it("shows each document's kind, title and summary — no source link on the card", async () => {
+    listPublished.mockResolvedValue([
+      {
+        id: "laudato-si",
+        checklistItemId: "laudato-si",
+        contentType: "CHURCH_DOCUMENT",
+        slug: "laudato-si",
+        title: "Laudato si'",
+        subtitle: "",
+        payload: {
+          documentType: "encyclical",
+          summary: "On care for our common home.",
+          canonicalUrl: "https://www.vatican.va/content/francesco/en/encyclicals/laudato-si.html",
+        },
+        authorityLevel: "VATICAN",
+        version: 1,
+        publishedAt: new Date(),
+      },
+    ]);
+    render(await ChurchDocumentsPage({ searchParams: Promise.resolve({}) }));
+
+    const card = screen.getByRole("article");
+    expect(card).toHaveTextContent("Encyclical");
+    expect(card).toHaveTextContent("On care for our common home.");
+    // The title leads to the document's own page, which has "Read the full document".
+    expect(screen.getByRole("link", { name: "Laudato si'" })).toHaveAttribute(
+      "href",
+      "/liturgy-history/laudato-si",
+    );
+    expect(card).not.toHaveTextContent(/Read on|vatican\.va/);
+    expect(card.querySelector('a[href^="https://"]')).toBeNull();
   });
 });

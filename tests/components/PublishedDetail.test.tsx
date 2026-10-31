@@ -22,13 +22,13 @@ function makeItem(payload: Record<string, unknown>): PublishedItem {
 }
 
 describe("PublishedDetail — stray metadata is never rendered as a section", () => {
-  it("hides internal key/slug/url and worker-metadata fields from the catch-all body", () => {
+  it("renders only the fields a page names — nothing else in the payload", () => {
+    // There is no catch-all any more: it is how "Feast month: 11", "Wikidata
+    // qid", "Content subtype" and "Structure: nine_days" reached readers.
     render(
       <PublishedDetail
         item={makeItem({
           history: "A long and venerable history of the Roman Rite.",
-          // All of the following are structural metadata that previously leaked
-          // into the page as stray headings like "Rite Key".
           riteKey: "roman",
           associatedSaintSlug: "st-gregory",
           canonicalUrl: "https://example.org/roman-rite",
@@ -37,47 +37,34 @@ describe("PublishedDetail — stray metadata is never rendered as a section", ()
           confidence: 0.92,
           errors: [],
           contentType: "RITE",
+          feastMonth: 11,
+          feastDayOfMonth: 15,
+          wikidataQid: "Q2123866",
+          contentSubtype: "liturgical_rite",
+          structure: "nine_days",
+          saintName: "Saint Pio of Pietrelcina",
+          devotionType: "consecration",
+          dropdownMetadata: { foo: "bar" },
         })}
+        primaryFields={["history"]}
       />,
     );
-    // Real content renders.
     expect(screen.getByText(/venerable history/i)).toBeInTheDocument();
-    // None of the metadata keys surface as headings.
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
+      "History",
+    ]);
     for (const stray of [
       /rite key/i,
-      /associated saint slug/i,
       /canonical url/i,
       /approved status/i,
       /requires human review/i,
       /confidence/i,
-      /errors/i,
-    ]) {
-      expect(screen.queryByText(stray)).not.toBeInTheDocument();
-    }
-  });
-
-  it("hides the worker's *Name / *Title / *Type fields (title duplicates + classification) from the catch-all", () => {
-    render(
-      <PublishedDetail
-        item={makeItem({
-          background: "He bore the stigmata for fifty years.",
-          // These are exactly the stray sections seen on detail pages:
-          saintName: "Saint Pio of Pietrelcina", // duplicates the title
-          saintType: "mystic", // classification metadata
-          devotionTitle: "Devotion to the Sacred Heart",
-          devotionType: "consecration",
-          liturgyType: "office",
-          dropdownMetadata: { foo: "bar" },
-        })}
-      />,
-    );
-    expect(screen.getByText(/bore the stigmata/i)).toBeInTheDocument();
-    for (const stray of [
+      /feast month/i,
+      /Q2123866/,
+      /content subtype/i,
+      /nine_days/,
       /saint name/i,
-      /saint type/i,
-      /devotion title/i,
       /devotion type/i,
-      /liturgy type/i,
       /dropdown metadata/i,
     ]) {
       expect(screen.queryByText(stray)).not.toBeInTheDocument();

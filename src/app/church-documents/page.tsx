@@ -26,19 +26,13 @@ export const metadata = {
 
 type Props = { searchParams: Promise<{ filter?: string; page?: string }> };
 
-function hostLabel(url: string): string {
-  try {
-    return new URL(url).host.replace(/^www\./, "");
-  } catch {
-    return "the official source";
-  }
-}
-
 export default async function ChurchDocumentsPage({ searchParams }: Props) {
   const { filter, page: pageParam } = await searchParams;
   const selected = documentCategory(filter);
-  // Each card shows the document's summary and its official-source link, both
-  // in the payload, so the magisterial corpus is read whole and paged here.
+  // Each card shows the document's kind, title and summary (the summary is in
+  // the payload), so the magisterial corpus is read whole and paged here. The
+  // card has no "Read on vatican.va" line: that named the source, and the
+  // document's own page has "Read the full document".
   const all = await listPublished("CHURCH_DOCUMENT");
   const documents = filterDocuments(all, selected.key);
   const page = pageSlice(documents, parsePageParam(pageParam), LIST_PAGE_SIZE);
@@ -51,7 +45,6 @@ export default async function ChurchDocumentsPage({ searchParams }: Props) {
   }
 
   const cards = page.items.map((doc) => {
-    const url = typeof doc.payload.canonicalUrl === "string" ? doc.payload.canonicalUrl : undefined;
     const summary = typeof doc.payload.summary === "string" ? doc.payload.summary : "";
     return (
       <article key={doc.id} className="vf-card flex h-full flex-col rounded-sm p-6 sm:p-7">
@@ -63,16 +56,6 @@ export default async function ChurchDocumentsPage({ searchParams }: Props) {
         </h2>
         {summary && (
           <p className="mt-3 line-clamp-4 font-serif leading-relaxed text-ink-soft">{summary}</p>
-        )}
-        {url && (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="vf-nav-link mt-4 inline-block text-sm"
-          >
-            Read on {hostLabel(url)} →
-          </a>
         )}
       </article>
     );

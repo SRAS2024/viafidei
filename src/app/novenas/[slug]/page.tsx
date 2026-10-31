@@ -2,15 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { SaveContentButton } from "@/components/profile";
-import {
-  GuidePrayers,
-  PublishedDetail,
-  RelatedContentLinks,
-  resolveRelatedLinks,
-  type GuidePrayerData,
-} from "@/components/ui";
+import { GuidePrayers, PublishedDetail } from "@/components/ui";
+import { toDisclosureItems } from "@/lib/content-shared/structured-content";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
-import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
+import { loadPrayersForText } from "@/lib/data/prayer-sets";
 
 export const dynamic = "force-dynamic";
 
@@ -21,45 +16,50 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildPublishedMetadata(await getPublishedBySlug("NOVENA", slug));
 }
 
-// The prayers prayed every day of a novena (opening / closing). Shown at the
-// bottom as dropdowns with the universal English / Latin / Greek toggle, so the
-// full text is readily available alongside each day's own prayer.
-const NOVENA_COMMON_PRAYERS = ["our-father", "hail-mary", "glory-be"];
+/**
+ * The prayers of a novena: its own `relatedPrayers` together with the prayers
+ * its days name ("Begin with the Sign of the Cross, one Our Father, one Hail
+ * Mary and the Apostles' Creed"), in the order the days first name them. Each
+ * opens inline from the day that names it and is listed below the days, with
+ * the Latin / Greek chips. A novena whose days name no prayer and that lists
+ * none has no prayer list: the Our Father, Hail Mary and Glory Be used to be
+ * shown for every such novena (26 of 31), though their days never pray them.
+ */
+async function novenaPrayers(payload: Record<string, unknown>) {
+  const dayTexts = (toDisclosureItems(payload.days) ?? []).map((d) => d.body);
+  return loadPrayersForText(payload.relatedPrayers, dayTexts, { matchCase: true });
+}
 
+/**
+ * A novena's page: the title, when to begin it, its introduction, then each
+ * day as a dropdown ("Day 1 · All mankind, especially sinners") holding that
+ * day's prayer, then the prayers the days pray. The stored subtitle repeats
+ * the start date, and "Intention", "Structure: nine_days" and "Duration: 9
+ * days" told the reader nothing the days do not.
+ */
 export default async function NovenaDetailPage({ params }: Props) {
   const { slug } = await params;
   const item = await getPublishedBySlug("NOVENA", slug);
   if (!item) notFound();
 
-  const related = Array.isArray(item.payload.relatedPrayers)
-    ? (item.payload.relatedPrayers as unknown[]).filter((s): s is string => typeof s === "string")
-    : NOVENA_COMMON_PRAYERS;
-  const fetched = await Promise.all(related.map((s) => getPublishedBySlug("PRAYER", s)));
-  const prayers: GuidePrayerData[] = fetched
-    .map((p) =>
-      p ? { slug: p.slug, title: p.title, variants: buildPrayerVariants(p.payload) } : null,
-    )
-    .filter((p): p is GuidePrayerData => p != null && p.variants.length > 0);
-
-  const saints = await resolveRelatedLinks("SAINT", item.payload.relatedSaints);
+  const { prayers, ordered } = await novenaPrayers(item.payload);
+  const begins =
+    typeof item.payload.typicalStartDate === "string" && item.payload.typicalStartDate.trim()
+      ? `Begins: ${item.payload.typicalStartDate.trim()}`
+      : null;
 
   return (
     <>
       <PublishedDetail
         item={item}
-        primaryFields={["background", "purpose", "days"]}
-        secondaryFields={["duration", "intentions", "intentionTheme", "typicalStartDate"]}
+        showSubtitle={false}
+        facts={[begins]}
+        primaryFields={["background", "purpose", "intentions", "days"]}
+        headings={{ background: null }}
         action={<SaveContentButton contentType="NOVENA" slug={slug} />}
         linkedPrayers={prayers}
-        footer={
-          saints.length > 0 ? (
-            <div className="w-full">
-              <RelatedContentLinks title="Related saints" links={saints} />
-            </div>
-          ) : null
-        }
       />
-      <GuidePrayers prayers={prayers} />
+      <GuidePrayers prayers={prayers} heading="Prayers of this novena" ordered={ordered} />
     </>
   );
 }

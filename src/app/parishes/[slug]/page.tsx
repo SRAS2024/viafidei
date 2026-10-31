@@ -22,15 +22,16 @@ function text(payload: Record<string, unknown>, key: string): string | null {
 }
 
 /**
- * The parish page shows the name, the diocese (when the record names one),
- * the full address with directions, and the website — and nothing else.
+ * A church's page — parish, cathedral, basilica, shrine or chapel — shows the
+ * name, what the church is ("Minor Basilica"), and its address with directions,
+ * and nothing else.
  *
- * It no longer goes through PublishedDetail: that renderer prints every
- * remaining payload key, which is exactly the wall of designation / phone /
- * mass times / confession times / background / summary the card is being cut
- * down from. Those fields are still in the payload and still published; this
- * page simply stops displaying them, so all 9,731 parishes changed the instant
- * this file did — no migration, no backfill, no worker republish.
+ * It does not go through PublishedDetail: that renderer is for content with
+ * prose, and a church's card is the shared ParishCard. Phone, Mass and
+ * confession times, the website, background and summary are still in the
+ * payload and still published; this page simply does not display them, so every
+ * published parish changed the instant this file did — no migration, no
+ * backfill, no worker republish.
  */
 export default async function ParishDetailPage({ params }: Props) {
   const { slug } = await params;
@@ -45,16 +46,15 @@ export default async function ParishDetailPage({ params }: Props) {
     <ParishCard
       variant="detail"
       name={item.title}
+      designation={text(payload, "designation")}
       address={text(payload, "address")}
+      postalCode={text(payload, "postalCode")}
       city={text(payload, "city")}
       state={text(payload, "state")}
       country={text(payload, "country")}
-      postalCode={text(payload, "postalCode")}
       countryCode={text(payload, "countryCode")}
-      diocese={text(payload, "diocese")}
       latitude={latitude}
       longitude={longitude}
-      website={text(payload, "website")}
       // Controls, not parish information: saving and sharing stay available.
       action={
         <>

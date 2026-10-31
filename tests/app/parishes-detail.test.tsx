@@ -2,15 +2,15 @@
  * @vitest-environment jsdom
  */
 /**
- * The parish detail page (PARISH-CARD).
+ * The church detail page (PARISH-CARD) — parishes, cathedrals, basilicas,
+ * shrines and chapels.
  *
- * /parishes/[slug] used to render through PublishedDetail, which prints every
- * remaining payload key — designation, phone, mass and confession times,
- * background, summary, and a separate section per place field. It now shows
- * the name, the diocese (only the record's own `diocese` — the place line is no
- * longer mislabelled as one), the full address with postal code and
- * directions, and the website, WITHOUT a data migration: the payload below
- * still carries every other field, and the page simply does not display them.
+ * The owner asked for the name, then what the church is ("Minor Basilica" —
+ * always minor or major for a basilica), then its address, "and that is it",
+ * WITHOUT a data migration: the payload below still carries every old field
+ * (phone, Mass and confession times, website, background, summary, diocese)
+ * and the page simply does not display them. That is what makes every
+ * published parish change at once with no worker pass.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
@@ -44,10 +44,10 @@ import ParishDetailPage from "@/app/parishes/[slug]/page";
 const FULL_PAYLOAD: Record<string, unknown> = {
   designation: "cathedral",
   address: "1530 Logan St",
+  postalCode: "80203",
   city: "Denver",
   state: "Colorado",
   country: "United States",
-  postalCode: "80203",
   countryCode: "US",
   latitude: 39.74,
   longitude: -104.98,
@@ -81,23 +81,17 @@ const render1 = async () =>
 afterEach(() => cleanup());
 
 describe("/parishes/[slug]", () => {
-  it("shows only the name, diocese, full address with directions, and website", async () => {
+  it("shows the name, what the church is, and its full address with directions", async () => {
     seed(FULL_PAYLOAD);
     await render1();
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
       "Cathedral Basilica of the Immaculate Conception",
     );
-    expect(screen.getByText("Diocese").closest("p")).toHaveTextContent(
-      "Diocese Archdiocese of Denver",
-    );
-    expect(screen.getByText("1530 Logan St")).toBeInTheDocument();
-    expect(screen.getByText("Denver, Colorado 80203, United States")).toBeInTheDocument();
+    expect(screen.getByText("Cathedral")).toBeInTheDocument();
+    const lines = Array.from(document.querySelectorAll("address span")).map((s) => s.textContent);
+    expect(lines).toEqual(["1530 Logan St", "Denver, Colorado 80203", "United States"]);
     expect(screen.getByRole("button", { name: /get directions/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "denvercathedral.org" })).toHaveAttribute(
-      "href",
-      "https://denvercathedral.org",
-    );
   });
 
   it("stops displaying every other stored field, without removing it from the payload", async () => {
@@ -106,7 +100,8 @@ describe("/parishes/[slug]", () => {
 
     const body = document.body.textContent ?? "";
     for (const gone of [
-      "Cathedral", // the designation label
+      "Diocese",
+      "denvercathedral.org",
       "(303) 831-7010",
       "Sun 6:30am",
       "Sat 3:00pm",
@@ -114,24 +109,25 @@ describe("/parishes/[slug]", () => {
       "mother church",
       "A Catholic cathedral in Denver",
     ]) {
-      // "Cathedral" appears inside the parish NAME, so match the standalone
-      // designation heading rather than the substring.
-      if (gone === "Cathedral") {
-        expect(screen.queryByText("Cathedral")).not.toBeInTheDocument();
-        continue;
-      }
-      expect(body).not.toContain(gone);
+      expect(body, gone).not.toContain(gone);
     }
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
     // The data itself is untouched — this is a rendering change only.
     expect(FULL_PAYLOAD.massTimes).toBe("Sun 6:30am, 8:30am, 10:30am");
   });
 
-  it("omits the Diocese line for a parish that names no diocese", async () => {
+  it("states minor or major for a basilica", async () => {
+    seed({ ...FULL_PAYLOAD, designation: "major-basilica" });
+    await render1();
+    expect(screen.getByText("Major Basilica")).toBeInTheDocument();
+  });
+
+  it("degrades to what the record has: a street alone, no postal code, no designation", async () => {
     seed({ address: "12 Chapel Rd", website: "" });
     await render1();
-    expect(screen.queryByText("Diocese")).not.toBeInTheDocument();
-    expect(screen.getByText("12 Chapel Rd")).toBeInTheDocument();
-    // No website line, not an empty one.
+    const lines = Array.from(document.querySelectorAll("address span")).map((s) => s.textContent);
+    expect(lines).toEqual(["12 Chapel Rd"]);
+    expect(screen.queryByText("Parish")).not.toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 

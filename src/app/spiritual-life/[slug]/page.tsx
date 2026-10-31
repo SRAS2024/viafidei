@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import { PublishedDetail, RelatedContentLinks, resolveRelatedLinks } from "@/components/ui";
+import { GuidePrayers, PublishedDetail } from "@/components/ui";
+import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { loadPrayersForText } from "@/lib/data/prayer-sets";
 
 export const dynamic = "force-dynamic";
 
@@ -13,29 +15,34 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildPublishedMetadata(await getPublishedBySlug("SPIRITUAL_PRACTICE", slug));
 }
 
+/**
+ * A spiritual practice: its title and subtitle ("Lectio divina · Benedictine
+ * tradition", which already names the kind and the tradition), how to practise
+ * it, its background, when it is kept, and the prayers it uses — in full, with
+ * the Latin / Greek chips: the ones it lists and the ones its instructions
+ * name, in the order the instructions give them.
+ */
 export default async function SpiritualLifeDetailPage({ params }: Props) {
   const { slug } = await params;
   const practice = await getPublishedBySlug("SPIRITUAL_PRACTICE", slug);
   if (practice) {
-    // Slug lists resolved to titled links; PublishedDetail refuses to print them raw.
-    const [prayers, saints] = await Promise.all([
-      resolveRelatedLinks("PRAYER", practice.payload.relatedPrayers),
-      resolveRelatedLinks("SAINT", practice.payload.relatedSaints),
-    ]);
+    const instructions = practice.payload.instructions;
+    const { prayers, ordered } = await loadPrayersForText(
+      practice.payload.relatedPrayers,
+      typeof instructions === "string" ? [instructions] : [],
+    );
+    const minutes = practice.payload.durationMinutes;
     return (
-      <PublishedDetail
-        item={practice}
-        primaryFields={["instructions", "background"]}
-        secondaryFields={["practiceKind", "tradition", "durationMinutes", "frequency"]}
-        footer={
-          prayers.length > 0 || saints.length > 0 ? (
-            <div className="w-full">
-              <RelatedContentLinks title="Related prayers" links={prayers} />
-              <RelatedContentLinks title="Related saints" links={saints} />
-            </div>
-          ) : null
-        }
-      />
+      <>
+        <PublishedDetail
+          item={practice}
+          facts={[typeof minutes === "number" ? formatDurationMinutes(minutes) : null]}
+          primaryFields={["instructions", "background", "frequency"]}
+          headings={{ instructions: "How to practice", frequency: "When" }}
+          linkedPrayers={prayers}
+        />
+        <GuidePrayers prayers={prayers} heading="Prayers" ordered={ordered} />
+      </>
     );
   }
   // Guides moved to their own /guides tab — preserve any old links.
