@@ -116,6 +116,39 @@ describe("runCuratedIngest — worker curated-knowledge ingestion", () => {
     expect(entry.safeMetadata.failures).toHaveLength(1);
   });
 
+  it("names every failing entry of a run, however many fail together", async () => {
+    // Entries that fail together come due together and are walked in corpus
+    // order, so naming only the first ten left the same entries past the tenth
+    // out of every log line — e.g. after a fingerprint change resets every memo.
+    const nextAttemptAt = Date.parse("2026-10-31T12:00:00Z");
+    const failures = Array.from({ length: 14 }, (_, i) => ({
+      contentType: "NOVENA",
+      slug: `novena-${String(i + 1).padStart(2, "0")}`,
+      reason: "invalid payload (fails the strict content schema)",
+      attempts: 1,
+      nextAttemptAt,
+    }));
+    vi.mocked(seedCuratedContent).mockResolvedValueOnce(
+      seedResult({ attempted: 14, skipped: 14, failures }),
+    );
+    await runCuratedIngest(prisma, { passId: "p6" });
+
+    expect(writeAdminWorkerLog).toHaveBeenCalledTimes(1);
+    const entry = vi.mocked(writeAdminWorkerLog).mock.calls[0][1] as {
+      message: string;
+      safeMetadata: { failures: unknown[]; failedEntries: string[] };
+    };
+    expect(entry.message).toContain("14 entries did not publish");
+    expect(entry.message).toContain("NOVENA/novena-10 (");
+    expect(entry.message).not.toContain("NOVENA/novena-11 (");
+    expect(entry.message).toContain("and 4 more");
+    // Fully described: the first ten. Named: all fourteen.
+    expect(entry.safeMetadata.failures).toHaveLength(10);
+    expect(entry.safeMetadata.failedEntries).toEqual(
+      failures.map((f) => `${f.contentType}/${f.slug}`),
+    );
+  });
+
   it("stays quiet while failing entries are only waiting out their backoff", async () => {
     vi.mocked(seedCuratedContent).mockResolvedValueOnce(
       seedResult({ attempted: 3, alreadyPublished: 2, deferred: 1, failures: [] }),

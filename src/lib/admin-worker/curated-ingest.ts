@@ -38,8 +38,15 @@ export interface CuratedIngestResult extends SeedCuratedResult {
   exhausted: boolean;
 }
 
-/** Failing entries named in one log line (the payload carries the same bound). */
-const LOGGED_FAILURES = 10;
+/**
+ * Failing entries DESCRIBED in full (reason, attempt, next try) in one log line
+ * and its payload. Every failing entry of the run is still NAMED: entries that
+ * fail together come due together and are walked in corpus order, so a cap on
+ * the names alone would leave the same entries past the tenth out of every log
+ * line. The payload's `failedEntries` therefore lists every key: bounded by
+ * the curated corpus, a few dozen bytes per failing entry.
+ */
+const DESCRIBED_FAILURES = 10;
 
 /**
  * Publish up to `limit` not-yet-live curated entries through the real publish
@@ -71,12 +78,13 @@ export async function runCuratedIngest(
   // only attempted once per backoff window, so naming it here is not a
   // per-pass repeat.
   if (res.published > 0 || updated > 0 || res.failed > 0 || failures.length > 0) {
-    const named = failures
-      .slice(0, LOGGED_FAILURES)
+    const described = failures
+      .slice(0, DESCRIBED_FAILURES)
       .map(
         (f) =>
           `${f.contentType}/${f.slug} (${f.reason}; attempt ${f.attempts}, next ${new Date(f.nextAttemptAt).toISOString()})`,
       );
+    const undescribed = failures.length - described.length;
     await writeAdminWorkerLog(prisma, {
       passId: opts.passId,
       category: "CONTENT_BUILD",
@@ -90,7 +98,7 @@ export async function runCuratedIngest(
         .map(([t, n]) => `${t}:${n}`)
         .join(", ")}).${
         failures.length > 0
-          ? ` ${failures.length} entr${failures.length === 1 ? "y" : "ies"} did not publish and will be retried after a backoff: ${named.join("; ")}${failures.length > named.length ? "; …" : ""}.`
+          ? ` ${failures.length} entr${failures.length === 1 ? "y" : "ies"} did not publish and will be retried after a backoff: ${described.join("; ")}${undescribed > 0 ? `; and ${undescribed} more (every failing entry is listed in failedEntries)` : ""}.`
           : ""
       }`,
       safeMetadata: {
@@ -99,7 +107,8 @@ export async function runCuratedIngest(
         alreadyPublished: res.alreadyPublished,
         failed: res.failed,
         deferred: res.deferred ?? 0,
-        failures: failures.slice(0, LOGGED_FAILURES),
+        failures: failures.slice(0, DESCRIBED_FAILURES),
+        failedEntries: failures.map((f) => `${f.contentType}/${f.slug}`),
         byType: res.byType,
       },
     }).catch(() => undefined);
