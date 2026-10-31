@@ -102,6 +102,13 @@ const BENEDICT_XV_ENCYCLICALS =
   "https://www.vatican.va/content/benedict-xv/en/encyclicals.index.html";
 const BENEDICT_XV_BULLS = "https://www.vatican.va/content/benedict-xv/en/bulls.index.html";
 const PIUS_XI_ENCYCLICALS = "https://www.vatican.va/content/pius-xi/en/encyclicals.index.html";
+const PIUS_XI_CONSTITUTIONS =
+  "https://www.vatican.va/content/pius-xi/en/apost_constitutions.index.html";
+const PIUS_XII_ENCYCLICALS = "https://www.vatican.va/content/pius-xii/en/encyclicals.index.html";
+const PIUS_XII_CONSTITUTIONS =
+  "https://www.vatican.va/content/pius-xii/en/apost_constitutions.index.html";
+const PIUS_XII_EXHORTATIONS =
+  "https://www.vatican.va/content/pius-xii/en/apost_exhortations.index.html";
 
 export const churchDocumentGroupThree: CuratedEntry[] = [
   // ---------------------------------------------------------------------------
@@ -1120,5 +1127,509 @@ export const churchDocumentGroupThree: CuratedEntry[] = [
       "https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_28021926_rerum-ecclesiae.html",
     indexUrl: PIUS_XI_ENCYCLICALS,
     relatedDocuments: ["fidei-donum", "ad-gentes", "redemptoris-missio"],
+  }),
+  doc({
+    slug: "rite-expiatis",
+    title: "Rite Expiatis",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1926-04-30",
+    summary:
+      "Pius XI's encyclical for the seventh centenary of the death of Saint Francis of Assisi, written as the jubilee of the Holy Year was being extended to the whole world. The Pope asks that the celebrations honour Francis as he really was, not as a figure remade to suit modern tastes, and recalls the love for the saint awakened forty-four years earlier by Leo XIII's encyclical Auspicato. He describes the harsh and divided society into which Francis was born and his conversion; his love of evangelical poverty, which he embraced as his bride after the example of Christ on the Cross and of the Blessed Virgin; his humility, obedience and devotion to the Church and the Holy See; and the renewal of Christian society that he brought about through his brothers and through the Third Order, which offered men and women living in the world a way to holiness without vows. The Pope commends this Franciscan spirit, so close to the Gospel itself, to clergy and faithful alike, and asks the bishops to foster the Third Order.",
+    keyThemes: [
+      "Seventh centenary of the death of Saint Francis",
+      "Evangelical poverty",
+      "Humility, obedience and love of the Church",
+      "The Third Order and the renewal of society",
+      "The Franciscan spirit and the Gospel",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_30041926_rite-expiatis.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: ["perfectae-caritatis", "laudato-si"],
+  }),
+  doc({
+    slug: "mortalium-animos",
+    title: "Mortalium Animos",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1928-01-06",
+    summary:
+      "Pius XI's encyclical on religious unity, written in response to the conferences of the 1920s that sought to unite Christian bodies on the basis of common elements. The Pope acknowledges the longing for unity among those who invoke the name of Christ, but rejects the approach of assemblies that treat all Christian communities as more or less equal parts of a Church that does not yet exist, and the idea that unity can rest on a minimum of shared doctrine while each body keeps its own beliefs. God has revealed a definite body of truth that must be accepted whole, and Christ founded one visible Church; the faithful may not choose among revealed truths as though some were negotiable. Because taking part in such gatherings would give countenance to a false idea of Christianity, the Apostolic See cannot join them and Catholics may not support them; the unity of Christians is to be sought through the return of the separated to the one Church of Christ, which includes acceptance of the authority of Peter's successors. The letter closes with an invitation to those separated to draw near to the Apostolic See.",
+    keyThemes: [
+      "The unity of the Church",
+      "Revealed truth to be accepted whole",
+      "The visible Church founded by Christ",
+      "Catholic participation in interdenominational assemblies",
+      "Return to the one Church and the primacy of Peter",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_19280106_mortalium-animos.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: ["satis-cognitum", "unitatis-redintegratio", "ut-unum-sint"],
+  }),
+  doc({
+    slug: "miserentissimus-redemptor",
+    title: "Miserentissimus Redemptor",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1928-05-08",
+    summary:
+      "Pius XI's encyclical on reparation to the Sacred Heart of Jesus. Recalling the revelations to Saint Margaret Mary and the practices that had spread from them, among them Communion on the first Friday of each month, together with Leo XIII's consecration of the human race and his own institution of the feast of Christ the King, the Pope explains that consecration must be joined by expiation. Justice demands that the offence of sin be repaired, and love moves us to console Christ; since no creature could atone for sin, the Son of God became man, and the faithful, uniting themselves to his sacrifice above all in the Mass, share in his sufferings for their own sins and for those of others. The spirit of reparation has always stood at the heart of devotion to the Sacred Heart, as the Communion of Reparation and the Holy Hour show. The Pope raised the feast of the Sacred Heart to a double of the first class with an octave, and decreed that every year on that feast a prescribed act of reparation, attached to the letter, be solemnly recited in every church in the world.",
+    keyThemes: [
+      "Reparation and expiation",
+      "Consecration to the Sacred Heart",
+      "Sharing in the sacrifice of Christ",
+      "The Communion of Reparation and the Holy Hour",
+      "The annual act of reparation",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_19280508_miserentissimus-redemptor.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: ["annum-sacrum", "quas-primas", "haurietis-aquas"],
+  }),
+  doc({
+    slug: "divini-cultus",
+    title: "Divini Cultus",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1928-12-20",
+    summary:
+      "The apostolic constitution on the liturgy, Gregorian chant and sacred music that Pius XI issued on the fiftieth anniversary of his own ordination to the priesthood and in the twenty-fifth year since Saint Pius X's Tra le Sollecitudini. The Pope recalls why the Church has always guarded the liturgy as carefully as dogma, and adds practical norms drawn from a quarter century of experience: candidates for the priesthood are to be trained in chant and sacred music from their first years, with brief and almost daily practice in seminaries; chapters of canons and religious communities must provide for the chant of the Office; musical chapels are to cultivate polyphony, and schools for boys' voices are to be founded even in parish churches; music that merely joins voices to an orchestra is not to be regarded as a more perfect form suited to worship, while the organ, the Church's traditional instrument, is to keep its proper role. Above all, Gregorian chant is to be restored to the people in the parts that belong to them, so that the faithful take an active part in worship rather than looking on in silence. The Holy See publishes the text in Latin.",
+    keyThemes: [
+      "Liturgy as the Church's public worship",
+      "Chant and music in the formation of the clergy",
+      "Polyphony and boys' choirs",
+      "The organ and the place of instruments",
+      "Active participation of the people through chant",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/la/apost_constitutions/documents/hf_p-xi_apc_19281220_divini-cultus-sanctitatem.html",
+    indexUrl: PIUS_XI_CONSTITUTIONS,
+    relatedDocuments: ["tra-le-sollecitudini", "mediator-dei", "sacrosanctum-concilium"],
+  }),
+  doc({
+    slug: "mens-nostra",
+    title: "Mens Nostra",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1929-12-20",
+    summary:
+      "Pius XI's encyclical on the promotion of the spiritual exercises, offered as a memorial of the jubilee year 1929 and of the fiftieth year of his own priesthood. The Pope finds the chief disease of the age in a thoughtless absorption in external things that leaves no room for eternal truths, and commends retreats as the remedy, tracing their roots to Christ's forty days in the desert and the Apostles' days of prayer in the upper room, through the Fathers to Saint Charles Borromeo, who founded what the Pope believed to be the first house dedicated to them. He urges retreats on bishops, the secular clergy — at least to the extent the Code of Canon Law requires — religious, members of Catholic Action and young people, and commends retreats for workers; he especially recommends closed retreats made in solitude, and praises the method of Saint Ignatius of Loyola, whom he had declared the heavenly patron of all spiritual exercises in 1922.",
+    keyThemes: [
+      "The spiritual exercises",
+      "Retreats as a remedy for the distraction of the age",
+      "Retreats for clergy, religious and laity",
+      "Closed retreats",
+      "Saint Ignatius of Loyola, patron of the spiritual exercises",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_19291220_mens-nostra.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: ["haerent-animo", "ad-catholici-sacerdotii"],
+  }),
+  doc({
+    slug: "divini-illius-magistri",
+    title: "Divini Illius Magistri",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1929-12-31",
+    summary:
+      "Pius XI's encyclical on the Christian education of youth. Education concerns the whole person and is ordered to the last end of human life, so it belongs to three societies: the family and civil society in the natural order, and the Church in the supernatural order. The Church has a pre-eminent right to educate by a double title — the mission to teach given her by Christ and her supernatural motherhood — and the right and duty to watch over the education of her children in every school, public or private, in all that touches faith and morals. Parents receive from God a right to educate their children that is prior to the rights of the State, whose task is to protect and supplement the family and respect the rights of the Church while promoting education for the common good. The Pope rejects naturalism in education, public and indiscriminate sex instruction, coeducation founded on a denial of original sin, and the so-called neutral or lay school, and calls for Catholic schools in which all teaching is permeated with the Christian spirit. The proper end of Christian education is to form the true and perfect Christian.",
+    keyThemes: [
+      "Education and the last end of man",
+      "The rights of the family, the State and the Church",
+      "Parents as first educators",
+      "Errors in education",
+      "The Catholic school",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_31121929_divini-illius-magistri.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: ["gravissimum-educationis", "casti-connubii"],
+  }),
+  doc({
+    slug: "lux-veritatis",
+    title: "Lux Veritatis",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1931-12-25",
+    summary:
+      "Pius XI's encyclical for the fifteenth centenary of the Council of Ephesus, which proclaimed the divine motherhood of Mary. Retelling the controversy — Nestorius's teaching, drawn from Theodore of Mopsuestia, which divided Christ into two persons and so denied that Mary is truly Theotokos, Mother of God; Saint Cyril of Alexandria's opposition and his appeal to Pope Celestine; and the council's reception of the Pope's judgement through his legates — the Pope draws out two lessons: the primacy of the Roman Pontiff, acknowledged by the bishops assembled at Ephesus, and the union of two natures in the one divine Person of the Word, on which Mary's divine motherhood rests. He invites the separated Christians of the East to return to unity, hoping that they will one day venerate with Rome the Mother of God whose mosaic image Pope Sixtus III had set in the Liberian basilica, a work Pius XI had restored. To keep the anniversary in the liturgy he had an Office and Mass of the Divine Maternity of Mary prepared for the universal Church. The Holy See publishes the text on vatican.va in Italian and Latin.",
+    keyThemes: [
+      "Fifteenth centenary of the Council of Ephesus",
+      "Mary, Mother of God",
+      "The hypostatic union",
+      "The primacy of the Roman Pontiff",
+      "The feast of the Divine Maternity",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/it/encyclicals/documents/hf_p-xi_enc_19311225_lux-veritatis.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: ["council-of-ephesus", "orientalis-ecclesiae", "redemptoris-mater"],
+  }),
+  doc({
+    slug: "caritate-christi-compulsi",
+    title: "Caritate Christi Compulsi",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1932-05-03",
+    summary:
+      "Pius XI's encyclical on the Sacred Heart, written during the world economic crisis a few months after his letter Nova Impendet. The Pope sees in the distress of the time — mass unemployment, an excessive love of self and of one's own nation, and above all a hatred of God openly organised and spread — a crisis graver than any since the Flood, whose root is the revolt of humanity against God. Human means alone cannot meet it. He calls the whole Church to prayer, which lifts minds toward heavenly goods and makes for peace among peoples, and to penance, which strikes at the root of evil in the craving for wealth and pleasure. He asks that the coming feast of the Sacred Heart be kept everywhere as a day of reparation and supplication, with the Blessed Sacrament solemnly exposed, and that its octave be a time of prayer, mortification and almsgiving, with the poor and the unemployed offering their privations in the same spirit.",
+    keyThemes: [
+      "The world crisis of the 1930s",
+      "Organised atheism",
+      "Prayer as the first remedy",
+      "Penance and detachment",
+      "The feast and octave of the Sacred Heart",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_03051932_caritate-christi-compulsi.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: ["miserentissimus-redemptor", "quadragesimo-anno", "divini-redemptoris"],
+  }),
+  doc({
+    slug: "ad-catholici-sacerdotii",
+    title: "Ad Catholici Sacerdotii",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1935-12-20",
+    summary:
+      "Pius XI's encyclical on the Catholic priesthood. The priest, the Pope teaches, is another Christ who continues his work: by the powers conferred in ordination, which are stable and joined to an indelible character, he offers the eucharistic sacrifice, forgives sins, preaches the word and prays in the name of the Church. Such dignity demands corresponding holiness, and the Pope dwells on piety; on chastity, tracing the law of celibacy in the Latin Church to the Council of Elvira early in the fourth century and noting the esteem in which it is held in the East; on detachment from earthly goods, zeal, obedience and learning. He then turns to formation, asking bishops to choose candidates carefully and to provide well-ordered seminaries, and asking families and parishes to foster vocations, and he commends the priesthood to the prayers of the faithful. To honour the one priesthood of Christ he published with the encyclical a votive Mass of Jesus Christ the Supreme and Eternal Priest, to be celebrated on Thursdays.",
+    keyThemes: [
+      "The dignity and powers of the priest",
+      "Priestly holiness",
+      "Celibacy and chastity",
+      "Formation of candidates and vocations",
+      "The votive Mass of Christ the Eternal Priest",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_19351220_ad-catholici-sacerdotii.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: ["haerent-animo", "presbyterorum-ordinis", "sacerdotalis-caelibatus"],
+  }),
+  doc({
+    slug: "vigilanti-cura",
+    title: "Vigilanti Cura",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1936-06-29",
+    summary:
+      "Pius XI's encyclical on motion pictures, addressed above all to the bishops of the United States. The Pope praises the Legion of Decency they had launched, whose pledge millions of American Catholics had signed, and which had helped to bring about a marked improvement in films without harming their artistic quality. He describes the power of the cinema, which speaks through vivid images that everyone can grasp, to do great good or great harm, especially among the young, and teaches that recreation, now a necessity for working people, must be morally healthy and worthy of rational beings. He asks bishops everywhere to obtain from the faithful a yearly promise to avoid harmful films, and to set up in each country a permanent national reviewing office, preferably entrusted to Catholic Action, to promote good films, publish classified lists telling the faithful which films are suitable for all, suitable with reservations, or harmful, and organise parish and Catholic cinema halls.",
+    keyThemes: [
+      "The influence of the cinema",
+      "The Legion of Decency",
+      "Moral standards for recreation",
+      "National reviewing offices and classified lists",
+      "The responsibility of bishops and families",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_29061936_vigilanti-cura.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: ["inter-mirifica"],
+  }),
+  doc({
+    slug: "ingravescentibus-malis",
+    title: "Ingravescentibus Malis",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1937-09-29",
+    summary:
+      "Pius XI's encyclical on the Rosary, written as the evils of the age — above all atheistic communism and the persecution of the Church — grew more grave. The Pope presents the Rosary as a garland woven from the holiest prayers, the Our Father and the Hail Mary, joined to contemplation of the mysteries of Christ and his Mother: simple enough for everyone, and its repetitions not an empty formula but the language of love. Spread by Saint Dominic and recommended by the Virgin herself at Lourdes, it has been dear to saints, scholars and rulers alike. He asks that it be prayed with special devotion in October, in churches and in homes, trusting that Mary, who once overcame the Albigensian heresy, will turn aside the errors of the day, especially communism, and that the Rosary will nourish faith, hope and charity. Above all he asks fathers and mothers to gather their families each evening to pray it together.",
+    keyThemes: [
+      "The Rosary in a time of trial",
+      "The prayers and mysteries of the Rosary",
+      "The October devotion",
+      "The Rosary against the errors of the age",
+      "The family Rosary",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_29091937_ingravescentibus-malis.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: [
+      "supremi-apostolatus-officio",
+      "divini-redemptoris",
+      "rosarium-virginis-mariae",
+    ],
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Pope Pius XII
+  // ---------------------------------------------------------------------------
+  doc({
+    slug: "summi-pontificatus",
+    title: "Summi Pontificatus",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1939-10-20",
+    summary:
+      "The first encyclical of Pius XII, written in the first weeks of the Second World War and in the fortieth year since Leo XIII's consecration of the human race to the Sacred Heart. Placing his pontificate under the sign of Christ the King, the Pope finds the root of the evils of modern society in the rejection of a universal norm of morality — the natural law grounded in God — in individual, social and international life. He singles out two errors: the forgetting of the law of human solidarity and charity that follows from the common origin of all people, the equality of rational nature in every race, and Christ's redemption of all; and the idea of the State with unlimited authority, which deforms education, harms its own citizens and destroys the foundations of international law and of treaties. As a sign of the Church's universality he announced that on the feast of Christ the King he would consecrate twelve bishops from widely different peoples and races. He grieves over the war that had broken out despite his efforts, and welcomes the growing share of the laity, supported by the family, in the apostolate.",
+    keyThemes: [
+      "The unity of human society",
+      "The natural law and a universal moral order",
+      "Human solidarity across nations and races",
+      "Against the State with unlimited authority",
+      "The lay apostolate",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_20101939_summi-pontificatus.html",
+    indexUrl: PIUS_XII_ENCYCLICALS,
+    relatedDocuments: ["annum-sacrum", "quas-primas", "mit-brennender-sorge"],
+  }),
+  doc({
+    slug: "sertum-laetitiae",
+    title: "Sertum Laetitiae",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1939-11-01",
+    summary:
+      "Pius XII's encyclical to the Church in the United States for the hundred and fiftieth anniversary of the establishment of its hierarchy, when Pius VI gave John Carroll to Baltimore as its first bishop. The Pope celebrates the growth of the American Church, the help it received from priests who had fled persecution elsewhere, its generosity to the missions, its charities and its associations of the laity — Catholic Action, the Marian sodalities and the Confraternity of Christian Doctrine — and expresses his special paternal affection for Black Americans. He then warns against the materialism and secularism that weaken faith and morals, defends the unity and indissolubility of marriage against divorce, commends the Catholic University in Washington and the use of the press and radio for the faith, and restates the Church's social teaching: wages sufficient to support workers and their families, a just distribution of goods, and the natural right of workers and farmers to form associations, which must be guided by justice and charity.",
+    keyThemes: [
+      "Sesquicentenary of the American hierarchy",
+      "The growth of the Church in the United States",
+      "Marriage and the family",
+      "Catholic education and the press",
+      "Just wages and workers' associations",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_01111939_sertum-laetitiae.html",
+    indexUrl: PIUS_XII_ENCYCLICALS,
+    relatedDocuments: ["longinqua-oceani", "testem-benevolentiae", "quadragesimo-anno"],
+  }),
+  doc({
+    slug: "orientalis-ecclesiae",
+    title: "Orientalis Ecclesiae",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1944-04-09",
+    summary:
+      "Pius XII's encyclical on Saint Cyril, Patriarch of Alexandria, for the fifteenth centenary of his death, given on Easter Sunday 1944. The Pope recounts Cyril's life and his tireless defence of the faith, above all against Nestorius, which led to the Council of Ephesus and its proclamation of Mary as Mother of God, and recalls the honour in which Pope Celestine and the Council of Chalcedon held his teaching. Cyril is a glory of the Eastern Churches, which count him among their great Fathers; the Pope grieves that not all of them are yet joined in the unity Cyril loved, and proposes him as the model for restoring it through the threefold bond that Christ gave his Church — one faith, one charity toward God and all people, and one obedience to the hierarchy he established — recalling that Cyril himself turned to the Roman See in the Nestorian controversy.",
+    keyThemes: [
+      "Fifteenth centenary of Saint Cyril of Alexandria",
+      "The defence of Mary as Mother of God",
+      "The Eastern Churches and their Fathers",
+      "The threefold bond of unity",
+      "The Roman See in the Nestorian controversy",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_09041944_orientalis-ecclesiae.html",
+    indexUrl: PIUS_XII_ENCYCLICALS,
+    relatedDocuments: ["lux-veritatis", "council-of-ephesus", "orientalium-ecclesiarum"],
+  }),
+  doc({
+    slug: "deiparae-virginis-mariae",
+    title: "Deiparae Virginis Mariae",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1946-05-01",
+    summary:
+      "A short encyclical letter in which Pius XII consulted the bishops of the world on whether the bodily Assumption of the Blessed Virgin Mary into heaven could be defined as a dogma of faith. Noting the petitions for such a definition that had reached the Holy See over many years from cardinals, bishops, clergy, religious, associations and the faithful, and following the example of Pius IX before the definition of the Immaculate Conception, the Pope asks each bishop to tell him what devotion his clergy and people have toward the Assumption and whether he himself judges that it can be proposed and defined, and to join his prayers to the Pope's for light from heaven. The replies prepared the way for the definition of the Assumption in 1950.",
+    keyThemes: [
+      "The Assumption of the Blessed Virgin Mary",
+      "Consultation of the world's bishops",
+      "The faith of clergy and people",
+      "Preparation for a dogmatic definition",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_01051946_deiparae-virginis-mariae.html",
+    indexUrl: PIUS_XII_ENCYCLICALS,
+    relatedDocuments: ["ineffabilis-deus", "ad-caeli-reginam", "lumen-gentium"],
+  }),
+  doc({
+    slug: "provida-mater-ecclesia",
+    title: "Provida Mater Ecclesia",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1947-02-02",
+    summary:
+      "The apostolic constitution in which Pius XII gave canonical recognition to secular institutes, societies whose members profess the evangelical counsels while living in the world. Tracing how the Church had gradually approved new forms of the state of perfection — from the ancient orders to congregations of simple vows and societies living in common without public vows — the Pope observes that since the nineteenth century groups had arisen whose members sought perfection in the world without common life or religious habit, often to take up works of charity closed to religious communities, and that neither earlier legislation nor the Code of Canon Law had provided for them. Approving a text examined by the Holy Office and drafted by the Sacred Congregation of Religious, he establishes secular institutes as a recognised state of perfection under that congregation and sets out their general law: the consecration by which members bind themselves to the counsels, their form of life, their government, and their approval as institutes of diocesan or pontifical right.",
+    keyThemes: [
+      "Secular institutes",
+      "The evangelical counsels lived in the world",
+      "The development of the states of perfection",
+      "Canonical structure and approval",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/apost_constitutions/documents/hf_p-xii_apc_19470202_provida-mater-ecclesia.html",
+    indexUrl: PIUS_XII_CONSTITUTIONS,
+    relatedDocuments: ["perfectae-caritatis", "vita-consecrata", "lumen-gentium"],
+  }),
+  doc({
+    slug: "sacramentum-ordinis",
+    title: "Sacramentum Ordinis",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1947-11-30",
+    summary:
+      "The apostolic constitution by which Pius XII settled what is required for the valid conferral of the diaconate, the priesthood and the episcopate. The sacrament of orders is one and the same for the whole Church, and the Church has no power over the substance of the sacraments; yet the many rites added over the centuries had raised doubts about which of them belong to its essence. With his supreme authority the Pope declares that the sole matter of each of these orders is the imposition of hands, and the sole form the words that determine its application by signifying the power of orders and the grace of the Holy Spirit, and he identifies the essential words of the consecratory preface for each order. He further declares that the handing over of the instruments is, at least for the future, not necessary for validity, requires that the imposition of hands be made by physically touching the head of the candidate, and orders that all the other rites of the Roman Pontifical continue to be observed. The Holy See publishes the text in Latin.",
+    keyThemes: [
+      "Matter and form of holy orders",
+      "The imposition of hands",
+      "The essential words of ordination",
+      "The handing over of the instruments",
+      "The Roman Pontifical",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/la/apost_constitutions/documents/hf_p-xii_apc_19471130_sacramentum-ordinis.html",
+    indexUrl: PIUS_XII_CONSTITUTIONS,
+    relatedDocuments: ["apostolicae-curae", "exultate-deo", "presbyterorum-ordinis"],
+  }),
+  doc({
+    slug: "menti-nostrae",
+    title: "Menti Nostrae",
+    documentType: "apostolic_exhortation",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1950-09-23",
+    summary:
+      "The apostolic exhortation on the holiness of priestly life that Pius XII addressed to the clergy of the whole world during the Holy Year 1950, in gratitude for the prayers offered on the golden jubilee of his own priesthood. The first part treats the priest's call to perfection in charity and the imitation of Christ — humility, obedience, celibacy guarded by vigilance and prayer, detachment from earthly goods, and above all union with Christ's sacrifice in the Mass — nourished by the Divine Office, meditation, visits to the Blessed Sacrament, devotion to Mary, examination of conscience, frequent confession, spiritual direction and retreats. The second treats holiness in the sacred ministry, warning against an activism that neglects the interior life and proposing Saint Joseph Cafasso as a model. The third gives practical norms for fostering and testing vocations and for the human, intellectual and spiritual formation of seminarians and young priests, and the fourth turns to the economic hardships that many priests faced after the war. The Holy See publishes the text on vatican.va in Italian, Latin and other languages.",
+    keyThemes: [
+      "The holiness of priestly life",
+      "The Mass and the priest's self-offering",
+      "Prayer, meditation and the means of sanctification",
+      "Holiness in the ministry",
+      "Formation of seminarians and young priests",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/it/apost_exhortations/documents/hf_p-xii_exh_19500923_menti-nostrae.html",
+    indexUrl: PIUS_XII_EXHORTATIONS,
+    relatedDocuments: ["haerent-animo", "ad-catholici-sacerdotii", "presbyterorum-ordinis"],
+  }),
+  doc({
+    slug: "sponsa-christi",
+    title: "Sponsa Christi",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1950-11-21",
+    summary:
+      "The apostolic constitution in which Pius XII adapted the life of nuns to the needs of the time while keeping its contemplative character intact. After a long historical survey of consecrated virgins and of women's monastic life in the Church, the Pope issues General Statutes for Nuns: he confirms the major papal enclosure laid down in the Code while introducing a minor papal enclosure for monasteries that cannot keep the stricter form; encourages independent monasteries to unite in federations for mutual help; requires that nuns support themselves by suitable manual or intellectual work, undertaken in a spirit of penance and obedience; and allows forms of apostolate compatible with the contemplative life. The Sacred Congregation of Religious was charged with applying it. The Holy See publishes the text on vatican.va in Italian, Latin and other languages.",
+    keyThemes: [
+      "Contemplative life of nuns",
+      "Papal enclosure, major and minor",
+      "Federations of monasteries",
+      "Work as a duty and a means of support",
+      "Apostolate compatible with contemplation",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/it/apost_constitutions/documents/hf_p-xii_apc_19501121_sponsa-christi.html",
+    indexUrl: PIUS_XII_CONSTITUTIONS,
+    relatedDocuments: ["perfectae-caritatis", "provida-mater-ecclesia"],
+  }),
+  doc({
+    slug: "evangelii-praecones",
+    title: "Evangelii Praecones",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1951-06-02",
+    summary:
+      "Pius XII's encyclical on the promotion of the Catholic missions, written for the twenty-fifth anniversary of Pius XI's Rerum Ecclesiae. The Pope surveys the progress of a quarter century — the missions grown from about four hundred to nearly six hundred, many more Catholics, native priests and seminarians, new hierarchies and plenary councils — and honours the missionaries and martyrs, especially in the Far East, where flourishing missions were being destroyed. He restates that the final aim of missionary work is to establish the Church firmly among each people under its own native hierarchy and clergy, that the Church seeks not to dominate peoples but to bring them the light of faith, and that missionaries must be trained in the languages and learning their work requires. He gives a large place to lay people in Catholic Action, who have helped the Church since apostolic times, and to schools and colleges, the press and works of charity in mission lands.",
+    keyThemes: [
+      "Twenty-five years of missionary progress",
+      "A native hierarchy and clergy",
+      "The formation of missionaries",
+      "The laity and Catholic Action in the missions",
+      "Schools and works of charity",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_02061951_evangelii-praecones.html",
+    indexUrl: PIUS_XII_ENCYCLICALS,
+    relatedDocuments: ["rerum-ecclesiae", "fidei-donum", "ad-gentes"],
+  }),
+  doc({
+    slug: "sempiternus-rex-christus",
+    title: "Sempiternus Rex Christus",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1951-09-08",
+    summary:
+      "Pius XII's encyclical for the fifteenth centenary of the Council of Chalcedon. Recounting the controversy raised by the archimandrite Eutyches, who held that after the union there was only one nature in Christ; his condemnation at Constantinople under Flavian; the Robber Synod of Ephesus; and the council of 451, where the bishops greeted Pope Leo's dogmatic letter to Flavian as the faith of the Fathers, the Pope draws out two lessons: the primacy of the Roman Pontiff, which shone out through the whole affair, and the doctrine of the one Person of the Word in two natures, without confusion or separation. He rejects modern errors that distort it — kenotic theories built on a misreading of Philippians 2:7, and psychological studies of Christ's humanity that treat it as though it were a subject in its own right — and turns with affection to the Eastern Christians separated from Rome, many of whom differ chiefly in their terminology, inviting them to return to unity.",
+    keyThemes: [
+      "Fifteenth centenary of the Council of Chalcedon",
+      "Two natures in the one Person of Christ",
+      "The Tome of Leo and the primacy of Rome",
+      "Kenotic and psychological errors about Christ",
+      "Unity with the Eastern Christians",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_08091951_sempiternus-rex-christus.html",
+    indexUrl: PIUS_XII_ENCYCLICALS,
+    relatedDocuments: ["council-of-chalcedon", "lux-veritatis", "orientalis-ecclesiae"],
+  }),
+  doc({
+    slug: "ingruentium-malorum",
+    title: "Ingruentium Malorum",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1951-09-15",
+    summary:
+      "Pius XII's encyclical on reciting the Rosary, given on the feast of the Seven Sorrows of Mary in 1951. Recalling how often he had entrusted the human family to the Mother of God, the Pope looks to the coming month of October amid lingering hatred between nations, threats of new war and the persecution of the Church, and asks the bishops to see that the faithful pray the Rosary with greater zeal and esteem. Above all he wants the Rosary restored in the family: when parents and children gather at evening to pray it, the Christian home becomes like the home of Nazareth, and the family, the foundation of society, is renewed. He closes by asking Mary to obtain the return of those who have strayed, peace among peoples, and freedom for the persecuted Church.",
+    keyThemes: [
+      "The Rosary in a troubled world",
+      "The October devotion",
+      "The family Rosary",
+      "The Christian home and Nazareth",
+      "Prayer for peace and for the persecuted Church",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_15091951_ingruentium-malorum.html",
+    indexUrl: PIUS_XII_ENCYCLICALS,
+    relatedDocuments: ["ingravescentibus-malis", "rosarium-virginis-mariae"],
+  }),
+  doc({
+    slug: "exsul-familia",
+    title: "Exsul Familia",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1952-08-01",
+    summary:
+      "The apostolic constitution in which Pius XII set out the Church's law on the spiritual care of migrants. It opens with the Holy Family of Nazareth, exiled in Egypt, as the model and protector of emigrants, exiles and refugees of every age, and then recalls at length the Church's care for those forced to leave their homelands: the priests who went with settlers to newly discovered lands, Blessed Vincent Pallotti's mission to Italians in London, the Saint Raphael Society, Bishop Giovanni Battista Scalabrini's missionaries for the Americas, the Apostleship of the Sea, and the relief work of the Holy See during and after the world wars. The second part lays down norms for the pastoral care of emigrants under the Consistorial Congregation, including the appointment and faculties of missionaries and chaplains who share the language of the migrants they serve. The Holy See publishes the text in Latin.",
+    keyThemes: [
+      "The Holy Family as model of migrants",
+      "The Church's history of care for emigrants",
+      "Missionaries and chaplains for migrants",
+      "Pastoral care in the migrants' own language",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/la/apost_constitutions/documents/hf_p-xii_apc_19520801_exsul-familia.html",
+    indexUrl: PIUS_XII_CONSTITUTIONS,
+    relatedDocuments: ["rerum-novarum", "fratelli-tutti"],
+  }),
+  doc({
+    slug: "christus-dominus-eucharistic-fast",
+    title: "Christus Dominus (on the Eucharistic Fast)",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1953-01-06",
+    summary:
+      "The apostolic constitution, given on the Epiphany 1953, in which Pius XII relaxed the discipline of the eucharistic fast; it shares its opening words with the Second Vatican Council's later decree on bishops but is a distinct document. Because the conditions of modern life had made the strict fast from midnight a serious obstacle to frequent Communion and to the celebration of Mass, the Pope keeps the fast from midnight as the general rule but lays down that natural water no longer breaks it. The sick may take true medicine or non-alcoholic drink; priests who celebrate late, after heavy ministry or after a long journey, and faithful who face grave inconvenience from exhausting work, a late hour or a long journey, may take non-alcoholic drink up to an hour beforehand. Local ordinaries may also permit evening Masses, beginning no earlier than four in the afternoon on certain days, with a fast of three hours from solid food and alcohol and of one hour from other drink. The Holy See publishes the text on vatican.va in Italian and Latin.",
+    keyThemes: [
+      "The eucharistic fast",
+      "Water no longer breaks the fast",
+      "Concessions for the sick, workers and travellers",
+      "Evening Masses",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/it/apost_constitutions/documents/hf_p-xii_apc_19530106_christus-dominus.html",
+    indexUrl: PIUS_XII_CONSTITUTIONS,
+    relatedDocuments: ["mediator-dei", "sacrosanctum-concilium"],
+  }),
+  doc({
+    slug: "doctor-mellifluus",
+    title: "Doctor Mellifluus",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1953-05-24",
+    summary:
+      "Pius XII's encyclical on Saint Bernard of Clairvaux for the eighth centenary of his death. The Pope presents Bernard, the restorer and promoter of the Cistercian Order, as the honey-sweet Doctor whose learning, drawn from Scripture and the Fathers, was guided by love rather than by subtle reasoning, so that knowledge was for him a path to God. He dwells on Bernard's teaching on the love of God and mystical union, which he fears is neglected in an age absorbed in practical affairs, and on the way that contemplation overflowed into tireless action — healing schism, reconciling princes, counselling popes and upholding the supreme authority of the Roman Pontiff. He closes with Bernard's tender devotion to the Blessed Virgin, commending his celebrated meditation on Mary as Star of the Sea, and asks all to seek her help in the troubles of the time as Bernard did in his.",
+    keyThemes: [
+      "Eighth centenary of Saint Bernard",
+      "Learning guided by love",
+      "The love of God and mystical union",
+      "Contemplation overflowing into action",
+      "Devotion to Mary, Star of the Sea",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_24051953_doctor-mellifluus.html",
+    indexUrl: PIUS_XII_ENCYCLICALS,
+    relatedDocuments: ["studiorum-ducem", "ad-caeli-reginam"],
   }),
 ];
