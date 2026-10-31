@@ -63,6 +63,17 @@ describe("prayer translations", () => {
     }
   });
 
+  it("gives the older 'Come, Holy Ghost' wording the received Latin of the same prayer", () => {
+    // One prayer in two English wordings: Veni, Sancte Spiritus with its
+    // versicle and the Pentecost collect. The older one (batch-2) had no Latin.
+    const modern = prayer("prayer-to-the-holy-spirit")!.payload;
+    const older = prayer("come-holy-spirit")!.payload;
+    expect(older.body as string).toMatch(/^Come, Holy Ghost,\nfill the hearts of Thy faithful/);
+    expect(modern.latin as string).toMatch(/^Veni, Sancte Spiritus, reple tuorum corda fidelium/);
+    expect(older.latin).toBe(modern.latin);
+    expect(buildPrayerVariants(older).map((v) => v.code)).toEqual(["en", "la"]);
+  });
+
   it("withCuratedTranslation merges into any entry and leaves the rest untouched", () => {
     const batchEntry = { slug: "our-father", payload: { body: "Our Father…", latin: "old" } };
     const merged = withCuratedTranslation(batchEntry);

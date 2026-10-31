@@ -24,6 +24,18 @@ export interface PrayerTranslation {
   greek?: string;
 }
 
+/**
+ * Veni, Sancte Spiritus with the versicle Emitte Spiritum and the Pentecost
+ * collect Deus, qui corda fidelium. The catalogue holds this one prayer in two
+ * English wordings, the modern "Come, Holy Spirit" (prayer-to-the-holy-spirit)
+ * and the older "Come, Holy Ghost" (come-holy-spirit, batch-2), and both
+ * translate this Latin, versicle, response and collect alike.
+ */
+const VENI_SANCTE_SPIRITUS: PrayerTranslation = {
+  latin:
+    "Veni, Sancte Spiritus, reple tuorum corda fidelium,\net tui amoris in eis ignem accende.\nV. Emitte Spiritum tuum et creabuntur;\nR. Et renovabis faciem terrae.\nOremus. Deus, qui corda fidelium Sancti Spiritus illustratione docuisti,\nda nobis in eodem Spiritu recta sapere,\net de eius semper consolatione gaudere.\nPer Christum Dominum nostrum.\nAmen.",
+};
+
 export const PRAYER_TRANSLATIONS: Record<string, PrayerTranslation> = {
   "our-father": {
     latin:
@@ -142,10 +154,8 @@ export const PRAYER_TRANSLATIONS: Record<string, PrayerTranslation> = {
     latin:
       "O mi Iesu, dimitte nobis debita nostra,\nlibera nos ab igne inferni,\nconduc in caelum omnes animas,\npraesertim illas quae maxime indigent misericordia tua.\nAmen.",
   },
-  "prayer-to-the-holy-spirit": {
-    latin:
-      "Veni, Sancte Spiritus, reple tuorum corda fidelium,\net tui amoris in eis ignem accende.\nV. Emitte Spiritum tuum et creabuntur;\nR. Et renovabis faciem terrae.\nOremus. Deus, qui corda fidelium Sancti Spiritus illustratione docuisti,\nda nobis in eodem Spiritu recta sapere,\net de eius semper consolatione gaudere.\nPer Christum Dominum nostrum.\nAmen.",
-  },
+  "prayer-to-the-holy-spirit": VENI_SANCTE_SPIRITUS,
+  "come-holy-spirit": VENI_SANCTE_SPIRITUS,
   "prayer-before-a-crucifix": {
     latin:
       "En ego, o bone et dulcissime Iesu,\nante conspectum tuum genibus me provolvo,\nac maximo animi ardore te oro atque obtestor,\nut meum in cor vividos fidei, spei et caritatis sensus,\natque veram peccatorum meorum paenitentiam,\neaque emendandi firmissimam voluntatem velis imprimere;\ndum magno animi affectu et dolore tua quinque vulnera mecum ipse considero,\nac mente contemplor, illud prae oculis habens,\nquod iam in ore ponebat tuo David propheta de te, o bone Iesu:\nFoderunt manus meas et pedes meos;\ndinumeraverunt omnia ossa mea.\nAmen.",
