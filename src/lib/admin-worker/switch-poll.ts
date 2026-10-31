@@ -37,6 +37,11 @@
  *      with capped backoff for as long as the switch is ON (restart-backoff.ts).
  *   5. A refused start (lease held elsewhere, misconfigured database) puts the
  *      poll on a cooldown instead of retrying every few seconds.
+ *   6. An OFF given on this Mac that the database has not recorded yet is a
+ *      local fact, honoured before anything is read: the row may still say
+ *      ON (or not answer at all), and starting on it would undo the OFF. The
+ *      poll starts nothing then, and stops whatever is still armed or running
+ *      against it — even with the database down.
  */
 
 /** Supervisor states scripts/local-worker-host.ts moves through. */
@@ -77,7 +82,10 @@ export type SwitchPollReason =
   | "shutting_down"
   /** The database did not answer — NOT the same thing as OFF (fail open). */
   | "switch_unknown"
-  /** An operator OFF is still waiting to be recorded durably; the lease tick owns it. */
+  /**
+   * An OFF given on this Mac is not in the database yet: nothing starts, and
+   * anything still armed or running is stopped (the lease tick writes the OFF).
+   */
   | "pending_durable_off"
   /** Some existing path (crash backoff, deferred resume) is already starting the child. */
   | "start_pending"
@@ -139,7 +147,10 @@ export interface SwitchPollInput {
    * Optional so older callers read as "none armed".
    */
   restartScheduled?: boolean;
-  /** An operator OFF that still has to be written to the database. */
+  /**
+   * An OFF given on this Mac that the database has not recorded yet — from the
+   * moment it is given, not only once its first write has failed.
+   */
   pendingDurableOff: boolean;
   /** Epoch ms until which starts are suppressed after a refusal, or null. */
   startBlockedUntil: number | null;
@@ -168,11 +179,18 @@ function decision(
  */
 export function planSwitchPoll(input: SwitchPollInput): SwitchPollDecision {
   if (input.shuttingDown) return decision("none", "shutting_down");
+  // Rule 6, before anything that needs the database: the OFF the operator
+  // gave here is the latest word until the row records it. Never start; stop
+  // a restart that is still armed, or a worker that is somehow running (one
+  // already being stopped is left to that stop).
+  if (input.pendingDurableOff) {
+    const running = input.childRunning && input.runState !== "stopping";
+    return running || input.restartScheduled
+      ? decision("stop", "pending_durable_off")
+      : decision("none", "pending_durable_off");
+  }
   // Rule 1: an unreachable database is not an OFF switch.
   if (!input.switchKnown) return decision("none", "switch_unknown");
-  // The OFF the operator asked for is already in flight locally; the lease tick
-  // is retrying the durable half. Acting here would fight it.
-  if (input.pendingDurableOff) return decision("none", "pending_durable_off");
 
   // A deliberate operator action that left the switch ON. Either we watched it
   // cross OFF→ON, or the row was rewritten since we last looked — which is the

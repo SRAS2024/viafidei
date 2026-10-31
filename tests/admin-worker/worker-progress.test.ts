@@ -214,7 +214,7 @@ describe("wiring", () => {
     expect(check).toContain("workerStalledForMs({");
     expect(check).toContain('eventName: "worker_hung_restart"');
     expect(check).toMatch(
-      /await stopWorkerChild\("no progress — hung-pass watchdog"\);\s*await restartAfterCrash\(/,
+      /const stopping = stopWorkerChild\("no progress — hung-pass watchdog"\);\s*const ticket = autoRestart\.ticket\(\);\s*await stopping;\s*await autoRestart\.afterCrash\(\{ code: null, signal: "SIGTERM" \}, ticket\);/,
     );
     // One event per stall, not one per check.
     expect(check).toContain("if (shuttingDown || hungRestartInFlight) return;");

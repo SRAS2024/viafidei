@@ -89,6 +89,17 @@ describe("local host — ticks and boot cannot die on one database error", () =>
     expect(resume).toMatch(/if \(bootConfig\.blockingReason\) \{\s*host\.runState = "failed";/);
   });
 
+  it("lets an OFF pressed during boot win over the resume's lease claim", () => {
+    const resume = src.slice(
+      src.indexOf("async function resumeAtBoot("),
+      src.indexOf("async function main("),
+    );
+    const ticket = resume.indexOf("const ticket = autoRestart.ticket();");
+    expect(ticket).toBeGreaterThan(0);
+    expect(ticket).toBeLessThan(resume.indexOf("await readMasterSwitch("));
+    expect(resume.match(/autoRestart\.mayStart\(ticket\)/g)).toHaveLength(2);
+  });
+
   it("never starts a worker once shutdown has begun", () => {
     expect(src).toContain("if (host.child || shuttingDown) return;");
   });

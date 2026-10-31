@@ -100,15 +100,9 @@ import {
   describeWorkerExitKind,
   interpretWorkerExit,
   LEASE_HELD_ELSEWHERE_MESSAGE,
-  refineRefusedExit,
 } from "../src/lib/admin-worker/worker-exit";
-import {
-  degradedReason,
-  formatDelay,
-  restartBackoffFromEnv,
-  restartDegraded,
-  restartDelayMs,
-} from "../src/lib/admin-worker/restart-backoff";
+import { formatDelay, restartBackoffFromEnv } from "../src/lib/admin-worker/restart-backoff";
+import { createRestartLifecycle } from "../src/lib/admin-worker/restart-lifecycle";
 import {
   announcedRestMs,
   parseProgressLine,
@@ -169,8 +163,6 @@ type RunState = HostRunState;
 
 /** Crash-restart backoff: 2 s doubling to 5 min, never giving up (restart-backoff.ts). */
 const RESTART_BACKOFF = restartBackoffFromEnv();
-/** At most one WARN row an hour while a degraded runtime keeps retrying. */
-const DEGRADED_LOG_INTERVAL_MS = 60 * 60 * 1000;
 /** SIGTERM grace for the worker tree before the whole group is SIGKILLed. */
 const CHILD_KILL_GRACE_MS = 5_000;
 /** Longest any database call may hold up a shutdown or an OFF request. */
@@ -214,9 +206,17 @@ interface HostState {
   itemsPublished: number;
   errors: number;
   /**
-   * The operator switched OFF while the database was unreachable: the local
-   * tree is already stopped, and the durable OFF (switch row + lease release)
-   * still has to be written. Retried from the lease tick until it lands.
+   * The operator switched OFF here and the database has not recorded it yet:
+   * set as the OFF begins, cleared when the write lands or the operator
+   * switches ON. While set nothing on this host (re)starts the worker — the
+   * switch row may still read ON, and acting on it would undo the OFF
+   * (restart-lifecycle.ts).
+   */
+  offNotRecorded: boolean;
+  /**
+   * That OFF could not be written (its first attempt failed): the local tree
+   * is already stopped, and the durable OFF (switch row + lease release) is
+   * retried from the lease tick until it lands. Shown to the operator.
    */
   pendingDurableOff: boolean;
   /**
@@ -270,6 +270,7 @@ const host: HostState = {
   itemsProcessed: 0,
   itemsPublished: 0,
   errors: 0,
+  offNotRecorded: false,
   pendingDurableOff: false,
   pendingStarts: 0,
   startBlockedUntil: null,
@@ -364,9 +365,6 @@ function tsxBinary(): { cmd: string; prefix: string[] } {
   return { cmd: "npx", prefix: ["--yes", "tsx"] };
 }
 
-/** The one armed (re)start — a crash backoff, or a wait for the database. */
-let restartTimer: ReturnType<typeof setTimeout> | null = null;
-
 /**
  * The durable switch for a restart decision, bounded: a database that does not
  * answer within the budget reads as unknown (wait and look again), never as
@@ -391,129 +389,28 @@ async function readSwitchForRestart(budgetMs = 20_000): Promise<{ on: boolean; k
 }
 
 /**
- * Arm a deferred (re)start and account for it while it is pending.
- * `host.pendingStarts` is what tells the switch poll that a lifecycle
- * transition is already in flight, so the poll never starts a worker that an
- * existing path is about to start (and never short-circuits the crash backoff
- * that protects against restart loops). There is only ever one: arming another
- * replaces it. When it fires it RE-READS the durable switch (resumeIfSwitchOn)
- * instead of starting blindly, so an OFF issued during the wait wins.
+ * Every automatic (re)start of the worker (restart-lifecycle.ts): the one
+ * armed restart — a crash backoff or a wait for the database, counted in
+ * `host.pendingStarts` so the switch poll stands aside — the crash-restart
+ * decision with capped exponential backoff that never gives up while the
+ * switch is ON (degraded past the old give-up point, on every surface), and
+ * the guard that lets an OFF win over any of them: an armed timer is
+ * cancelled, a decision still reading the switch stands down, and an OFF the
+ * database has not recorded yet outranks the row.
  */
-function scheduleRestart(delayMs: number): void {
-  cancelScheduledRestart();
-  host.pendingStarts += 1;
-  host.nextRestartAt = Date.now() + delayMs;
-  restartTimer = setTimeout(() => {
-    restartTimer = null;
-    host.nextRestartAt = null;
-    host.pendingStarts = Math.max(0, host.pendingStarts - 1);
-    if (shuttingDown || host.child) return;
-    void resumeIfSwitchOn();
-  }, delayMs);
-  restartTimer.unref();
-}
-
-/** Disarm the pending restart, if any (an OFF, a shutdown). */
-function cancelScheduledRestart(): boolean {
-  if (!restartTimer) return false;
-  clearTimeout(restartTimer);
-  restartTimer = null;
-  host.nextRestartAt = null;
-  host.pendingStarts = Math.max(0, host.pendingStarts - 1);
-  return true;
-}
-
-/**
- * The worker is gone without being asked to stop — it crashed, lost its
- * supervisor, or could not even be spawned. Restart it with capped exponential
- * backoff for as long as the durable switch is ON; never give up
- * (restart-backoff.ts). Past the old give-up point the runtime reports itself
- * DEGRADED on every surface, and the audit trail gets every restart of a young
- * streak, one ERROR row when it turns degraded, then at most one WARN an hour.
- */
-async function restartAfterCrash(exit: {
-  code: number | null;
-  signal: string | null;
-}): Promise<void> {
-  // Never hand the work back to Railway (spec §5: no cloud failover).
-  const master = await readSwitchForRestart();
-  if (shuttingDown || host.child) return;
-  if (!master.known) {
-    // The database is unreachable: that is an outage, not a crash streak. Wait
-    // for it to come back and re-check.
-    host.runState = "crashed";
-    host.failureReason =
-      "The worker stopped and the database cannot be reached right now — it will be restarted when the database answers again.";
-    pushLog("host", host.failureReason);
-    broadcast("status", statusPayload());
-    scheduleRestart(30_000);
-    return;
-  }
-  if (!master.on) {
-    host.runState = "off";
-    host.failureReason = null;
-    host.degraded = false;
-    broadcast("status", statusPayload());
-    return;
-  }
-
-  host.restarts += 1;
-  const delayMs = restartDelayMs(host.restarts, RESTART_BACKOFF);
-  const degraded = restartDegraded(host.restarts);
-  const enteringDegraded = degraded && !host.degraded;
-  host.runState = "crashed";
-  host.degraded = degraded;
-  host.failureReason = degraded
-    ? degradedReason({
-        consecutive: host.restarts,
-        code: exit.code,
-        signal: exit.signal,
-        nextDelayMs: delayMs,
-        logHint: HOST_LOG_HINT,
-      })
-    : null;
-  pushLog(
-    "host",
-    `master switch is still ON — restarting the local worker in ${formatDelay(delayMs)} ` +
-      `(restart #${host.restarts}${degraded ? ", degraded: it keeps retrying" : ""})`,
-  );
-  scheduleRestart(delayMs);
-  broadcast("status", statusPayload());
-
-  const now = Date.now();
-  if (degraded && !enteringDegraded && now - host.degradedLoggedAt < DEGRADED_LOG_INTERVAL_MS) {
-    return;
-  }
-  if (degraded) host.degradedLoggedAt = now;
-  await writeAdminWorkerLog(prisma, {
-    category: "ERROR",
-    severity: enteringDegraded ? "ERROR" : "WARN",
-    eventName: degraded ? "local_worker_degraded" : "local_worker_restart",
-    message: degraded
-      ? `${host.failureReason} Execution was NOT moved to the cloud.`
-      : `Local Admin Worker runtime exited (code=${exit.code ?? "null"}, signal=${exit.signal ?? "none"}) and is being restarted on the operator MacBook in ${formatDelay(delayMs)}. Execution was NOT moved to the cloud.`,
-    safeMetadata: {
-      restarts: host.restarts,
-      nextDelayMs: delayMs,
-      degraded,
-      runtimeId: RUNTIME_ID,
-    },
-  }).catch(() => undefined);
-}
-
-/** Run a lifecycle decision while holding it, so the switch poll stands aside. */
-function holdLifecycle(work: () => Promise<void>): void {
-  // Incremented synchronously, before the first await, or the poll could slip in.
-  host.pendingStarts += 1;
-  void work()
-    .catch((err: unknown) => pushLog("host", `restart decision failed: ${errorText(err)}`))
-    .finally(() => {
-      // Whatever the decision was, this path is no longer holding the
-      // lifecycle: either a restart is armed (accounted for separately) or
-      // nothing more will happen here.
-      host.pendingStarts = Math.max(0, host.pendingStarts - 1);
-    });
-}
+const autoRestart = createRestartLifecycle({
+  host,
+  backoff: RESTART_BACKOFF,
+  readSwitch: () => readSwitchForRestart(),
+  startWorker: () => startWorkerChild(),
+  shuttingDown: () => shuttingDown,
+  log: (line) => pushLog("host", line),
+  statusChanged: () => broadcast("status", statusPayload()),
+  audit: (entry) => writeAdminWorkerLog(prisma, entry),
+  databaseHost: () => configPayload().databaseHost,
+  runtimeId: RUNTIME_ID,
+  logHint: HOST_LOG_HINT,
+});
 
 /** The worker could not be spawned at all: same backoff as a crash, never "failed". */
 function onSpawnFailure(err: Error & { code?: string }): void {
@@ -525,7 +422,7 @@ function onSpawnFailure(err: Error & { code?: string }): void {
       `${err.code === "ENOENT" ? " (is this repository's node_modules installed?)" : ""}`,
   );
   if (shuttingDown) return;
-  holdLifecycle(() => restartAfterCrash({ code: null, signal: null }));
+  autoRestart.hold(() => autoRestart.afterCrash({ code: null, signal: null }));
 }
 
 function startWorkerChild(): void {
@@ -668,50 +565,25 @@ function startWorkerChild(): void {
     broadcast("status", statusPayload());
     if (wasStopping || shuttingDown) return;
 
-    // Claim the lifecycle for the duration of the exit decision (and of any
-    // restart it schedules) so the switch poll leaves it alone.
-    holdLifecycle(async () => {
-      if (plan.kind === "refused") {
-        // Only the durable switch tells an operator OFF (nothing to report)
-        // from a live lease on another computer (surface it, never restart).
-        // An unreadable switch is neither: wait for the database and retry.
-        const master = await readSwitchForRestart();
-        if (host.child || shuttingDown) return; // a newer child's state wins
-        const refined = refineRefusedExit({
-          switchKnown: master.known,
-          switchOn: master.on,
-          databaseHost: configPayload().databaseHost,
-        });
-        host.runState = refined.runState;
-        host.failureReason = refined.failureReason;
-        host.leaseHeldElsewhere = refined.leaseHeldElsewhere;
-        if (refined.runState === "off") {
-          pushLog(
-            "host",
-            "the master switch is OFF — the worker declined to start (operator stop)",
-          );
-        }
-        if (refined.kind === "db_unreachable" && refined.failureReason) {
-          pushLog("host", refined.failureReason);
-          scheduleRestart(30_000 + Math.round(Math.random() * 30_000));
-        }
-        broadcast("status", statusPayload());
-        return;
-      }
-      if (!plan.restart) return;
-      if (plan.kind === "db_unreachable") {
-        // run-worker.ts exit 4: it could not read the switch or claim the
-        // lease. That is an outage, not a crash — it does not lengthen the
-        // crash streak; wait for the database and resume (the switch is
-        // durable, so ON survives).
-        void probeDatabase().catch(() => undefined);
-        scheduleRestart(30_000 + Math.round(Math.random() * 30_000));
-        return;
-      }
-      // A genuine crash, or a worker that lost its log pipe while this host
-      // was in fact still listening.
-      await restartAfterCrash({ code, signal });
-    });
+    // The exit decision holds the lifecycle (and any restart it arms counts
+    // too) so the switch poll leaves it alone (restart-lifecycle.ts).
+    if (plan.kind === "refused") {
+      // Exit 3: only the durable switch tells an operator OFF (nothing to
+      // report) from a live lease on another computer (surface it, never
+      // restart); an unreadable switch is neither — wait and retry.
+      autoRestart.hold(() => autoRestart.afterRefusal());
+      return;
+    }
+    if (!plan.restart) return;
+    if (plan.kind === "db_unreachable") {
+      // run-worker.ts exit 4: it could not read the switch or claim the lease.
+      void probeDatabase().catch(() => undefined);
+      autoRestart.afterOutage();
+      return;
+    }
+    // A genuine crash, or a worker that lost its log pipe while this host was
+    // in fact still listening.
+    autoRestart.hold(() => autoRestart.afterCrash({ code, signal }));
   });
 
   child.on("error", (err) => {
@@ -728,9 +600,11 @@ function startWorkerChild(): void {
 }
 
 async function stopWorkerChild(reason: string): Promise<void> {
-  // A stop also stands down an armed restart: an OFF during a crash backoff
-  // must not be followed by a worker booting minutes later.
-  if (cancelScheduledRestart()) pushLog("host", `pending restart cancelled (${reason})`);
+  // A stop also stands down every automatic restart: an armed one is
+  // cancelled (an OFF during a crash backoff must not be followed by a worker
+  // booting minutes later), and one still reading the switch stands down when
+  // its read returns. Synchronous, before the first await.
+  if (autoRestart.noteStop()) pushLog("host", `pending restart cancelled (${reason})`);
   const child = host.child;
   if (!child || child.pid == null) {
     host.child = null;
@@ -825,10 +699,15 @@ function checkWorkerProgress(): void {
       runtimeId: RUNTIME_ID,
     },
   }).catch(() => undefined);
-  holdLifecycle(async () => {
+  autoRestart.hold(async () => {
     try {
-      await stopWorkerChild("no progress — hung-pass watchdog");
-      await restartAfterCrash({ code: null, signal: "SIGTERM" });
+      // The stop counts itself as it is called; a ticket taken right after
+      // is spoiled only by a LATER stop — an OFF while this one waits for the
+      // tree to exit — and then the restart stands down.
+      const stopping = stopWorkerChild("no progress — hung-pass watchdog");
+      const ticket = autoRestart.ticket();
+      await stopping;
+      await autoRestart.afterCrash({ code: null, signal: "SIGTERM" }, ticket);
     } finally {
       hungRestartInFlight = false;
     }
@@ -862,11 +741,20 @@ async function withDbBudget(label: string, work: () => Promise<unknown>): Promis
 }
 
 /**
+ * Bumped by every operator switch request (POST /api/switch), so an OFF write
+ * that finishes after a newer request — an ON, or a second OFF with its own
+ * write — leaves that request's state alone.
+ */
+let switchRequests = 0;
+
+/**
  * Write the durable OFF (switch row, lease release, audit log). Called right
  * after the local tree is stopped and, when that failed, again from the lease
- * tick until the database accepts it.
+ * tick until the database accepts it. Landing it ends the unrecorded-OFF
+ * guard: from then on the row itself says OFF.
  */
 async function writeDurableOff(actor: string): Promise<boolean> {
+  const request = switchRequests;
   const wroteSwitch = await withDbBudget("recording the switch OFF", () =>
     setMasterSwitch(prisma, { on: false, actor, from: "swift-app" }),
   );
@@ -874,11 +762,13 @@ async function writeDurableOff(actor: string): Promise<boolean> {
     releaseExecutionLease(prisma, RUNTIME_ID),
   );
   invalidateExecutionCache();
+  if (request !== switchRequests) return wroteSwitch && released;
   if (!wroteSwitch || !released) {
     host.pendingDurableOff = true;
     return false;
   }
   host.pendingDurableOff = false;
+  host.offNotRecorded = false;
   await writeAdminWorkerLog(prisma, {
     category: "OVERVIEW",
     severity: "INFO",
@@ -889,41 +779,6 @@ async function writeDurableOff(actor: string): Promise<boolean> {
     safeMetadata: { runtimeId: RUNTIME_ID },
   }).catch(() => undefined);
   return true;
-}
-
-/**
- * When an armed restart fires (a crash backoff, or a wait for the database):
- * if the switch is still ON — a durable fact, re-read now — start the worker;
- * if it is OFF, stay off; if it cannot be read, wait and look again. Never a
- * blind start, so an OFF issued during the wait always wins.
- */
-async function resumeIfSwitchOn(): Promise<void> {
-  // Hold the lifecycle while this decides, so the switch poll does not start
-  // the same worker from the other side of the await.
-  host.pendingStarts += 1;
-  try {
-    const master = await readSwitchForRestart();
-    if (shuttingDown || host.child) return;
-    if (!master.known) {
-      scheduleRestart(30_000);
-      return;
-    }
-    if (master.on) {
-      // A degraded runtime keeps saying so until it has stayed up.
-      if (!host.degraded) host.failureReason = null;
-      host.leaseHeldElsewhere = false;
-      pushLog("host", "the master switch is still ON — restarting the worker");
-      startWorkerChild();
-    } else {
-      host.runState = "off";
-      host.failureReason = null;
-      host.degraded = false;
-      pushLog("host", "the master switch is OFF — the pending restart stands down");
-      broadcast("status", statusPayload());
-    }
-  } finally {
-    host.pendingStarts = Math.max(0, host.pendingStarts - 1);
-  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -962,8 +817,11 @@ function refuseSwitchPollStart(message: string): void {
  */
 async function startFromSwitchPoll(decisionValue: SwitchPollDecision): Promise<void> {
   host.pendingStarts += 1;
+  // Taken before the first await: an OFF (any stop) while this start waits on
+  // the database wins, exactly as it does over an armed restart.
+  const ticket = autoRestart.ticket();
   try {
-    if (host.child || shuttingDown) return;
+    if (!autoRestart.mayStart(ticket)) return;
     // Never start against a database that is unreachable or plainly not the
     // production one (local-config's structured blockingReason, not prose).
     const probe = await probeDatabase();
@@ -975,7 +833,7 @@ async function startFromSwitchPoll(decisionValue: SwitchPollDecision): Promise<v
       );
       return;
     }
-    if (host.child || shuttingDown) return;
+    if (!autoRestart.mayStart(ticket)) return;
     // Claim sole execution authority first, exactly as the app does. The phone
     // can only write the switch; the lease is this runtime's to take.
     const claim = await acquireExecutionLease(prisma, {
@@ -996,7 +854,11 @@ async function startFromSwitchPoll(decisionValue: SwitchPollDecision): Promise<v
       refuseSwitchPollStart(claim.refusedBecause ?? "another runtime holds the execution lease");
       return;
     }
-    if (host.child || shuttingDown) return;
+    if (!autoRestart.mayStart(ticket)) {
+      // Stopped while claiming: give back the lease nothing will run under.
+      await releaseExecutionLease(prisma, RUNTIME_ID).catch(() => undefined);
+      return;
+    }
     host.startBlockedUntil = null;
     host.lastStartRefusal = null;
     host.failureReason = null;
@@ -1057,6 +919,23 @@ async function stopFromSwitchPoll(): Promise<void> {
       "from another surface. The local runtime, Python brain and browser rendering were stopped.",
     safeMetadata: { runtimeId: RUNTIME_ID, trigger: "switch-poll" },
   }).catch(() => undefined);
+}
+
+/**
+ * The operator switched OFF here and the database has not recorded it, yet a
+ * restart is armed or a worker is running. Nothing should arm or start one
+ * against that OFF (restart-lifecycle.ts); this is the backstop, and it needs
+ * no database: stop it, and leave the durable write to the lease tick.
+ */
+async function enforceUnrecordedOff(): Promise<void> {
+  pushLog(
+    "host",
+    "switched OFF here and not yet recorded in the database — stopping what was still armed or running",
+  );
+  await stopWorkerChild("switched OFF here, not yet recorded");
+  host.failureReason = null;
+  host.degraded = false;
+  broadcast("status", statusPayload());
 }
 
 /**
@@ -1145,9 +1024,11 @@ async function reconcileSwitchOnce(): Promise<void> {
     childRunning: host.child != null,
     runState: host.runState,
     pendingStarts: host.pendingStarts,
-    pendingDurableOff: host.pendingDurableOff,
+    // From the moment the OFF begins, not only once its write failed: the row
+    // may still read ON while the write is in flight.
+    pendingDurableOff: host.offNotRecorded,
     startBlockedUntil: host.startBlockedUntil,
-    restartScheduled: restartTimer !== null,
+    restartScheduled: autoRestart.armed,
   });
   if (switchKnown) {
     host.lastObservedSwitchOn = switchOn;
@@ -1156,6 +1037,7 @@ async function reconcileSwitchOnce(): Promise<void> {
 
   if (isSwitchPollActionable(plan)) {
     if (plan.action === "start") await startFromSwitchPoll(plan);
+    else if (plan.reason === "pending_durable_off") await enforceUnrecordedOff();
     else await stopFromSwitchPoll();
   }
 
@@ -1490,7 +1372,11 @@ async function readJson<T>(req: IncomingMessage): Promise<T> {
  * Worker workload runs anywhere, including work a button would start (spec §4).
  */
 async function requireSwitchOn(res: ServerResponse): Promise<boolean> {
-  const master = await readMasterSwitch(prisma).catch(() => ({ on: false }) as const);
+  // An OFF given here that the database has not recorded is OFF, whatever the
+  // row still says.
+  const master = host.offNotRecorded
+    ? ({ on: false } as const)
+    : await readMasterSwitch(prisma).catch(() => ({ on: false }) as const);
   if (master.on) return true;
   json(res, 409, {
     error: "worker_off",
@@ -1632,7 +1518,11 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
             });
             return;
           }
+          // The operator's ON supersedes an earlier OFF that never reached the
+          // database: stop retrying it, and let automatic starts through again.
+          switchRequests += 1;
           host.pendingDurableOff = false;
+          host.offNotRecorded = false;
           // Claim the lease FIRST. The master switch is shared state: if another
           // computer is already executing, writing the switch here (and then
           // rolling it back to OFF) would stop that machine's worker mid-pass.
@@ -1673,7 +1563,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           invalidateExecutionCache();
           // The operator's own ON starts now: it replaces any armed restart
           // and forgives the crash streak.
-          cancelScheduledRestart();
+          autoRestart.cancel();
           host.restarts = 0;
           host.degraded = false;
           host.failureReason = null;
@@ -1692,6 +1582,12 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           // unreachable proxy must never leave Chromium, Python and the
           // fetchers running because a row could not be written. The durable
           // write is retried from the lease tick until it lands.
+          //
+          // From this moment until the database records it, this OFF outranks
+          // the switch row (which may still read ON): no crash restart, armed
+          // timer, switch-poll start or resume may bring the worker back.
+          switchRequests += 1;
+          host.offNotRecorded = true;
           await stopWorkerChild("master switch OFF");
           // The host itself keeps a resident Python brain while it runs
           // operator work (ingestion, manual passes, makeovers). OFF means OFF:
@@ -1699,6 +1595,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           await shutdownLocalBrain();
           host.failureReason = null;
           host.degraded = false;
+          host.leaseHeldElsewhere = false;
           const durable = await writeDurableOff(body.actor ?? "operator");
           if (!durable) {
             pushLog(
@@ -1957,6 +1854,8 @@ function installProcessGuards(shutdown: (signal: string) => void): void {
  * production — the switch is durable, so it stays ON and the console shows why.
  */
 async function resumeAtBoot(): Promise<void> {
+  // The control API is already listening: an OFF pressed during boot wins.
+  const ticket = autoRestart.ticket();
   const master = await readMasterSwitch(prisma).catch(() => ({ on: false, known: false }) as const);
   // Seed the reconcile poll's edge detection with what the switch said at
   // boot, so the first OFF→ON flip after launch is recognised as the operator
@@ -1982,6 +1881,7 @@ async function resumeAtBoot(): Promise<void> {
     return;
   }
   if (!master.on || shuttingDown) return;
+  if (!autoRestart.mayStart(ticket)) return;
   const claim = await acquireExecutionLease(prisma, {
     runtimeId: RUNTIME_ID,
     origin: "LOCAL_MACBOOK",
@@ -1993,12 +1893,17 @@ async function resumeAtBoot(): Promise<void> {
       launchedBy: "swift-app",
     },
   });
-  if (claim.acquired) {
-    pushLog("host", "master switch was already ON — resuming local execution");
-    startWorkerChild();
-  } else {
+  if (!claim.acquired) {
     pushLog("host", `cannot resume: ${claim.refusedBecause ?? "execution lease unavailable"}`);
+    return;
   }
+  if (!autoRestart.mayStart(ticket)) {
+    // Switched OFF while claiming: give back the lease nothing will run under.
+    await releaseExecutionLease(prisma, RUNTIME_ID).catch(() => undefined);
+    return;
+  }
+  pushLog("host", "master switch was already ON — resuming local execution");
+  startWorkerChild();
 }
 
 async function main(): Promise<void> {
@@ -2140,8 +2045,10 @@ async function main(): Promise<void> {
   const leaseTick = async () => {
     {
       // A switch-OFF that could not be recorded durably (LH: OFF stops the
-      // tree first, then writes). Keep trying until the database takes it.
-      if (host.pendingDurableOff && host.runState === "off") {
+      // tree first, then writes). Keep trying until the database takes it —
+      // whatever runState says: a restart path that set "crashed" must never
+      // be what ends the retry.
+      if (host.pendingDurableOff && !host.child) {
         if (await writeDurableOff("operator")) {
           pushLog("host", "recorded the pending switch OFF in the database");
           broadcast("status", statusPayload());

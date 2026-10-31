@@ -206,6 +206,57 @@ describe("planSwitchPoll — never fights the existing lifecycle", () => {
   });
 });
 
+describe("planSwitchPoll — an OFF given here that the database has not recorded", () => {
+  // The row may still read ON (the write failed, or is still in flight), or
+  // not answer at all. Either way the operator's OFF on this Mac stands.
+  const PENDING_OFF: SwitchPollInput = {
+    ...STOPPED,
+    switchOn: true,
+    previousSwitchOn: true,
+    pendingDurableOff: true,
+  };
+
+  it("never starts the worker on the stale ON row", () => {
+    expect(planSwitchPoll(PENDING_OFF)).toMatchObject({
+      action: "none",
+      reason: "pending_durable_off",
+    });
+  });
+
+  it("cancels a restart that is still armed — even with the database down", () => {
+    // Before, pending_durable_off returned "none" ahead of the armed-restart
+    // rule, so nothing cancelled a timer armed by a decision that outlived
+    // the OFF.
+    for (const switchKnown of [true, false]) {
+      expect(
+        planSwitchPoll({
+          ...PENDING_OFF,
+          switchKnown,
+          runState: "crashed",
+          pendingStarts: 1,
+          restartScheduled: true,
+        }),
+      ).toMatchObject({ action: "stop", reason: "pending_durable_off" });
+    }
+  });
+
+  it("stops a worker that is somehow running against it, but leaves one being stopped to that stop", () => {
+    expect(
+      planSwitchPoll({ ...PENDING_OFF, childRunning: true, runState: "running" }),
+    ).toMatchObject({ action: "stop", reason: "pending_durable_off" });
+    expect(
+      planSwitchPoll({ ...PENDING_OFF, childRunning: true, runState: "stopping" }),
+    ).toMatchObject({ action: "none", reason: "pending_durable_off" });
+  });
+
+  it("is honoured before an unreadable switch is even considered", () => {
+    expect(planSwitchPoll({ ...PENDING_OFF, switchKnown: false, switchOn: false })).toMatchObject({
+      action: "none",
+      reason: "pending_durable_off",
+    });
+  });
+});
+
 describe("planSwitchPoll — a runtime that gave up is not relaunched on a beat", () => {
   it("refuses to restart a failed runtime while the switch is merely still ON", () => {
     expect(
@@ -510,5 +561,44 @@ describe("scripts/local-worker-host.ts applies the poll", () => {
 
   it("never treats an unreadable switch as OFF", () => {
     expect(HOST_SOURCE).toMatch(/const switchKnown = status\?\.switch\.known === true;/);
+  });
+
+  it("feeds the poll an OFF from the moment it is given, and stops anything armed against it", () => {
+    expect(HOST_SOURCE).toContain("pendingDurableOff: host.offNotRecorded,");
+    expect(HOST_SOURCE).toContain(
+      'else if (plan.reason === "pending_durable_off") await enforceUnrecordedOff();',
+    );
+    // The app's OFF raises the guard before it stops anything.
+    const off = HOST_SOURCE.slice(
+      HOST_SOURCE.indexOf("} else {\n          // Stop the LOCAL workload"),
+    );
+    expect(off.indexOf("host.offNotRecorded = true;")).toBeGreaterThan(0);
+    expect(off.indexOf("host.offNotRecorded = true;")).toBeLessThan(
+      off.indexOf('await stopWorkerChild("master switch OFF");'),
+    );
+  });
+
+  it("refuses operator-triggered work while an OFF given here is unrecorded", () => {
+    const gate = HOST_SOURCE.slice(
+      HOST_SOURCE.indexOf("async function requireSwitchOn("),
+      HOST_SOURCE.indexOf("async function withJob<"),
+    );
+    expect(gate).toMatch(/const master = host\.offNotRecorded\s*\?\s*\(\{ on: false \} as const\)/);
+  });
+
+  it("retries the durable OFF whenever no worker exists, not only while runState reads 'off'", () => {
+    expect(HOST_SOURCE).toContain("if (host.pendingDurableOff && !host.child) {");
+    expect(HOST_SOURCE).not.toContain('host.pendingDurableOff && host.runState === "off"');
+  });
+
+  it("guards the poll's own start with a ticket taken before its awaits", () => {
+    const start = HOST_SOURCE.slice(
+      HOST_SOURCE.indexOf("async function startFromSwitchPoll"),
+      HOST_SOURCE.indexOf("async function stopFromSwitchPoll"),
+    );
+    expect(start.indexOf("const ticket = autoRestart.ticket();")).toBeLessThan(
+      start.indexOf("await probeDatabase()"),
+    );
+    expect(start.match(/autoRestart\.mayStart\(ticket\)/g)).toHaveLength(3);
   });
 });

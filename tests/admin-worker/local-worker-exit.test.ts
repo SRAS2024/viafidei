@@ -193,10 +193,18 @@ describe("scripts/local-worker-host.ts applies the plan", () => {
   });
 
   it("refines exit 3 with the switch it read, and retries when it could not read it", () => {
+    // The host hands exit 3 to the lifecycle (restart-lifecycle.test.ts drives
+    // it: ON → lease elsewhere, unreadable → retried, OFF given here → off).
     const refused = src.slice(src.indexOf('if (plan.kind === "refused")'));
-    expect(refused).toContain("refineRefusedExit({");
-    expect(refused).toMatch(
-      /if \(refined\.kind === "db_unreachable" && refined\.failureReason\) \{[\s\S]*?resumeIfSwitchOn\(\)/,
+    expect(refused.slice(0, 600)).toContain("autoRestart.hold(() => autoRestart.afterRefusal());");
+    const lifecycle = readFileSync(
+      join(process.cwd(), "src/lib/admin-worker/restart-lifecycle.ts"),
+      "utf8",
+    );
+    const afterRefusal = lifecycle.slice(lifecycle.indexOf("async function afterRefusal()"));
+    expect(afterRefusal).toContain("refineRefusedExit({");
+    expect(afterRefusal).toMatch(
+      /if \(refined\.kind === "db_unreachable" && refined\.failureReason\) \{[\s\S]*?schedule\(/,
     );
   });
 

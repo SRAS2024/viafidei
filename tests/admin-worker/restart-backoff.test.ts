@@ -8,9 +8,11 @@
  * the phone and the site showed the switch ON.
  *
  * Pinned: the capped exponential backoff, the degraded threshold, the env
- * knobs, and that scripts/local-worker-host.ts applies them (no give-up path,
- * restarts re-read the switch, an OFF cancels a pending restart, a spawn
- * failure retries instead of wedging).
+ * knobs, and that scripts/local-worker-host.ts applies them through
+ * restart-lifecycle.ts (no give-up path, every stop counts against pending
+ * restarts, a spawn failure retries instead of wedging). How the restarts
+ * behave — re-reading the switch, degraded, an OFF winning — is driven in
+ * restart-lifecycle.test.ts.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -121,24 +123,22 @@ describe("scripts/local-worker-host.ts applies it", () => {
     expect(src).not.toMatch(/Giving up/);
   });
 
-  it("restarts a crash with the capped backoff and reports degraded past the old limit", () => {
-    const crash = between("async function restartAfterCrash(", "function holdLifecycle(");
-    expect(crash).toContain("restartDelayMs(host.restarts, RESTART_BACKOFF)");
-    expect(crash).toContain("restartDegraded(host.restarts)");
-    expect(crash).toContain("scheduleRestart(delayMs);");
-    expect(crash).not.toContain("startWorkerChild(");
+  it("runs every automatic restart through the lifecycle module, with this backoff", () => {
+    expect(src).toContain("const autoRestart = createRestartLifecycle({");
+    expect(src).toContain("backoff: RESTART_BACKOFF,");
+    expect(src).toContain("readSwitch: () => readSwitchForRestart(),");
+    expect(src).toContain("autoRestart.hold(() => autoRestart.afterCrash({ code, signal }));");
+    // No second timer or crash decision of its own left in the host.
+    expect(src).not.toMatch(
+      /let restartTimer|function scheduleRestart\(|function restartAfterCrash\(/,
+    );
   });
 
-  it("re-reads the switch when an armed restart fires, instead of starting blindly", () => {
-    const arm = between("function scheduleRestart(", "function cancelScheduledRestart(");
-    expect(arm).toContain("void resumeIfSwitchOn();");
-    expect(arm).not.toContain("startWorkerChild(");
-  });
-
-  it("cancels an armed restart on every stop, so OFF during a backoff wins", () => {
+  it("counts every stop against pending restarts, so an OFF during a backoff — or a read — wins", () => {
     const stop = between("async function stopWorkerChild(", "/* hung-pass watchdog");
-    expect(stop).toContain("cancelScheduledRestart()");
-    expect(src).toContain("restartScheduled: restartTimer !== null,");
+    // First, synchronously: before the stop's first await.
+    expect(stop.indexOf("autoRestart.noteStop()")).toBeLessThan(stop.indexOf("await "));
+    expect(src).toContain("restartScheduled: autoRestart.armed,");
   });
 
   it("clears 'degraded' on an OFF, but not on the stop half of a hung-worker restart", () => {
@@ -156,7 +156,7 @@ describe("scripts/local-worker-host.ts applies it", () => {
   it("retries a worker that could not even be spawned instead of wedging on a dead child", () => {
     const failure = between("function onSpawnFailure(", "function startWorkerChild(");
     expect(failure).toContain("host.child = null;");
-    expect(failure).toContain("restartAfterCrash(");
+    expect(failure).toContain("autoRestart.afterCrash(");
     expect(src).toContain("if (host.child === child && child.pid == null) {");
   });
 
