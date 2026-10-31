@@ -92,6 +92,16 @@ const PIUS_VII_INDEX = "https://www.vatican.va/content/pius-vii/it.html";
 const GREGORY_XVI_INDEX = "https://www.vatican.va/content/gregorius-xvi/it.html";
 const PIUS_IX_INDEX = "https://www.vatican.va/content/pius-ix/it.html";
 const LEO_XIII_ENCYCLICALS = "https://www.vatican.va/content/leo-xiii/en/encyclicals.index.html";
+const PIUS_X_ENCYCLICALS = "https://www.vatican.va/content/pius-x/en/encyclicals.index.html";
+const PIUS_X_MOTU_PROPRIO = "https://www.vatican.va/content/pius-x/en/motu_proprio.index.html";
+const PIUS_X_EXHORTATIONS =
+  "https://www.vatican.va/content/pius-x/en/apost_exhortations.index.html";
+const PIUS_X_CONSTITUTIONS =
+  "https://www.vatican.va/content/pius-x/en/apost_constitutions.index.html";
+const BENEDICT_XV_ENCYCLICALS =
+  "https://www.vatican.va/content/benedict-xv/en/encyclicals.index.html";
+const BENEDICT_XV_BULLS = "https://www.vatican.va/content/benedict-xv/en/bulls.index.html";
+const PIUS_XI_ENCYCLICALS = "https://www.vatican.va/content/pius-xi/en/encyclicals.index.html";
 
 export const churchDocumentGroupThree: CuratedEntry[] = [
   // ---------------------------------------------------------------------------
@@ -543,6 +553,25 @@ export const churchDocumentGroupThree: CuratedEntry[] = [
     relatedDocuments: ["immortale-dei", "diuturnum", "apostolicam-actuositatem"],
   }),
   doc({
+    slug: "octobri-mense",
+    title: "Octobri Mense",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Leo XIII",
+    issuedDate: "1891-09-22",
+    summary:
+      "An encyclical on the Rosary, written as October, already consecrated to Our Lady of the Rosary, approached once more. Reflecting on the place of the Mother of God in the plan of redemption, Leo XIII recalls that at the Annunciation Mary gave her consent as it were in the name of all humanity, and teaches that by God's will she is the one through whom the immense treasury of mercy won by Christ is distributed to us: as no one comes to the Father except through the Son, so no one comes to Christ except through his Mother. From this he draws the reasons for confident prayer to her in the troubles of the age, and among the many ways of honouring her he singles out the Rosary, which recalls the great mysteries of the faith and which, he notes, Saint Dominic spread as a defence of the faith in a time of great danger. He renews his call for the October devotions and pictures the whole Catholic world praying to Mary with one voice.",
+    keyThemes: [
+      "Mary's place in the work of redemption",
+      "Mary as the channel of the graces won by Christ",
+      "Confident prayer to the Mother of God",
+      "The Rosary and the October devotions",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/leo-xiii/en/encyclicals/documents/hf_l-xiii_enc_22091891_octobri-mense.html",
+    indexUrl: LEO_XIII_ENCYCLICALS,
+    relatedDocuments: ["supremi-apostolatus-officio", "redemptoris-mater"],
+  }),
+  doc({
     slug: "au-milieu-des-sollicitudes",
     title: "Au Milieu des Sollicitudes",
     documentType: "encyclical",
@@ -561,6 +590,26 @@ export const churchDocumentGroupThree: CuratedEntry[] = [
       "https://www.vatican.va/content/leo-xiii/en/encyclicals/documents/hf_l-xiii_enc_16021892_au-milieu-des-sollicitudes.html",
     indexUrl: LEO_XIII_ENCYCLICALS,
     relatedDocuments: ["immortale-dei", "sapientiae-christianae"],
+  }),
+  doc({
+    slug: "laetitiae-sanctae",
+    title: "Laetitiae Sanctae",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Leo XIII",
+    issuedDate: "1893-09-08",
+    summary:
+      "An encyclical in which Leo XIII commends the Rosary as a remedy for the ills of society. He names three influences that he saw dragging society downward — a distaste for a simple and laborious life, a repugnance to suffering of any kind, and forgetfulness of the life to come — and sets against each one part of the Rosary, which joins a fixed order of prayer to meditation on the life of Christ and his Mother. The Joyful Mysteries, centred on the home of Nazareth, teach the dignity of humble work, family life and contentment with one's state; the Sorrowful Mysteries teach patience and the value of suffering borne with Christ; and the Glorious Mysteries keep before the mind the unseen goods that God has prepared for those who love him, without diminishing love of one's earthly country. The Pope asks for renewed zeal in founding and directing the Confraternities of the Rosary, a work in which the sons of Saint Dominic have a leading part.",
+    keyThemes: [
+      "The Rosary as a remedy for social ills",
+      "The Joyful Mysteries and the dignity of humble work",
+      "The Sorrowful Mysteries and patience in suffering",
+      "The Glorious Mysteries and the life to come",
+      "Confraternities of the Rosary",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/leo-xiii/en/encyclicals/documents/hf_l-xiii_enc_08091893_laetitiae-sanctae.html",
+    indexUrl: LEO_XIII_ENCYCLICALS,
+    relatedDocuments: ["supremi-apostolatus-officio", "octobri-mense", "rosarium-virginis-mariae"],
   }),
   doc({
     slug: "longinqua-oceani",
@@ -602,5 +651,474 @@ export const churchDocumentGroupThree: CuratedEntry[] = [
       "https://www.vatican.va/content/leo-xiii/en/encyclicals/documents/hf_l-xiii_enc_29061896_satis-cognitum.html",
     indexUrl: LEO_XIII_ENCYCLICALS,
     relatedDocuments: ["pastor-aeternus", "lumen-gentium", "mystici-corporis-christi"],
+  }),
+  doc({
+    slug: "annum-sacrum",
+    title: "Annum Sacrum",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Leo XIII",
+    issuedDate: "1899-05-25",
+    summary:
+      "The encyclical in which Leo XIII announced the consecration of the whole human race to the Sacred Heart of Jesus. Building on his predecessors' promotion of the devotion and on his own decree of 1889 raising the rank of the feast of the Sacred Heart, he explains the twofold title by which Christ rules over all people — by nature, as the Son of God, and by right of conquest, as the Redeemer who purchased humanity with his blood — and teaches that his empire extends not only to Catholics but also to the baptised who are separated from the Church and to all who have never received the faith. To this the faithful may add the free gift of consecration, and since the Heart of Jesus is the symbol of his infinite love, consecration to it is an offering of oneself to Christ. Seeing in the Sacred Heart surmounted by a cross a sign of hope for a troubled age, as the cross had been for Constantine, the Pope ordered prayers on 9, 10 and 11 June in the principal church of every town and village, with the Litany of the Sacred Heart, and the recitation on the last day of the act of consecration he sent with the letter.",
+    keyThemes: [
+      "Consecration of the human race to the Sacred Heart",
+      "The universal kingship of Christ",
+      "The Sacred Heart as the symbol of Christ's love",
+      "Christ's rule over states and public life",
+      "The triduum and act of consecration of June 1899",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/leo-xiii/en/encyclicals/documents/hf_l-xiii_enc_25051899_annum-sacrum.html",
+    indexUrl: LEO_XIII_ENCYCLICALS,
+    relatedDocuments: ["quas-primas", "haurietis-aquas", "dilexit-nos"],
+  }),
+  doc({
+    slug: "tametsi-futura-prospicientibus",
+    title: "Tametsi Futura Prospicientibus",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Leo XIII",
+    issuedDate: "1900-11-01",
+    summary:
+      "Leo XIII's encyclical on Jesus Christ the Redeemer, written as the nineteenth century closed amid what the Pope saw as signs of a revival of faith. Reminding a world that wished to order its life without God that there is salvation in no one but Christ, whose redemption is not a past event but a permanent source of life, he takes Christ's words in Saint John's Gospel as his outline. Christ is the Way, since no one reaches God, the last end of human life, except through him, and nations as well as individuals go astray when they leave that road; he is the Truth, to whom the human mind must submit in faith and whose teaching the Church guards; and he is the Life, the source of the grace without which the moral law cannot be kept and society cannot be renewed. Judging that ignorance more than ill will keeps people from Christ, the Pope asks the bishops and the whole clergy to make him truly known, so that the new century might be won back to him.",
+    keyThemes: [
+      "Christ the Redeemer of humanity",
+      "Christ the Way, the Truth and the Life",
+      "The kingship of Christ over nations",
+      "Grace and the moral life",
+      "Making Christ known",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/leo-xiii/en/encyclicals/documents/hf_l-xiii_enc_01111900_tametsi-futura-prospicientibus.html",
+    indexUrl: LEO_XIII_ENCYCLICALS,
+    relatedDocuments: ["redemptor-hominis", "annum-sacrum", "quas-primas"],
+  }),
+  doc({
+    slug: "graves-de-communi-re",
+    title: "Graves de Communi Re",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Leo XIII",
+    issuedDate: "1901-01-18",
+    summary:
+      "Leo XIII's encyclical on Christian democracy, written to settle the disputes that had arisen among Catholics over the name and character of the social action inspired by Rerum Novarum. The Pope contrasts social democracy, which recognises nothing above the natural order, would level all ranks and introduce the community of goods, with Christian democracy, which rests on the principles of faith, holds justice sacred, respects the right to property, and seeks to improve the condition of the people for the good of their souls as well as their bodies. He insists that the term be used without any political meaning — not as a preference for popular government but simply as beneficent Christian action on behalf of the people — and that it neither neglect the upper classes nor weaken obedience to lawful authority. The social question, he explains, is not merely economic but above all moral and religious, and charity perfects justice. Catholic social works are to act in unity, coordinated in Italy by the Opera dei Congressi under the authority of the bishops.",
+    keyThemes: [
+      "Christian democracy and social democracy",
+      "Beneficent action for the people",
+      "The social question as a moral and religious question",
+      "Justice and charity",
+      "Unity of Catholic social action under the bishops",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/leo-xiii/en/encyclicals/documents/hf_l-xiii_enc_18011901_graves-de-communi-re.html",
+    indexUrl: LEO_XIII_ENCYCLICALS,
+    relatedDocuments: ["rerum-novarum", "quod-apostolici-muneris", "il-fermo-proposito"],
+  }),
+  doc({
+    slug: "mirae-caritatis",
+    title: "Mirae Caritatis",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Leo XIII",
+    issuedDate: "1902-05-28",
+    summary:
+      "Leo XIII's encyclical on the Holy Eucharist, given on the vigil of Corpus Christi in the twenty-fifth year of his pontificate. Having written throughout his reign on the manifestations of Christ's love, the Pope turns to the sacrament in which Christ himself is present. The Eucharist is the mystery of faith that strengthens the mind against the errors of the age; it nourishes hope and every virtue; and, as the memorial of Christ's passion, it calls Christians to penance and self-denial. Finding at the root of the evils of society a cooling of charity toward God and neighbour, he presents the Eucharist as the source of charity, binding the faithful together and reaching through the sacrifice of the Mass to the whole communion of saints, including the souls in purgatory; it is, he says, as it were the soul of the Church. He urges frequent Communion, observing that Christian life has flourished wherever it was practised, and asks that the sacrifice of the Mass be honoured with renewed outward reverence and inward devotion.",
+    keyThemes: [
+      "The Eucharist as the mystery of faith",
+      "The Eucharist and the Christian virtues",
+      "The Eucharist as the source of charity",
+      "The sacrifice of the Mass and the communion of saints",
+      "Frequent Communion",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/leo-xiii/en/encyclicals/documents/hf_l-xiii_enc_28051902_mirae-caritatis.html",
+    indexUrl: LEO_XIII_ENCYCLICALS,
+    relatedDocuments: ["mysterium-fidei", "ecclesia-de-eucharistia", "sacramentum-caritatis"],
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Pope Saint Pius X
+  // ---------------------------------------------------------------------------
+  doc({
+    slug: "e-supremi",
+    title: "E Supremi",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Saint Pius X",
+    issuedDate: "1903-10-04",
+    summary:
+      "The first encyclical of Saint Pius X, written two months after his election, in which he announced the programme of his pontificate: to restore all things in Christ. The Pope speaks of his reluctance to accept the office and of the great evil of the age, a turning away from God; the only remedy is to bring people back to God through Christ, and the way to Christ is the Church. The means, he says, are plain. First comes the formation of holy priests, so that the seminaries must be the bishops' chief concern and flourish in sound teaching and blameless conduct; then religious instruction, since many oppose Christ more from ignorance than from malice; and in all things charity, because souls are won by patience and kindness rather than bitter zeal. He also calls on all the faithful, and lay associations working under the bishops' guidance, to share in the work of restoring society to Christ.",
+    keyThemes: [
+      "Restoring all things in Christ",
+      "The Church as the way to Christ",
+      "The holiness and formation of priests",
+      "Religious instruction",
+      "Charity and the lay apostolate",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-x/en/encyclicals/documents/hf_p-x_enc_04101903_e-supremi.html",
+    indexUrl: PIUS_X_ENCYCLICALS,
+    relatedDocuments: ["acerbo-nimis", "il-fermo-proposito", "haerent-animo"],
+  }),
+  doc({
+    slug: "tra-le-sollecitudini",
+    title: "Tra le Sollecitudini",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Saint Pius X",
+    issuedDate: "1903-11-22",
+    summary:
+      "The motu proprio on sacred music issued by Saint Pius X in the first months of his pontificate, together with an instruction to which he gave the force of law as a juridical code of sacred music. Its introduction explains that the faithful draw the true Christian spirit from its first and indispensable source, active participation in the sacred mysteries and in the public prayer of the Church, and that nothing in church should disturb that prayer. Sacred music must share the qualities of the liturgy — holiness, beauty of form and, as a result, universality. Gregorian chant is the music proper to the Roman Church and its supreme model, to be restored widely, including among the people; classical polyphony, above all that of Palestrina, comes next, while the theatrical style is excluded. The instruction requires Latin in solemn liturgical functions and the integrity of the liturgical texts, treats singers as holding a liturgical office (a role it reserved to men and boys), allows the organ but forbids the piano and noisy instruments in church, and asks every diocese to set up a commission for sacred music. The Holy See publishes the text on vatican.va in Italian, Latin, Spanish and Portuguese.",
+    keyThemes: [
+      "Active participation in the liturgy",
+      "Holiness, beauty and universality of sacred music",
+      "Gregorian chant as the supreme model",
+      "Classical polyphony",
+      "Norms for texts, singers and instruments",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-x/it/motu_proprio/documents/hf_p-x_motu-proprio_19031122_sollecitudini.html",
+    indexUrl: PIUS_X_MOTU_PROPRIO,
+    relatedDocuments: ["sacrosanctum-concilium", "mediator-dei"],
+  }),
+  doc({
+    slug: "ad-diem-illum-laetissimum",
+    title: "Ad Diem Illum Laetissimum",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Saint Pius X",
+    issuedDate: "1904-02-02",
+    summary:
+      "Saint Pius X's encyclical for the fiftieth anniversary of the definition of the Immaculate Conception. Linking the jubilee to his programme of restoring all things in Christ, the Pope explains that there is no surer or easier way to Christ than through Mary: she gave the Son of God his human flesh, lived united with him for thirty years in the intimacy of family life, and stood by him in his passion, so that as mother of Christ she is mother of all the members of his mystical body. Because of this companionship in suffering she became the most powerful mediatrix and dispenser of the graces that Christ alone merited, he remaining by nature the one mediator between God and humanity. True devotion to Mary therefore means imitating her virtues, above all faith, hope and charity, and the dogma itself, which presupposes original sin and the need of redemption, answers the errors of the age. To mark the anniversary the Pope proclaimed an extraordinary jubilee with a plenary indulgence.",
+    keyThemes: [
+      "Fiftieth anniversary of the Immaculate Conception",
+      "Through Mary to Christ",
+      "Mary, mother of the members of Christ's body",
+      "Mary's mediation and the one Mediator",
+      "Imitation of Mary's faith, hope and charity",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-x/en/encyclicals/documents/hf_p-x_enc_02021904_ad-diem-illum-laetissimum.html",
+    indexUrl: PIUS_X_ENCYCLICALS,
+    relatedDocuments: ["ineffabilis-deus", "e-supremi", "redemptoris-mater"],
+  }),
+  doc({
+    slug: "acerbo-nimis",
+    title: "Acerbo Nimis",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Saint Pius X",
+    issuedDate: "1905-04-15",
+    summary:
+      "Saint Pius X's encyclical on teaching Christian doctrine. The Pope finds a chief cause of the decline of faith and morals in widespread ignorance of religion, among the educated as well as the uneducated, since the will cannot be upright where the mind is shrouded in ignorance. The duty of dispelling it falls on every pastor of souls and above all on parish priests, whose first task, as the Council of Trent taught, is the instruction of the faithful; teaching the catechism may win little praise, but it is more fruitful than eloquent preaching. He then lays down binding norms: an hour of catechism for boys and girls every Sunday and holy day; instruction over several days to prepare children for confession and confirmation, and in Lent for first Communion; the canonical establishment of the Confraternity of Christian Doctrine in every parish, so that lay people help in the teaching; religion classes in the cities for young people attending schools from which religion is excluded; and catechism for adults on holy days, in plain language adapted to the hearers.",
+    keyThemes: [
+      "Religious ignorance as a cause of moral decline",
+      "The catechetical duty of parish priests",
+      "Weekly catechism for children",
+      "The Confraternity of Christian Doctrine",
+      "Catechesis of adults",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-x/en/encyclicals/documents/hf_p-x_enc_15041905_acerbo-nimis.html",
+    indexUrl: PIUS_X_ENCYCLICALS,
+    relatedDocuments: ["e-supremi", "catechism-of-the-catholic-church"],
+  }),
+  doc({
+    slug: "il-fermo-proposito",
+    title: "Il Fermo Proposito",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Saint Pius X",
+    issuedDate: "1905-06-11",
+    summary:
+      "Saint Pius X's encyclical to the bishops of Italy on Catholic Action, given on Pentecost 1905. Under that name the Pope gathers the many works by which lay Catholics, in union with the Church's pastors, defend the rights of the Church and seek to restore Jesus Christ to the family, the school and society — and above all to resolve the social question according to Christian principles, as Leo XIII had taught in Rerum Novarum. He commends the organisation of these works around a general Popular Union, with the economic and social institutions grouped about it, and insists that Catholic Action, being a true apostolate, depends on grace and on the virtue of those who take part in it, and that the works serving the Church's spiritual mission are subject to the bishops. While keeping in force the general rule that Catholics in Italy should take no part in parliamentary politics, he allows exceptions where bishops judge the good of souls requires it, and urges Catholics to prepare themselves for political life. He also warns priests not to let social activity crowd out the duties of their ministry.",
+    keyThemes: [
+      "Catholic Action and the lay apostolate",
+      "Restoring Christ to family, school and society",
+      "The social question",
+      "Catholic Action and the bishops",
+      "Catholics and political life in Italy",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-x/en/encyclicals/documents/hf_p-x_enc_11061905_il-fermo-proposito.html",
+    indexUrl: PIUS_X_ENCYCLICALS,
+    relatedDocuments: ["rerum-novarum", "graves-de-communi-re", "apostolicam-actuositatem"],
+  }),
+  doc({
+    slug: "haerent-animo",
+    title: "Haerent Animo",
+    documentType: "apostolic_exhortation",
+    issuingAuthority: "Pope Saint Pius X",
+    issuedDate: "1908-08-04",
+    summary:
+      "The apostolic exhortation that Saint Pius X addressed to the Catholic clergy on the fiftieth anniversary of his own ordination to the priesthood. Convinced that the future of the Church depends on the quality of her priests, he urges them to the holiness their office demands: the priest acts in the name of Christ, and, as Christ himself did, he must teach first by example and then by word. Priestly holiness does not consist simply in spending oneself in activity for others; it rests on the so-called passive virtues, such as humility and obedience, and on union with God, nourished by prayer. The Pope dwells on the necessity of daily meditation and the harm that follows from neglecting it, on spiritual reading and especially the reading of Scripture, and on the daily examination of conscience; he grieves over the faults of some clergy and sets out their present duties; and he recommends the annual spiritual exercises, a monthly retreat, and associations by which priests can support one another. The Holy See publishes the text on vatican.va in Italian and Latin.",
+    keyThemes: [
+      "The holiness of the priest",
+      "Example before word",
+      "The passive virtues and union with God",
+      "Meditation, spiritual reading and examination of conscience",
+      "Retreats and priestly fraternity",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-x/it/apost_exhortations/documents/hf_p-x_exh_19080804_haerent-animo.html",
+    indexUrl: PIUS_X_EXHORTATIONS,
+    relatedDocuments: ["e-supremi", "presbyterorum-ordinis", "sacerdotalis-caelibatus"],
+  }),
+  doc({
+    slug: "sacrorum-antistitum",
+    title: "Sacrorum Antistitum",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Saint Pius X",
+    issuedDate: "1910-09-01",
+    summary:
+      "The motu proprio by which Saint Pius X laid down laws to resist Modernism, three years after the encyclical Pascendi. Observing that the Modernists had not abandoned their aims, the Pope repeats and makes binding the disciplinary measures of that encyclical: scholastic philosophy as the foundation of sacred studies; the careful choice of seminary superiors, professors and candidates for orders; the bishops' vigilance over books, periodicals and publishing, with limits on clerics directing newspapers; restrictions on gatherings of priests; norms for preaching; and a council of vigilance in every diocese. He adds that professors must submit their texts or theses to the bishop, and prescribes an oath against Modernism, to be taken together with the profession of faith of Pius IV by clerics before major orders, by confessors and preachers before receiving their faculties, by parish priests and canons, by officials of diocesan curias and Roman congregations, and by seminary and university teachers. The oath remained in force until 1967. The Holy See publishes the text in Latin.",
+    keyThemes: [
+      "Measures against Modernism",
+      "Scholastic philosophy in sacred studies",
+      "Vigilance over teaching and publications",
+      "Councils of vigilance",
+      "The oath against Modernism",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-x/la/motu_proprio/documents/hf_p-x_motu-proprio_19100901_sacrorum-antistitum.html",
+    indexUrl: PIUS_X_MOTU_PROPRIO,
+    relatedDocuments: ["pascendi-dominici-gregis", "humani-generis"],
+  }),
+  doc({
+    slug: "divino-afflatu",
+    title: "Divino Afflatu",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Saint Pius X",
+    issuedDate: "1911-11-01",
+    summary:
+      "The apostolic constitution by which Saint Pius X reorganised the Psalter in the Roman Breviary, issued on the feast of All Saints 1911. The Pope praises the Psalms, composed under divine inspiration, as the heart of the Church's prayer, and explains that over the centuries the multiplication of the offices of the saints had pushed aside the Sunday and weekday offices, so that many psalms were seldom said; bishops, notably at the First Vatican Council, had asked that the ancient custom of reciting the whole Psalter every week be restored without adding to the burden of the clergy. He therefore abolishes the existing distribution of the psalms and, from 1 January 1913, prescribes a new arrangement for all who are bound to the Roman Breviary, with rubrics that restore the Sunday and weekday psalmody; he presents this as a first step toward the reform of the Breviary and the Missal, for which a commission would be appointed. The Holy See publishes the text in Latin.",
+    keyThemes: [
+      "The Psalms in the Church's prayer",
+      "Reform of the Roman Breviary",
+      "The whole Psalter each week",
+      "The Sunday and weekday office",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-x/la/apost_constitutions/documents/hf_p-x_apc_19111101_divino-afflatu.html",
+    indexUrl: PIUS_X_CONSTITUTIONS,
+    relatedDocuments: ["sacrosanctum-concilium", "tra-le-sollecitudini"],
+  }),
+  doc({
+    slug: "lacrimabili-statu",
+    title: "Lacrimabili Statu",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Saint Pius X",
+    issuedDate: "1912-06-07",
+    summary:
+      "Saint Pius X's encyclical to the archbishops and bishops of Latin America on the condition of the native peoples of South America. Recalling that Benedict XIV had pleaded their cause in 1741, and that slavery properly so called had since been abolished in Brazil and elsewhere with the encouragement of the Church, the Pope deplores reports that in many regions Indians were still being enslaved, sold, robbed and treated with appalling cruelty out of greed, women and children not excepted. He asks the bishops to make the cause their special concern and to support every work for the Indians' good; announces that, hoping for the support of the civil authorities, the Holy See was opening new mission stations where they could find safety and help; and renews the condemnation of all who enslave or traffic in them or teach that it is lawful, reserving absolution for these crimes to the local ordinaries.",
+    keyThemes: [
+      "The native peoples of South America",
+      "Condemnation of enslavement and exploitation",
+      "The pastoral duty of bishops",
+      "New mission stations",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-x/en/encyclicals/documents/hf_p-x_enc_07061912_lacrimabili-statu.html",
+    indexUrl: PIUS_X_ENCYCLICALS,
+    relatedDocuments: ["in-supremo-apostolatus", "in-plurimis"],
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Pope Benedict XV
+  // ---------------------------------------------------------------------------
+  doc({
+    slug: "ad-beatissimi-apostolorum",
+    title: "Ad Beatissimi Apostolorum",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Benedict XV",
+    issuedDate: "1914-11-01",
+    summary:
+      "The first encyclical of Benedict XV, issued on the feast of All Saints 1914, in the first months of the First World War. Grieving over the slaughter, the Pope begs rulers to end the war and looks for its deeper causes in four disorders of modern society: the absence of mutual love among people, contempt for authority, injustice and strife between social classes, and an all-absorbing desire for material goods. Against each he sets the teaching of the Gospel — the new commandment of charity, authority grounded in God, the Christian ordering of social relations, and the detachment that seeks lasting goods. Turning to the life of the Church, he condemns Modernism anew, asks Catholics to drop the labels by which they had begun to divide themselves into factions, urges priests to close union with their bishops, and laments that the Church has lacked full freedom since the Roman Pontiff was deprived of the protection of his temporal sovereignty. He closes with a prayer for peace.",
+    keyThemes: [
+      "An appeal for peace in the First World War",
+      "Four causes of social disorder",
+      "Charity and respect for authority",
+      "Unity among Catholics",
+      "The freedom of the Holy See",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/benedict-xv/en/encyclicals/documents/hf_ben-xv_enc_01111914_ad-beatissimi-apostolorum.html",
+    indexUrl: BENEDICT_XV_ENCYCLICALS,
+    relatedDocuments: ["pacem-dei-munus-pulcherrimum", "pascendi-dominici-gregis"],
+  }),
+  doc({
+    slug: "providentissima-mater-ecclesia",
+    title: "Providentissima Mater Ecclesia",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Benedict XV",
+    issuedDate: "1917-05-27",
+    summary:
+      "The apostolic constitution by which Benedict XV promulgated the Code of Canon Law, the first comprehensive codification of the law of the Latin Church, given at Saint Peter's on Pentecost 1917. The Pope recalls that the Church, as a perfect society, has always had her own laws, but that the canons accumulated over many centuries had become difficult to know and apply, so that Saint Pius X, by his motu proprio Arduum Sane of 1904, ordered them gathered into a single code. He describes the work: canonists from Rome and many nations, coordinated by Cardinal Pietro Gasparri; a commission of cardinals; and the sending of the finished draft to the bishops of the whole world and to the superiors of religious orders for their observations. Having reviewed the whole, he promulgates the Code with perpetual force and decrees that it take effect from Pentecost of the following year, 19 May 1918. This Code governed the Latin Church until it was replaced by the Code of 1983. The Holy See publishes the text on vatican.va in Italian.",
+    keyThemes: [
+      "Promulgation of the 1917 Code of Canon Law",
+      "The codification begun by Saint Pius X",
+      "Consultation of the world's bishops",
+      "The Code's entry into force in 1918",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/benedict-xv/it/bulls/documents/hf_ben-xv_bulls_19170527_providentissima-mater.html",
+    indexUrl: BENEDICT_XV_BULLS,
+    relatedDocuments: ["code-of-canon-law-1983"],
+  }),
+  doc({
+    slug: "humani-generis-redemptionem",
+    title: "Humani Generis Redemptionem",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Benedict XV",
+    issuedDate: "1917-06-15",
+    summary:
+      "Benedict XV's encyclical on the preaching of the Word of God, given on the feast of the Sacred Heart in 1917. The Pope observes that preachers had perhaps never been so numerous, yet public and private morals showed little fruit, and traces the failure to three causes: the wrong people are chosen to preach, they preach with the wrong intention, or they preach in the wrong way. Preaching is the paramount duty of bishops, as the Council of Trent taught, and they must entrust it only to those able to exercise it with profit to souls, examining the character and learning of preachers as carefully as those of confessors. The preacher's aim must be the salvation of souls rather than applause or display; his matter, the truths of faith and the moral law; and his manner, that of Saint Paul, who preached Christ crucified rather than the persuasive words of human wisdom and drew his power from prayer and a holy life.",
+    keyThemes: [
+      "The ministry of preaching",
+      "Preaching as the duty of bishops",
+      "The fitness of preachers",
+      "Right intention and right method",
+      "Saint Paul as the model preacher",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/benedict-xv/en/encyclicals/documents/hf_ben-xv_enc_15061917_humani-generis-redemptionem.html",
+    indexUrl: BENEDICT_XV_ENCYCLICALS,
+    relatedDocuments: ["evangelii-nuntiandi", "verbum-domini"],
+  }),
+  doc({
+    slug: "pacem-dei-munus-pulcherrimum",
+    title: "Pacem, Dei Munus Pulcherrimum",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Benedict XV",
+    issuedDate: "1920-05-23",
+    summary:
+      "Benedict XV's encyclical on peace and Christian reconciliation, given on Pentecost 1920 after the treaties that ended the First World War. The Pope rejoices that peace has at last been signed but warns that it cannot last if hatred and hostility survive among the nations. He recalls the Gospel precept of mutual charity and the command to forgive and to love one's enemies, and asks the bishops to lead the faithful to lay aside bitterness and to support the works of charity needed in lands devastated by war and famine. What he asks of individuals he asks also of peoples, who should resume friendly relations so far as justice allows. To encourage concord he relaxes the restrictions his predecessors had placed on official visits to Rome by the heads of Catholic states, while renewing the Holy See's protest over its situation, and he expresses the hope that all states might unite in a league, a kind of family of nations, to safeguard their independence and the order of human society, a work to which the Church would gladly lend her help.",
+    keyThemes: [
+      "Peace after the First World War",
+      "Forgiveness and love of enemies",
+      "Charity toward the victims of war",
+      "Reconciliation between nations",
+      "A league of nations",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/benedict-xv/en/encyclicals/documents/hf_ben-xv_enc_23051920_pacem-dei-munus-pulcherrimum.html",
+    indexUrl: BENEDICT_XV_ENCYCLICALS,
+    relatedDocuments: ["ad-beatissimi-apostolorum", "pacem-in-terris"],
+  }),
+  doc({
+    slug: "spiritus-paraclitus",
+    title: "Spiritus Paraclitus",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Benedict XV",
+    issuedDate: "1920-09-15",
+    summary:
+      "Benedict XV's encyclical on Saint Jerome, written for the fifteenth centenary of his death. It recounts Jerome's life — his studies in Rome, his years in the desert and at Constantinople, the revision of the Latin Bible entrusted to him by Pope Damasus, and his long labours at Bethlehem — and then sets out his teaching on Scripture as the teaching of the whole Church: the sacred books, written under the inspiration of the Holy Spirit, have God for their author and are wholly free from error. On that basis the Pope rejects recent attempts to confine inerrancy to the religious or primary elements of the Bible, to treat its historical passages as recording only relative truth or popular opinion, or to undermine the historical trustworthiness of the Gospels. He closes with Jerome's counsel to all who study and love Scripture — piety, humility and daily reading of the sacred text — and commends the Society of Saint Jerome, which he had helped to found to put the Gospels and Acts into the hands of as many families as possible.",
+    keyThemes: [
+      "Saint Jerome, Doctor of Scripture",
+      "Inspiration and inerrancy of Scripture",
+      "The historical truth of the Bible",
+      "Daily reading of Scripture",
+      "The Society of Saint Jerome",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/benedict-xv/en/encyclicals/documents/hf_ben-xv_enc_15091920_spiritus-paraclitus.html",
+    indexUrl: BENEDICT_XV_ENCYCLICALS,
+    relatedDocuments: ["providentissimus-deus", "divino-afflante-spiritu", "dei-verbum"],
+  }),
+  doc({
+    slug: "principi-apostolorum-petro",
+    title: "Principi Apostolorum Petro",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Benedict XV",
+    issuedDate: "1920-10-05",
+    summary:
+      "Benedict XV's encyclical on Saint Ephrem the Syrian, in which he declared Ephrem a Doctor of the Universal Church. Opening from the primacy of Peter and the recourse of the great Eastern Fathers to the Apostolic See, and rejoicing that many Eastern Christians had regained their freedom after the war, the Pope presents Ephrem alongside Jerome, whom he had just honoured: near contemporaries, both monks living in Syria and devoted to the Scriptures, two lights for the East and the West. He recounts Ephrem's life at Nisibis and Edessa, his humility in remaining a deacon, his charity during a famine, and his vast work of commentaries, sermons and hymns, which earned him the name of lyre of the Holy Spirit and show how poetry and music can serve sacred doctrine. Invoking the Holy Spirit, he confers on Ephrem the title and honours of Doctor of the Universal Church, with his feast on 18 June, and prays for the return of the separated Eastern Churches to unity with Rome.",
+    keyThemes: [
+      "Saint Ephrem, Doctor of the Universal Church",
+      "The Eastern Fathers and the Apostolic See",
+      "Ephrem's life at Nisibis and Edessa",
+      "Hymnody in the service of doctrine",
+      "Unity with the Eastern Churches",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/benedict-xv/en/encyclicals/documents/hf_ben-xv_enc_05101920_principi-apostolorum-petro.html",
+    indexUrl: BENEDICT_XV_ENCYCLICALS,
+    relatedDocuments: ["spiritus-paraclitus", "orientalium-ecclesiarum"],
+  }),
+  doc({
+    slug: "in-praeclara-summorum",
+    title: "In Praeclara Summorum",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Benedict XV",
+    issuedDate: "1921-04-30",
+    summary:
+      "Benedict XV's encyclical to teachers and students of letters and learning for the sixth centenary of the death of Dante Alighieri. The Pope claims Dante for the Church, which has a special right to call him her own, and recalls that he had already supported the restoration of the church at Ravenna where the poet is buried. He shows how the Divine Comedy and Dante's other works rest on the Catholic faith: reverence for Scripture, whose principal author is God; respect for the authority of the Church and of the Roman Pontiff; and a treasury of Christian philosophy and theology, including the principles of justice by which states should be governed. Dante's genius, the Pope argues, was not hindered but raised by his faith, which refutes the claim that obedience to God stifles learning and shows the harm of banishing religion from education; he asks students to continue to love and study the poet, whose greatness owes so much to the faith.",
+    keyThemes: [
+      "Sixth centenary of Dante's death",
+      "Dante's Catholic faith",
+      "Scripture and the authority of the Church in Dante",
+      "Faith as the inspiration of art and learning",
+      "Religion in education",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/benedict-xv/en/encyclicals/documents/hf_ben-xv_enc_30041921_in-praeclara-summorum.html",
+    indexUrl: BENEDICT_XV_ENCYCLICALS,
+    relatedDocuments: ["aeterni-patris"],
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Pope Pius XI
+  // ---------------------------------------------------------------------------
+  doc({
+    slug: "ubi-arcano-dei-consilio",
+    title: "Ubi Arcano Dei Consilio",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1922-12-23",
+    summary:
+      "The first encyclical of Pius XI, on the peace of Christ in the kingdom of Christ. Surveying a world that four years after the Great War had still not found true peace, the Pope describes the resentments between nations, the war between classes, the weakening of family life and the general unrest, and traces them to the threefold concupiscence of the flesh, of the eyes and of the pride of life, and to the banishing of God and of Christ from public life and from the school. Real peace cannot be produced by treaties alone; it is the peace of Christ, founded on justice and made gentle by charity, and it can exist only where Christ reigns over individuals, families and nations, with the Church as the sure guide of consciences. Uniting the programmes of his two predecessors, the Pope takes as his own motto the peace of Christ in the kingdom of Christ. He condemns a social, legal and moral modernism alongside the theological, calls the laity to share in the apostolate in union with their bishops, speaks cautiously of reconvening the interrupted Vatican Council, and voices his sorrow at the unresolved Roman Question with Italy.",
+    keyThemes: [
+      "The peace of Christ in the kingdom of Christ",
+      "The causes of unrest after the Great War",
+      "Justice and charity as the foundations of peace",
+      "The lay apostolate",
+      "Social and moral modernism",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_19221223_ubi-arcano-dei-consilio.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: ["quas-primas", "e-supremi", "pacem-dei-munus-pulcherrimum"],
+  }),
+  doc({
+    slug: "studiorum-ducem",
+    title: "Studiorum Ducem",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1923-06-29",
+    summary:
+      "Pius XI's encyclical on Saint Thomas Aquinas for the sixth centenary of his canonisation. The Pope presents Thomas first as a saint in whom learning was joined to holiness — humility, purity and prayer, with the crucified Christ as his book — and then as the master of the sacred sciences: the philosopher who best explained the nature and divisions of philosophy and its harmony with faith; the theologian who expounded the mysteries of the faith, from the inner life of God to his providential government of the world, with unmatched depth; the teacher of moral, social and political doctrine; and a guide in ascetical and mystical theology. He asks that young students in particular take Thomas as their model in humility and purity, and, as the Egyptians were once sent to Joseph for bread, he sends all who hunger for truth to Thomas. The centenary was to be kept wherever young clerics are trained, and the feast of Thomas, patron of all Catholic schools, marked with a holiday from lessons and a solemn disputation; debates among his followers are to be carried on within a just freedom and without the bitterness that wounds charity. The Holy See publishes the text on vatican.va in Italian and Latin.",
+    keyThemes: [
+      "Sixth centenary of the canonisation of Saint Thomas",
+      "Holiness joined to learning",
+      "Thomas as master of philosophy and theology",
+      "Thomas as patron of Catholic schools",
+      "Charity and freedom in theological debate",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/it/encyclicals/documents/hf_p-xi_enc_19230629_studiorum-ducem.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: ["aeterni-patris", "fides-et-ratio"],
+  }),
+  doc({
+    slug: "rerum-ecclesiae",
+    title: "Rerum Ecclesiae",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XI",
+    issuedDate: "1926-02-28",
+    summary:
+      "Pius XI's encyclical on the Catholic missions. Mission, the Pope teaches, is a duty of charity for every Catholic, and he asks bishops to promote it in their dioceses through prayer, vocations and the Missionary Union of the Clergy, and through generous support of the pontifical mission societies: the Society for the Propagation of the Faith, which he had transferred to Rome; the Association of the Holy Childhood; and the Society of Saint Peter the Apostle, whose heavenly patroness he had made Saint Thérèse of the Child Jesus. To the heads of missions he gives practical direction. Above all they must build up a native clergy, able in time to lead their own Churches without depending on foreign missionaries, since the faith was first planted in that way and the foreign missionary is hampered by language and custom; they should increase the number of catechists, preferably drawn from the local people; welcome contemplative communities into mission lands; and avoid churches and buildings too costly for the young Churches.",
+    keyThemes: [
+      "The missionary duty of all Catholics",
+      "The pontifical mission societies",
+      "A native clergy for the young Churches",
+      "Catechists in the missions",
+      "Contemplative life in mission lands",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xi/en/encyclicals/documents/hf_p-xi_enc_28021926_rerum-ecclesiae.html",
+    indexUrl: PIUS_XI_ENCYCLICALS,
+    relatedDocuments: ["fidei-donum", "ad-gentes", "redemptoris-missio"],
   }),
 ];
