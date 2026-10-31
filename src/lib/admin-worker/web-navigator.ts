@@ -15,6 +15,13 @@
  * RSS, internal-link, configured-URL, directory, and search-page
  * discovery live in their own modules (`*-discovery.ts`); they call
  * `discoverFromHost` to persist the candidates they find.
+ *
+ * `discoverCandidate` is the single place a discovered URL becomes a
+ * candidate row, so it is also where the shared URL-shape filter runs
+ * (`screenCandidateUrl`, candidate-url-hygiene.ts): Cloudflare challenge
+ * endpoints, CMS endpoints, account / cart / search pages and non-http links
+ * are never stored, and tracking parameters are stripped before the URL
+ * becomes the dedupe key.
  */
 
 import type {
@@ -24,6 +31,7 @@ import type {
 } from "@prisma/client";
 
 import { isFetchableHost } from "@/lib/checklist";
+import { screenCandidateUrl } from "./candidate-url-hygiene";
 
 export class UnapprovedHostError extends Error {
   constructor(host: string) {
@@ -69,29 +77,37 @@ export interface DiscoverCandidateInput {
 }
 
 /**
- * Insert a candidate URL after host-allowlist + junk-pattern checks.
- * Returns `null` when the URL was rejected (callers should treat this
+ * Insert a candidate URL after URL-shape + host-allowlist + junk-pattern
+ * checks. Returns `null` when the URL was rejected (callers should treat this
  * as expected, not an error — the navigator constantly filters noise).
+ *
+ * A junk URL SHAPE (a Cloudflare challenge, a login or search page, …) is
+ * dropped without writing a row: those URLs are endless (every challenge id is
+ * new), so recording each one would only grow the table. The URL is stored in
+ * its canonical form (no fragment, no tracking parameters).
  */
 export async function discoverCandidate(
   prisma: PrismaClient,
   input: DiscoverCandidateInput,
 ): Promise<{ id: string; status: CandidateSourceUrlStatus } | null> {
+  const shape = screenCandidateUrl(input.url);
+  if (!shape.ok) return null;
+  const url = shape.url;
   let host = input.sourceHost;
   try {
-    host = new URL(input.url).host;
+    host = new URL(url).host;
   } catch {
     return null;
   }
   if (!isFetchableHost(host)) {
     return null;
   }
-  const junk = isJunkUrl(input.url);
+  const junk = isJunkUrl(url);
   if (junk.junk) {
     await prisma.candidateSourceUrl.upsert({
-      where: { discoveredUrl: input.url },
+      where: { discoveredUrl: url },
       create: {
-        discoveredUrl: input.url,
+        discoveredUrl: url,
         sourceHost: host,
         sourceId: input.sourceId,
         discoveryMethod: input.discoveryMethod,
@@ -109,9 +125,9 @@ export async function discoverCandidate(
   }
 
   const row = await prisma.candidateSourceUrl.upsert({
-    where: { discoveredUrl: input.url },
+    where: { discoveredUrl: url },
     create: {
-      discoveredUrl: input.url,
+      discoveredUrl: url,
       sourceHost: host,
       sourceId: input.sourceId,
       discoveryMethod: input.discoveryMethod,

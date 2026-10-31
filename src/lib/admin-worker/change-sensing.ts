@@ -28,6 +28,8 @@ import { createHash } from "node:crypto";
 
 import type { PrismaClient } from "@prisma/client";
 
+import { screenCandidateUrl } from "./candidate-url-hygiene";
+
 const MEMORY_TYPE = "GENERIC" as const;
 const CADENCE_PREFIX = "change.cadence.";
 
@@ -433,7 +435,12 @@ export async function runFreshnessSweep(
   const all = await rankStaleSources(prisma, { limit: (opts.limit ?? 25) * 2 });
   // Operator-supplied files are not web pages: they cannot be re-fetched, and
   // queueing them would put an unfetchable URL at the head of the fetch queue.
-  const stale = all.filter((s) => /^https?:\/\//i.test(s.sourceUrl)).slice(0, opts.limit ?? 25);
+  // The same goes for a junk URL shape read before discovery screened them (a
+  // Cloudflare challenge, a search page): re-queueing it would only re-arm the
+  // fetch it can never satisfy.
+  const stale = all
+    .filter((s) => /^https?:\/\//i.test(s.sourceUrl) && screenCandidateUrl(s.sourceUrl).ok)
+    .slice(0, opts.limit ?? 25);
   const out: FreshnessSweepResult = { overdue: stale.length, requeued: 0, hosts: [] };
   if (stale.length === 0) return out;
 
