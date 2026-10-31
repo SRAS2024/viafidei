@@ -20,6 +20,7 @@ import { EVENTS_1 } from "@/lib/content-shared/church-history/events-1";
 import { EVENTS_2 } from "@/lib/content-shared/church-history/events-2";
 import { EVENTS_3 } from "@/lib/content-shared/church-history/events-3";
 import { EVENTS_4 } from "@/lib/content-shared/church-history/events-4";
+import { EVENTS_6 } from "@/lib/content-shared/church-history/events-6";
 import { apparitionKnowledge } from "@/lib/checklist/knowledge/apparitions";
 import { churchDocumentKnowledge } from "@/lib/checklist/knowledge/church-documents";
 import { churchHistoryKnowledge } from "@/lib/checklist/knowledge/church-history";
@@ -31,24 +32,39 @@ import { buildTimeline } from "@/lib/content-shared/church-history/timeline";
 
 const CURRENT_YEAR = new Date().getUTCFullYear();
 const slugsOf = (entries: Array<{ slug: string }>) => new Set(entries.map((e) => e.slug));
+const PARTS = [EVENTS_1, EVENTS_2, EVENTS_3, EVENTS_4, EVENTS_6];
 
 describe("CHURCH_HISTORY_EVENTS dataset", () => {
   it("aggregates every part, sorted chronologically", () => {
-    expect(CHURCH_HISTORY_EVENTS).toHaveLength(
-      EVENTS_1.length + EVENTS_2.length + EVENTS_3.length + EVENTS_4.length,
-    );
-    // The curated spine is four reviewed parts of 58. Pinning the totals is a
-    // tripwire: a part that fails to load, or is truncated by a bad merge,
-    // silently shrinks the timeline instead of failing. Raise these numbers
-    // deliberately when events are added.
-    for (const part of [EVENTS_1, EVENTS_2, EVENTS_3, EVENTS_4]) expect(part).toHaveLength(58);
-    expect(CHURCH_HISTORY_EVENTS).toHaveLength(232);
+    // Invariants, not pinned totals, so curating more events never needs a
+    // test edit — yet a part that fails to load, or is truncated by a bad
+    // merge, still fails here instead of silently shrinking the timeline:
+    // the aggregate is exactly the sum of its parts and holds every part's
+    // events, and the original reviewed spine (four parts of 58) never shrinks.
+    expect(CHURCH_HISTORY_EVENTS).toHaveLength(PARTS.reduce((n, part) => n + part.length, 0));
+    const merged = new Set(CHURCH_HISTORY_EVENTS.map((e) => e.slug));
+    for (const part of PARTS) {
+      expect(part.length).toBeGreaterThan(0);
+      for (const e of part) expect(merged.has(e.slug), e.slug).toBe(true);
+    }
+    for (const part of [EVENTS_1, EVENTS_2, EVENTS_3, EVENTS_4]) {
+      expect(part.length).toBeGreaterThanOrEqual(58);
+    }
     for (let i = 1; i < CHURCH_HISTORY_EVENTS.length; i++) {
       expect(compareHistoryEvents(CHURCH_HISTORY_EVENTS[i - 1]!, CHURCH_HISTORY_EVENTS[i]!)).toBe(
         -1,
       );
     }
     expect(CHURCH_HISTORY_EVENTS[0]?.slug).toBe("pentecost");
+  });
+
+  it("keeps the Fathers part inside its era", () => {
+    const fathers = HISTORY_ERAS.find((era) => era.key === "fathers")!;
+    for (const e of EVENTS_6) {
+      expect(e.era, e.slug).toBe("fathers");
+      expect(e.year, e.slug).toBeGreaterThanOrEqual(fathers.from);
+      expect(e.year, e.slug).toBeLessThan(fathers.to);
+    }
   });
 
   it("has unique slugs", () => {
