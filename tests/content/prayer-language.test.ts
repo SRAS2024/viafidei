@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
+import { buildPrayerVariants, resolvePrayerLanguage } from "@/lib/content-shared/prayer-language";
 
 describe("buildPrayerVariants (Latin / Greek prayer language support)", () => {
   it("returns a single English variant when only body is present", () => {
@@ -96,5 +96,29 @@ describe("buildPrayerVariants (Latin / Greek prayer language support)", () => {
   it("returns an empty list when there is no usable text at all", () => {
     expect(buildPrayerVariants({})).toEqual([]);
     expect(buildPrayerVariants({ body: "   " })).toEqual([]);
+  });
+});
+
+describe("resolvePrayerLanguage (what every language chip row shows)", () => {
+  const variants = buildPrayerVariants({ body: "Our Father...", latin: "Pater noster..." });
+
+  it("offers every language but the vernacular, and shows the vernacular by default", () => {
+    const r = resolvePrayerLanguage(variants, null);
+    expect(r.vernacular?.code).toBe("en");
+    expect(r.alternates.map((v) => v.code)).toEqual(["la"]);
+    expect(r.shown?.text).toBe("Our Father...");
+  });
+
+  it("shows the chosen language, falling back to the vernacular when the prayer lacks it", () => {
+    expect(resolvePrayerLanguage(variants, "la").shown?.text).toBe("Pater noster...");
+    expect(resolvePrayerLanguage(variants, "el").shown?.text).toBe("Our Father...");
+  });
+
+  it("treats a Latin-only prayer's Latin as its text, with nothing to switch to", () => {
+    const latinOnly = buildPrayerVariants({ latin: "Salve Regina..." });
+    const r = resolvePrayerLanguage(latinOnly, null);
+    expect(r.shown?.code).toBe("la");
+    expect(r.alternates).toEqual([]);
+    expect(resolvePrayerLanguage([], "la").shown).toBeUndefined();
   });
 });
