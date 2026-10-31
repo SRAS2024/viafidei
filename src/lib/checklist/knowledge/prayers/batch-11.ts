@@ -4,6 +4,8 @@ const TPL = "https://www.preces-latinae.org/thesaurus/";
 const BRITT = "https://archive.org/details/hymnsofbreviarym00britrich/page/";
 const DRBO = "https://www.drbo.org/chapter/";
 const DR_1899 = "https://archive.org/details/holybibletransla00denv/page/";
+const HOLY_WEEK_1875 = "https://archive.org/details/completeofficeh00churgoog/page/";
+const LITTLE_OFFICE_1915 = "https://archive.org/details/littleofficeofbl00newy/page/";
 
 /**
  * Batch 11 of the curated prayer catalogue: hymns of the Roman Breviary and the
@@ -121,6 +123,31 @@ const DR_1899 = "https://archive.org/details/holybibletransla00denv/page/";
  * two editions differ in form ("shew" for "show", "Woe" for "Wo", "riseth" for
  * "raiseth", "commandedst" for "commandest", "name's sake" for "name sake")
  * are kept as the cited page prints them.
+ *
+ * Four chants of Holy Week, the Exultet, the Ubi caritas of the washing of the
+ * feet, the Reproaches and the antiphon Crucem tuam adoramus, are copied from
+ * The Complete Office of Holy Week, according to the Roman Missal and
+ * Breviary, in Latin and English (New York: Benziger, 1875), which prints the
+ * Latin and an anonymous English version side by side. Only the sung text is
+ * given: the rubrics that interrupt it are left out, and so are the repeats the
+ * rubrics call for (the Trisagion after each of the first three Reproaches,
+ * the refrain Popule meus after each later verse). The book's abbreviations of
+ * repeated antiphons ("Ubi charitas, etc.") and its punctuation are kept,
+ * including "O how admirable! is thy goodness towards us!" in the Exultet; its
+ * one plain misprint, "per omni saecula" at the end of the Exultet, is
+ * corrected to "per omnia saecula".
+ *
+ * Sixteen texts of the Office of the Dead and the burial service (the
+ * responsories Subvenite, Libera me, Credo quod Redemptor, Qui Lazarum, Ne
+ * recorderis and Peccantem me, the antiphon In paradisum, and the collects
+ * for the dead) come from The Little Office of the Blessed Virgin Mary and the
+ * Office of the Dead in Latin and English (New York: Benziger Brothers, 1915),
+ * which prints the accented Latin and an English version on facing pages.
+ * Both are copied as printed, accents, asterisks, "R." and "V." included;
+ * where the book's English of the burial service uses the feminine and its
+ * Latin the masculine form, that is kept and the summary says so. Collects
+ * the catalogue already holds in another version (for deceased parents, for
+ * benefactors, Fidelium Deus omnium) were left out.
  */
 export const prayerBatch11: CuratedEntry[] = [
   {
@@ -3864,6 +3891,467 @@ export const prayerBatch11: CuratedEntry[] = [
       occasions: ["praise", "adoration", "trinity-sunday"],
       relatedSaints: ["saint-paul"],
       citations: [`${DRBO}52011.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "exultet-easter-proclamation",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [
+      `${HOLY_WEEK_1875}424/mode/1up`,
+      `${HOLY_WEEK_1875}425/mode/1up`,
+      `${HOLY_WEEK_1875}426/mode/1up`,
+      `${HOLY_WEEK_1875}427/mode/1up`,
+      `${HOLY_WEEK_1875}428/mode/1up`,
+      `${HOLY_WEEK_1875}429/mode/1up`,
+      `${HOLY_WEEK_1875}430/mode/1up`,
+    ],
+    payload: {
+      slug: "exultet-easter-proclamation",
+      title:
+        "Exultet jam angelica turba (Let now the heavenly troop of angels rejoice): The Easter Proclamation",
+      body: "Let now the heavenly troop of angels rejoice; let the divine mysteries be joyfully celebrated; and let a sacred trumpet proclaim the victory of so great a king. Let the earth also be filled with joy, being illuminated with such resplendent rays; and let it see the darkness, which overspread the whole world, chased away by the splendor of our eternal king. Let our mother the Church also rejoice, being adorned by the rays of so great a light; and let this temple resound with the joyful acclamations of the people. Wherefore, beloved brethren, you who are now present at the admirable brightness of this holy light, I beseech you to invoke with me the name of the Almighty God. That he, who hath been pleased above my desert to admit me into the number of the Levites, will, by an effusion of his light upon me, enable me to celebrate the praises of this emblematic taper: through our Lord Jesus Christ, his Son: who with him and the Holy Ghost liveth and reigneth one God for ever and ever.\n\nR. Amen.\nV. The Lord be with you.\nR. And with thy spirit.\nV. Lift up your hearts.\nR. We have them lifted up to the Lord.\nV. Let us give thanks to the Lord our God.\nR. It is meet and just.\n\nIt is truly meet and just to proclaim with all the affection of our heart and soul, and with the sound of our voice, the invisible God, the Father Almighty, and his only Son, our Lord Jesus Christ. Who paid for us to his eternal Father the debt of Adam; and by his sacred blood cancelled the guilt contracted by original sin. For this is the Paschal solemnity, in which the true Lamb was slain, by whose blood the doors of the faithful are consecrated. This is the night in which thou formerly broughtest forth our forefathers the children of Israel out of Egypt, leading them dry-foot through the Red Sea. This then is the night which dissipated the darkness of sin, by the light of the pillar. This is the night which now delivers all over the world those that believe in Christ from the vices of the world and darkness of sin, restores them to grace, and clothes with sanctity. This is the night in which Christ broke the chains of death, and ascended conqueror from hell. O how admirable! is thy goodness towards us! O how inestimable is thy love! Thou hast delivered up thy Son to redeem a slave. O truly necessary sin of Adam, which the death of Christ has blotted out! O happy fault that merited such and so great a Redeemer! O truly blessed night! which alone deserved to know the time and hour when Christ rose again from hell. This is the night of which it is written: And the night shall be as light as day; and the night shineth upon me in my pleasures. Therefore the sanctification of this night blots out crimes, washes away sins, and restores innocence to the fallen, and joy to the sorrowful. It banishes enmities, produces concord, and humbles empires.\n\nTherefore, on this sacred night, receive, O holy Father! the evening sacrifice of this incense, which thy holy Church, by the hands of her ministers, presents to thee in this solemn oblation of this wax candle, made out of the labor of bees. And now we know the excellence of this pillar, which the sparkling fire lights for the honor of God.\n\nWhich fire, though now divided, suffers no loss from the communication of its light. Because it is fed by the melted wax, produced by the bee, to make this taper.\n\nO truly blessed night! which plundered the Egyptians, and enriched the Hebrews. A night in which heaven is united to earth, and God to man. We beseech thee, therefore, O Lord! that this candle, consecrated to the honor of thy name, may continue burning to dissipate the darkness of this night; and being accepted as a sweet odor, may be united with the celestial lights. Let the morning-star find it burning. That morning-star, I mean, which never sets. Which, being returned from hell, shone with brightness on mankind. We beseech thee, therefore, O Lord! to grant us peace during this paschal solemnity, and with thy constant protection to rule, govern, and preserve us, thy servants, all the Clergy, and the devout Laity, together with our Holy Father, Pope N.; and our Bishop, N.; through the same Lord Jesus Christ, thy Son, who with thee and the Holy Ghost liveth and reigneth one God, for ever and ever.\n\nR. Amen.",
+      prayerType: "hymn",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Exultet jam angelica turba cœlorum: exultent divina mysteria; et pro tanti regis victoria, tuba insonet salutaris. Gaudeat et tellus tantis irradiata fulgoribus; et æterni regis splendore illustrata, totius orbis se sentiat amisisse caliginem. Lætetur et mater Ecclesia tanti luminis adornata fulgoribus: et magnis populorum vocibus hæc aula resultet. Quapropter adstantes vos, fratres clarissimi, ad tam miram hujus sancti luminis claritatem, una mecum, quæso, Dei omnipotentis misericordiam invocate. Ut qui me non meis meritis intra Levitarum numerum dignatus est aggregare, luminis sui claritatem infundens, cerei hujus laudem implere perficiat. Per Dominum nostrum Jesum Christum Filium suum: qui cum eo vivit et regnat in unitate Spiritus sancti Deus, per omnia sæcula sæculorum.\n\nR. Amen.\nV. Dominus vobiscum.\nR. Et cum spiritu tuo.\nV. Sursum corda.\nR. Habemus ad Dominum.\nV. Gratias agamus Domino Deo nostro.\nR. Dignum et justum est.\n\nVere dignum et justum est, invisibilem Deum Patrem omnipotentem, Filiumque ejus unigenitum, Dominum nostrum Jesum Christum, toto cordis ac mentis affectu, et vocis ministerio personare. Qui pro nobis æterno Patri, Adæ debitum solvit; et veteris piaculi cautionem pio cruore detersit. Hæc sunt enim festa Paschalia, in quibus verus ille Agnus occiditur, cujus sanguine postes fidelium consecrantur. Hæc nox est, in qua primum patres nostros filios Israel eductos de Ægypto, Mare Rubrum sicco vestigio transire fecisti. Hæc igitur nox est, quæ peccatorum tenebras, columnæ illuminatione purgavit. Hæc nox est, quæ hodie per universum mundum, in Christo credentes, a vitiis sæculi, et caligine peccatorum segregatos reddit gratiæ, sociat sanctitati. Hæc nox est, in qua destructis vinculis mortis, Christus ab inferis victor ascendit. Nihil enim nobis nasci profuit, nisi redimi profuisset. O mira circa nos tuæ pietatis dignatio! O inæstimabilis dilectio charitatis! ut servum redimeres, filium tradidisti. O certe necessarium Adæ peccatum, quod Christi morte deletum est! O felix culpa, quæ talem ac tantum meruit habere Redemptorem! O vere beata nox, quæ sola meruit scire tempus et horam, in qua Christus ab inferis resurrexit! Hæc nox est, de qua scriptum est: Et nox sicut dies illuminabitur; et nox illuminatio mea in deliciis meis. Hujus igitur sanctificatio noctis fugat scelera culpas lavat, et reddit innocentiam lapsis, et mœstis lætitiam. Fugat odia, concordiam parat, et curvat imperia.\n\nIn hujus igitur noctis gratia, suscipe, sancte Pater, incensi hujus sacrificium vespertinum, quod tibi in hac cerei oblatione solemni, per ministrorum manus, de operibus apum, sacrosancta reddit Ecclesia. Sed jam columnæ hujus præconia novimus, quam in honorem Dei rutilans ignis accendit.\n\nQui licet sit divisus in partes, mutuati tamen luminis detrimenta non novit. Alitur enim liquantibus ceris, quas in substantiam pretiosæ hujus lampadis, apis mater eduxit.\n\nO vere beata nox, quæ expoliavit Ægyptios, ditavit Hebræos! Nox in qua terrenis cœlestia, humanis divina junguntur. Oramus ergo te, Domine, ut cereus iste in honorem tui nominis consecratus, ad noctis hujus caliginem destruendam, indeficiens perseveret; et in odorem suavitatis acceptus, supernis luminaribus misceatur. Flammas ejus lucifer matutinus inveniat. Ille, inquam, lucifer, qui nescit occasum. Ille, qui regressus ab inferis, humano generi serenus illuxit. Precamur ergo te, Domine: ut nos famulos tuos, omnemque clerum, et devotissimum populum, una cum beatissimo Papa nostro N., et Antistite nostro N., quiete temporum concessa, in his Paschalibus gaudiis, assidua protectione regere, gubernare, et conservare digneris. Per eundem Dominum nostrum Jesum Christum Filium tuum: qui tecum vivit et regnat in unitate Spiritus sancti Deus, per omnia sæcula sæculorum.\n\nR. Amen.",
+      summary:
+        "The Paschal proclamation sung by the deacon at the blessing of the Paschal candle on Holy Saturday, in the form of the Roman Missal of the time: the angels, the earth and Mother Church are bidden to rejoice; in the great thanksgiving that follows, this is the night of the Passover and the pillar of fire, the night in which Christ broke the chains of death, and the necessary sin of Adam is hailed as the happy fault that won so great a Redeemer; the candle is then offered as an evening sacrifice, that the morning star which never sets may find it burning. The deacon's opening plea for prayer, the dialogue before the thanksgiving and the closing prayer for the Pope, the bishop and the people are given as printed. English and Latin are taken from The Complete Office of Holy Week (New York: Benziger, 1875), where they are printed side by side; the rubrics that interrupt the text are left out.",
+      occasions: ["easter-vigil", "holy-week", "easter"],
+      relatedSaints: [],
+      citations: [
+        `${HOLY_WEEK_1875}424/mode/1up`,
+        `${HOLY_WEEK_1875}425/mode/1up`,
+        `${HOLY_WEEK_1875}426/mode/1up`,
+        `${HOLY_WEEK_1875}427/mode/1up`,
+        `${HOLY_WEEK_1875}428/mode/1up`,
+        `${HOLY_WEEK_1875}429/mode/1up`,
+        `${HOLY_WEEK_1875}430/mode/1up`,
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "ubi-caritas-et-amor",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${HOLY_WEEK_1875}279/mode/1up`, `${HOLY_WEEK_1875}280/mode/1up`],
+    payload: {
+      slug: "ubi-caritas-et-amor",
+      title: "Ubi caritas et amor (Where charity and love are, there is God)",
+      body: "Ant. Where charity and love are, there is God.\nV. The love of Christ hath gathered us together.\nV. Let us rejoice in him and be glad.\nV. Let us fear and love the living God.\nV. And let us love one another with a sincere heart.\n\nAnt. Where charity, etc.\nV. When therefore we are assembled.\nV. Let us take heed we be not divided in mind.\nV. Let malicious quarrels and contentions cease.\nV. And let Christ our God dwell among us.\n\nAnt. Where charity, etc.\nV. Let us also with the blessed see.\nV. Thy face in glory, O Christ, our God!\nV. There to possess an immense and happy joy.\nV. For infinite ages of ages. Amen.",
+      prayerType: "hymn",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Ant. Ubi charitas et amor, Deus ibi est.\nV. Congregavit nos in unum Christi amor.\nV. Exultemus, et in ipso jucundemur.\nV. Timeamus et amemus Deum vivum.\nV. Et ex corde diligamus nos sincero.\n\nAnt. Ubi charitas et amor, Deus ibi est.\nV. Simul ergo cum in unum congregamur.\nV. Ne nos mente dividamur, caveamus.\nV. Cessent jurgia maligna, cessent lites.\nV. Et in medio nostri sit Christus Deus.\n\nAnt. Ubi charitas, etc.\nV. Simul quoque cum beatis videamus.\nV. Glorianter vultum tuum, Christe Deus.\nV. Gaudium quod est immensum, atque probum.\nV. Sæcula per infinita sæculorum. Amen.",
+      summary:
+        "The antiphon sung at the washing of the feet (the Mandatum) on Maundy Thursday: where charity and love are, there is God; the love of Christ has gathered us into one, so let quarrels cease and Christ our God be in our midst, that with the blessed we may see his face in glory for endless ages. The text is commonly dated to the eighth or ninth century. English and Latin are taken from The Complete Office of Holy Week (New York: Benziger, 1875), which prints them side by side and abbreviates the repeated antiphon as shown.",
+      occasions: ["holy-thursday", "holy-week", "for-the-church"],
+      relatedSaints: [],
+      citations: [`${HOLY_WEEK_1875}279/mode/1up`, `${HOLY_WEEK_1875}280/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "improperia-reproaches-of-good-friday",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [
+      `${HOLY_WEEK_1875}366/mode/1up`,
+      `${HOLY_WEEK_1875}367/mode/1up`,
+      `${HOLY_WEEK_1875}368/mode/1up`,
+      `${HOLY_WEEK_1875}369/mode/1up`,
+    ],
+    payload: {
+      slug: "improperia-reproaches-of-good-friday",
+      title: "Popule meus (My people! what have I done to thee?): The Reproaches of Good Friday",
+      body: "My people! what have I done to thee? Or in what have I grieved thee? Answer me.\n\nV. Because I brought thee out of the land of Egypt: thou hast prepared a cross for thy Saviour.\n\nHoly God.\nHoly God.\nHoly and strong God.\nHoly and strong God.\nHoly and immortal God! have mercy on us.\nHoly and immortal God! have mercy on us.\n\nV. Because I led thee through the desert forty years and fed thee with manna and brought thee into an excellent land; thou hast prepared a cross for thy Saviour.\n\nV. What more should I have done to thee, and have not done? I have planted thee for my most beautiful vineyard: and thou hast proved very bitter to me: for in my thirst thou gavest me vinegar to drink; and with a spear thou hast pierced the side of thy Saviour.\n\nV. For thy sake I scourged Egypt with her first-born; and thou hast delivered me to be scourged.\n\nV. I brought thee out of Egypt, having drowned Pharao in the Red Sea; and thou hast delivered me over to the chief priests.\n\nV. I opened the sea before thee; and thou with a spear hast opened my side.\n\nV. I went before thee in a pillar of the cloud; and thou hast brought me to the palace of Pilate.\n\nV. I fed thee with manna in the desert; and thou hast beaten me with buffets and scourges.\n\nV. I gave thee wholesome water to drink out of the rock; and thou hast given me gall and vinegar.\n\nV. For thy sake I struck the kings of the Chanaanites; and thou hast struck my head with a reed.\n\nV. I gave thee a royal sceptre; and thou hast given me a crown of thorns.\n\nV. I have exalted thee with great strength; and thou hast hanged me on the gibbet of the cross.",
+      prayerType: "hymn",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Popule meus, quid feci tibi? aut in quo contristavi te? responde mihi.\n\nV. Quia eduxi te de terra Ægypti, parasti crucem Salvatori tuo.\n\nAgios o Theos.\nSanctus Deus.\nAgios ischyros.\nSanctus fortis.\nAgios athanatos, eleison imas.\nSanctus immortalis, miserere nobis.\n\nV. Quia eduxi te per desertum quadraginta annis, et manna cibavi te, et introduxi te in terram satis bonam, parasti crucem Salvatori tuo.\n\nV. Quid ultra debui facere tibi, et non feci? Ego quidem plantavi te vineam meam speciosissimam; et tu facta es mihi nimis amara: aceto namque sitim meam potasti, et lancea perforasti latus Salvatori tuo.\n\nV. Ego propter te flagellavi Ægyptum cum primogenitis suis; et tu me flagellatum tradidisti.\n\nV. Ego eduxi te de Ægypto, demerso Pharaone in Mare Rubrum; et tu me tradidisti principibus sacerdotum.\n\nV. Ego ante te aperui mare; et tu aperuisti lancea latus meum.\n\nV. Ego ante te præivi in columna nubis; et tu me duxisti ad prætorium Pilati.\n\nV. Ego te pavi manna per desertum; et tu me cecidisti alapis et flagellis.\n\nV. Ego te potavi aqua salutis de petra; et tu me potasti felle et aceto.\n\nV. Ego propter te Chananæorum reges percussi; et tu percussisti arundine caput meum.\n\nV. Ego dedi tibi sceptrum regale; et tu dedisti capiti meo spineam coronam.\n\nV. Ego te exaltavi magna virtute; et tu me suspendisti in patibulo crucis.",
+      summary:
+        "The Improperia, sung during the adoration of the Cross on Good Friday: Christ on the Cross speaks to his people, setting each benefit he gave Israel, from the Exodus and the manna to the water from the rock and the royal sceptre, beside the suffering it repaid. In the rite the first three reproaches are each followed by the Trisagion, sung in Greek and Latin by the two sides of the choir, and the refrain My people, what have I done to thee is repeated after each of the later verses; here the Trisagion and the verses are given once, as the book prints them. English and Latin are taken from The Complete Office of Holy Week (New York: Benziger, 1875), where they stand side by side; the rubrics are left out.",
+      occasions: ["good-friday", "holy-week", "passion"],
+      relatedSaints: [],
+      citations: [
+        `${HOLY_WEEK_1875}366/mode/1up`,
+        `${HOLY_WEEK_1875}367/mode/1up`,
+        `${HOLY_WEEK_1875}368/mode/1up`,
+        `${HOLY_WEEK_1875}369/mode/1up`,
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "crucem-tuam-adoramus",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${HOLY_WEEK_1875}369/mode/1up`],
+    payload: {
+      slug: "crucem-tuam-adoramus",
+      title: "Crucem tuam adoramus (We adore thy cross, O Lord)",
+      body: "Ant. We adore thy cross, O Lord! and we praise and glorify thy holy resurrection: for by the wood of the cross the whole earth is filled with joy. Ps. May God have mercy on us and bless us; may his countenance shine upon us, and may he have mercy on us. We adore, etc.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Ant. Crucem tuam adoramus Domine, et sanctam resurrectionem tuam laudamus, et glorificamus: ecce enim propter lignum venit gaudium in universo mundo. Ps. 66. Deus misereatur nostri, et benedicat nobis: illuminet vultum suum super nos, et misereatur nostri. Crucem tuam, etc.",
+      summary:
+        "The antiphon sung after the Reproaches during the adoration of the Cross on Good Friday, with the first verse of Psalm 66 (67): the Church adores the Cross of the Lord and praises his holy Resurrection, for by the wood of the Cross joy has come into the whole world. It is followed in the rite by Crux fidelis and the hymn Pange lingua gloriosi lauream certaminis. English and Latin are taken from The Complete Office of Holy Week (New York: Benziger, 1875), which prints them side by side.",
+      occasions: ["good-friday", "holy-week", "exaltation-of-the-holy-cross"],
+      relatedSaints: [],
+      citations: [`${HOLY_WEEK_1875}369/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "subvenite-sancti-dei",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}378/mode/1up`, `${LITTLE_OFFICE_1915}379/mode/1up`],
+    payload: {
+      slug: "subvenite-sancti-dei",
+      title: "Subvenite, sancti Dei (Come to her assistance, all ye saints of God)",
+      body: "Come to her assistance, all ye saints of God: meet her, all ye angels of the Lord, receiving her soul, presenting it in the sight of the Most High.\nV. May Christ receive thee, Who has called thee, and may the angels conduct thee into Abraham's bosom. Receiving her soul.\nV. Eternal rest give to her, O Lord.\nR. And let perpetual light shine upon her.\nOffering it in the sight of the Most High.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Subvenite sancti Dei, occúrrite angeli Domini, suscipiéntes ánimam ejus, offeréntes eam in conspéctu Altíssimi.\nV. Suscípiat te Christus, qui vocávit te; et in sinum Abrahæ angeli dedúcant te. Suscipiéntes animam ejus.\nV. Réquiem ætérnam dona ei Dómine.\nR. Et lux perpétua lúceat ei.\nOfferéntes eam in conspéctu Altíssimi.",
+      summary:
+        "The responsory of the Roman Ritual sung when the body of the dead is brought into the church, and also said immediately after a soul has departed: the saints of God are called to come to its aid and the angels to meet it and present it before the Most High, and Christ who called the soul is asked to receive it, with the angels leading it into Abraham's bosom. Latin and English are taken from the Burial Service in The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915), whose English is in the feminine form.",
+      occasions: ["funerals", "deathbed", "all-souls"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}378/mode/1up`, `${LITTLE_OFFICE_1915}379/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "in-paradisum",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}383/mode/1up`],
+    payload: {
+      slug: "in-paradisum",
+      title: "In paradisum (May the angels conduct thee into paradise)",
+      body: "May the angels conduct thee into paradise: may the martyrs receive thee at thy coming, and lead thee into the holy city of Jerusalem. May the choir of angels receive thee, and mayest thou have eternal rest with Lazarus, who was formerly poor.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "In paradísum dedúcant te angeli: in tuo advéntu suscípiant te mártyres, et perdúcant te in civitátem sanctam Jerúsalem. Chorus angelórum te suscípiat, et cum Lazaro quondam paúpere ætérnam hábeas réquiem.",
+      summary:
+        "The antiphon sung as the body is carried from the church to the grave: may the angels lead the departed into paradise and the martyrs receive them and bring them into the holy city of Jerusalem, and may the choir of angels receive them so that with Lazarus, once a poor man (Luke 16:22), they may have eternal rest. Latin and English are taken from the Burial Service in The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["funerals", "all-souls"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}383/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "libera-me-domine-de-morte-aeterna",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}342/mode/1up`, `${LITTLE_OFFICE_1915}343/mode/1up`],
+    payload: {
+      slug: "libera-me-domine-de-morte-aeterna",
+      title: "Libera me, Domine, de morte aeterna (Deliver me, O Lord, from eternal death)",
+      body: "R. Deliver me, O Lord, from eternal death, in that dreadful day: * When the heavens and earth are to be moved: * When Thou shalt come to judge the world by fire.\nV. I tremble and do fear when the examination is to be, and Thy wrath to come. * When the heavens and earth are to be moved:\nV. That day is the day of anger, of calamity, and of misery, a great day and very bitter. * When Thou shalt come to judge the world by fire.\nV. Grant them eternal rest, O Lord, and let perpetual light shine on them. Deliver me, O Lord, from eternal death, in that dreadful day,* When the heavens and earth are to be moved. * When Thou shalt come to judge the world by fire.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "R. Líbera me, Dómine, de morte ætérna, in die illa treménda.* Quando cœli movéndi sunt et terra:* Dum véneris judicáre sæculum per ígnem.\nV. Tremens factus sum ego et tímeo, dum discússio vénerit atque ventúra ira. * Quando cœli movéndi sunt et terra;\nV. Dies illa, dies iræ, calamitátis et misériæ dies magna et amára valde. * Dum véneris judicáre sæculum per ignem.\nV. Réquiem ætérnam dona eis, Dómine, et lux perpétua lúceat eis. Líbera me, Dómine, de morte ætérna, in die illa treménda. * Quando cœli movéndi sunt et terra. * Dúm véneris judicáre sæculum per ignem.",
+      summary:
+        "The great responsory of the Office of the Dead, said after the last lesson of Matins when the Office is of double rite and sung at the absolution of the body after the Requiem Mass: deliver me, O Lord, from eternal death on that dreadful day when the heavens and the earth shall be moved and thou shalt come to judge the world by fire. Its versicle Dies illa, dies irae echoes Sophonias 1:15, from which the sequence Dies irae also takes its opening words. Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["funerals", "all-souls", "november"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}342/mode/1up`, `${LITTLE_OFFICE_1915}343/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "credo-quod-redemptor-meus-vivit",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}296/mode/1up`, `${LITTLE_OFFICE_1915}297/mode/1up`],
+    payload: {
+      slug: "credo-quod-redemptor-meus-vivit",
+      title: "Credo quod Redemptor meus vivit (I believe my Redeemer liveth)",
+      body: "R. I believe my Redeemer liveth, and that in the last day I shall rise from the earth. * And in my flesh I shall see God my Saviour.\nV. Whom I myself shall see, and not another, and my eyes shall behold. * And in my flesh I shall see God my Saviour.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "R. Credo quod Redémptor meus vivit; et in novíssimo die de terra surrectúrus sum. * Et in carne mea vidébo Deum Salvatórem meum.\nV. Quem visúrus sum ego ipse, et non álius, et óculi mei conspectúri sunt. * Et in carne mea vidébo Deum Salvatórem meum.",
+      summary:
+        "The responsory after the first lesson of Matins in the Office of the Dead, taken from Job 19:25-27: I believe that my Redeemer lives, that I shall rise from the earth on the last day and in my flesh shall see God my Saviour, whom my own eyes shall behold. Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["funerals", "all-souls", "easter"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}296/mode/1up`, `${LITTLE_OFFICE_1915}297/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "qui-lazarum-resuscitasti",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}298/mode/1up`, `${LITTLE_OFFICE_1915}299/mode/1up`],
+    payload: {
+      slug: "qui-lazarum-resuscitasti",
+      title: "Qui Lazarum resuscitasti (Thou Who didst raise Lazarus from the grave)",
+      body: "R. Thou Who didst raise Lazarus from the grave. * Thou, O Lord, give them rest, and a place of pardon.\nV. Thou Who art to come to judge the living and the dead, and the world by fire. * Thou, O Lord, give them rest, and a place of pardon.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "R. Qui Lázarum resuscitásti a monuménto fœtidum. * Tu eis, Dómine, dona réquiem, et locum indulgéntiæ.\nV. Qui ventúrus es judicáre vivos et mórtuos, et sæculum per ignem.* Tu eis, Dómine, dona réquiem, et locum indulgéntiæ.",
+      summary:
+        "The responsory after the second lesson of Matins in the Office of the Dead: Christ, who raised Lazarus from the tomb and who will come to judge the living and the dead, is asked to give the departed rest and a place of pardon. Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["funerals", "all-souls"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}298/mode/1up`, `${LITTLE_OFFICE_1915}299/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "ne-recorderis-peccata-mea",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}320/mode/1up`, `${LITTLE_OFFICE_1915}321/mode/1up`],
+    payload: {
+      slug: "ne-recorderis-peccata-mea",
+      title: "Ne recorderis peccata mea (Remember not my sins, O Lord)",
+      body: "R. Remember not my sins, O Lord. * When Thou wilt come to judge the world by fire.\nV. Direct, O Lord my God, my way in Thy sight. * When Thou wilt come to judge the world by fire.\nV. Grant them eternal rest, O Lord, and let perpetual light shine on them. * When Thou wilt come to judge the world by fire.",
+      prayerType: "intercession",
+      category: "penitential",
+      language: "en",
+      latin:
+        "R. Ne recordéris peccáta mea, Dómine, * Dum véneris judicáre sæculum per ignem.\nV. Dírige, Dómine, Deus meus, in conspéctu tuo viam meam. * Dum véneris judicáre sæculum per ignem.\nV. Réquiem ætérnam dona eis, Dómine, et lux perpétua lúceat eis.* Dum véneris judicáre sæculum per ignem.",
+      summary:
+        "The responsory that closes the second nocturn of Matins in the Office of the Dead: remember not my sins, O Lord, when thou shalt come to judge the world by fire, and direct my way in thy sight (Psalm 5:9). Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["funerals", "all-souls", "penance"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}320/mode/1up`, `${LITTLE_OFFICE_1915}321/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "peccantem-me-quotidie",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}336/mode/1up`, `${LITTLE_OFFICE_1915}337/mode/1up`],
+    payload: {
+      slug: "peccantem-me-quotidie",
+      title: "Peccantem me quotidie (The fear of death troubles me)",
+      body: "R. The fear of death troubles me; sinning daily and not repenting.* Because in hell there is no redemption, have mercy on me, O God, and save me.\nV. O God, in Thy name save me, and in Thy strength deliver me.* Because in hell there is no redemption, have mercy on me, O God, and save me.",
+      prayerType: "intercession",
+      category: "penitential",
+      language: "en",
+      latin:
+        "R. Peccántem me quotidie, et non me pœniténtem, timor mortis contúrbat me; * Quia, in inférno nulla est redémptio, miserére mei, Deus, et salva me.\nV. Deus, in nómine tuo salvum me fac, et in virtúte tua libera me; * Quia in inférno nulla est redémptio, miserére mei, Deus, et salva me.",
+      summary:
+        "The responsory after the seventh lesson of Matins in the Office of the Dead: the fear of death troubles one who sins daily and does not repent, for in hell there is no redemption, so may God have mercy and save, in his name and by his strength (Psalm 53:3). Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["funerals", "all-souls", "penance", "examination-of-conscience"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}336/mode/1up`, `${LITTLE_OFFICE_1915}337/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "non-intres-in-judicium-burial-prayer",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}379/mode/1up`, `${LITTLE_OFFICE_1915}380/mode/1up`],
+    payload: {
+      slug: "non-intres-in-judicium-burial-prayer",
+      title: "Non intres in judicium (Enter not into judgment with Thy servant, O Lord)",
+      body: "Enter not into judgment with Thy servant, O Lord, because no man shall be justified in Thy sight, except Thou grant him the remission of all his sins. Therefore we beseech Thee not to let the sentence of Thy judgment fall heavy upon her, whom true supplication of Christian faith recommends to Thee: but may she deserve, by Thy assisting grace, to escape the sentence of condemnation, who whilst she lived was marked with the sign of the Holy Trinity; Who livest, etc. R. Amen.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Non intres in judícium cum servo tuo, Dómine, quia nullus apud te justificábitur homo, nisi per te ómnium peccatórum ei tribuátur remissio. Non ergo eum, quæsumus, tua judiciális senténtia premat, quem tibi vera supplicátio fidei Christiánæ comméndat: sed grátia tua illi succurrénte, mereátur evádere judícium ultiónis, qui dum víveret, insignítus est signáculo sanctæ Trinitátis: qui vivis et regnas in sæcula sæculórum. R. Amen.",
+      summary:
+        "The prayer said over the body after the Requiem Mass, before the responsory Libera me, which opens with Psalm 142:2: since no one is justified before God unless he grants the remission of all sins, may the sentence of his judgment not weigh on one whom the prayer of Christian faith commends to him, but may the departed, marked in life with the seal of the Holy Trinity, escape the judgment of vengeance. Latin and English are taken from the Burial Service in The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915); its Latin is in the masculine form and its English in the feminine.",
+      occasions: ["funerals", "all-souls"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}379/mode/1up`, `${LITTLE_OFFICE_1915}380/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "deus-cui-proprium-est-for-the-soul-departed",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}382/mode/1up`, `${LITTLE_OFFICE_1915}383/mode/1up`],
+    payload: {
+      slug: "deus-cui-proprium-est-for-the-soul-departed",
+      title:
+        "Deus, cui proprium est misereri: for a Soul Departed (O God, Whose property it is always to have mercy and to spare)",
+      body: "O God, Whose property it is always to have mercy and to spare, we humbly beseech Thee for the soul of Thy servant N., which to-day Thou hast taken out of this world: not to deliver it into the hands of the enemy, nor to forget it forever; but to command the holy angels to receive it, and to conduct it to the heavenly country; that since it has believed and hoped in Thee, it may not suffer the pains of hell, but possess eternal joys. Through Christ our Lord. R. Amen.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Deus, cui próprium est miseréri semper et párcere; te súpplices exorámus pro ánima fámuli tui N. quam hódie de hoc sæculo migráre jussísti: ut non tradas eam in manus inimíci, neque obliviscáris in finem, sed júbeas eam a sanctis angelis súscipi, et ad pátriam paradísi perdúci: ut quia in te sperávit et crédidit, non pœnas inférni sustíneat, sed gaudia ætérna possídeat. Per Christum Dóminum nostrum. R. Amen.",
+      summary:
+        "The collect said over the body after the absolution, also the collect of the Mass on the day of death or burial: God, whose property is always to have mercy and to spare, is asked not to hand over to the enemy the soul he has called from this world today, but to command his holy angels to receive it and lead it to the homeland of paradise, since it hoped and believed in him. It is a different prayer from the collect Deus, cui proprium est misereri semper et parcere: suscipe deprecationem nostram of the Litany of the Saints. Latin and English are taken from the Burial Service in The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["funerals", "deathbed", "all-souls"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}382/mode/1up`, `${LITTLE_OFFICE_1915}383/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "deus-cujus-miseratione-blessing-of-the-grave",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}384/mode/1up`],
+    payload: {
+      slug: "deus-cujus-miseratione-blessing-of-the-grave",
+      title:
+        "Deus, cujus miseratione: Blessing of the Grave (O God, by Whose mercy the souls of the faithful find rest)",
+      body: "O God, by Whose mercy the souls of the faithful find rest, vouchsafe to bless this grave, and depute Thy holy angel to guard it; and absolve the souls of all those whose bodies are buried here from all the bonds of sin, that they may always rejoice in Thee with Thy saints for ever. Through Christ our Lord. R. Amen.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Deus, cujus miseratióne ánimæ fidélium requiéscunt, hunc túmulum benedícere dignáre, eique angelum tuum sanctum députa custódem; et quorum quarúmque córpora hic sepeliúntur, ánimas eórum ab ómnibus absólve vínculis delictórum, ut in te semper cum sanctis tuis sine fine læténtur. Per Christum Dóminum nostrum. R. Amen.",
+      summary:
+        "The prayer with which the priest blesses the grave when the body has been carried to it: God, by whose mercy the souls of the faithful find rest, is asked to bless the tomb, appoint his holy angel to guard it, and loose from every bond of sin the souls of all who are buried there. Latin and English are taken from the Burial Service in The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["funerals", "blessing", "all-souls"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}384/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "fac-quaesumus-domine-hanc-cum-famulo-tuo",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}385/mode/1up`, `${LITTLE_OFFICE_1915}386/mode/1up`],
+    payload: {
+      slug: "fac-quaesumus-domine-hanc-cum-famulo-tuo",
+      title:
+        "Fac, quaesumus, Domine (Grant, we beseech Thee, O Lord, this mercy to Thy servant departed)",
+      body: "Grant, we beseech Thee, O Lord, this mercy to Thy servant departed, that she may not receive the punishment due to her sins, who was desirous to hold fast Thy will; and as here true faith united her to the company of the faithful, so may there Thy mercy unite her to the choirs of angels. Through Christ our Lord. R. Amen.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Fac, quæsumus, Domine, hanc cum famula tua defúncta misericórdiam, ut factórum suórum in pœnis non recípiat vicem, quæ tuam in votis ténuit voluntátem; ut sicut hic eam vera fides junxit fidélium turmis, ita illic eam tua miserátio sóciet angélicis choris. Per Christum Dóminum nostrum. R. Amen.",
+      summary:
+        "The prayer said at the grave after the Benedictus at the end of the burial service: may the departed, who desired to hold to God's will, not suffer the punishment due to her deeds, and as true faith joined her here to the ranks of the faithful, so may God's mercy join her there to the choirs of angels. Latin and English are taken from the Burial Service in The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915), which prints the feminine form in both languages.",
+      occasions: ["funerals", "all-souls"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}385/mode/1up`, `${LITTLE_OFFICE_1915}386/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "absolve-quaesumus-domine-animam-famuli-tui",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [
+      `${LITTLE_OFFICE_1915}368/mode/1up`,
+      `${LITTLE_OFFICE_1915}369/mode/1up`,
+      `${LITTLE_OFFICE_1915}370/mode/1up`,
+      `${LITTLE_OFFICE_1915}371/mode/1up`,
+    ],
+    payload: {
+      slug: "absolve-quaesumus-domine-animam-famuli-tui",
+      title: "Absolve, quaesumus, Domine, animam (Prayer on the Day of Decease and Burial)",
+      body: "Absolve, we beseech Thee, O Lord, the soul of Thy servant N. that being dead to the world he (or she) may live to Thee; and whatever he (or she) has committed through human frailty, do Thou wipe away by the pardon of Thy most merciful goodness. Through Our Lord Jesus Christ, Thy Son, Who liveth and reigneth with Thee in the unity of the Holy Ghost, God, world without end.\nR. Amen.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Absolve, quæsumus, Dómine, ánimam fámuli tui (vel famulæ tuæ) N. ut defúnctus (vel defúncta) sæculo tibi vivat: et quæ per fragilitátem carnis húmana conversatióne commísit, tu vénia misericordíssimæ pietátis abstérge. Per Dóminum nostrum Jesum Christum Fílium tuum, qui tecum vivit et regnat in unitáte Spíritus Sancti, Deus, per ómnia sæcula sæculórum.\nR. Amen.",
+      summary:
+        "The proper prayer of the Office of the Dead on the day of death or burial: God is asked to absolve the soul of his servant, so that, being dead to the world, it may live to him, and to wipe away by his most merciful pardon whatever it committed through the frailty of the flesh. It is a different prayer from the Sunday collect that begins with the same words. Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["funerals", "deathbed", "all-souls"],
+      relatedSaints: [],
+      citations: [
+        `${LITTLE_OFFICE_1915}368/mode/1up`,
+        `${LITTLE_OFFICE_1915}369/mode/1up`,
+        `${LITTLE_OFFICE_1915}370/mode/1up`,
+        `${LITTLE_OFFICE_1915}371/mode/1up`,
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "inclina-domine-aurem-tuam-for-several-deceased",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}370/mode/1up`, `${LITTLE_OFFICE_1915}371/mode/1up`],
+    payload: {
+      slug: "inclina-domine-aurem-tuam-for-several-deceased",
+      title: "Inclina, Domine, aurem tuam (Prayer for Several Persons Deceased)",
+      body: "Incline, O Lord, Thine ear to our prayers, in which we humbly beseech Thy mercy; that Thou wouldst place the souls of Thy servants, NN., which Thou hast caused to depart from this world, in the region of peace and light; and unite them in the fellowship of Thy saints. Through Our Lord, etc.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Inclína, Dómine, aurem tuam ad preces nostras, quibus misericórdiam tuam súpplices deprecámur; ut ánimas famulórum tuórum, NN., quas de hoc sæculo migráre jussísti, in pacis ac lucis regióne constítuas; et sanctórum tuórum júbeas esse consórtes. Per Dóminum nostrum, etc.",
+      summary:
+        "The collect for several persons deceased in the Office of the Dead: the Lord is asked to incline his ear to the prayers of the faithful and to place the souls of his servants, whom he has called from this world, in the region of peace and light, and to make them companions of his saints. Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["all-souls", "funerals", "november"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}370/mode/1up`, `${LITTLE_OFFICE_1915}371/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "quaesumus-domine-third-seventh-thirtieth-day",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}372/mode/1up`, `${LITTLE_OFFICE_1915}373/mode/1up`],
+    payload: {
+      slug: "quaesumus-domine-third-seventh-thirtieth-day",
+      title:
+        "Quaesumus, Domine, ut animam (Prayer for the Third, Seventh or Thirtieth Day after Burial)",
+      body: "Vouchsafe, we beseech Thee, O Lord, to admit the soul of Thy servant N. the third (seventh or thirtieth) day of whose burial we commemorate, into the fellowship of Thy saints and elect, and sprinkle upon it the perpetual dew of Thy mercy. Through Our Lord, etc.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Quæsumus, Dómine, ut ánimam fámuli tui N. cujus depositiónis díem tértium (vel séptimum vel trigésimum) commemorámus, sanctórum atque electórum tuórum largíri dignéris consórtium: et rorem misericórdiæ tuæ perénnem infúndas. Per Dóminum nostrum, etc.",
+      summary:
+        "The collect of the Office and Mass of the Dead for the third, seventh or thirtieth day after burial, days on which the Church has long remembered the departed: God is asked to grant the soul of his servant the fellowship of his saints and elect and to pour upon it the unfailing dew of his mercy. Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["all-souls", "funerals"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}372/mode/1up`, `${LITTLE_OFFICE_1915}373/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "deus-indulgentiarum-domine-anniversary-of-burial",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}374/mode/1up`, `${LITTLE_OFFICE_1915}375/mode/1up`],
+    payload: {
+      slug: "deus-indulgentiarum-domine-anniversary-of-burial",
+      title: "Deus, indulgentiarum Domine (Prayer for the Anniversary of a Burial)",
+      body: "O God, the Lord of mercy and pardon, grant to the soul of Thy servant N., the anniversary of whose burial we commemorate, the place of refreshment, the blessedness of rest, and the brightness of light. Through Our Lord, etc.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Deus, indulgentiárum Dómine, da ánimæ fámuli tui (famulæ tuæ) N., cujus anniversárium depositiónis diem, commemorámus, refrigérii sedem, quiétis beatitúdinem, et lúminis claritátem. Per Dóminum nostrum, etc.",
+      summary:
+        "The collect of the Office and Mass of the Dead on the anniversary of a death or burial: God, the Lord of pardon, is asked to give the soul of his servant a place of refreshment, the blessedness of rest and the brightness of light, echoing the place of refreshment, light and peace for which the Roman Canon prays for all who sleep in Christ. Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["all-souls", "november"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}374/mode/1up`, `${LITTLE_OFFICE_1915}375/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "deus-qui-inter-apostolicos-sacerdotes",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [`${LITTLE_OFFICE_1915}374/mode/1up`, `${LITTLE_OFFICE_1915}375/mode/1up`],
+    payload: {
+      slug: "deus-qui-inter-apostolicos-sacerdotes",
+      title: "Deus, qui inter apostolicos sacerdotes (Prayer for a Deceased Bishop or Priest)",
+      body: "O God, by whose favor Thy servant N. was raised to the dignity of a bishop (or priest), and honored with the apostolic functions, grant, we beseech Thee, that he may be admitted to the eternal society of Thy apostles in heaven. Through Our Lord, etc.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      latin:
+        "Deus, qui inter apostólicos sacerdótes fámulum tuum N. pontificále (seu sacerdotáli) fecísti dignitáte vigére; præsta, quæsumus, ut eórum quoque perpétuo aggregétur consórtio. Per Dóminum.",
+      summary:
+        "The collect of the Office and Mass of the Dead for a deceased bishop or priest: God, who made his servant flourish among the apostolic priesthood with the dignity of a bishop or priest, is asked to join him for ever to their company. The English renders it freely, as admission to the eternal society of the apostles in heaven. Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
+      occasions: ["all-souls", "funerals", "vocations"],
+      relatedSaints: [],
+      citations: [`${LITTLE_OFFICE_1915}374/mode/1up`, `${LITTLE_OFFICE_1915}375/mode/1up`],
     },
   },
 ];
