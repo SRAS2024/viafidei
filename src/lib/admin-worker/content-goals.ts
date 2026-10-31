@@ -294,21 +294,29 @@ export function surgeStreak(): number {
 }
 
 /**
- * True when the last `surgeStreak()` DISCOVERY decisions all targeted
- * `contentType`, i.e. the campaign has had its run and this pick belongs to the
- * rotation. Fail-open to false (the campaign keeps the pick), exactly as before
- * interleaving existed.
+ * True when the last `surgeStreak()` DISCOVERY decisions (or the caller's own
+ * recent targets) all targeted `contentType`, i.e. the campaign has had its run
+ * and this pick belongs to the rotation. Fail-open to false (the campaign keeps
+ * the pick), exactly as before interleaving existed.
  */
-async function surgeTurnIsOver(prisma: PrismaClient, contentType: string): Promise<boolean> {
+async function surgeTurnIsOver(
+  prisma: PrismaClient,
+  contentType: string,
+  recentTypes?: readonly string[],
+): Promise<boolean> {
   const streak = surgeStreak();
   try {
-    const recent = await prisma.adminWorkerDecision.findMany({
-      where: { missionStage: "DISCOVERY", contentType: { not: null } },
-      orderBy: { createdAt: "desc" },
-      take: streak,
-      select: { contentType: true },
-    });
-    return recent.length >= streak && recent.every((r) => r.contentType === contentType);
+    const recent = recentTypes
+      ? recentTypes.slice(0, streak)
+      : (
+          await prisma.adminWorkerDecision.findMany({
+            where: { missionStage: "DISCOVERY", contentType: { not: null } },
+            orderBy: { createdAt: "desc" },
+            take: streak,
+            select: { contentType: true },
+          })
+        ).map((r) => r.contentType);
+    return recent.length >= streak && recent.every((t) => t === contentType);
   } catch {
     return false;
   }
@@ -316,6 +324,16 @@ async function surgeTurnIsOver(prisma: PrismaClient, contentType: string): Promi
 
 export async function nextPriorityContentType(
   prisma: PrismaClient,
+  opts: {
+    /**
+     * The caller's own most recent targets, newest first. When given, the SURGE
+     * interleave and the rotation use them instead of the brain's DISCOVERY
+     * decisions — for a caller that targets on its own cadence (the always-on
+     * web discovery lane), so it rotates even while the brain rarely picks
+     * DISCOVERY.
+     */
+    recentTypes?: readonly string[];
+  } = {},
 ): Promise<{ contentType: string; gap: number } | null> {
   const allGoals = await prisma.contentGoal.findMany({
     where: { gapCount: { gt: 0 } },
@@ -356,7 +374,7 @@ export async function nextPriorityContentType(
     const campaign = await evaluateMajorGoalCampaign(prisma);
     if (campaign.phase === "SURGE" && campaign.majorType) {
       const target = goals.find((g) => g.contentType === campaign.majorType);
-      if (target && !(await surgeTurnIsOver(prisma, target.contentType))) {
+      if (target && !(await surgeTurnIsOver(prisma, target.contentType, opts.recentTypes))) {
         return { contentType: target.contentType, gap: target.gapCount };
       }
     }
@@ -413,14 +431,19 @@ export async function nextPriorityContentType(
   // Defensive: tolerate a prisma client without the decision model (tests /
   // degraded) — fall back to no rotation rather than throwing.
   let recentTypes = new Set<string | null>();
+  const rotationDepth = Math.max(0, Math.min(3, ranked.length - 1));
   try {
-    const recent = await prisma.adminWorkerDecision.findMany({
-      where: { missionStage: "DISCOVERY", contentType: { not: null } },
-      orderBy: { createdAt: "desc" },
-      take: Math.max(0, Math.min(3, ranked.length - 1)),
-      select: { contentType: true },
-    });
-    recentTypes = new Set(recent.map((r) => r.contentType));
+    const recent = opts.recentTypes
+      ? opts.recentTypes.slice(0, rotationDepth)
+      : (
+          await prisma.adminWorkerDecision.findMany({
+            where: { missionStage: "DISCOVERY", contentType: { not: null } },
+            orderBy: { createdAt: "desc" },
+            take: rotationDepth,
+            select: { contentType: true },
+          })
+        ).map((r) => r.contentType);
+    recentTypes = new Set(recent);
   } catch {
     recentTypes = new Set();
   }
