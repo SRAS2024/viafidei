@@ -154,11 +154,11 @@ export async function overpassBudgetRemaining(prisma: PrismaClient): Promise<num
 /** The tile query: explicitly Catholic, named places of worship in a bbox. */
 export function buildTileQuery(bbox: [number, number, number, number], outCap: number): string {
   const [s, w, n, e] = bbox;
-  // The denomination regex admits exactly `roman_catholic` and `catholic`.
-  // `old_catholic`, `independent_catholic`, `polish_national_catholic`, … are
-  // distinct values and never match (the mapper re-checks client-side).
+  // The denomination regex admits the Latin and Eastern Catholic values in
+  // communion with Rome (the mapper re-checks each one exactly, client-side);
+  // `old_catholic`, `polish_national_catholic`, ... never match.
   return `[out:json][timeout:${OVERPASS_SERVER_TIMEOUT_S}];
-nwr["amenity"="place_of_worship"]["religion"="christian"]["denomination"~"^(roman_catholic|catholic)$"]["name"](${s},${w},${n},${e});
+nwr["amenity"="place_of_worship"]["religion"="christian"]["denomination"~"catholic|maronite|melkite"]["name"](${s},${w},${n},${e});
 out center tags ${outCap};`;
 }
 

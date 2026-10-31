@@ -80,7 +80,7 @@ describe("buildTileQuery", () => {
   it("asks for named Catholic places of worship in the bbox with a 90 s server timeout", () => {
     const q = buildTileQuery([41, 12, 42, 13], 500);
     expect(q).toContain("[timeout:90]");
-    expect(q).toContain('["denomination"~"^(roman_catholic|catholic)$"]');
+    expect(q).toContain('["denomination"~"catholic|maronite|melkite"]');
     expect(q).toContain('["name"](41,12,42,13)');
     expect(q).toContain("out center tags 500;");
   });

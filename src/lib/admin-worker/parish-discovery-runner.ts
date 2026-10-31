@@ -70,6 +70,11 @@ export type ParishDesignation =
   | "minor-basilica"
   | "oratory";
 
+/** Rome and Vatican City, where all four papal basilicas stand. */
+function inRomeOrVatican(lat: number, lon: number): boolean {
+  return lat > 41.79 && lat < 41.99 && lon > 12.35 && lon < 12.62;
+}
+
 /** The four papal (major) basilicas — the only churches that are ever
  * "major-basilica"; every other basilica is minor. */
 const PAPAL_BASILICA_RE =
@@ -97,10 +102,18 @@ const CHAPEL_COMPOUND_RE = /\p{L}(kapelle|kapell|kapel)(?![\p{L}-])/iu;
  * guesses "major": only the papal basilicas qualify. A chapel is a chapel,
  * not a parish — about 3,000 were published as "parish" before this rule.
  */
-export function designationFor(name: string, tags: Record<string, string> = {}): ParishDesignation {
+export function designationFor(
+  name: string,
+  tags: Record<string, string> = {},
+  /** Where the church stands, when known: the four papal basilicas are all in Rome. */
+  at?: { lat: number; lon: number },
+): ParishDesignation {
   const tag = (k: string) => (tags[k] ?? "").trim().toLowerCase();
   const churchType = tag("church:type");
-  if (PAPAL_BASILICA_RE.test(name)) return "major-basilica";
+  // A church elsewhere that shares a papal basilica's dedication ("Santa Maria
+  // Maggiore", "San Giovanni in Laterano") is not a major basilica.
+  if (PAPAL_BASILICA_RE.test(name) && (!at || inRomeOrVatican(at.lat, at.lon)))
+    return "major-basilica";
   if (
     tag("building") === "basilica" ||
     churchType === "basilica" ||

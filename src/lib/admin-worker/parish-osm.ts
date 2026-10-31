@@ -125,9 +125,47 @@ export function osmParishDiscoveryEnabled(): boolean {
 
 // ── Acceptance: map an OSM element to a candidate, inventing nothing ────────
 
-/** Exactly `roman_catholic` or `catholic`; every other value (old_catholic,
- * independent_catholic, polish_national_catholic, …) is a different body. */
-const ACCEPTED_DENOMINATION_RE = /^(roman_catholic|catholic)$/;
+/**
+ * Latin and Eastern Catholic churches in full communion with Rome, by the OSM
+ * `denomination` values mappers actually use, with the adjective a summary
+ * gives each. Every other value (old_catholic, polish_catholic,
+ * catholic_apostolic, liberal_catholic, catholic_sspx, buildings shared with a
+ * Protestant or Orthodox body, ...) is a different body.
+ */
+export const COMMUNION_DENOMINATIONS: Readonly<Record<string, string>> = {
+  catholic: "Catholic",
+  roman_catholic: "Roman Catholic",
+  latin_catholic: "Catholic",
+  "roman_catholic;catholic": "Catholic",
+  "catholic;roman_catholic": "Catholic",
+  "roman_catholic;greek_catholic": "Catholic",
+  "greek_catholic;roman_catholic": "Catholic",
+  ukrainian_greek_catholic: "Ukrainian Greek Catholic",
+  ukrainian_catholic: "Ukrainian Greek Catholic",
+  greek_catholic: "Greek Catholic",
+  maronite: "Maronite Catholic",
+  "syro-malabar_catholic": "Syro-Malabar Catholic",
+  "syro-malankara_catholic": "Syro-Malankara Catholic",
+  malankara_catholic: "Syro-Malankara Catholic",
+  syriac_catholic: "Syriac Catholic",
+  armenian_catholic: "Armenian Catholic",
+  chaldean_catholic: "Chaldean Catholic",
+  byzantine_catholic: "Byzantine Catholic",
+  ruthenian_catholic: "Ruthenian Greek Catholic",
+  slovak_greek_catholic: "Slovak Greek Catholic",
+  hungarian_greek_catholic: "Hungarian Greek Catholic",
+  romanian_greek_catholic: "Romanian Greek Catholic",
+  romanian_catholic: "Catholic",
+  melkite_greek_catholic: "Melkite Greek Catholic",
+  melkite: "Melkite Greek Catholic",
+  coptic_catholic: "Coptic Catholic",
+  ethiopian_catholic: "Ethiopian Catholic",
+  eritrean_catholic: "Eritrean Catholic",
+};
+
+export function isCommunionDenomination(value: string): boolean {
+  return Object.prototype.hasOwnProperty.call(COMMUNION_DENOMINATIONS, value);
+}
 
 const LOCALITY_TAGS = [
   "addr:city",
@@ -165,7 +203,10 @@ export type ParishExclusionReason =
   | "wayside-cross"
   | "lourdes-grotto"
   | "cross"
-  | "stations-of-the-cross";
+  | "stations-of-the-cross"
+  | "funerary-chapel"
+  | "private"
+  | "generic-name";
 
 export interface ParishExclusion {
   reason: ParishExclusionReason;
@@ -196,6 +237,72 @@ const STATIONS_OF_THE_CROSS_RE: readonly RegExp[] = [
   /^((der|die)\s+)?(erste|zweite|dritte|vierte|f(ü|ue)nfte|sechste|sieb(en)?te|\d+\.)\s+schmerz(en)?\s+mariens$/i,
 ];
 
+/** A cemetery or funeral chapel, a wayside marker, or a small shrine by name. */
+const FUNERARY_OR_WAYSIDE_NAME_RE =
+  /(friedhofs?kapelle|aussegnungshalle|leichenhalle|trauerhalle|kaplica cmentarna|cemetery chapel|chapel of rest|chapelle fun[ée]raire|mortuary|kapliczka|bildstock|wegkreuz|flurkreuz|feldkreuz|hofkreuz|marterl)/i;
+
+/**
+ * Whole names that only describe a kind of chapel or church ("Kaplica domowa" -
+ * house chapel, "Kapelle", "Chapelle", "Church"): they name no place a reader
+ * can identify, so such a record is left out rather than published bare.
+ */
+const GENERIC_PLACE_NAMES = new Set([
+  "chapel",
+  "kapelle",
+  "chapelle",
+  "capilla",
+  "cappella",
+  "kaplica",
+  "kapel",
+  "capela",
+  "kaple",
+  "kapela",
+  "kaplnka",
+  "church",
+  "kirche",
+  "eglise",
+  "église",
+  "iglesia",
+  "chiesa",
+  "kosciol",
+  "kościół",
+  "igreja",
+  "kerk",
+  "oratorio",
+  "oratory",
+  "oratoire",
+  "pfarrkirche",
+  "parish church",
+  "catholic church",
+  "roman catholic church",
+  "chiesa parrocchiale",
+  "parroquia",
+  "paroisse",
+  "parafia",
+  "kaplica domowa",
+  "kaplica szpitalna",
+  "kaplica dojazdowa",
+  "kaplica cmentarna",
+  "kaplica zakonna",
+  "kaplica publiczna",
+  "kaplica prywatna",
+  "kaplica filialna",
+  "hauskapelle",
+  "krankenhauskapelle",
+  "schulkapelle",
+  "klosterkapelle",
+  "chapelle de l'hôpital",
+  "chapelle de l'hopital",
+  "chapelle privée",
+  "hospital chapel",
+  "house chapel",
+  "private chapel",
+  "convent chapel",
+  "capilla del hospital",
+  "cappella dell'ospedale",
+  "cappella privata",
+]);
+
 /**
  * Why a Catholic place of worship is NOT a parish, from its OSM tags
  * (`place_of_worship`, `historic`, `man_made`) or a strict Stations-of-the-
@@ -212,9 +319,16 @@ export function parishExclusionFor(
   const historic = EXCLUDED_HISTORIC.get(tag("historic"));
   if (historic) return { reason: historic, evidence: `historic=${tag("historic")}` };
   if (tag("man_made") === "cross") return { reason: "cross", evidence: "man_made=cross" };
+  // A private chapel (a house, convent or institution's own) is not open to the faithful.
+  if (tag("access") === "private" || tag("access") === "no")
+    return { reason: "private", evidence: `access=${tag("access")}` };
   const trimmed = name.trim();
   if (STATIONS_OF_THE_CROSS_RE.some((re) => re.test(trimmed)))
     return { reason: "stations-of-the-cross", evidence: `name "${trimmed}"` };
+  if (FUNERARY_OR_WAYSIDE_NAME_RE.test(trimmed))
+    return { reason: "funerary-chapel", evidence: `name "${trimmed}"` };
+  if (GENERIC_PLACE_NAMES.has(trimmed.toLowerCase()))
+    return { reason: "generic-name", evidence: `name "${trimmed}"` };
   return null;
 }
 
@@ -241,7 +355,9 @@ export function osmParishSummary(input: {
   city?: string;
   country?: string;
 }): string {
-  const body = input.denomination === "roman_catholic" ? "Roman Catholic" : "Catholic";
+  const body =
+    (input.denomination && COMMUNION_DENOMINATIONS[input.denomination]) ||
+    (input.denomination === "roman_catholic" ? "Roman Catholic" : "Catholic");
   const where = [input.city, input.country]
     .map((v) => (v ?? "").trim())
     .filter(Boolean)
@@ -352,10 +468,12 @@ export function osmElementToParish(
   fallback: { countryCode?: string } = {},
 ): OsmCandidate | null {
   const tags = el.tags ?? {};
-  const name = (tags.name ?? "").trim();
-  if (!name) return null;
+  const rawName = (tags.name ?? "").trim();
+  if (!rawName) return null;
+  // Display names start with a capital ("chiesa parrocchiale X" -> "Chiesa parrocchiale X").
+  const name = rawName.charAt(0).toLocaleUpperCase() + rawName.slice(1);
   const denomination = (tags.denomination ?? "").trim().toLowerCase();
-  if (!ACCEPTED_DENOMINATION_RE.test(denomination)) return null;
+  if (!isCommunionDenomination(denomination)) return null;
   const religion = (tags.religion ?? "").trim().toLowerCase();
   if (religion && religion !== "christian") return null;
   // A ruin or a closed church is not a parish anyone can attend.
@@ -416,7 +534,7 @@ export function osmElementToParish(
     osmId: el.id,
     slugBase: parishSlugBase(name, englishName, city) || `parish-${el.type}-${el.id}`,
     englishName: englishName || undefined,
-    designation: designationFor(name, tags),
+    designation: designationFor(name, tags, hasCoords ? { lat: lat!, lon: lon! } : undefined),
   };
 }
 
