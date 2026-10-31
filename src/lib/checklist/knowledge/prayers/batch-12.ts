@@ -5,15 +5,23 @@ import type { CuratedEntry } from "../index";
  * classic Catholic prayer books, all in public-domain English printed before
  * 1929.
  *
- * Every body is copied from the first cited page, which reproduces the old
- * printed book, and was then collated word by word with an archive.org scan of
- * that book (the second citation). Nothing is paraphrased, shortened,
- * modernised, composed or merged across versions. The only changes are
- * typographical or restore the printed text; none alters the wording:
- *   - opening words that the books set in small capitals, and that the web
- *     transcriptions therefore print in full capitals ("O MY God"), are given
- *     in ordinary case;
- *   - page numbers, footnote markers and running heads are dropped;
+ * Every body is copied character for character from the first cited page and
+ * checked against the printed book. Two kinds of first page are used:
+ *   - a web transcription of the old book (the Newman Reader), collated word by
+ *     word with an archive.org scan of the printed edition, which is cited
+ *     second;
+ *   - the archive.org scan itself, cited at the leaf where the prayer begins,
+ *     transcribed from the page images and checked word by word against the
+ *     OCR of a second, independent scan of the same edition.
+ * Nothing is paraphrased, shortened, modernised, composed or merged across
+ * versions. The only changes are typographical, or restore the printed text,
+ * and none alters the wording:
+ *   - opening words set in small capitals ("O MY God", "GREAT art Thou") are
+ *     given in ordinary case, and the period's space before ! ? ; : is closed;
+ *   - page numbers, running heads, footnote and marginal references, and the
+ *     bracketed chapter and section numbers of the 1838 Confessions are dropped;
+ *   - plain printer's slips are corrected: "tabernacle.!" (Saint Francis's
+ *     Salutation of the Blessed Virgin) and "but in, Thee" (his Praises);
  *   - where a transcription departs from the printed book, the book is
  *     followed: in Newman's prayers to Saint Philip "chose thee and made thee a
  *     saint" (the third prayer drops "thee"), "Salvator earum" for "Salvador",
@@ -26,7 +34,11 @@ import type { CuratedEntry } from "../index";
  * Subjects of the Day (1843), as transcribed by the Newman Reader. Most of his
  * meditations are written throughout as prayers and are given whole; where a
  * prayer is the closing colloquy of a longer meditation, only that prayer is
- * given and its summary says where it stands.
+ * given and its summary says where it stands. Saint Francis's prayers are
+ * Paschal Robinson's translation, The Writings of Saint Francis of Assisi
+ * (Philadelphia: Dolphin Press, 1906); Saint Augustine's are from E. B.
+ * Pusey's Confessions in its first edition (Library of the Fathers, Oxford,
+ * 1838), not from later reprints, whose wording differs in places.
  */
 export const prayerBatch12: CuratedEntry[] = [
   {
@@ -702,6 +714,316 @@ export const prayerBatch12: CuratedEntry[] = [
         "https://www.newmanreader.org/works/verses/gerontius.html",
         "https://archive.org/details/a676839800newmuoft",
       ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "praises-of-saint-francis-at-all-the-hours",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n182/mode/1up"],
+    payload: {
+      slug: "praises-of-saint-francis-at-all-the-hours",
+      title:
+        "The Praises at All the Hours, with the Paraphrase of the Our Father (Saint Francis of Assisi)",
+      body: "Our Father, most holy, our Creator, Redeemer, and Comforter.\n\nWho art in heaven, in the angels and in the saints illuminating them unto knowledge, for Thou, O Lord, art light; inflaming them unto love, for Thou, O Lord, art Love; dwelling in them and filling them with blessedness, for Thou, O Lord, art the highest Good, the eternal Good from whom is all good and without whom is no good.\n\nHallowed be Thy Name: may Thy knowledge shine in us that we may know the breadth of Thy benefits, the length of Thy promises, the height of Thy majesty, and the depth of Thy judgments.\n\nThy Kingdom come, that Thou mayest reign in us by grace and mayest make us come to Thy Kingdom, where there is the clear vision of Thee, the perfect love of Thee, the blessed company of Thee, the eternal enjoyment of Thee.\n\nThy will be done on earth as it is in heaven, that we may love Thee with the whole heart by always thinking of Thee; with the whole soul by always desiring Thee; with the whole mind by directing all our intentions to Thee and seeking Thy honor in all things and with all our strength, by spending all the powers and senses of body and soul in the service of Thy love and not in anything else; and that we may love our neighbors even as ourselves, drawing to the best of our power all to Thy love; rejoicing in the good of others as in our own and compassionating [them] in troubles and giving offence to no one.\n\nGive us this day, through memory and understanding and reverence for the love which He had for us and for those things which He said, did, and suffered, for us,—our daily bread, Thy Beloved Son, our Lord Jesus Christ.\n\nAnd forgive us our trespasses, by Thy ineffable mercy in virtue of the Passion of Thy Beloved Son, our Lord Jesus Christ, and through the merits and intercession of the most Blessed Virgin Mary and of all Thy elect.\n\nAs we forgive them that trespass against us, and what we do not fully forgive, do Thou, O Lord, make us fully forgive, that for Thy sake we may truly love our enemies and devoutly intercede for them with Thee; that we may render no evil for evil, but in Thee may strive to do good to all.\n\nAnd lead us not into temptation, hidden or visible, sudden or continuous.\n\nBut deliver us from evil, past, present, and to come. Amen.\n\nGlory be to the Father, etc.\n\nHoly, Holy, Holy, Lord God Almighty, who is and who was and who is to come. Let us praise and exalt Him above all forever.\n\nWorthy art Thou, O Lord, our God, to receive praise, glory and honor and benediction. Let us praise and exalt Him above all forever.\n\nThe Lamb that was slain is worthy to receive power and divinity and wisdom and strength and honor and benediction. Let us praise and exalt Him above all forever.\n\nLet us bless the Father and the Son with the Holy Ghost. Let us praise and exalt Him above all forever.\n\nAll ye works of the Lord, bless ye the Lord. Let us praise and exalt Him above all forever.\n\nGive praise to God all ye His servants and you that fear Him, little and great. Let us praise and exalt Him above all forever.\n\nLet the heavens and the earth praise Him, the Glorious, and every creature which is in heaven and on earth and under the earth, in the seas and all that are in them. Let us praise and exalt Him above all forever.\n\nGlory be to the Father, and to the Son, and to the Holy Ghost. Let us praise and exalt Him above all forever.\n\nAs it was in the beginning, is now and ever shall be world without end. Amen. Let us praise and exalt Him above all forever.\n\nPrayer.\n\nAlmighty, most holy, most high, and supreme God, highest good, all good, wholly good, who alone art good. To Thee we render all praise, all glory, all thanks, all honor, all blessing, and we shall always refer all good to Thee. Amen.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        'The Praises that Saint Francis composed and said at every Hour of the Divine Office and before the Office of the Blessed Virgin: his phrase-by-phrase meditation on the Our Father, the Glory Be, then scriptural acclamations from the Apocalypse and the Canticle of Daniel, each answered by "Let us praise and exalt Him above all forever", and a closing prayer to God who alone is good. Paschal Robinson\'s 1906 translation; "them" in square brackets is the translator\'s own insertion.',
+      occasions: ["lauds", "daily", "october-4"],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n182/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "salutation-of-the-blessed-virgin-saint-francis",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n186/mode/1up"],
+    payload: {
+      slug: "salutation-of-the-blessed-virgin-saint-francis",
+      title: "Salutation of the Blessed Virgin Mary (Saint Francis of Assisi)",
+      body: "Hail, holy Lady, most holy Queen, Mother of God, Mary who art ever Virgin, chosen from Heaven by the most Holy Father, whom He has consecrated with the most holy beloved Son and the Ghostly Paraclete, in whom was and is all the fulness of grace and all good. Hail thou His palace! Hail thou His tabernacle! Hail thou His house. Hail thou His garment! Hail thou His handmaid! Hail thou His Mother and all ye holy virtues which by the grace and illumination of the Holy Ghost thou infusest in the heart of the faithful, that from infidels ye mayest make them faithful to God.",
+      prayerType: "marian",
+      category: "marian",
+      language: "en",
+      summary:
+        "Saint Francis's greeting of the Blessed Virgin as the palace, tabernacle, house, garment, handmaid and Mother of God, chosen by the Father and consecrated with the Son and the Holy Spirit, together with the holy virtues the Spirit pours into the faithful. Paschal Robinson's 1906 translation from the Quaracchi critical text.",
+      occasions: ["marian-feasts", "october-4", "daily"],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n186/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "absorbeat-prayer-of-saint-francis",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n188/mode/1up"],
+    payload: {
+      slug: "absorbeat-prayer-of-saint-francis",
+      title: "Prayer to Obtain Divine Love (Absorbeat) (Saint Francis of Assisi)",
+      body: "I beseech Thee, O Lord, that the fiery and sweet strength of Thy love may absorb my soul from all things that are under heaven, that I may die for love of Thy love as Thou didst deign to die for love of my love.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "A short prayer known from its Latin opening as the Absorbeat, asking that the fire of God's love may draw the soul away from everything under heaven. Its attribution to Saint Francis rests on Ubertino da Casale, who gives it in his Arbor Vitae Crucifixae (1305), and on Saint Bernardine of Siena. Paschal Robinson's 1906 translation.",
+      occasions: ["daily", "act-of-love", "october-4"],
+      relatedSaints: ["saint-francis-of-assisi", "saint-bernardine-of-siena"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n188/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "praises-of-god-saint-francis",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n191/mode/1up"],
+    payload: {
+      slug: "praises-of-god-saint-francis",
+      title: "The Praises of God (Saint Francis of Assisi)",
+      body: "Thou art holy, Lord God, who alone workest wonders. Thou art strong. Thou art great. Thou art most high. Thou art the Almighty King, Thou, holy Father, King of heaven and earth. Thou art the Lord God Triune and One; all good. Thou art good, all good, highest good, Lord God living and true. Thou art charity, love. Thou art wisdom. Thou art humility. Thou art patience. Thou art security. Thou art quietude. Thou art joy and gladness. Thou art justice and temperance. Thou art all riches to sufficiency. Thou art beauty. Thou art meekness. Thou art protector. Thou art guardian and defender. Thou art strength. Thou art refreshment. Thou art our hope. Thou art our faith. Thou art our great sweetness. Thou art our eternal life, great and admirable Lord, God Almighty, merciful Saviour.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The litany of praise that Saint Francis wrote with his own hand on La Verna in September 1224, after receiving the stigmata, on the sheet he gave to Brother Leo; the autograph is kept at the Sacro Convento in Assisi. Paschal Robinson's 1906 translation of the Quaracchi text.",
+      occasions: ["praise", "thanksgiving", "september-17", "october-4"],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n191/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "blessing-of-brother-leo",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n194/mode/1up"],
+    payload: {
+      slug: "blessing-of-brother-leo",
+      title: "The Blessing of Brother Leo (Saint Francis of Assisi)",
+      body: "May the Lord bless thee and keep thee. May He shew His face to thee and have mercy on thee. May He turn His countenance to thee and give thee peace. Brother Leo may the Lord bless thee.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The blessing of Numbers 6:24-26 that Saint Francis wrote out for Brother Leo on the back of the sheet bearing the Praises of God (La Verna, 1224), adding a personal blessing in his own hand. In the autograph the tau that Francis used as his signature is drawn through Leo's name, and the 1906 printing sets a T within the name; it is given here as the plain name.",
+      occasions: ["blessing", "september-17", "october-4"],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n194/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-the-sun",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n197/mode/1up"],
+    payload: {
+      slug: "canticle-of-the-sun",
+      title: "The Canticle of the Sun (Canticle of the Creatures) (Saint Francis of Assisi)",
+      body: "Most high, omnipotent, good Lord,\nPraise, glory and honor and benediction all, are Thine.\nTo Thee alone do they belong, most High,\nAnd there is no man fit to mention Thee.\n\nPraise be to Thee, my Lord, with all Thy creatures,\nEspecially to my worshipful brother sun,\nThe which lights up the day, and through him dost Thou brightness give;\nAnd beautiful is he and radiant with splendor great;\nOf Thee, most High, signification gives.\n\nPraised be my Lord, for sister moon and for the stars,\nIn heaven Thou hast formed them clear and precious and fair.\n\nPraised be my Lord for brother wind\nAnd for the air and clouds and fair and every kind of weather,\nBy the which Thou givest to Thy creatures nourishment.\nPraised be my Lord for sister water,\nThe which is greatly helpful and humble and precious and pure.\n\nPraised be my Lord for brother fire,\nBy the which Thou lightest up the dark.\nAnd fair is he and gay and mighty and strong.\n\nPraised be my Lord for our sister, mother earth,\nThe which sustains and keeps us\nAnd brings forth diverse fruits with grass and flowers bright.\n\nPraised be my Lord for those who for Thy love forgive\nAnd weakness bear and tribulation.\nBlessed those who shall in peace endure,\nFor by Thee, most High, shall they be crowned.\n\nPraised be my Lord for our sister, the bodily death,\nFrom the which no living man can flee.\nWoe to them who die in mortal sin;\nBlessed those who shall find themselves in Thy most holy will,\nFor the second death shall do them no ill.\n\nPraise ye and bless ye my Lord, and give Him thanks,\nAnd be subject unto Him with great humility.",
+      prayerType: "canticle",
+      category: "saintly",
+      language: "en",
+      summary:
+        "Saint Francis's Italian song of praise for God through brother sun, sister moon, wind, water, fire and mother earth, made while he lay ill at San Damiano; the tradition recorded in the Speculum Perfectionis holds that he added the strophe on pardon and peace to reconcile the bishop and magistrates of Assisi, and the strophe on sister bodily death as his own death approached. This is Paschal Robinson's deliberately literal 1906 rendering of the Assisi manuscript, keeping the rhythm of the original rather than rhyming it.",
+      occasions: ["creation", "praise", "october-4", "deathbed"],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n197/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "salutation-of-the-virtues",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n61/mode/1up"],
+    payload: {
+      slug: "salutation-of-the-virtues",
+      title: "Salutation of the Virtues (Saint Francis of Assisi)",
+      body: "Hail, queen wisdom! May the Lord save thee with thy sister holy pure simplicity! O Lady, holy poverty, may the Lord save thee with thy sister holy humility! O Lady, holy charity, may the Lord save thee with thy sister holy obedience! O all ye most holy virtues, may the Lord, from whom you proceed and come, save you! There is absolutely no man in the whole world who can possess one among you unless he first die. He who possesses one and does not offend the others, possesses all; and he who offends one, possesses none and offends all; and every one [of them] confounds vices and sins. Holy wisdom confounds Satan and all his wickednesses. Pure holy simplicity confounds all the wisdom of this world and the wisdom of the flesh. Holy poverty confounds cupidity and avarice and the cares of this world. Holy humility confounds pride and all the men of this world and all things that are in the world. Holy charity confounds all diabolical and fleshly temptations and all fleshly fears. Holy obedience confounds all bodily and fleshly desires and keeps the body mortified to the obedience of the spirit and to the obedience of one's brother and makes a man subject to all the men of this world and not to men alone, but also to all beasts and wild animals, so that they may do with him whatsoever they will, in so far as it may be granted to them from above by the Lord.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "Saint Francis's greeting of the virtues as ladies paired in sisterhood (wisdom with simplicity, poverty with humility, charity with obedience) and his teaching on how each confounds its opposing vice. Thomas of Celano quotes its opening in his Second Life (about 1247). Paschal Robinson's 1906 translation; \"of them\" in square brackets is the translator's insertion.",
+      occasions: ["october-4", "daily"],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n61/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "we-adore-thee-lord-jesus-christ-saint-francis",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n123/mode/1up"],
+    payload: {
+      slug: "we-adore-thee-lord-jesus-christ-saint-francis",
+      title: "We Adore Thee, Lord Jesus Christ (Prayer of Saint Francis from the Testament)",
+      body: "We adore Thee Lord Jesus Christ here and in all Thy churches which are in the whole world, and we bless Thee because by Thy holy cross Thou hast redeemed the world.",
+      prayerType: "general",
+      category: "devotional",
+      language: "en",
+      summary:
+        "The prayer that Saint Francis says in his Testament (1226) the Lord gave him such faith in churches that he would simply say on entering them. Paschal Robinson's 1906 translation; it is distinct from, though echoed by, the versicle said at each Station of the Cross.",
+      occasions: [
+        "adoration",
+        "visit-to-the-blessed-sacrament",
+        "stations-of-the-cross",
+        "october-4",
+      ],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n123/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-great-art-thou-o-lord",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n50/mode/1up"],
+    payload: {
+      slug: "augustine-great-art-thou-o-lord",
+      title: "Great Art Thou, O Lord (Saint Augustine, Confessions I.1)",
+      body: "Great art Thou, O Lord, and greatly to be praised; great is Thy power, and Thy wisdom infinite. And Thee would man praise; man, but a particle of Thy creation; man, that bears about him his mortality, the witness of his sin, the witness, that Thou resistest the proud: yet would man praise Thee; he, but a particle of Thy creation. Thou awakest us to delight in Thy praise; for Thou madest us for Thyself, and our heart is restless, until it repose in Thee. Grant me, Lord, to know and understand which is first, to call on Thee or to praise Thee? and, again, to know Thee or to call on Thee? For who can call on Thee, not knowing Thee? For he that knoweth Thee not, may call on Thee as other than Thou art. Or, is it rather, that we call on Thee that we may know Thee? But how shall they call on Him in whom they have not believed? or how shall they believe without a preacher? And they that seek the Lord shall praise Him. For they that seek shall find Him, and they that find shall praise Him. I will seek Thee, Lord, by calling on Thee; and will call on Thee, believing in Thee; for to us hast Thou been preached. My faith, Lord, shall call on Thee, which Thou hast given me, wherewith Thou hast inspired me, through the Incarnation of Thy Son, through the ministry of the Preacher.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The opening chapter of Saint Augustine's Confessions, a prayer of praise that contains his best-known line: God made us for himself, and our heart is restless until it rests in him. The Preacher of the last line is Saint Ambrose, through whom Augustine came to the faith. E. B. Pusey's translation (1838).",
+      occasions: ["daily", "august-28", "praise"],
+      relatedSaints: ["saint-augustine-of-hippo", "saint-ambrose"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n50/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-what-art-thou-then-my-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n52/mode/1up"],
+    payload: {
+      slug: "augustine-what-art-thou-then-my-god",
+      title: "What Art Thou Then, My God? (Saint Augustine, Confessions I.4)",
+      body: "What art Thou then, my God? What, but the Lord God? For who is Lord but the Lord? or who is God save our God? Most highest, most good, most potent, most omnipotent; most merciful, yet most just; most hidden, yet most present; most beautiful, yet most strong; stable, yet incomprehensible; unchangeable, yet all-changing; never new, never old; all-renewing, and bringing age upon the proud, and they know it not; ever working, ever at rest; still gathering, yet nothing lacking; supporting, filling, and overspreading; creating, nourishing, and maturing; seeking, yet having all things. Thou lovest, without passion; art jealous, without anxiety; repentest, yet grievest not; art angry, yet serene; changest Thy works, Thy purpose unchanged; receivest again what Thou findest, yet didst never lose; never in need, yet rejoicing in gains; never covetous, yet exacting usury. Thou receivest over and above, that Thou mayest owe; and who hath aught that is not Thine? Thou payest debts, owing nothing; remittest debts, losing nothing. And what have I now said, my God, my life, my holy joy? or what saith any man when he speaks of Thee? Yet woe to him that speaketh not, since mute are even the most eloquent.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "Saint Augustine's hymn to the attributes of God from the fourth chapter of the Confessions, praising him in paradoxes as most hidden yet most present, never new and never old, ever working and ever at rest. E. B. Pusey's translation (1838).",
+      occasions: ["praise", "meditation", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n52/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-oh-that-i-might-repose-on-thee",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n52/mode/1up"],
+    payload: {
+      slug: "augustine-oh-that-i-might-repose-on-thee",
+      title: "Oh! That I Might Repose on Thee (Saint Augustine, Confessions I.5)",
+      body: "Oh! that I might repose on Thee! Oh! that Thou wouldest enter into my heart, and inebriate it, that I may forget my ills, and embrace Thee, my sole good? What art Thou to me? In Thy pity, teach me to utter it. Or what am I to Thee that Thou demandest my love, and, if I give it not, art wroth with me, and threatenest me with grievous woes? Is it then a slight woe to love Thee not? Oh! for Thy mercies' sake, tell me, O Lord my God, what Thou art unto me. Say unto my soul, I am thy salvation. So speak, that I may hear. Behold, Lord, my heart is before Thee; open Thou the ears thereof, and say unto my soul, I am thy salvation. After this voice let me haste, and take hold on Thee. Hide not Thy face from me. Let me die—lest I die—only let me see Thy face.\n\nNarrow is the mansion of my soul; enlarge Thou it, that Thou mayest enter in. It is ruinous; repair Thou it. It has that within which must offend Thine eyes; I confess and know it. But who shall cleanse it? or to whom should I cry, save Thee? Lord, cleanse me from my secret faults, and spare Thy servant from the power of the enemy. I believe, and therefore do I speak. Lord, Thou knowest. Have I not confessed against myself my transgressions unto Thee, and Thou, my God, hast forgiven the iniquity of my heart? I contend not in judgment with Thee, who art the truth; I fear to deceive myself; lest mine iniquity lie unto itself. Therefore I contend not in judgment with Thee; for if Thou, Lord, shouldest mark iniquities, O Lord, who shall abide it?",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        'Saint Augustine\'s plea from the fifth chapter of the Confessions that God would enter his heart and say to his soul, "I am thy salvation", enlarging the narrow mansion of the soul and cleansing it of its secret faults. A note in the 1838 edition explains the words "Let me die—lest I die": let me see the face of God though I die (Exodus 33:20), since not to see it is the second death. E. B. Pusey\'s translation (1838).',
+      occasions: ["daily", "confession", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n52/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-o-lord-i-am-thy-servant",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n204/mode/1up"],
+    payload: {
+      slug: "augustine-o-lord-i-am-thy-servant",
+      title: "O Lord, I Am Thy Servant (Saint Augustine, Confessions IX.1)",
+      body: "O Lord, I am Thy servant; I am Thy servant, and the son of Thy handmaid: Thou hast broken my bonds in sunder. I will offer to Thee the sacrifice of praise. Let my heart and my tongue praise Thee; yea let all my bones say, O Lord, who is like unto Thee? Let them say, and answer Thou me, and say unto my soul, I am thy salvation. Who am I, and what am I? What evil have not been either my deeds, or if not my deeds, my words, or if not my words, my will? But Thou, O Lord, art good and merciful, and Thy right hand had respect unto the depth of my death, and from the bottom of my heart emptied that abyss of corruption. And this Thy whole gift was, to nill what I willed, and to will what Thou willedst. But where through all those years, and out of what low and deep recess was my free-will called forth in a moment, whereby to submit my neck to Thy easy yoke, and my shoulders unto Thy light burthen, O Christ Jesus, my Helper and my Redeemer? How sweet did it at once become to me, to want the sweetnesses of those toys! and what I feared to be parted from, was now a joy to part with. For Thou didst cast them forth from me, Thou true and highest sweetness. Thou castest them forth, and for them enteredst in Thyself, sweeter than all pleasure, though not to flesh and blood; brighter than all light, but more hidden than all depths, higher than all honour, but not to the high in their own conceits. Now was my soul free from the biting cares of canvassing and getting, and weltering in filth, and scratching off the itch of lust. And my infant tongue spake freely to Thee, my brightness, and my riches, and my health, the Lord my God.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "Saint Augustine's thanksgiving, at the opening of Book IX of the Confessions, for the grace of his conversion, when God broke his bonds and made sweet the easy yoke of Christ he had feared to take up. E. B. Pusey's translation (1838).",
+      occasions: ["thanksgiving", "conversion", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n204/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-prayer-for-his-mother-monica",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n229/mode/1up"],
+    payload: {
+      slug: "augustine-prayer-for-his-mother-monica",
+      title: "Prayer for His Mother Monica (Saint Augustine, Confessions IX.13)",
+      body: "I therefore, O my Praise and my Life, God of my heart, laying aside for a while her good deeds, for which I give thanks to Thee with joy, do now beseech Thee for the sins of my mother. Hearken unto me, I entreat Thee, by the Medicine of our wounds, Who hung upon the tree, and now sitting at Thy right hand maketh intercession to Thee for us. I know that she dealt mercifully, and from her heart forgave her debtors their debts; do Thou also forgive her debts, whatever she may have contracted in so many years, since the water of salvation. Forgive her, Lord, forgive, I beseech Thee; enter not into judgment with her. Let Thy mercy be exalted above Thy justice, since Thy words are true, and Thou hast promised mercy unto the merciful; which Thou gavest them to be, who wilt have mercy on whom thou wilt have mercy; and wilt have compassion, on whom Thou hast had compassion.\n\nAnd, I believe, Thou hast already done what I ask; but accept, O Lord, the free-will offerings of my mouth. For she, the day of her dissolution now at hand, took no thought to have her body sumptuously wound up, or embalmed with spices; nor desired she a choice monument, or to be buried in her own land. These things she enjoined us not; but desired only to have her name commemorated at Thy Altar, which she had served without intermission of one day: whence she knew that holy sacrifice to be dispensed, by which the hand-writing that was against us, is blotted out; through which the enemy was triumphed over, who summing up our offences, and seeking what to lay to our charge, found nothing in Him, in Whom we conquer. Who shall restore to Him the innocent blood? Who repay Him the price wherewith He bought us, and so take us from Him? Unto the Sacrament of which our ransom, Thy handmaid bound her soul by the bond of faith. Let none sever her from Thy protection: let neither the lion nor the dragon interpose himself by force or fraud. For she will not answer that she owes nothing, lest she be convicted and seized by the crafty accuser: but she will answer, that her sins are forgiven her by Him, to Whom none can repay that price, which He, Who owed nothing, paid for us.\n\nMay she rest then in peace with the husband, before and after whom she had never any; whom she obeyed, with patience bringing forth fruit unto Thee, that she might win him also unto Thee. And inspire, O Lord my God, inspire Thy servants my brethren, Thy sons my masters, whom with voice, and heart, and pen I serve, that so many as shall read these Confessions, may at Thy Altar remember Monnica Thy handmaid, with Patricius, her sometimes husband, by whose bodies Thou broughtest me into this life, how, I know not. May they with devout affection remember my parents in this transitory light, my brethren under Thee our Father in our Catholic Mother, and my fellow citizens in that eternal Jerusalem, which Thy pilgrim people sigheth after from their Exodus, even unto their return thither. That so, my mother's last request of me, may through my confessions, more than through my prayers, be, through the prayers of many, more abundantly fulfilled to her.",
+      prayerType: "intercession",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The prayer with which Saint Augustine closes Book IX of the Confessions: he begs forgiveness for the sins of his mother, Saint Monica, who asked only to be remembered at the altar, and asks all who read the book to remember her and his father Patricius at Mass. E. B. Pusey's translation (1838), which spells her name Monnica.",
+      occasions: ["all-souls", "funerals", "august-27", "mothers"],
+      relatedSaints: ["saint-augustine-of-hippo", "saint-monica"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n229/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-let-me-know-thee-o-lord",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n231/mode/1up"],
+    payload: {
+      slug: "augustine-let-me-know-thee-o-lord",
+      title: "Let Me Know Thee, O Lord (Saint Augustine, Confessions X.1)",
+      body: "Let me know Thee, O Lord, who knowest me: let me know Thee, as I am known. Power of my soul, enter into it, and fit it for Thee, that Thou mayest have and hold it without spot or wrinkle. This is my hope, therefore do I speak; and in this hope do I rejoice, when I rejoice healthfully. Other things of this life are the less to be sorrowed for, the more they are sorrowed for; and the more to be sorrowed for, the less men sorrow for them. For behold, Thou lovest the truth, and he that doth it, cometh to the light. This would I do in my heart before Thee in confession: and in my writing, before many witnesses.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The prayer that opens Book X of the Confessions, asking to know God as one is known by him (1 Corinthians 13:12) and that he, the power of the soul, would enter it and fit it for himself. E. B. Pusey's translation (1838).",
+      occasions: ["daily", "meditation", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n231/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-give-what-thou-enjoinest",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n253/mode/1up"],
+    payload: {
+      slug: "augustine-give-what-thou-enjoinest",
+      title: "Give What Thou Enjoinest (Saint Augustine, Confessions X.29)",
+      body: "And all my hope is no where but in Thy exceeding great mercy. Give what Thou enjoinest, and enjoin what Thou wilt. Thou enjoinest us continency; and when I knew, saith one, that no man can be continent, unless God give it, this also was a part of wisdom to know whose gift she is. By continency verily, are we bound up and brought back into One, whence we were dissipated into many. For too little doth he love Thee, who loves any thing with Thee, which he loveth not for Thee. O love, who ever burnest and never consumest! O charity, my God! kindle me. Thou enjoinest continency: give me what Thou enjoinest, and enjoin what Thou wilt.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "Saint Augustine's short prayer of entire dependence on grace from Book X of the Confessions: \"Give what Thou enjoinest, and enjoin what Thou wilt\", with the cry to the love that ever burns and is never consumed to kindle him. A note in the 1838 edition recalls Augustine's own report that Pelagius could not bear to hear these words. E. B. Pusey's translation (1838).",
+      occasions: ["temptation", "chastity", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n253/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-o-lord-god-give-peace-unto-us",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n361/mode/1up"],
+    payload: {
+      slug: "augustine-o-lord-god-give-peace-unto-us",
+      title: "O Lord God, Give Peace unto Us (Saint Augustine, Confessions XIII.35-38)",
+      body: "O Lord God, give peace unto us: (for Thou hast given us all things;) the peace of rest, the peace of the Sabbath, which hath no evening. For all this most goodly array of things very good, having finished their courses, is to pass away, for in them there was morning and evening.\n\nBut the seventh day hath no evening, nor hath it setting; because Thou hast sanctified it to an everlasting continuance; that that which Thou didst after Thy works which were very good, resting the seventh day, although Thou madest them in unbroken rest, that may the voice of Thy Book announce beforehand unto us, that we also after our works, (therefore very good, because Thou hast given them us,) shall rest in Thee also in the Sabbath of eternal life.\n\nFor then shalt Thou so rest in us, as now Thou workest in us; and so shall that be Thy rest through us, as these are Thy works through us. But Thou, Lord, ever workest, and art ever at rest. Nor dost Thou see in time, nor art moved in time, nor restest in a time; and yet Thou makest things seen in time, yea the times themselves, and the rest which results from time.\n\nWe therefore see these things which Thou madest, because they are: but they are, because Thou seest them. And we see without, that they are, and within, that they are good, but Thou sawest them there, when made, where Thou sawest them, yet to be made. And we were at a later time moved to do well, after our hearts had conceived of Thy Spirit; but in the former time we were moved to do evil, forsaking Thee; but Thou, the One, the Good God, didst never cease doing good. And we also have some good works, of Thy gift, but not eternal; after them we trust to rest in Thy great hallowing. But Thou, being the Good which needeth no good, art ever at rest, because Thy rest is Thou Thyself. And what man can teach man to understand this? or what Angel, an Angel? or what Angel, a man? Let it be asked of Thee, sought in Thee, knocked for at Thee; so, so shall it be received, so shall it be found, so shall it be opened. Amen.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The four closing chapters of the Confessions, praying for the peace of the eternal Sabbath that has no evening, when God, who ever works and is ever at rest, will rest in us as he now works in us. E. B. Pusey's translation (1838).",
+      occasions: ["evening", "sunday", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n361/mode/1up"],
     },
   },
 ];
