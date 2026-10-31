@@ -1178,6 +1178,50 @@ const PATRON_SAINT_NOVENA_DAY_9 = [
   "Five Our Fathers and Hail Marys.",
 ].join("\n\n");
 
+const LINGS_ALPHONSUS = "https://archive.org/details/ourfavoritenoven0000revd/page/376/mode/1up";
+const LINGS_JOSEPH = "https://archive.org/details/ourfavoritenoven0000revd/page/298/mode/1up";
+const LINGS_ANNE = "https://archive.org/details/ourfavoritenoven0000revd/page/318/mode/1up";
+const LINGS_PETER = "https://archive.org/details/ourfavoritenoven0000revd/page/325/mode/1up";
+const CE_ALPHONSUS_LIGUORI = "https://www.newadvent.org/cathen/01334a.htm";
+const CE_JOSEPH = "https://www.newadvent.org/cathen/08504a.htm";
+const CE_ANNE = "https://www.newadvent.org/cathen/01538a.htm";
+const CE_PETER = "https://www.newadvent.org/cathen/11744a.htm";
+
+/** The nine prayers to obtain the graces necessary for salvation, said together on each day of the novena to St. Alphonsus in Lings's Our Favorite Novenas. */
+const LINGS_ALPHONSUS_NOVENA_PRAYER =
+  "1. O most zealous doctor of the Church, St. Alphonsus, obtain for me a lively faith in all the truths that the holy Catholic Church teaches, together with light to know the vanity of all earthly things and the hideousness of my sins. Glory be, etc.\n\n2. O most zealous doctor of the Church, St. Alphonsus, obtain for me the firm hope of receiving from God, through the merits of Jesus Christ and the intercession of Mary and your prayers, the pardon of my sins, final perseverance, and paradise. Glory be, etc.\n\n3. O most zealous doctor of the Church, St. Alphonsus, obtain for me an ardent love of God that will detach me from all created things and from myself, to love Him alone and consume myself for His glory. Glory be, etc.\n\n4. O most zealous doctor of the Church, St. Alphonsus, obtain for me perfect resignation to the holy will of God, that I may accept in peace sufferings, persecutions, contempt, loss of goods and reputation, the loss of my relations, and finally death itself. Glory be, etc.\n\n5. O most zealous doctor of the Church, St. Alphonsus, obtain for me a heartfelt sorrow for my sins, that I may never cease to weep over the displeasure I have given my God. Glory be, etc.\n\n6. O most zealous doctor of the Church, St. Alphonsus, obtain for me a practical love towards my neighbor that will make me do good even to those who have offended me. Glory be, etc.\n\n7. O most zealous doctor of the Church, St. Alphonsus, obtain for me the holy virtue of purity, and the help required to resist impure temptations, by invoking the holy names of Jesus and Mary. Glory be, etc.\n\n8. O most zealous doctor of the Church, St. Alphonsus, obtain for me a tender devotion to the passion of Jesus Christ, to the Most Blessed Sacrament, and to my dear Mother Mary. Glory be, etc.\n\n9. O most zealous doctor of the Church, St. Alphonsus, obtain for me above all the grace of final perseverance, and the grace always to pray for it, especially in the time of temptation and in the hour of my death. Glory be, etc.";
+
+/** The dedication, offering, Remember, litany, collect and blessing of the novena to St. Joseph in Our Favorite Novenas; the litany's brace responses are written out. */
+const LINGS_JOSEPH_NOVENA_PRAYER = [
+  "O glorious descendant of the King of Juda! inheritor of the virtues of all the patriarchs! just and happy St. Joseph! listen to my prayer. Thou art my glorious protector, and shalt ever be, after Jesus and Mary, the object of my most profound veneration and tender confidence. Thou art the most hidden, though the greatest saint, and art peculiarly the patron of those who serve God with the greatest purity and fervor. In union with all those who have ever been most devoted to thee, I now dedicate myself to thy service, beseeching thee, for the sake of Jesus Christ, Who vouchsafed to love and obey thee as a son, to become a father to me, and to obtain for me the filial respect, confidence, and love of a child towards thee. O powerful advocate of all Christians! whose intercession, as St. Teresa assures us, has never been found to fail, deign to intercede for me now, and to implore for me the particular intention of this novena. [Specify it.] Present me, O great saint, to the Adorable Trinity, with Whom thou hadst so glorious and so intimate a correspondence. Obtain that I may never efface by sin the sacred image according to the likeness of which I was created. Beg for me that my divine Redeemer will enkindle in my heart, and in all hearts, the fire of His love, and infuse therein the virtues of His adorable infancy, His purity, simplicity, obedience, and humility. Obtain for me likewise a lively devotion to thy virgin spouse, and protect me so powerfully in life and death that I may have the happiness of dying as thou didst, in the friendship of my Creator, and under the immediate protection of the Mother of God.",
+  "Great St. Joseph, thou generous depositary and dispenser of immortal riches, behold us prostrate at thy feet, conjuring thee to receive us as thy servants and as thy children. Next to the sacred hearts of Jesus and Mary, of which thou art the faithful copy, we acknowledge that there is no heart more tender, more compassionate, than thine. What, then, have we to fear, or, rather, for what should we not hope, if thou dost deign to be our benefactor, our master, our model, our father, and our mediator?\n\nRefuse not, then, this favor, O powerful protector! We ask it of thee by the love thou hast for Jesus and Mary. Into thy hands we remit our souls and bodies, but above all the last moment of our lives. May we, after having honored, imitated, and served thee on earth, eternally sing with thee the mercies of Jesus and Mary. Amen.",
+  "Most glorious St. Joseph, virgin spouse of the immaculate Mother of God, our loving patron, remember that it has never been known that any one invoked thy help or solicited thy protection without obtaining relief. Encouraged by this assurance, we commend our souls and bodies, our temporal and eternal interests, to thy powerful protection. O thou the adopted father of the eternal Son, despise not this appeal, but listen to our prayer and plead for our necessities. Amen.",
+  "Lord have mercy on us.\nChrist have mercy on us.\nLord have mercy on us.\nJesus hear us.\nJesus graciously hear us.\nGod the Father of heaven, Have mercy on us!\nGod the Son, Redeemer of the world, Have mercy on us!\nGod the Holy Ghost, Have mercy on us!\nHoly Trinity, one God, Have mercy on us!\nHoly Mary, spouse of St. Joseph, Pray for us!\nSt. Joseph, confirmed in grace, Pray for us!\nSt. Joseph, guardian of the Word Incarnate, Pray for us!\nSt. Joseph, favorite of the King of heaven, Pray for us!\nSt. Joseph, ruler of the family of Jesus, Pray for us!\nSt. Joseph, spouse of the ever-blessed Virgin, Pray for us!\nSt. Joseph, nursing-father to the Son of God, Pray for us!\nSt. Joseph, example of humility and obedience, Pray for us!\nSt. Joseph, mirror of silence and resignation, Pray for us!\nSt. Joseph, patron of innocence and youth, Pray for us!\nSt. Joseph, exiled with Christ in Egypt, Pray for us!\nSt. Joseph, intercessor for the afflicted, Pray for us!\nSt. Joseph, advocate for the humble, Pray for us!\nSt. Joseph, model of every virtue, Pray for us!\nSt. Joseph, honored among men, Pray for us!\nSt. Joseph, union of all Christian perfection, Pray for us!\nSt. Joseph, patron of the dying, Pray for us!\nLamb of God, Who takest away the sins of the world, Spare us, O Lord!\nLamb of God, Who takest away the sins of the world, Graciously hear us, O Lord!\nLamb of God, Who takest away the sins of the world, Have mercy on us, O Lord!\nV. Pray for us, O holy St. Joseph,\nR. That we may be made worthy of the promises of Christ.",
+  "Let us Pray.\nGrant, O Lord, we beseech Thee, by the merits of the spouse of Thy most holy Mother, that what our unworthiness cannot obtain may be given us by his intercession with Thee, Who livest and reignest with God the Father in the unity of the Holy Ghost, world without end. Amen.",
+  "May the poverty of my sweet and suffering little Child be your riches; His sighs and His tears, the consolation of your days; the love of His infant heart, your all, your earthly treasure; and the clear vision of His adorable and glorified humanity, your eternal joy and recompense. Amen.",
+].join("\n\n");
+
+/** The prayers and litany of the novena to St. Anne in Our Favorite Novenas. */
+const LINGS_ANNE_NOVENA_PRAYER = [
+  "With a heart full of sincere filial veneration I prostrate myself before thee, O blessed St. Anne. Thou art that beloved and privileged creature who, because of thy extraordinary virtue and sanctity, didst deserve of God that chief of graces, of giving life to the treasury of grace, the blessed among women, the Mother of the incarnate Lord, the Blessed Virgin Mary.\n\nAh! in consideration of such exalted favors deign, O most tender saint, to receive me among the number of thy truly devoted servants, for such I protest myself to be and wish to remain for the rest of my life. Surround me with thy efficacious patronage, and obtain for me from God the imitation of those virtues with which thou wert so profusely adorned. Obtain for me a knowledge of my sins and sorrow for them, an ardent love for Jesus and Mary, a faithful and constant observance of the duties of my state of life. Save me from all dangers in life, and assist me at the hour of my death, that I may safely reach paradise, there to praise with thee, most happy mother, the Word of God made man in the womb of thy most pure daughter, the Blessed Virgin Mary. Amen.",
+  "Our Father, Hail Mary, Glory be to the Father, etc., three times.",
+  "Lord have mercy on us.\nLord have mercy on us.\nChrist have mercy on us.\nChrist have mercy on us.\nLord have mercy on us.\nLord have mercy on us.\nChrist hear us.\nChrist graciously hear us.\nGod the Father of heaven, Have mercy on us!\nGod the Son, Redeemer of the world, Have mercy on us!\nGod the Holy Ghost, Have mercy on us!\nHoly Trinity, one God, Have mercy on us!\nSt. Anne, Pray for us!\nSt. Anne, mother of the Virgin Mary, Pray for us!\nSt. Anne, spouse of Joachim, Pray for us!\nSt. Anne, mother-in-law of Joseph, Pray for us!\nSt. Anne, ark of Noe, Pray for us!\nSt. Anne, ark of the covenant, Pray for us!\nSt. Anne, mount of Horeb, Pray for us!\nSt. Anne, rod of Jesse, Pray for us!\nSt. Anne, fruitful tree, Pray for us!\nSt. Anne, fruit-bearing vine, Pray for us!\nSt. Anne, sprung from the blood of kings, Pray for us!\nSt. Anne, joy of angels, Pray for us!\nSt. Anne, grace of patriarchs, Pray for us!\nSt. Anne, oracle of prophets, Pray for us!\nSt. Anne, praise of all saints, Pray for us!\nSt. Anne, glory of priests and levites, Pray for us!\nSt. Anne, cloud full of dew, Pray for us!\nSt. Anne, cloud of light, Pray for us!\nSt. Anne, cloud of brightness, Pray for us!\nSt. Anne, vessel full of grace, Pray for us!\nSt. Anne, mirror of obedience, Pray for us!\nSt. Anne, mirror of patience, Pray for us!\nSt. Anne, mirror of compassion, Pray for us!\nSt. Anne, mirror of devotion, Pray for us!\nSt. Anne, bulwark of the Church, Pray for us!\nSt. Anne, refuge of sinners, Pray for us!\nSt. Anne, protectress of Christians, Pray for us!\nSt. Anne, deliverer of captives, Pray for us!\nSt. Anne, consolation of the married, Pray for us!\nSt. Anne, mother of widows, Pray for us!\nSt. Anne, directress of virgins, Pray for us!\nSt. Anne, harbor of safety for voyagers, Pray for us!\nSt. Anne, sure road of travellers, Pray for us!\nSt. Anne, support of the weak, Pray for us!\nSt. Anne, health of the sick, Pray for us!\nSt. Anne, life of the blind, Pray for us!\nSt. Anne, tongue of the dumb, Pray for us!\nSt. Anne, ear of the deaf, Pray for us!\nSt. Anne, comforter of the afflicted, Pray for us!\nLamb of God, Who takest away the sins of the world, Spare us, O Lord!\nLamb of God, Who takest away the sins of the world, Graciously hear us, O Lord!\nLamb of God, Who takest away the sins of the world, Have mercy on us, O Lord!\nChrist Jesus hear us.\nChrist Jesus graciously hear us.\nV. Pray for us, St. Anne.\nR. That we may be made worthy of the promises of Christ.",
+  "Let us Pray.\nO almighty and eternal God, Who didst vouchsafe to choose St. Anne to bring into the world the Mother of Thy only Son, mercifully grant to us, we beseech Thee, who devoutly honor her memory, grace to obtain, through her merits, the blessings of eternal life. Who livest and reignest world without end. Amen.",
+  "Glorious and holy queen, whom the heavens admire, whom the saints honor, and the earth reveres, God the Father loves thee as the mother of His beloved daughter; the Son of God loves thee for having given Him a mother, from whom He took His life and became Saviour of mankind; the Holy Ghost loves thee for having given to Him so beautiful, so worthy, and so perfect a spouse; the angels and the elect honor thee as the mother of their sovereign; the just, the penitent, and the sinner consider thee their powerful advocate before God, for by thy intercession the just hope for an increase of grace, the penitent for their justification, and sinners for the remission of their sins. Be, then, kind and generous, and while we invoke thee here below pray for us in heaven. Use in our favor the great influence thou hast before God, and permit not that those who know thee be lost. Show thyself always the refuge of sinners and the asylum of the guilty, the consolation of the afflicted, and give us the pledge of thy kindness. Defend our cause now and at the hour of our death. This we pray of thee by all the love which thou hast for Our Lord and for His Mother, thy daughter, that thus sustained by thy prayers we may one day possess eternal life. Amen.",
+  "Glorious St. Anne, filled with compassion for those who invoke thee and with love for those who suffer, heavily laden with the weight of my troubles, I cast myself at thy feet and humbly beg of thee to take the present affair which I recommend to thee under thy special protection. Vouchsafe to recommend it to thy daughter, the Blessed Virgin Mary, and lay it before the throne of Jesus, so that He may bring it to a happy issue. Cease not to intercede for me until my request is granted. Above all, obtain for me the grace of one day beholding my God face to face, and with thee and Mary and all the saints praising and blessing Him through all eternity. Amen.",
+  "Invocation.—Good St. Anne, mother of her who is our life, our sweetness, and our hope, pray to her for us and obtain our request. (Three times.)",
+].join("\n\n");
+
+/** The prayer, Responsory, antiphon and collect, and the litany of the novena to St. Peter in Our Favorite Novenas. */
+const LINGS_PETER_NOVENA_PRAYER = [
+  "O glorious Apostle St. Peter, head of Christ's Church on earth, to whom were confided the keys of the kingdom of heaven; illustrious penitent, whose sincere and perfect repentance has exhibited to the whole world the tenderest proof of God's love and mercy, listen to my supplications and present them to God. I unite with the whole Church in thanksgiving to our divine Redeemer for having chosen thee to become a lasting monument of His willingness to receive the repentant sinner. O dear St. Peter! obtain for me a lively faith, firm hope, ardent charity, an entire forgetfulness of self, contempt of the world, patience, humility, attention at prayer, constancy in my resolutions, resignation to the divine will, final perseverance, and the intention of this novena [here name your request], that by thy intercession and glorious merits, having overcome the temptations of the demon, the world, and the flesh, I may be worthy to appear before the sovereign Pastor of souls, Jesus Christ, and to enjoy Him and love Him forever and ever. Amen.",
+  "Seek ye a patron to defend\nYour cause? Then one and all,\nWithout delay, upon the prince\nOf the apostles call.\n\nBlest holder of the heavenly keys,\nThy prayers we all implore;\nUnlock to us the sacred bars\nOf heaven's eternal door.\n\nBy penitential tears thou didst\nThe path of life regain;\nTeach us with thee to weep our sins\nAnd wash away their stain.\nBlest holder, etc.\n\nThe angel touched thee, and forthwith\nThy chains from off thee fell;\nOh! loose us from the subtle coils\nThat bind us fast to hell\nBlest holder, etc.\n\nFirm rock whereon the Church is based,\nPillar that cannot bend,\nWith strength endue us, and the faith\nFrom heresy defend.\nBlest holder, etc.\n\nSave Rome, which from the days of old\nThy love hath sanctified;\nAnd help the nations of the earth\nThat in thy help confide.\nBlest holder, etc.\n\nOh! worshipped by all Christendom,\nHer realms in peace maintain;\nLet no contagion sap her strength,\nNo discord rend in twain.\nBlest holder, etc.\n\nThe weapons which our ancient foe\nAgainst us doth prepare,\nCrush thou; nor suffer us to fall\nInto his deadly snare.\nBlest holder, etc.\n\nGuard us through life; and in that hour\nWhen our last flight draws nigh,\nO'er death, o'er hell, o'er Satan's power,\nGain us the victory.\nBlest holder, etc.\n\nGlory be, etc.\nBlest holder, etc.",
+  "Ant. Thou art the shepherd of the sheep, prince of the apostles; to thee were given the keys of the kingdom of heaven.\nV. Thou art Peter.\nR. And upon this rock will I build My Church.",
+  "Let us Pray.\nLord, we beseech Thee, raise us up by the apostolic might of blessed Peter, Thine apostle, that the weaker we are in ourselves the more powerful may be the succors whereby, through his intercession, we are strengthened; and that thus, ever fortified by the protection of Thine apostle, we may never yield to sin nor be overwhelmed by adversity. Through Christ, Our Lord. Amen.",
+  'Lord have mercy on us.\nChrist have mercy on us.\nLord have mercy on us.\nChrist hear us.\nChrist graciously hear us.\nGod the Father of heaven, Have mercy on us!\nGod the Son, Redeemer of the world, Have mercy on us!\nGod the Holy Ghost, Have mercy on us!\nHoly Trinity, one God, Have mercy on us!\nHoly Mary, Mother of God, Pray for us!\nQueen conceived without sin, Pray for us!\nSt. Peter, prince of the apostles, Pray for us!\nSt. Peter, who wast the first to leave all at the call of Jesus, Pray for us!\nSt. Peter, who didst receive thy name from the Lord Jesus, Pray for us!\nSt. Peter, who wast named the first of the apostles, Pray for us!\nSt. Peter, who didst walk on the waters with Jesus, Pray for us!\nSt. Peter, who didst know and confess the divinity of Jesus from the heavenly Father, Pray for us!\nSt. Peter, who didst accompany Jesus to Mount Thabor, Pray for us!\nSt. Peter, to whom was given the keys of the kingdom of heaven, Pray for us!\nSt. Peter, who hadst more love for Jesus than any of the other apostles, Pray for us!\nSt. Peter, so ardent for the glory of Christ, Pray for us!\nSt. Peter, whose heart was pierced with one look from Jesus, Pray for us!\nSt. Peter, for whom Jesus prayed that thy faith should not fail, Pray for us!\nSt. Peter, who ceased not to grieve for having denied the Son of God, Pray for us!\nSt. Peter, whose cheeks were furrowed by a stream of tears which flowed to the end of thy life, Pray for us!\nSt. Peter, who cried out, "Lord, Thou knowest that I love Thee!" Pray for us!\nSt. Peter, who received the commission to confirm thy brethren, Pray for us!\nSt. Peter, who alone with Jesus didst establish the foundation of the Church, Pray for us!\nSt. Peter, who wast the first of the apostles to see Jesus after the resurrection, Pray for us!\nSt. Peter, who wast the first at the tomb of Jesus, Pray for us!\nSt. Peter, who wast the first after the descent of the Holy Ghost to announce the Gospel, Pray for us!\nSt. Peter, who consecrated to the Lord the first-fruits of the nations, Pray for us!\nSt. Peter, for whom the Church prayed with solicitude when thou wast in prison and wast delivered therefrom by an angel, Pray for us!\nSt. Peter, who by the disposing of Divine Providence didst establish the see of Rome, Pray for us!\nSt. Peter, to whom it was granted, according to the promises of Jesus, to die as He did on the cross, Pray for us!\nSt. Peter, who livest and presidest still in thy see and intercedest without ceasing for holy Church, Pray for us!\nSt. Peter, whose very shadow healed the sick, Pray for us!\nSt. Peter, whose voice even the dead obey, Pray for us!\nThat we may have a constant mutual charity among ourselves, Pray for us!\nThat we may taste and see more and more how sweet the Lord is, Pray for us!\nThat we may be prudent and watch in prayer, Pray for us!\nThat we may die the death of the just, Pray for us!\nLamb of God, Who takest away the sins of the world, Spare us, O Lord!\nLamb of God, Who takest away the sins of the world, Graciously hear us, O Lord!\nLamb of God, Who takest away the sins of the world, Have mercy on us, O Lord!',
+  "Let us Pray.\nO glorious apostle, who didst receive the power of loosing and binding, pray for us, that, being free from all sin, we may live and die in the grace of God. Obtain, then, for us a perfect faith, firm hope, ardent charity, that as we draw nearer to the close of life we may daily grow in the knowledge and love of Jesus Christ. Guide us, O blessed apostle, through all the dangers of exile till fear and grief be over. O humble martyr of Christ, thou who now beholdest Him not as on Thabor, but in the full splendor of His glory, pray for us now and at the hour of death. Oh! then, come, blessed apostle, and take us to Jesus, that we too may love Him eternally. Amen.",
+].join("\n\n");
+
 function repeatedPrayerDays(
   prayerText: string,
   subjects: Array<{ title: string; meditation: string; intentionPrompt: string }>,
@@ -5059,6 +5103,314 @@ export const novenaGroupThree: CuratedEntry[] = [
       associatedSaintSlug: "saint-teresa-of-avila",
       typicalStartDate: "6 October, ending on the eve of her feast, 15 October",
       citations: [LINGS_TERESA, CE_TERESA_OF_AVILA],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-alphonsus-liguori",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_ALPHONSUS, CE_ALPHONSUS_LIGUORI],
+    payload: {
+      slug: "novena-saint-alphonsus-liguori",
+      title: "Novena in Honor of St. Alphonsus Liguori",
+      summary:
+        "A novena to St. Alphonsus Liguori, Doctor of the Church, made of nine short prayers to obtain the graces necessary for salvation, each beginning 'O most zealous doctor of the Church' and closing with a Glory be: faith, hope, love of God, resignation, sorrow for sin, love of neighbour, purity, devotion to the Passion, the Blessed Sacrament and Mary, and final perseverance with the grace always to pray for it.",
+      background:
+        "Alphonsus was born at Marianella near Naples in 1696, left the law for the priesthood, founded the Congregation of the Most Holy Redeemer in 1732, was bishop of Sant' Agata dei Goti and wrote 'The Glories of Mary' and many other works of devotion. He died at Nocera de' Pagani on 1 August 1787, was canonized in 1839 and declared a Doctor of the Church in 1871; his memorial is kept on 1 August. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayers are said on each of the nine days; the day meditations are editorial, and the indulgence notes are omitted. The book's heading gives, apparently in error, the dates of St. Charles Borromeo's novena; they are not followed here.",
+      intentionTheme:
+        "the graces necessary for salvation, above all final perseverance and the grace to pray",
+      days: repeatedPrayerDays(LINGS_ALPHONSUS_NOVENA_PRAYER, [
+        {
+          title: "A Lively Faith",
+          meditation:
+            "The first grace asked is a lively faith in all the Church teaches, with light to see the vanity of earthly things and the ugliness of sin.",
+          intentionPrompt: "Which truth of the faith do I most need to live by?",
+        },
+        {
+          title: "Firm Hope",
+          meditation:
+            "The second is a firm hope of pardon, final perseverance and paradise, through the merits of Christ and the intercession of Mary.",
+          intentionPrompt: "Do I ever despair of my own salvation?",
+        },
+        {
+          title: "An Ardent Love of God",
+          meditation:
+            "The third asks for a love of God that detaches us from creatures and from ourselves.",
+          intentionPrompt: "What attachment stands between me and God?",
+        },
+        {
+          title: "Resignation",
+          meditation:
+            "The fourth asks for perfect resignation to God's will in suffering, contempt, loss and death itself.",
+          intentionPrompt: "What loss am I struggling to accept?",
+        },
+        {
+          title: "Sorrow for Sin",
+          meditation:
+            "The fifth asks for a heartfelt sorrow that never ceases to grieve over offending God.",
+          intentionPrompt: "Have I truly grieved over my sins?",
+        },
+        {
+          title: "Love of Neighbour",
+          meditation:
+            "The sixth asks for a practical love that does good even to those who have offended us.",
+          intentionPrompt: "To whom who has hurt me can I do some good?",
+        },
+        {
+          title: "Purity",
+          meditation:
+            "The seventh asks for purity and for help in temptation by invoking the names of Jesus and Mary, as St. Alphonsus always taught.",
+          intentionPrompt: "Will I call on Jesus and Mary in my next temptation?",
+        },
+        {
+          title: "The Passion, the Sacrament and Mary",
+          meditation:
+            "The eighth asks for tender devotion to the Passion, the Blessed Sacrament and Our Lady, the three great loves of the saint's own writings.",
+          intentionPrompt: "Which of the three will I give time to today?",
+        },
+        {
+          title: "Final Perseverance",
+          meditation:
+            "The last grace is final perseverance and the grace always to pray for it, for Alphonsus taught that whoever prays is saved.",
+          intentionPrompt: "Do I ask every day for the grace to persevere?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-alphonsus-liguori",
+      typicalStartDate: "23 July, ending on the eve of his memorial, 1 August",
+      citations: [LINGS_ALPHONSUS, CE_ALPHONSUS_LIGUORI],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-joseph-lings",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_JOSEPH, CE_JOSEPH],
+    payload: {
+      slug: "novena-saint-joseph-lings",
+      title: "Novena to St. Joseph (Our Favorite Novenas)",
+      summary:
+        "A novena to St. Joseph kept from 10 to 18 March. Each day a dedication to the saint, an offering, the 'Remember' to St. Joseph, a litany of St. Joseph for private devotion with its collect, and the blessing of St. Joseph are said; the intention of the novena is named in the dedication.",
+      background:
+        "St. Joseph, of the line of David, was the spouse of the Blessed Virgin and the foster-father of Jesus. His feast was received into the Roman calendar on 19 March under Sixtus IV, and in December 1870 Pius IX declared him patron of the Catholic Church. The litany in this novena is an older private litany, not the one approved for public use in 1909. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayers are said on each of the nine days; the day meditations are editorial, and the indulgence notes are omitted.",
+      intentionTheme:
+        "the particular intention named in the dedication, a holy life and a happy death under St. Joseph's protection",
+      days: repeatedPrayerDays(LINGS_JOSEPH_NOVENA_PRAYER, [
+        {
+          title: "Son of David",
+          meditation:
+            "The dedication greets Joseph as descendant of the kings of Judah and heir of the virtues of all the patriarchs.",
+          intentionPrompt: "What have I inherited in faith from those before me?",
+        },
+        {
+          title: "Hidden and Great",
+          meditation:
+            "He is called the most hidden, though the greatest, of the saints, patron of those who serve God with purity and fervour.",
+          intentionPrompt: "Can I do good without being seen?",
+        },
+        {
+          title: "A Father to Me",
+          meditation: "We ask him to be a father to us, as Christ loved and obeyed him as a son.",
+          intentionPrompt: "What do I need from a father's care?",
+        },
+        {
+          title: "Advocate of All Christians",
+          meditation:
+            "St. Teresa assures us his intercession has never been found to fail, and Pius IX declared him patron of the whole Church.",
+          intentionPrompt: "What do I ask St. Joseph for the Church today?",
+        },
+        {
+          title: "The Virtues of the Holy Infancy",
+          meditation:
+            "We ask for the virtues of the Child Jesus, purity, simplicity, obedience and humility, and a lively devotion to Mary.",
+          intentionPrompt: "Which of these virtues do I lack most?",
+        },
+        {
+          title: "Faithful Copy of the Hearts of Jesus and Mary",
+          meditation:
+            "The offering calls his heart the faithful copy of the hearts of Jesus and Mary, more tender than any other.",
+          intentionPrompt: "Do I believe St. Joseph cares for me?",
+        },
+        {
+          title: "Remember",
+          meditation:
+            "It has never been known that anyone who invoked his help went without relief.",
+          intentionPrompt: "What need will I commend to him today?",
+        },
+        {
+          title: "Patron of the Dying",
+          meditation:
+            "The litany ends by calling him patron of the dying, and the dedication asks to die as he did, in the friendship of God and under Mary's protection.",
+          intentionPrompt: "Whom do I know who is near death?",
+        },
+        {
+          title: "The Blessing of St. Joseph",
+          meditation:
+            "The novena closes with the blessing of St. Joseph: may the poverty, tears and love of the Child be our riches, consolation and treasure.",
+          intentionPrompt: "What would it mean for Christ to be my all?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-joseph",
+      associatedDevotionSlug: "devotion-to-saint-joseph",
+      typicalStartDate: "10 March, ending on the eve of the solemnity of St. Joseph, 19 March",
+      relatedFeastSlug: "solemnity-saint-joseph",
+      citations: [LINGS_JOSEPH, CE_JOSEPH],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-anne-lings",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_ANNE, CE_ANNE],
+    payload: {
+      slug: "novena-saint-anne-lings",
+      title: "Novena to St. Anne (Our Favorite Novenas)",
+      summary:
+        "A novena to St. Anne, mother of the Blessed Virgin, kept from 17 to 25 July. Each day joins a prayer to St. Anne with three Our Fathers, Hail Marys and Glory bes, a litany of St. Anne for private devotion with its collect, the 'universal prayer' to St. Anne, the prayer to obtain some special favour ('Glorious St. Anne, filled with compassion') and the invocation 'Good St. Anne' said three times.",
+      background:
+        "What is known of Joachim and Anne, the parents of Mary, comes from apocryphal writings such as the Protoevangelium of James; her feast appears on 26 July in the thirteenth century and was extended to the universal Latin Church in 1584. She is now honoured with St. Joachim on 26 July. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayers are said on each of the nine days; the day meditations are editorial, and the indulgence notes are omitted.",
+      intentionTheme: "the special favour entrusted to St. Anne, and the virtues of her household",
+      days: repeatedPrayerDays(LINGS_ANNE_NOVENA_PRAYER, [
+        {
+          title: "Mother of Mary",
+          meditation:
+            "The first prayer honours Anne as the privileged creature who gave life to the Mother of the incarnate Lord.",
+          intentionPrompt: "How do I honour the mothers and grandmothers of my faith?",
+        },
+        {
+          title: "A Devoted Servant",
+          meditation: "We ask to be received among her devoted servants for the rest of our life.",
+          intentionPrompt: "What does it mean to be devoted to a saint?",
+        },
+        {
+          title: "Knowledge of Our Sins",
+          meditation: "We ask for a knowledge of our sins and sorrow for them.",
+          intentionPrompt: "What sin have I not yet seen clearly?",
+        },
+        {
+          title: "The Duties of Our State",
+          meditation:
+            "We ask for a faithful and constant observance of the duties of our state of life.",
+          intentionPrompt: "Which ordinary duty have I been neglecting?",
+        },
+        {
+          title: "Consolation of the Married",
+          meditation:
+            "The litany calls her consolation of the married, mother of widows and directress of virgins.",
+          intentionPrompt: "Which family will I pray for today?",
+        },
+        {
+          title: "Health of the Sick",
+          meditation:
+            "The litany also calls her health of the sick, sure road of travellers and comforter of the afflicted.",
+          intentionPrompt: "Who among the sick or the travelling needs my prayer?",
+        },
+        {
+          title: "Loved by the Trinity",
+          meditation:
+            "The universal prayer says the Father, the Son and the Holy Ghost each love her for the gift of Mary.",
+          intentionPrompt: "How has God loved me through my own family?",
+        },
+        {
+          title: "The Present Affair",
+          meditation:
+            "The prayer for a special favour lays our present trouble at her feet and asks her to bring it before the throne of Jesus.",
+          intentionPrompt: "What affair will I place under her protection?",
+        },
+        {
+          title: "Good St. Anne",
+          meditation:
+            "The invocation, said three times, asks her to pray to her daughter, our life, our sweetness and our hope, for our request.",
+          intentionPrompt: "Will I end this novena with thanks, whatever the answer?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-anne",
+      typicalStartDate: "17 July, ending on the eve of her feast, 26 July",
+      relatedFeastSlug: "memorial-saints-joachim-and-anne",
+      citations: [LINGS_ANNE, CE_ANNE],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-peter",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_PETER, CE_PETER],
+    payload: {
+      slug: "novena-saint-peter",
+      title: "Novena to St. Peter",
+      summary:
+        "A novena to St. Peter, prince of the Apostles, kept from 20 to 28 June. Each day joins a prayer to the illustrious penitent and head of the Church, the Responsory of St. Peter in English verse ('Seek ye a patron to defend your cause') with its antiphon and collect, and a litany of St. Peter for private devotion that follows his life from the call by the lake to his death at Rome.",
+      background:
+        "Simon, a fisherman of Galilee, was named Cephas, Peter, by Christ, confessed Him as the Son of the living God, received the keys of the kingdom of heaven, denied Him and wept, and after the Resurrection was charged to feed His sheep. He preached at Pentecost, was delivered from prison by an angel and suffered at Rome under Nero; Origen records that he was crucified head downwards. His feast with St. Paul is kept on 29 June. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayers are said on each of the nine days; the day meditations are editorial, and the indulgence notes are omitted.",
+      intentionTheme: "faith, repentance and fidelity to the Church, through St. Peter",
+      days: repeatedPrayerDays(LINGS_PETER_NOVENA_PRAYER, [
+        {
+          title: "The Fisherman",
+          meditation:
+            "Simon was a fisherman on the lake of Galilee when his brother Andrew brought him to Jesus, who said, 'Thou shalt be called Cephas, which is interpreted Peter.'",
+          intentionPrompt: "What did I leave, or not leave, to follow Christ?",
+        },
+        {
+          title: "Walking on the Waters",
+          meditation:
+            "Peter walked on the waters towards Jesus, and began to sink when he doubted.",
+          intentionPrompt: "Where is fear making me sink?",
+        },
+        {
+          title: "Thou Art Peter",
+          meditation:
+            "When Peter confessed Him as the Christ, the Son of the living God, Christ made him the rock of His Church and gave him the keys.",
+          intentionPrompt: "Do I love the Church built on Peter?",
+        },
+        {
+          title: "On Mount Thabor",
+          meditation:
+            "Peter saw Christ transfigured on Thabor, and the closing prayer asks him, who now sees Christ in glory, to pray for us.",
+          intentionPrompt: "When have I glimpsed God's glory?",
+        },
+        {
+          title: "The Look of Jesus",
+          meditation:
+            "After his denial one look from Jesus pierced Peter's heart, and he went out and wept bitterly.",
+          intentionPrompt: "Will I let Christ's look move me to repentance?",
+        },
+        {
+          title: "Lord, Thou Knowest",
+          meditation:
+            "After the Resurrection Peter answered three times, 'Lord, Thou knowest that I love Thee', and was told to feed Christ's sheep.",
+          intentionPrompt: "How will I show my love for Christ today?",
+        },
+        {
+          title: "The First Preacher",
+          meditation:
+            "On the day of Pentecost Peter was the first to announce the Gospel, and the first-fruits of the nations were consecrated to the Lord by him.",
+          intentionPrompt: "To whom can I speak of Christ?",
+        },
+        {
+          title: "Delivered by an Angel",
+          meditation:
+            "When Peter lay in prison the Church prayed for him without ceasing, and an angel loosed his chains.",
+          intentionPrompt: "Whom will I pray for who is bound?",
+        },
+        {
+          title: "Crucified at Rome",
+          meditation:
+            "Peter established his see at Rome and died there on a cross, as Christ had foretold.",
+          intentionPrompt: "Will I pray today for the Pope, Peter's successor?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-peter",
+      typicalStartDate:
+        "20 June, ending on the eve of the solemnity of Saints Peter and Paul, 29 June",
+      relatedFeastSlug: "solemnity-saints-peter-and-paul",
+      citations: [LINGS_PETER, CE_PETER],
     },
   },
 ];
