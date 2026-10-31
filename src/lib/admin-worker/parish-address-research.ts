@@ -9,7 +9,8 @@
  *   1. it selects published OSM parishes still missing a street, locality,
  *      postal code or country code whose research is due
  *      (`_meta.addressResearch.nextDueAt` absent or past), never-researched
- *      rows first;
+ *      rows first — only as many as today's remaining lookups can cover, and
+ *      none at all during a Nominatim cooldown;
  *   2. looks them up by OSM id on Nominatim, 50 per request, at most ~10
  *      requests per run (nominatim-lookup.ts: one shared 1.1 s slot, a daily
  *      budget, a cooldown after a refusal);
@@ -45,6 +46,8 @@ import { writeAdminWorkerLog } from "./logs";
 import {
   lookupOsmPlaces,
   nominatimAddressParts,
+  nominatimBudgetRemaining,
+  nominatimCooldownUntil,
   osmLookupId,
   NOMINATIM_MAX_IDS_PER_REQUEST,
   type NominatimPlace,
@@ -530,14 +533,25 @@ export async function runParishAddressResearch(
   );
   out.restored = restore?.restored ?? 0;
 
+  // Select only what can be looked up now. The selection evaluates its JSON
+  // predicates over every published parish, and the lane can spend the daily
+  // budget in a few hours: during a cooldown or once the budget is spent
+  // (most runs of such a day) it is skipped, and with it the INFO log.
   const maxRequests = opts.maxRequests ?? envInt("ADMIN_WORKER_PARISH_RESEARCH_REQUESTS", 10);
-  const rows = await selectDueRows(prisma, maxRequests * NOMINATIM_MAX_IDS_PER_REQUEST, nowFn());
+  const coolingDown = (await nominatimCooldownUntil(prisma, nowFn())) !== null;
+  const lookups = coolingDown
+    ? 0
+    : Math.min(maxRequests, await nominatimBudgetRemaining(prisma, nowFn()));
+  let stopped: string | null = coolingDown ? "cooldown" : lookups <= 0 ? "budget" : null;
+  const rows =
+    lookups > 0
+      ? await selectDueRows(prisma, lookups * NOMINATIM_MAX_IDS_PER_REQUEST, nowFn())
+      : [];
   out.scanned = rows.length;
   const log = {
     corrections: [] as Array<Record<string, string>>,
     exclusions: [] as Array<Record<string, string>>,
   };
-  let stopped: string | null = null;
 
   for (let start = 0; start < rows.length && !stopped; start += NOMINATIM_MAX_IDS_PER_REQUEST) {
     if (nowFn() > deadline) {

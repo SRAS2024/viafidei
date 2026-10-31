@@ -546,10 +546,10 @@ describe("runParishAddressResearch", () => {
     expect(updates[0]!.data.isPublished).toBe(false);
   });
 
-  it("asks nothing and writes nothing when the daily budget is spent", async () => {
+  it("selects nothing, asks nothing and logs nothing when the daily budget is spent", async () => {
     process.env.ADMIN_WORKER_NOMINATIM_DAILY_BUDGET = "1";
-    const { prisma, store, updates } = makePrisma([romeRow]);
-    const today = new Date().toISOString().slice(0, 10);
+    const { prisma, store, updates, queryRaw } = makePrisma([romeRow]);
+    const today = new Date(NOW).toISOString().slice(0, 10);
     store.set(`nominatim-lookup:${today}`, { memoryValue: { used: 1 }, lastUsedAt: new Date() });
     const fetchImpl = nominatim([ROME]);
 
@@ -559,11 +559,51 @@ describe("runParishAddressResearch", () => {
       fetchImpl: fetchImpl as never,
     });
 
+    // The selection scans every published parish: not for nothing.
+    expect(queryRaw).not.toHaveBeenCalled();
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(out.requests).toBe(0);
     expect(updates).toHaveLength(0);
     expect(mockedProtect).not.toHaveBeenCalled();
     expect(out.detail).toContain("budget");
+    expect(mockedLog.mock.calls.some((c) => c[1].eventName === "parish_address_research")).toBe(
+      false,
+    );
+    // The database-only restore still ran.
+    expect(mockedRestore).toHaveBeenCalledTimes(1);
+  });
+
+  it("selects nothing during a Nominatim cooldown", async () => {
+    const { prisma, store, queryRaw } = makePrisma([romeRow]);
+    store.set("nominatim-cooldown", {
+      memoryValue: { until: NOW + 60_000, status: 429, at: NOW },
+      lastUsedAt: new Date(),
+    });
+
+    const out = await runParishAddressResearch(prisma, {
+      force: true,
+      now: () => NOW,
+      fetchImpl: nominatim([ROME]) as never,
+    });
+
+    expect(queryRaw).not.toHaveBeenCalled();
+    expect(out.detail).toContain("cooldown");
+  });
+
+  it("selects only as many rows as today's remaining lookups can cover", async () => {
+    process.env.ADMIN_WORKER_NOMINATIM_DAILY_BUDGET = "5";
+    const { prisma, store, queryRaw } = makePrisma([]);
+    const today = new Date(NOW).toISOString().slice(0, 10);
+    store.set(`nominatim-lookup:${today}`, { memoryValue: { used: 3 }, lastUsedAt: new Date() });
+
+    await runParishAddressResearch(prisma, {
+      force: true,
+      now: () => NOW,
+      fetchImpl: nominatim([]) as never,
+    });
+
+    // 2 lookups left × 50 ids.
+    expect(queryRaw.mock.calls[0]).toContain(100);
   });
 
   it("records the attempt — and nothing else — when the payload would not validate", async () => {
