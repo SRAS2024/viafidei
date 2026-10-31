@@ -24,6 +24,8 @@ export const parishSchema: ContentSchema = {
       address: z.string().optional(),
       city: z.string().optional(),
       state: z.string().optional(),
+      /** Postal code as the country writes it ("00153", "3474 MC", "SW1A 1AA"). */
+      postalCode: z.string().min(1).max(16).optional(),
       country: z.string().optional(),
       /** ISO-3166 alpha-2 (the source tag), kept apart from the display name. */
       countryCode: z.string().length(2).optional(),
@@ -65,7 +67,7 @@ export const parishSchema: ContentSchema = {
       "A real Catholic parish, shrine, cathedral, or basilica directory record with its location and designation.",
     accuracyRules: [
       "Only include real, verifiable parishes / shrines / cathedrals / basilicas from approved directory sources.",
-      "Do not invent addresses or dioceses; cite the official directory or diocesan source.",
+      "Do not invent addresses, postal codes or dioceses; cite the official directory or diocesan source.",
       "Classify the designation (parish, shrine, cathedral, major basilica, minor basilica) only when the source states it.",
       "Locate every record by its address and city, or by exact coordinates when the source has no postal address.",
     ],
@@ -73,6 +75,7 @@ export const parishSchema: ContentSchema = {
     optionalFields: [
       "address",
       "city",
+      "postalCode",
       "designation",
       "diocese",
       "background",

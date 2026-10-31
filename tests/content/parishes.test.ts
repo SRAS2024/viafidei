@@ -49,4 +49,20 @@ describe("parish content type", () => {
     });
     expect(bad.success).toBe(false);
   });
+
+  it("stores a short postal code", () => {
+    const base = {
+      slug: "kapelle-st-georg",
+      title: "Kapelle St. Georg",
+      latitude: 46.71,
+      longitude: 9.15,
+      citations: ["https://www.openstreetmap.org/way/698048027"],
+    };
+    expect(parishSchema.schema.safeParse({ ...base, postalCode: "7134" }).success).toBe(true);
+    expect(parishSchema.schema.safeParse({ ...base, postalCode: "" }).success).toBe(false);
+    expect(parishSchema.schema.safeParse({ ...base, postalCode: "x".repeat(17) }).success).toBe(
+      false,
+    );
+    expect(parishSchema.instruction.optionalFields).toContain("postalCode");
+  });
 });

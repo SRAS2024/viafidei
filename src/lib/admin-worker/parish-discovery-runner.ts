@@ -27,6 +27,7 @@ import { runPublishOrchestrator } from "./publish-orchestrator";
 import { placesEnabled, searchCatholicParishes, type PlaceParish } from "./parish-places";
 import { inspectParishWebsite, type CommunionVerdict } from "./communion-verifier";
 import { findDuplicateParish, parishAddressKey } from "./parish-address";
+import { normalizePostalCode } from "./parish-address-format";
 import { writeAdminWorkerLog } from "./logs";
 
 export interface MapsParishDiscoveryResult {
@@ -197,6 +198,7 @@ async function publishParish(
   const citations = [candidate.mapsUri, candidate.website].filter(
     (c): c is string => typeof c === "string" && c.length > 0,
   );
+  const postalCode = normalizePostalCode(candidate.postcode, candidate.countryCode);
   const payload: Record<string, unknown> = {
     slug,
     title: candidate.name,
@@ -205,12 +207,15 @@ async function publishParish(
     city,
     summary: `${candidate.name} is a Roman Catholic ${designationFor(candidate.name).replace("-", " ")} in ${city}, in communion with the Holy See (verified from the parish website).`,
     citations,
-    addressKey: parishAddressKey({
-      address: candidate.formattedAddress,
-      city,
-      state: candidate.state,
-    }),
   };
+  const addressKey = parishAddressKey({
+    address: candidate.formattedAddress,
+    city,
+    state: candidate.state,
+    postalCode,
+  });
+  if (addressKey) payload.addressKey = addressKey;
+  if (postalCode) payload.postalCode = postalCode;
   if (candidate.state) payload.state = candidate.state;
   if (candidate.country) payload.country = candidate.country;
   if (candidate.website) payload.website = candidate.website;
@@ -320,6 +325,7 @@ export async function runMapsParishDiscovery(
         address: candidate.formattedAddress,
         city,
         state: candidate.state,
+        postalCode: normalizePostalCode(candidate.postcode, candidate.countryCode),
       });
       const duplicate = await findDuplicateParish(prisma, {
         addressKey,

@@ -37,6 +37,7 @@ import { applyProtectedContentUpdate } from "./content-protection";
 import { runPublishOrchestrator } from "./publish-orchestrator";
 import { designationFor, fileReview, slugify } from "./parish-discovery-runner";
 import { findDuplicateParish, normalizedParishName, parishAddressKey } from "./parish-address";
+import { composeStreetLine, countryNameFor, normalizePostalCode } from "./parish-address-format";
 import type { PlaceParish } from "./parish-places";
 import { writeAdminWorkerLog } from "./logs";
 import {
@@ -129,16 +130,8 @@ export function localityFromTags(tags: Record<string, string>): string {
   return "";
 }
 
-/** English display name for an ISO-3166 alpha-2 code ("PL" → "Poland"). */
-export function countryNameFor(code: string | undefined): string | undefined {
-  if (!code || !/^[A-Z]{2}$/.test(code)) return undefined;
-  try {
-    const name = new Intl.DisplayNames(["en"], { type: "region" }).of(code);
-    return name && name !== code ? name : undefined;
-  } catch {
-    return undefined;
-  }
-}
+// Moved to the shared address-format module; re-exported for existing callers.
+export { countryNameFor };
 
 export interface OsmCandidate extends PlaceParish {
   /** The OSM denomination value that admitted it (`roman_catholic` | `catholic`). */
@@ -149,6 +142,29 @@ export interface OsmCandidate extends PlaceParish {
   slugBase: string;
   /** From OSM tags (`building`, `cathedral`, `church:type`) and the name. */
   designation: ReturnType<typeof designationFor>;
+}
+
+/**
+ * A website tag as a usable https URL: a scheme-less value ("stmarys.org")
+ * gets https:// when it then parses as a URL with a real host; anything else
+ * (free text, credentials, another scheme) is dropped.
+ */
+function websiteFromTag(raw: string): string | undefined {
+  const value = raw.trim();
+  if (!value || /\s/.test(value)) return undefined;
+  const url = /^https?:\/\//i.test(value)
+    ? value
+    : /^[a-z][a-z0-9+.-]*:\/\//i.test(value)
+      ? ""
+      : `https://${value}`;
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    if (parsed.username || parsed.password || !parsed.hostname.includes(".")) return undefined;
+    return url;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -179,24 +195,22 @@ export function osmElementToParish(
   const city = localityFromTags(tags);
   if (!city && !hasCoords) return null;
 
-  const full = (tags["addr:full"] ?? "").trim();
-  const street = (tags["addr:street"] ?? "").trim();
-  const houseNumber = (tags["addr:housenumber"] ?? "").trim();
-  const address = full || [houseNumber, street].filter(Boolean).join(" ").trim();
+  const rawCountry = (tags["addr:country"] ?? "").trim().toUpperCase();
+  const taggedCountry = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : undefined;
+  const countryCode = taggedCountry ?? fallback.countryCode;
 
-  let website = (tags.website || tags["contact:website"] || "").trim();
-  if (website && !/^https?:\/\//i.test(website)) website = "";
-  if (website) {
-    try {
-      new URL(website);
-    } catch {
-      website = "";
-    }
-  }
+  // The street line in the country's own order ("Hauptstraße 12", "12 Main
+  // St"). A hamlet addressed by place + number ("Lhota 12") uses addr:place
+  // as its street; a house number alone is no street line at all.
+  const full = (tags["addr:full"] ?? "").trim();
+  const houseNumber = (tags["addr:housenumber"] ?? "").trim();
+  const street =
+    (tags["addr:street"] ?? "").trim() || (houseNumber ? (tags["addr:place"] ?? "").trim() : "");
+  const address = full || composeStreetLine(street, houseNumber, countryCode);
+
+  const website = websiteFromTag(tags.website || tags["contact:website"] || "");
   const phone = (tags.phone || tags["contact:phone"] || "").trim() || undefined;
 
-  const rawCountry = (tags["addr:country"] ?? "").trim().toUpperCase();
-  const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : fallback.countryCode;
   const osmRef = `${el.type}/${el.id}`;
   const englishName = (tags["name:en"] ?? "").trim();
   const slugBase = slugify(`${name} ${city}`) || slugify(`${englishName} ${city}`);
@@ -208,10 +222,10 @@ export function osmElementToParish(
     state: (tags["addr:state"] ?? tags["addr:province"] ?? "").trim() || undefined,
     country: countryNameFor(countryCode),
     countryCode,
-    postcode: (tags["addr:postcode"] ?? "").trim() || undefined,
+    postcode: normalizePostalCode(tags["addr:postcode"], countryCode),
     latitude: hasCoords ? lat : undefined,
     longitude: hasCoords ? lon : undefined,
-    website: website || undefined,
+    website,
     phone,
     placeId: `osm:${osmRef}`,
     types: ["place_of_worship"],
@@ -314,8 +328,9 @@ function isBlank(v: unknown): boolean {
 
 /**
  * Enrich an existing row from a re-swept OSM element: fill ONLY empty fields
- * (phone, website, coordinates, city, address, country, sourceRef, addressKey)
- * through the protection gate. Never overwrites; returns true when applied.
+ * (phone, website, coordinates, city, address, postal code, country,
+ * sourceRef, addressKey) through the protection gate. Never overwrites;
+ * returns true when applied.
  */
 async function enrichExistingRow(
   prisma: PrismaClient,
@@ -335,6 +350,7 @@ async function enrichExistingRow(
   fill("city", candidate.city);
   fill("address", candidate.formattedAddress);
   fill("state", candidate.state);
+  fill("postalCode", candidate.postcode);
   fill("country", candidate.country);
   fill("countryCode", candidate.countryCode);
   fill("sourceRef", candidate.placeId);
@@ -342,6 +358,7 @@ async function enrichExistingRow(
     address: (proposed.address as string | undefined) ?? candidate.formattedAddress,
     city: (proposed.city as string | undefined) ?? candidate.city,
     state: (proposed.state as string | undefined) ?? candidate.state,
+    postalCode: (proposed.postalCode as string | undefined) ?? candidate.postcode,
   });
   fill("addressKey", key);
   if (Object.keys(proposed).length === Object.keys(current).length) return false;
@@ -429,10 +446,12 @@ async function publishOsmParish(
   };
   if (candidate.formattedAddress) payload.address = candidate.formattedAddress;
   if (city) payload.city = city;
+  if (candidate.postcode) payload.postalCode = candidate.postcode;
   const addressKey = parishAddressKey({
     address: candidate.formattedAddress,
     city,
     state: candidate.state,
+    postalCode: candidate.postcode,
   });
   if (addressKey) payload.addressKey = addressKey;
   if (candidate.state) payload.state = candidate.state;
@@ -547,6 +566,7 @@ export async function processOsmCandidate(
     address: candidate.formattedAddress,
     city: candidate.city,
     state: candidate.state,
+    postalCode: candidate.postcode,
   });
   const byAddress = await findDuplicateParish(prisma, {
     addressKey,

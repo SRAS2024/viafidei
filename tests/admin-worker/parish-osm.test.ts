@@ -220,6 +220,69 @@ describe("osmElementToParish", () => {
   });
 });
 
+describe("osmElementToParish — address mapping", () => {
+  const base = { name: "St. Clemens", religion: "christian", denomination: "roman_catholic" };
+  const at = (tags: Record<string, string>, fallback: { countryCode?: string } = {}) =>
+    osmElementToParish({ type: "way", id: 77, center: { lat: 50.3, lon: 7.2 }, tags }, fallback);
+
+  it("composes the street line in the country's own order", () => {
+    const de = at({
+      ...base,
+      "addr:street": "Kirchplatz",
+      "addr:housenumber": "3",
+      "addr:city": "Mayen",
+      "addr:country": "DE",
+    });
+    expect(de!.formattedAddress).toBe("Kirchplatz 3");
+    // The tile fallback decides the order when there is no addr:country.
+    expect(
+      at({ ...base, "addr:street": "Kirchplatz", "addr:housenumber": "3" }, { countryCode: "AT" })!
+        .formattedAddress,
+    ).toBe("Kirchplatz 3");
+    expect(
+      at({ ...base, "addr:street": "Main Street", "addr:housenumber": "7", "addr:country": "US" })!
+        .formattedAddress,
+    ).toBe("7 Main Street");
+  });
+
+  it("uses addr:place as the street of a place-addressed house, and never a bare number", () => {
+    expect(
+      at({ ...base, "addr:place": "Lhota", "addr:housenumber": "12", "addr:country": "CZ" })!
+        .formattedAddress,
+    ).toBe("Lhota 12");
+    // addr:place with no number is a locality, not a street line.
+    const placeOnly = at({ ...base, "addr:place": "Lhota", "addr:country": "CZ" })!;
+    expect(placeOnly.formattedAddress).toBe("");
+    expect(placeOnly.city).toBe("Lhota");
+    expect(at({ ...base, "addr:housenumber": "12", "addr:country": "CZ" })!.formattedAddress).toBe(
+      "",
+    );
+  });
+
+  it("keeps a postcode that fits the country and drops one that does not", () => {
+    expect(at({ ...base, "addr:postcode": "56727", "addr:country": "DE" })!.postcode).toBe("56727");
+    expect(
+      at({ ...base, "addr:postcode": "Mayen", "addr:country": "DE" })!.postcode,
+    ).toBeUndefined();
+    expect(at({ ...base, "addr:postcode": "3474 mc" }, { countryCode: "NL" })!.postcode).toBe(
+      "3474 MC",
+    );
+  });
+
+  it("gives a scheme-less website https:// when it parses, and drops what does not", () => {
+    expect(at({ ...base, website: "www.pfarrei-mayen.de" })!.website).toBe(
+      "https://www.pfarrei-mayen.de",
+    );
+    expect(at({ ...base, "contact:website": "stclemens.org/messen" })!.website).toBe(
+      "https://stclemens.org/messen",
+    );
+    expect(at({ ...base, website: "not a url" })!.website).toBeUndefined();
+    expect(at({ ...base, website: "localhost" })!.website).toBeUndefined();
+    expect(at({ ...base, website: "mailto:x@example.org" })!.website).toBeUndefined();
+    expect(at({ ...base, website: "ftp://files.example.org" })!.website).toBeUndefined();
+  });
+});
+
 /** A prisma stub with a real memory store (tiles, budget, skips live there). */
 function makePrisma(opts: { rows?: Array<Record<string, unknown>> } = {}) {
   const store = new Map<string, { memoryValue: unknown; lastUsedAt: Date }>();
