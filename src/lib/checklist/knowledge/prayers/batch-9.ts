@@ -3,6 +3,13 @@ import type { CuratedEntry } from "../index";
 /** The 1910 English Raccolta on archive.org; a printed page number follows. */
 const RACCOLTA = "https://archive.org/details/theraccoltaorcol00unknuoft/page/";
 
+/**
+ * The first (1857) edition of the same translation on archive.org, a Google
+ * Books scan addressed by leaf: printed page P is leaf n(P + 28).
+ */
+const RACCOLTA_1857 = "https://archive.org/details/raccoltaorcolle00raccgoog/page/n";
+const LEAF_OFFSET_1857 = 28;
+
 /** The prayerType values of the PRAYER schema that this batch uses. */
 type PrayerType =
   | "morning"
@@ -19,8 +26,10 @@ type PrayerType =
 interface RaccoltaInput {
   slug: string;
   title: string;
-  /** Printed pages of the 1910 edition the text runs over, first page first. */
+  /** Printed pages of the edition the text runs over, first page first. */
   pages: number[];
+  /** Set for the few prayers taken from the 1857 first edition; 1910 otherwise. */
+  edition?: 1857;
   /** Paragraphs as printed; a line inside a paragraph is separated by "\n". */
   body: string[];
   /** The Latin the same pages print alongside the English, when they do. */
@@ -40,10 +49,10 @@ interface RaccoltaInput {
  * Almighty God, to the Holy Ghost, to our Lord Jesus Christ and his Holy Name,
  * to the Child Jesus, to our Lord in the Blessed Sacrament, to Jesus Crucified,
  * to the Precious Blood and to the Sacred Heart — and, from the later
- * sections (XVI, the Faithful Departed; XVII, Miscellaneous; and the prayers
- * for special classes), the prayers there that are addressed to God and to
- * Christ. Prayers to Our Lady, the angels and the saints are left to other
- * batches.
+ * sections (XVI, the Faithful Departed; XVII, Miscellaneous; the prayers for
+ * special classes; and the Appendix), the prayers there that are addressed to
+ * God and to Christ. Prayers to Our Lady, the angels and the saints are left
+ * to other batches.
  *
  * The edition was published in 1910 (St John's translation dates from 1857),
  * so the text is in the public domain; every citation is the archive.org scan
@@ -54,6 +63,16 @@ interface RaccoltaInput {
  * shortened or merged with another version, and prayers already in the
  * catalogue (the Suscipe, the Anima Christi, the Adoro te and the like) are
  * left out rather than repeated in the Raccolta's wording.
+ *
+ * Four prayers come instead from the first edition of the same translation
+ * (London: Burns and Lambert, 1857; the Google Books scan on archive.org,
+ * cited by leaf), which is likewise in the public domain: the confessor's
+ * prayer Da mihi, Domine, and the priest's intention before Mass and prayer
+ * Obsecro te after it, which the 1910 edition prints in Latin only (nos. 471,
+ * 466, 467) but the 1857 edition gives with St John's English beside the
+ * Latin; and the ejaculation "O Sacrament most holy", whose rhymed English the
+ * 1910 edition replaced with a closer rendering. Those four bodies are copied
+ * from the 1857 pages in the same way.
  *
  * Only the typography is not reproduced: the small capitals in which the book
  * sets the divine names (GOD, LORD, JESUS, CHRIST, FATHER, SON, HOLY GHOST;
@@ -82,11 +101,21 @@ interface RaccoltaInput {
  * Thou has redeemed" is "whom Thou hast redeemed" (no. 49, both page 45), and
  * "To ap pease" is "To appease" (no. 115, page 91). The same "Thou has
  * redeemed" in the versicle of no. 88, which the errata miss, is given as
- * "Thou hast".
+ * "Thou hast". In the 1857 text the broken "dcst" of the confessor's prayer
+ * is read "dost".
  *
- * Left out on purpose: the one-line ejaculations; items that grant an
+ * Short prayers: the best known of the one-line ejaculations to God, to Christ,
+ * to the Blessed Sacrament, to the Precious Blood and to the Sacred Heart are
+ * given on their own, as the book prints them, even where a longer prayer
+ * here uses one as its versicle or refrain; the rest are left out, and so are
+ * those the catalogue already carries as prayers in their own right ("Sacred
+ * Heart of Jesus, I trust in Thee", "Jesus, meek and humble of heart" and the
+ * other invocations of its Pious Invocations), and those too short to stand
+ * as an entry ("My Jesus, mercy!", "My God, and my all!").
+ *
+ * Left out on purpose: the other one-line ejaculations; items that grant an
  * indulgence for an act and print no prayer; prayers the catalogue already
- * has in another translation (the Acts of Faith, Hope and Charity, the
+ * has in another translation (the Act of Spiritual Communion, the
  * Consecration of the Family to the Sacred Heart and the like); prayers whose
  * wording about other Christians and other religions belongs to its time
  * rather than to the Church's present language (for the conversion of
@@ -96,7 +125,9 @@ interface RaccoltaInput {
  * 1927) declined to approve.
  */
 function raccolta(input: RaccoltaInput): CuratedEntry {
-  const citations = input.pages.map((page) => `${RACCOLTA}${page}`);
+  const citations = input.pages.map((page) =>
+    input.edition === 1857 ? `${RACCOLTA_1857}${page + LEAF_OFFSET_1857}` : `${RACCOLTA}${page}`,
+  );
   const payload: Record<string, unknown> = {
     slug: input.slug,
     title: input.title,
@@ -120,6 +151,7 @@ function raccolta(input: RaccoltaInput): CuratedEntry {
 }
 
 const ST_JOHN = "Text from the 1910 English Raccolta of Ambrose St John.";
+const ST_JOHN_1857 = "Text from the 1857 first edition of Ambrose St John's English Raccolta.";
 
 export const prayerBatch9: CuratedEntry[] = [
   // ── I. The Holy Trinity ──────────────────────────────────────────────────
@@ -237,6 +269,23 @@ export const prayerBatch9: CuratedEntry[] = [
   }),
 
   // ── II. Almighty God ─────────────────────────────────────────────────────
+  raccolta({
+    slug: "acts-of-faith-hope-and-charity-i-most-firmly-believe",
+    title: "Acts of Faith, Hope and Charity (I most firmly believe)",
+    pages: [12, 13],
+    body: [
+      "Act of Faith.",
+      "I most firmly believe, because God, who is the infallible Truth, hath so revealed to the Holy Catholic Church, and through the Church reveals to us, that there is one only God in three divine Persons, equal and distinct, Father, Son, and Holy Ghost; that the Son became Man by taking to himself flesh and a human soul through the operation of the Holy Ghost in the womb of the most pure Virgin Mary; that He died for us upon the Cross, rose again, ascended into heaven, and from thence shall come again at the end of the world to judge the living and the dead, to give Paradise for ever to the good and hell to the wicked; moreover, from the same motive I believe all that the same holy Church believes and teaches.",
+      "Act of Hope.",
+      "O my God, because Thou art almighty, infinitely good and merciful, I hope that, by the merits of the Passion and Death of Jesus Christ our Saviour, Thou wilt grant me eternal life, which Thou, most faithful, hast promised to all those who shall do the works of a good Christian, as I purpose to do by thy holy help.",
+      "Act of Charity.",
+      "O my God, because Thou art the highest and most perfect good, I love Thee with my whole heart, and above all things; and rather than offend Thee, I am ready to lose all things; and moreover for thy love I love, and will love my neighbour as myself.",
+    ],
+    prayerType: "act",
+    category: "theological-virtue",
+    occasions: ["daily", "morning", "act-of-love"],
+    summary: `The Acts of Faith, Hope and Charity in the form the Raccolta prints (no. 14): faith in the Trinity, the Incarnation, the Redemption and the judgement, believed on the authority of God who has revealed them; hope of eternal life through the merits of Christ's Passion; and love of God above all things and of one's neighbour for his sake. The acts were indulgenced by Benedict XIII in 1728 and Benedict XIV in 1756, and the Raccolta notes that any form of words may be used that expresses the motive proper to each virtue; this is a different text from the catalogue's modern Acts of Faith, Hope and Love. ${ST_JOHN}`,
+  }),
   raccolta({
     slug: "chaplet-of-acts-of-the-love-of-god",
     title: "Chaplet of Acts of the Love of God",
@@ -1975,5 +2024,313 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "general",
     occasions: ["children", "all-souls", "november"],
     summary: `A prayer for children to say for other children who have died and are in purgatory, asking Jesus, who loved children, to open heaven to them, and asking their protection in turn for those who pray, their families and the Pope. Raccolta no. 481, indulgenced by Leo XIII in 1886 for children who say it. ${ST_JOHN}`,
+  }),
+
+  // ── Short prayers and ejaculations (sections II to IX and the Appendix) ──
+  raccolta({
+    slug: "my-god-grant-that-i-may-love-thee",
+    title: "Invocation for an Ever Greater Love of God (My God, grant that I may love Thee)",
+    pages: [25],
+    body: [
+      "My God, grant that I may love Thee, and as the sole reward of my love, grant that I may ever love Thee more and more.",
+    ],
+    prayerType: "general",
+    category: "general",
+    occasions: ["daily", "act-of-love"],
+    summary: `A short invocation asking God for the grace to love Him and, as the only reward of that love, to love Him ever more. Raccolta no. 31, indulgenced by Leo XIII in 1890. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "my-god-my-only-good",
+    title: "My God, My Only Good, Thou Art All Mine",
+    pages: [26],
+    body: ["My God, my only good, Thou art all mine; grant that I may be all thine."],
+    prayerType: "act",
+    category: "general",
+    occasions: ["daily", "act-of-love"],
+    summary: `An ejaculation confessing God as the soul's only good and asking to belong wholly to Him in return. Raccolta no. 32, indulgenced by Leo XIII by brief in 1902. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "my-god-unite-all-minds-in-the-truth",
+    title: "My God, Unite All Minds in the Truth (Ejaculation for Unity)",
+    pages: [26],
+    body: ["My God, unite all minds in the truth and all hearts in charity."],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["for-the-church", "peace", "daily"],
+    summary: `A one-line petition that God will unite all minds in the truth and all hearts in charity, a prayer for the unity of believers in faith and love. Raccolta no. 34, indulgenced by Pius X in 1905 and 1908. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "sweetest-jesus-be-to-me-not-a-judge-but-a-saviour",
+    title: "Sweetest Jesus, Be to Me Not a Judge but a Saviour (Dulcissime Jesu)",
+    pages: [57],
+    body: ["Sweetest Jesus, be to me not a judge but a Saviour."],
+    latin: ["Dulcissime Jesu, non sis mihi Judex sed Salvator."],
+    prayerType: "general",
+    category: "general",
+    occasions: ["daily", "penance", "preparation-for-death"],
+    relatedSaints: ["saint-jerome-emiliani"],
+    summary: `The ejaculation the Raccolta (no. 62) gives as St Jerome Emiliani's, asking Jesus to be not a judge but a Saviour. It is printed in Latin and English; Pius IX indulgenced it in 1851 and 1853, with a plenary indulgence on the saint's feast, then kept on 20 July. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "jesus-my-god-i-love-thee-above-all-things",
+    title: "Jesus, My God, I Love Thee above All Things (Jesu, Deus meus)",
+    pages: [57],
+    body: ["Jesus, my God, I love Thee above all things."],
+    latin: ["Jesu, Deus meus, super omnia amo te."],
+    prayerType: "act",
+    category: "general",
+    occasions: ["daily", "act-of-love"],
+    summary: `A brief act of love of Jesus as God, above all things. The Raccolta (no. 63) prints it in Latin and English; Pius IX indulgenced it in his own hand in 1854, both for saying it and for leading others to say it. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "jesus-son-of-david-have-mercy-on-me",
+    title: "Jesus, Son of David, Have Mercy on Me (Jesu, fili David)",
+    pages: [57],
+    body: ["Jesus, Son of David, have mercy on me."],
+    latin: ["Jesu, fili David, miserere mei."],
+    prayerType: "general",
+    category: "penitential",
+    occasions: ["daily", "penance", "lent"],
+    summary: `The cry of the blind man at Jericho in St Luke's Gospel (18:38), which the Raccolta (no. 64) prints in Latin and English as an ejaculation; Leo XIII indulgenced it in 1886. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "most-sweet-jesus-increase-my-faith-hope-and-charity",
+    title: "Most Sweet Jesus, Increase My Faith, Hope and Charity (Dulcissime Jesu, da mihi)",
+    pages: [58],
+    body: [
+      "Most sweet Jesus, increase my faith, hope, and charity, and give me a humble and contrite heart.",
+    ],
+    latin: [
+      "Dulcissime Jesu, da mihi fidei, spei et caritatis augmentum, cor contritum et humiliatum.",
+    ],
+    prayerType: "general",
+    category: "theological-virtue",
+    occasions: ["daily", "penance", "humility"],
+    summary: `A short petition to Jesus for an increase of faith, hope and charity and for the humble and contrite heart of Psalm 50 (51). The Raccolta (no. 67) prints it in Latin and English; Leo XIII indulgenced it in 1893. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "jesus-my-god-i-adore-thee-here-present",
+    title: "Jesus, My God, I Adore Thee Here Present (before the Blessed Sacrament)",
+    pages: [83],
+    body: ["Jesus, my God, I adore Thee here present in the Sacrament of thy love."],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["adoration", "visit-to-the-blessed-sacrament", "benediction"],
+    summary: `An act of adoration of Jesus present in the Sacrament of his love. Pius X indulgenced it in 1908 for saying it before the tabernacle or at Exposition, and for making a reverence on passing a church or chapel where the Blessed Sacrament is reserved; Raccolta no. 103. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "most-sacred-heart-of-jesus-have-mercy-on-us-after-mass",
+    title: "Most Sacred Heart of Jesus, Have Mercy on Us (Ejaculation after Mass)",
+    pages: [89],
+    body: ["Most Sacred Heart of Jesus, have mercy on us. (Thrice.)"],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["mass", "sacred-heart", "thanksgiving"],
+    summary: `The invocation of the Sacred Heart said three times after Mass, which Pius X indulgenced in 1904, the indulgence holding when the people say it alternately with the priest; Raccolta no. 109. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "my-lord-and-my-god-at-the-elevation",
+    title: "My Lord and My God at the Elevation (Dominus meus et Deus meus)",
+    pages: [91],
+    body: [
+      "My Lord and my God.",
+      "These words are to be said with faith, piety, and love, while looking upon the Blessed Sacrament, either during the Elevation in the Mass, or when exposed on the altar.",
+    ],
+    latin: ["Dominus meus, et Deus meus."],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["mass", "elevation", "adoration"],
+    summary: `St Thomas the Apostle's confession of faith in the risen Christ (John 20:28), which Pius X indulgenced in 1907 for those who say it looking at the Blessed Sacrament at the Elevation or at Exposition. The Raccolta (no. 116) prints the words in Latin and English with that direction, which is kept here. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "eternal-father-by-the-precious-blood-glorify-his-holy-name",
+    title:
+      "Offering of the Precious Blood in Reparation for Blasphemy (Eternal Father, glorify his most holy Name)",
+    pages: [126],
+    body: [
+      "To be said in reparation for blasphemies.",
+      "Eternal Father, by the most Precious Blood of Jesus Christ, glorify his most holy Name, according to the intention and the desires of his adorable Heart.",
+    ],
+    prayerType: "general",
+    category: "devotional",
+    occasions: ["reparation", "precious-blood", "holy-name-of-jesus"],
+    summary: `An ejaculation to be said in reparation for blasphemy, asking the Father, through the Precious Blood of Christ, to glorify the Holy Name according to the desires of the Sacred Heart. Raccolta no. 145, indulgenced by Pius X in 1908. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "eternal-father-i-offer-thee-the-precious-blood",
+    title: "Offering of the Precious Blood (Eternal Father, I offer Thee the Precious Blood)",
+    pages: [126],
+    body: [
+      "Eternal Father! I offer Thee the Precious Blood of Jesus Christ in satisfaction for my sins, and for the wants of Holy Church.",
+    ],
+    prayerType: "general",
+    category: "devotional",
+    occasions: ["precious-blood", "daily", "for-the-church"],
+    summary: `A short offering of the Precious Blood of Christ to the Eternal Father in satisfaction for one's sins and for the needs of the Church. Raccolta no. 146, indulgenced by Pius VII by rescript in 1817. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "may-the-heart-of-jesus-be-loved-everywhere",
+    title: "May the Heart of Jesus Be Loved Everywhere",
+    pages: [139],
+    body: ["May the Heart of Jesus be loved everywhere."],
+    prayerType: "general",
+    category: "devotional",
+    occasions: ["sacred-heart", "daily", "first-friday"],
+    summary: `A one-line ejaculation wishing that the Heart of Jesus may be loved everywhere. Raccolta no. 159, indulgenced by Pius IX in his own hand in 1860. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "sweet-heart-of-my-jesus-make-me-love-thee",
+    title: "Sweet Heart of My Jesus, Make Me Love Thee Ever More and More",
+    pages: [140],
+    body: ["Sweet Heart of my Jesus,\nMake me love Thee ever more and more!"],
+    prayerType: "general",
+    category: "devotional",
+    occasions: ["sacred-heart", "daily", "act-of-love"],
+    summary: `A two-line ejaculation asking the Heart of Jesus for an ever greater love of Him; it is also the refrain of the Chaplet of the Sacred Heart in this batch. Raccolta no. 162, indulgenced by Pius IX in 1876. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "sweet-heart-of-jesus-be-my-love",
+    title: "Sweet Heart of Jesus, Be My Love (Dulce Cor Jesu)",
+    pages: [140],
+    body: ["Sweet Heart of Jesus be my love."],
+    latin: ["Dulce cor Jesu, sis amor meus."],
+    prayerType: "general",
+    category: "devotional",
+    occasions: ["sacred-heart", "daily", "act-of-love"],
+    summary: `The ejaculation Dulce Cor Jesu, sis amor meus, asking the Sacred Heart to be the soul's love. The Raccolta (no. 163) prints it in Latin and English; Leo XIII indulgenced it in 1892. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "heart-of-jesus-burning-with-love-of-us",
+    title: "Heart of Jesus, Burning with Love of Us (Cor Jesu flagrans)",
+    pages: [140],
+    body: ["Heart of Jesus burning with love of us, inflame our hearts with love of Thee."],
+    latin: ["Cor Jesu flagrans amore nostri, inflamma cor nostrum amore tui."],
+    prayerType: "general",
+    category: "devotional",
+    occasions: ["sacred-heart", "daily", "act-of-love"],
+    summary: `The ejaculation Cor Jesu flagrans amore nostri, asking the Heart of Jesus, burning with love for us, to set our hearts on fire with love of Him. The Raccolta (no. 164) prints it in Latin and English; Leo XIII indulgenced it in 1893. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "all-praise-honour-and-glory-to-the-divine-heart-of-jesus",
+    title: "All Praise, Honour and Glory to the Divine Heart of Jesus",
+    pages: [146],
+    body: ["All praise, honour and glory to the divine Heart of Jesus."],
+    prayerType: "general",
+    category: "devotional",
+    occasions: ["sacred-heart", "praise", "daily"],
+    summary: `A short ejaculation of praise to the divine Heart of Jesus. Raccolta no. 168, indulgenced by Leo XIII in 1901. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "let-us-with-mary-immaculate-adore-the-eucharistic-heart",
+    title:
+      "Prayer to the Eucharistic Heart with Mary Immaculate (Let us, with Mary Immaculate, adore)",
+    pages: [148],
+    body: [
+      "Let us, with Mary Immaculate, adore, thank, pray to and console the most sacred and well-beloved Eucharistic Heart of Jesus.",
+    ],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["adoration", "sacred-heart", "december-8"],
+    summary: `A one-sentence prayer inviting the faithful to adore, thank, pray to and console the Eucharistic Heart of Jesus together with Mary Immaculate. The Raccolta (no. 173) gives it as a prayer to the Sacred Heart; Pius X indulgenced it by brief in 1904, with a plenary indulgence on the feast of the Immaculate Conception for those who say it every day for a year. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "eucharistic-heart-of-jesus-model-of-the-priestly-heart",
+    title: "Eucharistic Heart of Jesus, Model of the Priestly Heart (Cor Jesu Eucharisticum)",
+    pages: [149],
+    body: ["Eucharistic Heart of Jesus, model of the priestly heart, have mercy on us."],
+    latin: ["Cor Jesu Eucharisticum, cordis sacerdotalis exemplar, miserere nobis."],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["adoration", "vocations", "sacred-heart"],
+    summary: `An invocation of the Eucharistic Heart of Jesus as the model of the priestly heart. The Raccolta (no. 177) prints it in Latin and English; Pius X indulgenced it in 1907. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "o-heart-of-love-i-place-all-my-trust-in-thee",
+    title: "O Heart of Love, I Place All My Trust in Thee (Ejaculation of Saint Margaret Mary)",
+    pages: [149],
+    body: [
+      "O Heart of love, I place all my trust in Thee: for though I fear all things from my weakness, I hope all things from thy mercies.",
+    ],
+    prayerType: "act",
+    category: "devotional",
+    occasions: ["sacred-heart", "trust", "daily"],
+    relatedSaints: ["saint-margaret-mary-alacoque"],
+    summary: `An act of trust in the Sacred Heart that the Raccolta (no. 180) gives as St Margaret Mary's ejaculation (she was then Blessed; canonized in 1920); it echoes a sentence of her consecration to the Sacred Heart. Pius X indulgenced it in 1908. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "all-for-thee-most-sacred-heart-of-jesus",
+    title: "All for Thee, Most Sacred Heart of Jesus",
+    pages: [412],
+    body: ["All for Thee, most Sacred Heart of Jesus."],
+    prayerType: "act",
+    category: "devotional",
+    occasions: ["sacred-heart", "morning", "daily"],
+    summary: `A brief ejaculation offering everything to the Sacred Heart of Jesus, printed in the Appendix of the 1910 Raccolta (no. 486) among the grants made by Pius X through the Holy Office in November 1908. ${ST_JOHN}`,
+  }),
+
+  // ── From the 1857 first edition ──────────────────────────────────────────
+  raccolta({
+    slug: "prayer-before-hearing-confessions-da-mihi-domine",
+    title:
+      "Prayer of a Confessor before Hearing Confessions (Da mihi, Domine, sedium tuarum assistricem sapientiam)",
+    edition: 1857,
+    pages: [23, 24],
+    body: [
+      "Grant me, O Lord, I beseech Thee, Wisdom, who sitteth at the right hand of Thy throne; that I may know how to judge Thy people with justice and Thy poor with judgment. Teach me so to handle the keys of the kingdom of heaven, that I may open to none to whom Thou dost close, and close to none to whom Thou dost open. Let my intention be pure, my zeal upright, my charity patient, my labour fruitful. Suffer not in me either a leniency which is lax or a severity which is harsh; let me never despise the poor, or flatter the rich. Make me sweet to entice sinners into the path of virtue, prudent to interrogate, skilful to instruct. Give me, I beseech Thee, heavenly craft to draw sinners from perdition, constancy to strengthen them in good, zeal to lead them on to perfection; give me, too, judgment in my decisions, uprightness in my advice, light in what is dark, sagacity in what is perplexed, success in what is difficult. Let me not waste time in useless conversations, and let me not be soiled by base. Enable me to save the souls of others and not lose my own. Amen.",
+    ],
+    latin: [
+      "Da mihi Domine, sedium tuarum assistricem Sapientiam, ut sciam judicare populum tuum in justitia et pauperes tuos in judicio. Fac me ita tractare claves Regni cœlorum, ut nulli aperiam cui claudendum sit, nulli claudam cui aperiendum sit. Sit intentio mea pura, zelus meus sincerus, charitas mea patiens, labor meus fructuosus. Sit in me lenitas non remissa, asperitas non severa; pauperem ne despiciam, diviti ne aduler. Fac me ad alliciendos peccatores suavem, ad interrogandos prudentem, ad instruendos peritum. Tribue, quæso, ad retrahendos a malo solertiam, ad confirmandos in bono sedulitatem, ad promovendos ad meliora industriam: in responsis maturitatem, in consiliis rectitudinem, in obscuris lumen, in implexis sagacitatem, in arduis victoriam; inutilibus colloquiis ne detinear, pravis ne contaminer; alios salvem, meipsum non perdam. Amen.",
+    ],
+    prayerType: "general",
+    category: "penitential",
+    occasions: ["confession", "penance"],
+    summary: `The prayer the Raccolta appoints for confessors before they take their seat to hear confessions, asking for the Wisdom that stands by God's throne, for the right mixture of gentleness and firmness with penitents, and for the grace to save others without losing one's own soul. The 1910 edition prints it in Latin only (no. 471); this English is St John's, from the first edition of 1857 (no. 13), which records Pius IX's grant of 1854. ${ST_JOHN_1857}`,
+  }),
+  raccolta({
+    slug: "priests-intention-before-mass-ego-volo-celebrare-missam",
+    title: "Priest's Intention before Mass (Ego volo celebrare Missam)",
+    edition: 1857,
+    pages: [112],
+    body: [
+      "I purpose to celebrate Holy Mass, and to consecrate the Body and Blood of our Lord Jesus Christ, according to the rites of the Holy Roman Church, to the praise of Almighty God and of all the Church triumphant, for the good of myself and of all the Church militant, for all who have recommended themselves to my prayers in general or in particular, and for the happy estate of the Holy Roman Church. Amen.",
+      "May the almighty and merciful Lord God grant unto us all joy and peace, amendment of our lives, time for true penance, the grace and the comfort of the Holy Ghost, and perseverance in every good work. Amen.",
+    ],
+    latin: [
+      "Ego volo celebrare Missam, et conficere Corpus et Sanguinem Domini nostri Jesu Christi juxta ritum Sanctæ Romanæ Ecclesiæ ad laudem omnipotentis Dei, totiusque curiæ triumphantis, ad utilitatem meam, totiusque curiæ militantis; pro omnibus, qui se commendarunt orationibus meis in genere et in specie, ac pro felici statu Sanctæ Romanæ Ecclesiæ. Amen.",
+      "Gaudium cum pace, emendationem vitæ, spatium veræ pœnitentiæ, gratiam et consolationem Sancti Spiritus, perseverantiam in bonis operibus tribuat nobis, omnipotens et misericors Dominus. Amen.",
+    ],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["before-mass", "mass"],
+    summary: `The priest's declaration of intention before celebrating Mass, to offer the Sacrifice according to the rite of the Roman Church for the praise of God and the good of the whole Church and of all who have asked his prayers, followed by the prayer Gaudium cum pace for joy and peace, amendment of life and perseverance. The 1910 edition prints both in Latin only (no. 466); this English is St John's, from the 1857 first edition (no. 46), which records an indulgence of Gregory XIII. ${ST_JOHN_1857}`,
+  }),
+  raccolta({
+    slug: "prayer-after-mass-obsecro-te-dulcissime-domine-jesu-christe",
+    title: "Prayer after Mass (Obsecro te, dulcissime Domine Jesu Christe)",
+    edition: 1857,
+    pages: [114, 115],
+    body: [
+      "I beseech Thee, most sweet Lord Jesus, let Thy Passion be to me strength to guard me, protect me, and defend me; Thy wounds my meat and drink to feed me, inebriate me, and delight me; the sprinkling of Thy Blood on me the cleansing away of all faults; and Thy Death my everlasting glory. In these be my food, my rejoicing, my health, the sweetness of my heart. Who livest and reignest for ever and ever. Amen.",
+    ],
+    latin: [
+      "Obsecro te, dulcissime Domine Jesu Christe, ut Passio tua sit mihi virtus, qua muniar, protegar, atque defendar: vulnera tua sint mihi cibus potusque, quibus pascar, inebrier, atque delecter; aspersio Sanguinis tui sit mihi ablutio omnium delictorum meorum, mors tua sit mihi gloria sempiterna. In his sit mihi refectio, exultatio, sanitas, et dulcedo cordis mei. Qui vivis et regnas in sæcula sæculorum. Amen.",
+    ],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["after-communion", "mass", "passion"],
+    summary: `A thanksgiving after Mass asking that Christ's Passion be the soul's strength and defence, his wounds its food and drink, his Blood its cleansing and his death its everlasting glory. The 1910 edition prints it in Latin only (no. 467), for priests after Mass; this English is St John's, from the 1857 first edition (no. 47), which records Pius IX's grant of 1846. ${ST_JOHN_1857}`,
+  }),
+  raccolta({
+    slug: "o-sacrament-most-holy-o-sacrament-divine",
+    title: "O Sacrament Most Holy, O Sacrament Divine",
+    edition: 1857,
+    pages: [127],
+    body: [
+      "O Sacrament most holy! O Sacrament divine!\nAll praise and all thanksgiving be every moment Thine.",
+    ],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["adoration", "benediction", "corpus-christi"],
+    summary: `The rhymed English, as the 1857 first edition of the Raccolta gives it (no. 57), of the Eucharistic ejaculation that Pius VI indulgenced in 1776 and Pius VII extended to its use at Exposition, at Benediction and at the Elevation. The 1910 edition renders the same ejaculation more literally as "Blessed and praised every moment be the most holy and divine Sacrament", the refrain of its Acts of Adoration and Reparation. ${ST_JOHN_1857}`,
   }),
 ];
