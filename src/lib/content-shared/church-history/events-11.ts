@@ -3116,7 +3116,7 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     citation: `${V}leo-xiv/en/homilies/2025/documents/20251101-messa-giubileo-formatori.html`,
     links: {
       saints: ["saint-john-henry-newman"],
-      doctors: ["doctor-thomas-aquinas"],
+      doctors: ["doctor-john-henry-newman", "doctor-thomas-aquinas"],
       popes: ["pope-leo-xiv"],
     },
   },
