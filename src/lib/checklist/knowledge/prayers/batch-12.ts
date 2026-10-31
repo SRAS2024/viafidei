@@ -81,23 +81,32 @@ import type { CuratedEntry } from "../index";
  * prayer for a visit, Saint Margaret Mary's consecration to the Sacred Heart
  * and the prayer before a crucifix. The thanksgiving "Offer Yourself to
  * Christ" was left out as well, since its second half is Saint Ignatius's
- * Suscipe.
+ * Suscipe, and so was the Prayer in Times of Threatened Calamity ("O Jesus
+ * Christ, we call upon Thee, Holy, Immortal God"), a shorter English form of
+ * the prayer ascribed to Saint Benedict Joseph Labre that the Raccolta gives
+ * as its Prayer in Times of Calamity (no. 456, in prayer batch 9).
  *
  * The Sunday and feast collects come from the Manual's Introits, Collects,
  * Epistles, Gospels and Postcommunions: those of the Sundays and chief days
- * from Advent to the Sunday after the Ascension, and of the First and the
- * Third to the Twenty-fourth Sundays after Pentecost. Each is given as the
- * book prints it after the word "Collect" (or "Collect of the Sunday", where
- * a feast displaces the Sunday), with its abbreviated conclusion ("Through
- * our Lord Jesus Christ, etc. Amen."); the rubric that follows it ("Others as
- * on third Sunday") is dropped, and "JESUS" set in small capitals is given as
+ * from Advent to the Sunday after the Ascension, and of the Sundays after
+ * Pentecost from the First to the Twenty-fourth except the Second, the Fifth
+ * and the Twenty-second (see below). Each is given as the book prints it
+ * after the word "Collect" (or "Collect of the Sunday", where a feast
+ * displaces the Sunday), with its abbreviated conclusion ("Through our Lord
+ * Jesus Christ, etc. Amen."); the rubric that follows it ("Others as on
+ * third Sunday") is dropped, and "JESUS" set in small capitals is given as
  * "Jesus". The 1889 copy's "Grant us. we beseech Thee" (Sixth Sunday after
  * Epiphany) is given with the comma of the 1888 issue. Collects already in
  * the knowledge base inside other entries were left out: those of
  * Pentecost, the Holy Trinity, the Patronage of Saint Joseph and the Second
  * Sunday after Pentecost, which close the prayer to the Holy Spirit, the
  * Trisagion and the Litanies of Saint Joseph and of the Holy Name, and that
- * of Corpus Christi, which the guide to Benediction gives.
+ * of Corpus Christi, which the guide to Benediction gives. So were those of
+ * the Fifth and the Twenty-second Sundays after Pentecost, which other
+ * entries give in another translation: the Raccolta's Chaplet of Acts of the
+ * Love of God (prayer batch 9) ends with the first, and the prayers for the
+ * Pope and the Church that close each day of the Raccolta's Marian novenas
+ * (novenas group 3) end with the second.
  *
  * Saint Anselm's prayers are the first and last chapters of the Proslogium in
  * Sidney Norton Deane's translation (Chicago: Open Court, 1903); the
@@ -1579,7 +1588,7 @@ export const prayerBatch12: CuratedEntry[] = [
       category: "liturgical",
       language: "en",
       summary:
-        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, praying that the diocesan bishop may teach by word and good example and receive his reward from Christ the Shepherd.",
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, praying that the diocesan bishop may teach by word and good example and receive an everlasting reward from God, the most tender Shepherd.",
       occasions: ["for-the-church"],
       relatedSaints: [],
       citations: ["https://archive.org/details/manualofprayersf00wood/page/n172/mode/1up"],
@@ -2005,25 +2014,6 @@ export const prayerBatch12: CuratedEntry[] = [
   },
   {
     contentType: "PRAYER",
-    slug: "prayer-in-time-of-threatened-calamity",
-    authorityLevel: "TRUSTED_PUBLISHER",
-    citations: ["https://archive.org/details/manualofprayersf00wood/page/n182/mode/1up"],
-    payload: {
-      slug: "prayer-in-time-of-threatened-calamity",
-      title: "Prayer in Time of Threatened Calamity",
-      body: "O Jesus Christ, we call upon Thee, Holy, Immortal God. Have mercy upon us and upon all men. Purify us by Thy holy Blood, forgive us by Thy holy Blood, save us by Thy holy Blood, now and for ever. Amen.",
-      prayerType: "intercession",
-      category: "general",
-      language: "en",
-      summary:
-        "A short appeal to Christ as the Holy and Immortal God of the Trisagion, asking to be purified, forgiven and saved by his Precious Blood when disaster threatens. From the occasional prayers of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
-      occasions: ["times-of-trouble", "precious-blood"],
-      relatedSaints: [],
-      citations: ["https://archive.org/details/manualofprayersf00wood/page/n182/mode/1up"],
-    },
-  },
-  {
-    contentType: "PRAYER",
     slug: "prayer-for-the-church-and-the-civil-authorities",
     authorityLevel: "TRUSTED_PUBLISHER",
     citations: ["https://archive.org/details/manualofprayersf00wood/page/n63/mode/1up"],
@@ -2339,7 +2329,7 @@ export const prayerBatch12: CuratedEntry[] = [
       category: "penitential",
       language: "en",
       summary:
-        "A short prayer to Christ, the true Light who enlightens every man (John 1:9), for light to know one's sins fully and confess them with true contrition. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+        "A short prayer to God, who enlightens every man that comes into this world (John 1:9), for light to know one's sins fully and confess them with true contrition. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
       occasions: ["confession", "examination-of-conscience"],
       relatedSaints: [],
       citations: ["https://archive.org/details/manualofprayersf00wood/page/n283/mode/1up"],
@@ -3106,7 +3096,7 @@ export const prayerBatch12: CuratedEntry[] = [
       category: "eucharistic",
       language: "en",
       summary:
-        "A form for directing one's intention before hearing Mass and receiving Communion, modelled on the priest's formula of intention in the Roman Missal, followed by the Missal's short prayer for joy with peace, amendment of life and a happy end (Gaudium cum pace). From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+        "A form for directing one's intention before hearing Mass and receiving Communion: the lay counterpart of the priest's formula of intention in the Roman Missal (Ego volo celebrare Missam), in which the priest states his intention to celebrate Mass and consecrate the Body and Blood of Christ. It is followed by the prayer Gaudium cum pace in its longer form, which asks also for a contrite and humble heart and a happy end. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
       occasions: ["before-mass", "before-communion", "mass"],
       relatedSaints: [],
       citations: ["https://archive.org/details/manualofprayersf00wood/page/n332/mode/1up"],
@@ -3163,7 +3153,7 @@ export const prayerBatch12: CuratedEntry[] = [
       category: "eucharistic",
       language: "en",
       summary:
-        'A chain of aspirations for the time after Communion, addressing Christ as Physician, Good Shepherd, true Light, burning Fire and Lamb of God, and ending with "O my God and my All" and Saint Paul\'s words that Christ is made unto us wisdom, justice, sanctification and redemption (1 Corinthians 1:30-31). From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+        "A chain of aspirations for the time after Communion, addressing Christ as Physician, Good Shepherd, true Light, burning Fire and Lamb of God, returning more than once to \"O my God and my All\", and ending with Saint Paul's words that Christ is made unto us wisdom, justice, sanctification and redemption (1 Corinthians 1:30-31). One aspiration is a form of the Absorbeat ascribed to Saint Francis, which is also given on its own in Paschal Robinson's translation. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
       occasions: ["after-communion", "thanksgiving"],
       relatedSaints: [],
       citations: ["https://archive.org/details/manualofprayersf00wood/page/n339/mode/1up"],
@@ -3843,25 +3833,6 @@ export const prayerBatch12: CuratedEntry[] = [
   },
   {
     contentType: "PRAYER",
-    slug: "collect-of-the-fifth-sunday-after-pentecost",
-    authorityLevel: "TRUSTED_PUBLISHER",
-    citations: ["https://archive.org/details/manualofprayersf00wood/page/n736/mode/1up"],
-    payload: {
-      slug: "collect-of-the-fifth-sunday-after-pentecost",
-      title: "Collect of the Fifth Sunday after Pentecost (Deus, qui diligentibus te)",
-      body: "O God, who hast prepared for those who love Thee good things beyond the vision of man: pour into our hearts such love toward Thee that we, loving Thee in all things and above all things, may obtain Thy promises, which exceed all that we can desire. Through our Lord Jesus Christ, etc. Amen.",
-      prayerType: "general",
-      category: "liturgical",
-      language: "en",
-      summary:
-        'The collect of the Mass of the Fifth Sunday after Pentecost in the Roman Missal (Deus, qui diligentibus te), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls the good things God has prepared for those who love him, beyond the sight of man, and asks for a love of him above all things. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
-      occasions: ["sunday", "ordinary-time", "mass"],
-      relatedSaints: [],
-      citations: ["https://archive.org/details/manualofprayersf00wood/page/n736/mode/1up"],
-    },
-  },
-  {
-    contentType: "PRAYER",
     slug: "collect-of-the-sixth-sunday-after-pentecost",
     authorityLevel: "TRUSTED_PUBLISHER",
     citations: ["https://archive.org/details/manualofprayersf00wood/page/n738/mode/1up"],
@@ -4175,26 +4146,6 @@ export const prayerBatch12: CuratedEntry[] = [
   },
   {
     contentType: "PRAYER",
-    slug: "collect-of-the-twenty-second-sunday-after-pentecost",
-    authorityLevel: "TRUSTED_PUBLISHER",
-    citations: ["https://archive.org/details/manualofprayersf00wood/page/n759/mode/1up"],
-    payload: {
-      slug: "collect-of-the-twenty-second-sunday-after-pentecost",
-      title:
-        "Collect of the Twenty-second Sunday after Pentecost (Deus, refugium nostrum et virtus)",
-      body: "O God, our refuge and strength, who art the Author of all goodness: hear, we beseech Thee, the devout prayers of Thy Church; and grant that what we faithfully ask we may effectually obtain. Through our Lord Jesus Christ, etc. Amen.",
-      prayerType: "general",
-      category: "liturgical",
-      language: "en",
-      summary:
-        'The collect of the Mass of the Twenty-second Sunday after Pentecost in the Roman Missal (Deus, refugium nostrum et virtus), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, our refuge and strength, to hear the prayers of his Church and grant what it asks in faith. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
-      occasions: ["sunday", "ordinary-time", "mass"],
-      relatedSaints: [],
-      citations: ["https://archive.org/details/manualofprayersf00wood/page/n759/mode/1up"],
-    },
-  },
-  {
-    contentType: "PRAYER",
     slug: "collect-of-the-twenty-third-sunday-after-pentecost",
     authorityLevel: "TRUSTED_PUBLISHER",
     citations: ["https://archive.org/details/manualofprayersf00wood/page/n760/mode/1up"],
@@ -4434,13 +4385,13 @@ export const prayerBatch12: CuratedEntry[] = [
     payload: {
       slug: "collect-of-the-feast-of-the-holy-name-of-jesus",
       title:
-        "Collect of the Feast of the Holy Name of Jesus (Deus, qui Unigenitum tuum constituisti humani generis Salvatorem)",
+        "Collect of the Feast of the Holy Name of Jesus (Deus, qui Unigenitum Filium tuum constituisti humani generis Salvatorem)",
       body: "O God, who hast appointed Thine Only-begotten Son to be the Saviour of mankind, and hast commanded that His name should be called Jesus: mercifully grant that we may enjoy in heaven the blessed Vision of Him whose holy Name we worship on earth. Through the same our Lord Jesus Christ, etc. Amen.",
       prayerType: "general",
       category: "liturgical",
       language: "en",
       summary:
-        "The collect of the Mass of the Feast of the Holy Name of Jesus in the Roman Missal (Deus, qui Unigenitum tuum constituisti humani generis Salvatorem), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls that God commanded his Son, the Saviour of mankind, to be called Jesus, and asks to see in heaven him whose holy Name we worship on earth. The Manual keeps the feast on the Second Sunday after Epiphany. The book prints the conclusion in its abbreviated form.",
+        "The collect of the Mass of the Feast of the Holy Name of Jesus in the Roman Missal (Deus, qui Unigenitum Filium tuum constituisti humani generis Salvatorem), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls that God commanded his Son, the Saviour of mankind, to be called Jesus, and asks to see in heaven him whose holy Name we worship on earth. The Manual keeps the feast on the Second Sunday after Epiphany. The book prints the conclusion in its abbreviated form.",
       occasions: ["holy-name-of-jesus", "january", "mass"],
       relatedSaints: [],
       citations: ["https://archive.org/details/manualofprayersf00wood/page/n686/mode/1up"],
@@ -4792,13 +4743,13 @@ export const prayerBatch12: CuratedEntry[] = [
     payload: {
       slug: "collect-of-the-second-sunday-after-easter",
       title:
-        "Collect of the Second Sunday after Easter (Deus, qui in Filii tui humilitate jacentem mundum erexisti)",
+        "Collect of the Second Sunday after Easter (Deus, qui in Filii tui humilitate iacentem mundum erexisti)",
       body: "O God, who in the humility of Thy Son hast raised up a fallen world: grant to Thy faithful people perpetual gladness; and as Thou hast delivered them from the perils of eternal death, make them to rejoice with everlasting joy. Through our Lord Jesus Christ, etc. Amen.",
       prayerType: "general",
       category: "liturgical",
       language: "en",
       summary:
-        "The collect of the Mass of the Second Sunday after Easter in the Roman Missal (Deus, qui in Filii tui humilitate jacentem mundum erexisti), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it praises God for raising up a fallen world through the humility of his Son and asks perpetual gladness and everlasting joy for his faithful. The book prints the conclusion in its abbreviated form.",
+        "The collect of the Mass of the Second Sunday after Easter in the Roman Missal (Deus, qui in Filii tui humilitate iacentem mundum erexisti), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it praises God for raising up a fallen world through the humility of his Son and asks perpetual gladness and everlasting joy for his faithful. The book prints the conclusion in its abbreviated form.",
       occasions: ["easter-season", "sunday", "mass"],
       relatedSaints: [],
       citations: ["https://archive.org/details/manualofprayersf00wood/page/n719/mode/1up"],
@@ -4812,13 +4763,13 @@ export const prayerBatch12: CuratedEntry[] = [
     payload: {
       slug: "collect-of-the-third-sunday-after-easter",
       title:
-        "Collect of the Third Sunday after Easter (Deus, qui errantibus veritatis tuae lumen ostendis)",
+        "Collect of the Third Sunday after Easter (Deus, qui errantibus, ut in viam possint redire iustitiae, veritatis tuae lumen ostendis)",
       body: "Almighty God, who showest to those that are in error the light of Thy truth, that they may return into the way of justice: grant unto all those who are admitted into the fellowship of Christ's religion, that they may avoid those things that are contrary to that name, and follow such things as are agreeable thereto. Through the same our Lord Jesus Christ, etc. Amen.",
       prayerType: "general",
       category: "liturgical",
       language: "en",
       summary:
-        "The collect of the Mass of the Third Sunday after Easter in the Roman Missal (Deus, qui errantibus veritatis tuae lumen ostendis), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, who shows the light of his truth to those in error, that all who bear the name of Christian may shun what is contrary to it and follow what befits it. The Manual gives it as the collect of the Sunday, said after that of the Patronage of Saint Joseph kept on this day. The book prints the conclusion in its abbreviated form.",
+        "The collect of the Mass of the Third Sunday after Easter in the Roman Missal (Deus, qui errantibus, ut in viam possint redire iustitiae, veritatis tuae lumen ostendis), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, who shows the light of his truth to those in error, that all who bear the name of Christian may shun what is contrary to it and follow what befits it. The Manual gives it as the collect of the Sunday, said after that of the Patronage of Saint Joseph kept on this day. The book prints the conclusion in its abbreviated form.",
       occasions: ["easter-season", "sunday", "mass"],
       relatedSaints: [],
       citations: ["https://archive.org/details/manualofprayersf00wood/page/n720/mode/1up"],
