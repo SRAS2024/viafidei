@@ -186,7 +186,7 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     context:
       "Frank Duff, a layman and civil servant, founds the Legion of Mary, an association of lay Catholics devoted to prayer and apostolic service under Mary's patronage.",
     significance:
-      "It grows into the largest lay apostolic organisation in the world, with more than ten million active and auxiliary members.",
+      "It becomes the Catholic Church's largest lay apostolic association, with more than ten million active members and praying auxiliaries worldwide.",
     citation: `${W}Legion_of_Mary`,
   },
   {
@@ -963,9 +963,9 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     kind: "document",
     location: "Rome",
     context:
-      "The Holy Office, with Pius XII's approval, declares that Catholics who openly profess communist doctrine incur excommunication as apostates.",
+      "In a question-and-answer decree approved by Pius XII, the Holy Office rules that Catholics may not join or support Communist parties or publish or read communist literature, and that those who knowingly do so are to be refused the sacraments.",
     significance:
-      "Issued as communist regimes tighten their grip on Eastern Europe, it targets adherence to the doctrine rather than party membership as such.",
+      "Excommunication as apostates, a penalty reserved to the Holy See, falls on those who profess, defend or spread materialist communist doctrine; the decree answers mounting communist pressure on the Church in Eastern Europe.",
     citation: `${W}Decree_against_Communism`,
     links: { popes: ["pope-venerable-pius-xii"] },
   },
@@ -977,7 +977,7 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     precision: "day",
     era: "twentieth",
     kind: "saint",
-    location: "St Peter's Basilica",
+    location: "St Peter's Square",
     context:
       "Pius XII canonises the eleven-year-old who in 1902 died forgiving the young man who stabbed her when she resisted his advances.",
     significance:
@@ -1603,9 +1603,8 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     kind: "saint",
     location: "Rome",
     context:
-      "Paul VI canonises the convert widow who founded the Sisters of Charity at Emmitsburg, Maryland, and the first Catholic girls' school in the nation.",
-    significance:
-      "She is the first person born in what would become the United States to be canonised.",
+      "Paul VI canonises the widowed convert who founded the Sisters of Charity of St Joseph's at Emmitsburg, Maryland, and opened a free Catholic school for girls there.",
+    significance: "Born in New York City in 1774, she becomes the first American-born saint.",
     citation: `${W}Elizabeth_Ann_Seton`,
     links: { saints: ["saint-elizabeth-ann-seton"] },
   },
@@ -1881,7 +1880,7 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     context:
       "Against the explicit orders of John Paul II, Archbishop Marcel Lefebvre and Bishop Antônio de Castro Mayer consecrate four bishops for the Society of St Pius X.",
     significance:
-      "In Ecclesia Dei the Pope declares the act schismatic and the six bishops excommunicated; Benedict XVI lifts the four bishops' excommunications in 2009.",
+      "The next day the Congregation for Bishops declares all six bishops excommunicated, and on 2 July John Paul II's Ecclesia Dei calls the act schismatic; Benedict XVI lifts the four bishops' excommunications in 2009.",
     citation: `${W}1988_Écône_consecrations`,
     links: { popes: ["pope-saint-john-paul-ii"] },
   },
@@ -1895,7 +1894,7 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     kind: "event",
     location: "Vatican City",
     context:
-      "Weeks after the fall of the Berlin Wall, Mikhail Gorbachev visits John Paul II — the first meeting between a pope and a Soviet leader.",
+      "Weeks after the fall of the Berlin Wall, Mikhail Gorbachev visits John Paul II — the first meeting between a pope and the head of the Soviet Communist Party.",
     significance:
       "They agree to establish diplomatic relations, and Gorbachev pledges greater religious freedom in the Soviet Union.",
     citation: `${W}Holy_See–Soviet_Union_relations`,
@@ -1996,9 +1995,9 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     era: "post-conciliar",
     kind: "event",
     context:
-      "The Holy See and the State of Israel sign a Fundamental Agreement on the legal status, property and tax exemptions of the Catholic Church in Israel.",
+      "The Holy See and the State of Israel sign a Fundamental Agreement on the Catholic Church's place in Israel, leaving its legal personality, property and tax status to later negotiations.",
     significance:
-      "It opens the way to full diplomatic relations between the Holy See and Israel in 1994.",
+      "A protocol signed the same day opens the way to full diplomatic relations in 1994; an accord on the Church's legal personality follows in 1997, but questions over Church property and taxes remain unsettled decades later.",
     citation: `${W}Fundamental_Agreement_Between_the_Holy_See_and_the_State_of_Israel`,
     links: { popes: ["pope-saint-john-paul-ii"] },
   },
@@ -2446,7 +2445,7 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     context:
       "Benedict XVI canonises Brother André of Montreal, the Holy Cross lay brother who founded Saint Joseph's Oratory.",
     significance:
-      "Credited with thousands of reported healings through his devotion to St Joseph, he is a central figure of Catholic devotion among French Canadians.",
+      "Thousands of reported healings were attributed to his prayers to St Joseph, and the oratory he started grew into Canada's largest church.",
     citation: `${W}André_Bessette`,
     links: { saints: ["saint-andre-bessette"] },
   },
@@ -2515,7 +2514,7 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     location: "Rome",
     context:
       "Benedict XVI canonises the seventeenth-century Mohawk convert known as the Lily of the Mohawks, with six others including Marianne Cope of Molokaʻi.",
-    significance: "She is the first Native American saint.",
+    significance: "She becomes the first Indigenous woman of North America to be declared a saint.",
     citation: `${W}Kateri_Tekakwitha`,
     links: { saints: ["saint-kateri-tekakwitha", "saint-marianne-cope"] },
   },
@@ -2617,7 +2616,7 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     context:
       "During his visit to the United States, Francis canonises the eighteenth-century Franciscan founder of the California missions at the National Shrine of the Immaculate Conception.",
     significance:
-      "The canonisation goes ahead amid denunciations from Native American groups who accuse Serra of presiding over a harsh colonial subjugation.",
+      "The first canonisation held on United States soil draws protests from Native American critics, who hold Serra responsible for the forced labour and harsh punishments Indigenous Californians endured in the missions.",
     citation: `${W}Junípero_Serra`,
     links: { saints: ["saint-junipero-serra"], popes: ["pope-francis"] },
   },
@@ -2895,9 +2894,9 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     tags: ["marian"],
     location: "St Peter's Basilica",
     context:
-      "A month after Russia's full-scale invasion of Ukraine, Francis consecrates both countries by name to the Immaculate Heart of Mary.",
+      "A month after Russia's full-scale invasion of Ukraine, Francis consecrates both countries by name to the Immaculate Heart of Mary and invites every Catholic bishop to join the act.",
     significance:
-      "Made at the request of Ukraine's Catholic bishops, it is the first papal consecration to name Russia explicitly.",
+      "Requested by Ukraine's Catholic bishops' conference, it is the first consecration naming Russia to be made together with the world's bishops; Pius XII had consecrated the peoples of Russia by name in 1952, but without them.",
     citation: `${W}Consecration_of_Russia`,
     links: { apparitions: ["apparition-our-lady-of-fatima"], popes: ["pope-francis"] },
   },
@@ -2986,14 +2985,14 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     slug: "vigano-excommunicated-for-schism",
     title: "Archbishop Viganò excommunicated for schism",
     year: 2024,
-    date: "2024-07-05",
+    date: "2024-07-04",
     precision: "day",
     era: "post-conciliar",
     kind: "event",
     tags: ["schism"],
     location: "Rome",
     context:
-      "The Dicastery for the Doctrine of the Faith finds former nuncio Archbishop Carlo Maria Viganò guilty of schism and declares his excommunication.",
+      "Concluding a penal process, the Dicastery for the Doctrine of the Faith finds former nuncio Archbishop Carlo Maria Viganò guilty of schism and declares his excommunication, making the decision public the next day.",
     significance:
       "It cites his public refusal to recognise and submit to the Pope and his rejection of the authority of the Second Vatican Council.",
     citation:
@@ -3132,10 +3131,10 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     tags: ["schism"],
     location: "İznik (Nicaea)",
     context:
-      "On an apostolic journey to Türkiye and Lebanon, Leo XIV prays at İznik, ancient Nicaea, with leaders of other Christian Churches for the 1700th anniversary of the first ecumenical council.",
+      "On an apostolic journey to Türkiye and Lebanon, Leo XIV joins Ecumenical Patriarch Bartholomew and leaders of other Christian Churches in prayer at İznik, ancient Nicaea, for the 1700th anniversary of the first ecumenical council.",
     significance:
-      "Days before, in the apostolic letter In unitate fidei, he had called all Christians to unity in the faith of the Nicene Creed.",
-    citation: `${V}leo-xiv/en/homilies/2025/documents/20251129-messa-istanbul.html`,
+      "He presents the Creed's faith in Christ, one in being with the Father, as common ground all Christians already share, and calls them to work past the divisions that remain.",
+    citation: `${V}leo-xiv/en/speeches/2025/november/documents/20251128-turchia-incontro-ecumenico.html`,
     links: { popes: ["pope-leo-xiv"] },
   },
   {
