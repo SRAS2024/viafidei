@@ -36,7 +36,8 @@ export function classifyParish(designation: unknown): ParishClassification {
   if (d === "cathedral") return "cathedral";
   if (d.includes("basilica")) return "basilica";
   if (d === "shrine") return "shrine";
-  if (d === "chapel") return "chapel";
+  // An oratory, like a chapel, is a place of worship that is not a parish church.
+  if (d === "chapel" || d === "oratory") return "chapel";
   return "parish";
 }
 
