@@ -60,7 +60,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     context:
       "A large part of the ancient St Thomas Christian community of India swears publicly to refuse obedience to the Jesuit prelates and the Portuguese-backed Latin hierarchy.",
     significance:
-      "A lasting division follows between those who stay in communion with Rome and those who follow the archdeacon Thomas, later consecrated Mar Thoma I.",
+      "A lasting division follows between those who stay in communion with Rome and those who follow the archdeacon Thomas: in May 1653 twelve priests proclaim him bishop by laying on hands, a rite Rome does not accept as a valid consecration, and he takes the title Mar Thoma I.",
     citation: `${W}Coonan_Cross_Oath`,
   },
   {
@@ -230,12 +230,12 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     era: "early-modern",
     kind: "saint",
     tags: ["mission"],
-    location: "Caughnawaga, New France",
+    location: "Kahnawake, New France",
     context:
-      "Baptised by the Jesuit Jacques de Lamberville, the young Mohawk woman escapes persecution in her village to the Christian settlement of Caughnawaga, where she dies at about twenty-four.",
+      "Baptised by the Jesuit Jacques de Lamberville, the young Mohawk woman flees the hostility of her village for the Jesuit mission of Kahnawake near Montreal, where she dies at about twenty-four.",
     significance:
-      "Remembered as the 'Lily of the Mohawks' for her purity and severe penances, she was beatified in 1980.",
-    citation: `${NA}14471a.htm`,
+      "Known as the 'Lily of the Mohawks' and remembered for her vow of virginity and severe penances, she was beatified in 1980 and canonised by Benedict XVI in 2012.",
+    citation: `${W}Kateri_Tekakwitha`,
     links: { saints: ["saint-kateri-tekakwitha"] },
   },
   {
@@ -361,8 +361,8 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     context:
       "The Portuguese Jesuit, who lived as an Indian ascetic in the Madurai mission, is beheaded after a prince he converted dismisses all his wives but one.",
     significance:
-      "He had made many converts and founded many mission stations; Pius IX beatified him in 1853.",
-    citation: `${NA}08461a.htm`,
+      "Known in Tamil as Arul Anandar, the name he took for himself, he was beatified by Pius IX in 1853 and canonised by Pius XII in 1947.",
+    citation: `${W}John_de_Britto`,
   },
   {
     slug: "fenelon-maxims-condemned",
@@ -650,7 +650,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     tags: ["jesuits"],
     location: "Paris",
     context:
-      "After the parlements close the Jesuit colleges and order the fathers to renounce their vows, Louis XV reluctantly signs an edict dissolving the Society throughout his kingdom.",
+      "The parlements have already shut the Jesuit colleges and told the fathers to give up their vows or leave France; at the end of November Louis XV, against his own inclination, signs an edict ending the Society's legal existence in his realm.",
     significance:
       "Only a handful of Jesuits accept the conditions; France joins Portugal in pressing Rome for a universal suppression.",
     citation: `${NA}14096a.htm`,
@@ -665,10 +665,10 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     tags: ["jesuits"],
     location: "Madrid",
     context:
-      "Sealed royal orders opened on the night of 1–2 April send about 6,000 Jesuits under guard to the coast for deportation to the Papal States and then Corsica.",
+      "Under sealed royal orders carried out at the start of April, about 6,000 Jesuits are seized and shipped to the Papal States, but Clement XIII refuses to let them land at Civitavecchia. Diverted to Corsica, where some wait months to come ashore, the exiles end up in Italy.",
     significance:
-      "Decided in secret and without trial, the expulsion is extended to Spain's colonies, Naples and Parma and helps force the suppression of 1773.",
-    citation: `${NA}14096a.htm`,
+      "Planned in secret, with the king keeping his reasons to himself, the expulsion also reaches Spain's colonies; Naples and Parma follow, and the Bourbon courts then demand, and in 1773 obtain, the Society's suppression.",
+    citation: `${W}Suppression_of_the_Society_of_Jesus`,
   },
   {
     slug: "election-of-pius-vi",
@@ -1161,7 +1161,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     context:
       "Taunted to show what Christianity does for the poor, eight Sorbonne students led by Frédéric Ozanam form a 'Conference of Charity' under the guidance of the editor Bailly.",
     significance:
-      "It grows into an international association of Catholic laymen who serve the poor in person.",
+      "That first student conference grows into a worldwide lay society whose members help needy families directly, above all by visiting them at home.",
     citation: `${NA}13389a.htm`,
   },
   {
@@ -1248,14 +1248,14 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     slug: "synod-of-polotsk",
     title: "Synod of Polotsk",
     year: 1839,
-    date: "1839-02-12",
+    date: "1839-02-24",
     precision: "day",
     era: "revolution-19c",
     kind: "event",
     tags: ["eastern-catholic"],
     location: "Polotsk",
     context:
-      "Led by Bishop Joseph Semashko and backed by Nicholas I's government, which had long worked to weaken the union, Greek Catholic clergy of the Russian Empire join the Russian Orthodox Church.",
+      "Led by Bishop Joseph Semashko and backed by Nicholas I's government, which had long worked to weaken the union, Greek Catholic clergy of the Russian Empire ask to be received into the Russian Orthodox Church, and the tsar approves on 6 April. Russia, still on the Julian calendar, dates the synod 12 February.",
     significance:
       "Some 1,600 parishes and 1.2 million faithful pass to Orthodoxy; under Russian rule the union survives only in the Chełm eparchy until 1875.",
     citation: `${W}Synod_of_Polotsk`,
@@ -1348,7 +1348,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     tags: ["oxford-movement"],
     location: "Oxford",
     context:
-      "John Henry Newman argues that the Thirty-Nine Articles can be signed in a Catholic, though not a Roman, sense and do not condemn the Council of Trent.",
+      "John Henry Newman contends that the Thirty-Nine Articles leave room for Catholic belief and do not strike at the decrees of the Council of Trent.",
     significance:
       "The storm it raises ends the Tracts for the Times and shatters Newman's hopes for Anglicanism, four years before he becomes a Catholic.",
     citation: `${NA}11370a.htm`,
@@ -1365,10 +1365,10 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     tags: ["mission"],
     location: "Futuna",
     context:
-      "The Marist missionary, on Futuna since 1837, is clubbed to death at the instigation of King Niuliki, angered by the conversion of his son.",
+      "The Marist missionary, on Futuna since 1837, is struck down by Musumusu, a warrior sent by King Niuliki after the king's son Meitala sought baptism.",
     significance:
-      "Within a few years the whole island embraces the faith; Leo XIII beatified Chanel in 1889.",
-    citation: `${NA}11769a.htm`,
+      "Most of the islanders later become Catholics; honoured as the protomartyr of Oceania, Chanel was beatified in 1889 and canonised by Pius XII in 1954.",
+    citation: `${W}Peter_Chanel`,
   },
   {
     slug: "conversion-of-alphonse-ratisbonne",
@@ -1492,7 +1492,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     context:
       "Back from preaching missions in Catalonia and the Canary Islands, Antonio María Claret founds the Missionary Sons of the Immaculate Heart of Mary.",
     significance:
-      "Named Archbishop of Santiago de Cuba in 1851, he reforms its seminary; his religious press in Barcelona issues millions of cheap books.",
+      "Named Archbishop of Santiago de Cuba, he reforms its seminary; his religious press in Barcelona issues millions of cheap books.",
     citation: `${NA}16026a.htm`,
     links: { saints: ["saint-anthony-mary-claret"] },
   },
@@ -1651,10 +1651,10 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     tags: ["mission", "persecution"],
     location: "Tonkin",
     context:
-      "Betrayed and captured in November 1860, the Paris Foreign Missions priest refuses to apostatise and spends his last weeks in a cage, writing joyful letters to his family, before he is beheaded.",
+      "Captured in November 1860, the Paris Foreign Missions priest refuses to apostatise and spends his last weeks in a cage, writing joyful letters to his family, before he is beheaded.",
     significance:
-      "He was beatified in 1909 with thirty-three other martyrs, most of them from Tonkin, Cochinchina and China.",
-    citation: `${NA}14623c.htm`,
+      "Beatified in 1909 with thirty-three other martyrs, most of them Vietnamese or Chinese, he was canonised by John Paul II in 1988.",
+    citation: `${W}Théophane_Vénard`,
   },
   {
     slug: "canonisation-of-the-japanese-martyrs",
@@ -1675,18 +1675,18 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
   },
   {
     slug: "comboni-plan-for-africa",
-    title: "Daniel Comboni's Plan for the Regeneration of Africa",
+    title: "Daniel Comboni's Plan for the Rebirth of Africa",
     year: 1864,
     precision: "year",
     era: "revolution-19c",
     kind: "mission",
     tags: ["mission"],
-    location: "Turin",
+    location: "Rome",
     context:
-      "After a first mission to Central Africa, the Veronese priest Daniel Comboni publishes a plan for the evangelisation of Africa and tours Europe to raise funds for it.",
+      "Back from a first mission to Central Africa, the Italian priest Daniel Comboni conceives at St Peter's tomb a plan to 'save Africa through Africa', then appeals across Europe for support.",
     significance:
-      "He founds missionary institutes for men and women at Verona in 1867, takes charge of the Central African mission in 1872, and dies at Khartoum in 1881.",
-    citation: `${NA}04152b.htm`,
+      "At Verona he founds a missionary institute for men in 1867 and one for women in 1872; Vicar Apostolic of Central Africa from 1877, he dies at Khartoum in 1881 and was canonised in 2003.",
+    citation: `${W}Daniele_Comboni`,
   },
   {
     slug: "hidden-christians-of-nagasaki",
@@ -1722,16 +1722,15 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     slug: "korean-persecution-of-1866",
     title: "Korean persecution of 1866",
     year: 1866,
-    date: "1866-03-08",
-    precision: "day",
+    precision: "year",
     era: "revolution-19c",
     kind: "martyrdom",
     tags: ["mission", "persecution"],
     location: "Seoul",
     context:
-      "A great persecution falls on Korea's 25,000 Catholics: Bishop Berneux and three missionaries are executed on 8 March, and Bishop Daveluy and others later that month.",
+      "A great persecution falls on Korea's 25,000 Catholics: in March the two bishops, Berneux and Daveluy, and seven French missionary priests are put to death.",
     significance:
-      "Many lay Catholics are also put to death or perish of hunger in the mountains where they fled.",
+      "The three surviving missionaries are forced to withdraw to China; many lay Catholics are killed, and others starve in the mountains where they hid.",
     citation: `${NA}04361b.htm`,
   },
   {
@@ -1810,10 +1809,10 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     tags: ["dogma", "papacy"],
     location: "St Peter's, Rome",
     context:
-      "During a thunderstorm, the First Vatican Council approves by 433 votes to 2 the constitution defining the pope's universal primacy and the infallibility of his ex cathedra definitions.",
+      "The First Vatican Council approves, by 533 votes to 2, the constitution defining the pope's universal primacy of jurisdiction and the infallibility of his ex cathedra definitions.",
     significance:
-      "Bishops who judged the definition inopportune had left Rome beforehand, but all of them accepted it; the council is adjourned in October.",
-    citation: `${NA}15303a.htm`,
+      "Some sixty bishops of the opposition had left Rome rather than be seen to approve it, yet none of those who judged the definition inopportune refused to accept it; the council is adjourned indefinitely in October.",
+    citation: `${W}First_Vatican_Council`,
     links: { documentSlug: "pastor-aeternus", popes: ["pope-pius-ix"] },
   },
   {
@@ -1871,7 +1870,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     date: "1871-05-24",
     precision: "day",
     era: "revolution-19c",
-    kind: "martyrdom",
+    kind: "event",
     tags: ["persecution"],
     location: "La Roquette prison, Paris",
     context:
@@ -2023,7 +2022,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     tags: ["papacy"],
     location: "Rome",
     context:
-      "Pius IX dies after the longest pontificate in the history of the papacy, in which he lost the Papal States and defined the Immaculate Conception and papal infallibility.",
+      "Pius IX dies after more than thirty-one years as pope, a reign longer than any since St Peter's, in which he lost the Papal States and defined the Immaculate Conception and papal infallibility.",
     significance: "He is buried at San Lorenzo fuori le Mura and was beatified in 2000.",
     citation: `${NA}12134b.htm`,
     links: { popes: ["pope-pius-ix"] },
@@ -2102,17 +2101,16 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     slug: "first-eucharistic-congress",
     title: "First Eucharistic Congress at Lille",
     year: 1881,
-    date: "1881-06-21",
-    precision: "day",
+    precision: "year",
     era: "revolution-19c",
     kind: "event",
     tags: ["eucharist"],
     location: "Lille",
     context:
-      "Inspired by Bishop Gaston de Ségur, the first Eucharistic Congress meets at Lille to promote devotion to the Blessed Sacrament.",
+      "The first Eucharistic Congress meets at Lille in June, the fruit of ten years' work by the laywoman Marie-Marthe-Baptistine Tamisier together with Bishop Gaston de Ségur.",
     significance:
-      "A modest local gathering at first, the congresses grow year by year into international assemblies that spread adoration and frequent Communion.",
-    citation: `${NA}05592a.htm`,
+      "Its success makes the congress an annual event, and it grows ever more international as a public witness to Christ's real presence in the Eucharist.",
+    citation: `${W}Eucharistic_congress`,
   },
   {
     slug: "knights-of-columbus-founded",
@@ -2205,7 +2203,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     tags: ["marian"],
     location: "Castelpetroso, Molise",
     context:
-      "According to tradition, two peasant women looking for a lost sheep on Monte Patalecchia see the Sorrowful Virgin kneeling before the body of the dead Christ.",
+      "According to tradition, Fabiana Cicchino, searching with Serafina Valentino for a stray sheep on Monte Patalecchia, sees the Sorrowful Virgin kneeling before the body of the dead Christ; Valentino reports the same vision on Easter Sunday, 1 April.",
     significance:
       "A basilica rises on the site, and Paul VI named Our Lady of Sorrows of Castelpetroso patron of Molise in 1973.",
     citation: `${W}Basilica_of_Our_Lady_of_Sorrows,_Castelpetroso`,
