@@ -66,10 +66,24 @@ const ONLY = (argv.get("only") ?? "")
   .filter(Boolean);
 const AUDIT_LIMIT = argv.has("audit-limit") ? Number(argv.get("audit-limit")) : undefined;
 const REPORT = argv.get("report") ?? "";
+const KNOWN = new Set(["apply", "unpublish-suspects", "only", "audit-limit", "report"]);
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
 async function main() {
+  // A mistyped flag must never be silently ignored: "--unpublish-suspect"
+  // would run without the unpublish the operator meant to ask for.
+  const unknownFlags = [...argv.keys()].filter((k) => !KNOWN.has(k));
+  if (unknownFlags.length) {
+    console.error(`unknown option(s): ${unknownFlags.join(", ")}`);
+    process.exitCode = 2;
+    return;
+  }
+  if (AUDIT_LIMIT !== undefined && !(Number.isInteger(AUDIT_LIMIT) && AUDIT_LIMIT >= 0)) {
+    console.error("--audit-limit must be a whole number");
+    process.exitCode = 2;
+    return;
+  }
   const unknown = ONLY.filter((c) => !CLEANUP_CATEGORIES.includes(c as CleanupCategory));
   if (unknown.length) {
     console.error(
