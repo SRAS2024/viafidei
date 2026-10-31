@@ -8,8 +8,12 @@ const VII = "https://www.vatican.va/archive/hist_councils/ii_vatican_council/doc
  * Church-history spine, part 11: the contemporary Church in detail, from the
  * death of Pius X in the first weeks of the Great War (1914) to the present —
  * the Twentieth Century and Post-Conciliar eras. It fills in around the
- * landmarks already in part 4 (Fatima, the Lateran Treaty, Vatican II, the
- * elections and deaths of popes) without repeating them.
+ * landmarks already in part 4 (Fatima, the 1917 and 1983 Codes, the Lateran
+ * Treaty, the opening and close of Vatican II, the elections of Pius XII,
+ * Paul VI, John Paul II, Benedict XVI, Francis and Leo XIV) without repeating
+ * them. Recent dates are taken from vatican.va or Wikipedia, never estimated;
+ * where the cited page gives only a month or year, the event carries year
+ * precision.
  *
  * Events that share a slug with a published CHURCH_DOCUMENT are enriched by
  * it on the timeline instead of appearing twice; `documentSlug` is set where
@@ -1498,7 +1502,7 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     precision: "day",
     era: "post-conciliar",
     kind: "document",
-    location: "St Peter's",
+    location: "Rome",
     context:
       "Closing the Year of Faith for the nineteenth centenary of the martyrdom of Sts Peter and Paul, Paul VI solemnly professes a Credo of the People of God.",
     significance:
@@ -1759,7 +1763,7 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     era: "post-conciliar",
     kind: "event",
     tags: ["marian"],
-    location: "St Peter's Square",
+    location: "Rome",
     context:
       "In union with the world's bishops, John Paul II consecrates to the Immaculate Heart of Mary the peoples most in need of it, without naming Russia.",
     significance:
@@ -1991,7 +1995,6 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     precision: "day",
     era: "post-conciliar",
     kind: "event",
-    location: "Jerusalem",
     context:
       "The Holy See and the State of Israel sign a Fundamental Agreement on the legal status, property and tax exemptions of the Catholic Church in Israel.",
     significance:
@@ -2750,21 +2753,6 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     links: { documentSlug: "vos-estis-lux-mundi", popes: ["pope-francis"] },
   },
   {
-    slug: "canonization-of-john-henry-newman",
-    title: "St John Henry Newman canonised",
-    year: 2019,
-    date: "2019-10-13",
-    precision: "day",
-    era: "post-conciliar",
-    kind: "saint",
-    location: "St Peter's Square",
-    context:
-      "Francis canonises Cardinal John Henry Newman, the Oxford convert whose theology of the development of doctrine shaped modern Catholic thought.",
-    significance: "Benedict XVI had beatified him at Cofton Park, Birmingham, in 2010.",
-    citation: `${W}John_Henry_Newman`,
-    links: { saints: ["saint-john-henry-newman"], popes: ["pope-francis"] },
-  },
-  {
     slug: "amazon-synod",
     title: "Synod of Bishops for the Amazon",
     year: 2019,
@@ -2779,6 +2767,21 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
       "Its proposal to ordain married permanent deacons as priests in the region is not taken up in Francis's exhortation Querida Amazonia.",
     citation: `${W}Synod_of_Bishops_for_the_Pan-Amazon_region`,
     links: { popes: ["pope-francis"] },
+  },
+  {
+    slug: "canonization-of-john-henry-newman",
+    title: "St John Henry Newman canonised",
+    year: 2019,
+    date: "2019-10-13",
+    precision: "day",
+    era: "post-conciliar",
+    kind: "saint",
+    location: "St Peter's Square",
+    context:
+      "Francis canonises Cardinal John Henry Newman, the Oxford convert whose theology of the development of doctrine shaped modern Catholic thought.",
+    significance: "Benedict XVI had beatified him at Cofton Park, Birmingham, in 2010.",
+    citation: `${W}John_Henry_Newman`,
+    links: { saints: ["saint-john-henry-newman"], popes: ["pope-francis"] },
   },
   {
     slug: "pius-xii-archives-opened",
@@ -3005,7 +3008,7 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
     era: "post-conciliar",
     kind: "event",
     tags: ["marian"],
-    location: "Medjugorje",
+    location: "Rome",
     context:
       'With the note "The Queen of Peace," the Dicastery for the Doctrine of the Faith grants a nihil obstat to the spiritual experience connected with Medjugorje.',
     significance:
@@ -3083,7 +3086,7 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
   },
   {
     slug: "canonizations-of-19-october-2025",
-    title: "Seven saints canonised, Maloyan, To Rot, Hernández and Longo among them",
+    title: "Seven new saints canonised by Leo XIV",
     year: 2025,
     date: "2025-10-19",
     precision: "day",
