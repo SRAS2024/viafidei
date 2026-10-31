@@ -7,12 +7,18 @@
  *   3 — refused at boot: the switch was OFF, or another runtime already held
  *       the execution lease;
  *   4 — the database could not be read at boot (outage, not a crash);
- *   5 — the execution lease was taken by another runtime mid-run.
+ *   5 — the execution lease was taken by another runtime mid-run;
+ *   6 — the worker lost its supervisor: its log pipe closed or the host pid
+ *       vanished, so it stopped rather than run on as an orphan.
  * Anything else is a crash. The host used to treat 0 and 3 as crashes (a
  * clean OFF rendered as "crashed", and a lease held by another Mac burned
  * the five-restart budget in ~30 s and ended in "gave up"), and 5 as a plain
- * crash. Only a genuine crash — or a DB outage, deferred — may restart.
+ * crash. Only a genuine crash, a lost supervisor — or a DB outage, deferred —
+ * may restart.
  */
+
+/** Exit code the worker uses when its log pipe or its host went away. */
+export const WORKER_EXIT_SUPERVISOR_LOST = 6;
 
 export type WorkerExitKind =
   | "stopped"
@@ -20,6 +26,7 @@ export type WorkerExitKind =
   | "refused"
   | "db_unreachable"
   | "lease_taken"
+  | "supervisor_lost"
   | "crashed";
 
 export type WorkerExitRunState = "off" | "crashed" | "failed";
@@ -88,6 +95,18 @@ export function interpretWorkerExit(input: {
       leaseHeldElsewhere: true,
     };
   }
+  if (code === WORKER_EXIT_SUPERVISOR_LOST) {
+    // The worker saw its log pipe close (or the host pid vanish). If this host
+    // is reading the exit, it is alive after all — a restart gives the worker
+    // fresh pipes, under the same backoff as a crash.
+    return {
+      kind: "supervisor_lost",
+      restart: true,
+      runState: "crashed",
+      failureReason: null,
+      leaseHeldElsewhere: false,
+    };
+  }
   if (code === 3) {
     // Refused at boot. With the switch OFF that is the operator's own stop
     // (nothing to report); with it ON (or unreadable) the only other refusal
@@ -131,6 +150,8 @@ export function describeWorkerExitKind(kind: WorkerExitKind): string {
       return "database unreachable";
     case "lease_taken":
       return "execution lease taken by another runtime";
+    case "supervisor_lost":
+      return "it lost its log pipe or its host and stopped";
     case "crashed":
       return "crashed";
   }

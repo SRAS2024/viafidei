@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   hasAppAncestor,
   isBrokenPipe,
+  isClosedPipe,
   parseProcessTable,
 } from "@/lib/admin-worker/supervised-host";
 
@@ -50,5 +51,15 @@ describe("supervised host guard", () => {
     expect(isBrokenPipe({ code: "ERR_STREAM_DESTROYED" })).toBe(true);
     expect(isBrokenPipe(new Error("boom"))).toBe(false);
     expect(isBrokenPipe(null)).toBe(false);
+  });
+
+  it("keeps a network reset out of the process-wide closed-pipe test", () => {
+    // On one of our own stdio streams a reset means the reader is gone; seen by
+    // a process-wide handler it is far more likely a socket to some server.
+    expect(isBrokenPipe({ code: "ECONNRESET" })).toBe(true);
+    expect(isClosedPipe({ code: "ECONNRESET" })).toBe(false);
+    expect(isClosedPipe({ code: "EPIPE" })).toBe(true);
+    expect(isClosedPipe({ code: "ERR_STREAM_DESTROYED" })).toBe(true);
+    expect(isClosedPipe(undefined)).toBe(false);
   });
 });

@@ -79,9 +79,12 @@ import {
 } from "../src/lib/admin-worker/intelligence";
 import { reapStaleRunningPasses } from "../src/lib/admin-worker/passes";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
+import { guardStdio, isClosedPipe, silenceStdio } from "../src/lib/admin-worker/supervised-host";
+import { WORKER_EXIT_SUPERVISOR_LOST } from "../src/lib/admin-worker/worker-exit";
 import {
   installProcessSafetyNet,
   runLoopSupervised,
+  watchSupervisingHost,
 } from "../src/lib/admin-worker/worker-supervisor";
 import { prisma } from "../src/lib/db/client";
 
@@ -177,6 +180,64 @@ async function claimExecutionAuthority(args: ReturnType<typeof parseArgs>): Prom
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
+  // Reuse the shared, connection-pool-capped client so the worker and the web
+  // service don't exhaust Postgres (P2037 "too many clients already").
+  //
+  // Defined before anything else so every way out — a signal, a lost
+  // supervisor — runs the same bounded cleanup. `exitCode` is 0 for a signal
+  // (the host's normal stop) and WORKER_EXIT_SUPERVISOR_LOST when the host is
+  // gone, so a host that is in fact still reading restarts the worker.
+  let shuttingDown = false;
+  const shutdown = (signal: string, exitCode = 0) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[admin-worker:${args.workerId}] received ${signal}; exiting...`);
+    // SIGTERM is the host's NORMAL stop (every switch-OFF). Exiting after a
+    // fixed 1s skipped the `finally` below, so every operator stop left the
+    // in-flight pass RUNNING, the lease row in place and the brain to the
+    // process-group kill. Do the cleanup here, bounded to 3s so a dead database
+    // can never hold the stop hostage, then exit.
+    const passReason = exitCode === 0 ? "stopped by operator" : `worker stopped: ${signal}`;
+    const cleanup = (async () => {
+      await abandonCurrentPass(prisma, passReason).catch(() => false);
+      shutdownBrain();
+      await releaseExecutionLease(prisma, args.workerId).catch(() => undefined);
+      await prisma.$disconnect().catch(() => undefined);
+    })();
+    const deadline = new Promise<void>((resolve) => setTimeout(resolve, 3_000).unref());
+    void Promise.race([cleanup, deadline]).then(() => process.exit(exitCode));
+  };
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+  // The host is our only reader and our only supervisor. When it goes away —
+  // our log pipe breaks, or its pid vanishes — stop: never log the broken pipe
+  // (that write fails too, and every failure used to raise another uncaught
+  // EPIPE and an ERROR row, in a loop), and never run on as an orphan that
+  // nothing can switch off. Installed before the first console write.
+  const supervisorLost = (reason: string) => {
+    silenceStdio();
+    shutdown(reason, WORKER_EXIT_SUPERVISOR_LOST);
+  };
+  guardStdio(supervisorLost);
+  const hostPid = Number(process.env.VIAFIDEI_HOST_PID ?? "");
+  if (Number.isInteger(hostPid) && hostPid > 1) {
+    watchSupervisingHost({
+      hostPid,
+      isAlive: (pid) => {
+        try {
+          process.kill(pid, 0);
+          return true;
+        } catch {
+          // ESRCH: gone. EPERM: the pid now belongs to another user's process.
+          return false;
+        }
+      },
+      parentPid: () => process.ppid,
+      onGone: supervisorLost,
+    });
+  }
+
   if (!(await claimExecutionAuthority(args))) {
     await prisma.$disconnect().catch(() => undefined);
     // Exit NON-ZERO. Refusing to run is a failure from the caller's point of
@@ -188,30 +249,6 @@ async function main() {
     return;
   }
 
-  // Reuse the shared, connection-pool-capped client so the worker and the web
-  // service don't exhaust Postgres (P2037 "too many clients already").
-  let shuttingDown = false;
-  const shutdown = (signal: string) => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    console.log(`[admin-worker:${args.workerId}] received ${signal}; exiting...`);
-    // SIGTERM is the host's NORMAL stop (every switch-OFF). Exiting after a
-    // fixed 1s skipped the `finally` below, so every operator stop left the
-    // in-flight pass RUNNING, the lease row in place and the brain to the
-    // process-group kill. Do the cleanup here, bounded to 3s so a dead database
-    // can never hold the stop hostage, then exit 0.
-    const cleanup = (async () => {
-      await abandonCurrentPass(prisma, "stopped by operator").catch(() => false);
-      shutdownBrain();
-      await releaseExecutionLease(prisma, args.workerId).catch(() => undefined);
-      await prisma.$disconnect().catch(() => undefined);
-    })();
-    const deadline = new Promise<void>((resolve) => setTimeout(resolve, 3_000).unref());
-    void Promise.race([cleanup, deadline]).then(() => process.exit(0));
-  };
-  process.on("SIGINT", () => shutdown("SIGINT"));
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
-
   // Install the process-level safety net BEFORE anything else runs, so a stray
   // throw during startup or in the loop can never silently kill the worker.
   // (The worker is a bare `tsx` process; the Next-runtime handlers in
@@ -220,12 +257,20 @@ async function main() {
     workerId: args.workerId,
     register: (event, handler) => process.on(event, handler as never),
     errorLog: (m) => console.error(m),
-    onEvent: (kind, detail) =>
+    isBrokenPipe: isClosedPipe,
+    onBrokenPipe: () => supervisorLost("parent-exit (log pipe closed)"),
+    onEvent: (kind, detail, folded) =>
       writeAdminWorkerLog(prisma, {
         category: "ERROR",
         severity: "ERROR",
         eventName: `worker_${kind}`,
-        message: `Process-level ${kind} caught; worker kept alive: ${detail.slice(0, 480)}`,
+        message:
+          `Process-level ${kind} caught; worker kept alive` +
+          (folded.repeats + folded.overCap > 0
+            ? ` (+${folded.repeats} identical, +${folded.overCap} other since the last row)`
+            : "") +
+          `: ${detail.slice(0, 480)}`,
+        safeMetadata: { repeats: folded.repeats, overCap: folded.overCap },
       }).then(() => undefined),
     onAlert: (kind, detail) =>
       import("../src/lib/email/admin-send").then(({ sendCriticalFailureAlert }) =>

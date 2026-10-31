@@ -37,15 +37,43 @@ describe("run-worker shutdown", () => {
   it("bounds the cleanup with a 3s race so a dead database cannot hang the stop", () => {
     expect(shutdown).toMatch(/setTimeout\(resolve, 3_000\)/);
     expect(shutdown).toContain("Promise.race([cleanup, deadline])");
-    expect(shutdown).toContain("process.exit(0)");
     // The race must be what triggers the exit — not a bare timer alongside it.
     expect(shutdown).toMatch(
-      /Promise\.race\(\[cleanup, deadline\]\)\.then\(\(\) => process\.exit\(0\)\)/,
+      /Promise\.race\(\[cleanup, deadline\]\)\.then\(\(\) => process\.exit\(exitCode\)\)/,
     );
+    // A signal (the host's normal stop) still exits 0.
+    expect(shutdown).toContain("const shutdown = (signal: string, exitCode = 0) =>");
+    expect(src).toContain('process.on("SIGTERM", () => shutdown("SIGTERM"));');
   });
 
   it("is idempotent: a second signal cannot start a second cleanup", () => {
     expect(shutdown).toContain("if (shuttingDown) return;");
+  });
+});
+
+describe("run-worker without its supervisor", () => {
+  const beforeClaim = src.slice(0, src.indexOf("if (!(await claimExecutionAuthority(args)))"));
+
+  it("guards stdio before the first log line, and exits with the supervisor-lost code", () => {
+    // A closed log pipe is routed to shutdown, never to the console (the write
+    // that reports it would fail too, and each failure used to loop).
+    expect(beforeClaim).toContain("guardStdio(supervisorLost);");
+    expect(beforeClaim).toMatch(
+      /const supervisorLost = \(reason: string\) => \{\s*silenceStdio\(\);\s*shutdown\(reason, WORKER_EXIT_SUPERVISOR_LOST\);/,
+    );
+  });
+
+  it("watches the host pid the host hands it, not only its own parent", () => {
+    expect(beforeClaim).toContain("process.env.VIAFIDEI_HOST_PID");
+    expect(beforeClaim).toContain("watchSupervisingHost({");
+    expect(beforeClaim).toContain("process.kill(pid, 0)");
+    expect(beforeClaim).toContain("onGone: supervisorLost");
+  });
+
+  it("lets the safety net hand a closed pipe to the same exit instead of logging it", () => {
+    const net = src.slice(src.indexOf("installProcessSafetyNet({"));
+    expect(net).toContain("isBrokenPipe: isClosedPipe,");
+    expect(net).toContain('onBrokenPipe: () => supervisorLost("parent-exit (log pipe closed)")');
   });
 });
 

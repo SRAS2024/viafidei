@@ -20,6 +20,7 @@ import {
   describeWorkerExitKind,
   interpretWorkerExit,
   LEASE_HELD_ELSEWHERE_MESSAGE,
+  WORKER_EXIT_SUPERVISOR_LOST,
 } from "@/lib/admin-worker/worker-exit";
 
 const base = { signal: null, wasStopping: false, switchOn: null as boolean | null };
@@ -92,6 +93,17 @@ describe("interpretWorkerExit", () => {
     expect(plan.failureReason).toContain("another runtime holds the execution lease");
   });
 
+  it("exit 6: the worker lost its log pipe or host — restartable like a crash", () => {
+    const plan = interpretWorkerExit({ ...base, code: WORKER_EXIT_SUPERVISOR_LOST });
+    expect(plan).toMatchObject({
+      kind: "supervisor_lost",
+      restart: true,
+      runState: "crashed",
+      leaseHeldElsewhere: false,
+    });
+    expect(plan.failureReason).toBeNull();
+  });
+
   it("any other non-zero code is a genuine crash and may restart", () => {
     for (const code of [1, 2, 7, 137]) {
       expect(interpretWorkerExit({ ...base, code })).toMatchObject({
@@ -109,6 +121,7 @@ describe("interpretWorkerExit", () => {
       "refused",
       "db_unreachable",
       "lease_taken",
+      "supervisor_lost",
       "crashed",
     ] as const) {
       expect(describeWorkerExitKind(kind).length).toBeGreaterThan(0);

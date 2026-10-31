@@ -8,8 +8,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  errorSignature,
   installProcessSafetyNet,
   runLoopSupervised,
+  watchSupervisingHost,
   type ProcessSafetyEvent,
 } from "@/lib/admin-worker/worker-supervisor";
 
@@ -89,6 +91,105 @@ describe("installProcessSafetyNet", () => {
       expect.stringContaining("first"),
       expect.stringContaining("third"),
     ]);
+  });
+
+  it("folds identical events inside the window into one row, carrying the count forward", () => {
+    const folded: Array<{ repeats: number; overCap: number }> = [];
+    let clock = 10_000_000;
+    const handlers: Partial<Record<ProcessSafetyEvent, (arg: unknown) => void>> = {};
+    installProcessSafetyNet({
+      workerId: "w1",
+      register: (event, handler) => {
+        handlers[event] = handler;
+      },
+      onEvent: (_kind, _detail, repeats) => {
+        folded.push(repeats);
+      },
+      onAlert: () => undefined,
+      errorLog: () => undefined,
+      now: () => clock,
+    });
+    // The same failure, differing only in a port number, 500 times in a second.
+    for (let i = 0; i < 500; i += 1) {
+      handlers.unhandledRejection!(new Error(`connect ECONNREFUSED 127.0.0.1:${5000 + i}`));
+      clock += 2;
+    }
+    expect(folded).toEqual([{ repeats: 0, overCap: 0 }]);
+    // A minute later the next occurrence is written, with the 499 it stood for.
+    clock += 60_000;
+    handlers.unhandledRejection!(new Error("connect ECONNREFUSED 127.0.0.1:6000"));
+    expect(folded).toEqual([
+      { repeats: 0, overCap: 0 },
+      { repeats: 499, overCap: 0 },
+    ]);
+  });
+
+  it("caps distinct events per window so a storm of unique messages is bounded too", () => {
+    const rows: Array<{ repeats: number; overCap: number }> = [];
+    let clock = 10_000_000;
+    const handlers: Partial<Record<ProcessSafetyEvent, (arg: unknown) => void>> = {};
+    installProcessSafetyNet({
+      workerId: "w1",
+      register: (event, handler) => {
+        handlers[event] = handler;
+      },
+      onEvent: (_kind, _detail, repeats) => {
+        rows.push(repeats);
+      },
+      onAlert: () => undefined,
+      errorLog: () => undefined,
+      now: () => clock,
+      maxEventsPerWindow: 5,
+    });
+    for (const word of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
+      handlers.uncaughtException!(new Error(`failure ${word}`));
+    }
+    expect(rows).toHaveLength(5);
+    clock += 60_000;
+    handlers.uncaughtException!(new Error("failure z"));
+    expect(rows).toHaveLength(6);
+    expect(rows[5]).toEqual({ repeats: 0, overCap: 3 });
+  });
+
+  it("never logs a broken log pipe: it calls onBrokenPipe once and audits nothing", () => {
+    const logged: string[] = [];
+    const events: string[] = [];
+    let brokenPipe = 0;
+    const handlers: Partial<Record<ProcessSafetyEvent, (arg: unknown) => void>> = {};
+    installProcessSafetyNet({
+      workerId: "w1",
+      register: (event, handler) => {
+        handlers[event] = handler;
+      },
+      onEvent: (kind) => {
+        events.push(kind);
+      },
+      onAlert: () => undefined,
+      errorLog: (m) => logged.push(m),
+      isBrokenPipe: (err) => (err as { code?: string }).code === "EPIPE",
+      onBrokenPipe: () => {
+        brokenPipe += 1;
+      },
+    });
+    const epipe = Object.assign(new Error("write EPIPE"), { code: "EPIPE" });
+    for (let i = 0; i < 1000; i += 1) handlers.uncaughtException!(epipe);
+    expect(brokenPipe).toBe(1);
+    expect(events).toEqual([]);
+    expect(logged).toEqual([]);
+    // Any other error is still audited as before.
+    handlers.uncaughtException!(new Error("boom"));
+    expect(events).toEqual(["uncaught_exception"]);
+  });
+
+  it("errorSignature ignores digits so counters and ports do not split a storm", () => {
+    expect(errorSignature("uncaught_exception", new Error("timeout after 8000ms (call 41)"))).toBe(
+      errorSignature("uncaught_exception", new Error("timeout after 9000ms (call 7)")),
+    );
+    expect(errorSignature("uncaught_exception", new Error("a"))).not.toBe(
+      errorSignature("unhandled_rejection", new Error("a")),
+    );
+    const coded = Object.assign(new Error("x"), { code: "P2024" });
+    expect(errorSignature("unhandled_rejection", coded)).toContain("P2024");
   });
 
   it("swallows onEvent / onAlert rejections (a failing sink can't crash the net)", () => {
@@ -279,5 +380,50 @@ describe("runLoopSupervised", () => {
       errorLog: () => undefined,
     });
     expect(runLoop).not.toHaveBeenCalled();
+  });
+});
+
+describe("watchSupervisingHost (the worker child's parent watchdog)", () => {
+  function harness(state: { alive: boolean; ppid: number }) {
+    let tick: (() => void) | null = null;
+    const gone: string[] = [];
+    const stop = watchSupervisingHost({
+      hostPid: 4242,
+      isAlive: (pid) => pid === 4242 && state.alive,
+      parentPid: () => state.ppid,
+      onGone: (reason) => gone.push(reason),
+      setIntervalImpl: (fn) => {
+        tick = fn;
+        return setInterval(() => undefined, 1_000_000);
+      },
+    });
+    return { tick: () => tick?.(), gone, stop };
+  }
+
+  it("does nothing while the host is alive and still our ancestor", () => {
+    const h = harness({ alive: true, ppid: 777 });
+    for (let i = 0; i < 5; i += 1) h.tick();
+    expect(h.gone).toEqual([]);
+    h.stop();
+  });
+
+  it("reports a vanished host pid exactly once", () => {
+    const state = { alive: true, ppid: 777 };
+    const h = harness(state);
+    h.tick();
+    state.alive = false;
+    h.tick();
+    h.tick();
+    expect(h.gone).toHaveLength(1);
+    expect(h.gone[0]).toMatch(/pid 4242\) is gone/);
+    h.stop();
+  });
+
+  it("reports adoption by launchd even if the host pid was reused", () => {
+    const h = harness({ alive: true, ppid: 1 });
+    h.tick();
+    expect(h.gone).toHaveLength(1);
+    expect(h.gone[0]).toMatch(/launchd/);
+    h.stop();
   });
 });

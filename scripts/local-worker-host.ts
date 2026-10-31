@@ -338,6 +338,9 @@ function startWorkerChild(): void {
       // The host renews the lease (with jitter) and writes the heartbeat on
       // its tick; the child only needs to CHECK the lease, not rewrite it.
       VIAFIDEI_LEASE_RENEWED_BY_HOST: "1",
+      // The child's parent watchdog (worker-supervisor.ts): its own parent is
+      // the tsx wrapper, which outlives this process, so it watches this pid.
+      VIAFIDEI_HOST_PID: String(process.pid),
     },
   });
 
