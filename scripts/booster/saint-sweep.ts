@@ -51,42 +51,42 @@ import { structuredNetworkEnabled } from "../../src/lib/admin-worker/structured/
 import { ingestorFor } from "../../src/lib/admin-worker/structured/ingestors";
 import { releaseIngestorLease } from "../../src/lib/admin-worker/structured/lease";
 import { runStructuredSweep } from "../../src/lib/admin-worker/structured/sweep";
+import { parseBoosterFlags, wholeNumberFlag } from "./cli-args";
 
-const argv = new Map(
-  process.argv.slice(2).map((a) => {
-    const [k, ...v] = a.replace(/^--/, "").split("=");
-    return [k, v.length ? v.join("=") : "1"] as const;
-  }),
-);
-const KNOWN = new Set([
-  "max-pages",
-  "batch",
-  "limit",
-  "spacing-ms",
-  "page-budget-min",
-  "restart",
-  "wake",
-  "holder",
-]);
+const USAGE =
+  "usage: tsx scripts/booster/saint-sweep.ts [--max-pages=N] [--batch=200] [--limit=N] " +
+  "[--spacing-ms=100] [--page-budget-min=30] [--restart | --wake] [--holder=NAME]";
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
-function intArg(name: string): number | undefined {
-  if (!argv.has(name)) return undefined;
-  const n = Number(argv.get(name));
-  if (!Number.isInteger(n) || n < 0) throw new Error(`--${name} must be a whole number`);
-  return n;
-}
-
 async function main() {
-  const unknown = [...argv.keys()].filter((k) => !KNOWN.has(k));
-  if (unknown.length) {
-    console.error(`unknown option(s): ${unknown.join(", ")}`);
+  const parsed = parseBoosterFlags(process.argv.slice(2), {
+    switches: ["restart", "wake"],
+    values: ["max-pages", "batch", "limit", "spacing-ms", "page-budget-min", "holder"],
+  });
+  if (!parsed.ok) {
+    console.error(`${parsed.error}\n${USAGE}`);
     process.exitCode = 2;
     return;
   }
-  if (argv.has("restart") && argv.has("wake")) {
+  const flags = parsed.flags;
+  if (flags.has("restart") && flags.has("wake")) {
     console.error("--restart and --wake are exclusive");
+    process.exitCode = 2;
+    return;
+  }
+  // Every count is at least 1: a page of 0, a limit of 0 or a budget of 0
+  // finishes nothing, holds its page and asks the Query Service for it again.
+  const numbers = {
+    maxPages: wholeNumberFlag(flags, "max-pages", 1),
+    batch: wholeNumberFlag(flags, "batch", 1),
+    limit: wholeNumberFlag(flags, "limit", 1),
+    pageBudgetMin: wholeNumberFlag(flags, "page-budget-min", 1),
+    spacing: wholeNumberFlag(flags, "spacing-ms", 0),
+  };
+  const bad = Object.values(numbers).find((n) => n.error);
+  if (bad) {
+    console.error(`${bad.error}\n${USAGE}`);
     process.exitCode = 2;
     return;
   }
@@ -95,16 +95,20 @@ async function main() {
     process.exitCode = 2;
     return;
   }
-  const maxPages = intArg("max-pages");
-  const batch = intArg("batch") ?? 200;
-  const limit = intArg("limit");
-  const pageBudgetMin = intArg("page-budget-min") ?? 30;
-  const spacing = intArg("spacing-ms") ?? 100;
+  const maxPages = numbers.maxPages.value;
+  const batch = numbers.batch.value ?? 200;
+  const limit = numbers.limit.value;
+  const pageBudgetMin = numbers.pageBudgetMin.value ?? 30;
+  const spacing = numbers.spacing.value ?? 100;
   // Read at request time by the serial Wikimedia queue (http.ts).
   process.env.ADMIN_WORKER_WIKIMEDIA_SPACING_MS = String(spacing);
 
   const ingestorId = ingestorFor("SAINT")?.id ?? "wikidata-saints";
-  const holder = argv.get("holder") ?? `${ingestorId}-sweep@${hostname()}:${process.pid}`;
+  const holderFlag = flags.get("holder");
+  const holder =
+    typeof holderFlag === "string"
+      ? holderFlag
+      : `${ingestorId}-sweep@${hostname()}:${process.pid}`;
   const prisma = new PrismaClient();
 
   let signals = 0;
@@ -133,8 +137,8 @@ async function main() {
       limit,
       maxPages,
       pageBudgetMs: pageBudgetMin * 60 * 1000,
-      restart: argv.has("restart"),
-      wake: argv.has("wake"),
+      restart: flags.has("restart"),
+      wake: flags.has("wake"),
       holder,
       shouldStop: () => signals > 0,
       log: (line) => log(line),
@@ -148,7 +152,11 @@ async function main() {
           ? `\nWARNING: the worker ran SAINT at ${result.workerIgnoringLease} despite the lease.`
           : ""),
     );
-    if (result.stop === "leased_elsewhere" || result.stop === "unknown_content_type") {
+    if (
+      result.stop === "leased_elsewhere" ||
+      result.stop === "unknown_content_type" ||
+      result.stop === "stalled"
+    ) {
       process.exitCode = 3;
     }
   } finally {

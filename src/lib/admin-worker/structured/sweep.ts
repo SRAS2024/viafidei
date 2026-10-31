@@ -79,6 +79,7 @@ export type SweepStop =
   | "leased_elsewhere"
   | "source_unavailable"
   | "wikipedia_unavailable"
+  | "stalled"
   | "unknown_content_type"
   | "failed";
 
@@ -114,6 +115,13 @@ const MAX_WIKIPEDIA_HOLDS = 5;
 const MAX_SOURCE_WAIT_MS = 30 * 60 * 1000;
 /** Poll interval while the Query Service cools down. */
 const SOURCE_POLL_MS = 60 * 1000;
+/**
+ * Passes in a row that read a page yet moved nothing — the cursor did not
+ * step and no row was mapped — before the sweep stops. Such a pass held its
+ * page without working on it (a budget spent before the first row), and
+ * every repeat asks the Query Service for the same page again.
+ */
+const MAX_IDLE_PASSES = 3;
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -231,6 +239,7 @@ export async function runStructuredSweep(
     }).catch(() => undefined);
 
     let wikipediaHolds = 0;
+    let idlePasses = 0;
     let sourceWaitStartedAt: number | null = null;
     let lastFailure: string | null = null;
     for (;;) {
@@ -296,6 +305,7 @@ export async function runStructuredSweep(
       lastFailure = null;
 
       // ── A page was read ────────────────────────────────────────────────────
+      const offsetBefore = out.endOffset;
       out.pages += 1;
       out.fetched += r.fetched;
       out.published += r.published;
@@ -334,6 +344,17 @@ export async function runStructuredSweep(
       if (r.endOfCorpus) {
         out.stop = "corpus_exhausted";
         out.detail = `reached the end of the corpus after ${out.pages} page(s)`;
+        break;
+      }
+      const moved = r.nextOffset != null && r.nextOffset !== offsetBefore;
+      const worked = r.published + r.skipped + r.failed > 0;
+      idlePasses = moved || worked ? 0 : idlePasses + 1;
+      if (idlePasses >= MAX_IDLE_PASSES) {
+        out.stop = "stalled";
+        out.detail =
+          `${idlePasses} passes in a row held the page at offset ${out.endOffset} without mapping a row` +
+          (r.errors.length ? ` (${r.errors[r.errors.length - 1]})` : "") +
+          "; rerun with a larger --page-budget-min";
         break;
       }
       if (r.pageHeldReason === "source_failures") {

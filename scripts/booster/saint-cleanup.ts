@@ -51,39 +51,42 @@ import {
   type CleanupCategory,
 } from "../../src/lib/admin-worker/structured/saint-cleanup";
 import { structuredNetworkEnabled } from "../../src/lib/admin-worker/structured/http";
+import { parseBoosterFlags, wholeNumberFlag } from "./cli-args";
 
-const argv = new Map(
-  process.argv.slice(2).map((a) => {
-    const [k, ...v] = a.replace(/^--/, "").split("=");
-    return [k, v.length ? v.join("=") : "1"] as const;
-  }),
-);
-const APPLY = argv.has("apply");
-const UNPUBLISH_SUSPECTS = argv.has("unpublish-suspects");
-const ONLY = (argv.get("only") ?? "")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
-const AUDIT_LIMIT = argv.has("audit-limit") ? Number(argv.get("audit-limit")) : undefined;
-const REPORT = argv.get("report") ?? "";
-const KNOWN = new Set(["apply", "unpublish-suspects", "only", "audit-limit", "report"]);
+const USAGE =
+  "usage: tsx scripts/booster/saint-cleanup.ts [--apply] [--unpublish-suspects] " +
+  "[--only=orthodox,restatus,feastless,feast-audit] [--audit-limit=N] [--report=/path/report.json]";
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
 async function main() {
-  // A mistyped flag must never be silently ignored: "--unpublish-suspect"
-  // would run without the unpublish the operator meant to ask for.
-  const unknownFlags = [...argv.keys()].filter((k) => !KNOWN.has(k));
-  if (unknownFlags.length) {
-    console.error(`unknown option(s): ${unknownFlags.join(", ")}`);
+  // A mistyped or malformed flag must never be read as something else:
+  // "--unpublish-suspect" would run without the unpublish the operator meant,
+  // and "--apply=false" used to WRITE.
+  const parsed = parseBoosterFlags(process.argv.slice(2), {
+    switches: ["apply", "unpublish-suspects"],
+    values: ["only", "audit-limit", "report"],
+  });
+  if (!parsed.ok) {
+    console.error(`${parsed.error}\n${USAGE}`);
     process.exitCode = 2;
     return;
   }
-  if (AUDIT_LIMIT !== undefined && !(Number.isInteger(AUDIT_LIMIT) && AUDIT_LIMIT >= 0)) {
-    console.error("--audit-limit must be a whole number");
+  const flags = parsed.flags;
+  const APPLY = flags.has("apply");
+  const UNPUBLISH_SUSPECTS = flags.has("unpublish-suspects");
+  const ONLY = String(flags.get("only") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const REPORT = String(flags.get("report") ?? "");
+  const auditLimit = wholeNumberFlag(flags, "audit-limit", 0);
+  if (auditLimit.error) {
+    console.error(`${auditLimit.error}\n${USAGE}`);
     process.exitCode = 2;
     return;
   }
+  const AUDIT_LIMIT = auditLimit.value;
   const unknown = ONLY.filter((c) => !CLEANUP_CATEGORIES.includes(c as CleanupCategory));
   if (unknown.length) {
     console.error(

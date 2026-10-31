@@ -251,6 +251,44 @@ describe("structured sweep", () => {
     expect(clock.sleep).not.toHaveBeenCalled();
   });
 
+  it("stops, instead of re-reading the page for ever, when passes hold it without working", async () => {
+    // A pass whose budget is spent before its first row holds the page: the
+    // cursor stays at 400, nothing is mapped, and every repeat asks the Query
+    // Service for the same page again.
+    mockedIngest.mockResolvedValue(
+      pass({
+        nextOffset: 400,
+        published: 0,
+        skipped: 0,
+        failed: 0,
+        skipReasons: {},
+        pageHeld: true,
+        pageHeldReason: "budget",
+        errors: ["pass budget of 0s spent; page held"],
+      }),
+    );
+    const out = await runStructuredSweep(makePrisma().prisma, {
+      contentType: "SAINT",
+      ...fakeClock(),
+    });
+    expect(out).toMatchObject({ stop: "stalled", pages: 3 });
+    expect(out.detail).toMatch(/offset 400 without mapping a row.*--page-budget-min/);
+    expect(mockedRelease).toHaveBeenCalled();
+  });
+
+  it("is not stalled by a held page that still works through rows", async () => {
+    mockedIngest
+      .mockResolvedValueOnce(pass({ nextOffset: 400, pageHeld: true, pageHeldReason: "budget" }))
+      .mockResolvedValueOnce(pass({ nextOffset: 400, pageHeld: true, pageHeldReason: "budget" }))
+      .mockResolvedValueOnce(pass({ nextOffset: 400, pageHeld: true, pageHeldReason: "budget" }))
+      .mockResolvedValueOnce(pass({ endOfCorpus: true }));
+    const out = await runStructuredSweep(makePrisma().prisma, {
+      contentType: "SAINT",
+      ...fakeClock(),
+    });
+    expect(out).toMatchObject({ stop: "corpus_exhausted", pages: 4 });
+  });
+
   it("says why a resting cursor will not sweep", async () => {
     const until = Date.now() + 3_600_000;
     // A finished sweep wraps its cursor to 0 before resting.
