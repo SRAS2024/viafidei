@@ -104,7 +104,8 @@ const LITTLE_OFFICE_1915 = "https://archive.org/details/littleofficeofbl00newy/p
  * here one hexameter to a line. In the English of Urbs Sion aurea a stray
  * full stop after "blessèd", in the middle of a sentence, is dropped. Britt
  * hymns that would only repeat stanzas already in this catalogue were left
- * out: Memento, rerum Conditor (made of stanzas of three other hymns), the
+ * out: Memento, rerum Conditor (a stanza of Jesu Redemptor omnium joined to
+ * Maria, Mater gratiae, both already in the catalogue), the
  * 1632 recastings Alto ex Olympi vertice, Jam sol recedit igneus and Summae
  * Parens clementiae, the Lauds form of Beate Pastor Petre that joins the two
  * stanzas given separately here, and the alternative translations Britt
@@ -118,8 +119,13 @@ const LITTLE_OFFICE_1915 = "https://archive.org/details/littleofficeofbl00newy/p
  * Temple, of Nehemias, of Mardochai, of the exiles in Baruch, of Jonas, of
  * Daniel, of Isaias (63:15-64:12), of the apostles in Acts 4, of Saint Paul in
  * Ephesians 3, of Agur in Proverbs 30, the priestly blessing of Numbers 6 and
- * the doxology of Romans 11:33-36. Every verse was compared with the 1899
- * Benziger printing; no slips were found, and the e-text's readings where the
+ * the doxology of Romans 11:33-36, with Judith 9, the prayers of Josaphat
+ * (2 Paralipomenon 20) and Ezechias (4 Kings 19), the priests' prayer in
+ * 2 Machabees 1, Matthew 11:25-27, Philippians 1:9-11, Hebrews 13:20-21 and
+ * Jude 24-25. Every verse was compared with the 1899 Benziger printing; one
+ * slip was found, in Matthew 11:25, where the online text adds "the" before
+ * "little ones", and it is corrected against the 1899 page, which is cited
+ * second. Otherwise the e-text's readings where the
  * two editions differ in form ("shew" for "show", "Woe" for "Wo", "riseth" for
  * "raiseth", "commandedst" for "commandest", "name's sake" for "name sake")
  * are kept as the cited page prints them.
@@ -4352,6 +4358,161 @@ export const prayerBatch11: CuratedEntry[] = [
       occasions: ["all-souls", "funerals", "vocations"],
       relatedSaints: [],
       citations: [`${LITTLE_OFFICE_1915}374/mode/1up`, `${LITTLE_OFFICE_1915}375/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-judith",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}18009.htm`],
+    payload: {
+      slug: "prayer-of-judith",
+      title: "Prayer of Judith (Judith 9)",
+      body: "And when they were gone, Judith went into her oratory: and putting on haircloth, laid ashes on her head: and falling down prostrate before the Lord, she cried to the Lord, saying:\nO Lord God of my father Simeon, who gavest him a sword to execute vengeance against strangers, who had defiled by their uncleanness, and uncovered the virgin unto confusion:\nAnd who gavest their wives to be made a prey, and their daughters into captivity: and all their spoils to be divided to thy servants, who were zealous with thy zeal: assist, I beseech thee, O Lord God, me a widow.\nFor thou hast done the things of old, and hast devised one thing after another: and what thou hast designed hath been done.\nFor all thy ways are prepared, and in thy providence thou hast placed thy judgments.\nLook upon the camp of the Assyrians now, as thou wast pleased to look upon the camp of the Egyptians, when they pursued armed after thy servants, trusting in their chariots, and in their horsemen, and in a multitude of warriors.\nBut thou lookedst over their camp, and darkness wearied them.\nThe deep held their feet, and the waters overwhelmed them.\nSo may it be with these also, O Lord, who trust in their multitude, and in their chariots, and in their pikes, and in their shields, and in their arrows, and glory in their spears,\nAnd know not that thou art our God, who destroyest wars from the beginning, and the Lord is thy name.\nLift up thy arm as from the beginning, and crush their power with thy power: let their power fall in their wrath, who promise themselves to violate thy sanctuary, and defile the dwelling place of thy name, and to beat down with their sword the horn of thy altar.\nBring to pass, O Lord, that his pride may be cut off with his own sword.\nLet him be caught in the net of his own eyes in my regard, and do thou strike him by the graces of the words of my lips.\nGive me constancy in my mind, that I may despise him: and fortitude that I may overthrow him.\nFor this will be a glorious monument for thy name, when he shall fall by the hand of a woman.\nFor thy power, O Lord, is not in a multitude, nor is thy pleasure in the strength of horses, nor from the beginning have the proud been acceptable to thee: but the prayer of the humble and the meek hath always pleased thee.\nO God of the heavens, creator of the waters, and Lord of the whole creation, hear me a poor wretch, making supplication to thee, and presuming of thy mercy.\nRemember, O Lord, thy covenant, and put thou words in my mouth, and strengthen the resolution in my heart, that thy house may continue in thy holiness:\nAnd all nations may acknowledge that thou art God, and there is no other besides thee.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer Judith made in her oratory, in haircloth and ashes, before she went out to the camp of Holofernes: she recalls that God's power is not in multitudes nor in the strength of horses, but that the prayer of the humble and the meek has always pleased him, and she asks the God of heaven, creator of the waters and Lord of all creation, to strengthen her resolve so that all nations may know that he is God. Douay-Rheims text, Judith 9.",
+      occasions: ["times-of-trouble", "protection", "trust"],
+      relatedSaints: [],
+      citations: [`${DRBO}18009.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-josaphat",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}14020.htm`],
+    payload: {
+      slug: "prayer-of-josaphat",
+      title:
+        "Prayer of Josaphat: We Can Only Turn Our Eyes to Thee (2 Paralipomenon [2 Chronicles] 20:5-12)",
+      body: "And Josaphat stood in the midst of the assembly of Juda, and Jerusalem, in the house of the Lord before the new court,\nAnd said: O Lord God of our fathers, thou art God in heaven, and rulest over all the kingdoms and nations, in thy hand is strength and power, and no one can resist thee.\nDidst not thou our God kill all the inhabitants of this land before thy people Israel, and gavest it to the seed of Abraham thy friend for ever?\nAnd they dwelt in it, and built in it a sanctuary to thy name, saying:\nIf evils fall upon us, the sword of judgment, or pestilence, or famine, we will stand in thy presence before this house, in which thy name is called upon: and we will cry to thee in our afflictions, and thou wilt hear, and save us.\nNow therefore behold the children of Ammon, and of Moab, and mount Seir, through whose lands thou didst not allow Israel to pass, when they came out of Egypt, but they turned aside from them, and slew them not,\nDo the contrary, and endeavour to cast us out of the possession which thou hast delivered to us.\nO our God, wilt thou not then judge them? as for us we have not strength enough, to be able to resist this multitude, which cometh violently upon us. But as we know not what to do, we can only turn our eyes to thee.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer of King Josaphat before the assembly of Juda in the house of the Lord when a great army came against them: God rules over all the kingdoms of the nations and no one can resist him, and his people, with no strength of their own and not knowing what to do, can only turn their eyes to him. Douay-Rheims text, 2 Paralipomenon 20:5-12 (2 Chronicles in modern Bibles).",
+      occasions: ["times-of-trouble", "trust", "protection"],
+      relatedSaints: [],
+      citations: [`${DRBO}14020.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-ezechias-against-sennacherib",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}12019.htm`],
+    payload: {
+      slug: "prayer-of-ezechias-against-sennacherib",
+      title:
+        "Prayer of Ezechias: Thou Alone Art the God of All the Kings of the Earth (4 Kings [2 Kings] 19:14-19)",
+      body: "And when Ezechias had received the letter of the hand of the messengers, and had read it, he went up to the house of the Lord, and spread it before the Lord,\nAnd he prayed in his sight, saying: O Lord God of Israel, who sitteth upon the cherubims, thou alone art the God of all the kings of the earth: thou madest heaven and earth:\nIncline thy ear, and hear: open, O Lord, thy eyes, and see: and hear all the words of Sennacherib, who hath sent to upbraid unto us the living God.\nOf a truth, O Lord, the kings of the Assyrians have destroyed nations, and the lands of them all.\nAnd they have cast their gods into the fire: for they were not gods, but the works of men's hands of wood and stone, and they destroyed them.\nNow therefore, O Lord our God, save us from his hand, that all the kingdoms of the earth may know, that thou art the Lord the only God.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "King Ezechias's prayer when he spread the threatening letter of Sennacherib before the Lord in the Temple: the God who sits upon the cherubim alone is God of all the kingdoms of the earth, maker of heaven and earth, while the gods of the nations were the work of men's hands; he asks God to save his people so that all the kingdoms of the earth may know that he alone is the Lord. Douay-Rheims text, 4 Kings 19:14-19 (2 Kings in modern Bibles).",
+      occasions: ["times-of-trouble", "trust", "protection"],
+      relatedSaints: [],
+      citations: [`${DRBO}12019.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-the-priests-with-nehemias",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}46001.htm`],
+    payload: {
+      slug: "prayer-of-the-priests-with-nehemias",
+      title: "Prayer of the Priests with Nehemias at the Sacrifice (2 Machabees 1:23-29)",
+      body: "And all the priests made prayer, while the sacrifice was consuming, Jonathan beginning, and the rest answering.\nAnd the prayer of Nehemias was after this manner: O Lord God, Creator of all things, dreadful and strong, just and merciful, who alone art the good king,\nWho alone art gracious, who alone art just, and almighty, and eternal, who deliverest Israel from all evil, who didst choose the fathers and didst sanctify them:\nReceive the sacrifice for all thy people Israel, and preserve thy own portion, and sanctify it.\nGather together our scattered people, deliver them that are slaves to the Gentiles, and look upon them that are despised and abhorred: that the Gentiles may know that thou art our God.\nPunish them that oppress us, and that treat us injuriously with pride.\nEstablish thy people in thy holy place, as Moses hath spoken.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer the priests made, Jonathan beginning and the rest answering, while the sacrifice was being consumed at the renewal of the Temple worship in Nehemias's time: the Lord God, creator of all things, terrible and strong, just and merciful, who alone is the good King, is asked to receive the sacrifice for all his people, to gather the scattered and to establish his people in his holy place. Douay-Rheims text, 2 Machabees 1:23-29.",
+      occasions: ["for-the-church", "mass", "praise"],
+      relatedSaints: [],
+      citations: [`${DRBO}46001.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "thanksgiving-of-jesus-to-the-father-matthew-11",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}47011.htm`, `${DR_1899}n766/mode/1up`],
+    payload: {
+      slug: "thanksgiving-of-jesus-to-the-father-matthew-11",
+      title: "Thanksgiving of Jesus: I Confess to Thee, O Father (Matthew 11:25-27)",
+      body: "At that time Jesus answered and said: I confess to thee, O Father, Lord of heaven and earth, because thou hast hid these things from the wise and prudent, and hast revealed them to little ones.\nYea, Father; for so hath it seemed good in thy sight.\nAll things are delivered to me by my Father. And no one knoweth the Son, but the Father: neither doth any one know the Father, but the Son, and he to whom it shall please the Son to reveal him.",
+      prayerType: "general",
+      category: "dominical",
+      language: "en",
+      summary:
+        "Our Lord's prayer of praise to the Father, Lord of heaven and earth, for hiding these things from the wise and prudent and revealing them to little ones, followed by his words that all things are delivered to him by the Father and that no one knows the Father but the Son and those to whom the Son wills to reveal him. Douay-Rheims text, Matthew 11:25-27, with one slip in the online text corrected against the 1899 printing.",
+      occasions: ["thanksgiving", "praise", "humility"],
+      relatedSaints: [],
+      citations: [`${DRBO}47011.htm`, `${DR_1899}n766/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-saint-paul-for-the-philippians",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}57001.htm`],
+    payload: {
+      slug: "prayer-of-saint-paul-for-the-philippians",
+      title:
+        "Prayer of Saint Paul: That Your Charity May More and More Abound (Philippians 1:9-11)",
+      body: "And this I pray, that your charity may more and more abound in knowledge, and in all understanding:\nThat you may approve the better things, that you may be sincere and without offence unto the day of Christ,\nFilled with the fruit of justice, through Jesus Christ, unto the glory and praise of God.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "Saint Paul's prayer for the Christians of Philippi: that their charity may abound more and more in knowledge and understanding, so that they may approve what is better and be sincere and without offence until the day of Christ, filled with the fruit of justice to the glory and praise of God. Douay-Rheims text, Philippians 1:9-11.",
+      occasions: ["for-the-church", "families", "discernment"],
+      relatedSaints: ["saint-paul"],
+      citations: [`${DRBO}57001.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "may-the-god-of-peace-hebrews-13",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}65013.htm`],
+    payload: {
+      slug: "may-the-god-of-peace-hebrews-13",
+      title: "May the God of Peace (Hebrews 13:20-21)",
+      body: "And may the God of peace, who brought again from the dead the great pastor of the sheep, our Lord Jesus Christ, in the blood of the everlasting testament,\nFit you in all goodness, that you may do his will; doing in you that which is well pleasing in his sight, through Jesus Christ, to whom is glory for ever and ever. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The blessing with which the Epistle to the Hebrews closes: may the God of peace, who brought again from the dead the great shepherd of the sheep, our Lord Jesus Christ, in the blood of the everlasting covenant, fit the faithful in all goodness to do his will, working in them what is pleasing in his sight. Douay-Rheims text, Hebrews 13:20-21.",
+      occasions: ["blessing", "easter", "daily"],
+      relatedSaints: [],
+      citations: [`${DRBO}65013.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "doxology-of-saint-jude",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}72001.htm`],
+    payload: {
+      slug: "doxology-of-saint-jude",
+      title: "Doxology of Saint Jude: Now to Him Who Is Able to Preserve You (Jude 24-25)",
+      body: "Now to him who is able to preserve you without sin, and to present you spotless before the presence of his glory with exceeding joy, in the coming of our Lord Jesus Christ,\nTo the only God our Saviour through Jesus Christ our Lord, be glory and magnificence, empire and power, before all ages, and now, and for all ages of ages. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The doxology that closes the Epistle of Saint Jude: glory, magnificence, empire and power before all ages, now and for ever, to the only God our Saviour, who is able to keep the faithful without sin and to present them spotless and rejoicing before his glory at the coming of our Lord Jesus Christ. Douay-Rheims text, Jude 24-25.",
+      occasions: ["praise", "daily", "trust"],
+      relatedSaints: ["saint-jude-thaddeus"],
+      citations: [`${DRBO}72001.htm`],
     },
   },
 ];
