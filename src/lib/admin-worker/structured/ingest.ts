@@ -41,6 +41,7 @@ import { runPublishOrchestrator } from "../publish-orchestrator";
 import { writeAdminWorkerLog } from "../logs";
 import { lastSparqlFailure, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
 import { structuredNetworkEnabled } from "./http";
+import { mapSourceRow } from "./map-row";
 import { fetchSourcePage } from "./source-page";
 import {
   formatRejections,
@@ -830,17 +831,13 @@ export async function runStructuredIngest(
   // Downstream dedup + publish stay strictly sequential (below).
   // A mapper answers `MapResult` — an entry, or an ATTRIBUTED rejection. A
   // thrown mapper is itself a reason (`map_threw`), so even the fail-open path
-  // is counted instead of vanishing.
+  // is counted instead of vanishing, and a rejection reached after a source
+  // read that did not complete is `source_read_failed` (map-row.ts), which the
+  // rejection memory never defers.
   const mapped: MapResult[] = new Array<MapResult>(candidates.length).fill(reject("map_threw"));
   for (let start = 0; start < candidates.length; start += MAP_CONCURRENCY) {
     const slice = candidates.slice(start, start + MAP_CONCURRENCY);
-    const results = await Promise.all(
-      slice.map((row) =>
-        ingestor
-          .map(row, {} as Record<string, never>)
-          .catch((err) => reject("map_threw", err instanceof Error ? err.message : String(err))),
-      ),
-    );
+    const results = await Promise.all(slice.map((row) => mapSourceRow(ingestor, row)));
     results.forEach((e, i) => {
       mapped[start + i] = e;
     });

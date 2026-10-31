@@ -23,8 +23,11 @@
  * rows re-tests them at once — they are bookkeeping, never content).
  *
  * Codes that say nothing about the entity are NOT remembered: a Wikipedia
- * fetch that failed (network), a mapper that threw, a same-page duplicate, a
- * publish call that threw. Those keep retrying on the normal cadence.
+ * fetch that failed (network), a verdict reached after one of the entity's
+ * source reads failed (`source_read_failed` — the fetch helpers fail open, so a
+ * timed-out infobox reads like an absent one; see map-row.ts), a mapper that
+ * threw, a same-page duplicate, a publish call that threw. Those keep retrying
+ * on the normal cadence.
  *
  * BOUNDED. One row per rejected (ingestor, QID), so the table is bounded by the
  * corpora; each value is a few dozen bytes (detail capped); a pass writes at
@@ -54,6 +57,7 @@ const DETAIL_MAX = 120;
 /** Codes that do not describe the entity, so a retry can legitimately differ. */
 export const TRANSIENT_REJECTION_CODES: ReadonlySet<RejectionCode> = new Set<RejectionCode>([
   "wikipedia_fetch_failed",
+  "source_read_failed",
   "map_threw",
   "duplicate_in_page",
   "publish_threw",

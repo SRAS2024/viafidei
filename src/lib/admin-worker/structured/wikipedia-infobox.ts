@@ -14,7 +14,7 @@
  * the caller skips rather than guesses.
  */
 
-import { fetchJson, structuredNetworkEnabled } from "./http";
+import { fetchJson, noteUnreadSource, type SourceReadLedger } from "./http";
 import { parseWikipediaArticleUrl } from "./wikipedia-url";
 
 /**
@@ -271,18 +271,32 @@ export function parseInfobox(wikitext: string): Record<string, string> {
 
 interface ParseApiResponse {
   parse?: { wikitext?: string };
+  /** A MediaWiki API error — returned with HTTP 200, so `fetchJson` succeeds. */
+  error?: { code?: string };
 }
+
+/**
+ * API errors that ANSWER the question — the page does not exist or cannot be
+ * one — as opposed to a server that could not answer it this time
+ * (`internal_api_error_*`, `ratelimited`, `readonly`, …).
+ */
+const ABSENT_PAGE_ERRORS: ReadonlySet<string> = new Set([
+  "missingtitle",
+  "invalidtitle",
+  "pagecannotexist",
+]);
 
 /**
  * Fetch the raw wikitext of a Wikipedia article URL (any language edition).
  * Returns null when offline/disabled, the URL isn't an article, or the fetch
  * fails. Bounded to `maxChars` so a huge article never becomes a huge payload.
+ * A read that failed transiently — including an API error that is not about
+ * the page — is recorded in `opts.ledger`.
  */
 export async function fetchArticleWikitext(
   articleUrl: string,
-  opts: { maxChars?: number } = {},
+  opts: { maxChars?: number; ledger?: SourceReadLedger } = {},
 ): Promise<string | null> {
-  if (!structuredNetworkEnabled()) return null;
   const parsed = parseWikipediaArticleUrl(articleUrl);
   if (!parsed) return null;
   let title: string;
@@ -294,7 +308,11 @@ export async function fetchArticleWikitext(
   const api =
     `https://${parsed.lang}.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(title)}` +
     `&prop=wikitext&format=json&formatversion=2&redirects=1`;
-  const data = await fetchJson<ParseApiResponse>(api);
+  // `fetchJson` is also the network gate: offline it answers null (and records
+  // the read as unread) without a request.
+  const data = await fetchJson<ParseApiResponse>(api, { ledger: opts.ledger });
+  const apiError = data?.error?.code;
+  if (apiError && !ABSENT_PAGE_ERRORS.has(apiError)) noteUnreadSource(opts.ledger, api);
   const wikitext = data?.parse?.wikitext;
   if (!wikitext) return null;
   const max = opts.maxChars ?? 400_000;
@@ -303,10 +321,15 @@ export async function fetchArticleWikitext(
 
 /**
  * Fetch and parse the infoboxes of a Wikipedia article URL. Returns {} when
- * offline/disabled, the article has no infobox, or anything fails.
+ * offline/disabled, the article has no infobox, or anything fails — so a
+ * caller whose verdict depends on the difference passes `opts.ledger`, where a
+ * read that did not complete is recorded.
  */
-export async function fetchArticleInfobox(articleUrl: string): Promise<Record<string, string>> {
-  const wikitext = await fetchArticleWikitext(articleUrl);
+export async function fetchArticleInfobox(
+  articleUrl: string,
+  opts: { ledger?: SourceReadLedger } = {},
+): Promise<Record<string, string>> {
+  const wikitext = await fetchArticleWikitext(articleUrl, { ledger: opts.ledger });
   if (!wikitext) return {};
   try {
     return parseInfobox(wikitext);

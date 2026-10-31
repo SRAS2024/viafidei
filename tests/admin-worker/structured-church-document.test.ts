@@ -175,7 +175,8 @@ describe("CHURCH_DOCUMENT ingestor mapping", () => {
 
     expect(entry).not.toBeNull();
     expect(entry!.payload.bodyExcerpt).toBe(VERBATIM);
-    expect(mockedExcerpt).toHaveBeenCalledWith(FULL.canon);
+    // Read from the canonical URL (the second argument is the read ledger).
+    expect(mockedExcerpt.mock.calls[0]?.[0]).toBe(FULL.canon);
     expect(validatePayload("CHURCH_DOCUMENT", entry!.payload).ok).toBe(true);
   });
 
