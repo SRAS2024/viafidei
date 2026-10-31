@@ -15,9 +15,8 @@ import { guideEyebrow } from "@/lib/content-shared/guide-categories";
 import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
 import { toGuideSteps } from "@/lib/content-shared/structured-content";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
-import { displayItem } from "@/lib/translation/display";
+import { displayItem, displayPrayerVariants } from "@/lib/translation/display";
 import { localizeItem } from "@/lib/translation/localize";
-import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
 
 export const dynamic = "force-dynamic";
 
@@ -66,9 +65,8 @@ export default async function GuideDetailPage({ params }: Props) {
     relatedSlugs.map(async (s) => localizeItem(await getPublishedBySlug("PRAYER", s))),
   );
   const prayers: GuidePrayerData[] = fetched
-    .map((p) => (p ? displayItem(p) : null))
     .map((p) =>
-      p ? { slug: p.slug, title: p.title, variants: buildPrayerVariants(p.payload) } : null,
+      p ? { slug: p.slug, title: displayItem(p).title, variants: displayPrayerVariants(p) } : null,
     )
     .filter((p): p is GuidePrayerData => p != null && p.variants.length > 0);
 
@@ -127,8 +125,9 @@ export default async function GuideDetailPage({ params }: Props) {
           <section className="mt-6">
             <h2 className="font-display text-xl text-ink">What you need</h2>
             <ul className="mt-2 ml-6 list-disc font-serif leading-relaxed text-ink">
-              {whatYouNeed.map((need) => (
-                <li key={need}>{need}</li>
+              {whatYouNeed.map((need, i) => (
+                // By position: two items can read the same once translated.
+                <li key={i}>{need}</li>
               ))}
             </ul>
           </section>
@@ -156,8 +155,8 @@ export default async function GuideDetailPage({ params }: Props) {
           <section className="mt-8">
             <h2 className="font-display text-xl text-ink">Tips</h2>
             <ul className="mt-2 ml-6 list-disc font-serif leading-relaxed text-ink">
-              {tips.map((tip) => (
-                <li key={tip} className="mt-1">
+              {tips.map((tip, i) => (
+                <li key={i} className="mt-1">
                   {tip}
                 </li>
               ))}

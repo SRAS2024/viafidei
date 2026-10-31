@@ -94,6 +94,25 @@ describe("planItem", () => {
     ]);
   });
 
+  it("protects the page's saint however the prose names them (rule c)", () => {
+    const aaron = planItem({
+      contentType: "SAINT",
+      title: "Saint Aaron of Aleth",
+      payload: {
+        biography:
+          "Aaron of Aleth was a hermit near Aleth. Aaron's cell became a monastery, and Aaron died there.",
+      },
+    });
+    expect(aaron.units.map((u) => u.protect)).toEqual([["Aaron of Aleth"], ["Aaron"]]);
+    // The saint a novena or feast is about, in the days of the novena.
+    const novena = planItem({
+      contentType: "NOVENA",
+      title: "Novena to Saint Thérèse of Lisieux",
+      payload: { days: [{ day: 1, reflection: "Thérèse trusted God like a child." }] },
+    });
+    expect(novena.units.find((u) => u.source.startsWith("Thérèse"))!.protect).toEqual(["Thérèse"]);
+  });
+
   it("never plans a person's name as a unit, and lets a pope's name reach the model", () => {
     const pope = planItem({
       contentType: "POPE",
@@ -158,6 +177,21 @@ describe("planItem", () => {
         "card",
       ),
     ).toEqual(["The Miraculous Medal", "A Marian sacramental", "A medal of Our Lady."]);
+  });
+
+  it("never sends a stored tag to the model: codes and acronyms stay as written", () => {
+    for (const tag of ["after-communion", "march-19", "first-friday", "ROMAN_RITE", "MSPS"]) {
+      expect(looksUntranslatable(tag), tag).toBe(true);
+    }
+    for (const word of ["lent", "daily", "Advent", "self-denial is hard."]) {
+      expect(looksUntranslatable(word), word).toBe(false);
+    }
+    const prayer = planItem({
+      contentType: "PRAYER",
+      title: "Anima Christi",
+      payload: { occasions: ["after-communion", "march-19", "lent"] },
+    });
+    expect(prayer.units.map((u) => u.source)).toEqual(["lent"]);
   });
 
   it("treats bare URLs, numbers and footnote markers as untranslatable", () => {

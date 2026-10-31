@@ -7,11 +7,11 @@
  *   1. DEMAND — units a visitor's page needed and did not find (filed by
  *      localize.ts as `pending` rows) are claimed oldest-first, one language
  *      at a time, translated and stored. The visitor's next view shows them.
- *   2. PRE-TRANSLATION — every published item (parishes aside) is planned
- *      exactly as a page plans it (segments.ts), and each unit not yet in the
- *      cache is translated, language by language, in small batches that
- *      yield to new demand between them. Parish names in a script other
- *      than the reader's (rule b) are pre-translated too.
+ *   2. PRE-TRANSLATION — every published item (parishes aside: their names
+ *      are transliterated on the page, never translated — rules.ts, rule b)
+ *      is planned exactly as a page plans it (segments.ts), and each unit not
+ *      yet in the cache is translated, language by language, in small batches
+ *      that yield to new demand between them.
  *
  * Every unit goes through the rules before a model sees it: protected spans
  * (Latin and Greek titles, saints' names) are replaced by placeholders that
@@ -27,7 +27,6 @@ import type { Log } from "./engine/hub";
 import type { LanguagePair } from "./engine/models";
 import { hasContentModel, isMtLocale, MT_TARGET_LOCALES, type MtLocale } from "./languages";
 import { maskSpans, unmaskSpans, type MaskedText } from "./mask";
-import { decideParishName } from "./rules";
 import { planItem, unitHash, type PlannableItem, type Unit } from "./segments";
 import {
   claimPending,
@@ -56,9 +55,6 @@ export interface TranslatorDeps {
   /** Sentences per engine call (default 16). */
   batchSize?: number;
 }
-
-/** Name languages the engine reads (rules.ts NameSourceLang minus English). */
-const NAME_SOURCES = new Set<string>(["zh", "ja", "ko", "ru", "uk", "el", "ar", "mul"]);
 
 /* ------------------------------------------------------------------ */
 /*  Preparing one unit                                                */
@@ -92,21 +88,11 @@ export function prepareUnit(unit: Unit, stats: CaseStats = new Map()): MaskedTex
 export function acceptTranslation(
   masked: MaskedText,
   output: string,
-  lang: MtLocale | "en",
+  lang: MtLocale,
 ): string | null {
   if (looksBroken(masked.text, output, lang)) return null;
   const restored = unmaskSpans(output, masked);
   return restored === null ? null : restored.replace(/\s+/g, " ").trim() || null;
-}
-
-/** A name translation is usable when it is not broken and is in the reader's script. */
-export function acceptName(source: string, output: string, lang: MtLocale | "en"): boolean {
-  const out = output.replace(/\s+/g, " ").trim();
-  if (!out || out === source.trim()) return false;
-  if (lang === "en" || (lang !== "ko" && lang !== "zh")) {
-    if (!/\p{Script=Latin}/u.test(out)) return false;
-  }
-  return !looksBroken(source, out, lang);
 }
 
 /* ------------------------------------------------------------------ */
@@ -147,108 +133,11 @@ async function translateContent(
   }));
 }
 
-function cleanName(source: string, output: string): string {
-  const out = output.replace(/\s+/g, " ").trim();
-  return /[.。]$/u.test(source.trim()) ? out : out.replace(/(?<!\b(?:St|Sts|Mt|Ste))[.。]$/u, "");
-}
-
-/** Translate `texts` for a pair with name acceptance; untranslatable pairs give nulls. */
-async function translateNameTexts(
-  deps: TranslatorDeps,
-  pair: LanguagePair,
-  texts: readonly string[],
-  target: MtLocale | "en",
-): Promise<{ outputs: Array<string | null>; models: Array<string | null> }> {
-  if (!texts.length || !deps.engine.supports(pair)) {
-    return { outputs: texts.map(() => null), models: texts.map(() => null) };
-  }
-  const res = await deps.engine.translate(pair, texts, {
-    accept: (i, out) => acceptName(texts[i]!, out, target),
-  });
-  return {
-    // A name gets no full stop the source does not have ("圣若瑟堂" → "St. Joseph's Hall.").
-    outputs: res.outputs.map((o, i) => (o === null ? null : cleanName(texts[i]!, o))),
-    models: res.models,
-  };
-}
-
 /**
- * English renderings already made in this process, so the pivot for one name
- * runs once, not once per reader language ("ko\u0001명동대성당" → text).
+ * Translate units (all of one target language). A language the engine does
+ * not write, or a unit that is not English content, gives nulls (the page
+ * keeps the original). Throws only when a model cannot run at all.
  */
-const englishNames = new Map<string, { text: string; model: string }>();
-const ENGLISH_NAMES_MAX = 50_000;
-
-/** Test hook. */
-export function resetTranslatorState(): void {
-  englishNames.clear();
-}
-
-/**
- * Parish names (rule b): into English with the name's own model, then into
- * the reader's language with the English model, unless the reader reads
- * English (or Latin, which is served the English rendering).
- */
-async function translateNames(
-  deps: TranslatorDeps,
-  lang: MtLocale | "en",
-  units: readonly Unit[],
-): Promise<UnitOutcome[]> {
-  const out: UnitOutcome[] = units.map(() => ({ text: null, model: "none" }));
-  const english: Array<string | null> = units.map((u) => (u.sourceLang === "en" ? u.source : null));
-  const firstModel: Array<string | null> = units.map(() => null);
-  const bySource = new Map<string, number[]>();
-  units.forEach((u, i) => {
-    if (u.sourceLang === "en" || !NAME_SOURCES.has(u.sourceLang)) return;
-    const known = englishNames.get(`${u.sourceLang}\u0001${u.source}`);
-    if (known) {
-      english[i] = known.text;
-      firstModel[i] = known.model;
-      return;
-    }
-    bySource.set(u.sourceLang, [...(bySource.get(u.sourceLang) ?? []), i]);
-  });
-  for (const [source, indexes] of bySource) {
-    const res = await translateNameTexts(
-      deps,
-      `${source}>en` as LanguagePair,
-      indexes.map((i) => units[i]!.source),
-      "en",
-    );
-    indexes.forEach((index, j) => {
-      english[index] = res.outputs[j]!;
-      firstModel[index] = res.models[j]!;
-      const text = res.outputs[j];
-      if (text && res.models[j]) {
-        if (englishNames.size >= ENGLISH_NAMES_MAX) englishNames.clear();
-        englishNames.set(`${source}\u0001${units[index]!.source}`, { text, model: res.models[j]! });
-      }
-    });
-  }
-  if (lang === "en") {
-    units.forEach((_, i) => {
-      if (english[i] !== null && firstModel[i])
-        out[i] = { text: english[i], model: firstModel[i]! };
-    });
-    return out;
-  }
-  const ready = units.map((_, i) => i).filter((i) => english[i] !== null);
-  const res = await translateNameTexts(
-    deps,
-    `en>${lang}` as LanguagePair,
-    ready.map((i) => english[i]!),
-    lang,
-  );
-  ready.forEach((index, j) => {
-    const text = res.outputs[j];
-    if (text === null || text === undefined) return;
-    const models = [firstModel[index], res.models[j]].filter(Boolean).join(" + ");
-    out[index] = { text, model: models || "none" };
-  });
-  return out;
-}
-
-/** Translate units (all of one target language). Throws only when a model cannot run at all. */
 export async function translateUnits(
   deps: TranslatorDeps,
   lang: string,
@@ -256,27 +145,18 @@ export async function translateUnits(
   stats?: CaseStats,
 ): Promise<UnitOutcome[]> {
   const out: UnitOutcome[] = units.map(() => ({ text: null, model: "none" }));
-  const target: MtLocale | "en" | null = isMtLocale(lang) ? lang : lang === "en" ? "en" : null;
-  if (!target) return out;
-  const names = units.map((u, i) => (u.kind === "name" ? i : -1)).filter((i) => i >= 0);
-  const content = units.map((u, i) => (u.kind !== "name" ? i : -1)).filter((i) => i >= 0);
-  if (content.length && target !== "en") {
-    const res = await translateContent(
-      deps,
-      target,
-      content.map((i) => units[i]!),
-      stats,
-    );
-    content.forEach((index, j) => (out[index] = res[j]!));
-  }
-  if (names.length) {
-    const res = await translateNames(
-      deps,
-      target,
-      names.map((i) => units[i]!),
-    );
-    names.forEach((index, j) => (out[index] = res[j]!));
-  }
+  if (!isMtLocale(lang)) return out;
+  const content = units
+    .map((u, i) => ((u.kind === "text" || u.kind === "title") && u.sourceLang === "en" ? i : -1))
+    .filter((i) => i >= 0);
+  if (!content.length) return out;
+  const res = await translateContent(
+    deps,
+    lang,
+    content.map((i) => units[i]!),
+    stats,
+  );
+  content.forEach((index, j) => (out[index] = res[j]!));
   return out;
 }
 
@@ -285,7 +165,7 @@ export async function translateUnits(
 /* ------------------------------------------------------------------ */
 
 function rowUnit(row: PendingRow): Unit {
-  const kind = row.kind === "title" || row.kind === "name" ? row.kind : "text";
+  const kind = row.kind === "title" ? "title" : "text";
   return {
     kind,
     source: row.source,
@@ -340,7 +220,7 @@ type ItemRow = {
   payload: Record<string, unknown> | null;
 };
 
-/** Every published item a page can show, parishes aside (their names are below). */
+/** Every published item a page can show, parishes aside (their names are never translated). */
 export async function loadPublishedItems(db: Db): Promise<PlannableItem[]> {
   const rows = await db.$queryRaw<ItemRow[]>(Prisma.sql`
     SELECT "contentType"::text AS "contentType", "slug", "title", "subtitle", "payload"
@@ -356,20 +236,6 @@ export async function loadPublishedItems(db: Db): Promise<PlannableItem[]> {
   }));
 }
 
-/** A character outside the Latin script and common punctuation. */
-const NON_LATIN_PATTERN = "[^\t-ɏḀ-ỿ -⁯₠-⃏℀-⅏]";
-
-/** Published parish names written (at least partly) in a non-Latin script. */
-export async function loadForeignScriptParishNames(
-  db: Db,
-): Promise<Array<{ title: string; countryCode: string | null }>> {
-  return db.$queryRaw<Array<{ title: string; countryCode: string | null }>>(Prisma.sql`
-    SELECT DISTINCT "title", "payload"->>'countryCode' AS "countryCode"
-    FROM "PublishedContent"
-    WHERE "contentType"::text = 'PARISH' AND "isPublished" = true
-      AND "title" ~ ${NON_LATIN_PATTERN}`);
-}
-
 /** Every unit of every item for one language, deduplicated by hash. */
 export function contentUnits(items: readonly PlannableItem[], lang: string): Map<string, Unit> {
   const units = new Map<string, Unit>();
@@ -382,24 +248,16 @@ export function contentUnits(items: readonly PlannableItem[], lang: string): Map
   return units;
 }
 
-/** Name units a reader of `target` needs pre-translated (English-source names wait for demand). */
-export function nameUnits(
-  names: ReadonlyArray<{ title: string; countryCode: string | null }>,
-  target: MtLocale | "en",
-): Map<string, Unit> {
-  const units = new Map<string, Unit>();
-  for (const { title, countryCode } of names) {
-    const decision = decideParishName(title, target, { countryCode });
-    if (decision.action !== "translate" || decision.from === "en") continue;
-    const unit: Unit = {
-      kind: "name",
-      source: title,
-      sourceLang: decision.from,
-      protect: [],
-    };
-    units.set(unitHash(target, unit), unit);
-  }
-  return units;
+/**
+ * Hashes this process already knows have a finished row (done or given up),
+ * per language. Rows are never deleted, so each pass asks the database only
+ * about the units still missing instead of all ~31,000 per language again.
+ */
+const knownFinished = new Map<string, Set<string>>();
+
+/** Test hook. */
+export function resetTranslatorState(): void {
+  knownFinished.clear();
 }
 
 export interface PretranslateOptions {
@@ -407,8 +265,6 @@ export interface PretranslateOptions {
   maxUnits?: number;
   /** Languages to fill (default: all ten). */
   langs?: readonly MtLocale[];
-  /** Skip the parish-name pass. */
-  skipNames?: boolean;
   /** Serve visitor demand after every this many batches (default 4). */
   demandEvery?: number;
 }
@@ -440,20 +296,20 @@ export async function runPretranslation(
       Object.values(item.payload ?? {}).filter((v): v is string => typeof v === "string"),
     ),
   );
-  const names = opts.skipNames ? [] : await loadForeignScriptParishNames(deps.db);
 
-  const jobs: Array<{ lang: MtLocale | "en"; units: Map<string, Unit> }> = [];
-  if (names.length) jobs.push({ lang: "en", units: nameUnits(names, "en") });
-  // A language without a content model (Korean) reads names in English.
+  const jobs: Array<{ lang: MtLocale; units: Map<string, Unit> }> = [];
+  // A language without a content model (Korean) is skipped.
   for (const lang of (opts.langs ?? MT_TARGET_LOCALES).filter((l) => hasContentModel(l))) {
     jobs.push({ lang, units: contentUnits(items, lang) });
-    if (names.length) jobs.push({ lang, units: nameUnits(names, lang) });
   }
 
   for (const job of jobs) {
-    const hashes = [...job.units.keys()];
+    const finished = knownFinished.get(job.lang) ?? new Set<string>();
+    knownFinished.set(job.lang, finished);
+    const hashes = [...job.units.keys()].filter((h) => !finished.has(h));
     if (!hashes.length) continue;
     const done = await existingHashes(deps.db, job.lang, hashes);
+    for (const h of done) finished.add(h);
     const missing = hashes.filter((h) => !done.has(h));
     for (let i = 0; i < missing.length; i += batchSize) {
       if (budget <= 0) {
@@ -472,6 +328,7 @@ export async function runPretranslation(
       }));
       await storeResults(deps.db, results);
       for (const r of results) {
+        finished.add(r.hash);
         if (r.text === null) report.untranslated++;
         else report.translated++;
       }

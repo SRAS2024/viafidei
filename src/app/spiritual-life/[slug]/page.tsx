@@ -40,7 +40,7 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
     );
   }
   // Guides moved to their own /guides tab — preserve any old links.
-  const guide = await localizeItem(await getPublishedBySlug("GUIDE", slug));
+  const guide = await getPublishedBySlug("GUIDE", slug);
   if (guide) redirect(`/guides/${slug}`);
   notFound();
 }

@@ -162,7 +162,7 @@ function InlinePrayerPanel({ prayer }: { prayer: GuidePrayerData }) {
         <p
           className="mt-2 whitespace-pre-line font-serif text-sm leading-relaxed text-ink-soft"
           translate={v.preserve ? "no" : undefined}
-          lang={v.code}
+          lang={v.lang ?? v.code}
         >
           {v.text}
         </p>

@@ -87,7 +87,7 @@ export function PrayerLanguageToggle({ variants }: { variants: PrayerVariant[] }
         </div>
       )}
       <p
-        lang={active.code}
+        lang={active.lang ?? active.code}
         translate={active.preserve ? "no" : undefined}
         className="whitespace-pre-line font-serif text-lg leading-relaxed text-ink"
       >

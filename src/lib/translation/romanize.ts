@@ -1,8 +1,8 @@
 /**
  * Deterministic transliteration of names into Latin letters.
  *
- * Used for parish names written in a script the visitor does not read when a
- * translation is not meaningful (or not ready yet): Cyrillic (Russian BGN/
+ * How a parish name written in a script the visitor does not read is shown
+ * (rules.ts, rule b — names are never machine-translated): Cyrillic (Russian BGN/
  * PCGN, Ukrainian and Belarusian national systems, Serbian/Macedonian
  * letters), Greek (ELOT 743), Hangul (Revised Romanization) and kana
  * (Hepburn). Pure table lookups — no model, no network — so a transliteration
@@ -28,6 +28,35 @@ function applyCase(source: string, latin: string): string {
     return latin.charAt(0).toUpperCase() + latin.slice(1);
   }
   return latin;
+}
+
+/**
+ * For each character: is it a letter of a word written all in capitals (two
+ * letters or more)? Such a word is transliterated all in capitals too
+ * ("ΛΟΥΤΡΟ" → "LOUTRO", not "LOuTRO"; "ЦЕРКВА" → "TSERKVA").
+ */
+function allCapsMask(chars: readonly string[]): boolean[] {
+  const mask = chars.map(() => false);
+  const isLetter = (c: string) => /\p{L}/u.test(c);
+  const isUpper = (c: string) => c === c.toUpperCase() && c !== c.toLowerCase();
+  for (let i = 0; i < chars.length; ) {
+    if (!isLetter(chars[i]!)) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < chars.length && isLetter(chars[j]!)) j++;
+    const caps = j - i >= 2 && chars.slice(i, j).every(isUpper);
+    for (let k = i; k < j; k++) mask[k] = caps;
+    i = j;
+  }
+  return mask;
+}
+
+/** `latin` in the case of the source letter `ch` (all capitals inside an all-caps word). */
+function caseLike(ch: string, latin: string, inCapsWord: boolean): string {
+  if (ch === ch.toLowerCase()) return latin;
+  return inCapsWord ? latin.toUpperCase() : applyCase(ch, latin);
 }
 
 /* ------------------------------------------------------------------ */
@@ -112,6 +141,7 @@ function romanizeCyrillic(text: string, country: string): string | null {
   let out = "";
   let wordStart = true;
   const chars = Array.from(text);
+  const caps = allCapsMask(chars);
   for (let i = 0; i < chars.length; i++) {
     const ch = chars[i]!;
     const lower = ch.toLowerCase();
@@ -126,7 +156,7 @@ function romanizeCyrillic(text: string, country: string): string | null {
       wordStart = !/\p{L}/u.test(ch);
       continue;
     }
-    out += ch === lower ? latin : applyCase(ch, latin);
+    out += caseLike(ch, latin, caps[i]!);
     wordStart = false;
   }
   return out;
@@ -189,28 +219,26 @@ function romanizeGreek(text: string): string | null {
   );
   let out = "";
   let wordStart = true;
+  const caps = allCapsMask(chars);
   for (let i = 0; i < chars.length; i++) {
     const ch = chars[i]!;
     const lower = ch.toLowerCase();
     const next = (chars[i + 1] ?? "").toLowerCase();
-    const upper = ch !== lower;
     const pair = GREEK_PAIRS[lower + next];
     if (pair) {
-      out += upper ? applyCase(ch, pair) : pair;
+      out += caseLike(ch, pair, caps[i]!);
       i++;
       wordStart = false;
       continue;
     }
     if (lower === "μ" && next === "π") {
-      const latin = wordStart ? "b" : "mp";
-      out += upper ? applyCase(ch, latin) : latin;
+      out += caseLike(ch, wordStart ? "b" : "mp", caps[i]!);
       i++;
       wordStart = false;
       continue;
     }
     if (lower === "ν" && next === "τ") {
-      const latin = wordStart ? "d" : "nt";
-      out += upper ? applyCase(ch, latin) : latin;
+      out += caseLike(ch, wordStart ? "d" : "nt", caps[i]!);
       i++;
       wordStart = false;
       continue;
@@ -222,7 +250,7 @@ function romanizeGreek(text: string): string | null {
       wordStart = !/\p{L}/u.test(ch);
       continue;
     }
-    out += upper ? applyCase(ch, latin) : latin;
+    out += caseLike(ch, latin, caps[i]!);
     wordStart = false;
   }
   return out;

@@ -19,7 +19,7 @@ import {
   modelKey,
   type ModelCandidate,
 } from "@/lib/translation/engine/models";
-import { hasContentModel, MT_TARGET_LOCALES, nameTargetFor } from "@/lib/translation/languages";
+import { hasContentModel, MT_TARGET_LOCALES } from "@/lib/translation/languages";
 
 /* ------------------------------------------------------------------ */
 /*  Stub models                                                       */
@@ -169,18 +169,21 @@ describe("embeddingNames", () => {
 /* ------------------------------------------------------------------ */
 
 describe("model manifest", () => {
-  it("pins a model for nine of the ten target languages and for every parish-name source", () => {
+  it("pins a model for nine of the ten target languages, and only English → target pairs", () => {
     for (const lang of MT_TARGET_LOCALES) {
       // Korean has no working English→Korean model (see models.ts).
       expect(candidatesFor(`en>${lang}`).length > 0, lang).toBe(lang !== "ko");
       expect(hasContentModel(lang), lang).toBe(lang !== "ko");
-      expect(nameTargetFor(lang)).toBe(lang === "ko" ? "en" : lang);
     }
     expect(hasContentModel("en")).toBe(false);
     expect(hasContentModel("la")).toBe(false);
-    for (const src of ["zh", "ja", "ko", "ru", "uk", "el", "ar", "mul"]) {
-      expect(candidatesFor(`${src}>en`).length, src).toBeGreaterThan(0);
-    }
+    // Parish names are transliterated, never translated (rules.ts, rule b), and
+    // Latin and Greek are never a target: no other pair may be pinned.
+    expect(Object.keys(MODELS).sort()).toEqual(
+      MT_TARGET_LOCALES.filter((l) => l !== "ko")
+        .map((l) => `en>${l}`)
+        .sort(),
+    );
   });
 
   it("pins every file by size and digest at a full commit revision", () => {

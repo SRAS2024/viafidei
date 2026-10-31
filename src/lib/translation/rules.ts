@@ -15,8 +15,9 @@
  *   (b) PARISH NAMES STAY IN THEIR OWN WORDING unless they are written in a
  *       different script from the visitor's language (Hangul, Han, Kana,
  *       Cyrillic, Greek, Arabic, Hebrew, Thai, …). Only then is the name
- *       translated, or transliterated when a translation is not meaningful,
- *       and the original is always shown beside it (`decideParishName`).
+ *       rendered for the visitor — transliterated, because a machine
+ *       translation of a name is not meaningful (measured: see
+ *       `decideParishName`) — and the original is always shown beside it.
  *   (c) SAINTS' NAMES are never machine-translated. The title of a saint's,
  *       a Doctor's or a pope's page is shown as published unless the
  *       interface dictionaries hold a localized form (`name.<slug>`), and a
@@ -132,17 +133,27 @@ export function fold(text: string): string {
     .toLowerCase();
 }
 
-type Token = { word: string; start: number; end: number; upper: boolean };
+/** `possessive`: the word ended in an English "'s", which is not part of it. */
+type Token = { word: string; start: number; end: number; upper: boolean; possessive: boolean };
 
 const TOKEN_RE = /[\p{L}\p{M}][\p{L}\p{M}'’]*/gu;
 
 function tokens(text: string): Token[] {
   const out: Token[] = [];
   for (const m of String(text ?? "").matchAll(TOKEN_RE)) {
-    const raw = m[0];
+    let raw = m[0];
+    // "Agatho's tenure": the name is "Agatho" (a span never swallows the "'s").
+    const possessive = raw.length > 3 && /['’]s$/u.test(raw);
+    if (possessive) raw = raw.slice(0, -2);
     const word = fold(raw).replace(/'+$/, "");
     if (!word) continue;
-    out.push({ word, start: m.index, end: m.index + raw.length, upper: /^\p{Lu}/u.test(raw) });
+    out.push({
+      word,
+      start: m.index,
+      end: m.index + raw.length,
+      upper: /^\p{Lu}/u.test(raw),
+      possessive,
+    });
   }
   return out;
 }
@@ -261,6 +272,9 @@ const LATIN_WORDS = new Set(
     "matri sacerdotalis caelibatus marialis cultus paterna benevolentia slavorum apostoli incarnationis " +
     "misericordiae vultus corde admirabile signum aperuit illis haurietis aquas fulgens " +
     "cura mirari connubii casti " +
+    // Found missing by running the rules over every published title (2026-10-31).
+    "quicumque vult flos carmeli stella matutina solemni hac liturgia liturgiam authenticam " +
+    "magnifica vox missale lectio divina iuris juris " +
     // Liturgical Greek in Latin letters.
     "theotokos trisagion hagios ischyros athanatos eleeson eleison hemas axion estin phos hilaron agni " +
     "parthene doxa kai pneumati nyn aei aionas aionon"
@@ -302,6 +316,9 @@ const SINGLE_WORD_TITLES = new Set([
   "jubilate",
   "lorica",
   "itinerarium",
+  "quicumque",
+  "gaudete",
+  "laetare",
 ]);
 
 function isLatinWord(word: string): boolean {
@@ -437,6 +454,10 @@ export const UNIVERSAL_LATIN_GREEK_TITLES: readonly string[] = [
   "Pax Vobiscum",
   "Sursum Corda",
   "Ite, Missa Est",
+  "Quicumque",
+  // The Latin names of the third Sunday of Advent and the fourth of Lent.
+  "Gaudete",
+  "Laetare",
   "Trisagion",
   "Theotokos",
   "Axion Estin",
@@ -469,6 +490,8 @@ export const UNIVERSAL_LATIN_GREEK_TITLES: readonly string[] = [
   "Urbi et Orbi",
   "Motu Proprio",
   "Opus Dei",
+  "Lectio Divina",
+  "Sui Iuris",
   "Missa Solemnis",
   "Novus Ordo",
   "Novus Ordo Missae",
@@ -710,11 +733,20 @@ export function isDocumentIncipit(title: string): boolean {
   if (isUniversalLatinGreekTitle(t)) return true;
   const words = tokens(t);
   if (words.length < 2 || words.length > 6) return false;
-  if (words.some((w) => ENGLISH_TITLE_WORDS.has(w.word) || ENGLISH_WORDS.has(w.word))) return false;
+  // "in" is Latin as much as English: "Ecclesia in America", "Vox in Rama".
+  const content = words.filter((w) => !LATIN_ENGLISH_HOMOGRAPHS.has(w.word));
+  if (!content.length) return false;
+  if (content.some((w) => ENGLISH_TITLE_WORDS.has(w.word) || ENGLISH_WORDS.has(w.word)))
+    return false;
   // Latin, or Italian/Spanish-shaped ("Fratelli Tutti", "Querida Amazonia"):
-  // a word of the Latin lexicon, or every word ending in a vowel. "Spiritual
-  // Exercises" is neither, and is translated.
-  return words.some((w) => isLatinWord(w.word)) || words.every((w) => /[aeiou]$/.test(w.word));
+  // a word of the Latin lexicon or with a Latin ending ("Liturgiam
+  // Authenticam", "Magnifica Humanitas", "Missale Romanum"), or every word
+  // ending in a vowel. "Spiritual Exercises" is none of these, and is
+  // translated.
+  return (
+    content.some((w) => isLatinWord(w.word) || (w.word.length > 4 && LATIN_ENDING.test(w.word))) ||
+    content.every((w) => /[aeiou]$/.test(w.word))
+  );
 }
 
 /** "Dei Verbum: Dogmatic Constitution …" → "Dei Verbum"; null when there is no lead. */
@@ -783,10 +815,26 @@ export function titleParts(title: string): string[] {
     .filter((p) => p && title.includes(p));
 }
 
-/** Endings of Latin words the lexicon may not know ("ineffabilis", "siderum", "dulcissime"). */
-const LATIN_ENDING = /(?:is|(?<!o)us|um|ae|orum|arum|ibus|issim[aeiou]|issimus)$/;
+/**
+ * Endings of Latin words the lexicon may not know ("ineffabilis", "siderum",
+ * "dulcissime", "liturgiam", "humanitas").
+ */
+const LATIN_ENDING = /(?:is|(?<!o)us|um|ae|orum|arum|ibus|issim[aeiou]|issimus|iam|cam|itas)$/;
 /** Endings no Latin word has: "glorious", "mistress", "heaven's", "kindness", "blessed". */
 const ENGLISH_ENDING = /(?:ous|ness|ing|ed|ly|ful|ess|ship|ward|wards|'s)$/;
+/** Short words both languages have; they count for neither. */
+const LATIN_ENGLISH_HOMOGRAPHS = new Set(["in", "a", "o"]);
+/**
+ * English words a Latin title is paired with ("Gaudete Sunday", "Tenebrae
+ * Service"): the Latin word is kept, the English one is translated.
+ */
+const ENGLISH_LITURGICAL_NOUNS = new Set(
+  (
+    "sunday monday tuesday wednesday thursday friday saturday week day days feast vigil octave " +
+    "season service office mass prayer prayers hymn psalm canticle litany novena chaplet rosary " +
+    "devotion blessing sequence antiphon responsory creed procession"
+  ).split(" "),
+);
 
 /**
  * Is this short text — a bracketed gloss, one part of a title — the original
@@ -799,10 +847,19 @@ export function isLatinTitleText(text: string): boolean {
   if (!t || detectScript(t) !== "latin") return false;
   if (isUniversalLatinGreekTitle(t) || looksLatin(t)) return true;
   if (/\d/.test(t)) return false;
-  const words = tokens(t).map((w) => w.word);
+  const toks = tokens(t);
+  // Latin has no possessive "'s": "O heaven's glorious mistress" is English.
+  if (toks.some((w) => w.possessive)) return false;
+  const words = toks.map((w) => w.word).filter((w) => !LATIN_ENGLISH_HOMOGRAPHS.has(w));
   if (!words.length) return false;
   if (
-    words.some((w) => ENGLISH_WORDS.has(w) || ENGLISH_TITLE_WORDS.has(w) || ENGLISH_ENDING.test(w))
+    words.some(
+      (w) =>
+        ENGLISH_WORDS.has(w) ||
+        ENGLISH_TITLE_WORDS.has(w) ||
+        ENGLISH_LITURGICAL_NOUNS.has(w) ||
+        ENGLISH_ENDING.test(w),
+    )
   )
     return false;
   return words.some((w) => w.length > 3 && (isLatinWord(w) || LATIN_ENDING.test(w)));
@@ -861,6 +918,53 @@ const NAME_JOINERS = new Set([
   "the",
 ]);
 
+/** Words a saint's title can open with that are not part of the name. */
+const NAME_PREFIX =
+  /^(?:(?:Pope|Saints?|Sts?\.|St|Blessed|Bl\.|Venerable|Ven\.|Servants? of God|Beat[oa]|San|Sant[oa]?|S[aã]o|Sankt|Sainte?|Padre|Father|Mother|Fra|Brother|Sister|Don|Dom|Hieromartyrs?|Patriarch|Archbishop|Bishop|Abbot|Abbess|Cardinal|King|Queen|Prince|Princess|Emperor|Empress|Prophet)\s+)+/iu;
+/** Capitalized words that open a title, or a part of one, without being anyone's given name. */
+const NOT_A_GIVEN_NAME = new Set(
+  (
+    "The Our Holy Seven Saints Blessed Companions Martyrs Martyr Virgin Virgins Abbess Abbot " +
+    "Bishop Bishops Archbishop Priest Priests Deacon Monk Monks Nun Hermit Religious Apostle " +
+    "Apostles Evangelist Confessor Doctor Widow Founder Foundress Patriarch Cardinal Pope King " +
+    "Queen Prince Princess Emperor Empress Prophet Abbé Mar Abba"
+  ).split(" "),
+);
+const GIVEN_NAME = /^\p{Lu}[\p{L}\p{M}'’-]*$/u;
+
+/** The leading word of a text, without the punctuation after it ("Adelaide," → "Adelaide"). */
+function leadingWord(text: string): string {
+  return (/^[\p{L}\p{M}'’-]+/u.exec(text.trim()) ?? [""])[0];
+}
+
+/**
+ * The forms a saint's name takes in the prose beneath it (rule c): the page
+ * "Saint Aaron of Aleth" calls him "Aaron of Aleth" and "Aaron", "Saints
+ * Abdon and Sennen" are also "Abdon" and "Sennen", "Mother Teresa of
+ * Calcutta" is "Teresa". Every form is protected wherever the item's prose
+ * uses it, so the saint's name is never machine-translated. Empty for a title
+ * that is not a name ("108 Martyrs of World War II", "The Seven Brothers").
+ */
+export function personNameForms(name: string): string[] {
+  const full = String(name ?? "").trim();
+  const core = full.replace(NAME_PREFIX, "").trim();
+  const first = leadingWord(core);
+  if (!GIVEN_NAME.test(first) || NOT_A_GIVEN_NAME.has(first) || NOT_A_NAME.test(first)) return [];
+  const forms = new Set<string>([core]);
+  for (const person of core.split(/,?\s+(?:and|&)\s+|,\s+/u)) {
+    const given = leadingWord(person);
+    if (
+      given.length >= 3 &&
+      GIVEN_NAME.test(given) &&
+      !NOT_A_GIVEN_NAME.has(given) &&
+      !NOT_A_NAME.test(given)
+    )
+      forms.add(given);
+  }
+  forms.delete(full);
+  return [...forms];
+}
+
 /** Saints' and the blessed's names in a text (rule c), possessive "'s" excluded. */
 export function findPersonNames(text: string): Array<{ start: number; end: number; text: string }> {
   const out: Array<{ start: number; end: number; text: string }> = [];
@@ -868,7 +972,8 @@ export function findPersonNames(text: string): Array<{ start: number; end: numbe
     // "St. Mary's Church" → "St. Mary"; "… by Saint Francis." → "Saint Francis".
     const raw = m[0].replace(/['’]s(?![\p{L}]).*$/u, "");
     const words = raw.split(/\s+/);
-    if (words.length < 2 || NOT_A_NAME.test(words[1]!)) continue;
+    // "… before the Blessed Sacrament." is not a person: test the word without its stop.
+    if (words.length < 2 || NOT_A_NAME.test(words[1]!.replace(/[.'’-]+$/u, ""))) continue;
     let keep = 2;
     while (keep < words.length && !NAME_STOP.has(words[keep]!.replace(/[.'’-]+$/u, ""))) keep++;
     while (keep > 2 && NAME_JOINERS.has(words[keep - 1]!)) keep--;
@@ -927,9 +1032,9 @@ export function findProtectedSpans(text: string, extra: readonly string[] = []):
         if (node?.end) endAt = j;
       }
       if (endAt < 0) continue;
-      // A one-word title counts in prose only when it is capitalized
-      // ("the Magnificat", not "his credo").
-      if (endAt === i && reason === "title" && !toks[i]!.upper) continue;
+      // A one-word title or name counts in prose only when it is capitalized
+      // ("the Magnificat", not "his credo"; Saint Faith, not "her faith").
+      if (endAt === i && !toks[i]!.upper) continue;
       const start = toks[i]!.start;
       const end = toks[endAt]!.end;
       addSpan(spans, { start, end, text: src.slice(start, end), reason });
@@ -1173,56 +1278,17 @@ export function isTranslatablePrayerText(payload: Record<string, unknown>, text:
 /*  Parish names                                                      */
 /* ------------------------------------------------------------------ */
 
-/**
- * Languages the engine can translate a parish name FROM (into English):
- * dedicated OPUS-MT models for Chinese, Japanese, Korean, Russian, Ukrainian,
- * Greek and Arabic, and the multilingual model ("mul") for every other script
- * — Belarusian, Serbian and Bulgarian Cyrillic, Hebrew, Thai, Georgian,
- * Armenian, Ethiopic, Malayalam, Burmese …
- */
-export type NameSourceLang = "en" | "zh" | "ja" | "ko" | "ru" | "uk" | "el" | "ar" | "mul";
-
 export type ParishNameDecision =
-  /** Same script as the visitor reads (or nothing to translate): shown as published. */
-  | { action: "keep"; reason: "same-script" | "no-letters" | "no-meaningful-translation" }
-  /** Translated by the engine (from → English → visitor's language); `fallback` meanwhile. */
-  | { action: "translate"; from: NameSourceLang; fallback: "romanize" | "original" };
+  /** Shown exactly as published. */
+  | { action: "keep"; reason: "same-script" | "no-letters" | "latin-script" | "no-transliteration" }
+  /** Shown transliterated into Latin letters, with the original beside it. */
+  | { action: "transliterate" };
 
-const ENGLISH_CHURCH_WORDS =
-  /\b(?:church|parish|cathedral|basilica|chapel|shrine|mission|oratory|abbey|priory|monastery|convent|friary|our lady|saint|st|sts|holy|sacred|heart|blessed|immaculate|assumption|catholic|christ the king|good shepherd|precious blood|queen|cross|trinity|nativity|annunciation|visitation|resurrection|transfiguration|epiphany|of the)\b/i;
-const NON_ENGLISH_CHURCH_WORDS =
-  // Tested against the folded (accent-free) name, so accents are not spelled
-  // out — and "basilica", the same word in English, is not listed.
-  /\b(?:iglesia|parroquia|igreja|paroquia|eglise|paroisse|chiesa|parrocchia|kirche|pfarrkirche|pfarrei|kosciol|parafia|bazylika|katedra|catedral|cattedrale|basilique|santuario|sanctuaire|nuestra senora|notre[- ]dame|nossa senhora|nostra signora|unsere liebe frau|matka boza|san|santa|santo|sao|sankt|sw|de la|del|della|des|du|di|do|da|der|die|das|ng|simbahan|nha tho|giao xu|thanh|kapel|kerk|kostel|templo|capilla|cappella|chapelle)\b/i;
-
-/** "St. Mary's Catholic Church" yes; "Parroquia San José", "Notre-Dame de Paris" no. */
-export function isEnglishChurchName(name: string): boolean {
-  const n = fold(name).replace(/\./g, " ");
-  return ENGLISH_CHURCH_WORDS.test(n) && !NON_ENGLISH_CHURCH_WORDS.test(n);
-}
-
-const RUSSIAN_SPEAKING = new Set(["RU", "KZ", "KG", "UZ", "TJ", "TM", "MN"]);
-/** Letters Russian does not use (Ukrainian, Belarusian, Serbian, Macedonian). */
-const NON_RUSSIAN_CYRILLIC = /[іїєґўђјљњћџѓќѕІЇЄҐЎЂЈЉЊЋЏЃЌЅ]/u;
-/** Letters only Ukrainian uses (і is shared with Belarusian, so it is not one of them). */
-const UKRAINIAN_ONLY = /[їєґЇЄҐ]/u;
-
-/** Which model reads a Cyrillic name: Russian, Ukrainian, or the multilingual one. */
-export function cyrillicNameLanguage(
-  name: string,
-  countryCode?: string | null,
-): "ru" | "uk" | "mul" {
-  const country = (countryCode ?? "").toUpperCase();
-  if (UKRAINIAN_ONLY.test(name)) return "uk";
-  if (country === "UA") return /[ўЎ]/u.test(name) ? "mul" : "uk";
-  if (NON_RUSSIAN_CYRILLIC.test(name)) return "mul";
-  // A Russian-spelled name in Belarus, Moldova or the Baltics is Russian too.
-  if (!country || RUSSIAN_SPEAKING.has(country) || ["BY", "MD", "LV", "LT", "EE"].includes(country))
-    return "ru";
-  return "mul";
-}
-
-/** Scripts `romanize()` can transliterate completely. */
+/**
+ * Scripts `romanize()` transliterates letter by letter. Japanese counts only
+ * when the name is all kana: kanji need a dictionary, so `romanize()` returns
+ * null for them and the name is shown as written.
+ */
 export const ROMANIZABLE_SCRIPTS: ReadonlySet<Script> = new Set([
   "cyrillic",
   "greek",
@@ -1234,47 +1300,36 @@ export const ROMANIZABLE_SCRIPTS: ReadonlySet<Script> = new Set([
  * How a parish name is shown to a visitor reading `locale`.
  *
  * Same script → kept, always: a Spanish, Polish or Vietnamese name stays in
- * its own wording for every Latin-script reader. A different script →
- * translated (into the visitor's language, through English), with the
- * original always shown beside it. Until the translator has done it, a name
- * in a script `romanize()` handles is shown transliterated, otherwise as
- * written. A Latin-script name is translated for a Korean or Chinese reader
- * only when it is English ("St. Mary's Catholic Church"): the engine has no
- * general model for names in the other Latin-script languages, so those stay
- * as written (Latin letters are widely legible).
+ * its own wording for every Latin-script reader, a Korean name for a Korean
+ * reader. A different script → transliterated into Latin letters, with the
+ * original always shown beside it ("Myeongdong Daeseongdang (명동대성당)"),
+ * when the script has a letter-by-letter transliteration (Cyrillic, Greek,
+ * Hangul, kana); otherwise (Han, Arabic, Hebrew, Thai …) shown as written.
+ *
+ * Names are never machine-translated. The rule allows transliteration "when a
+ * translation is not meaningful", and the OPUS-MT models are not meaningful
+ * on names: run over a sample of the published foreign-script names on
+ * 2026-10-31 they turned most Korean, Chinese, Japanese, Arabic, Hebrew and
+ * Thai names, and about half the Cyrillic ones, into unrelated, wrong and
+ * sometimes obscene English ("Church of the Holy Virgin's Sleep" for a
+ * Dormition church, "The Most Holy Architect of Michael" for the Archangel),
+ * and most church names carry a saint's name, which rule (c) keeps away from
+ * machine translation. A transliteration is never wrong in that way.
+ *
+ * A Latin-script name read by a Chinese or Korean reader stays as written:
+ * Latin letters are what every transliteration would produce anyway.
  */
-export function decideParishName(
-  name: string,
-  locale: Locale,
-  opts: { countryCode?: string | null } = {},
-): ParishNameDecision {
+export function decideParishName(name: string, locale: Locale): ParishNameDecision {
   const script = detectScript(name);
   if (script === "none") return { action: "keep", reason: "no-letters" };
-  const target = localeScript(locale);
-  if (script === target) return { action: "keep", reason: "same-script" };
-
-  if (script === "latin") {
-    return isEnglishChurchName(name)
-      ? { action: "translate", from: "en", fallback: "original" }
-      : { action: "keep", reason: "no-meaningful-translation" };
-  }
-
-  const country = (opts.countryCode ?? "").toUpperCase();
-  const fallback = ROMANIZABLE_SCRIPTS.has(script) ? "romanize" : "original";
-  if (script === "hangul") return { action: "translate", from: "ko", fallback };
-  if (script === "japanese") return { action: "translate", from: "ja", fallback };
-  // A kanji-only name in Japan is Japanese, not Chinese.
-  if (script === "han")
-    return { action: "translate", from: country === "JP" ? "ja" : "zh", fallback };
-  if (script === "cyrillic")
-    return { action: "translate", from: cyrillicNameLanguage(name, country), fallback };
-  // A modern Greek church name (not a liturgical title: those are never parish names).
-  if (script === "greek") return { action: "translate", from: "el", fallback };
-  if (script === "arabic") return { action: "translate", from: "ar", fallback };
-  return { action: "translate", from: "mul", fallback };
+  if (script === localeScript(locale)) return { action: "keep", reason: "same-script" };
+  if (script === "latin") return { action: "keep", reason: "latin-script" };
+  return ROMANIZABLE_SCRIPTS.has(script)
+    ? { action: "transliterate" }
+    : { action: "keep", reason: "no-transliteration" };
 }
 
-/** "Myeongdong Cathedral (명동대성당)": the rendering always names the original too. */
+/** "Myeongdong Daeseongdang (명동대성당)": a rendering always names the original too. */
 export function withOriginal(rendered: string, original: string): string {
   const r = rendered.trim();
   const o = original.trim();

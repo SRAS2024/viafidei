@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { displayItem, displayOverlay } from "@/lib/translation/display";
+import { displayItem, displayOverlay, displayPrayerVariants } from "@/lib/translation/display";
 import {
   finalizeTranslation,
   localCountryName,
@@ -171,6 +171,44 @@ describe("localizeItems", () => {
     expect(inserts[0]).not.toContain("St. Margaret Mary saw the Sacred Heart.");
   });
 
+  it("labels a machine-translated prayer text as the reader's language, not English", async () => {
+    const prayer: PlannableItem & { payload: Record<string, unknown> } = {
+      contentType: "PRAYER",
+      slug: "hail-mary",
+      title: "Hail Mary",
+      payload: {
+        language: "en",
+        body: "Hail Mary, full of grace.",
+        latin: "Ave Maria, gratia plena.",
+      },
+    };
+    const { db } = fakeDb({
+      es: {
+        [hashOf(prayer, "es", "Hail Mary, full of grace.")]:
+          "Dios te salve, María, llena eres de gracia.",
+      },
+    });
+    setTranslationDb(db);
+    const [out] = await localizeItems([prayer], { locale: "es" });
+    expect(displayPrayerVariants(out as typeof prayer)).toEqual([
+      {
+        code: "en",
+        label: "Español",
+        lang: "es",
+        text: "Dios te salve, María, llena eres de gracia.",
+        preserve: false,
+      },
+      { code: "la", label: "Latin", text: "Ave Maria, gratia plena.", preserve: true },
+    ]);
+    // Untranslated, it is the English it always was.
+    expect(displayPrayerVariants(prayer)[0]).toEqual({
+      code: "en",
+      label: "English",
+      text: "Hail Mary, full of grace.",
+      preserve: false,
+    });
+  });
+
   it("serves the original when the cache cannot be read", async () => {
     setTranslationDb({
       $queryRaw: async () => {
@@ -207,43 +245,39 @@ describe("localizeItems", () => {
 describe("localizeParishes (rule b)", () => {
   const seoul = { title: "명동대성당", country: "South Korea", countryCode: "KR" };
   const madrid = { title: "Parroquia San José", country: "Spain" };
-  const nameHash = (target: string) =>
-    unitHash(target, { kind: "name", source: "명동대성당", sourceLang: "ko", protect: [] });
+  const kyiv = { title: "Церква Святого Миколая", country: "Ukraine" };
+  const athens = { title: "Ναός Αγίου Ιωσήφ", country: "Greece" };
+  const beijing = { title: "北京圣母无染原罪主教座堂", country: "China" };
+  const boston = { title: "St. Mary's Catholic Church", country: "United States" };
 
-  it("transliterates a foreign-script name while it waits, always showing the original, and files it", async () => {
-    const { db, inserts } = fakeDb();
+  it("transliterates a foreign-script name, always showing the original, with no lookup at all", async () => {
+    const { db } = fakeDb();
     setTranslationDb(db);
-    const [s, m] = await localizeParishes([seoul, madrid], { locale: "en" });
+    const [s, m, k, a] = await localizeParishes([seoul, madrid, kyiv, athens], { locale: "en" });
     expect(s!.title).toBe("Myeongdong Daeseongdang (명동대성당)");
     expect(m).toBe(madrid);
+    // The country decides the Cyrillic system: Ukrainian national transliteration.
+    expect(k!.title).toBe("Tserkva Sviatoho Mykolaia (Церква Святого Миколая)");
+    expect(a!.title).toBe("Naos Agiou Iosif (Ναός Αγίου Ιωσήφ)");
+    expect(seoul.title).toBe("명동대성당"); // inputs are never changed
     await flushDemand();
-    expect(inserts[0]).toEqual(
-      expect.arrayContaining(["en", nameHash("en"), "name", "ko", "명동대성당"]),
-    );
+    expect(db.$queryRaw).not.toHaveBeenCalled();
+    expect(db.$executeRaw).not.toHaveBeenCalled();
   });
 
-  it("shows the translation once the translator has stored it", async () => {
-    const { db } = fakeDb({
-      en: { [nameHash("en")]: "Myeongdong Cathedral" },
-      es: { [nameHash("es")]: "Catedral de Myeongdong" },
-    });
-    setTranslationDb(db);
-    expect((await localizeParishes([seoul], { locale: "en" }))[0]!.title).toBe(
-      "Myeongdong Cathedral (명동대성당)",
-    );
-    expect((await localizeParishes([seoul], { locale: "la" }))[0]!.title).toBe(
-      "Myeongdong Cathedral (명동대성당)",
-    );
+  it("transliterates for every Latin-script reader and names the country in their language", async () => {
     const [es] = await localizeParishes([seoul, madrid], { locale: "es" });
     expect(es).toEqual({
       ...seoul,
-      title: "Catedral de Myeongdong (명동대성당)",
+      title: "Myeongdong Daeseongdang (명동대성당)",
       country: "Corea del Sur",
     });
+    const [la] = await localizeParishes([seoul], { locale: "la" });
+    expect(la!.title).toBe("Myeongdong Daeseongdang (명동대성당)");
+    expect(la!.country).toBe("South Korea");
   });
 
   it("keeps a name in the reader's own script, and names the country in the reader's language", async () => {
-    setTranslationDb(fakeDb().db);
     const [s, m] = await localizeParishes([seoul, madrid], { locale: "ko" });
     expect(s!.title).toBe("명동대성당");
     expect(s!.country).toBe("대한민국");
@@ -251,19 +285,28 @@ describe("localizeParishes (rule b)", () => {
     expect(m!.country).toBe("스페인");
   });
 
-  it("renders names into English for a reader whose language has no model (Korean)", async () => {
-    const { db, inserts } = fakeDb();
+  it("never machine-translates: Han stays as written, and so does a Latin name for CJK readers", async () => {
+    const { db } = fakeDb();
     setTranslationDb(db);
-    const beijing = { title: "北京圣母无染原罪主教座堂", country: "China" };
-    const boston = { title: "St. Mary's Catholic Church", country: "United States" };
     const [b, s] = await localizeParishes([beijing, boston], { locale: "ko" });
     expect(b!.title).toBe("北京圣母无染原罪主教座堂");
     expect(b!.country).toBe("중국");
     expect(s!.title).toBe("St. Mary's Catholic Church");
+    const [b2] = await localizeParishes([beijing], { locale: "en" });
+    expect(b2!.title).toBe("北京圣母无染原罪主教座堂");
+    const [s2] = await localizeParishes([boston], { locale: "zh" });
+    expect(s2!.title).toBe("St. Mary's Catholic Church");
     await flushDemand();
-    expect(inserts).toHaveLength(1);
-    expect(inserts[0]).toEqual(expect.arrayContaining(["en", "zh", "北京圣母无染原罪主教座堂"]));
-    expect(inserts[0]).not.toContain("St. Mary's Catholic Church");
+    expect(db.$queryRaw).not.toHaveBeenCalled();
+    expect(db.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  it("keeps a Japanese name with kanji as written (a half-romanized name is worse)", async () => {
+    const [j] = await localizeParishes([{ title: "カトリック浦上教会", country: "Japan" }], {
+      locale: "fr",
+    });
+    expect(j!.title).toBe("カトリック浦上教会");
+    expect(j!.country).toBe("Japon");
   });
 
   it("serves Korean readers the content as published, with no lookup", async () => {

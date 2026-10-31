@@ -16,10 +16,8 @@ vi.mock("@/lib/translation/store", async (importOriginal) => ({
 }));
 
 const {
-  acceptName,
   acceptTranslation,
   contentUnits,
-  nameUnits,
   prepareUnit,
   resetTranslatorState,
   runDemand,
@@ -64,8 +62,6 @@ const spanish: Record<string, string> = {
   "The X1 is sung after Compline.": "La X1 se canta después de Completas.",
   "Pray daily.": "Reza a diario.",
   "To bear one's cross": "Llevar la propia cruz",
-  "Saint Joseph Church": "Iglesia de San José",
-  "Myeongdong Cathedral": "Catedral de Myeongdong",
   // The model "translated" the protected name instead of copying X1.
   "X1 knows this one.": "Nadie sabe esto.",
 };
@@ -122,13 +118,6 @@ describe("preparing a unit for the model", () => {
     ).toBeNull();
     expect(acceptTranslation(masked, "", "es")).toBeNull();
   });
-
-  it("accepts a name only when it changed and is in the reader's script", () => {
-    expect(acceptName("명동대성당", "Myeongdong Cathedral", "en")).toBe(true);
-    expect(acceptName("명동대성당", "명동대성당", "en")).toBe(false);
-    expect(acceptName("명동대성당", "大教堂", "en")).toBe(false);
-    expect(acceptName("Myeongdong Cathedral", "明洞大教堂", "zh")).toBe(true);
-  });
 });
 
 describe("translateUnits", () => {
@@ -161,45 +150,22 @@ describe("translateUnits", () => {
     expect(engine.calls[0]!.texts).toContain("X1 entered the Carmel at fifteen.");
   });
 
-  it("translates a parish name into English, then into the reader's language", async () => {
-    const engine = stubEngine({
-      "ko>en": (t) => (t === "명동대성당" ? "Myeongdong Cathedral" : "?"),
-      "en>es": es,
-    });
-    const unit = { kind: "name" as const, source: "명동대성당", sourceLang: "ko", protect: [] };
-    const [en] = await translateUnits({ db, engine }, "en", [unit]);
-    expect(en).toEqual({ text: "Myeongdong Cathedral", model: "stub/ko>en@000000000000" });
-    const [toEs] = await translateUnits({ db, engine }, "es", [unit]);
-    expect(toEs).toEqual({
-      text: "Catedral de Myeongdong",
-      model: "stub/ko>en@000000000000 + stub/en>es@000000000000",
-    });
-    // The English pivot is made once per name, not once per reader language.
-    expect(engine.calls.filter((c) => c.pair === "ko>en")).toHaveLength(1);
-    const [dotted] = await translateUnits(
-      { db, engine: stubEngine({ "zh>en": () => "St. Joseph's Hall." }) },
-      "en",
-      [{ kind: "name", source: "圣若瑟堂", sourceLang: "zh", protect: [] }],
-    );
-    expect(dotted!.text).toBe("St. Joseph's Hall");
-    const [english] = await translateUnits({ db, engine }, "es", [
-      { kind: "name", source: "Saint Joseph Church", sourceLang: "en", protect: [] },
-    ]);
-    expect(english!.text).toBe("Iglesia de San José");
-  });
-
-  it("returns nulls, never throws, for a language or name source it has no model for", async () => {
-    const engine = stubEngine({});
-    expect(
-      await translateUnits({ db, engine }, "la", [
-        { kind: "text", source: "Pray.", sourceLang: "en", protect: [] },
-      ]),
-    ).toEqual([{ text: null, model: "none" }]);
+  it("returns nulls, never throws, for a language it has no model for or a unit that is not English", async () => {
+    const engine = stubEngine({ "en>es": es });
+    const pray = { kind: "text" as const, source: "Pray daily.", sourceLang: "en", protect: [] };
+    for (const lang of ["la", "en", "ko", "xx"]) {
+      expect(await translateUnits({ db, engine }, lang, [pray]), lang).toEqual([
+        { text: null, model: "none" },
+      ]);
+    }
+    // A row that is not English content (a parish name from an older build, say)
+    // never reaches a model.
     expect(
       await translateUnits({ db, engine }, "es", [
-        { kind: "name", source: "כנסייה", sourceLang: "mul", protect: [] },
+        { ...pray, source: "명동대성당", sourceLang: "ko" },
       ]),
     ).toEqual([{ text: null, model: "none" }]);
+    expect(engine.calls).toEqual([]);
   });
 });
 
@@ -262,44 +228,55 @@ describe("runPretranslation", () => {
       payload: { biography: "Thérèse of Lisieux entered the Carmel at fifteen." },
     },
   ];
-  const parishNames = [
-    { title: "명동대성당", countryCode: "KR" },
-    { title: "Parroquia San José", countryCode: "ES" },
-  ];
   const fakeDb = {
-    $queryRaw: vi.fn(async (sql: { sql?: string; strings?: string[] }) => {
-      const text = (sql.strings ?? [sql.sql ?? ""]).join(" ");
-      return /DISTINCT "title"/.test(text) ? parishNames : items;
-    }),
+    $queryRaw: vi.fn(async () => items),
     $executeRaw: vi.fn(),
   } as unknown as Db;
 
-  it("fills every missing unit, skips cached ones, and pre-translates foreign-script parish names", async () => {
+  it("fills every missing unit, skips cached ones, and never plans parish names", async () => {
     const plan = planItem(items[0]!, "full");
     expect(planItem(items[1]!, "full").units[0]!.protect).toEqual(["Thérèse of Lisieux"]);
-    store.existingHashes.mockImplementation(async (_db: Db, lang: string) =>
-      lang === "es"
-        ? new Set([unitHash("es", plan.units.find((u) => u.source === "Pray daily.")!)])
-        : new Set(),
+    store.existingHashes.mockImplementation(
+      async (_db: Db, lang: string, hashes: readonly string[]) => {
+        const cached = unitHash("es", plan.units.find((u) => u.source === "Pray daily.")!);
+        return lang === "es" && hashes.includes(cached) ? new Set([cached]) : new Set();
+      },
     );
-    const engine = stubEngine({ "en>es": es, "ko>en": () => "Myeongdong Cathedral" });
+    const engine = stubEngine({ "en>es": es });
     const report = await runPretranslation({ db: fakeDb, engine }, { langs: ["es"] });
     const stored = store.storeResults.mock.calls.flatMap((c) => c[1] as TranslationResult[]);
     expect(stored.map((r) => [r.lang, r.unit.source, r.text])).toEqual([
-      ["en", "명동대성당", "Myeongdong Cathedral"],
       ["es", "Holy Hour", "?Holy hour"],
       [
         "es",
         "Thérèse of Lisieux entered the Carmel at fifteen.",
         "Thérèse of Lisieux entró en el Carmelo a los quince años.",
       ],
-      ["es", "명동대성당", "Catedral de Myeongdong"],
     ]);
-    expect(report).toEqual({ translated: 4, untranslated: 0, remaining: 0 });
+    expect(report).toEqual({ translated: 2, untranslated: 0, remaining: 0 });
+    // Only published content is read: parish names are transliterated on the page.
+    const sql = (fakeDb.$queryRaw as ReturnType<typeof vi.fn>).mock.calls
+      .map((c) => ((c[0] as { strings?: string[] }).strings ?? []).join(" "))
+      .join("\n");
+    expect(sql).toMatch(/"contentType"::text <> 'PARISH'/);
+  });
+
+  it("asks the database only about units it does not already know are finished", async () => {
+    const engine = stubEngine({ "en>es": es });
+    await runPretranslation({ db: fakeDb, engine }, { langs: ["es"] });
+    const firstAsk = store.existingHashes.mock.calls[0]![2] as string[];
+    expect(firstAsk.length).toBe(contentUnits(items, "es").size);
+    store.existingHashes.mockClear();
+    store.storeResults.mockClear();
+    // Everything was stored by the first pass: the second has nothing to ask or do.
+    const again = await runPretranslation({ db: fakeDb, engine }, { langs: ["es"] });
+    expect(store.existingHashes).not.toHaveBeenCalled();
+    expect(store.storeResults).not.toHaveBeenCalled();
+    expect(again).toEqual({ translated: 0, untranslated: 0, remaining: 0 });
   });
 
   it("stops at its budget and reports what is left", async () => {
-    const engine = stubEngine({ "en>es": es, "ko>en": () => "Myeongdong Cathedral" });
+    const engine = stubEngine({ "en>es": es });
     const report = await runPretranslation(
       { db: fakeDb, engine, batchSize: 1 },
       { langs: ["es"], maxUnits: 2 },
@@ -310,10 +287,7 @@ describe("runPretranslation", () => {
 
   it("plans units exactly as the web server hashes them", () => {
     const units = contentUnits(items, "fr");
+    expect(units.size).toBeGreaterThan(0);
     for (const [hash, unit] of units) expect(unitHash("fr", unit)).toBe(hash);
-    const names = nameUnits(parishNames, "fr");
-    expect([...names.values()].map((u) => [u.source, u.sourceLang])).toEqual([
-      ["명동대성당", "ko"],
-    ]);
   });
 });

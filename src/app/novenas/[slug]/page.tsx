@@ -10,8 +10,8 @@ import {
   type GuidePrayerData,
 } from "@/components/ui";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { displayItem, displayPrayerVariants } from "@/lib/translation/display";
 import { localizeItem } from "@/lib/translation/localize";
-import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +35,13 @@ export default async function NovenaDetailPage({ params }: Props) {
   const related = Array.isArray(item.payload.relatedPrayers)
     ? (item.payload.relatedPrayers as unknown[]).filter((s): s is string => typeof s === "string")
     : NOVENA_COMMON_PRAYERS;
-  const fetched = await Promise.all(related.map((s) => getPublishedBySlug("PRAYER", s)));
+  // In the reader's language like the novena itself (src/lib/translation).
+  const fetched = await Promise.all(
+    related.map(async (s) => localizeItem(await getPublishedBySlug("PRAYER", s))),
+  );
   const prayers: GuidePrayerData[] = fetched
     .map((p) =>
-      p ? { slug: p.slug, title: p.title, variants: buildPrayerVariants(p.payload) } : null,
+      p ? { slug: p.slug, title: displayItem(p).title, variants: displayPrayerVariants(p) } : null,
     )
     .filter((p): p is GuidePrayerData => p != null && p.variants.length > 0);
 

@@ -22,23 +22,26 @@ import { createHash } from "node:crypto";
 import {
   decideTitle,
   detectScript,
+  findPersonNames,
   findProtectedSpans,
+  isPersonContentType,
   isTranslatableKey,
   isTranslatablePrayerText,
   looksLatin,
+  personNameForms,
 } from "./rules";
 import { limitLength, splitSentences } from "./text";
 
 /** Bump to re-key (and so re-translate) every unit after a segmentation change. */
 export const SEGMENT_FORMAT_VERSION = 1;
 
-export type UnitKind = "title" | "text" | "name";
+export type UnitKind = "title" | "text";
 
 export interface Unit {
   kind: UnitKind;
-  /** The exact English text (or, for a name, the original name) sent to the engine. */
+  /** The exact English text sent to the engine. */
   source: string;
-  /** Language of `source`: "en" for content; the name's language for a parish name. */
+  /** Language of `source`: always "en" (content is authored in English). */
   sourceLang: string;
   /** Spans that must come back verbatim (Latin/Greek titles, Greek script). */
   protect: string[];
@@ -84,10 +87,16 @@ const MAX_UNITS_PER_ITEM = 1500;
 const URL_RE =
   /\b(?:https?:\/\/|www\.)[^\s<>"“”‘’]*[^\s<>"“”‘’.,;:!?)\]]|\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/gi;
 
-/** Text with nothing to translate: no letters, a URL alone, footnote markers, a bare domain. */
+/**
+ * Text with nothing to translate: no letters, a URL alone, footnote markers, a
+ * bare domain, a code ("after-communion", "march-19", "ROMAN_RITE") or an
+ * acronym ("MSPS") — a tag the payload stores, which a model would only mangle.
+ */
 export function looksUntranslatable(text: string): boolean {
   const t = text.trim();
   if (!/\p{L}/u.test(t)) return true;
+  if (/^[a-z0-9]+(?:[-_][a-z0-9]+)+$/.test(t) || /^[A-Z0-9]+(?:_[A-Z0-9]+)+$/.test(t)) return true;
+  if (/^[A-Z]{2,6}$/.test(t)) return true;
   URL_RE.lastIndex = 0;
   const m = URL_RE.exec(t);
   if (m && m[0].length === t.length) return true;
@@ -142,7 +151,7 @@ class Planner {
         out.push({ keep: part.text });
         continue;
       }
-      const protect = findProtectedSpans(core, this.extraProtect).map((s) => s.text);
+      const protect = [...new Set(findProtectedSpans(core, this.extraProtect).map((s) => s.text))];
       const index = this.unit(kind, core, protect);
       out.push(index === null ? { keep: part.text } : { unit: index, lead, trail });
     }
@@ -253,8 +262,9 @@ function walk(
 
 /**
  * Plan an item's translatable units. Parish items contribute nothing here —
- * their names follow `decideParishName` — and people's names (saints, Doctors,
- * popes) are never units: rule (c).
+ * their names are transliterated on the page, never translated
+ * (`decideParishName`) — and people's names (saints, Doctors, popes) are
+ * never units: rule (c).
  */
 export function planItem(item: PlannableItem, depth: PlanDepth = "full"): ItemPlan {
   if (item.contentType === "PARISH") return { fields: [], units: [] };
@@ -267,7 +277,21 @@ export function planItem(item: PlannableItem, depth: PlanDepth = "full"): ItemPl
     decision.mode === "keep" &&
     decision.reason !== "parish" &&
     (decision.reason !== "person-name" || item.contentType !== "POPE");
-  const extra = ownName ? [title.trim()] : decision.mode === "translate" ? decision.protect : [];
+  // The saint a page is about, in every form its prose uses: "Saint Aaron of
+  // Aleth" is "Aaron of Aleth" and "Aaron" in his biography, and the saint of
+  // "Novena to Saint Thérèse of Lisieux" is "Thérèse" in the novena's days.
+  const saints =
+    item.contentType === "SAINT" || item.contentType === "DOCTOR"
+      ? [title.trim()]
+      : isPersonContentType(item.contentType)
+        ? []
+        : findPersonNames(title).map((n) => n.text);
+  const names = saints.flatMap(personNameForms);
+  const extra = ownName
+    ? [title.trim(), ...names]
+    : decision.mode === "translate"
+      ? [...decision.protect, ...names]
+      : [];
   const planner = new Planner(extra.filter(Boolean));
 
   if (decision.mode === "translate") planner.phrase(["title"], title, "title", decision.protect);

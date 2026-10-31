@@ -20,6 +20,12 @@ export interface PrayerVariant {
   text: string;
   /** True for languages that must never be auto-translated (Latin / Greek). */
   preserve: boolean;
+  /**
+   * The language `text` is actually written in, when it is not `code`: the
+   * vernacular slot ("en") holding the reader's machine translation
+   * (src/lib/translation). Renderers use it for the `lang` attribute.
+   */
+  lang?: string;
 }
 
 const LANGUAGE_LABELS: Record<string, string> = {

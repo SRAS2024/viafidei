@@ -79,7 +79,7 @@ export function GuidePrayers({ prayers }: { prayers: GuidePrayerData[] }) {
                 <p
                   className="whitespace-pre-line"
                   translate={v.preserve ? "no" : undefined}
-                  lang={v.code}
+                  lang={v.lang ?? v.code}
                 >
                   {v.text}
                 </p>

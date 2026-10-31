@@ -335,6 +335,10 @@ const ALWAYS_PROPER = new Set([
 
 const WORD_RE = /[\p{L}\p{M}][\p{L}\p{M}'’-]*/gu;
 
+/** Names of prayers and devotions whose words are never lower-cased (see sentenceCase). */
+const PROPER_PHRASES =
+  /\b(?:Hail Marys?|Hail,? Holy Queen|Our Father|Glory Be|Our Lady|Holy Ghost|Holy Spirit|Sign of the Cross|Way of the Cross|Stations of the Cross|Divine Mercy|Act of Contrition|Apostles['’] Creed|Nicene Creed|Morning Offering)\b/g;
+
 export type CaseStats = Map<string, { upper: number; lower: number }>;
 
 /**
@@ -381,10 +385,15 @@ export function isTitleCase(text: string): boolean {
  * names.
  */
 export function sentenceCase(text: string, stats: CaseStats = new Map()): string {
+  // The names of prayers keep their capitals: lower-cased, "the hail Mary"
+  // reads as weather to the models ("z gradem Mary").
+  const proper: Array<[number, number]> = [];
+  for (const m of text.matchAll(PROPER_PHRASES)) proper.push([m.index, m.index + m[0].length]);
   let index = 0;
-  return text.replace(WORD_RE, (word) => {
+  return text.replace(WORD_RE, (word, offset: number) => {
     const i = index++;
     if (i === 0) return word;
+    if (proper.some(([a, b]) => offset >= a && offset < b)) return word;
     if (word.length > 1 && word === word.toUpperCase()) return word; // acronyms, numerals
     if (!/^\p{Lu}/u.test(word)) return word;
     const key = word.toLowerCase();
@@ -656,8 +665,9 @@ function maxCharRepeat(text: string): number {
 
 /**
  * Heuristic check that a translation is not degenerate (empty, truncated or
- * looping), is written in the target language's script, and adds nothing the
- * source does not say (see addsToSource).
+ * looping), is written in the target language's script, adds nothing the
+ * source does not say (see addsToSource) and does not garble the Church's
+ * names for Our Lady and her prayer (see distortsCatholicTerms).
  */
 export function looksBroken(source: string, output: string, lang: MtLocale | "en"): boolean {
   const src = String(source ?? "").trim();
@@ -672,6 +682,7 @@ export function looksBroken(source: string, output: string, lang: MtLocale | "en
   if (lang === "zh" && !/\p{Script=Han}/u.test(out) && /\p{L}/u.test(src)) return true;
   if (lang === "ko" && !/\p{Script=Hangul}/u.test(out) && /\p{L}/u.test(src)) return true;
   if (addsToSource(src, out)) return true;
+  if (lang !== "en" && distortsCatholicTerms(src, out, lang)) return true;
   // A phrase repeated more often than anything in the source (a decoding loop).
   if (lang === "zh" || lang === "ko") {
     const r = maxCharRepeat(out);
@@ -708,4 +719,79 @@ export function addsToSource(source: string, output: string): boolean {
   const refs = verseRefs(src);
   for (const ref of verseRefs(out)) if (!refs.has(ref)) return true;
   return ISLAMIC_RE.test(out) && !ISLAMIC_SOURCE_RE.test(src);
+}
+
+/*
+ * Catholic names the models garble in ways a reader must never see. Measured
+ * on the pinned models (2026-10-31): "Our Lady of Guadalupe" came back as
+ * "Nữ thần … guadalupe" (a goddess) in Vietnamese and "我们的…夫人" (our
+ * madam) in Chinese, and "Pray the Hail Mary" as "Módl się z gradem Mary"
+ * (hail, the weather) in Polish. Such a sentence is rejected like any broken
+ * one: the engine retries it, and failing that the page keeps the English.
+ */
+
+/** A goddess, in each target language. Mary is never one. */
+const GODDESS_RE: Partial<Record<MtLocale, RegExp>> = {
+  es: /(?<!\p{L})diosas?(?!\p{L})/iu,
+  pt: /(?<!\p{L})deusas?(?!\p{L})/iu,
+  fr: /(?<!\p{L})déesses?(?!\p{L})/iu,
+  it: /(?<!\p{L})(?:dea|dee)(?!\p{L})/iu,
+  de: /(?<!\p{L})göttin(?:nen)?(?!\p{L})/iu,
+  pl: /(?<!\p{L})bogi(?:ni|nię|nią|nie|ń|niom|niami|niach)(?!\p{L})/iu,
+  tl: /(?<!\p{L})diyosa(?!\p{L})/iu,
+  vi: /nữ thần/iu,
+  zh: /女神/u,
+  ko: /여신/u,
+};
+/** A source that is itself about goddesses (paganism, a pagan shrine) may name one. */
+const GODDESS_SOURCE_RE =
+  /goddess|pagan|idol|deit(?:y|ies)|myth|diana|artemis|isis|venus|minerva|juno|cybele/i;
+
+/** How each language names Our Lady: one of these must be in a translation of "Our Lady". */
+const OUR_LADY_RE: Partial<Record<MtLocale, RegExp>> = {
+  es: /Nuestra Señora|Virgen|Señora/iu,
+  pt: /Nossa Senhora|Virgem|Senhora/iu,
+  fr: /Notre[- ]Dame|Vierge/iu,
+  it: /Madonna|Nostra Signora|Vergine|Signora|Maria/iu,
+  de: /Unsere[rn]? Lieben? Frau|Mutter ?gottes|Gottesmutter|Madonna|Jungfrau|Maria|Frau/iu,
+  pl: /Matk[aiąęo]|Maryj|Najświętsz|Pan(?:i|ią|ny|no)(?!\p{L})/iu,
+  tl: /Birhen|Mahal na|Ina|Maria|Ginang/iu,
+  vi: /Đức Mẹ|Đức Bà|Đức Trinh Nữ|Đức Maria|Mẹ Maria/iu,
+  zh: /圣母|聖母/u,
+};
+
+/** Hail the weather, in each language: never the Hail Mary. */
+const HAIL_WEATHER_RE: Partial<Record<MtLocale, RegExp>> = {
+  es: /granizo/iu,
+  pt: /granizo/iu,
+  fr: /grêle/iu,
+  it: /grandine/iu,
+  de: /hagel/iu,
+  pl: /(?<!\p{L})grad(?:u|em|zie|y|ów|ami)?(?!\p{L})/iu,
+  tl: /graniso|yelo/iu,
+  vi: /mưa đá/iu,
+  zh: /冰雹/u,
+};
+
+/**
+ * Does the translation misname Our Lady (a goddess, a madam) or turn the
+ * Hail Mary into weather? English sources that really speak of goddesses or
+ * hailstorms are left alone.
+ */
+export function distortsCatholicTerms(source: string, output: string, lang: MtLocale): boolean {
+  const goddess = GODDESS_RE[lang];
+  if (goddess?.test(output) && !GODDESS_SOURCE_RE.test(source)) return true;
+  // Kept as "Our Lady" (as Filipino often does) is fine; misnamed is not.
+  if (/\b[Oo]ur Lady\b/.test(source) && !/\b[Oo]ur Lady\b/.test(output)) {
+    const ourLady = OUR_LADY_RE[lang];
+    if (ourLady && !ourLady.test(output)) return true;
+  }
+  if (
+    /\bhail marys?\b/i.test(source) &&
+    !/hailstones?|hailstorms?|\bhail\b(?! mary)/i.test(source)
+  ) {
+    const hail = HAIL_WEATHER_RE[lang];
+    if (hail?.test(output)) return true;
+  }
+  return false;
 }

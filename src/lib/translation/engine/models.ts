@@ -18,12 +18,13 @@
  * source and target vocabularies ("sepvoc") but converted with a single shared
  * (Korean) vocabulary, so English input maps mostly to <unk>: run through this
  * engine it answers "2, 4, 6 etc. are even numbers." with unrelated Korean,
- * where its model card expects "2, 4, 6 등은 짝수입니다." (tc-big-ko-en has the
- * same defect, so ko>en uses the original opus-mt-ko-en). Korean readers get
- * the content as published and parish names rendered into English
- * (languages.ts, `hasContentModel`), until a working model is pinned here.
- *   zh>en, ja>en, ko>en, ru>en, uk>en, el>en, ar>en, and the multilingual mul>en
- *                                      used only for parish names (rules.ts, rule b)
+ * where its model card expects "2, 4, 6 등은 짝수입니다." Korean readers get the
+ * content as published (languages.ts, `hasContentModel`) until a working
+ * model is pinned here.
+ *
+ * There are no models INTO English: parish names in other scripts are
+ * transliterated, never translated (rules.ts, rule b — the name models that
+ * were tried turned most names into wrong English).
  *
  * es/fr/de/pt and the ROMANCE fallback are The Augustine Journal's production
  * pins (sha256 of every file). The others were pinned from the Hugging Face
@@ -436,182 +437,6 @@ export const MODELS: Record<LanguagePair, ModelCandidate[]> = {
         "model.safetensors": {
           size: 312062580,
           sha256: "2faa8895e5a0427c2ff8b9b692b1198975964d8143bb84f55193587ab62314f2",
-        },
-      },
-    },
-  ],
-  // Parish names only (rule b): the original name into English.
-  "zh>en": [
-    {
-      repo: "Helsinki-NLP/opus-mt-zh-en",
-      revision: "badebd2bdd4cdfde141a969df82a0f2c4e3b1dfe",
-      targetToken: null,
-      files: {
-        "config.json": { size: 1394, gitSha1: "710dcdf966ec0aa5b3d991a35264c7cb174ccf14" },
-        "generation_config.json": {
-          size: 293,
-          gitSha1: "a43af728d2ddefe1ed73656ce004be6391c02e0a",
-        },
-        "vocab.json": { size: 1617902, gitSha1: "3be15dddf54535a2257b485f32c8f9226352d5c4" },
-        "source.spm": { size: 804677, gitSha1: "0ab361451ecc57b6223303c7b52e216ff40dc7e6" },
-        "target.spm": { size: 806530, gitSha1: "878ae3c6ca6afea7971e3be0b18debdd0d41e3ea" },
-        "model.safetensors": {
-          size: 312062468,
-          sha256: "7a567d463a3a859ff4e86ce44e590672b2425ed6cd93b4b98c382cd2b9bea625",
-        },
-      },
-    },
-  ],
-  "ja>en": [
-    {
-      repo: "Helsinki-NLP/opus-mt-ja-en",
-      revision: "7e57f9dd9714983703666445b3f74c5639e0744a",
-      targetToken: null,
-      files: {
-        "config.json": { size: 1381, gitSha1: "2860e0a64affcb7530b295ef84fb3b0ed48b8896" },
-        "generation_config.json": {
-          size: 293,
-          gitSha1: "41c37811c1d603dc73e6fc006683f8d8f95f5b46",
-        },
-        "vocab.json": { size: 1501341, gitSha1: "7b29094ac717b78f5e536b624e991e555438790d" },
-        "source.spm": { size: 781853, gitSha1: "a4e37a5c32db4435e561c31cbdd358211f63b967" },
-        "target.spm": { size: 801883, gitSha1: "1eb1c96b041404cde4901e1ea19b156c200b594d" },
-        "model.safetensors": {
-          size: 303269760,
-          sha256: "9aa2a8b5ae84d3a523cc956bc257cf45c8a25438c328fadf9317f55d49369a1a",
-        },
-      },
-    },
-  ],
-  "ko>en": [
-    {
-      repo: "Helsinki-NLP/opus-mt-ko-en",
-      revision: "b2486aed0b0835a96c667aaff186dc11210d3e63",
-      targetToken: null,
-      files: {
-        "config.json": { size: 1394, gitSha1: "93e1b07c4cc7280dd70c542120778c7781bce6b0" },
-        "generation_config.json": {
-          size: 293,
-          gitSha1: "a43af728d2ddefe1ed73656ce004be6391c02e0a",
-        },
-        "vocab.json": { size: 1719866, gitSha1: "71c319d7f4dea97b03d3fb74dc8442b8322dca5b" },
-        "source.spm": { size: 841805, gitSha1: "3bdd58dcfd1223a4db6700b52dedbba52d7cf6b4" },
-        "target.spm": { size: 813126, gitSha1: "a0a91b2dcdbdbde4f785b43fb58c440595813c43" },
-        "model.safetensors": {
-          size: 312062580,
-          sha256: "6a29cef2dfe3f75cba21025b9b36b130a03171a6e548c090380aa14acc9c5cfd",
-        },
-      },
-    },
-  ],
-  "ru>en": [
-    {
-      repo: "Helsinki-NLP/opus-mt-ru-en",
-      revision: "7c84e70e05294db4fead6135d04585020413f78b",
-      targetToken: null,
-      files: {
-        "config.json": { size: 1381, gitSha1: "d898c2531e824fa65c1b4c29fa77f1bc05a5d2e0" },
-        "generation_config.json": {
-          size: 293,
-          gitSha1: "73c009f373594622ab49464e9c3b4e950bc3ac2d",
-        },
-        "vocab.json": { size: 2601758, gitSha1: "39833c62b978f23b3429c9109dc4ee88e339c2d5" },
-        "source.spm": { size: 1080169, gitSha1: "5781b8215934ee03646a5935000a19f1233210f0" },
-        "target.spm": { size: 802781, gitSha1: "ee65931d442b9dbb755f640edb9f31b78c7c27ef" },
-        "model.safetensors": {
-          size: 306967352,
-          sha256: "f73dc54675dc0da9ca6704098cadae3562f149b1f93c585f9d21c8502a760421",
-        },
-      },
-    },
-  ],
-  "uk>en": [
-    {
-      repo: "Helsinki-NLP/opus-mt-uk-en",
-      revision: "5c5e4e6e58d47ea2d90b657a7b0d270d06a89be2",
-      targetToken: null,
-      files: {
-        "config.json": { size: 1381, gitSha1: "120e5aeabe323b07a1966d01d1b2dccdbba9b609" },
-        "generation_config.json": {
-          size: 293,
-          gitSha1: "ab3ffb5c806c86ba3c13775e29a59dcc8ef5e68b",
-        },
-        "vocab.json": { size: 2367710, gitSha1: "9080f439a03be6bead1ab46f4fe5bd5e23f5b35f" },
-        "source.spm": { size: 1007605, gitSha1: "86b0151795b43da31801a75f90c57d4e5df51f1a" },
-        "target.spm": { size: 808645, gitSha1: "073388b80b066615b274384782a89293ce0373b5" },
-        "model.safetensors": {
-          size: 305056940,
-          sha256: "a52221e3b5ad186534f7c5a1af9b89728db9ce437a08cb27c8c5d08cc13014fc",
-        },
-      },
-    },
-  ],
-  "el>en": [
-    {
-      repo: "Helsinki-NLP/opus-mt-tc-big-el-en",
-      revision: "c0793c57dcc3a4ad99f3f1482e2e72872939d83f",
-      targetToken: null,
-      files: {
-        "config.json": { size: 1137, gitSha1: "e5045588b293ece757ec4273e7bda5b501b14b01" },
-        "generation_config.json": {
-          size: 301,
-          gitSha1: "93045a538a390dac8cd9895b3dd2c2232ae1bcf7",
-        },
-        "vocab.json": { size: 2378080, gitSha1: "8305f3a6269a75233a17849ba8b365bc8c469573" },
-        "source.spm": {
-          size: 1003051,
-          sha256: "1f78d71e80e2dc22697802dfea24855499c5d482d1c47611f96a96af0b38ea4f",
-        },
-        "target.spm": {
-          size: 798530,
-          sha256: "eb161fb698225d722b251738042d6e27481a66ba96477ab0fb046d8aa937ab2c",
-        },
-        "model.safetensors": {
-          size: 593825786,
-          sha256: "7c3c20fda71dc66867d019b4ceb62732cbf13ab573b9c6fd53628aaacf917961",
-        },
-      },
-    },
-  ],
-  "ar>en": [
-    {
-      repo: "Helsinki-NLP/opus-mt-ar-en",
-      revision: "6e2ed5028f700114811bdd233f748e751bfae59a",
-      targetToken: null,
-      files: {
-        "config.json": { size: 1381, gitSha1: "48530b9868ac8471aa4f76e7e7ca4467fde8ed57" },
-        "generation_config.json": {
-          size: 293,
-          gitSha1: "be3e24069e58e6fb37e8c895364ec08e3fafd200",
-        },
-        "vocab.json": { size: 2131576, gitSha1: "9ffc9aa8657a49f62bffab40cd581c3f4b9575fd" },
-        "source.spm": { size: 917407, gitSha1: "2771a7d9de4684cd14bee18553e5638d80ace617" },
-        "target.spm": { size: 801886, gitSha1: "c657e95147e3aa65dfc217a7e1bc16caff515a1e" },
-        "model.safetensors": {
-          size: 307616248,
-          sha256: "4edb54660ecc0fbcd7a83083f7aab49d515322287d9b58ff9f56c8fe0cbc1567",
-        },
-      },
-    },
-  ],
-  /** Every other script (Belarusian, Serbian, Greek, Hebrew, Thai, Georgian …), into English. */
-  "mul>en": [
-    {
-      repo: "Helsinki-NLP/opus-mt-mul-en",
-      revision: "f5c88837d58e937af4fa5a77015027305e4226f5",
-      targetToken: null,
-      files: {
-        "config.json": { size: 1395, gitSha1: "13e24d600556be9ad9eb33986768b6ae0fd2237c" },
-        "generation_config.json": {
-          size: 293,
-          gitSha1: "c51aab37c74d168b23634264017c4b8cc4fa689e",
-        },
-        "vocab.json": { size: 1423947, gitSha1: "9c723b436cc521521c9ead82b3286f271144052a" },
-        "source.spm": { size: 706917, gitSha1: "aa22d72fb84b99dc78fd866d2dd986a9178a7f8d" },
-        "target.spm": { size: 791194, gitSha1: "1435a65705c0ad13f2490d6e92b2680e553a0ba7" },
-        "model.safetensors": {
-          size: 310361472,
-          sha256: "dd078a01900185a763458dd0983d08276e1e5e8c5b7628f7371feb2cc0874543",
         },
       },
     },

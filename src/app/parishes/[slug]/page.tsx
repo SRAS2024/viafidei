@@ -40,7 +40,7 @@ export default async function ParishDetailPage({ params }: Props) {
 
   const payload = item.payload as Record<string, unknown>;
   // The name and country as this reader should see them (rule b: a name in
-  // another script is translated, with the original beside it).
+  // another script is transliterated, with the original beside it).
   const [shown] = await localizeParishes([
     { title: item.title, country: text(payload, "country"), payload },
   ]);

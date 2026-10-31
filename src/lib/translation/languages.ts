@@ -11,13 +11,15 @@
  *
  * Nine of the ten have a translation model (engine/models.ts). Korean has
  * none that works — the only English→Korean OPUS-MT conversion is broken — so
- * a Korean reader keeps the interface in Korean, the content as published,
- * and parish names in other scripts rendered into English.
+ * a Korean reader keeps the interface in Korean and the content as published.
  *
- * The site never had a content translation engine before this one. Its only
- * Google Translate code was the Admin Worker's keyless translate.googleapis.com
- * fallback for Latin/Greek prayer drafts (translation-provider.ts, f04b980),
- * removed in 01b5931 when the worker dropped every external AI/MT dependency.
+ * The site never had a content translation engine before this one. The
+ * scaffold planned one (per-type PrayerTranslation, SaintTranslation, …
+ * tables with a MACHINE/HUMAN_REVIEWED status, dropped unused in
+ * 0025_drop_legacy_system), and its only Google Translate code was the Admin
+ * Worker's keyless translate.googleapis.com fallback for Latin/Greek prayer
+ * drafts (translation-provider.ts, f04b980), removed in 01b5931 when the
+ * worker dropped every external AI/MT dependency.
  */
 
 import { isSupportedLocale, type Locale } from "@/lib/i18n/locales";
@@ -69,13 +71,8 @@ export const MT_LOCALE_NAMES: Record<MtLocale, string> = {
 /**
  * Does the engine have a model that translates content into `locale`? All of
  * the ten do except Korean (see engine/models.ts for why): a Korean reader is
- * served the content as published, and parish names rendered into English.
+ * served the content as published.
  */
 export function hasContentModel(locale: unknown): locale is MtLocale {
   return isMtLocale(locale) && candidatesFor(`en>${locale}`).length > 0;
-}
-
-/** The language parish names are translated into for a reader (rule b). */
-export function nameTargetFor(locale: Locale): MtLocale | "en" {
-  return hasContentModel(locale) ? locale : "en";
 }

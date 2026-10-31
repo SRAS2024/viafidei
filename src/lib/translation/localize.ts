@@ -11,20 +11,15 @@
  *
  * `localizeParishes` applies rule (b) to parish names for EVERY visitor,
  * English included: a name in a script the visitor does not read is shown
- * translated or transliterated, always with the original beside it.
+ * transliterated, always with the original beside it. It is pure — no cache
+ * lookup, no model — so the directory and the near-me API pay nothing for it.
  */
 
 import { getDictionary } from "@/lib/i18n/translator";
 import type { Locale } from "@/lib/i18n/locales";
 
 import { attachDisplay, type DisplayOverlay } from "./display";
-import {
-  hasContentModel,
-  isMtLocale,
-  isSiteLocale,
-  nameTargetFor,
-  type MtLocale,
-} from "./languages";
+import { hasContentModel, isMtLocale, isSiteLocale, type MtLocale } from "./languages";
 import { romanize } from "./romanize";
 import { decideParishName, isPersonContentType, verifyProtectedSpans, withOriginal } from "./rules";
 import {
@@ -55,7 +50,6 @@ export async function resolveRequestLocale(): Promise<Locale> {
  * when a protected span did not survive (such a row is shown in English).
  */
 export function finalizeTranslation(unit: Unit, raw: string, lang: string): string | null {
-  if (unit.kind === "name") return raw.replace(/\s+/g, " ").trim() || null;
   const polished = isMtLocale(lang) ? polishTranslation(unit.source, raw, lang) : raw.trim();
   return verifyProtectedSpans(
     polished,
@@ -232,13 +226,11 @@ function countryOf(item: ParishLike): string | null {
 
 /**
  * Parishes for the visitor reading `locale`. The name follows rule (b):
- * same-script names are untouched; a name in another script becomes
- * "Translation (Original)" once the translator has done it, meanwhile
- * "Transliteration (Original)" when the script can be transliterated, or the
- * original. The translation target is the visitor's language, or English for
- * English and Latin readers and for a language the engine cannot write
- * (Korean). A top-level `country` is shown in the reader's language. Returns
- * copies; the input items are never changed.
+ * a name in the visitor's own script is untouched; a name in another script
+ * is shown "Transliteration (Original)" when its script can be transliterated
+ * letter by letter, and as written otherwise — never machine-translated (see
+ * `decideParishName`). A top-level `country` is shown in the reader's
+ * language. Returns copies; the input items are never changed.
  */
 export async function localizeParishes<T extends ParishLike>(
   items: readonly T[],
@@ -247,9 +239,7 @@ export async function localizeParishes<T extends ParishLike>(
   if (items.length === 0) return [...items];
   const locale = opts.locale ?? (await resolveRequestLocale());
   try {
-    const target = nameTargetFor(locale);
-    const pending: Array<{ index: number; unit: Unit; hash: string }> = [];
-    const out = items.map((item, index) => {
+    return items.map((item) => {
       let copy: T = item;
       const code = countryOf(item);
       if (typeof item.country === "string") {
@@ -257,35 +247,10 @@ export async function localizeParishes<T extends ParishLike>(
         if (country !== item.country) copy = { ...copy, country };
       }
       const title = item.title ?? "";
-      const decision = decideParishName(title, locale, { countryCode: code });
-      if (decision.action === "keep") return copy;
-      // An English name for a reader whose language the engine cannot write
-      // (Korean): there is nothing to translate it into.
-      if (decision.from === "en" && target === "en") return copy;
-      if (!translationDisabled()) {
-        const unit: Unit = { kind: "name", source: title, sourceLang: decision.from, protect: [] };
-        pending.push({ index, unit, hash: unitHash(target, unit) });
-      }
-      const romanized =
-        decision.fallback === "romanize" ? romanize(title, { countryCode: code }) : null;
+      if (decideParishName(title, locale).action !== "transliterate") return copy;
+      const romanized = romanize(title, { countryCode: code });
       return romanized ? { ...copy, title: withOriginal(romanized, title) } : copy;
     });
-    if (pending.length === 0) return out;
-
-    const stored = await readTranslations(
-      target,
-      pending.map((p) => p.hash),
-    );
-    const demand: DemandRow[] = [];
-    for (const p of pending) {
-      const raw = stored.get(p.hash);
-      const text = raw === undefined ? null : finalizeTranslation(p.unit, raw, target);
-      if (text)
-        out[p.index] = { ...out[p.index]!, title: withOriginal(text, items[p.index]!.title) };
-      else if (raw === undefined) demand.push({ lang: target, hash: p.hash, unit: p.unit });
-    }
-    fileDemand(demand);
-    return out;
   } catch (err) {
     console.warn("[translation] parishes failed; serving originals:", (err as Error).message);
     return [...items];

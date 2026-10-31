@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
       const items = await listParishesNear({ latitude, longitude, radiusMiles, take: TAKE });
       if (items.length > 0) {
         return body({
-          // Names in another script are translated for this reader (rule b).
+          // Names in another script are transliterated for this reader (rule b).
           items: await localizeParishes(items),
           total: items.length,
           requestedRadiusMiles,

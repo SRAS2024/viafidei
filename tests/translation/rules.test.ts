@@ -2,14 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n/locales";
 import {
-  cyrillicNameLanguage,
   decideParishName,
   decideTitle,
   detectScript,
   findPersonNames,
   findProtectedSpans,
   isDocumentIncipit,
-  isEnglishChurchName,
   isEnglishLanguageCode,
   isLatinTitleText,
   isLiturgicalLanguageCode,
@@ -19,6 +17,7 @@ import {
   leadingIncipit,
   localeScript,
   looksLatin,
+  personNameForms,
   titleParts,
   UNIVERSAL_LATIN_GREEK_TITLES,
   verifyProtectedSpans,
@@ -198,6 +197,26 @@ describe("rule (a): Latin and Greek titles stay as written", () => {
       "Dixit Dominus",
     ]);
     expect(protect("Mother of God (Theotokos)")).toEqual(["Theotokos"]);
+    // Published titles whose Latin part the rules used to translate (2026-10-31).
+    expect(protect("Athanasian Creed (Quicumque)")).toEqual(["Quicumque"]);
+    expect(protect("Flos Carmeli (Flower of Carmel)")).toEqual(["Flos Carmeli"]);
+    expect(protect("Morning Star (Stella Matutina)")).toEqual(["Stella Matutina"]);
+  });
+
+  it("keeps the Latin word of a Latin-and-English name, and translates the English", () => {
+    const protect = (title: string) => {
+      const d = decideTitle("LITURGICAL", title);
+      return d.mode === "translate" ? d.protect : null;
+    };
+    // Not "Gaudete Sunday": the reader gets "Domingo Gaudete", not "Gaudete Sunday".
+    expect(protect("Gaudete Sunday (Third Sunday of Advent)")).toEqual(["Gaudete"]);
+    expect(protect("Laetare Sunday (Fourth Sunday of Lent)")).toEqual(["Laetare"]);
+    expect(isLatinTitleText("Gaudete Sunday")).toBe(false);
+    expect(isLatinTitleText("Tenebrae Service")).toBe(false);
+    expect(decideTitle("SPIRITUAL_PRACTICE", "Lectio Divina")).toEqual({
+      mode: "keep",
+      reason: "latin-greek",
+    });
   });
 
   it("does not mistake English glosses or scripture references for Latin", () => {
@@ -245,8 +264,20 @@ describe("rule (a): Church documents keep their incipit", () => {
     "Africae Munus",
     "Inter caetera",
     "Redemptionis Sacramentum",
+    // Published incipits the rules used to translate (found 2026-10-31).
+    "Ecclesia in America",
+    "Vox in Rama",
+    "Liturgiam Authenticam",
+    "Magnifica Humanitas",
+    "Missale Romanum",
   ])("%s is kept", (title) => {
     expect(decideTitle("CHURCH_DOCUMENT", title).mode).toBe("keep");
+  });
+
+  it("protects an incipit that leads an English gloss", () => {
+    expect(
+      decideTitle("CHURCH_DOCUMENT", "Solemni Hac Liturgia (Credo of the People of God)"),
+    ).toEqual({ mode: "translate", protect: ["Solemni Hac Liturgia", "Credo"] });
   });
 
   it.each([
@@ -296,6 +327,10 @@ describe("rule (a): Latin and Greek inside English prose", () => {
     expect(spans("In the beginning was the Word.")).toEqual([]);
   });
 
+  it("keeps a canonical Latin term inside an English label", () => {
+    expect(spans("Byzantine tradition · Church sui iuris")).toEqual(["sui iuris"]);
+  });
+
   it("restores a span the model returned with other case or accents, and rejects a lost one", () => {
     expect(verifyProtectedSpans("Rezamos la salve regina.", [{ text: "Salve Regina" }])).toBe(
       "Rezamos la Salve Regina.",
@@ -335,6 +370,9 @@ describe("rule (c): saints' names are never machine-translated", () => {
 
   it("is not fooled by things called blessed, or by All Saints", () => {
     expect(names("The Blessed Virgin Mary and the Blessed Sacrament.")).toEqual([]);
+    // At the end of a sentence too (the full stop used to hide "Sacrament").
+    expect(names("Many pray it before the Blessed Sacrament.")).toEqual([]);
+    expect(spans("Many pray it before the Blessed Sacrament.")).toEqual([]);
     expect(names("Blessed Candles and Blessed Palms")).toEqual([]);
     expect(names("All Saints Day is on 1 November.")).toEqual([]);
     expect(names("the saint of the day")).toEqual([]);
@@ -362,6 +400,47 @@ describe("rule (c): saints' names are never machine-translated", () => {
         reason: "person-name",
       });
     }
+  });
+
+  it("derives every form a page's own saint takes in its prose", () => {
+    expect(personNameForms("Saint Aaron of Aleth")).toEqual(["Aaron of Aleth", "Aaron"]);
+    expect(personNameForms("Saint Thérèse of Lisieux")).toEqual(["Thérèse of Lisieux", "Thérèse"]);
+    expect(personNameForms("Saints Abdon and Sennen")).toEqual([
+      "Abdon and Sennen",
+      "Abdon",
+      "Sennen",
+    ]);
+    expect(personNameForms("Anthony, John, and Eustathios")).toEqual([
+      "Anthony",
+      "John",
+      "Eustathios",
+    ]);
+    expect(personNameForms("Saint Mother Teresa of Calcutta")).toEqual([
+      "Teresa of Calcutta",
+      "Teresa",
+    ]);
+    expect(personNameForms("Saint Adelaide, Abbess of Vilich")).toEqual([
+      "Adelaide, Abbess of Vilich",
+      "Adelaide",
+    ]);
+    expect(personNameForms("Patriarch Parthenius III of Constantinople")).toEqual([
+      "Parthenius III of Constantinople",
+      "Parthenius",
+    ]);
+    expect(personNameForms("Blessed beato Bonaventura, da Potenza")).toEqual([
+      "Bonaventura, da Potenza",
+      "Bonaventura",
+    ]);
+    // Not names: a group, a number, a description.
+    expect(personNameForms("Blessed 108 Martyrs of World War II")).toEqual([]);
+    expect(personNameForms("Saint Martyrs of Compiègne")).toEqual([]);
+    expect(personNameForms("Saint The Seven Brothers of Lazia")).toEqual([]);
+  });
+
+  it("protects a one-word name only where it is capitalized, and stops before a possessive", () => {
+    expect(spans("Faith was martyred under Hadrian.", ["Faith"])).toEqual(["Faith"]);
+    expect(spans("She kept the faith to the end.", ["Faith"])).toEqual([]);
+    expect(spans("During Agatho's tenure the council met.", ["Agatho"])).toEqual(["Agatho"]);
   });
 
   it("protects the saint in a translated title", () => {
@@ -455,96 +534,80 @@ describe("rule (b): parish names", () => {
     });
   });
 
-  it("translates CJK names for Latin-script readers, transliterating meanwhile where it can", () => {
-    expect(decideParishName("명동대성당", "en")).toEqual({
-      action: "translate",
-      from: "ko",
-      fallback: "romanize",
-    });
-    expect(decideParishName("東京カテドラル聖マリア大聖堂", "es")).toEqual({
-      action: "translate",
-      from: "ja",
-      fallback: "romanize",
-    });
-    expect(decideParishName("北京圣母无染原罪主教座堂", "fr")).toEqual({
-      action: "translate",
-      from: "zh",
-      fallback: "original",
-    });
-    expect(decideParishName("浦上教会", "fr", { countryCode: "JP" })).toEqual({
-      action: "translate",
-      from: "ja",
-      fallback: "original",
-    });
-  });
-
-  it("translates Korean for Chinese readers and Chinese for Korean readers", () => {
-    expect(decideParishName("명동대성당", "zh").action).toBe("translate");
-    expect(decideParishName("北京圣母无染原罪主教座堂", "ko")).toMatchObject({
-      action: "translate",
-      from: "zh",
-    });
-  });
-
-  it("chooses the Cyrillic model by country and letters", () => {
-    expect(cyrillicNameLanguage("Храм Святого Николая", "RU")).toBe("ru");
-    expect(cyrillicNameLanguage("Церква Святого Миколая", "UA")).toBe("uk");
-    expect(cyrillicNameLanguage("Церква святої Покрови", null)).toBe("uk");
-    expect(cyrillicNameLanguage("Касцёл Святога Міхаіла", "BY")).toBe("mul");
-    expect(cyrillicNameLanguage("Костел Святой Троицы", "BY")).toBe("ru");
-    expect(cyrillicNameLanguage("Црква Светог Николе", "RS")).toBe("mul");
-    expect(cyrillicNameLanguage("Храм Свети Йосиф", "BG")).toBe("mul");
-    expect(cyrillicNameLanguage("Храм Святого Иосифа", "KZ")).toBe("ru");
-    expect(decideParishName("Церква Святого Миколая", "en", { countryCode: "UA" })).toEqual({
-      action: "translate",
-      from: "uk",
-      fallback: "romanize",
-    });
-  });
-
-  it("translates Greek, Arabic, Hebrew, Thai and every other script into the reader's language", () => {
-    expect(decideParishName("كنيسة مار الياس", "en", { countryCode: "LB" })).toEqual({
-      action: "translate",
-      from: "ar",
-      fallback: "original",
-    });
-    expect(
-      decideParishName("Καθολική εκκλησία Αγίου Ιωάννου", "it", { countryCode: "GR" }),
-    ).toEqual({
-      action: "translate",
-      from: "el",
-      fallback: "romanize",
-    });
-    for (const name of ["כנסיית הבשורה", "โบสถ์คาทอลิก", "სამების ტაძარი", "Սուրբ Աստվածածին"]) {
-      expect(decideParishName(name, "en")).toMatchObject({ action: "translate", from: "mul" });
+  it("transliterates Hangul, kana, Cyrillic and Greek names for Latin-script readers", () => {
+    for (const name of [
+      "명동대성당",
+      "カトリック教会",
+      "Церква Святого Миколая",
+      "Храм Святого Николая",
+      "Καθολική εκκλησία Αγίου Ιωάννου",
+    ]) {
+      for (const locale of LATIN_READERS) {
+        expect(decideParishName(name, locale), `${name} / ${locale}`).toEqual({
+          action: "transliterate",
+        });
+      }
     }
   });
 
-  it("translates an English name for Korean and Chinese readers, and keeps the others", () => {
-    expect(decideParishName("St. Mary's Catholic Church", "ko")).toEqual({
-      action: "translate",
-      from: "en",
-      fallback: "original",
-    });
-    expect(decideParishName("Parroquia San José", "zh")).toEqual({
-      action: "keep",
-      reason: "no-meaningful-translation",
-    });
-    expect(decideParishName("12", "zh")).toEqual({ action: "keep", reason: "no-letters" });
+  it("transliterates across the CJK scripts too: Hangul for Chinese readers, kana for Korean", () => {
+    expect(decideParishName("명동대성당", "zh")).toEqual({ action: "transliterate" });
+    expect(decideParishName("カトリック教会", "ko")).toEqual({ action: "transliterate" });
+    expect(decideParishName("Храм Святого Николая", "ko")).toEqual({ action: "transliterate" });
   });
 
-  it("tells English church names from other languages'", () => {
-    expect(isEnglishChurchName("St. Mary's Catholic Church")).toBe(true);
-    expect(isEnglishChurchName("Our Lady of Lourdes Parish")).toBe(true);
-    expect(isEnglishChurchName("Basilica of the Sacred Heart")).toBe(true);
-    expect(isEnglishChurchName("Parroquia San José")).toBe(false);
-    expect(isEnglishChurchName("Notre-Dame de Paris")).toBe(false);
-    expect(isEnglishChurchName("Église Saint-Roch")).toBe(false);
+  it("keeps a name whose script has no letter-by-letter transliteration as written", () => {
+    for (const name of [
+      "北京圣母无染原罪主教座堂",
+      "كنيسة مار الياس",
+      "כנסיית הבשורה",
+      "โบสถ์คาทอลิก",
+      "სამების ტაძარი",
+      "Սուրբ Աստվածածին",
+    ]) {
+      expect(decideParishName(name, "en"), name).toEqual({
+        action: "keep",
+        reason: "no-transliteration",
+      });
+    }
+    // Han for a Korean reader: legible as hanja, and nothing to transliterate it with.
+    expect(decideParishName("北京圣母无染原罪主教座堂", "ko")).toEqual({
+      action: "keep",
+      reason: "no-transliteration",
+    });
+  });
+
+  it("never machine-translates a name: a Latin-script name stays as written for every reader", () => {
+    for (const locale of ["zh", "ko"] as const) {
+      for (const name of [
+        "St. Mary's Catholic Church",
+        "Parroquia San José",
+        "Église Saint-Roch",
+      ]) {
+        expect(decideParishName(name, locale), `${name} / ${locale}`).toEqual({
+          action: "keep",
+          reason: "latin-script",
+        });
+      }
+    }
+    expect(decideParishName("12", "zh")).toEqual({ action: "keep", reason: "no-letters" });
+    // No locale, for any name, ever gets anything but keep or transliterate.
+    for (const locale of SUPPORTED_LOCALES) {
+      for (const name of [
+        "명동대성당",
+        "北京圣母无染原罪主教座堂",
+        "St. Mary's",
+        "Храм",
+        "Άγιος",
+      ]) {
+        expect(["keep", "transliterate"]).toContain(decideParishName(name, locale).action);
+      }
+    }
   });
 
   it("always shows the original beside a rendering", () => {
-    expect(withOriginal("Myeongdong Cathedral", "명동대성당")).toBe(
-      "Myeongdong Cathedral (명동대성당)",
+    expect(withOriginal("Myeongdong Daeseongdang", "명동대성당")).toBe(
+      "Myeongdong Daeseongdang (명동대성당)",
     );
     expect(withOriginal("명동대성당", "명동대성당")).toBe("명동대성당");
     expect(withOriginal("  ", "명동대성당")).toBe("명동대성당");

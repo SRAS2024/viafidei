@@ -11,7 +11,7 @@ import {
 import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
 import { categorizePrayer, prayerCategoryLabel } from "@/lib/content-shared/prayer-categories";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
-import { displayItem } from "@/lib/translation/display";
+import { displayItem, displayPrayerVariants } from "@/lib/translation/display";
 import { localizeItem } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +67,7 @@ export default async function PrayerDetailPage({ params }: Props) {
   // use `prayerText`. Accept either so the prayer text always renders.
   const body =
     (payload.body as string | undefined) ?? (payload.prayerText as string | undefined) ?? "";
-  const variants = buildPrayerVariants(shown.payload);
+  const variants = displayPrayerVariants(prayer);
   const summary = shown.payload.summary as string | undefined;
 
   // The official text is shown ONLY when it is genuinely a different text from
@@ -79,11 +79,17 @@ export default async function PrayerDetailPage({ params }: Props) {
       ? officialRaw
       : null;
 
-  const occasions = Array.isArray(shown.payload.occasions)
-    ? shown.payload.occasions.filter(
-        (o): o is string => typeof o === "string" && o.trim().length > 0,
-      )
-    : [];
+  // Keyed by the stored value: two occasions can read the same once translated.
+  const storedOccasions = Array.isArray(payload.occasions) ? payload.occasions : [];
+  const shownOccasions = Array.isArray(shown.payload.occasions)
+    ? shown.payload.occasions
+    : storedOccasions;
+  const occasions = storedOccasions
+    .map((key, i) => ({ key, label: shownOccasions[i] }))
+    .filter(
+      (o): o is { key: string; label: string } =>
+        typeof o.key === "string" && o.key.trim().length > 0 && typeof o.label === "string",
+    );
   const relatedSaints = await resolveRelatedLinks("SAINT", payload.relatedSaints);
   const citations = httpCitations(payload.citations);
   // The eyebrow is the prayer's canonical category ("Marian", "Acts",
@@ -140,10 +146,10 @@ export default async function PrayerDetailPage({ params }: Props) {
           <ul className="mt-3 flex flex-wrap gap-2">
             {occasions.map((occasion) => (
               <li
-                key={occasion}
+                key={occasion.key}
                 className="rounded-full border border-ink/15 px-3 py-1 font-serif text-sm text-ink-soft"
               >
-                {occasion}
+                {occasion.label}
               </li>
             ))}
           </ul>

@@ -5,6 +5,7 @@ import { romanize } from "@/lib/translation/romanize";
 import {
   addsToSource,
   buildCaseStats,
+  distortsCatholicTerms,
   isTitleCase,
   limitLength,
   looksBroken,
@@ -118,6 +119,15 @@ describe("Title Case handling", () => {
     expect(sentenceCase("To Bear One’s Cross", stats)).toBe("To bear one’s cross");
     expect(sentenceCase("The Face of God", stats)).toBe("The face of God");
   });
+
+  it("keeps the names of prayers capitalized (a lower-case 'hail' reads as weather)", () => {
+    expect(sentenceCase("Pray the Hail Mary and the Glory Be", stats)).toBe(
+      "Pray the Hail Mary and the Glory Be",
+    );
+    expect(sentenceCase("How to Pray the Our Father Slowly", stats)).toBe(
+      "How to pray the Our Father slowly",
+    );
+  });
 });
 
 describe("source preparation", () => {
@@ -187,14 +197,72 @@ describe("looksBroken and addsToSource", () => {
     expect(addsToSource("The Qur'an names Allah.", "El Corán nombra a Allah.")).toBe(false);
     expect(addsToSource("As John 3:16 says.", "Como dice Juan 3:16.")).toBe(false);
   });
+
+  it("rejects a translation that makes Our Lady a goddess or a madam", () => {
+    const src = "Our Lady of Guadalupe appeared on the hill of Tepeyac.";
+    // Measured outputs of the pinned Vietnamese and Chinese models.
+    expect(distortsCatholicTerms(src, "Nữ thần của nước guadalupe xuất hiện.", "vi")).toBe(true);
+    expect(distortsCatholicTerms(src, "Phu nhân của chúng ta ở Guadalupe xuất hiện.", "vi")).toBe(
+      true,
+    );
+    expect(distortsCatholicTerms(src, "我们的夸达鲁普夫人出现在山上。", "zh")).toBe(true);
+    expect(
+      distortsCatholicTerms("Prayer to our Lady of Lourdes", "我们的卢尔德夫人祈祷", "zh"),
+    ).toBe(true);
+    expect(looksBroken(src, "我们的夸达鲁普夫人出现在山上。", "zh")).toBe(true);
+    // The Church's own names pass.
+    expect(distortsCatholicTerms(src, "Đức Mẹ Guadalupe hiện ra trên đồi Tepeyac.", "vi")).toBe(
+      false,
+    );
+    expect(distortsCatholicTerms(src, "瓜达卢佩圣母在山上显现。", "zh")).toBe(false);
+    expect(
+      distortsCatholicTerms(src, "Nuestra Señora de Guadalupe apareció en el cerro.", "es"),
+    ).toBe(false);
+    expect(distortsCatholicTerms(src, "Notre-Dame de Guadalupe apparut.", "fr")).toBe(false);
+    expect(distortsCatholicTerms(src, "Matka Boża z Guadalupe objawiła się.", "pl")).toBe(false);
+    // Carried over in English, as the Tagalog model does: not a misnaming.
+    expect(
+      distortsCatholicTerms(src, "Nagpakita ang Our Lady of Guadalupe sa burol ng Tepeyac.", "tl"),
+    ).toBe(false);
+    // A goddess is never Mary, unless the English speaks of one.
+    expect(distortsCatholicTerms("Mary is our mother.", "María es nuestra diosa.", "es")).toBe(
+      true,
+    );
+    expect(
+      distortsCatholicTerms(
+        "The shrine replaced a temple of the goddess Diana.",
+        "El santuario reemplazó un templo de la diosa Diana.",
+        "es",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects the Hail Mary turned into weather, but not a real hailstorm", () => {
+    expect(
+      distortsCatholicTerms("Pray the hail Mary and the X1.", "Módl się z gradem Mary i X1.", "pl"),
+    ).toBe(true);
+    expect(distortsCatholicTerms("Pray the Hail Mary.", "Módlcie się Zdrowaś Maryjo.", "pl")).toBe(
+      false,
+    );
+    expect(
+      distortsCatholicTerms(
+        "After the hail fell they prayed a Hail Mary.",
+        "Po gradzie odmówili Zdrowaś Maryjo.",
+        "pl",
+      ),
+    ).toBe(false);
+  });
 });
 
-describe("romanize (the fallback while a name waits for the translator)", () => {
+describe("romanize (how a parish name in another script is shown, rule b)", () => {
   it.each([
     ["명동대성당", "KR", "Myeongdong Daeseongdang"],
     ["Церква Святого Миколая", "UA", "Tserkva Sviatoho Mykolaia"],
     ["Храм Святого Николая", "RU", "Khram Svyatogo Nikolaya"],
     ["Καθολική εκκλησία Αγίου Ιωάννου", "GR", "Katholiki ekklisia Agiou Ioannou"],
+    // A word in capitals stays in capitals ("LOUTRO", not "LOuTRO").
+    ["ΠΑΝΑΓΙΑ ΛΟΥΤΡΟ", "GR", "PANAGIA LOUTRO"],
+    ["ЦЕРКВА Святого Миколая", "UA", "TSERKVA Sviatoho Mykolaia"],
   ])("%s (%s) → %s", (name, cc, out) => {
     expect(romanize(name, { countryCode: cc })).toBe(out);
   });

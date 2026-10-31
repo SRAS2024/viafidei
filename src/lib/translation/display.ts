@@ -10,7 +10,8 @@
  * overlay renders exactly as before.
  */
 
-import type { Locale } from "@/lib/i18n/locales";
+import { buildPrayerVariants, type PrayerVariant } from "@/lib/content-shared/prayer-language";
+import { LOCALE_LABELS, type Locale } from "@/lib/i18n/locales";
 
 export interface DisplayOverlay {
   locale: Locale;
@@ -49,4 +50,37 @@ export function displayItem<T extends Displayable>(item: T): T {
   if ("subtitle" in item) (shown as Displayable).subtitle = overlay.subtitle;
   if (overlay.payload && "payload" in item) (shown as Displayable).payload = overlay.payload;
   return shown;
+}
+
+/** The `lang` of text the engine wrote, where it is more precise than the locale. */
+const OUTPUT_LANG: Partial<Record<Locale, string>> = { zh: "zh-Hans" };
+
+/**
+ * A prayer's language variants as the reader sees them (its own page, and the
+ * prayers of a guide or a novena). When the prayer's text was machine-
+ * translated for the reader, the vernacular variant holds that translation:
+ * it is labelled with the reader's language and marked up as it (`lang`),
+ * never as the English it was translated from. The Latin and Greek variants
+ * are always the stored texts.
+ */
+export function displayPrayerVariants(item: {
+  title: string;
+  payload: Record<string, unknown>;
+}): PrayerVariant[] {
+  const shown = displayItem(item);
+  const variants = buildPrayerVariants(shown.payload);
+  const overlay = displayOverlay(item);
+  const first = variants[0];
+  if (!overlay || !first || first.preserve) return variants;
+  const stored = item.payload.body ?? item.payload.prayerText;
+  const translated = shown.payload.body ?? shown.payload.prayerText;
+  if (translated === stored || first.text !== translated) return variants;
+  return [
+    {
+      ...first,
+      label: LOCALE_LABELS[overlay.locale],
+      lang: OUTPUT_LANG[overlay.locale] ?? overlay.locale,
+    },
+    ...variants.slice(1),
+  ];
 }
