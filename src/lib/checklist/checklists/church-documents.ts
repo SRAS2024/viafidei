@@ -4,17 +4,10 @@ import { curatedChecklist } from "./from-curated";
 /**
  * Church documents intentionally not curated yet (the authoring backlog).
  * Lumen Fidei and Amoris Laetitia were removed: both are curated now
- * (knowledge/church-documents/group-*.ts). Ineffabilis Deus was removed for the
- * same reason (group-3.ts).
+ * (knowledge/church-documents/group-*.ts). Ineffabilis Deus and Pastores Dabo
+ * Vobis were removed for the same reason (group-3.ts).
  */
 export const churchDocumentsExtras: ChecklistSeed[] = [
-  {
-    canonicalName: "Pastores Dabo Vobis",
-    canonicalSlug: "pastores-dabo-vobis",
-    priority: 30,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "apostolic_exhortation" },
-  },
   {
     canonicalName: "Munificentissimus Deus",
     canonicalSlug: "munificentissimus-deus",

@@ -2,10 +2,12 @@ import type { CuratedEntry } from "../index";
 
 /**
  * Church document group 3: the papal magisterium that groups 1 and 2 leave
- * out, from the bulls of union of the Council of Florence through the
- * encyclicals of Leo XIII, Saint Pius X, Benedict XV, Pius XI and Pius XII, to
- * the apostolic constitutions, exhortations, letters and motu proprio
- * documents of the popes from Saint John XXIII to Leo XIV.
+ * out — the Council of Florence's bulls of union with the Armenians and the
+ * Copts; landmark documents of Benedict XIV, Clement XIV, Pius VI, Pius VII,
+ * Gregory XVI and Blessed Pius IX; the encyclicals of Leo XIII, Saint Pius X,
+ * Benedict XV, Pius XI and Pius XII; and the encyclicals, apostolic
+ * constitutions, exhortations, letters, bulls and motu proprio documents of
+ * the popes from Saint John XXIII to Leo XIV.
  *
  * House rules for this file:
  *
@@ -16,9 +18,10 @@ import type { CuratedEntry } from "../index";
  *     so. The second citation is the vatican.va index page that lists the
  *     document, fetched the same way.
  *   - `issuedDate` is the date in the document's own dateline. Where that
- *     differs from the date in the Vatican's URL path (Pastores Dabo Vobis,
- *     Apostolos Suos, Sacramentorum Sanctitatis Tutela and others), the
- *     dateline wins.
+ *     differs from the date in the Vatican's URL path (Ad Tuendam Fidem,
+ *     Misericordia Dei, Mane Nobiscum Domine) or from the page title (Pastores
+ *     Dabo Vobis, whose title reads 15 March while the dateline reads 25
+ *     March), the dateline wins.
  *   - Summaries and key themes are short factual descriptions written for this
  *     catalogue. No document text is reproduced: there is no `bodyExcerpt` in
  *     this file, and nothing inside a summary is a quotation.
@@ -122,6 +125,31 @@ const PAUL_VI_CONSTITUTIONS_LATIN =
   "https://www.vatican.va/content/paul-vi/la/apost_constitutions.index.html";
 const PAUL_VI_MOTU_PROPRIO = "https://www.vatican.va/content/paul-vi/en/motu_proprio.index.html";
 const PAUL_VI_LETTERS = "https://www.vatican.va/content/paul-vi/en/apost_letters.index.html";
+const JOHN_PAUL_II_ENCYCLICALS =
+  "https://www.vatican.va/content/john-paul-ii/en/encyclicals.index.html";
+const JOHN_PAUL_II_EXHORTATIONS =
+  "https://www.vatican.va/content/john-paul-ii/en/apost_exhortations.index.html";
+const JOHN_PAUL_II_CONSTITUTIONS =
+  "https://www.vatican.va/content/john-paul-ii/en/apost_constitutions.index.html";
+const JOHN_PAUL_II_MOTU_PROPRIO =
+  "https://www.vatican.va/content/john-paul-ii/en/motu_proprio.index.html";
+const JOHN_PAUL_II_BULLS = "https://www.vatican.va/content/john-paul-ii/en/bulls.index.html";
+const JOHN_PAUL_II_LETTERS_1994 =
+  "https://www.vatican.va/content/john-paul-ii/en/apost_letters/1994.index.html";
+const JOHN_PAUL_II_LETTERS_1995 =
+  "https://www.vatican.va/content/john-paul-ii/en/apost_letters/1995.index.html";
+const JOHN_PAUL_II_LETTERS_1997 =
+  "https://www.vatican.va/content/john-paul-ii/en/apost_letters/1997.index.html";
+const JOHN_PAUL_II_LETTERS_2004 =
+  "https://www.vatican.va/content/john-paul-ii/en/apost_letters/2004.index.html";
+const BENEDICT_XVI_EXHORTATIONS =
+  "https://www.vatican.va/content/benedict-xvi/en/apost_exhortations.index.html";
+const FRANCIS_EXHORTATIONS =
+  "https://www.vatican.va/content/francesco/en/apost_exhortations.index.html";
+const FRANCIS_LETTERS = "https://www.vatican.va/content/francesco/en/apost_letters.index.html";
+const FRANCIS_MOTU_PROPRIO = "https://www.vatican.va/content/francesco/en/motu_proprio.index.html";
+const FRANCIS_BULLS = "https://www.vatican.va/content/francesco/en/bulls.index.html";
+const LEO_XIV_LETTERS = "https://www.vatican.va/content/leo-xiv/en/apost_letters.index.html";
 
 export const churchDocumentGroupThree: CuratedEntry[] = [
   // ---------------------------------------------------------------------------
@@ -2149,5 +2177,515 @@ export const churchDocumentGroupThree: CuratedEntry[] = [
       "https://www.vatican.va/content/paul-vi/en/apost_exhortations/documents/hf_p-vi_exh_19750509_gaudete-in-domino.html",
     indexUrl: PAUL_VI_EXHORTATIONS,
     relatedDocuments: ["evangelii-nuntiandi", "evangelii-gaudium", "gaudete-et-exsultate"],
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Pope Saint John Paul II
+  // ---------------------------------------------------------------------------
+  doc({
+    slug: "catechesi-tradendae",
+    title: "Catechesi Tradendae",
+    documentType: "apostolic_exhortation",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1979-10-16",
+    summary:
+      "The apostolic exhortation on catechesis in our time, given on the first anniversary of John Paul II's election and drawn from the work of the 1977 Synod of Bishops, which Paul VI had prepared. Catechesis, the Pope teaches, is Christocentric: its aim is to bring people into communion with Jesus Christ and to hand on his teaching, not the catechist's own. He distinguishes it from the first proclamation of the Gospel while showing how closely the two are joined, and insists that it be systematic, complete in its content, and faithful to the Church's teaching, while adapted to every age and condition — children, adolescents, young people and adults — and to every culture. The exhortation treats the sources and methods of catechesis, including a place for memorisation, and the many places where it happens, above all the family, the parish and the school, and closes by calling the whole Church, and especially bishops, priests, religious and lay catechists, to make catechesis a priority.",
+    keyThemes: [
+      "Catechesis centred on Christ",
+      "Systematic and complete teaching of the faith",
+      "Catechesis for every age",
+      "The family, the parish and the school",
+      "The responsibility of the whole Church",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_16101979_catechesi-tradendae.html",
+    indexUrl: JOHN_PAUL_II_EXHORTATIONS,
+    relatedDocuments: ["evangelii-nuntiandi", "acerbo-nimis", "catechism-of-the-catholic-church"],
+  }),
+  doc({
+    slug: "divinus-perfectionis-magister",
+    title: "Divinus Perfectionis Magister",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1983-01-25",
+    summary:
+      "The apostolic constitution by which John Paul II reformed the procedure for the causes of saints, issued on the same day as the new Code of Canon Law. Recalling that God has always raised up holy men and women whom the Church proposes for imitation and veneration, and that recent progress in historical studies called for a better-equipped procedure, the Pope gives diocesan bishops the right to conduct inquiries into the life, virtues or martyrdom and the alleged miracles of servants of God. In the Congregation for the Causes of Saints he establishes a College of Relators, who with collaborators prepare the documented position on each cause; a Promoter of the Faith or Prelate Theologian who presides over the theologians' discussion; consultors expert in history and theology; and a board of medical experts to examine reported healings. The results are judged by the cardinals and bishops of the Congregation and reported to the Pope, who alone has the right to declare that public cult may be given to a servant of God.",
+    keyThemes: [
+      "Causes of beatification and canonisation",
+      "Diocesan inquiries",
+      "The College of Relators",
+      "Historical, theological and medical examination",
+      "The Pope's decision",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/apost_constitutions/documents/hf_jp-ii_apc_25011983_divinus-perfectionis-magister.html",
+    indexUrl: JOHN_PAUL_II_CONSTITUTIONS,
+    relatedDocuments: ["code-of-canon-law-1983", "gaudete-et-exsultate"],
+  }),
+  doc({
+    slug: "slavorum-apostoli",
+    title: "Slavorum Apostoli",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1985-06-02",
+    summary:
+      "John Paul II's encyclical on Saints Cyril and Methodius, the brothers from Thessalonica who evangelised the Slavs, written for the eleventh centenary of Methodius's death and five years after the Pope had named them co-patrons of Europe with Saint Benedict. He recounts their lives: Constantine-Cyril's learning, their mission to Great Moravia at the request of Prince Rastislav, their journey to Rome, Cyril's death there, and Methodius's labours as archbishop and papal legate for the Slav peoples amid opposition and persecution. He dwells on their method — creating an alphabet so that the Scriptures and the liturgy could be given in Old Slavonic, and incarnating the Gospel in the cultures of the peoples they served without imposing a foreign one — and on their fidelity to both Constantinople and Rome. In them he sees models of evangelisation and inculturation, and patrons of the unity of the Churches of East and West and of a Europe reconciled within itself.",
+    keyThemes: [
+      "Saints Cyril and Methodius",
+      "The evangelisation of the Slavs",
+      "The Slavonic liturgy and alphabet",
+      "Inculturation of the Gospel",
+      "Unity of East and West and of Europe",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/encyclicals/documents/hf_jp-ii_enc_19850602_slavorum-apostoli.html",
+    indexUrl: JOHN_PAUL_II_ENCYCLICALS,
+    relatedDocuments: ["orientale-lumen", "ut-unum-sint", "redemptoris-missio"],
+  }),
+  doc({
+    slug: "pastor-bonus",
+    title: "Pastor Bonus",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1988-06-28",
+    summary:
+      "The apostolic constitution on the Roman Curia that John Paul II issued in the presence of the cardinals in consistory on the vigil of Saints Peter and Paul in the Marian Year 1988, four centuries after Sixtus V's constitution organising the Roman congregations, and following Paul VI's reform of 1967 and the promulgation of the 1983 Code. Its introduction presents the Curia as an instrument of service to the Pope in his Petrine ministry and to the bishops, in a spirit of communion and collegiality. The norms then set out the general rules for the dicasteries and describe each in turn: the Secretariat of State, the congregations, the tribunals, the pontifical councils, the administrative offices and other institutions, with their competences, together with the ad limina visits of bishops and the pastoral character of the Curia's work. It governed the Curia until it was replaced by Praedicate Evangelium in 2022.",
+    keyThemes: [
+      "Reform of the Roman Curia",
+      "Service to the Petrine ministry",
+      "Communion with the bishops",
+      "The dicasteries and their competences",
+      "Ad limina visits",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/apost_constitutions/documents/hf_jp-ii_apc_19880628_pastor-bonus.html",
+    indexUrl: JOHN_PAUL_II_CONSTITUTIONS,
+    relatedDocuments: ["praedicate-evangelium", "code-of-canon-law-1983", "christus-dominus"],
+  }),
+  doc({
+    slug: "ecclesia-dei",
+    title: "Ecclesia Dei",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1988-07-02",
+    summary:
+      "The apostolic letter given motu proprio in which John Paul II responded to the episcopal ordinations conferred without papal mandate by Archbishop Marcel Lefebvre on 30 June 1988, which ended years of efforts to secure the full communion of the Priestly Fraternity of Saint Pius X. The Pope explains that the act was one of disobedience to the Roman Pontiff in a very grave matter, constituting a schismatic act, and that the bishops involved incurred the excommunication laid down by canon law; he traces its root to an incomplete and contradictory notion of Tradition that does not grasp its living character or the role of the Magisterium. He appeals to all who had been linked with the movement to remain united to the Vicar of Christ, and to theologians and the faithful to deepen their fidelity to the Church's living Tradition. To meet the aspirations of those attached to the earlier Latin liturgical tradition, he established a commission to facilitate their full ecclesial communion, and asked bishops to apply generously the provisions already made for the use of the 1962 Roman Missal.",
+    keyThemes: [
+      "The Lefebvre episcopal ordinations",
+      "Schism and the unity of the Church",
+      "The living Tradition",
+      "The Ecclesia Dei commission",
+      "Use of the 1962 Missal",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/motu_proprio/documents/hf_jp-ii_motu-proprio_02071988_ecclesia-dei.html",
+    indexUrl: JOHN_PAUL_II_MOTU_PROPRIO,
+    relatedDocuments: ["summorum-pontificum", "traditionis-custodes", "dei-verbum"],
+  }),
+  doc({
+    slug: "redemptoris-custos",
+    title: "Redemptoris Custos",
+    documentType: "apostolic_exhortation",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1989-08-15",
+    summary:
+      "John Paul II's apostolic exhortation on the person and mission of Saint Joseph in the life of Christ and of the Church, written for the centenary of Leo XIII's Quamquam Pluries. Following the Gospels, the Pope contemplates Joseph as the depositary of the mystery of God: the just man who received the angel's message and took Mary as his wife, sharing by faith in the mystery of the Incarnation; the husband of Mary in a true marriage; and the guardian who gave the Son of God a father's care, naming him, protecting him in the flight to Egypt and raising him at Nazareth. He reflects on Joseph's work as a carpenter, which made human labour part of the mystery of the redemption, and on the primacy of his interior life, hidden and silent, wholly given to the will of God. Recalling that Pius IX had declared Joseph patron of the Catholic Church, he asks that his patronage be invoked today above all for the Church's renewed commitment to evangelisation.",
+    keyThemes: [
+      "Saint Joseph, guardian of the Redeemer",
+      "The marriage of Mary and Joseph",
+      "Joseph's fatherhood and service",
+      "The dignity of work",
+      "Joseph as patron of the Church",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_15081989_redemptoris-custos.html",
+    indexUrl: JOHN_PAUL_II_EXHORTATIONS,
+    relatedDocuments: ["quamquam-pluries", "patris-corde"],
+  }),
+  doc({
+    slug: "pastores-dabo-vobis",
+    title: "Pastores Dabo Vobis",
+    documentType: "apostolic_exhortation",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1992-03-25",
+    summary:
+      "The post-synodal apostolic exhortation on the formation of priests in the circumstances of the present day, following the 1990 Synod of Bishops and dated on the solemnity of the Annunciation. The Pope first sets out the identity of the ministerial priest within the mystery of the Church: by ordination the priest is configured to Christ the Head and Shepherd, sharing in his consecration and mission and representing him sacramentally, and his spiritual life is shaped by pastoral charity and lived through the evangelical counsels and in the presbyterate. He then treats vocations as a responsibility of the whole Church and gives a comprehensive plan of formation in four dimensions — human, spiritual, intellectual and pastoral — with chapters on the seminary community, the role of the bishop, formators and families, and on ongoing formation throughout a priest's life. The document became the foundation for programmes of priestly formation worldwide.",
+    keyThemes: [
+      "The identity of the ministerial priest",
+      "Configuration to Christ the Head and Shepherd",
+      "The pastoral care of vocations",
+      "Human, spiritual, intellectual and pastoral formation",
+      "Ongoing formation of priests",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_25031992_pastores-dabo-vobis.html",
+    indexUrl: JOHN_PAUL_II_EXHORTATIONS,
+    relatedDocuments: ["optatam-totius", "presbyterorum-ordinis", "menti-nostrae"],
+  }),
+  doc({
+    slug: "tertio-millennio-adveniente",
+    title: "Tertio Millennio Adveniente",
+    documentType: "apostolic_letter",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1994-11-10",
+    summary:
+      "John Paul II's apostolic letter on preparation for the Great Jubilee of the Year 2000. The Pope presents the jubilee as a celebration of the Incarnation, recalls the biblical and Christian tradition of jubilees, and sees the Second Vatican Council as a providential preparation for the new millennium. He sets out a plan in two phases: an antepreparatory phase, and three years of immediate preparation centred on the Trinity — 1997 dedicated to Jesus Christ, 1998 to the Holy Spirit and 1999 to God the Father, each with its theological virtue, its sacrament and its Marian dimension. He asks the Church to enter the new millennium with an examination of conscience and repentance for the sins of her children, including those against Christian unity and the use of intolerance and violence in the service of truth; to keep the memory of the martyrs of the twentieth century; to promote ecumenism and interreligious dialogue; and to give the jubilee a strong dimension of charity toward the poor, including the reduction of the debts of poorer nations.",
+    keyThemes: [
+      "The Great Jubilee of the Year 2000",
+      "Three years of Trinitarian preparation",
+      "Examination of conscience and repentance",
+      "The martyrs of the twentieth century",
+      "Ecumenism and charity in the jubilee",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/apost_letters/1994/documents/hf_jp-ii_apl_19941110_tertio-millennio-adveniente.html",
+    indexUrl: JOHN_PAUL_II_LETTERS_1994,
+    relatedDocuments: ["incarnationis-mysterium", "novo-millennio-ineunte", "ut-unum-sint"],
+  }),
+  doc({
+    slug: "orientale-lumen",
+    title: "Orientale Lumen",
+    documentType: "apostolic_letter",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1995-05-02",
+    summary:
+      "John Paul II's apostolic letter on the Churches of the East, written for the centenary of Leo XIII's Orientalium Dignitas and dated on the memorial of Saint Athanasius. Convinced that the venerable and ancient tradition of the Eastern Churches is part of the undivided heritage of the whole Church, the Pope asks Catholics of the West to know and love it. He draws out its riches: the liturgy as participation in the life of the Trinity, the Fathers' teaching on divinisation, the sense of the mystery of God and the reverent silence before it, the place of the Mother of God and the saints, and above all monasticism, which in the East remained a reference point for all the baptised. Turning from knowledge to encounter, he speaks of the pain of separation, of what has already been achieved in dialogue with the Orthodox Churches, and of the steps — prayer, mutual knowledge, shared witness and respect for the Eastern Catholic Churches — that can lead to full communion.",
+    keyThemes: [
+      "The heritage of the Eastern Churches",
+      "Liturgy and divinisation",
+      "Eastern monasticism",
+      "Knowledge and love of the Christian East",
+      "Ecumenical encounter with the Orthodox",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/apost_letters/1995/documents/hf_jp-ii_apl_19950502_orientale-lumen.html",
+    indexUrl: JOHN_PAUL_II_LETTERS_1995,
+    relatedDocuments: ["orientalium-ecclesiarum", "ut-unum-sint", "unitatis-redintegratio"],
+  }),
+  doc({
+    slug: "ecclesia-in-africa",
+    title: "Ecclesia in Africa",
+    documentType: "apostolic_exhortation",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1995-09-14",
+    summary:
+      "The post-synodal apostolic exhortation on the Church in Africa and her evangelising mission toward the Year 2000, following the 1994 Special Assembly for Africa of the Synod of Bishops and signed at Yaoundé in Cameroon on the feast of the Triumph of the Cross. The Pope takes up the Synod's central image of the Church as the Family of God, and reviews the history of evangelisation in Africa, its fruits, and the shadows that afflict the continent — poverty, war, corruption, refugees and disease. He then treats the tasks of evangelisation that the Synod examined: proclamation, a true and balanced inculturation of the Gospel, dialogue with other Christians, with Islam and with African traditional religion, the promotion of justice and peace, and the use of the means of social communication. He calls every part of the Church — bishops, priests, religious, catechists, families and lay people — to be witnesses to Christ in Africa and to the ends of the earth.",
+    keyThemes: [
+      "The Church as the Family of God",
+      "Evangelisation in Africa",
+      "Inculturation of the Gospel",
+      "Dialogue, justice and peace",
+      "Witness to Christ in Africa",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_14091995_ecclesia-in-africa.html",
+    indexUrl: JOHN_PAUL_II_EXHORTATIONS,
+    relatedDocuments: ["africae-munus", "redemptoris-missio", "ad-gentes"],
+  }),
+  doc({
+    slug: "universi-dominici-gregis",
+    title: "Universi Dominici Gregis",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1996-02-22",
+    summary:
+      "The apostolic constitution on the vacancy of the Apostolic See and the election of the Roman Pontiff, issued on the feast of the Chair of Saint Peter. The first part regulates the period of the vacancy: the limited powers of the College of Cardinals and its general and particular congregations, the role of the Camerlengo, the duties of the Roman Curia, and the funeral rites of the deceased Pope. The second part governs the election itself: the right to vote belongs only to cardinals who have not reached their eightieth birthday before the vacancy, up to a maximum of one hundred and twenty; the electors are to be lodged in the Domus Sanctae Marthae and to vote in the Sistine Chapel under the strictest secrecy; election by acclamation and by compromise is abolished, leaving only election by secret ballot; and a majority of at least two thirds is required. The constitution also sets out the acceptance, proclamation and installation of the new Pope. Some of its provisions were later amended by Benedict XVI.",
+    keyThemes: [
+      "Vacancy of the Apostolic See",
+      "The College of Cardinals during the vacancy",
+      "The cardinal electors",
+      "The conclave and its secrecy",
+      "Election by secret ballot and the required majority",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/apost_constitutions/documents/hf_jp-ii_apc_22021996_universi-dominici-gregis.html",
+    indexUrl: JOHN_PAUL_II_CONSTITUTIONS,
+    relatedDocuments: ["pastor-aeternus", "code-of-canon-law-1983"],
+  }),
+  doc({
+    slug: "divini-amoris-scientia",
+    title: "Divini Amoris Scientia",
+    documentType: "apostolic_letter",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1997-10-19",
+    summary:
+      "The apostolic letter by which John Paul II proclaimed Saint Thérèse of the Child Jesus and the Holy Face a Doctor of the Universal Church, in the centenary year of her death, a proclamation he had announced that August before the young people gathered for World Youth Day in Paris. The Pope recounts her short life — her childhood in a devout family, her entry into the Carmel of Lisieux at fifteen, her offering of herself to merciful Love, her trial of faith and her death at twenty-four — and the extraordinary spread of her autobiography and her reputation for holiness. He explains why her teaching merits the title of Doctor: though not a learned theologian, she was given a profound understanding of the science of divine love, expressed in her little way of spiritual childhood, trust and self-surrender, which is in harmony with Scripture and the Church's tradition and has proved fruitful throughout the world. She thus became the third woman, after Catherine of Siena and Teresa of Avila, to be declared a Doctor of the Church, and the Pope proposes her to the young and to all who seek the essentials of the Gospel.",
+    keyThemes: [
+      "Saint Thérèse of Lisieux, Doctor of the Church",
+      "The science of divine love",
+      "The little way of spiritual childhood",
+      "Trust and self-surrender",
+      "Her influence throughout the world",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/apost_letters/1997/documents/hf_jp-ii_apl_19101997_divini-amoris.html",
+    indexUrl: JOHN_PAUL_II_LETTERS_1997,
+    relatedDocuments: ["c-est-la-confiance", "gaudete-et-exsultate"],
+  }),
+  doc({
+    slug: "ad-tuendam-fidem",
+    title: "Ad Tuendam Fidem",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1998-05-18",
+    summary:
+      "The apostolic letter given motu proprio by which John Paul II inserted into the Code of Canon Law and the Code of Canons of the Eastern Churches norms protecting the truths that the Church proposes definitively. The Profession of Faith required of those who take office in the Church includes, after the truths of divine and Catholic faith, a second paragraph by which one firmly accepts and holds whatever the Church definitively proposes on faith and morals — truths required for the holy keeping and faithful exposition of the deposit of faith — but the codes contained no corresponding canon. The Pope therefore adds a second paragraph to canon 750 of the Latin Code and to canon 598 of the Eastern Code requiring that these teachings be firmly accepted and held, and amends canon 1371 and the corresponding Eastern canon so that one who obstinately rejects them after warning may be punished with a just penalty.",
+    keyThemes: [
+      "The Profession of Faith",
+      "Truths taught definitively by the Magisterium",
+      "Amendment of canons 750 and 1371",
+      "Corresponding Eastern canons",
+      "Protection of the deposit of faith",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/motu_proprio/documents/hf_jp-ii_motu-proprio_30061998_ad-tuendam-fidem.html",
+    indexUrl: JOHN_PAUL_II_MOTU_PROPRIO,
+    relatedDocuments: ["code-of-canon-law-1983", "code-of-canons-of-the-eastern-churches"],
+  }),
+  doc({
+    slug: "incarnationis-mysterium",
+    title: "Incarnationis Mysterium",
+    documentType: "papal_bull",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "1998-11-29",
+    summary:
+      "The bull of indiction of the Great Jubilee of the Year 2000, given on the First Sunday of Advent 1998. Contemplating the mystery of the Incarnation, the Pope presents the jubilee as the celebration of two thousand years since the birth of Christ and a year of grace for the Church and the world, to be celebrated in Rome and in the Holy Land and simultaneously in the local Churches. He decreed that the jubilee would begin with the opening of the Holy Door at Saint Peter's on Christmas Eve 1999 and set out its signs: pilgrimage; the Holy Door, symbol of Christ the door; the indulgence, whose meaning he explains in the light of the mercy of God and the communion of saints; the purification of memory, asking pardon for the sins of Christians across the centuries; charity toward the poor and the excluded; and the memory of the martyrs. The bull is accompanied by the norms of the Apostolic Penitentiary for gaining the jubilee indulgence.",
+    keyThemes: [
+      "The Great Jubilee of the Year 2000",
+      "The mystery of the Incarnation",
+      "Pilgrimage and the Holy Door",
+      "The jubilee indulgence",
+      "Purification of memory and charity",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/bulls/documents/hf_jp-ii_doc_19981129_bolla-incarnationis-mysterium.html",
+    indexUrl: JOHN_PAUL_II_BULLS,
+    relatedDocuments: [
+      "tertio-millennio-adveniente",
+      "novo-millennio-ineunte",
+      "indulgentiarum-doctrina",
+    ],
+  }),
+  doc({
+    slug: "misericordia-dei",
+    title: "Misericordia Dei",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "2002-04-07",
+    summary:
+      "The apostolic letter given motu proprio on certain aspects of the celebration of the sacrament of Penance, dated on Divine Mercy Sunday 2002. Concerned that in some places individual confession had fallen into disuse while general absolution was being used outside the conditions the law allows, the Pope recalls that individual and integral confession of grave sins followed by absolution remains the only ordinary means by which the faithful are reconciled with God and the Church, unless physical or moral impossibility excuses. He asks bishops and priests to make confession readily available, with fixed and convenient times, and lays down norms: the faithful are obliged to confess all grave sins in kind and number; general absolution without prior individual confession may be given only in cases of grave necessity as defined by law, which the bishop judges, and those so absolved must intend to confess their grave sins individually in due time; and confessions are ordinarily to be heard in the confessional.",
+    keyThemes: [
+      "The sacrament of Penance",
+      "Individual and integral confession",
+      "Limits on general absolution",
+      "Availability of confession",
+      "The role of bishops and priests",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/motu_proprio/documents/hf_jp-ii_motu-proprio_20020502_misericordia-dei.html",
+    indexUrl: JOHN_PAUL_II_MOTU_PROPRIO,
+    relatedDocuments: ["reconciliatio-et-paenitentia", "dives-in-misericordia"],
+  }),
+  doc({
+    slug: "mane-nobiscum-domine",
+    title: "Mane Nobiscum Domine",
+    documentType: "apostolic_letter",
+    issuingAuthority: "Pope Saint John Paul II",
+    issuedDate: "2004-10-07",
+    summary:
+      "John Paul II's apostolic letter for the Year of the Eucharist, which he opened with the International Eucharistic Congress at Guadalajara in October 2004 and closed with the Synod of Bishops on the Eucharist in 2005. Taking as its icon the disciples on the road to Emmaus, who recognised the risen Lord in the breaking of the bread, the letter places the year within the path he had traced since the Great Jubilee — the contemplation of Christ's face, the Rosary and Ecclesia de Eucharistia. It presents the Eucharist as a mystery of light, in which the word and the bread illuminate the faithful; as source and manifestation of communion; and as the principle and plan of mission, sending Christians to give thanks, to work for solidarity, and to serve the poor. The Pope asks for more fervent celebration of Sunday Mass, for prolonged Eucharistic adoration outside Mass, and for a year marked by deeper faith in the real presence.",
+    keyThemes: [
+      "The Year of the Eucharist",
+      "The disciples of Emmaus",
+      "The Eucharist as light, communion and mission",
+      "Sunday Mass and adoration",
+      "Solidarity and service of the poor",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-paul-ii/en/apost_letters/2004/documents/hf_jp-ii_apl_20041008_mane-nobiscum-domine.html",
+    indexUrl: JOHN_PAUL_II_LETTERS_2004,
+    relatedDocuments: ["ecclesia-de-eucharistia", "sacramentum-caritatis", "dies-domini"],
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Pope Benedict XVI, Pope Francis and Pope Leo XIV
+  // ---------------------------------------------------------------------------
+  doc({
+    slug: "ecclesia-in-medio-oriente",
+    title: "Ecclesia in Medio Oriente",
+    documentType: "apostolic_exhortation",
+    issuingAuthority: "Pope Benedict XVI",
+    issuedDate: "2012-09-14",
+    summary:
+      "The post-synodal apostolic exhortation on the Church in the Middle East, communion and witness, signed at Beirut during Benedict XVI's journey to Lebanon, following the 2010 Special Assembly for the Middle East of the Synod of Bishops. The Pope addresses the Catholic Churches of the region, Eastern and Latin, in a land that is the cradle of the faith yet marked by conflict, emigration and pressure on Christian communities. He calls them to communion among themselves and with the Bishop of Rome, to ecumenical fraternity with the other Churches, and to dialogue with Judaism and Islam; he speaks of religious freedom, including freedom of conscience, as the summit of all freedoms, of a healthy secularity, of the dignity of women, and of the needs of migrants and refugees. He then turns to each member of the Church — patriarchs, bishops, priests, religious, lay people, families and young people — and asks them to bear witness through the liturgy, catechesis and charity, so that Christians may remain and flourish in the Middle East.",
+    keyThemes: [
+      "The Church in the Middle East",
+      "Communion among the Catholic Churches",
+      "Ecumenism and interreligious dialogue",
+      "Religious freedom",
+      "Christian witness and presence",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/benedict-xvi/en/apost_exhortations/documents/hf_ben-xvi_exh_20120914_ecclesia-in-medio-oriente.html",
+    indexUrl: BENEDICT_XVI_EXHORTATIONS,
+    relatedDocuments: ["orientalium-ecclesiarum", "nostra-aetate", "dignitatis-humanae"],
+  }),
+  doc({
+    slug: "mitis-iudex-dominus-iesus",
+    title: "Mitis Iudex Dominus Iesus",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Francis",
+    issuedDate: "2015-08-15",
+    summary:
+      "The apostolic letter given motu proprio by which Pope Francis reformed the canons of the Latin Code of Canon Law on cases concerning the nullity of marriage, issued together with a parallel letter for the Eastern Churches. Wishing to make the process quicker and more accessible without weakening the principle of indissolubility, the Pope sets out guiding criteria: a single executive sentence in favour of nullity is sufficient, without the former requirement of two conforming decisions; cases may be heard in first instance by a single clerical judge under the bishop's responsibility; the bishop is himself the judge in his diocese; a briefer process before the bishop is introduced for cases where nullity is supported by particularly evident arguments and the request is made by both spouses or with the other's consent; appeal to the metropolitan see is restored; and episcopal conferences are asked to ensure, as far as possible, that processes are free of charge. The new norms replaced the relevant canons of the Code.",
+    keyThemes: [
+      "Reform of marriage nullity procedures",
+      "A single executive sentence",
+      "The bishop as judge",
+      "The briefer process",
+      "Accessibility and indissolubility",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/francesco/en/motu_proprio/documents/papa-francesco-motu-proprio_20150815_mitis-iudex-dominus-iesus.html",
+    indexUrl: FRANCIS_MOTU_PROPRIO,
+    relatedDocuments: ["code-of-canon-law-1983", "amoris-laetitia", "familiaris-consortio"],
+  }),
+  doc({
+    slug: "misericordia-et-misera",
+    title: "Misericordia et Misera",
+    documentType: "apostolic_letter",
+    issuingAuthority: "Pope Francis",
+    issuedDate: "2016-11-20",
+    summary:
+      "Pope Francis's apostolic letter at the close of the Extraordinary Jubilee of Mercy, signed on the solemnity of Christ the King 2016. Taking its title from Saint Augustine's description of the meeting between Jesus and the woman taken in adultery, it asks that the mercy experienced during the Holy Year continue to shape the life of the Church — in the liturgy and the sacraments, in hearing the word of God, in the sacrament of Reconciliation and in works of mercy, corporal and spiritual. Among its concrete provisions, the Pope grants to all priests the faculty to absolve the sin of procured abortion, extends the ministry of the Missionaries of Mercy, prolongs the faculty for the faithful to receive valid and licit absolution from priests of the Priestly Fraternity of Saint Pius X, suggests a Sunday devoted to the word of God, and establishes a World Day of the Poor, to be kept on the Thirty-third Sunday in Ordinary Time.",
+    keyThemes: [
+      "The close of the Jubilee of Mercy",
+      "Mercy in the life of the Church",
+      "The sacrament of Reconciliation",
+      "Absolution of abortion by all priests",
+      "The World Day of the Poor",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/francesco/en/apost_letters/documents/papa-francesco-lettera-ap_20161120_misericordia-et-misera.html",
+    indexUrl: FRANCIS_LETTERS,
+    relatedDocuments: ["misericordiae-vultus", "dives-in-misericordia", "aperuit-illis"],
+  }),
+  doc({
+    slug: "aperuit-illis",
+    title: "Aperuit Illis",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Francis",
+    issuedDate: "2019-09-30",
+    summary:
+      "The apostolic letter given motu proprio by which Pope Francis instituted the Sunday of the Word of God, signed at Saint John Lateran on the memorial of Saint Jerome at the start of the sixteen hundredth anniversary of his death. Taking its title from Luke's account of the risen Lord opening the minds of the disciples to understand the Scriptures, and following up the suggestion he had made at the close of the Jubilee of Mercy, the Pope decrees that the Third Sunday in Ordinary Time be devoted to the celebration, study and dissemination of the word of God. He explains the inseparable bond between Scripture, the Eucharist and the life of the Church, the need for well-prepared homilies, the role of the lector, and the place of Scripture in catechesis and in daily prayer, and closes by pointing to Mary as the one who heard the word and kept it.",
+    keyThemes: [
+      "The Sunday of the Word of God",
+      "Scripture and the Eucharist",
+      "Homilies and the ministry of the lector",
+      "Scripture in catechesis and prayer",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/francesco/en/motu_proprio/documents/papa-francesco-motu-proprio-20190930_aperuit-illis.html",
+    indexUrl: FRANCIS_MOTU_PROPRIO,
+    relatedDocuments: ["dei-verbum", "verbum-domini", "misericordia-et-misera"],
+  }),
+  doc({
+    slug: "spiritus-domini",
+    title: "Spiritus Domini",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Francis",
+    issuedDate: "2021-01-10",
+    summary:
+      "The apostolic letter given motu proprio by which Pope Francis modified canon 230 §1 of the Code of Canon Law so that lay persons of either sex, and not only men, may be admitted through the liturgical rite to the stable ministries of lector and acolyte. Recalling that the Holy Spirit distributes gifts to every member of the Church, and that the Second Vatican Council and Paul VI's Ministeria Quaedam had already reshaped these ministries as lay ministries rooted in baptism rather than as steps toward ordination, the Pope explains that a doctrinal development now allows them to be conferred on women as well, in distinction from the ordained ministry, which remains reserved to men. An accompanying letter to the Prefect of the Congregation for the Doctrine of the Faith explains the reasons for the change.",
+    keyThemes: [
+      "The ministries of lector and acolyte",
+      "Lay ministries rooted in baptism",
+      "Women in instituted ministries",
+      "Amendment of canon 230",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/francesco/en/motu_proprio/documents/papa-francesco-motu-proprio-20210110_spiritus-domini.html",
+    indexUrl: FRANCIS_MOTU_PROPRIO,
+    relatedDocuments: ["ministeria-quaedam", "antiquum-ministerium", "christifideles-laici"],
+  }),
+  doc({
+    slug: "antiquum-ministerium",
+    title: "Antiquum Ministerium",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Francis",
+    issuedDate: "2021-05-10",
+    summary:
+      "The apostolic letter given motu proprio by which Pope Francis instituted the lay ministry of catechist, signed on the memorial of Saint John of Avila. The Pope traces the ministry of teaching from the New Testament through the history of the Church, recalls how catechists have sustained the faith in many lands, often in the absence of priests, and notes the Second Vatican Council's esteem for them. Responding to the needs of evangelisation today, he establishes catechist as a stable instituted ministry for lay men and women of deep faith and human maturity, who are active in their community, well formed in doctrine and pedagogy, and called to serve in a stable way in catechesis and other forms of apostolate. The Congregation for Divine Worship was charged with publishing the rite of institution, and episcopal conferences with setting out the formation and criteria for admission.",
+    keyThemes: [
+      "The ministry of catechist",
+      "Catechists in the history of the Church",
+      "Lay ministry and evangelisation",
+      "Qualities and formation of catechists",
+      "The rite of institution",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/francesco/en/motu_proprio/documents/papa-francesco-motu-proprio-20210510_antiquum-ministerium.html",
+    indexUrl: FRANCIS_MOTU_PROPRIO,
+    relatedDocuments: ["catechesi-tradendae", "spiritus-domini", "evangelii-gaudium"],
+  }),
+  doc({
+    slug: "c-est-la-confiance",
+    title: "C'est la Confiance",
+    documentType: "apostolic_exhortation",
+    issuingAuthority: "Pope Francis",
+    issuedDate: "2023-10-15",
+    summary:
+      "Pope Francis's apostolic exhortation on confidence in the merciful love of God, for the hundred and fiftieth anniversary of the birth of Saint Thérèse of the Child Jesus and the Holy Face, signed on the memorial of Saint Teresa of Avila. Taking its title from Thérèse's own words that it is confidence that leads to love, the Pope presents the heart of her message: the little way of trust and abandonment, in which holiness is received as God's gift rather than achieved by one's own efforts; her missionary soul, joined to the Church's mission though she never left her convent; her contemplation of the face of Christ; and her discovery that her vocation in the heart of the Church was love. He presents her as a guide to the essentials of the Gospel, a saint of trust for an age tempted by self-sufficiency and discouragement.",
+    keyThemes: [
+      "Saint Thérèse of Lisieux",
+      "Confidence in God's merciful love",
+      "The little way of trust and abandonment",
+      "Missionary love",
+      "Love in the heart of the Church",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/francesco/en/apost_exhortations/documents/20231015-santateresa-delbambinogesu.html",
+    indexUrl: FRANCIS_EXHORTATIONS,
+    relatedDocuments: ["divini-amoris-scientia", "gaudete-et-exsultate"],
+  }),
+  doc({
+    slug: "spes-non-confundit",
+    title: "Spes Non Confundit",
+    documentType: "papal_bull",
+    issuingAuthority: "Pope Francis",
+    issuedDate: "2024-05-09",
+    summary:
+      "The bull of indiction of the Ordinary Jubilee of the Year 2025, given on the solemnity of the Ascension 2024 and taking its title from Saint Paul's words that hope does not disappoint. Pope Francis presents the jubilee as a pilgrimage of hope, rooted in the love of God poured into our hearts, and decreed that it would open with the Holy Door of Saint Peter's on 24 December 2024, be inaugurated in every cathedral on 29 December, and close at Saint Peter's on 6 January 2026. He asks that the Holy Year be marked by signs of hope: peace for a world at war; openness to life; hope for prisoners, through gestures of clemency and amnesty; care for the sick, the young, migrants, the elderly and the poor; and the forgiveness of the debts of poorer countries. Recalling the seventeenth centenary of the Council of Nicaea, he expresses the hope that Christians might come to celebrate Easter on a common date, and explains the jubilee indulgence as a sign of God's mercy.",
+    keyThemes: [
+      "The Jubilee of 2025",
+      "Christian hope",
+      "Signs of hope for the suffering",
+      "Debt relief and clemency",
+      "Nicaea and a common date for Easter",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/francesco/en/bulls/documents/20240509_spes-non-confundit_bolla-giubileo2025.html",
+    indexUrl: FRANCIS_BULLS,
+    relatedDocuments: ["misericordiae-vultus", "incarnationis-mysterium", "spe-salvi"],
+  }),
+  doc({
+    slug: "in-unitate-fidei",
+    title: "In Unitate Fidei",
+    documentType: "apostolic_letter",
+    issuingAuthority: "Pope Leo XIV",
+    issuedDate: "2025-11-23",
+    summary:
+      "Pope Leo XIV's apostolic letter for the seventeen hundredth anniversary of the First Ecumenical Council of Nicaea, dated on the solemnity of Christ the King during the Jubilee of 2025 and written as he prepared for his journey to Türkiye. The Pope recalls the turbulent times of the council: the recent persecutions, the Edict of Milan, and the teaching of the Alexandrian priest Arius, who denied that the Son is truly God, opposed by Bishop Alexander of Alexandria. He explains how the council, summoned by Constantine in 325, professed faith in the one God and in Jesus Christ, begotten not made and consubstantial with the Father, using biblical and baptismal language, and how this faith, contested for decades after the council, was confirmed at Constantinople and Chalcedon. He draws out its meaning today: the question of God in a world that often lives without him, faith in Christ as the centre of Christian life and discipleship, and the ecumenical value of a Creed shared by Christians, which calls them to walk together toward full unity.",
+    keyThemes: [
+      "Seventeen hundredth anniversary of Nicaea",
+      "The Arian crisis",
+      "Christ consubstantial with the Father",
+      "The Nicene Creed today",
+      "The ecumenical significance of the Creed",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/leo-xiv/en/apost_letters/documents/20251123-in-unitate-fidei.html",
+    indexUrl: LEO_XIV_LETTERS,
+    relatedDocuments: ["first-council-of-nicaea", "ut-unum-sint", "dilexi-te"],
   }),
 ];
