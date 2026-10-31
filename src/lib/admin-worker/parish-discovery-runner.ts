@@ -26,7 +26,7 @@ import { isDoctrinallySensitive } from "./content-type-profiles";
 import { runPublishOrchestrator } from "./publish-orchestrator";
 import { placesEnabled, searchCatholicParishes, type PlaceParish } from "./parish-places";
 import { inspectParishWebsite, type CommunionVerdict } from "./communion-verifier";
-import { parishAddressKey, findPublishedParishByAddressKey } from "./parish-address";
+import { findDuplicateParish, parishAddressKey } from "./parish-address";
 import { writeAdminWorkerLog } from "./logs";
 
 export interface MapsParishDiscoveryResult {
@@ -35,7 +35,10 @@ export interface MapsParishDiscoveryResult {
   candidates: number;
   published: number;
   routedToReview: number;
+  /** Not in communion with Rome (from the parish's own website). */
   rejected: number;
+  /** Already published under the shared duplicate rule (parish-address.ts). */
+  duplicates: number;
   detail: string;
 }
 
@@ -278,6 +281,7 @@ export async function runMapsParishDiscovery(
     published: 0,
     routedToReview: 0,
     rejected: 0,
+    duplicates: 0,
     detail: "",
   };
   if (!base.enabled) {
@@ -309,15 +313,22 @@ export async function runMapsParishDiscovery(
         .catch(() => null);
       if (exists) continue;
 
-      // …and by ADDRESS: same address as an already-published parish ⇒ same
-      // place, not published again.
+      // …and by ADDRESS under the shared rule: the same key as a published
+      // parish AND within 250 m of it (or the same name when either lacks
+      // coordinates) ⇒ same place, not published again.
       const addressKey = parishAddressKey({
         address: candidate.formattedAddress,
         city,
         state: candidate.state,
       });
-      if (await findPublishedParishByAddressKey(prisma, addressKey)) {
-        base.rejected += 1;
+      const duplicate = await findDuplicateParish(prisma, {
+        addressKey,
+        latitude: candidate.latitude,
+        longitude: candidate.longitude,
+        name: candidate.name,
+      });
+      if (duplicate) {
+        base.duplicates += 1;
         continue;
       }
 
@@ -377,6 +388,6 @@ export async function runMapsParishDiscovery(
     }
   }
 
-  base.detail = `${base.candidates} candidate(s) over ${base.queriesRun} query(ies): published ${base.published}, ${base.routedToReview} to review, ${base.rejected} rejected (not in communion with Rome)`;
+  base.detail = `${base.candidates} candidate(s) over ${base.queriesRun} query(ies): published ${base.published}, ${base.routedToReview} to review, ${base.duplicates} duplicate(s), ${base.rejected} rejected (not in communion with Rome)`;
   return base;
 }

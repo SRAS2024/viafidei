@@ -20,12 +20,13 @@
  * Nothing is invented: a candidate needs its OSM name plus EITHER a locality
  * tag OR coordinates; a missing city may be filled from `is_in` or one
  * bounded Nominatim reverse lookup, else the record publishes on its
- * coordinates with an empty city. Dedup runs cheapest-first — sourceRef,
- * addressKey, same-name-within-200 m, then slug (a collision gets a stable
- * suffix, never a silent skip) — and a re-swept parish enriches its own row
- * in place. Every run is bounded (publish cap checked BEFORE any per-candidate
- * work, a wall-clock deadline under the lane watchdog) and resumable
- * (per-tile progress is persisted).
+ * coordinates with an empty city. Dedup runs cheapest-first — sourceRef, the
+ * shared address rule (same key AND within 250 m, parish-address.ts),
+ * same-name-within-200 m, then slug (a collision gets a stable suffix, never
+ * a silent skip) — and a re-swept parish enriches its own row in place. Every
+ * run is bounded (publish cap checked BEFORE any per-candidate work, a
+ * wall-clock deadline under the lane watchdog) and resumable (per-tile
+ * progress is persisted).
  */
 
 import type { PrismaClient } from "@prisma/client";
@@ -35,7 +36,7 @@ import { isDoctrinallySensitive } from "./content-type-profiles";
 import { applyProtectedContentUpdate } from "./content-protection";
 import { runPublishOrchestrator } from "./publish-orchestrator";
 import { designationFor, fileReview, slugify } from "./parish-discovery-runner";
-import { parishAddressKey, findPublishedParishByAddressKey } from "./parish-address";
+import { findDuplicateParish, normalizedParishName, parishAddressKey } from "./parish-address";
 import type { PlaceParish } from "./parish-places";
 import { writeAdminWorkerLog } from "./logs";
 import {
@@ -225,73 +226,8 @@ export function osmElementToParish(
 
 // ── Dedup helpers ───────────────────────────────────────────────────────────
 
-const NAME_STOP_WORDS = new Set([
-  "st",
-  "saint",
-  "san",
-  "santa",
-  "santo",
-  "sao",
-  "ste",
-  "sainte",
-  "sankt",
-  "sw",
-  "church",
-  "parish",
-  "parroquia",
-  "paroisse",
-  "eglise",
-  "pfarrkirche",
-  "pfarrei",
-  "kirche",
-  "iglesia",
-  "igreja",
-  "chiesa",
-  "parrocchia",
-  "kosciol",
-  "parafia",
-  "catholic",
-  "roman",
-  "rc",
-  "of",
-  "the",
-  "de",
-  "del",
-  "della",
-  "di",
-  "da",
-  "do",
-  "dos",
-  "das",
-  "la",
-  "le",
-  "les",
-  "el",
-  "los",
-  "las",
-  "and",
-  "y",
-  "e",
-  "et",
-  "und",
-]);
-
-/**
- * Fold a parish name to its distinctive words so "St. Mary Catholic Church"
- * and "Parish of Saint Mary" compare equal. Empty when nothing distinctive
- * remains (then no name-based dedup is possible).
- */
-export function normalizedParishName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .split(/\s+/)
-    .filter((w) => w && !NAME_STOP_WORDS.has(w))
-    .sort() // "Holy Cross Cathedral" ≡ "Cathedral of the Holy Cross"
-    .join(" ");
-}
+// Moved to the shared address module; re-exported for existing callers.
+export { normalizedParishName };
 
 type ExistingRow = {
   id: string;
@@ -351,6 +287,25 @@ function payloadOf(row: ExistingRow): Record<string, unknown> {
   return row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
     ? { ...(row.payload as Record<string, unknown>) }
     : {};
+}
+
+/** True when the row was unpublished as a duplicate of a parish that is still live. */
+async function dedupKeeperIsLive(prisma: PrismaClient, row: ExistingRow): Promise<boolean> {
+  const meta = payloadOf(row)._meta;
+  const dedup =
+    meta && typeof meta === "object" && !Array.isArray(meta)
+      ? (meta as Record<string, unknown>).dedup
+      : null;
+  const keeperId =
+    dedup && typeof dedup === "object" ? (dedup as { keeperId?: unknown }).keeperId : null;
+  if (typeof keeperId !== "string" || !keeperId) return false;
+  const keeper = await prisma.publishedContent
+    .findFirst({
+      where: { id: keeperId, contentType: "PARISH" as never, isPublished: true },
+      select: { id: true },
+    })
+    .catch(() => null);
+  return Boolean(keeper);
 }
 
 function isBlank(v: unknown): boolean {
@@ -579,14 +534,26 @@ export async function processOsmCandidate(
       ? "updated"
       : "duplicate";
   }
+  // Its own row was unpublished as a duplicate (`_meta.dedup`) of a parish
+  // that is still live: stay down. The candidate's fresh tags may lack a street
+  // the row gained since, so the address check below could miss it and the
+  // sweep would republish what the maintenance just took down.
+  if (bySource && (await dedupKeeperIsLive(prisma, bySource))) return "duplicate";
 
-  // 2. Same street address → same place under another name (or source).
+  // 2. Same street address AND within 250 m (or the same name when either has
+  //    no coordinates) → same place under another name or source. A shared
+  //    key alone — two street-less churches in one city — is not enough.
   const addressKey = parishAddressKey({
     address: candidate.formattedAddress,
     city: candidate.city,
     state: candidate.state,
   });
-  const byAddress = addressKey ? await findPublishedParishByAddressKey(prisma, addressKey) : null;
+  const byAddress = await findDuplicateParish(prisma, {
+    addressKey,
+    latitude: candidate.latitude,
+    longitude: candidate.longitude,
+    name: candidate.name,
+  });
   if (byAddress) {
     const row = await findBySlug(prisma, byAddress.slug);
     if (row?.isPublished && !row.sourceRef)

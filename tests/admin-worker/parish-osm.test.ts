@@ -253,6 +253,7 @@ function makePrisma(opts: { rows?: Array<Record<string, unknown>> } = {}) {
       findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
         return (
           rows.find((r) => {
+            if (where.id !== undefined && r.id !== where.id) return false;
             if (where.sourceRef !== undefined && r.sourceRef !== where.sourceRef) return false;
             if (where.addressKey !== undefined && r.addressKey !== where.addressKey) return false;
             if (where.slug !== undefined && r.slug !== where.slug) return false;
@@ -267,6 +268,7 @@ function makePrisma(opts: { rows?: Array<Record<string, unknown>> } = {}) {
         const lon = where.longitude as { gte: number; lte: number } | undefined;
         return rows.filter((r) => {
           if (!r.isPublished) return false;
+          if (where.addressKey !== undefined && r.addressKey !== where.addressKey) return false;
           if (
             lat &&
             !(typeof r.latitude === "number" && r.latitude >= lat.gte && r.latitude <= lat.lte)
@@ -459,7 +461,7 @@ describe("runOsmParishDiscovery", () => {
     expect(input.proposedPayload.address).toBe("1400 Washington Street");
   });
 
-  it("skips a candidate whose address duplicates an already-published parish", async () => {
+  it("skips a candidate at the same address within 250 m of an already-published parish", async () => {
     global.fetch = stubOverpass([
       { type: "node", id: 13, lat: 42.34, lon: -71.07, tags: FULL_TAGS },
     ]);
@@ -471,7 +473,9 @@ describe("runOsmParishDiscovery", () => {
           title: "Existing Parish",
           isPublished: true,
           sourceRef: "osm:node/999",
-          addressKey: "1400 washington st boston ma",
+          addressKey: "1400 st washington boston ma",
+          latitude: 42.3405,
+          longitude: -71.0702,
           payload: {},
         },
       ],
@@ -486,6 +490,79 @@ describe("runOsmParishDiscovery", () => {
     expect(out.published).toBe(0);
     expect(out.duplicates).toBe(1);
     expect(mockedPublish).not.toHaveBeenCalled();
+  });
+
+  it("publishes a parish that shares an address key with one 3 km away", async () => {
+    global.fetch = stubOverpass([
+      { type: "node", id: 13, lat: 42.34, lon: -71.07, tags: FULL_TAGS },
+    ]);
+    const { prisma } = makePrisma({
+      rows: [
+        {
+          id: "far1",
+          slug: "existing",
+          title: "Existing Parish",
+          isPublished: true,
+          sourceRef: "osm:node/999",
+          addressKey: "1400 st washington boston ma",
+          latitude: 42.367,
+          longitude: -71.07,
+          payload: {},
+        },
+      ],
+    });
+
+    const out = await runOsmParishDiscovery(prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+
+    expect(out.published).toBe(1);
+    expect(out.duplicates).toBe(0);
+  });
+
+  it("publishes every street-less church in a city — a city is no address (the Rome case)", async () => {
+    // Before the street rule each of these keyed as "roma" and all but the
+    // first were dropped as duplicates.
+    const elements = [1, 2, 3].map((i) => ({
+      type: "node",
+      id: 700 + i,
+      lat: 41.89 + i / 100,
+      lon: 12.48,
+      tags: {
+        name: `Chiesa di San Nome ${i}`,
+        religion: "christian",
+        denomination: "catholic",
+        "addr:city": "Roma",
+      },
+    }));
+    global.fetch = stubOverpass(elements);
+    const { prisma } = makePrisma({
+      rows: [
+        {
+          id: "first",
+          slug: "san-pietro-roma",
+          title: "San Pietro",
+          isPublished: true,
+          sourceRef: "osm:node/1",
+          addressKey: "roma",
+          latitude: 41.9022,
+          longitude: 12.4539,
+          payload: {},
+        },
+      ],
+    });
+
+    const out = await runOsmParishDiscovery(prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+
+    expect(out.published).toBe(3);
+    expect(out.duplicates).toBe(0);
+    for (let i = 0; i < 3; i++) expect(publishedPayload(i).addressKey).toBeUndefined();
   });
 
   it("treats a same-named parish within ~200 m as the same place (no addressKey needed)", async () => {
@@ -605,6 +682,45 @@ describe("runOsmParishDiscovery", () => {
 
     expect(out.published).toBe(1);
     expect(mockedPublish.mock.calls[0]![1].slug).toBe("cathedral-of-the-holy-cross-boston");
+  });
+
+  it("keeps its own row down while the parish it duplicates (`_meta.dedup`) is live", async () => {
+    global.fetch = stubOverpass([
+      { type: "node", id: 10, lat: 42.34, lon: -71.07, tags: FULL_TAGS },
+    ]);
+    const deduped = {
+      id: "victim",
+      slug: "cathedral-of-the-holy-cross-boston",
+      title: "Cathedral of the Holy Cross",
+      isPublished: false,
+      sourceRef: "osm:node/10",
+      payload: { _meta: { dedup: { keeperId: "keeper", keeperSlug: "holy-cross" } } },
+    };
+    const keeper = {
+      id: "keeper",
+      slug: "holy-cross",
+      title: "Holy Cross",
+      isPublished: true,
+      sourceRef: "osm:way/99",
+      payload: {},
+    };
+    const live = makePrisma({ rows: [deduped, keeper] });
+    const kept = await runOsmParishDiscovery(live.prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+    expect(kept.published).toBe(0);
+    expect(kept.duplicates).toBe(1);
+
+    // Once the keeper is gone, the row may come back.
+    const gone = makePrisma({ rows: [deduped, { ...keeper, isPublished: false }] });
+    const back = await runOsmParishDiscovery(gone.prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+    expect(back.published).toBe(1);
   });
 
   it("remembers a gate failure per slug (osm-skip) so the next sweep does not retry it", async () => {
