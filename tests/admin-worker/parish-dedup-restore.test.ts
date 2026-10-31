@@ -4,6 +4,8 @@
  *     (not-in-communion verdict, rollback ledger, human review, admin
  *     rejection, osm-skip, a deletion log, or this change's own markers all
  *     keep it down);
+ *   - a candidate that is not a parish (a numbered Station of the Cross)
+ *     stays unpublished with `_meta.excluded` and a one-year osm-skip;
  *   - a candidate is re-checked under the new rule: a true duplicate stays
  *     unpublished with `_meta.dedup`, anything else is republished through the
  *     orchestrator with `_meta.restored`;
@@ -379,6 +381,58 @@ describe("runParishDedupRestore", () => {
 
     expect(out).toMatchObject({ restored: 1, deduped: 0 });
     expect((mockedPublish.mock.calls[0]![1].payload as Row).addressKey).toBe(key);
+  });
+
+  it("keeps a numbered Station of the Cross down as excluded instead of restoring it", async () => {
+    // Heiloo's stations were street-less and clustered, so the city-only key
+    // took them down; their distinct names would pass the new duplicate rule.
+    const stations = ["Statie I", "Statie II"].map((title, i) =>
+      victim(`s${i + 1}`, {
+        title,
+        sourceRef: `osm:node/90${i + 1}`,
+        latitude: 52.6 + i / 10_000,
+        longitude: 4.7,
+        payload: {
+          slug: `statie-${i + 1}-heiloo`,
+          title,
+          city: "Heiloo",
+          addressKey: "heiloo",
+          latitude: 52.6 + i / 10_000,
+          longitude: 4.7,
+          citations: [`https://www.openstreetmap.org/node/90${i + 1}`],
+        },
+      }),
+    );
+    const { prisma, store, updates } = makePrisma({ unpublished: [...stations, victim("v9")] });
+
+    const out = await runParishDedupRestore(prisma, { now: () => NOW });
+
+    expect(out).toMatchObject({ examined: 3, excluded: 2, restored: 1, deduped: 0 });
+    expect(out.excludedSlugs).toEqual(["parrocchia-s1-roma", "parrocchia-s2-roma"]);
+    // Only the parish comes back.
+    expect(mockedPublish).toHaveBeenCalledTimes(1);
+    expect(mockedPublish.mock.calls[0]![1].slug).toBe("parrocchia-v9-roma");
+    for (const id of ["s1", "s2"]) {
+      const update = updates.find((u) => u.id === id)!;
+      expect(update.data.isPublished).toBeUndefined();
+      expect(update.data.addressKey).toBeNull(); // the stale city-only key goes
+      const payload = update.data.payload as { _meta: { excluded: Row }; addressKey?: string };
+      expect(payload._meta.excluded).toEqual({
+        reason: "stations-of-the-cross",
+        evidence: expect.stringContaining("Statie I"),
+        at: NOW,
+      });
+      expect(payload.addressKey).toBeUndefined();
+    }
+    // Discovery stays away for a year.
+    const skip = store.get("osm-skip:osm:node/901")!.memoryValue as {
+      retryAfter: number;
+      reason: string;
+    };
+    expect(skip.reason).toBe("excluded: stations-of-the-cross");
+    expect(skip.retryAfter).toBeGreaterThan(Date.now() + 360 * 24 * 60 * 60 * 1000);
+    const state = store.get("parish-dedup-restore-v1")!.memoryValue as { totals: Row };
+    expect(state.totals).toMatchObject({ excluded: 2, restored: 1 });
   });
 
   it("keeps the same church mapped twice (same name within 250 m) down too", async () => {

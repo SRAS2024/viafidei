@@ -23,6 +23,10 @@
  *       · any human-review row for the slug, any active osm-skip for the slug
  *         or sourceRef, and this change's own `_meta.dedup` / `_meta.excluded`
  *         / `_meta.restored`.
+ *     A candidate that is not a parish at all — a numbered Station of the
+ *     Cross the old key took down among its neighbours — stays down for that
+ *     reason instead (`_meta.excluded` and the one-year osm-skip the research
+ *     lane writes), never republished first and excluded later.
  *     Each candidate is re-checked under the shared rule (same key within
  *     250 m — with the same name too when the key's street has no house
  *     number — or the same name within 250 m). A true duplicate stays
@@ -46,6 +50,7 @@ import {
   findNearbySameNameParish,
   parishAddressKeyForPayload,
 } from "./parish-address";
+import { EXCLUDED_SKIP_MS, parishExclusionFor, writeOsmSkip } from "./parish-osm";
 import { runPublishOrchestrator } from "./publish-orchestrator";
 
 const RESTORE_KEY = "parish-dedup-restore-v1";
@@ -236,12 +241,15 @@ export interface DedupRestoreResult {
   restored: number;
   /** Re-checked and still a duplicate under the new rule (kept unpublished). */
   deduped: number;
+  /** Not a parish at all (kept unpublished with `_meta.excluded`). */
+  excluded: number;
   /** Unpublished for a recorded reason — left alone. */
   skipped: number;
   /** Publish gate or schema refused the republish. */
   blocked: number;
   restoredSlugs: string[];
   dedupPairs: Array<Record<string, string>>;
+  excludedSlugs: string[];
 }
 
 /**
@@ -260,10 +268,12 @@ export async function runParishDedupRestore(
     examined: 0,
     restored: 0,
     deduped: 0,
+    excluded: 0,
     skipped: 0,
     blocked: 0,
     restoredSlugs: [],
     dedupPairs: [],
+    excludedSlugs: [],
   };
   const state = await readJson(prisma, RESTORE_KEY);
   if (state.done === true) {
@@ -309,6 +319,39 @@ export async function runParishDedupRestore(
     }
     const payload = obj(row.payload);
     const key = parishAddressKeyForPayload(payload);
+    const next = { ...payload };
+    if (key) next.addressKey = key;
+    else delete next.addressKey;
+
+    const exclusion = parishExclusionFor(row.title);
+    if (exclusion) {
+      // Not a parish ("Statie II" beside "Statie I"): the old key took it down
+      // for the wrong reason, but it stays down — now for the right one, with
+      // the skip that keeps discovery from republishing it.
+      const excluded = { reason: exclusion.reason, evidence: exclusion.evidence, at: nowFn() };
+      const kept = { ...next, _meta: { ...obj(payload._meta), excluded } };
+      await prisma.publishedContent
+        .update({
+          where: { id: row.id },
+          data: {
+            payload: kept as never,
+            contentChecksum: computeContentChecksum(row.title, kept),
+            addressKey: key || null,
+          },
+        })
+        .catch(() => undefined);
+      if (row.sourceRef) {
+        await writeOsmSkip(
+          prisma,
+          row.sourceRef,
+          `excluded: ${exclusion.reason}`,
+          EXCLUDED_SKIP_MS,
+        );
+      }
+      out.excluded += 1;
+      if (out.excludedSlugs.length < MAX_REPORTED) out.excludedSlugs.push(row.slug);
+      continue;
+    }
     const located = { name: row.title, latitude: row.latitude, longitude: row.longitude };
     const keyed = {
       ...located,
@@ -320,9 +363,6 @@ export async function runParishDedupRestore(
       (await findDuplicateParish(prisma, keyed, { excludeId: row.id })) ??
       (await findNearbySameNameParish(prisma, located, { excludeId: row.id }));
     const now = nowFn();
-    const next = { ...payload };
-    if (key) next.addressKey = key;
-    else delete next.addressKey;
 
     if (duplicate) {
       // Still the same place as a live parish under the new rule: keep it
@@ -413,6 +453,7 @@ export async function runParishDedupRestore(
       examined: add("examined", out.examined),
       restored: add("restored", out.restored),
       deduped: add("deduped", out.deduped),
+      excluded: add("excluded", out.excluded),
       skipped: add("skipped", out.skipped),
       blocked: add("blocked", out.blocked),
     },

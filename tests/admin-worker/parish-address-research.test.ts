@@ -31,6 +31,7 @@ vi.mock("@/lib/admin-worker/parish-dedup-restore", () => ({
     restored: 0,
     restoredSlugs: [],
     dedupPairs: [],
+    excludedSlugs: [],
   })),
   scheduleOsmResweepAfterKeyFix: vi.fn(async () => ({ done: true, scheduled: 0 })),
 }));
@@ -621,6 +622,27 @@ describe("runParishAddressResearch", () => {
     });
     expect(mockedProtect).not.toHaveBeenCalled();
     expect(updates).toHaveLength(0);
+  });
+
+  it("reports the rows the restore kept down even when nothing was due", async () => {
+    mockedRestore.mockResolvedValueOnce({
+      restored: 0,
+      excluded: 1,
+      restoredSlugs: [],
+      dedupPairs: [],
+      excludedSlugs: ["statie-ii-heiloo"],
+    } as never);
+    const { prisma } = makePrisma([]);
+
+    await runParishAddressResearch(prisma, {
+      force: true,
+      now: () => NOW,
+      fetchImpl: nominatim([]) as never,
+    });
+
+    const info = mockedLog.mock.calls.find((c) => c[1].eventName === "parish_address_research")!;
+    expect(info[1].message).toContain("1 kept down as not a parish");
+    expect(info[1].safeMetadata).toMatchObject({ keptExcluded: ["statie-ii-heiloo"] });
   });
 
   it("self-throttles between runs", async () => {

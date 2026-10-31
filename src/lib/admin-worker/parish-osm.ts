@@ -218,6 +218,9 @@ export function parishExclusionFor(
   return null;
 }
 
+/** How long discovery stays away from a row kept down as not a parish. */
+export const EXCLUDED_SKIP_MS = 365 * DAY_MS;
+
 // ── The published summary sentence ──────────────────────────────────────────
 
 const DESIGNATION_WORD: Record<ParishDesignation, string> = {

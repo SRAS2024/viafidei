@@ -61,6 +61,7 @@ import {
 import { runParishDedupRestore, scheduleOsmResweepAfterKeyFix } from "./parish-dedup-restore";
 import { designationFor, type ParishDesignation } from "./parish-discovery-runner";
 import {
+  EXCLUDED_SKIP_MS,
   machineParishSummary,
   osmParishSummary,
   parishExclusionFor,
@@ -69,9 +70,6 @@ import {
 } from "./parish-osm";
 
 const THROTTLE_KEY = "parish-address-research-lastrun";
-const DAY_MS = 24 * 60 * 60 * 1000;
-/** Discovery must not republish something that is not a parish. */
-const EXCLUDED_SKIP_MS = 365 * DAY_MS;
 /** Country corrections quoted in the one WARN log per run. */
 const MAX_CORRECTION_SAMPLES = 10;
 /** Excluded rows named in the per-run INFO log. */
@@ -589,9 +587,13 @@ export async function runParishAddressResearch(
     `address research: ${out.scanned} due, ${out.requests} lookup(s); ${out.completed} complete, ` +
     `${out.partial} partial, ${out.needsResearch} need research, ${out.countryCorrected} country fix(es), ` +
     `${out.excluded} excluded, ${out.redesignated} chapel(s); ${out.restored} restored` +
+    (restore && restore.excluded > 0 ? `, ${restore.excluded} kept down as not a parish` : "") +
     (resweep && resweep.scheduled > 0 ? `; ${resweep.scheduled} tile(s) made due early` : "") +
     (stopped ? ` (stopped: ${stopped})` : "");
-  if (out.scanned === 0 && out.restored === 0 && !(resweep && resweep.scheduled > 0)) return out;
+  const restoreActed =
+    out.restored > 0 ||
+    (restore !== null && restore.dedupPairs.length + restore.excludedSlugs.length > 0);
+  if (out.scanned === 0 && !restoreActed && !(resweep && resweep.scheduled > 0)) return out;
   await writeAdminWorkerLog(prisma, {
     passId: opts.passId ?? null,
     category: "PUBLISHING",
@@ -614,6 +616,9 @@ export async function runParishAddressResearch(
         ? { restoredSlugs: restore.restoredSlugs }
         : {}),
       ...(restore && restore.dedupPairs.length > 0 ? { keptDuplicates: restore.dedupPairs } : {}),
+      ...(restore && restore.excludedSlugs.length > 0
+        ? { keptExcluded: restore.excludedSlugs }
+        : {}),
     },
   }).catch(() => undefined);
   return out;
