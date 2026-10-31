@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/admin-worker/structured/wikipedia", () => ({
   fetchSummaryForArticleUrl: vi.fn(),
+  fetchIntroForArticleUrl: vi.fn(async () => null),
 }));
 vi.mock("@/lib/admin-worker/structured/wikipedia-infobox", () => {
   const fetchArticleInfobox = vi.fn(async (_url: string): Promise<Record<string, string>> => ({}));
@@ -41,11 +42,15 @@ import {
   ingestorFor,
 } from "@/lib/admin-worker/structured/ingestors";
 import { rejectionOf } from "@/lib/admin-worker/structured/reject";
-import { fetchSummaryForArticleUrl } from "@/lib/admin-worker/structured/wikipedia";
+import {
+  fetchIntroForArticleUrl,
+  fetchSummaryForArticleUrl,
+} from "@/lib/admin-worker/structured/wikipedia";
 import { fetchArticleInfobox } from "@/lib/admin-worker/structured/wikipedia-infobox";
 import type { SparqlBinding } from "@/lib/admin-worker/structured/wikidata";
 
 const mockedSummary = vi.mocked(fetchSummaryForArticleUrl);
+const mockedIntro = vi.mocked(fetchIntroForArticleUrl);
 const mockedInfobox = vi.mocked(fetchArticleInfobox);
 
 function setProse(text: string): void {
@@ -54,6 +59,8 @@ function setProse(text: string): void {
 
 beforeEach(() => {
   mockedSummary.mockReset();
+  mockedIntro.mockReset();
+  mockedIntro.mockResolvedValue(null);
   mockedInfobox.mockReset();
   mockedInfobox.mockResolvedValue({});
   setProse("");
@@ -715,5 +722,55 @@ describe("the documented 2026-10-31 cases", () => {
     const payload = (entry as { payload: Record<string, unknown> }).payload;
     expect(payload).toMatchObject({ canonizationStatus: c.status, feastDay: c.feastDay });
     expect(validatePayload("SAINT", payload).ok).toBe(true);
+  });
+});
+
+describe("a one-line REST summary falls back to the whole introduction", () => {
+  // Gaugericus (Q585739), 2026-10-31: the REST summary — the first paragraph,
+  // parentheses removed — is 71 characters; the article's introduction is a
+  // full paragraph, and its infobox's first feast is Wikidata's 11 August.
+  const GAUGERICUS = {
+    s: `${WD}Q585739`,
+    label: "Gaugericus",
+    statuses: CATHOLIC_SAINT,
+    feasts: "11 August",
+    art: "https://en.wikipedia.org/wiki/Gaugericus",
+  };
+  const SUMMARY = "Saint Gaugericus was the bishop of Cambrai-Arras in the seventh century.";
+  const INTRO =
+    "Saint Gaugericus (Géry; c. 550 – 11 August 626) was the bishop of Cambrai-Arras in the " +
+    "seventh century. He founded a monastery on an island in the Senne, around which the city " +
+    "of Brussels grew.";
+
+  it("publishes from the introduction, credited to the same article", async () => {
+    mockedSummary.mockResolvedValue({ extract: SUMMARY, url: GAUGERICUS.art, lang: "en" });
+    mockedIntro.mockResolvedValue(INTRO);
+    mockedInfobox.mockResolvedValue({
+      venerated_in: "Roman Catholic Church",
+      feast_day: "11 August; 18 November (translation of relics)",
+    });
+    const entry = await saintMap(row(GAUGERICUS));
+    expect(rejectionOf(entry)).toBeNull();
+    expect(entry).toMatchObject({
+      payload: {
+        biography: INTRO,
+        feastDay: "08-11",
+        provenance: { biography: "wikipedia", article: GAUGERICUS.art },
+      },
+    });
+    expect(mockedIntro).toHaveBeenCalledWith(GAUGERICUS.art, expect.anything());
+  });
+
+  it("still refuses a saint whose introduction is as thin as the summary", async () => {
+    mockedSummary.mockResolvedValue({ extract: SUMMARY, url: GAUGERICUS.art, lang: "en" });
+    mockedIntro.mockResolvedValue("Gaugericus was a bishop.");
+    expect(rejectionOf(await saintMap(row(GAUGERICUS)))?.code).toBe("description_too_short");
+  });
+
+  it("never spends the extra request when the summary is long enough", async () => {
+    mockedSummary.mockResolvedValue({ extract: INTRO, url: GAUGERICUS.art, lang: "en" });
+    mockedInfobox.mockResolvedValue({ feast_day: "11 August" });
+    expect(rejectionOf(await saintMap(row(GAUGERICUS)))).toBeNull();
+    expect(mockedIntro).not.toHaveBeenCalled();
   });
 });

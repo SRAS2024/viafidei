@@ -50,6 +50,7 @@ import {
   resetRejectionMemoryPruneClock,
 } from "@/lib/admin-worker/structured/reject-memory";
 import { runSparql, type SparqlBinding } from "@/lib/admin-worker/structured/wikidata";
+import { fetchIntroForArticleUrl } from "@/lib/admin-worker/structured/wikipedia";
 import { fetchArticleWikitext } from "@/lib/admin-worker/structured/wikipedia-infobox";
 
 const mockedSparql = vi.mocked(runSparql);
@@ -174,6 +175,41 @@ describe("the read ledger (http.ts)", () => {
     ).toBeNull();
     expect(l.unread).toHaveLength(1);
     expect(l.unread[0]).toContain("page=Busy");
+  });
+});
+
+describe("the article introduction (TextExtracts)", () => {
+  it("asks for the plain-text intro of the right page, and records a read that failed", async () => {
+    const fetchMock = stubFetch([
+      [
+        /titles=Gaugericus/,
+        () =>
+          json({
+            query: {
+              pages: [{ title: "Gaugericus", extract: "  Saint Gaugericus (Géry) was…  " }],
+            },
+          }),
+      ],
+      [/titles=Missing/, () => json({ query: { pages: [{ title: "Missing", missing: true }] } })],
+      [/titles=Busy/, () => json({}, 503)],
+    ]);
+    const l = ledger();
+    expect(
+      await fetchIntroForArticleUrl("https://en.wikipedia.org/wiki/Gaugericus", { ledger: l }),
+    ).toBe("Saint Gaugericus (Géry) was…");
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain("https://en.wikipedia.org/w/api.php?action=query&prop=extracts");
+    expect(url).toContain("exintro=1");
+    expect(url).toContain("explaintext=1");
+    expect(
+      await fetchIntroForArticleUrl("https://en.wikipedia.org/wiki/Missing", { ledger: l }),
+    ).toBeNull();
+    expect(l.unread).toEqual([]);
+    expect(
+      await fetchIntroForArticleUrl("https://en.wikipedia.org/wiki/Busy", { ledger: l }),
+    ).toBeNull();
+    expect(l.unread).toHaveLength(1);
+    expect(await fetchIntroForArticleUrl("https://example.org/not-wikipedia")).toBeNull();
   });
 });
 

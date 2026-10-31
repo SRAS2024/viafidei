@@ -24,7 +24,7 @@ import type { ChecklistContentType, SourceAuthorityLevel } from "@prisma/client"
 
 import type { SourceReadLedger } from "./http";
 import { bindingValue, qidOf, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
-import { fetchSummaryForArticleUrl } from "./wikipedia";
+import { fetchIntroForArticleUrl, fetchSummaryForArticleUrl } from "./wikipedia";
 import { fetchArticleSource } from "./wikipedia-infobox";
 import { fetchDocumentExcerpt } from "./document-excerpt";
 import { isRejection, reject, type MapRejection, type MapResult } from "./reject";
@@ -706,6 +706,13 @@ export const SAINT_ENUMERATION_BRANCHES = `?s wdt:P841 ?anyFeast .
 export const SAINT_HYDRATE_MAX_ENTITIES = 200;
 
 /**
+ * Longest biography taken from an article's whole introduction (cut on a
+ * sentence): the fallback for a one-line REST summary must not turn a long
+ * lead section into a wall of text.
+ */
+export const SAINT_LEAD_MAX_CHARS = 1_500;
+
+/**
  * Hydration query for an explicit set of saint entities. Same projection and
  * same patterns the corpus query always used — only the entity set is
  * different: bounded by `VALUES` instead of the whole graph, so the aggregate
@@ -820,8 +827,18 @@ LIMIT ${limit} OFFSET ${offset}`,
     const lang = "en";
     const summary = await fetchSummaryForArticleUrl(articleUrl, { ledger: ctx.reads });
     if (!summary) return reject("wikipedia_fetch_failed", articleUrl);
-    if (summary.extract.length < 100) {
-      return reject("description_too_short", `${articleUrl} (${summary.extract.length} chars)`);
+    // The REST summary is the first paragraph with its parentheses removed.
+    // When that falls under the 100-character biography floor, the article's
+    // whole introduction (one more request, on the same serial queue) usually
+    // does not: 9 of the 30 saints sampled on 2026-10-31 stopped here on a
+    // one-line summary although their articles open with a full paragraph.
+    let lead = summary.extract;
+    if (lead.length < 100) {
+      const intro = await fetchIntroForArticleUrl(articleUrl, { ledger: ctx.reads });
+      if (intro && intro.length > lead.length) lead = leadText(intro, SAINT_LEAD_MAX_CHARS);
+    }
+    if (lead.length < 100) {
+      return reject("description_too_short", `${articleUrl} (${lead.length} chars)`);
     }
 
     // Read the article up front (one Action API call): the infobox corroborates
@@ -854,13 +871,13 @@ LIMIT ${limit} OFFSET ${offset}`,
     // WITHOUT one — and only when the article itself names that stage.
     let feast: ParsedFeast | null = null;
     if (feastlessStatus(canonizationStatus)) {
-      if (!feastlessStageStated(canonizationStatus, summary.extract, infobox)) {
+      if (!feastlessStageStated(canonizationStatus, lead, infobox)) {
         return reject("status_uncorroborated", `${facts.label}: ${canonizationStatus}`);
       }
     } else {
       const chosen = chooseCorroboratedFeastDetailed({
         candidates,
-        abstract: summary.extract,
+        abstract: lead,
         infobox,
         lang,
         prose: source.prose,
@@ -879,7 +896,7 @@ LIMIT ${limit} OFFSET ${offset}`,
 
     // The published biography is the enwiki lead verbatim; `provenance` names
     // the article so the page can credit it (CC BY-SA 4.0).
-    const biography = summary.extract;
+    const biography = lead;
     const provenance: Record<string, unknown> = { biography: "wikipedia", article: summary.url };
 
     // Optional enrichment, straight from the article's infobox (cited via the
@@ -919,7 +936,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       patronages,
       biography,
       saintType: deriveSaintType(facts, {
-        abstract: summary.extract,
+        abstract: lead,
         infoboxTitles: infobox.titles,
       }),
       canonizationStatus,

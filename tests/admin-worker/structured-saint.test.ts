@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/admin-worker/structured/wikipedia", () => ({
   fetchSummaryForArticleUrl: vi.fn(),
+  fetchIntroForArticleUrl: vi.fn(async () => null),
 }));
 vi.mock("@/lib/admin-worker/structured/wikipedia-infobox", () => {
   const fetchArticleInfobox = vi.fn(async (_url: string): Promise<Record<string, string>> => ({}));
