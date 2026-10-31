@@ -175,13 +175,15 @@ export function ParishLocator({ parishes, total }: { parishes: ParishListItem[];
               <ParishCard
                 name={p.title}
                 href={`/parishes/${p.slug}`}
+                designation={p.designation}
                 address={p.address}
+                postalCode={p.postalCode}
                 city={p.city}
                 state={p.state}
                 country={p.country}
+                countryCode={p.countryCode}
                 latitude={p.latitude}
                 longitude={p.longitude}
-                website={p.website}
                 distanceSlot={
                   away ? <span className="font-serif text-sm text-ink-soft">{away}</span> : null
                 }

@@ -560,11 +560,15 @@ export interface ParishListItem {
   location: string;
   /** Street address on its own — the card prints the place parts separately. */
   address: string | null;
+  /** Postal code, when the record has one; the card places it by country. */
+  postalCode: string | null;
   /** Parish website, when the record has one. */
   website: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
+  /** ISO 3166-1 alpha-2 code, when the record has one. */
+  countryCode: string | null;
   latitude: number | null;
   longitude: number | null;
   href: string;
@@ -581,9 +585,11 @@ type ParishRow = {
   latitude: number | null;
   longitude: number | null;
   address: string | null;
+  postalCode?: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
+  countryCode?: string | null;
   website: string | null;
   distance_miles?: number | null;
 };
@@ -607,10 +613,12 @@ function toParishItem(row: ParishRow): ParishListItem {
     designation,
     location,
     address: row.address ?? null,
+    postalCode: row.postalCode ?? null,
     website: row.website ?? null,
     city: row.city,
     state: row.state,
     country: row.country,
+    countryCode: row.countryCode ?? null,
     latitude: row.latitude,
     longitude: row.longitude,
     href: publicRouteFor("PARISH", row.slug).slugPath,
@@ -621,11 +629,13 @@ function toParishItem(row: ParishRow): ParishListItem {
 /** The projected columns every parish list query returns. */
 const PARISH_COLUMNS = Prisma.sql`
   "id", "slug", "title", "subtitle", "subtype", "latitude", "longitude",
-  payload->>'address' AS "address",
-  payload->>'city'    AS "city",
-  payload->>'state'   AS "state",
-  payload->>'country' AS "country",
-  payload->>'website' AS "website"
+  payload->>'address'     AS "address",
+  payload->>'postalCode'  AS "postalCode",
+  payload->>'city'        AS "city",
+  payload->>'state'       AS "state",
+  payload->>'country'     AS "country",
+  payload->>'countryCode' AS "countryCode",
+  payload->>'website'     AS "website"
 `;
 
 /**
