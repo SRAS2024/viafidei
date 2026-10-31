@@ -12,8 +12,10 @@
  *     United States (with Liberia and Myanmar, CLDR's other US-system
  *     territories); British, Irish, Canadian, Australian and Indian English
  *     read metric. WHICH English comes from the browser's own language list
- *     (en-GB vs en-US). Deriving it from the coordinate would switch a
- *     traveller's units mid-trip, which people find disorienting.
+ *     (en-GB vs en-US), and from its primary language rather than the en-US
+ *     that browsers append as a fallback. Deriving it from the coordinate
+ *     would switch a traveller's units mid-trip, which people find
+ *     disorienting.
  *  2. PRECISION SHRINKS WITH DISTANCE. Short distances go to the nearest
  *     hundred feet or hundred metres ("800 ft", "300 m"); from a thousand of
  *     those the larger unit takes over with one decimal ("1.3 mi", "2.4 km");
@@ -40,9 +42,9 @@ export type MeasurementSystem = "imperial" | "metric";
 const IMPERIAL_REGIONS: ReadonlySet<string> = new Set(["US", "LR", "MM"]);
 
 /**
- * English with no region anywhere in the browser's list is American English
- * by CLDR's likely subtags (en -> en-Latn-US), so it keeps the miles that the
- * search radius and the near API already speak.
+ * A browser that says nothing usable about its reader reads as American
+ * English, CLDR's likely region for a bare "en" (en -> en-Latn-US), so it keeps
+ * the miles that the search radius and the near API already speak.
  */
 const ENGLISH_DEFAULT_REGION = "US";
 
@@ -75,38 +77,71 @@ export function navigatorLocales(
   return list.filter((tag): tag is string => typeof tag === "string" && tag.trim() !== "");
 }
 
-/** Parsed tags in preference order; a malformed one ("en_US", "x") is skipped. */
-function parseTags(locales: unknown): Intl.Locale[] {
+/**
+ * What the units and the formatting locale need from one language tag. An
+ * `Intl.Locale` is one; so is the hand-read tag an engine without it gets.
+ */
+type LanguageTag = {
+  language: string;
+  region?: string | undefined;
+  baseName: string;
+  /** Likely-subtag expansion (en -> en-Latn-US); absent without Intl.Locale. */
+  maximize?: () => { region?: string | undefined };
+};
+
+/** The language, optional script and optional region a BCP-47 tag opens with. */
+const TAG_PREFIX = /^([a-z]{2,3})(?:-[a-z]{4})?(?:-([a-z]{2}|\d{3}))?(?=-|$)/i;
+
+/** One tag, or null for a malformed one ("en_US", "x"), which is skipped. */
+function parseTag(raw: string): LanguageTag | null {
+  try {
+    return new Intl.Locale(raw);
+  } catch {
+    // Intl.Locale throws on a malformed tag rather than resolving it.
+    if (typeof Intl.Locale === "function") return null;
+  }
+  // An engine without Intl.Locale (Safari before 14, still a Next.js target)
+  // says "en-GB" all the same: read the language and region off the tag rather
+  // than hand a British reader miles.
+  const match = TAG_PREFIX.exec(raw);
+  if (!match) return null;
+  const language = match[1]!.toLowerCase();
+  const region = match[2]?.toUpperCase();
+  return { language, region, baseName: region ? `${language}-${region}` : language };
+}
+
+/** Parsed tags in preference order; malformed ones are skipped. */
+function parseTags(locales: unknown): LanguageTag[] {
   const list = typeof locales === "string" ? [locales] : Array.isArray(locales) ? locales : [];
-  const tags: Intl.Locale[] = [];
+  const tags: LanguageTag[] = [];
   for (const raw of list) {
     if (typeof raw !== "string" || raw.trim() === "") continue;
-    try {
-      tags.push(new Intl.Locale(raw.trim()));
-    } catch {
-      // Intl.Locale throws on a malformed tag rather than resolving it.
-    }
+    const tag = parseTag(raw.trim());
+    if (tag) tags.push(tag);
   }
   return tags;
 }
 
 /**
- * Where the reader's conventions come from. The first tag that names a region
- * outright wins: "en-GB", but equally "fr-CA" or "es-US" ahead of a bare "en",
- * because it is the most specific thing the browser says about its reader.
- * Failing that, the region the first language implies (en -> US, de -> DE).
+ * Where the reader's conventions come from: the browser's PRIMARY language.
+ * Its own region when it names one ("en-GB", "es-US"); else a later listing of
+ * the same language that does ("en, en-GB"); else the region the language
+ * implies (ja -> JP, de -> DE, en -> US). A region further down the list
+ * belongs to a fallback language, not to the reader: browsers append "en-US,
+ * en" to a bare primary language by default (Firefox in Japanese sends "ja,
+ * en-US, en"), and reading that as the reader's region would hand miles to
+ * readers in Tokyo and Berlin.
  */
-function readerRegion(tags: readonly Intl.Locale[]): string | null {
-  for (const tag of tags) if (tag.region) return tag.region;
-  for (const tag of tags) {
-    try {
-      const region = tag.maximize().region;
-      if (region) return region;
-    } catch {
-      // Keep looking.
-    }
+function readerRegion(tags: readonly LanguageTag[]): string | null {
+  const primary = tags[0];
+  if (!primary) return null;
+  if (primary.region) return primary.region;
+  for (const tag of tags) if (tag.language === primary.language && tag.region) return tag.region;
+  try {
+    return primary.maximize?.().region ?? null;
+  } catch {
+    return null;
   }
-  return null;
 }
 
 /**
@@ -115,17 +150,11 @@ function readerRegion(tags: readonly Intl.Locale[]): string | null {
  * a Portuguese one), so separators and abbreviations read the way the reader
  * expects; otherwise the site language itself.
  */
-function formattingLocale(site: Locale, tags: readonly Intl.Locale[]): string {
+function formattingLocale(site: Locale, tags: readonly LanguageTag[]): string {
   const override = FORMAT_LOCALE_OVERRIDES[site];
   if (override) return override;
-  // Canonical form, so the site's "tl" matches a browser's "fil-PH". An engine
-  // without Intl.Locale (Safari before 14) parsed no tags, so nothing matches.
-  let language: string;
-  try {
-    language = new Intl.Locale(site).language;
-  } catch {
-    return site;
-  }
+  // Canonical form, so the site's "tl" matches a browser's "fil-PH".
+  const language = parseTag(site)?.language ?? site;
   for (const tag of tags) if (tag.language === language) return tag.baseName;
   return site;
 }

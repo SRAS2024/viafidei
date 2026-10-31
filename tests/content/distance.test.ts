@@ -74,7 +74,7 @@ describe("resolveDistanceDisplay: units follow the reader", () => {
     }
   });
 
-  it("takes the region from the first tag that names one", () => {
+  it("takes the region from the browser's primary language", () => {
     // A German browser reading the English page: metric, worded as en-US.
     expect(resolveDistanceDisplay("en", ["de-DE", "en-US"])).toEqual({
       locale: "en-US",
@@ -85,8 +85,30 @@ describe("resolveDistanceDisplay: units follow the reader", () => {
       locale: "en",
       system: "imperial",
     });
-    expect(resolveDistanceDisplay("en", ["en", "en-GB"]).system).toBe("metric");
     expect(resolveDistanceDisplay("en", ["fr-CA", "en"]).system).toBe("metric");
+    // A bare primary takes its region from a later listing of the same language…
+    expect(resolveDistanceDisplay("en", ["en", "en-GB"]).system).toBe("metric");
+    expect(resolveDistanceDisplay("en", ["en", "en-US", "en-GB"]).system).toBe("imperial");
+    expect(resolveDistanceDisplay("en", ["fr", "en-US", "fr-CA"]).system).toBe("metric");
+  });
+
+  it("never reads the en-US a browser appends as a fallback as the reader's region", () => {
+    // Firefox sends "de, en-US, en" where Chrome sends "de-DE, en-US, en"; the
+    // same German reader must not switch to miles with the browser.
+    expect(resolveDistanceDisplay("en", ["de", "en-US", "en"])).toEqual({
+      locale: "en-US",
+      system: "metric",
+    });
+    // Japanese, Dutch, Czech and Ukrainian are not site languages, so these
+    // readers land on the English page by default, with these default lists.
+    for (const browser of [
+      ["ja", "en-US", "en"],
+      ["nl", "en-US", "en"],
+      ["cs", "sk", "en-US", "en"],
+      ["uk", "ru", "en-US", "en"],
+    ]) {
+      expect(resolveDistanceDisplay("en", browser).system, browser.join()).toBe("metric");
+    }
   });
 
   it("falls back to the region a bare language implies, then to US English", () => {
@@ -258,10 +280,16 @@ describe("formatDistance: the reader's notation", () => {
     });
     vi.stubGlobal("Intl", oldIntl);
     try {
+      // The tags are read by hand, so a British reader there still reads metric.
       const display = resolveDistanceDisplay("en", ["en-GB"]);
-      // No tag can be read, so English falls back to US English.
-      expect(display).toEqual({ locale: "en", system: "imperial" });
-      expect(formatDistanceAway(km(2.4), display)).toBe("1.5 mi away");
+      expect(display).toEqual({ locale: "en-GB", system: "metric" });
+      expect(formatDistanceAway(km(2.4), display)).toBe("2.4 km away");
+      expect(formatDistanceAway(1.3, resolveDistanceDisplay("en", ["en-US", "en"]))).toBe(
+        "1.3 mi away",
+      );
+      expect(resolveDistanceDisplay("en", ["en", "en-IE"]).system).toBe("metric");
+      // A malformed tag is still skipped; nothing usable reads as US English.
+      expect(resolveDistanceDisplay("en", ["en_GB"])).toEqual({ locale: "en", system: "imperial" });
       expect(formatDistance(km(2.4), resolveDistanceDisplay("pt", ["pt-BR"]))).toBe("2.4 km");
     } finally {
       vi.unstubAllGlobals();

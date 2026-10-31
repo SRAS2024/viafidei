@@ -190,6 +190,9 @@ describe("ParishLocator", () => {
     ["en", ["en-IE"], "800 m away"],
     // A German browser in Chicago reading the English page: metric, not the coordinate's miles.
     ["en", ["de-DE", "en-US"], "800 m away"],
+    // The same reader on Firefox, whose list is "de, en-US, en": the appended
+    // en-US is a fallback language, not the reader's region.
+    ["en", ["de", "en-US", "en"], "800 m away"],
   ] as const)("on a %s page with a %j browser the line reads %j", async (site, browser, line) => {
     await locateWith([...browser], siteLanguage(site));
     expect(within(cardFor("Near Parish")).getByText(line)).toBeInTheDocument();
