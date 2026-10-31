@@ -109,6 +109,24 @@ describe("reverseLookupCity", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it("shares the Nominatim cooldown: a 429 starts it, and no reverse lookup runs during it", async () => {
+    const { prisma, store } = makePrisma();
+    const refused = vi.fn(async () => ({ ok: false, status: 429, json: async () => ({}) }));
+    expect(
+      (await reverseLookupCity(prisma, 1, 1, { remaining: 3 }, { fetchImpl: refused as never }))
+        .city,
+    ).toBeNull();
+    const cooldown = store.get("nominatim-cooldown")?.memoryValue as { until: number };
+    expect(cooldown.until).toBeGreaterThan(Date.now());
+
+    const fetchImpl = ok({ city: "X" });
+    expect(
+      (await reverseLookupCity(prisma, 1, 1, { remaining: 3 }, { fetchImpl: fetchImpl as never }))
+        .city,
+    ).toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it("is idle in skip-network mode and null on any error", async () => {
     const { prisma } = makePrisma();
     process.env.ADMIN_WORKER_SKIP_NETWORK = "1";

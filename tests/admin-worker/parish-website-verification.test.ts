@@ -209,6 +209,24 @@ describe("runParishWebsiteVerification", () => {
     );
   });
 
+  it("writes its verdict onto the row as it is after the site fetch, not as it was before", async () => {
+    // The address-research lane filled the street while the site was fetched.
+    mockedInspect.mockResolvedValue(verdict("unknown"));
+    const { prisma, updates } = makePrisma([row("d")]);
+    const filled = { ...row("d").payload, address: "Via del Velabro", postalCode: "00153" };
+    (prisma.publishedContent as unknown as { findUnique: unknown }).findUnique = vi.fn(
+      async () => ({ payload: filled }),
+    );
+
+    await runParishWebsiteVerification(prisma, { limit: 30 });
+
+    expect(updates[0]!.data.payload).toMatchObject({
+      address: "Via del Velabro",
+      postalCode: "00153",
+      _meta: { websiteVerification: { status: "unknown" } },
+    });
+  });
+
   it("honours the limit, skips rows not yet due, and persists the cursor after every site", async () => {
     mockedInspect.mockResolvedValue(verdict("unknown"));
     const notDue = row("b", { _meta: { websiteVerification: { nextDueAt: Date.now() + 1e9 } } });

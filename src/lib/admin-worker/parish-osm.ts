@@ -18,17 +18,20 @@
  * run within its watchdog instead of stalling on 10-second site fetches.
  *
  * Nothing is invented: a candidate needs its OSM name plus EITHER a locality
- * tag OR coordinates, and wayside shrines, crosses, grottoes and numbered
- * Stations of the Cross are not parishes at all; a missing city may be filled
- * from `is_in` or one
- * bounded Nominatim reverse lookup, else the record publishes on its
- * coordinates with an empty city. Dedup runs cheapest-first — sourceRef, the
- * shared address rule (same key AND within 250 m, parish-address.ts),
- * same-name-within-200 m, then slug (a collision gets a stable suffix, never
- * a silent skip) — and a re-swept parish enriches its own row in place. Every
- * run is bounded (publish cap checked BEFORE any per-candidate work, a
- * wall-clock deadline under the lane watchdog) and resumable (per-tile
- * progress is persisted).
+ * tag OR coordinates. Wayside shrines, crosses, grottoes and numbered Stations
+ * of the Cross are not parishes and are never candidates. Before a tile's new
+ * candidates are deduped they are looked up by OSM id on Nominatim in batches
+ * of 50 (nominatim-lookup.ts), which fills a blank street, postcode, locality
+ * and state — and replaces a TILE-fallback country, never an `addr:country`
+ * tag. When that lookup is unavailable (budget, cooldown) the parish publishes
+ * as before and the address-research lane completes it later; a missing city
+ * may still come from `is_in` or one bounded reverse lookup. Dedup runs
+ * cheapest-first — sourceRef, the shared address rule (same key AND within
+ * 250 m, parish-address.ts), same-name-within-200 m, then slug (a collision
+ * gets a stable suffix, never a silent skip) — and a re-swept parish enriches
+ * its own row in place. Every run is bounded (publish cap checked BEFORE any
+ * per-candidate work, a wall-clock deadline under the lane watchdog) and
+ * resumable (per-tile progress is persisted).
  */
 
 import type { PrismaClient } from "@prisma/client";
@@ -45,6 +48,18 @@ import {
 } from "./parish-discovery-runner";
 import { findDuplicateParish, normalizedParishName, parishAddressKey } from "./parish-address";
 import { composeStreetLine, countryNameFor, normalizePostalCode } from "./parish-address-format";
+import {
+  addressPrecisionOf,
+  nextAddressResearchMeta,
+  type AddressPrecision,
+  type AddressResearchMeta,
+} from "./parish-address-status";
+import {
+  lookupOsmPlaces,
+  nominatimAddressParts,
+  NOMINATIM_MAX_IDS_PER_REQUEST,
+  type NominatimPlace,
+} from "./nominatim-lookup";
 import type { PlaceParish } from "./parish-places";
 import { writeAdminWorkerLog } from "./logs";
 import {
@@ -137,8 +152,8 @@ export function localityFromTags(tags: Record<string, string>): string {
   return "";
 }
 
-// Moved to the shared address-format module; re-exported for existing callers.
-export { countryNameFor };
+// Moved to the shared address modules; re-exported for existing callers.
+export { countryNameFor, normalizedParishName };
 
 // ── Not a parish: wayside shrines, crosses and Stations of the Cross ────────
 
@@ -259,6 +274,22 @@ export interface OsmCandidate extends PlaceParish {
   slugBase: string;
   /** From OSM tags (`building`, `place_of_worship`, `church:type`, …) and the name. */
   designation: ParishDesignation;
+  /**
+   * Where `countryCode` came from: the element's `addr:country` tag, the
+   * tile's fallback, or a Nominatim answer. Only a tile fallback may be
+   * replaced — a tag is the mapper's own statement.
+   */
+  countrySource?: "tag" | "tile" | "nominatim";
+  /** Set when a Nominatim lookup answered for this candidate at discovery; the
+   * row then publishes with its research state (`_meta.addressResearch`). */
+  addressLookup?: {
+    /** False when Nominatim answered without this object. */
+    returned: boolean;
+    /** True when the answer filled or corrected at least one field. */
+    used: boolean;
+    precision: AddressPrecision;
+    at: number;
+  };
 }
 
 /**
@@ -342,6 +373,7 @@ export function osmElementToParish(
     state: (tags["addr:state"] ?? tags["addr:province"] ?? "").trim() || undefined,
     country: countryNameFor(countryCode),
     countryCode,
+    countrySource: taggedCountry ? "tag" : countryCode ? "tile" : undefined,
     postcode: normalizePostalCode(tags["addr:postcode"], countryCode),
     latitude: hasCoords ? lat : undefined,
     longitude: hasCoords ? lon : undefined,
@@ -358,10 +390,87 @@ export function osmElementToParish(
   };
 }
 
-// ── Dedup helpers ───────────────────────────────────────────────────────────
+/**
+ * Fill a NEW candidate's blanks from its Nominatim answer, before the address
+ * dedup sees it: street line, locality, state, postal code — and the country
+ * when the candidate's came from the tile fallback (or it had none). A value
+ * the element's own tags supplied is never replaced. `place: null` means
+ * Nominatim answered without this object. Exported for testing.
+ */
+export function applyLookupToCandidate(
+  candidate: OsmCandidate,
+  place: NominatimPlace | null,
+  now: number,
+): void {
+  if (!place) {
+    candidate.addressLookup = {
+      returned: false,
+      used: false,
+      precision: addressPrecisionOf(candidate.formattedAddress),
+      at: now,
+    };
+    return;
+  }
+  const parts = nominatimAddressParts(place);
+  let used = false;
+  // Country first: the street order and the postcode format depend on it.
+  if (
+    parts.countryCode &&
+    parts.countryCode !== candidate.countryCode &&
+    (!candidate.countryCode || candidate.countrySource === "tile")
+  ) {
+    candidate.countryCode = parts.countryCode;
+    candidate.country = parts.country;
+    candidate.countrySource = "nominatim";
+    used = true;
+  }
+  const sameCountry = !candidate.countryCode || candidate.countryCode === parts.countryCode;
+  let precision = addressPrecisionOf(candidate.formattedAddress);
+  if (!candidate.formattedAddress && parts.street && sameCountry) {
+    candidate.formattedAddress = composeStreetLine(
+      parts.street,
+      parts.houseNumber,
+      candidate.countryCode,
+    );
+    precision = parts.precision;
+    used = true;
+  }
+  if (!candidate.city && parts.locality) {
+    candidate.city = parts.locality;
+    candidate.slugBase = slugify(`${candidate.name} ${parts.locality}`) || candidate.slugBase;
+    used = true;
+  }
+  if (!candidate.state && parts.state && sameCountry) {
+    candidate.state = parts.state;
+    used = true;
+  }
+  if (!candidate.postcode && parts.postalCode && sameCountry) {
+    candidate.postcode = parts.postalCode;
+    used = true;
+  }
+  candidate.addressLookup = { returned: true, used, precision, at: now };
+}
 
-// Moved to the shared address module; re-exported for existing callers.
-export { normalizedParishName };
+/** The research state a looked-up candidate publishes with, from its final fields. */
+function candidateResearchMeta(candidate: OsmCandidate): AddressResearchMeta | null {
+  const lookup = candidate.addressLookup;
+  if (!lookup) return null;
+  return nextAddressResearchMeta({
+    previous: null,
+    payload: {
+      address: candidate.formattedAddress,
+      city: candidate.city,
+      postalCode: candidate.postcode,
+      countryCode: candidate.countryCode,
+    },
+    returned: lookup.returned,
+    precision: lookup.precision,
+    sources: lookup.used ? ["osm", "nominatim"] : ["osm"],
+    now: lookup.at,
+  });
+}
+
+// ── Dedup helpers ───────────────────────────────────────────────────────────
 
 type ExistingRow = {
   id: string;
@@ -584,6 +693,10 @@ async function publishOsmParish(
   if (candidate.phone) payload.phone = candidate.phone;
   if (typeof candidate.latitude === "number") payload.latitude = candidate.latitude;
   if (typeof candidate.longitude === "number") payload.longitude = candidate.longitude;
+  // Researched at discovery: the research lane picks the row up again only
+  // once it is due, instead of spending a second lookup on it straight away.
+  const addressResearch = candidateResearchMeta(candidate);
+  if (addressResearch) payload._meta = { addressResearch };
 
   const valid = validatePayload("PARISH", payload);
   if (!valid.ok) return { kind: "blocked", reason: `schema: ${valid.errors.join("; ")}` };
@@ -652,6 +765,12 @@ interface RunContext {
   brainActive: boolean;
   passId?: string;
   reverse: ReverseLookupBudget;
+  /**
+   * Nominatim answers prefetched for the current chunk's new candidates:
+   * sourceRef → place, or null when Nominatim answered without the object.
+   * A ref that is absent was not looked up (budget, cooldown, known row).
+   */
+  lookups?: Map<string, NominatimPlace | null>;
 }
 
 /** Stable, source-derived suffix for a slug collision (postcode, else OSM id). */
@@ -677,10 +796,17 @@ export async function processOsmCandidate(
       : "duplicate";
   }
   // Its own row was unpublished as a duplicate (`_meta.dedup`) of a parish
-  // that is still live: stay down. The candidate's fresh tags may lack a street
-  // the row gained since, so the address check below could miss it and the
-  // sweep would republish what the maintenance just took down.
+  // that is still live: stay down. The candidate's fresh tags may lack the
+  // street the research lane filled in, so the address check below could miss
+  // it and the sweep would republish what the maintenance just took down.
   if (bySource && (await dedupKeeperIsLive(prisma, bySource))) return "duplicate";
+
+  // A new candidate's Nominatim answer (prefetched per chunk) fills its blanks
+  // first, so the address dedup below sees the street and postcode.
+  const lookedUp = ctx.lookups?.has(candidate.placeId) === true;
+  if (lookedUp) {
+    applyLookupToCandidate(candidate, ctx.lookups?.get(candidate.placeId) ?? null, Date.now());
+  }
 
   // 2. Same street address AND within 250 m (or the same name when either has
   //    no coordinates) → same place under another name or source. A shared
@@ -717,9 +843,11 @@ export async function processOsmCandidate(
 
   // City fallback for coordinate-only candidates: one bounded reverse lookup
   // (address.city|town|village|municipality only). Runs AFTER the dedup so a
-  // known parish never spends a lookup.
+  // known parish never spends a lookup, and only when the id lookup did not
+  // already answer for this very object.
   if (
     !candidate.city &&
+    candidate.addressLookup?.returned !== true &&
     typeof candidate.latitude === "number" &&
     typeof candidate.longitude === "number"
   ) {
@@ -728,9 +856,16 @@ export async function processOsmCandidate(
       candidate.city = r.city;
       candidate.slugBase = slugify(`${candidate.name} ${r.city}`) || candidate.slugBase;
     }
-    if (!candidate.countryCode && r.countryCode) {
+    // Nominatim's country is where the point lies: it replaces a tile
+    // fallback (which can be a neighbouring country's) but never a tag.
+    if (
+      r.countryCode &&
+      r.countryCode !== candidate.countryCode &&
+      (!candidate.countryCode || candidate.countrySource === "tile")
+    ) {
       candidate.countryCode = r.countryCode;
       candidate.country = countryNameFor(r.countryCode);
+      candidate.countrySource = "nominatim";
     }
   }
 
@@ -793,6 +928,8 @@ export interface OsmParishResult {
   skipped: number;
   routedToReview: number;
   rejected: number;
+  /** Nominatim lookup requests spent on new candidates' addresses. */
+  addressLookups: number;
   budgetExhausted: boolean;
   detail: string;
 }
@@ -833,6 +970,76 @@ function elementRef(el: OverpassElement): string {
   return `${el.type ?? "?"}/${el.id ?? "?"}`;
 }
 
+type SweepContext = RunContext & {
+  maxPublish: number;
+  deadline: number;
+  /** Set once a lookup was refused or failed: the rest of the run asks no more. */
+  lookupsStopped: boolean;
+};
+
+/** sourceRefs with an active skip memory (a remembered gate failure). */
+async function activeSkipRefs(prisma: PrismaClient, refs: string[]): Promise<Set<string>> {
+  try {
+    const rows = await prisma.adminWorkerMemory.findMany({
+      where: { memoryType: "GENERIC", memoryKey: { in: refs.map((r) => SKIP_PREFIX + r) } },
+      select: { memoryKey: true, memoryValue: true },
+    });
+    const now = Date.now();
+    return new Set(
+      rows
+        .filter((r) => {
+          const until = (r.memoryValue as { retryAfter?: number } | null)?.retryAfter;
+          return typeof until === "number" && until > now;
+        })
+        .map((r) => r.memoryKey.slice(SKIP_PREFIX.length)),
+    );
+  } catch {
+    // Unknown: spend no lookup budget on candidates that may be remembered.
+    return new Set(refs);
+  }
+}
+
+/**
+ * Look up the NEW candidates among the next chunk of elements on Nominatim, in
+ * one request (≤ 50 ids), before any of them is processed. A row already
+ * published is skipped (the research lane keeps those up to date), as is a
+ * candidate with an active skip memory. Fail-open: whatever goes unanswered is
+ * not looked up — it publishes as before and the research lane completes it.
+ */
+async function prefetchAddressLookups(
+  prisma: PrismaClient,
+  elements: OverpassElement[],
+  tile: OsmTile,
+  base: OsmParishResult,
+  ctx: SweepContext,
+): Promise<Map<string, NominatimPlace | null>> {
+  const out = new Map<string, NominatimPlace | null>();
+  if (ctx.lookupsStopped) return out;
+  const refs = elements
+    .map((el) => osmElementToParish(el, { countryCode: tile.countryCode }))
+    .filter((c): c is OsmCandidate => c !== null)
+    .map((c) => c.placeId);
+  if (refs.length === 0) return out;
+  const known = (await prisma.publishedContent
+    .findMany({
+      where: { contentType: "PARISH" as never, isPublished: true, sourceRef: { in: refs } },
+      select: { sourceRef: true },
+    })
+    .catch(() => null)) as Array<{ sourceRef: string | null }> | null;
+  if (!known) return out;
+  const skip = await activeSkipRefs(prisma, refs);
+  for (const row of known) if (row.sourceRef) skip.add(row.sourceRef);
+  const fresh = refs.filter((r) => !skip.has(r));
+  if (fresh.length === 0) return out;
+  const res = await lookupOsmPlaces(prisma, fresh, { maxRequests: 1 });
+  base.addressLookups += res.requests;
+  // Budget spent, a cooldown, or a failed request: stop asking for this run.
+  if (res.stopReason && res.stopReason !== "request-cap") ctx.lookupsStopped = true;
+  for (const [ref, place] of res.places) out.set(ref, place);
+  for (const ref of res.notReturned) out.set(ref, null);
+  return out;
+}
+
 /**
  * Sweep one tile: query it, split it when dense, and run its elements through
  * `processOsmCandidate` until the publish cap or the deadline. Progress is
@@ -843,7 +1050,7 @@ async function sweepTile(
   tile: OsmTile,
   initialState: OsmTileState,
   base: OsmParishResult,
-  ctx: RunContext & { maxPublish: number; deadline: number },
+  ctx: SweepContext,
 ): Promise<"done" | "stopped" | "failed" | "budget"> {
   let state = initialState;
   const now = Date.now();
@@ -904,7 +1111,9 @@ async function sweepTile(
 
   let resumeAfter = state.resumeAfter;
   let lastProcessed: string | null = null;
-  for (const el of elements) {
+  let prefetchedThrough = -1;
+  for (let i = 0; i < elements.length; i++) {
+    const el = elements[i]!;
     const ref = elementRef(el);
     if (resumeAfter) {
       if (ref === resumeAfter) resumeAfter = null;
@@ -922,6 +1131,17 @@ async function sweepTile(
       // The next run picks this tile up first, ahead of the cursor/queue.
       await markTileActive(prisma, tile.id);
       return "stopped";
+    }
+    // One Nominatim request covers the next 50 elements' new candidates.
+    if (i > prefetchedThrough) {
+      prefetchedThrough = i + NOMINATIM_MAX_IDS_PER_REQUEST - 1;
+      ctx.lookups = await prefetchAddressLookups(
+        prisma,
+        elements.slice(i, prefetchedThrough + 1),
+        tile,
+        base,
+        ctx,
+      );
     }
     const candidate = osmElementToParish(el, { countryCode: tile.countryCode });
     lastProcessed = ref;
@@ -983,6 +1203,7 @@ export async function runOsmParishDiscovery(
     skipped: 0,
     routedToReview: 0,
     rejected: 0,
+    addressLookups: 0,
     budgetExhausted: false,
     detail: "",
   };
@@ -1014,12 +1235,13 @@ export async function runOsmParishDiscovery(
 
   const maxTiles = opts.maxQueries ?? osmEnvInt("ADMIN_WORKER_OSM_MAX_QUERIES", 1);
   const maxPublish = opts.maxPublishPerPass ?? osmEnvInt("ADMIN_WORKER_OSM_MAX_PUBLISH", 250);
-  const ctx = {
+  const ctx: SweepContext = {
     brainActive: opts.brainActive,
     passId: opts.passId,
     reverse: { remaining: reverseLookupCapPerRun() },
     maxPublish,
     deadline: Date.now() + RUN_BUDGET_MS,
+    lookupsStopped: false,
   };
 
   const claimed = await claimDueTiles(prisma, Math.min(maxTiles, remaining));
@@ -1078,6 +1300,7 @@ export async function runOsmParishDiscovery(
         duplicates: base.duplicates,
         skipped: base.skipped,
         rejected: base.rejected,
+        addressLookups: base.addressLookups,
       },
     }).catch(() => undefined);
   }

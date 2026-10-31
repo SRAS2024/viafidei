@@ -204,16 +204,33 @@ export async function runParishWebsiteVerification(
   return out;
 }
 
+/**
+ * The row's payload as stored right now. A site fetch takes up to 10 s, and
+ * the address-research lane may fill the row meanwhile; writing the payload
+ * read before the fetch would silently undo that. Falls back to `fallback`.
+ */
+async function currentPayload(
+  prisma: PrismaClient,
+  id: string,
+  fallback: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const row = await Promise.resolve()
+    .then(() => prisma.publishedContent.findUnique({ where: { id }, select: { payload: true } }))
+    .catch(() => null);
+  return row ? payloadOf({ id, slug: "", title: "", payload: row.payload }) : fallback;
+}
+
 async function verifyOne(
   prisma: PrismaClient,
   row: Row,
-  payload: Record<string, unknown>,
+  batchPayload: Record<string, unknown>,
   out: ParishWebsiteVerificationResult,
   passId: string | undefined,
   nowFn: () => number,
 ): Promise<void> {
-  const website = String(payload.website);
+  const website = String(batchPayload.website);
   const { verdict, details } = await inspectParishWebsite(website);
+  const payload = await currentPayload(prisma, row.id, batchPayload);
   const now = nowFn();
 
   if (verdict.status === "not-in-communion") {

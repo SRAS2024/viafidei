@@ -39,6 +39,7 @@ vi.mock("@/lib/admin-worker/logs", () => ({
 import type { PrismaClient } from "@prisma/client";
 
 import {
+  applyLookupToCandidate,
   localityFromTags,
   machineParishSummary,
   normalizedParishName,
@@ -47,6 +48,7 @@ import {
   parishExclusionFor,
   runOsmParishDiscovery,
 } from "@/lib/admin-worker/parish-osm";
+import type { NominatimPlace } from "@/lib/admin-worker/nominatim-lookup";
 import { runPublishOrchestrator } from "@/lib/admin-worker/publish-orchestrator";
 import { inspectParishWebsite } from "@/lib/admin-worker/communion-verifier";
 import { applyProtectedContentUpdate } from "@/lib/admin-worker/content-protection";
@@ -62,6 +64,8 @@ const KEYS = [
   "ADMIN_WORKER_OSM_REVERSE_SPACING_MS",
   "ADMIN_WORKER_OSM_REVERSE_CAP",
   "ADMIN_WORKER_OSM_MAX_PUBLISH",
+  "ADMIN_WORKER_NOMINATIM_SPACING_MS",
+  "ADMIN_WORKER_NOMINATIM_DAILY_BUDGET",
 ];
 let saved: Record<string, string | undefined>;
 const realFetch = global.fetch;
@@ -74,6 +78,7 @@ beforeEach(() => {
   }
   process.env.ADMIN_WORKER_OSM_MIN_SPACING_MS = "0";
   process.env.ADMIN_WORKER_OSM_REVERSE_SPACING_MS = "0";
+  process.env.ADMIN_WORKER_NOMINATIM_SPACING_MS = "0";
   mockedPublish.mockReset();
   mockedPublish.mockResolvedValue({ kind: "published" } as never);
   mockedInspect.mockReset();
@@ -285,6 +290,12 @@ describe("osmElementToParish — address mapping", () => {
     expect(at({ ...base, website: "ftp://files.example.org" })!.website).toBeUndefined();
   });
 
+  it("records whether the country came from a tag or the tile fallback", () => {
+    expect(at({ ...base, "addr:country": "DE" }, { countryCode: "NL" })!.countrySource).toBe("tag");
+    expect(at(base, { countryCode: "NL" })!.countrySource).toBe("tile");
+    expect(at(base)!.countrySource).toBeUndefined();
+  });
+
   it("designates chapels by tag or a clear name, never by a place name", () => {
     expect(at({ ...base, building: "chapel" })!.designation).toBe("chapel");
     expect(at({ ...base, place_of_worship: "chapel" })!.designation).toBe("chapel");
@@ -397,6 +408,85 @@ describe("the published summary sentence", () => {
   });
 });
 
+describe("applyLookupToCandidate", () => {
+  const NOW = Date.UTC(2026, 9, 31);
+  const rome: NominatimPlace = {
+    osmType: "way",
+    osmId: 124282254,
+    sourceRef: "osm:way/124282254",
+    category: "amenity",
+    type: "place_of_worship",
+    name: "Chiesa di Sant'Eligio dei Ferrari",
+    address: {
+      road: "Via del Velabro",
+      city: "Roma",
+      state: "Lazio",
+      postcode: "00153",
+      country: "Italia",
+      country_code: "it",
+    },
+    extratags: { building: "church" },
+  };
+  const candidate = (tags: Record<string, string>, fallback: { countryCode?: string } = {}) =>
+    osmElementToParish(
+      {
+        type: "way",
+        id: 124282254,
+        center: { lat: 41.8899, lon: 12.4824 },
+        tags: { name: "Sant'Eligio dei Ferrari", denomination: "catholic", ...tags },
+      },
+      fallback,
+    )!;
+
+  it("fills a new candidate's blank street, locality, state and postcode", () => {
+    const c = candidate({}, { countryCode: "IT" });
+    applyLookupToCandidate(c, rome, NOW);
+    expect(c.formattedAddress).toBe("Via del Velabro");
+    expect(c.city).toBe("Roma");
+    expect(c.state).toBe("Lazio");
+    expect(c.postcode).toBe("00153");
+    expect(c.slugBase).toBe("sant-eligio-dei-ferrari-roma");
+    expect(c.addressLookup).toEqual({ returned: true, used: true, precision: "street", at: NOW });
+  });
+
+  it("never replaces what the element's own tags say", () => {
+    const c = candidate(
+      { "addr:street": "Via Petroselli", "addr:city": "Rome" },
+      { countryCode: "IT" },
+    );
+    applyLookupToCandidate(c, rome, NOW);
+    expect(c.formattedAddress).toBe("Via Petroselli");
+    expect(c.city).toBe("Rome");
+  });
+
+  it("replaces a tile-fallback country with Nominatim's, never an addr:country tag", () => {
+    const tile = candidate({}, { countryCode: "TN" }); // a Tunisia tile over Italy
+    applyLookupToCandidate(tile, rome, NOW);
+    expect(tile.countryCode).toBe("IT");
+    expect(tile.country).toBe("Italy");
+    expect(tile.countrySource).toBe("nominatim");
+
+    const tagged = candidate({ "addr:country": "VA" }, { countryCode: "IT" });
+    applyLookupToCandidate(tagged, rome, NOW);
+    expect(tagged.countryCode).toBe("VA");
+    // A different country's address parts are not mixed in.
+    expect(tagged.formattedAddress).toBe("");
+    expect(tagged.postcode).toBeUndefined();
+  });
+
+  it("records an object Nominatim no longer returns", () => {
+    const c = candidate({}, { countryCode: "IT" });
+    applyLookupToCandidate(c, null, NOW);
+    expect(c.addressLookup).toEqual({
+      returned: false,
+      used: false,
+      precision: "locality",
+      at: NOW,
+    });
+    expect(c.formattedAddress).toBe("");
+  });
+});
+
 /** A prisma stub with a real memory store (tiles, budget, skips live there). */
 function makePrisma(opts: { rows?: Array<Record<string, unknown>> } = {}) {
   const store = new Map<string, { memoryValue: unknown; lastUsedAt: Date }>();
@@ -408,6 +498,11 @@ function makePrisma(opts: { rows?: Array<Record<string, unknown>> } = {}) {
           const v = store.get(where.memoryType_memoryKey.memoryKey);
           return v ? { memoryValue: v.memoryValue, lastUsedAt: v.lastUsedAt } : null;
         },
+      ),
+      findMany: vi.fn(async ({ where }: { where: { memoryKey: { in: string[] } } }) =>
+        where.memoryKey.in
+          .filter((k) => store.has(k))
+          .map((k) => ({ memoryKey: k, memoryValue: store.get(k)!.memoryValue })),
       ),
       upsert: vi.fn(
         async ({
@@ -443,9 +538,11 @@ function makePrisma(opts: { rows?: Array<Record<string, unknown>> } = {}) {
       findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
         const lat = where.latitude as { gte: number; lte: number } | undefined;
         const lon = where.longitude as { gte: number; lte: number } | undefined;
+        const sourceIn = (where.sourceRef as { in?: string[] } | undefined)?.in;
         return rows.filter((r) => {
           if (!r.isPublished) return false;
           if (where.addressKey !== undefined && r.addressKey !== where.addressKey) return false;
+          if (sourceIn && !sourceIn.includes(String(r.sourceRef))) return false;
           if (
             lat &&
             !(typeof r.latitude === "number" && r.latitude >= lat.gte && r.latitude <= lat.lte)
@@ -548,7 +645,7 @@ describe("runOsmParishDiscovery", () => {
     expect(String(payload.summary)).not.toMatch(/ in ,/);
   });
 
-  it("fills the city from ONE bounded Nominatim reverse lookup (city|town|village|municipality only)", async () => {
+  it("fills the city from ONE bounded Nominatim reverse lookup when the id lookup cannot answer", async () => {
     const { "addr:city": _c, "addr:street": _s, "addr:housenumber": _h, ...bare } = FULL_TAGS;
     void _c;
     void _s;
@@ -556,6 +653,10 @@ describe("runOsmParishDiscovery", () => {
     const calls: string[] = [];
     global.fetch = vi.fn(async (url: string) => {
       calls.push(String(url));
+      // The lookup-by-id is refused today; the reverse lookup still answers.
+      if (String(url).includes("nominatim") && String(url).includes("/lookup")) {
+        return { ok: false, status: 404, json: async () => ({}) };
+      }
       if (String(url).includes("nominatim")) {
         return {
           ok: true,
@@ -581,8 +682,8 @@ describe("runOsmParishDiscovery", () => {
     });
 
     expect(out.published).toBe(1);
-    expect(calls.filter((u) => u.includes("nominatim"))).toHaveLength(1);
-    expect(calls.find((u) => u.includes("nominatim"))).toMatch(/zoom=10/);
+    expect(calls.filter((u) => u.includes("nominatim") && u.includes("/reverse"))).toHaveLength(1);
+    expect(calls.find((u) => u.includes("/reverse"))).toMatch(/zoom=10/);
     expect(publishedPayload().city).toBe("Brookline");
     expect(mockedPublish.mock.calls[0]![1].slug).toBe("cathedral-of-the-holy-cross-brookline");
     // The lookup was charged to the persisted daily budget row.
@@ -628,6 +729,9 @@ describe("runOsmParishDiscovery", () => {
     expect(out.published).toBe(0);
     expect(out.updated).toBe(1);
     expect(mockedPublish).not.toHaveBeenCalled();
+    // A known parish spends no Nominatim lookup: the research lane keeps it.
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(out.addressLookups).toBe(0);
     expect(mockedProtect).toHaveBeenCalledTimes(1);
     const input = mockedProtect.mock.calls[0]![1];
     expect(input.contentId).toBe("row1");
@@ -1167,5 +1271,160 @@ describe("runOsmParishDiscovery", () => {
     const out = await runOsmParishDiscovery(prisma, { brainActive: true, force: true });
     expect(out.enabled).toBe(false);
     expect(out.published).toBe(0);
+  });
+});
+
+describe("runOsmParishDiscovery — Nominatim lookup for new candidates", () => {
+  const ELIGIO = {
+    type: "node",
+    id: 30,
+    lat: 41.8899,
+    lon: 12.4824,
+    tags: {
+      name: "Chiesa di Sant'Eligio dei Ferrari",
+      religion: "christian",
+      denomination: "catholic",
+    },
+  };
+  const ANSWER = {
+    osm_type: "node",
+    osm_id: 30,
+    category: "amenity",
+    type: "place_of_worship",
+    name: "Chiesa di Sant'Eligio dei Ferrari",
+    address: {
+      road: "Via del Velabro",
+      city: "Roma",
+      state: "Lazio",
+      postcode: "00153",
+      country: "Italia",
+      country_code: "it",
+    },
+    extratags: { building: "church", denomination: "catholic" },
+  };
+
+  function overpassAndNominatim(answer: unknown[]) {
+    const calls: string[] = [];
+    global.fetch = vi.fn(async (url: string) => {
+      calls.push(String(url));
+      if (String(url).includes("nominatim.openstreetmap.org/lookup")) {
+        return { ok: true, status: 200, json: async () => answer };
+      }
+      if (String(url).includes("nominatim")) {
+        return { ok: true, json: async () => ({ address: {} }) };
+      }
+      return {
+        ok: true,
+        headers: { get: () => "application/json" },
+        json: async () => ({ elements: [ELIGIO] }),
+      };
+    }) as unknown as typeof global.fetch;
+    return calls;
+  }
+
+  it("fills a street-less candidate from one batched lookup before it is published", async () => {
+    const calls = overpassAndNominatim([ANSWER]);
+    const { prisma } = makePrisma();
+
+    const out = await runOsmParishDiscovery(prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+
+    expect(out.published).toBe(1);
+    expect(out.addressLookups).toBe(1);
+    const lookup = calls.find((u) => u.includes("/lookup"))!;
+    expect(new URL(lookup).searchParams.get("osm_ids")).toBe("N30");
+    // The id lookup answered for this very object: no reverse lookup as well.
+    expect(calls.some((u) => u.includes("/reverse"))).toBe(false);
+
+    const payload = publishedPayload();
+    expect(payload).toMatchObject({
+      address: "Via del Velabro",
+      city: "Roma",
+      state: "Lazio",
+      postalCode: "00153",
+      countryCode: "IT",
+      country: "Italy",
+      addressKey: "del velabro via 00153 lazio",
+    });
+    expect(mockedPublish.mock.calls[0]![1].slug).toBe("chiesa-di-sant-eligio-dei-ferrari-roma");
+    expect(String(payload.summary)).toBe(
+      "Chiesa di Sant'Eligio dei Ferrari is a Catholic parish in Roma, Italy, listed in OpenStreetMap as a Catholic place of worship.",
+    );
+    const meta = (payload._meta as { addressResearch: Record<string, unknown> }).addressResearch;
+    expect(meta).toMatchObject({
+      status: "complete",
+      missing: [],
+      precision: "street",
+      sources: ["osm", "nominatim"],
+      attempts: 1,
+    });
+  });
+
+  it("dedups on the address the lookup supplied", async () => {
+    overpassAndNominatim([ANSWER]);
+    const { prisma } = makePrisma({
+      rows: [
+        {
+          id: "known",
+          slug: "s-eligio-dei-ferrari",
+          title: "S. Eligio dei Ferrari",
+          isPublished: true,
+          sourceRef: "osm:way/124282254",
+          addressKey: "del velabro via 00153 lazio",
+          latitude: 41.89,
+          longitude: 12.4825,
+          payload: {},
+        },
+      ],
+    });
+
+    const out = await runOsmParishDiscovery(prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+
+    expect(out.duplicates).toBe(1);
+    expect(mockedPublish).not.toHaveBeenCalled();
+  });
+
+  it("records a candidate Nominatim no longer returns, and publishes it anyway", async () => {
+    overpassAndNominatim([]);
+    const { prisma } = makePrisma();
+
+    const out = await runOsmParishDiscovery(prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+
+    expect(out.published).toBe(1);
+    const meta = (publishedPayload()._meta as { addressResearch: Record<string, unknown> })
+      .addressResearch;
+    expect(meta.status).toBe("needs_research");
+  });
+
+  it("publishes as before, unresearched, when the lookup budget is spent", async () => {
+    process.env.ADMIN_WORKER_NOMINATIM_DAILY_BUDGET = "1";
+    const calls = overpassAndNominatim([ANSWER]);
+    const { prisma, store } = makePrisma();
+    const today = new Date().toISOString().slice(0, 10);
+    store.set(`nominatim-lookup:${today}`, { memoryValue: { used: 1 }, lastUsedAt: new Date() });
+
+    const out = await runOsmParishDiscovery(prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+
+    expect(out.published).toBe(1);
+    expect(out.addressLookups).toBe(0);
+    expect(calls.some((u) => u.includes("/lookup"))).toBe(false);
+    // No research state: the research lane picks it up first.
+    expect(publishedPayload()._meta).toBeUndefined();
+    expect(publishedPayload().address).toBeUndefined();
   });
 });

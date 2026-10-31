@@ -102,9 +102,13 @@ describe("worker lane set", () => {
   });
 
   it("has the deterministic custodial lanes that keep published content honest", () => {
-    // Both are deterministic (no brain judgement) and UNPUBLISH rather than
+    // All are deterministic (no brain judgement) and UNPUBLISH rather than
     // delete, so the catalog stays honest even while the brain is degraded.
-    for (const name of ["repair-structured-saints", "verify-parish-websites"]) {
+    for (const name of [
+      "repair-structured-saints",
+      "verify-parish-websites",
+      "research-parish-addresses",
+    ]) {
       const lane = OPS_LANES.find((l) => l.name === name);
       expect(lane, name).toBeDefined();
       expect(lane!.activeOnly).toBeFalsy();
@@ -120,10 +124,21 @@ describe("worker lane set", () => {
       "ingest-structured",
       "repair-structured-saints",
       "verify-parish-websites",
+      "research-parish-addresses",
     ]) {
       const lane = all.find((l) => l.name === name);
       expect(lane!.watchdogMs, name).toBeGreaterThanOrEqual(6 * 60 * 1000);
     }
+  });
+
+  it("runs parish address research as a deterministic ops lane inside a 6-minute watchdog", () => {
+    // Its own run budget (4 min) keeps it inside the watchdog; it must keep
+    // running when the brain is degraded, like the other parish upkeep lanes.
+    const lane = OPS_LANES.find((l) => l.name === "research-parish-addresses");
+    expect(lane).toBeDefined();
+    expect(CONTENT_LANES.some((l) => l.name === "research-parish-addresses")).toBe(false);
+    expect(lane!.activeOnly).toBeFalsy();
+    expect(lane!.watchdogMs).toBeLessThanOrEqual(6 * 60 * 1000);
   });
 
   it("documents the brain bridge honestly: it does NOT queue", () => {
