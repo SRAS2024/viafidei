@@ -726,7 +726,6 @@ async function stopWorkerChild(reason: string): Promise<void> {
   // A stop also stands down an armed restart: an OFF during a crash backoff
   // must not be followed by a worker booting minutes later.
   if (cancelScheduledRestart()) pushLog("host", `pending restart cancelled (${reason})`);
-  host.degraded = false;
   const child = host.child;
   if (!child || child.pid == null) {
     host.child = null;
@@ -1038,6 +1037,7 @@ async function stopFromSwitchPoll(): Promise<void> {
   await shutdownLocalBrain();
   await releaseExecutionLease(prisma, RUNTIME_ID).catch(() => undefined);
   host.failureReason = null;
+  host.degraded = false;
   host.leaseHeldElsewhere = false;
   invalidateExecutionCache();
   broadcast("status", statusPayload());
@@ -1691,6 +1691,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           // shut that down too, so no intelligence process survives the switch.
           await shutdownLocalBrain();
           host.failureReason = null;
+          host.degraded = false;
           const durable = await writeDurableOff(body.actor ?? "operator");
           if (!durable) {
             pushLog(
@@ -2171,6 +2172,7 @@ async function main(): Promise<void> {
         host.runState = "failed";
         host.failureReason = `The local worker stopped: ${LEASE_HELD_ELSEWHERE_MESSAGE}`;
         host.leaseHeldElsewhere = true;
+        host.degraded = false;
         invalidateExecutionCache();
         broadcast("status", statusPayload());
         return;

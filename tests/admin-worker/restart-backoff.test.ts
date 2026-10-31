@@ -136,9 +136,21 @@ describe("scripts/local-worker-host.ts applies it", () => {
   });
 
   it("cancels an armed restart on every stop, so OFF during a backoff wins", () => {
-    const stop = between("async function stopWorkerChild(", "async function withDbBudget(");
+    const stop = between("async function stopWorkerChild(", "/* hung-pass watchdog");
     expect(stop).toContain("cancelScheduledRestart()");
     expect(src).toContain("restartScheduled: restartTimer !== null,");
+  });
+
+  it("clears 'degraded' on an OFF, but not on the stop half of a hung-worker restart", () => {
+    const stop = between("async function stopWorkerChild(", "/* hung-pass watchdog");
+    expect(stop).not.toContain("host.degraded = false");
+    const pollStop = between(
+      "async function stopFromSwitchPoll(",
+      "async function refreshLivenessSignals(",
+    );
+    expect(pollStop).toContain("host.degraded = false;");
+    const appOff = src.slice(src.indexOf('await stopWorkerChild("master switch OFF");'));
+    expect(appOff.slice(0, 600)).toContain("host.degraded = false;");
   });
 
   it("retries a worker that could not even be spawned instead of wedging on a dead child", () => {
