@@ -182,9 +182,8 @@ function fakePrisma(opts: {
 
 /**
  * The Doctors as Wikidata labels them. Most labels are the curated title
- * without "Saint"; the nine below are not — eight are curated Doctors under a
- * different name, and one (John Henry Newman, declared in 2025) is the newly
- * declared Doctor a sweep exists to notice.
+ * without "Saint" (John Henry Newman, declared in 2025, is curated now too);
+ * the eight below are not - they are curated Doctors under a different name.
  */
 const DOCTOR_LABELS_MATCHING_CURATED = [
   "Athanasius of Alexandria",
@@ -216,6 +215,7 @@ const DOCTOR_LABELS_MATCHING_CURATED = [
   "John of Ávila",
   "Hildegard of Bingen",
   "Gregory of Narek",
+  "John Henry Newman",
 ];
 const DOCTOR_LABELS_NOT_MATCHING = [
   "Pope Gregory I",
@@ -226,7 +226,6 @@ const DOCTOR_LABELS_NOT_MATCHING = [
   "Bede",
   "Irenaeus",
   "Alphonsus Maria de' Liguori",
-  "John Henry Newman",
 ];
 
 function doctorRows(): SparqlBinding[] {
@@ -256,7 +255,7 @@ describe("curated-set ingestors", () => {
 
 describe("DOCTOR ingestor against the real curated Doctors", () => {
   it("publishes nothing: curated titles match as live, every other Doctor is held", async () => {
-    expect(curatedLive("DOCTOR")).toHaveLength(37);
+    expect(curatedLive("DOCTOR")).toHaveLength(38);
     mockedSparql.mockResolvedValue(doctorRows());
     const { prisma, memory } = fakePrisma({ liveByType: { DOCTOR: curatedLive("DOCTOR") } });
 
@@ -268,7 +267,7 @@ describe("DOCTOR ingestor against the real curated Doctors", () => {
     expect(out.skipReasons).toEqual({ curated_set_unmatched: DOCTOR_LABELS_NOT_MATCHING.length });
     // The held Doctors are named in the ledger sample, QID included.
     expect(out.skipSamples).toContain("curated_set_unmatched: Pope Gregory I (Q9620)");
-    expect(out.skipSamples.some((s) => s.includes("John Henry Newman"))).toBe(true);
+    expect(out.skipSamples.some((s) => s.includes("Albertus Magnus"))).toBe(true);
     // Each one is remembered, so the next sweep does not map it again.
     expect(out.rejectionsRemembered).toBe(DOCTOR_LABELS_NOT_MATCHING.length);
     const memo = memory.get(rejectionMemoKey("wikidata-doctors", "Q9620"))?.memoryValue as
@@ -310,7 +309,7 @@ describe("DOCTOR ingestor against the real curated Doctors", () => {
     mockedSparql.mockResolvedValue(doctorRows());
     const { prisma, memory } = fakePrisma({
       liveByType: { DOCTOR: curatedLive("DOCTOR") },
-      targets: { SAINT: 10_000, DOCTOR: 37 },
+      targets: { SAINT: 4_500, DOCTOR: 38 },
     });
     // Every other ingestor ran a minute ago; DOCTOR never has (no cursor row),
     // so the floor puts it ahead of SAINT's gap.
