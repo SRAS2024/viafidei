@@ -37,6 +37,7 @@ import {
   fetchJson,
   fetchText,
   isTransientFetchFailure,
+  resetWikimediaQueue,
   type SourceReadLedger,
 } from "@/lib/admin-worker/structured/http";
 import { runStructuredIngest } from "@/lib/admin-worker/structured/ingest";
@@ -81,6 +82,9 @@ beforeEach(() => {
   savedSkip = process.env[SKIP];
   delete process.env[SKIP];
   resetRejectionMemoryPruneClock();
+  // A stubbed 503 from Wikipedia pauses the serial Wikimedia queue (http.ts);
+  // never let one test's pause hold the next test's requests.
+  resetWikimediaQueue();
   mockedSparql.mockReset();
 });
 afterEach(() => {

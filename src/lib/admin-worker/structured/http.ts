@@ -13,12 +13,87 @@
  */
 
 const TIMEOUT_MS = 20_000;
-const USER_AGENT =
+/**
+ * Identifies the worker and how to reach its operator, as the Wikimedia
+ * User-Agent policy asks of every automated client.
+ */
+export const USER_AGENT =
   "ViaFideiAdminWorker/1.0 (+https://etviafidei.com; structured-knowledge ingestion)";
 
 /** True when the worker may make outbound structured-knowledge requests. */
 export function structuredNetworkEnabled(): boolean {
   return process.env.ADMIN_WORKER_SKIP_NETWORK !== "1";
+}
+
+/* ── Wikimedia: one request at a time ──────────────────────────────────────
+ * Wikimedia's API etiquette asks automated clients to make their requests in
+ * SERIES, not in parallel, and to back off when told to. Every Wikipedia /
+ * Wikisource / Wikidata-API request this module makes goes through one
+ * in-process queue, so the ingest lane, the saint repair sweep and any other
+ * caller can never have two in flight at once, whatever their own concurrency.
+ * (The Query Service has its own gate in wikidata.ts and is not queued here.)
+ */
+
+/** Hosts whose requests are serialised: *.wikipedia.org, *.wikisource.org, … */
+const WIKIMEDIA_HOST_RE =
+  /(?:^|\.)(?:wikipedia|wikisource|wikimedia|wikiquote|wiktionary)\.org$|^www\.wikidata\.org$/i;
+
+/** Longest pause a Retry-After from Wikimedia can impose on the queue. */
+const WIKIMEDIA_MAX_PAUSE_MS = 60_000;
+
+let wikimediaQueue: Promise<void> = Promise.resolve();
+let wikimediaPauseUntil = 0;
+
+/** True for a URL whose host asks for serial requests. */
+export function isWikimediaUrl(url: string): boolean {
+  try {
+    return WIKIMEDIA_HOST_RE.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** Minimum gap between two Wikimedia request starts (env, default 0 = back to back). */
+function wikimediaSpacingMs(): number {
+  const n = Number((process.env.ADMIN_WORKER_WIKIMEDIA_SPACING_MS ?? "").trim());
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 10_000) : 0;
+}
+
+/**
+ * Run `task` alone in the Wikimedia queue: after every request queued before
+ * it has finished, after any Retry-After pause, and `spacing` after the last
+ * start. Never rejects the queue itself (a failed task only fails its caller).
+ */
+async function inWikimediaQueue<T>(task: () => Promise<T>): Promise<T> {
+  const turn = wikimediaQueue;
+  let release!: () => void;
+  wikimediaQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await turn;
+  try {
+    const wait = Math.max(0, wikimediaPauseUntil - Date.now());
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    const result = await task();
+    const spacing = wikimediaSpacingMs();
+    if (spacing > 0) wikimediaPauseUntil = Math.max(wikimediaPauseUntil, Date.now() + spacing);
+    return result;
+  } finally {
+    release();
+  }
+}
+
+/** Honour a 429 / 503 from Wikimedia: hold the whole queue for its Retry-After. */
+function noteWikimediaThrottle(status: number, retryAfterMs: number | null): void {
+  if (status !== 429 && status !== 503) return;
+  const pause = Math.min(WIKIMEDIA_MAX_PAUSE_MS, Math.max(1_000, retryAfterMs ?? 5_000));
+  wikimediaPauseUntil = Math.max(wikimediaPauseUntil, Date.now() + pause);
+}
+
+/** Forget queue state (tests). */
+export function resetWikimediaQueue(): void {
+  wikimediaQueue = Promise.resolve();
+  wikimediaPauseUntil = 0;
 }
 
 /**
@@ -73,6 +148,15 @@ export async function fetchText(
     noteUnreadSource(opts.ledger, url);
     return null;
   }
+  if (isWikimediaUrl(url)) return inWikimediaQueue(() => fetchTextNow(url, opts, true));
+  return fetchTextNow(url, opts, false);
+}
+
+async function fetchTextNow(
+  url: string,
+  opts: { maxBytes?: number; timeoutMs?: number; ledger?: SourceReadLedger },
+  wikimedia: boolean,
+): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? TIMEOUT_MS);
   try {
@@ -86,6 +170,7 @@ export async function fetchText(
     });
     if (!res.ok) {
       const status = typeof res.status === "number" ? res.status : null;
+      if (wikimedia && status != null) noteWikimediaThrottle(status, retryAfterOf(res));
       if (isTransientFetchFailure({ status, aborted: false, disabled: false })) {
         noteUnreadSource(opts.ledger, url);
       }
@@ -137,8 +222,15 @@ export function parseRetryAfterMs(value: string | null | undefined): number | nu
   return null;
 }
 
+/** A response's Retry-After in ms. Test doubles often fake only `ok`/`status`. */
+function retryAfterOf(res: Response): number | null {
+  const header = typeof res.headers?.get === "function" ? res.headers.get("retry-after") : null;
+  return parseRetryAfterMs(header);
+}
+
 /**
  * GET a URL and parse the JSON body, reporting HOW it failed. Never throws.
+ * Wikimedia URLs wait their turn in the serial queue (see `inWikimediaQueue`).
  */
 export async function fetchJsonDetailed<T = unknown>(
   url: string,
@@ -147,6 +239,15 @@ export async function fetchJsonDetailed<T = unknown>(
   if (!structuredNetworkEnabled()) {
     return { ok: false, status: null, retryAfterMs: null, aborted: false, disabled: true };
   }
+  if (isWikimediaUrl(url)) return inWikimediaQueue(() => fetchJsonNow<T>(url, opts, true));
+  return fetchJsonNow<T>(url, opts, false);
+}
+
+async function fetchJsonNow<T>(
+  url: string,
+  opts: { accept?: string; timeoutMs?: number },
+  wikimedia: boolean,
+): Promise<FetchJsonResult<T>> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? TIMEOUT_MS);
   try {
@@ -155,15 +256,10 @@ export async function fetchJsonDetailed<T = unknown>(
       signal: controller.signal,
     });
     if (!res.ok) {
-      // Test doubles often fake only `ok`/`status`; tolerate a missing headers bag.
-      const header = typeof res.headers?.get === "function" ? res.headers.get("retry-after") : null;
-      return {
-        ok: false,
-        status: typeof res.status === "number" ? res.status : null,
-        retryAfterMs: parseRetryAfterMs(header),
-        aborted: false,
-        disabled: false,
-      };
+      const status = typeof res.status === "number" ? res.status : null;
+      const retryAfterMs = retryAfterOf(res);
+      if (wikimedia && status != null) noteWikimediaThrottle(status, retryAfterMs);
+      return { ok: false, status, retryAfterMs, aborted: false, disabled: false };
     }
     return { ok: true, status: res.status, data: (await res.json()) as T };
   } catch (err) {

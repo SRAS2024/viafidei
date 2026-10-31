@@ -492,10 +492,15 @@ describe("REPAIR: lane wedge + stale cursor", () => {
   });
 
   it("rewinds a cursor that walked past the end of its corpus, keeping its dampener", async () => {
+    // The ingest module's own record that the last page at this offset came
+    // back EMPTY is the only end-of-corpus evidence.
     const prisma = makePrisma({
       ...healthyOpts(),
       cursors: [
-        { memoryKey: "structured-cursor:saints", memoryValue: { offset: 9000, zeroStreak: 7 } },
+        {
+          memoryKey: "structured-cursor:saints",
+          memoryValue: { offset: 9000, zeroStreak: 7, lastPageSize: 0 },
+        },
       ],
     });
     const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
@@ -527,6 +532,41 @@ describe("REPAIR: lane wedge + stale cursor", () => {
     const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
     expect(r.conditions.map((c) => c.name)).not.toContain("CURSOR_OUT_OF_RANGE");
     expect(prisma.__memory.get("structured-cursor:popes")).toMatchObject({ offset: 9000 });
+  });
+
+  /**
+   * The 2026-10-31 SAINT livelock. Offsets 1100-1400 were Martyrology-only
+   * entities with no article (`no_wikipedia_article` 100 of 100), which left
+   * `zeroStreak` at 4 — and the streak only resets on a publish. Every
+   * 15-minute SENSE then read `offset > 0 && zeroStreak >= 3` as "past the
+   * end", rewound the cursor to 0, and the ingest re-walked pages 0-700 (all
+   * live or rejected) forever: 55 saints in a burst, then nothing for hours.
+   */
+  it("never rewinds a cursor that is walking through BARREN pages mid-corpus", async () => {
+    const prisma = makePrisma({
+      ...healthyOpts(),
+      cursors: [
+        // Mid-corpus after a barren run: full pages, nothing publishable.
+        {
+          memoryKey: "structured-cursor:wikidata-saints",
+          memoryValue: { offset: 1500, zeroStreak: 4, lastPageSize: 200 },
+        },
+        // The production row as the old ingest wrote it (no lastPageSize).
+        {
+          memoryKey: "structured-cursor:wikidata-church-documents",
+          memoryValue: { offset: 200, zeroStreak: 4 },
+        },
+      ],
+    });
+    const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
+    expect(r.conditions.map((c) => c.name)).not.toContain("CURSOR_OUT_OF_RANGE");
+    expect(r.repairs.find((x) => x.repair === "reset_cursor")).toBeUndefined();
+    expect(prisma.__memory.get("structured-cursor:wikidata-saints")).toMatchObject({
+      offset: 1500,
+    });
+    expect(prisma.__memory.get("structured-cursor:wikidata-church-documents")).toMatchObject({
+      offset: 200,
+    });
   });
 });
 
