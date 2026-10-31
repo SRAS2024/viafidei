@@ -1,7 +1,7 @@
 import type { CuratedEntry } from "../index";
 
 /**
- * Group 2 of the curated apparition catalogue: twelve Marian apparitions on
+ * Group 2 of the curated apparition catalogue: thirteen Marian apparitions on
  * which the Church has acted formally and positively.
  *
  * The rules of group 1 apply unchanged. `approvedStatus` records only what a
@@ -108,6 +108,11 @@ const MANAOAG_CITATIONS = [
 const LA_VANG_CITATIONS = [
   "https://www.catholicculture.org/culture/library/view.cfm?recnum=481",
   "https://www.mariedenazareth.com/en/marian-encyclopedia/mary-fills-the-world/main-marian-shrines/in-vietnam-our-lady-of-la-vang",
+];
+
+const VAILANKANNI_CITATIONS = [
+  "https://www.miraclehunter.com/marian_apparitions/approved_apparitions/vailankanni/index.html",
+  "https://www.ncregister.com/blog/stagnaro-our-lady-of-good-health",
 ];
 
 export const apparitionGroupTwo: CuratedEntry[] = [
@@ -449,6 +454,38 @@ export const apparitionGroupTwo: CuratedEntry[] = [
       ],
       associatedMarianTitleSlug: "our-lady-of-la-vang",
       citations: LA_VANG_CITATIONS,
+    },
+  },
+  {
+    contentType: "APPARITION",
+    slug: "apparition-our-lady-of-good-health-vailankanni",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: VAILANKANNI_CITATIONS,
+    payload: {
+      slug: "apparition-our-lady-of-good-health-vailankanni",
+      title: "Apparitions of Our Lady of Good Health at Vailankanni",
+      location: "Vailankanni, Tamil Nadu, Diocese of Thanjavur",
+      country: "India",
+      approvedStatus: "private_revelation",
+      decisionAuthority:
+        "Pope Saint John XXIII, who at the request of the local bishop raised the shrine to the rank of minor basilica by the decree Salutem Supplicibus Dilargiens",
+      decisionYear: 1962,
+      subject: "marian",
+      feastDay: "09-08",
+      summary:
+        "Three traditions handed down at Vailankanni, on the coast of Tamil Nadu, lie behind the greatest Marian shrine of India: the Virgin with her Child is said to have appeared in the sixteenth century to a shepherd boy carrying milk and, some years later, to a lame boy selling buttermilk, who was healed and sent to ask for a chapel to be built; and Portuguese sailors saved from a storm in the Bay of Bengal fulfilled a vow by building a church where they came ashore. Mary is honoured there as Our Lady of Good Health.",
+      background:
+        "No document of the time records the apparitions; they are handed down as the oral tradition of the shrine, and the Church has never judged them. Her approval is given to the devotion: at the request of the local bishop, made during the Second Vatican Council, Pope John XXIII raised the shrine church to the rank of a minor basilica by the decree Salutem Supplicibus Dilargiens of 3 November 1962. The shrine is often called the Lourdes of the East. Its great festival runs from 29 August to the feast of the Nativity of Mary on 8 September and draws millions of pilgrims, Hindus and Muslims among them as well as Catholics, and the porcelain plates said to have been brought by the Portuguese sailors still adorn the altar.",
+      visionaries: [
+        "a shepherd boy carrying milk",
+        "a lame boy selling buttermilk",
+        "Portuguese sailors saved from a storm",
+      ],
+      messageHighlights: [
+        "A request, made through the healed buttermilk seller, that a chapel be built at the place.",
+      ],
+      associatedMarianTitleSlug: "our-lady-of-vailankanni",
+      citations: VAILANKANNI_CITATIONS,
     },
   },
 ];
