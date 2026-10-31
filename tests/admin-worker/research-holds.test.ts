@@ -226,10 +226,16 @@ function publishDecision(): BrainDecision {
 }
 
 describe("a doctrinal_trusted_support review is held for research, not retried", () => {
-  function publishPrisma(mem = memoryStore(), corroborated = true) {
+  function publishPrisma(
+    mem = memoryStore(),
+    corroborated = true,
+    validationNeeds: string[] = ["liturgyTitle"],
+  ) {
     const artifactUpdate = vi.fn(async () => ({}));
+    const evidenceDeletes = vi.fn(async () => ({ count: 0 }));
     return {
       artifactUpdate,
+      evidenceDeletes,
       mem,
       adminWorkerPackageArtifact: {
         findFirst: vi.fn(async () => ({
@@ -247,7 +253,7 @@ describe("a doctrinal_trusted_support review is held for research, not retried",
           },
           fieldProvenance: [{ fieldName: "liturgyTitle", sourceUrl: "x", sourceHost: "usccb.org" }],
           missingFields: [],
-          validationNeeds: [],
+          validationNeeds,
           confidenceScore: 0.92,
           status: "QA_PASSED",
           checklistItemId: "ci-1",
@@ -272,6 +278,7 @@ describe("a doctrinal_trusted_support review is held for research, not retried",
       },
       adminWorkerCrossSourceVerification: {
         count: vi.fn(async () => 0),
+        deleteMany: evidenceDeletes,
         // One independent page, so the LITURGICAL schema (≥2 citations) maps
         // and the outcome under test is the proof gate's.
         findMany: vi.fn(async () =>
@@ -288,6 +295,7 @@ describe("a doctrinal_trusted_support review is held for research, not retried",
       adminWorkerMemory: mem.adminWorkerMemory,
     } as unknown as Parameters<typeof executeMissionStage>[0]["prisma"] & {
       artifactUpdate: ReturnType<typeof vi.fn>;
+      evidenceDeletes: ReturnType<typeof vi.fn>;
       mem: ReturnType<typeof memoryStore>;
     };
   }
@@ -341,8 +349,38 @@ describe("a doctrinal_trusted_support review is held for research, not retried",
 
   // The live five: one usccb.org / catholic.org / vatican.va page and nothing
   // else. The LITURGICAL schema needs two citations, so the payload is refused
-  // before the proof gate is ever asked — and held for research, not retried.
-  it("a single-source LITURGICAL page is held for research before publishing is attempted", async () => {
+  // before the proof gate is ever asked. Built before LITURGICAL carried its
+  // name need, nothing ever looked for a second page: it goes to cross-source
+  // verification with the need added, not onto a research hold that would
+  // refuse it for the same single citation every 7–90 days.
+  it("a single-source LITURGICAL page built without the need is sent to verification", async () => {
+    const { runPublishOrchestrator } = await import("@/lib/admin-worker/publish-orchestrator");
+    vi.mocked(runPublishOrchestrator).mockClear();
+    const prisma = publishPrisma(memoryStore(), false, []);
+    const out = await executeMissionStage({
+      prisma,
+      workerId: "w1",
+      passId: "p1",
+      decision: publishDecision(),
+    });
+    expect(vi.mocked(runPublishOrchestrator)).not.toHaveBeenCalled();
+    const calls = prisma.artifactUpdate.mock.calls as unknown as Array<
+      [{ data: Record<string, unknown> }]
+    >;
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0].data).toMatchObject({
+      status: "BUILD_READY",
+      validationNeeds: ["liturgyTitle"],
+      gateDiagnosis: null,
+    });
+    expect(prisma.evidenceDeletes).toHaveBeenCalledWith({ where: { contentId: "art-loh" } });
+    expect(out.kind).toBe("repair-planned");
+    expect(await readResearchFlag(prisma, "art-loh")).toBeNull();
+  });
+
+  // Once it has been through verification with the need, a single citation is
+  // a genuine evidence gap: held for research, not retried.
+  it("a single-source LITURGICAL page that was verified is held for research", async () => {
     orchestrator.result = { kind: "published", publishedContentId: "x", slug: "s", route: "/r" };
     const { runPublishOrchestrator } = await import("@/lib/admin-worker/publish-orchestrator");
     vi.mocked(runPublishOrchestrator).mockClear();

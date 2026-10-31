@@ -2844,13 +2844,14 @@ export async function runPersistAndPublish(
         }),
       )
       .catch(() => [] as Array<{ matchResult: string; validationSourceUrl: string | null }>);
+    const corroborating = corroboratingCitations(evidenceRows, sourceRead?.sourceUrl ?? null);
     const mapped = buildWebPublishPayload(artifact.contentType, {
       fields: (artifact.extractedFields as Record<string, unknown>) ?? {},
       title: artifact.normalizedTitle,
       slug: artifact.normalizedSlug,
       host: sourceHost,
       sourceUrl: sourceRead?.sourceUrl ?? null,
-      corroboratingUrls: corroboratingCitations(evidenceRows, sourceRead?.sourceUrl ?? null),
+      corroboratingUrls: corroborating,
     });
     if (!mapped.ok) {
       return refuseWebPayload(prisma, passId, {
@@ -2859,6 +2860,7 @@ export async function runPersistAndPublish(
         publishableType,
         slug: artifact.normalizedSlug,
         sourceReadId: artifact.sourceReadId,
+        validationNeeds: artifact.validationNeeds ?? [],
         code: mapped.code,
         errors: mapped.errors,
       });
@@ -2882,6 +2884,10 @@ export async function runPersistAndPublish(
       isDoctrinallySensitive: isDoctrinal,
       confidence: qualitySignal,
       verifier,
+      // The independent pages whose stored evidence confirmed the item: each
+      // is an agreement, and its authority counts, in the proof packet that
+      // proof-gated types (DEVOTION, LITURGICAL, POPE, …) must pass.
+      corroboratingSources: corroborating,
       // Spec §6: pass the artifact id so the orchestrator can refuse
       // publishing when no passing AdminWorkerStrictQAResult exists.
       strictQAArtifactId: artifact.id,
@@ -3061,8 +3067,11 @@ type ReviewRouting = "repair" | "retry" | "terminal" | "research";
 /**
  * Refuse a web artifact whose fields do not make a schema-valid payload.
  *   - Only the citation count short (every field present, one witness where
- *     the schema wants two): a research hold — another source, not another
- *     extraction, is what clears it.
+ *     the schema wants two): another source, not another extraction, clears
+ *     it. An artifact built before its type carried the validation need that
+ *     finds that source (DEVOTION, LITURGICAL, SPIRITUAL_PRACTICE, POPE) is
+ *     sent through cross-source verification with the need added; one that
+ *     has been through it is held for research.
  *   - A required field missing or invalid: NEEDS_REPAIR plus an EXTRACT_FAILED
  *     plan tagged origin "schema_payload", whose handler re-extracts the read
  *     and heals the artifact only if the fresh fields map; otherwise it closes
@@ -3078,6 +3087,7 @@ async function refuseWebPayload(
     publishableType: string;
     slug: string;
     sourceReadId: string | null;
+    validationNeeds: string[];
     code: "SCHEMA_FIELDS_MISSING" | "INSUFFICIENT_CITATIONS" | "NO_SCHEMA_MAPPING";
     errors: string[];
   },
@@ -3087,6 +3097,49 @@ async function refuseWebPayload(
     .slice(0, 3)
     .join("; ")}`;
   if (input.code === "INSUFFICIENT_CITATIONS") {
+    // Built without the need that looks for the second witness, so nothing
+    // has ever looked: a research hold would re-check it every 7–90 days and
+    // refuse it for the same single citation forever. Add the need and let
+    // verification search for the independent page (its stale evidence, if
+    // any, cleared so every need is fetched afresh). Once it has been through
+    // verification with the need, a shortfall is a real evidence gap.
+    const { validationNeedsFor } = await import("./content-builder");
+    const addedNeeds = validationNeedsFor(input.artifactType).filter(
+      (need) => !input.validationNeeds.includes(need),
+    );
+    if (addedNeeds.length > 0) {
+      await prisma.adminWorkerCrossSourceVerification
+        .deleteMany({ where: { contentId: input.artifactId } })
+        .catch(() => undefined);
+      await prisma.adminWorkerPackageArtifact
+        .update({
+          where: { id: input.artifactId },
+          data: {
+            validationNeeds: [...input.validationNeeds, ...addedNeeds],
+            status: "BUILD_READY",
+            rejectionReason: null,
+            gateDiagnosis: null,
+          },
+        })
+        .catch(() => undefined);
+      await writeAdminWorkerLog(prisma, {
+        passId,
+        category: "PUBLISHING",
+        severity: "INFO",
+        eventName: "web_payload_needs_witness",
+        message: `${key} has one citation where its schema wants two; sent to cross-source verification for ${addedNeeds.join(", ")}.`,
+        contentType: input.publishableType,
+        relatedEntityId: input.artifactId,
+        safeMetadata: { artifactId: input.artifactId, addedNeeds },
+      }).catch(() => undefined);
+      return {
+        stage: "PUBLIC_PUBLISH",
+        kind: "repair-planned",
+        summary: `${key}: one citation where the schema wants two — verifying ${addedNeeds.join(", ")} for an independent page.`,
+        repairsPlanned: 1,
+        metadata: { artifactId: input.artifactId, reason: "INSUFFICIENT_CITATIONS", addedNeeds },
+      };
+    }
     const { holdForResearch } = await import("./research-holds");
     const hold = await holdForResearch(prisma, {
       artifactId: input.artifactId,

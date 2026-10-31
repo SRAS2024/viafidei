@@ -56,6 +56,13 @@ export interface PublishOrchestratorInput {
   isDoctrinallySensitive: boolean;
   confidence: number;
   verifier?: VerifierOutcome;
+  /**
+   * Independent pages (another source than the item's own) whose stored
+   * cross-source evidence confirmed the item — the web artifact's corroborating
+   * citations. Each is an agreement for the proof packet, and its registry
+   * authority joins the proof's authority evidence.
+   */
+  corroboratingSources?: string[];
   /** Spec §5: when supplied, gate requires status="PASSED". */
   strictQAArtifactId?: string;
   /**
@@ -1173,20 +1180,39 @@ function payloadBodyText(payload: Record<string, unknown> | null): string | unde
 /**
  * Evidence for the brain's proof packet, built from what the package actually
  * carries. Agreements come from the cross-source verifier (one per stored
- * verification row, or one for a plain sign-off); a verifier conflict is the
- * one unresolved contradiction the proof must see.
+ * verification row, or one for a plain sign-off) or, for a type published
+ * without one, from the independent pages that confirmed it (one per source);
+ * a verifier conflict is the one unresolved contradiction the proof must see.
+ * The authorities are the item's own source's and each corroborating page's
+ * registry level — a host trusted only by name-pattern inference counts as
+ * COMMUNITY. Without the corroboration a proof-gated type with no verifier
+ * (DEVOTION, LITURGICAL, POPE) always had 0 agreements and only its own host's
+ * authority, so its proof could never hold however well it was sourced.
  */
 export function buildProofEvidence(
-  input: Pick<PublishOrchestratorInput, "authorityLevel" | "verifier">,
+  input: Pick<PublishOrchestratorInput, "authorityLevel" | "verifier" | "corroboratingSources">,
   citations: string[],
 ): NonNullable<import("./proof-publishing").SensitivePublishInput["evidence"]> {
   const rows = input.verifier?.verificationRowIds?.length ?? 0;
-  const agreements = input.verifier ? Math.max(rows, input.verifier.publishAllowed ? 1 : 0) : 0;
+  const verified = input.verifier ? Math.max(rows, input.verifier.publishAllowed ? 1 : 0) : 0;
+  // One agreement per corroborating SOURCE (two pages of one site are one).
+  const corroboratingHosts = new Map<string, string>();
+  for (const url of input.corroboratingSources ?? []) {
+    const key = citationSourceKey(url);
+    if (!key || corroboratingHosts.has(key)) continue;
+    corroboratingHosts.set(key, new URL(url).hostname.toLowerCase());
+  }
+  const authorities = [
+    brainAuthorityLevel(input.authorityLevel),
+    ...[...corroboratingHosts.values()].map((host) =>
+      brainAuthorityLevel(authorityLevelForHost(host) ?? "COMMUNITY"),
+    ),
+  ];
   return {
     sources: citations,
-    authorities: [brainAuthorityLevel(input.authorityLevel)],
+    authorities: [...new Set(authorities)],
     citations,
-    agreements,
+    agreements: Math.max(verified, corroboratingHosts.size),
     conflicts: input.verifier?.hasConflict ? ["cross-source verifier reported a conflict"] : [],
   };
 }
