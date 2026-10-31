@@ -19,6 +19,10 @@
  *     slug / name) BEFORE any Wikipedia fetch, and a page that is entirely live
  *     is skipped straight to the next page, so a re-sweep costs one SPARQL call
  *     per page and no Wikipedia traffic;
+ *   - an entity rejected for a reason that describes IT (its article, its
+ *     status, its type) is remembered per QID and treated like a live row until
+ *     its backoff expires (`reject-memory.ts`), so a re-sweep does not re-map
+ *     the same rejections;
  *   - the same memory row accumulates success/failure counts — a learning
  *     signal the worker uses to favour the productive ingestors.
  *
@@ -49,6 +53,12 @@ import {
   type RejectionCode,
   type RejectionHistogram,
 } from "./reject";
+import {
+  pruneRejectionMemos,
+  readRejectionMemos,
+  recordRejectionOutcomes,
+  type RejectionMemo,
+} from "./reject-memory";
 import { persistSourceCooldown, readSourceCooldownMs } from "./source-cooldown";
 import {
   STRUCTURED_INGESTORS,
@@ -145,6 +155,13 @@ export interface StructuredIngestResult {
   discoveredSources: number;
   /** Pages of entirely-live rows skipped without any Wikipedia traffic. */
   pagesSkipped: number;
+  /**
+   * Rows NOT mapped because the entity was rejected on an earlier sweep and its
+   * backoff has not expired (see reject-memory.ts) — counted like live rows.
+   */
+  rejectionsDeferred: number;
+  /** Rejections written to the per-entity memory this pass. */
+  rejectionsRemembered: number;
   /** True when the source is fully ingested (nothing new produced this pass). */
   exhausted: boolean;
   /** True when the pass was skipped because the source is cooling down. */
@@ -554,6 +571,8 @@ export async function runStructuredIngest(
     skipSamples: [],
     discoveredSources: 0,
     pagesSkipped: 0,
+    rejectionsDeferred: 0,
+    rejectionsRemembered: 0,
     exhausted: true,
     sourceCooling: false,
     sourceFailure: null,
@@ -605,6 +624,10 @@ export async function runStructuredIngest(
   let rows: SparqlBinding[] | null = null;
   let pageSize = 0;
   let candidates: SparqlBinding[] = [];
+  // The QID of each candidate (from the cheap identity), and the rejection
+  // memos read for them — what the outcome bookkeeping below extends or clears.
+  let candidateQids: Array<string | undefined> = [];
+  let priorRejections: ReadonlyMap<string, RejectionMemo> = new Map();
   for (let page = 0; page < MAX_SKIP_PAGES_PER_PASS; page += 1) {
     pageStart = offset;
     const fetched = await fetchSourcePage(ingestor, batch, offset);
@@ -612,7 +635,7 @@ export async function runStructuredIngest(
     if (rows === null) break;
     pageSize = fetched.size;
     out.fetched += rows.length;
-    const toMap: SparqlBinding[] = [];
+    const toMap: Array<{ row: SparqlBinding; qid?: string }> = [];
     for (const row of rows) {
       const id = identify(ingestor, row);
       if (id && liveMatch(live, id) === "live") {
@@ -621,12 +644,30 @@ export async function runStructuredIngest(
         // official website); it costs no Wikipedia traffic.
         out.discoveredSources += await enqueueDiscoveredSources(prisma, ingestor, row);
       } else {
-        toMap.push(row);
+        toMap.push({ row, qid: id?.qid });
       }
     }
+    // An entity rejected on an earlier sweep waits out its backoff exactly like
+    // a live row: no mapping, no Wikipedia fetch — and a page left with nothing
+    // else is skipped like an entirely-live one.
+    const memos = await readRejectionMemos(
+      prisma,
+      ingestor.id,
+      toMap.flatMap((t) => (t.qid ? [t.qid] : [])),
+    );
+    const due = toMap.filter((t) => {
+      const memo = t.qid ? memos.get(t.qid) : undefined;
+      if (memo && memo.nextAttemptAt > now) {
+        out.rejectionsDeferred += 1;
+        return false;
+      }
+      return true;
+    });
     offset += pageSize;
-    if (toMap.length > 0 || pageSize < batch) {
-      candidates = toMap;
+    if (due.length > 0 || pageSize < batch) {
+      candidates = due.map((t) => t.row);
+      candidateQids = due.map((t) => t.qid);
+      priorRejections = memos;
       break;
     }
     out.pagesSkipped += 1;
@@ -741,6 +782,9 @@ export async function runStructuredIngest(
   };
 
   // ── Dedup + publish ───────────────────────────────────────────────────────
+  // Per-entity outcomes for the rejection memory: what to remember, what to clear.
+  const rejectedEntities: Array<{ qid: string; code: RejectionCode; detail?: string }> = [];
+  const clearedEntities: string[] = [];
   const seenSlugs = new Set<string>();
   const seenNames = new Map<string, string | undefined>();
   let leftovers = false;
@@ -754,13 +798,16 @@ export async function runStructuredIngest(
     }
     const row = candidates[idx];
     const result = mapped[idx];
+    const rowQid = candidateQids[idx];
     if (isRejection(result)) {
       out.skipped += 1;
       note(result.code, result.detail);
+      if (rowQid) rejectedEntities.push({ qid: rowQid, code: result.code, detail: result.detail });
       continue;
     }
     let entry: CuratedEntry = result;
     const qid = entryQid(entry);
+    const memoQid = rowQid ?? qid;
     const name = normalizeName(entryDisplayName(entry));
 
     // Same-batch dedup: the same entity twice → skip; a DIFFERENT entity with
@@ -787,12 +834,14 @@ export async function runStructuredIngest(
     const match = liveMatch(live, { qid, slug: entry.slug, name: entryDisplayName(entry) });
     if (match === "live") {
       out.alreadyPublished += 1;
+      if (memoQid) clearedEntities.push(memoQid);
       continue;
     }
     if (match === "collision" && qid) {
       entry = withSlug(entry, disambiguatedSlug(entry.slug, qid));
       if (live.bySlug.has(entry.slug)) {
         out.alreadyPublished += 1;
+        if (memoQid) clearedEntities.push(memoQid);
         continue;
       }
     }
@@ -802,10 +851,13 @@ export async function runStructuredIngest(
         out.published += 1;
         live.bySlug.set(entry.slug, qid ? wikidataEntityUrl(qid) : null);
         if (qid) live.refs.add(wikidataEntityUrl(qid));
+        if (memoQid) clearedEntities.push(memoQid);
       } else {
         out.skipped += 1;
-        note(r.code ?? "publish_rejected", `${entry.slug}: ${r.reason ?? ""}`);
+        const code = r.code ?? "publish_rejected";
+        note(code, `${entry.slug}: ${r.reason ?? ""}`);
         if (r.reason) out.errors.push(`${entry.contentType}/${entry.slug}: ${r.reason}`);
+        if (memoQid) rejectedEntities.push({ qid: memoQid, code, detail: r.reason });
       }
     } catch (err) {
       out.failed += 1;
@@ -815,8 +867,23 @@ export async function runStructuredIngest(
     }
   }
 
+  // ── Remember this pass's rejections, clear the entities that published ────
+  out.rejectionsRemembered = await recordRejectionOutcomes(prisma, ingestor.id, {
+    rejected: rejectedEntities,
+    cleared: clearedEntities,
+    prior: priorRejections,
+    nowMs: now,
+  });
+  await pruneRejectionMemos(prisma, { nowMs: now });
+
   // ── Advance the cursor ────────────────────────────────────────────────────
-  const barren = out.fetched > 0 && out.alreadyPublished === 0 && out.published === 0;
+  // A deferred rejection is a KNOWN outcome, like a live row: a page of them is
+  // not barren, so walking past remembered rejections never demotes the ingestor.
+  const barren =
+    out.fetched > 0 &&
+    out.alreadyPublished === 0 &&
+    out.rejectionsDeferred === 0 &&
+    out.published === 0;
   const zeroStreak = out.published > 0 ? 0 : barren ? state.zeroStreak + 1 : state.zeroStreak;
   let next: CursorState;
   // A page came back: the source is usable again — clear the consecutive-failure
@@ -883,7 +950,7 @@ export async function runStructuredIngest(
       category: "CONTENT_BUILD",
       severity: "INFO",
       eventName: "structured_knowledge_ingest",
-      message: `Structured-knowledge ingest (${ingestor.id}): published ${out.published} new ${ingestor.contentType} record(s) from Wikidata + Wikipedia (fetched ${out.fetched}, ${out.alreadyPublished} already live, ${out.skipped} skipped, ${out.pagesSkipped} live page(s) skipped).${reasons ? ` Dropped ${rejected}: ${reasons}.` : ""}`,
+      message: `Structured-knowledge ingest (${ingestor.id}): published ${out.published} new ${ingestor.contentType} record(s) from Wikidata + Wikipedia (fetched ${out.fetched}, ${out.alreadyPublished} already live, ${out.rejectionsDeferred} known rejection(s) waiting out their backoff, ${out.skipped} skipped, ${out.pagesSkipped} live page(s) skipped).${reasons ? ` Dropped ${rejected}: ${reasons}.` : ""}`,
       safeMetadata: {
         ingestorId: ingestor.id,
         contentType: ingestor.contentType,
@@ -898,6 +965,8 @@ export async function runStructuredIngest(
         skipSamples: out.skipSamples,
         discoveredSources: out.discoveredSources,
         pagesSkipped: out.pagesSkipped,
+        rejectionsDeferred: out.rejectionsDeferred,
+        rejectionsRemembered: out.rejectionsRemembered,
         nextOffset: next.offset,
         exhaustedUntil: next.exhaustedUntil,
       },
