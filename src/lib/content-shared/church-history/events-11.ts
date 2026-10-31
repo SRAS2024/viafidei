@@ -2,6 +2,7 @@ import type { ChurchHistoryEvent } from "./types";
 
 const W = "https://en.wikipedia.org/wiki/";
 const V = "https://www.vatican.va/content/";
+const VII = "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/";
 
 /**
  * Church-history spine, part 11: the contemporary Church in detail, from the
@@ -1076,5 +1077,367 @@ export const EVENTS_11: ChurchHistoryEvent[] = [
       "Benedict XVI declares him Venerable in 2009, while historians continue to debate his wartime record.",
     citation: `${W}Pope_Pius_XII`,
     links: { popes: ["pope-venerable-pius-xii"] },
+  },
+
+  // ---------------------------------------------------------------- John XXIII and the Second Vatican Council
+  {
+    slug: "election-of-john-xxiii",
+    title: "St John XXIII elected",
+    year: 1958,
+    date: "1958-10-28",
+    precision: "day",
+    era: "twentieth",
+    kind: "pope",
+    tags: ["papacy"],
+    location: "Rome",
+    context:
+      "Angelo Giuseppe Roncalli, Patriarch of Venice and a veteran papal diplomat in Bulgaria, Turkey, Greece and France, is elected at seventy-six.",
+    significance:
+      "Many expected a caretaker pope; he surprises the Church by calling the Second Vatican Council.",
+    citation: `${W}Pope_John_XXIII`,
+    links: { popes: ["pope-saint-john-xxiii"], saints: ["saint-pope-john-xxiii"] },
+  },
+  {
+    slug: "first-black-african-cardinal",
+    title: "First Black African cardinal of modern times",
+    year: 1960,
+    date: "1960-03-28",
+    precision: "day",
+    era: "twentieth",
+    kind: "mission",
+    tags: ["mission"],
+    location: "Rome",
+    context:
+      "John XXIII creates Laurean Rugambwa, a bishop in Tanganyika, a cardinal — the first Black African member of the College of Cardinals in modern times.",
+    significance:
+      "A sign that the young churches of Africa are coming of age under their own shepherds.",
+    citation: `${W}Laurean_Rugambwa`,
+    links: { popes: ["pope-saint-john-xxiii"] },
+  },
+  {
+    slug: "mater-et-magistra",
+    title: "Mater et magistra",
+    year: 1961,
+    date: "1961-05-15",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    location: "Rome",
+    context:
+      "On the seventieth anniversary of Rerum novarum, John XXIII applies Catholic social teaching to an age of rapid technical change, the plight of agriculture and the gulf between richer and poorer regions.",
+    significance:
+      "It widens the Church's social concern from the industrial worker to the whole human family.",
+    citation: `${V}john-xxiii/en/encyclicals/documents/hf_j-xxiii_enc_15051961_mater.html`,
+    links: { documentSlug: "mater-et-magistra", popes: ["pope-saint-john-xxiii"] },
+  },
+  {
+    slug: "second-vatican-council-convoked",
+    title: "John XXIII convokes the Second Vatican Council",
+    year: 1961,
+    date: "1961-12-25",
+    precision: "day",
+    era: "twentieth",
+    kind: "council",
+    location: "Rome",
+    context:
+      "With the apostolic constitution Humanae salutis, issued on Christmas Day, John XXIII formally convokes the Council after nearly three years of preparation.",
+    significance:
+      "Preparatory commissions have drafted the schemas the bishops will debate when the Council opens in October 1962.",
+    citation: `${W}Second_Vatican_Council`,
+    links: { documentSlug: "second-vatican-council", popes: ["pope-saint-john-xxiii"] },
+  },
+  {
+    slug: "canonization-of-martin-de-porres",
+    title: "St Martin de Porres canonised",
+    year: 1962,
+    date: "1962-05-06",
+    precision: "day",
+    era: "twentieth",
+    kind: "saint",
+    location: "Rome",
+    context:
+      "John XXIII canonises the Dominican lay brother of Lima, son of a Spanish nobleman and a freed slave of African and Native descent, renowned for his care of the sick and the poor.",
+    significance:
+      "He is honoured as patron of mixed-race people and of all who seek racial harmony.",
+    citation: `${W}Martin_de_Porres`,
+    links: { saints: ["saint-martin-de-porres"] },
+  },
+  {
+    slug: "pacem-in-terris",
+    title: "Pacem in terris",
+    year: 1963,
+    date: "1963-04-11",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    location: "Rome",
+    context:
+      "Weeks before his death, John XXIII addresses an encyclical on peace not only to Catholics but to all men of good will, grounding peace in truth, justice, charity and liberty.",
+    significance:
+      "It sets out the rights and duties of persons and peoples and declares that nuclear weapons must be banned.",
+    citation: `${V}john-xxiii/en/encyclicals/documents/hf_j-xxiii_enc_11041963_pacem.html`,
+    links: { documentSlug: "pacem-in-terris", popes: ["pope-saint-john-xxiii"] },
+  },
+  {
+    slug: "death-of-john-xxiii",
+    title: "Death of St John XXIII",
+    year: 1963,
+    date: "1963-06-03",
+    precision: "day",
+    era: "twentieth",
+    kind: "pope",
+    tags: ["papacy"],
+    location: "Apostolic Palace, Vatican City",
+    context:
+      "John XXIII dies of stomach cancer, diagnosed the previous September, with the Council he opened still unfinished.",
+    significance:
+      "Beatified in 2000 and canonised in 2014, he is remembered on 11 October, the anniversary of the Council's opening.",
+    citation: `${W}Pope_John_XXIII`,
+    links: { popes: ["pope-saint-john-xxiii"], saints: ["saint-pope-john-xxiii"] },
+  },
+  {
+    slug: "second-vatican-council-second-session",
+    title: "Second session of Vatican II opens",
+    year: 1963,
+    date: "1963-09-29",
+    precision: "day",
+    era: "twentieth",
+    kind: "council",
+    location: "St Peter's",
+    context:
+      "Paul VI reconvenes the Council, suspended at John XXIII's death; the session runs until 4 December.",
+    significance:
+      "It produces the Council's first completed document, the Constitution on the Sacred Liturgy.",
+    citation: `${W}Second_Vatican_Council`,
+    links: { documentSlug: "second-vatican-council", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "sacrosanctum-concilium",
+    title: "Sacrosanctum Concilium: the Constitution on the Sacred Liturgy",
+    year: 1963,
+    date: "1963-12-04",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    tags: ["liturgy"],
+    location: "St Peter's",
+    context:
+      "The Council's first constitution makes the full and active participation of all the faithful the aim of liturgical renewal and allows wider use of the mother tongue.",
+    significance:
+      "It sets in motion the reform of the rites that culminates in the new Roman Missal of 1969.",
+    citation: `${VII}vat-ii_const_19631204_sacrosanctum-concilium_en.html`,
+    links: { documentSlug: "sacrosanctum-concilium", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "paul-vi-pilgrimage-to-the-holy-land",
+    title: "Paul VI's pilgrimage to the Holy Land",
+    year: 1964,
+    date: "1964-01-04",
+    precision: "day",
+    era: "twentieth",
+    kind: "event",
+    tags: ["schism"],
+    location: "Jerusalem",
+    context:
+      "Paul VI flies to the Holy Land — the first papal journey by air, the first papal pilgrimage there, and the first time a pope has left Italy in more than a century.",
+    significance:
+      "On the Mount of Olives he meets Ecumenical Patriarch Athenagoras I, opening a new chapter in relations between Rome and Constantinople.",
+    citation: `${W}List_of_pastoral_trips_made_by_Pope_Paul_VI`,
+    links: { popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "ecclesiam-suam",
+    title: "Ecclesiam suam",
+    year: 1964,
+    date: "1964-08-06",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    location: "Rome",
+    context:
+      "Paul VI's first encyclical, written during the Council, calls the Church to deeper self-awareness, renewal and dialogue with the modern world.",
+    significance:
+      "It pictures that dialogue in concentric circles — all humanity, believers in God, other Christians, and Catholics themselves.",
+    citation: `${V}paul-vi/en/encyclicals/documents/hf_p-vi_enc_06081964_ecclesiam.html`,
+    links: { documentSlug: "ecclesiam-suam", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "second-vatican-council-third-session",
+    title: "Third session of Vatican II opens",
+    year: 1964,
+    date: "1964-09-14",
+    precision: "day",
+    era: "twentieth",
+    kind: "council",
+    location: "St Peter's",
+    context:
+      "Paul VI opens the session by concelebrating Mass with twenty-four prelates; it runs until 21 November.",
+    significance:
+      "It approves the Constitution on the Church and the Decree on Ecumenism and admits the first women auditors.",
+    citation: `${W}Second_Vatican_Council`,
+    links: { documentSlug: "second-vatican-council", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "lumen-gentium",
+    title: "Lumen gentium: the Dogmatic Constitution on the Church",
+    year: 1964,
+    date: "1964-11-21",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    tags: ["dogma"],
+    location: "St Peter's",
+    context:
+      "The Council presents the Church as mystery and People of God, teaches the collegial authority of the bishops together with the pope, and proclaims the universal call to holiness.",
+    significance:
+      "Its final chapter places the Virgin Mary within the mystery of Christ and the Church.",
+    citation: `${VII}vat-ii_const_19641121_lumen-gentium_en.html`,
+    links: { documentSlug: "lumen-gentium", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "unitatis-redintegratio",
+    title: "Unitatis redintegratio: the Decree on Ecumenism",
+    year: 1964,
+    date: "1964-11-21",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    tags: ["schism"],
+    location: "St Peter's",
+    context:
+      "The Council names the restoration of unity among all Christians one of its principal concerns and recognises the grace at work among the separated brethren.",
+    significance:
+      "It commits the Catholic Church to the ecumenical movement it had kept at a distance since Mortalium animos.",
+    citation: `${VII}vat-ii_decree_19641121_unitatis-redintegratio_en.html`,
+    links: { documentSlug: "unitatis-redintegratio", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "mary-proclaimed-mother-of-the-church",
+    title: "Paul VI proclaims Mary Mother of the Church",
+    year: 1964,
+    date: "1964-11-21",
+    precision: "day",
+    era: "twentieth",
+    kind: "event",
+    tags: ["marian"],
+    location: "St Peter's",
+    context:
+      "Closing the third session on the day Lumen gentium is promulgated, Paul VI formally proclaims the Virgin Mary Mother of the Church.",
+    significance:
+      "Taking up a title used by St Ambrose, he sets Marian devotion at the heart of the Council's teaching on the Church.",
+    citation: `${W}Pope_Paul_VI`,
+    links: { popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "second-vatican-council-fourth-session",
+    title: "Fourth session of Vatican II opens",
+    year: 1965,
+    date: "1965-09-14",
+    precision: "day",
+    era: "twentieth",
+    kind: "council",
+    location: "St Peter's",
+    context:
+      "The final and busiest session opens; by 8 December it promulgates eleven of the Council's sixteen documents.",
+    significance:
+      "Among them are its two most contested texts, the declaration on religious freedom and the pastoral constitution on the Church in the modern world.",
+    citation: `${W}Second_Vatican_Council`,
+    links: { documentSlug: "second-vatican-council", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "synod-of-bishops-established",
+    title: "Synod of Bishops established",
+    year: 1965,
+    date: "1965-09-15",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    location: "Rome",
+    context:
+      "With the motu proprio Apostolica sollicitudo, Paul VI creates a permanent Synod of Bishops, drawn from the whole episcopate, to inform and advise the pope.",
+    significance:
+      "It gives lasting form to the collegial spirit of the Council; its assemblies continue to meet in Rome.",
+    citation: `${V}paul-vi/en/motu_proprio/documents/hf_p-vi_motu-proprio_19650915_apostolica-sollicitudo.html`,
+    links: { popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "paul-vi-addresses-the-united-nations",
+    title: "Paul VI addresses the United Nations",
+    year: 1965,
+    date: "1965-10-04",
+    precision: "day",
+    era: "twentieth",
+    kind: "event",
+    location: "New York",
+    context:
+      'Paul VI addresses the General Assembly of the United Nations and cries out, "Never again war, never again war!"',
+    significance:
+      "Speaking to the assembled nations twenty years after the founding of the UN, he pleads for peace, disarmament and the dignity of every people.",
+    citation: `${V}paul-vi/en/speeches/1965/documents/hf_p-vi_spe_19651004_united-nations.html`,
+    links: { popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "nostra-aetate",
+    title: "Nostra aetate",
+    year: 1965,
+    date: "1965-10-28",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    location: "St Peter's",
+    context:
+      "The Council declares that the Church rejects nothing that is true and holy in other religions and teaches that Christ's passion cannot be charged against all Jews, then or now.",
+    significance:
+      "Decrying antisemitism directed against Jews at any time and by anyone, it opens a new era in Catholic–Jewish relations.",
+    citation: `${VII}vat-ii_decl_19651028_nostra-aetate_en.html`,
+    links: { documentSlug: "nostra-aetate", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "dei-verbum",
+    title: "Dei Verbum: the Dogmatic Constitution on Divine Revelation",
+    year: 1965,
+    date: "1965-11-18",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    tags: ["scripture", "dogma"],
+    location: "St Peter's",
+    context:
+      "The Council teaches that Sacred Tradition and Sacred Scripture form one sacred deposit of the word of God, entrusted to the Church.",
+    significance: "It asks that easy access to Sacred Scripture be provided for all the faithful.",
+    citation: `${VII}vat-ii_const_19651118_dei-verbum_en.html`,
+    links: { documentSlug: "dei-verbum", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "dignitatis-humanae",
+    title: "Dignitatis humanae: the Declaration on Religious Freedom",
+    year: 1965,
+    date: "1965-12-07",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    location: "St Peter's",
+    context:
+      "The Council declares that the human person has a right to religious freedom: no one may be coerced in matters of religion by any human power.",
+    significance:
+      "Grounding that freedom in the dignity of the person, it commits the Church to defending liberty of conscience in civil society.",
+    citation: `${VII}vat-ii_decl_19651207_dignitatis-humanae_en.html`,
+    links: { documentSlug: "dignitatis-humanae", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "gaudium-et-spes",
+    title: "Gaudium et spes: the Church in the Modern World",
+    year: 1965,
+    date: "1965-12-07",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    location: "St Peter's",
+    context:
+      "The Council's pastoral constitution opens by making the joys and hopes, the griefs and anxieties of the people of this age the Church's own.",
+    significance:
+      "It addresses marriage and the family, culture, economic life, the political community and peace, shaping the Church's engagement with the world.",
+    citation: `${VII}vat-ii_const_19651207_gaudium-et-spes_en.html`,
+    links: { documentSlug: "gaudium-et-spes", popes: ["pope-saint-paul-vi"] },
   },
 ];
