@@ -9,6 +9,7 @@ export const la: Dict = {
   "nav.spiritualLife": "Vita Spiritualis",
   "nav.saints": "Sancti et Beata Virgo",
   "nav.login": "Ingredi",
+  "parishes.distanceAway": "{distance} abest",
   "admin.loading.greeting": "Salve!",
   "admin.login.title": "Introitus administratoris",
   "admin.login.submit": "Intra",

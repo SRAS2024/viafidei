@@ -16,6 +16,7 @@ export const it: Dict = {
   "nav.register": "Crea account",
   "nav.logout": "Esci",
   "home.title": "Un luogo sereno per pregare, imparare e tornare.",
+  "parishes.distanceAway": "A {distance} di distanza",
   "admin.loading.greeting": "Benvenuto!",
   "admin.login.title": "Accesso amministratore",
   "admin.login.submit": "Entra",
