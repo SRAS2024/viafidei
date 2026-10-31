@@ -106,9 +106,9 @@ import { formatDelay, restartBackoffFromEnv } from "../src/lib/admin-worker/rest
 import { createRestartLifecycle } from "../src/lib/admin-worker/restart-lifecycle";
 import {
   announcedRestMs,
+  judgeWorkerProgress,
   parseProgressLine,
   progressTimeoutMs,
-  workerStalledForMs,
   type WorkerProgress,
 } from "../src/lib/admin-worker/worker-progress";
 import { localHostLabel, sampleLocalResources } from "../src/lib/admin-worker/local-resources";
@@ -651,8 +651,14 @@ async function stopWorkerChild(reason: string): Promise<void> {
 
 /** No progress beacon for this long means the worker is hung (worker-progress.ts). */
 const PROGRESS_TIMEOUT_MS = progressTimeoutMs();
+/** How often the watchdog checks. */
+const PROGRESS_CHECK_INTERVAL_MS = 30_000;
 /** True while a hung worker is being stopped and rescheduled, so it happens once. */
 let hungRestartInFlight = false;
+/** When the watchdog last ran, so a gap the Mac spent asleep is recognised as one. */
+let lastProgressCheckAt: number | null = null;
+/** When the watchdog last saw this process resume from a suspend; silence counts from here at the earliest. */
+let resumedFromSuspendAt: number | null = null;
 
 function noteWorkerProgress(progress: WorkerProgress): void {
   host.lastProgressAt = Date.now();
@@ -670,17 +676,38 @@ function noteWorkerProgress(progress: WorkerProgress): void {
  * hung): no beacon for PROGRESS_TIMEOUT_MS stops the worker's process group,
  * and the crash-restart path brings up a fresh one, under the same switch
  * check and backoff as a crash. One WARN row per event, never per check.
+ * Time this Mac spends asleep is not silence (judgeWorkerProgress).
  */
 function checkWorkerProgress(): void {
+  const now = Date.now();
+  const previousCheckAt = lastProgressCheckAt;
+  lastProgressCheckAt = now;
   if (shuttingDown || hungRestartInFlight) return;
-  const stalledMs = workerStalledForMs({
-    now: Date.now(),
-    running: host.child != null && host.runState === "running",
+  const running = host.child != null && host.runState === "running";
+  const verdict = judgeWorkerProgress({
+    now,
+    previousCheckAt,
+    running,
     lastProgressAt: host.lastProgressAt,
+    resumedAt: resumedFromSuspendAt,
     timeoutMs: PROGRESS_TIMEOUT_MS,
     announcedRestMs: host.announcedRestMs,
   });
-  if (stalledMs === null) return;
+  if (verdict.kind === "resumed") {
+    // Asleep (or stopped), not silent: the worker was frozen too. Count its
+    // silence from now instead of SIGTERMing it seconds after wake.
+    resumedFromSuspendAt = now;
+    if (running) {
+      pushLog(
+        "host",
+        `this Mac was asleep for about ${formatDelay(verdict.gapMs)} — the hung-pass watchdog ` +
+          "counts the worker's silence from now",
+      );
+    }
+    return;
+  }
+  if (verdict.kind !== "stalled") return;
+  const stalledMs = verdict.stalledMs;
   hungRestartInFlight = true;
   const lastPhase = host.lastProgressPhase ?? "none";
   const detail =
@@ -2151,7 +2178,7 @@ async function main(): Promise<void> {
 
   // The hung-pass watchdog: purely local (timestamps and signals), so it still
   // works when the database is what the worker is stuck on.
-  const progressTimer = setInterval(checkWorkerProgress, 30_000);
+  const progressTimer = setInterval(checkWorkerProgress, PROGRESS_CHECK_INTERVAL_MS);
   progressTimer.unref();
 }
 

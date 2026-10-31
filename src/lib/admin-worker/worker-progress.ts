@@ -119,6 +119,62 @@ export function workerStalledForMs(input: {
   return silent > allowance ? silent : null;
 }
 
+/**
+ * A gap this long between two watchdog checks — they run every 30 s — means
+ * this process did not run in between: the Mac slept (lid closed, overnight)
+ * or the process was stopped. The worker was frozen just as long, so the gap
+ * says nothing about whether it is making progress.
+ */
+export const SUSPEND_GAP_MS = 2 * 60_000;
+
+export type ProgressVerdict =
+  /** Running and within its allowance, or not running at all. */
+  | { kind: "ok" }
+  /** The process was suspended since the last check: count silence from now. */
+  | { kind: "resumed"; gapMs: number }
+  /** Silent past the timeout while this process was awake to see it. */
+  | { kind: "stalled"; stalledMs: number };
+
+/**
+ * One check of the hung-pass watchdog. Silence used to be measured on the
+ * wall clock alone, so time asleep counted: after any sleep longer than the
+ * timeout the first check after wake — seconds after it, before the worker
+ * could emit a beacon — SIGTERMed a healthy worker as hung, wrote a
+ * worker_hung_restart row, abandoned its pass and lengthened the crash
+ * streak. Now a check that follows a suspend only re-baselines (the caller
+ * keeps `resumedAt`), and silence is counted from the later of the last
+ * beacon and the last resume. A worker that was already hung before the
+ * sleep is still caught, one timeout after wake.
+ */
+export function judgeWorkerProgress(input: {
+  now: number;
+  /** When the previous check ran, or null for the first one. */
+  previousCheckAt: number | null;
+  running: boolean;
+  /** The last beacon, or the spawn time before the first one. */
+  lastProgressAt: number | null;
+  /** The last time a check saw this process resume from a suspend, if ever. */
+  resumedAt: number | null;
+  timeoutMs: number;
+  announcedRestMs?: number;
+  suspendGapMs?: number;
+}): ProgressVerdict {
+  const gapMs = input.previousCheckAt === null ? 0 : input.now - input.previousCheckAt;
+  if (gapMs > (input.suspendGapMs ?? SUSPEND_GAP_MS)) return { kind: "resumed", gapMs };
+  const silentSince =
+    input.lastProgressAt === null
+      ? null
+      : Math.max(input.lastProgressAt, input.resumedAt ?? input.lastProgressAt);
+  const stalledMs = workerStalledForMs({
+    now: input.now,
+    running: input.running,
+    lastProgressAt: silentSince,
+    timeoutMs: input.timeoutMs,
+    announcedRestMs: input.announcedRestMs,
+  });
+  return stalledMs === null ? { kind: "ok" } : { kind: "stalled", stalledMs };
+}
+
 /** The rest an "idle" beacon announced, in ms (0 for any other beacon). */
 export function announcedRestMs(progress: WorkerProgress): number {
   if (progress.phase !== "idle") return 0;

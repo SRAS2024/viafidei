@@ -6,10 +6,11 @@
  * stuck on a query over a half-open connection, or on a promise that never
  * settles, kept every signal green and was never recovered.
  *
- * Pinned: the beacon format and the stall rule (worker-progress.ts), that the
- * loop and the lane runner actually emit beacons at their boundaries, that the
- * worker child only emits them under a host, and that the host turns a silent
- * worker into one stop plus the ordinary crash-restart path.
+ * Pinned: the beacon format and the stall rule (worker-progress.ts), that time
+ * the Mac spends asleep is not silence, that the loop and the lane runner
+ * actually emit beacons at their boundaries, that the worker child only emits
+ * them under a host, and that the host turns a silent worker into one stop
+ * plus the ordinary crash-restart path.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -21,10 +22,12 @@ import { resetPauseTracking, runOnePass } from "@/lib/admin-worker/loop";
 import {
   announcedRestMs,
   formatProgressLine,
+  judgeWorkerProgress,
   parseProgressLine,
   progressTimeoutMs,
   reportProgress,
   setProgressSink,
+  SUSPEND_GAP_MS,
   WORKER_PROGRESS_TIMEOUT_FLOOR_MS,
   WORKER_PROGRESS_TIMEOUT_MS,
   workerStalledForMs,
@@ -123,6 +126,102 @@ describe("the stall rule", () => {
   });
 });
 
+describe("time asleep is not silence", () => {
+  const MIN = 60_000;
+  const CHECK = 30_000;
+  const TIMEOUT = WORKER_PROGRESS_TIMEOUT_MS;
+
+  /**
+   * The host's watchdog, step by step: a check every 30 s of AWAKE time, with
+   * the resume baseline it keeps between checks (scripts/local-worker-host.ts).
+   */
+  function watchdog(lastProgressAt: number) {
+    let previousCheckAt: number | null = null;
+    let resumedAt: number | null = null;
+    return (now: number) => {
+      const verdict = judgeWorkerProgress({
+        now,
+        previousCheckAt,
+        running: true,
+        lastProgressAt,
+        resumedAt,
+        timeoutMs: TIMEOUT,
+      });
+      previousCheckAt = now;
+      if (verdict.kind === "resumed") resumedAt = now;
+      return verdict;
+    };
+  }
+
+  it("does not stop a healthy worker seconds after an 8-hour sleep", () => {
+    // The reported case: the last beacon 2 min before the lid closed, the Mac
+    // asleep 8 h. The first check after wake used to see 8 h of "silence" and
+    // SIGTERM the worker as hung before it could say anything.
+    const lastBeacon = 0;
+    const check = watchdog(lastBeacon);
+    for (let t = CHECK; t <= 2 * MIN; t += CHECK) expect(check(t)).toEqual({ kind: "ok" });
+    const wake = 2 * MIN + 8 * 60 * MIN;
+    expect(check(wake + 5_000)).toMatchObject({ kind: "resumed" });
+    // From wake on, silence counts from wake: ten more minutes of checks are
+    // all well inside the timeout.
+    for (let t = wake + 5_000 + CHECK; t <= wake + 10 * MIN; t += CHECK) {
+      expect(check(t)).toEqual({ kind: "ok" });
+    }
+  });
+
+  it("still catches a worker that stays silent after the wake, one timeout later", () => {
+    const check = watchdog(0);
+    check(CHECK);
+    const wake = 8 * 60 * MIN;
+    expect(check(wake)).toMatchObject({ kind: "resumed" });
+    let verdict = check(wake + CHECK);
+    for (let t = wake + 2 * CHECK; verdict.kind === "ok" && t < wake + 2 * TIMEOUT; t += CHECK) {
+      verdict = check(t);
+    }
+    expect(verdict.kind).toBe("stalled");
+    if (verdict.kind === "stalled") {
+      expect(verdict.stalledMs).toBeGreaterThan(TIMEOUT);
+      expect(verdict.stalledMs).toBeLessThanOrEqual(TIMEOUT + CHECK);
+    }
+  });
+
+  it("catches a worker that was already hung before the sleep, one timeout after wake", () => {
+    // Silent for 20 min, then asleep: the hang is not forgiven, only re-timed.
+    const check = watchdog(0);
+    for (let t = CHECK; t <= 20 * MIN; t += CHECK) check(t);
+    const wake = 20 * MIN + 3 * 60 * MIN;
+    expect(check(wake)).toMatchObject({ kind: "resumed" });
+    let t = wake + CHECK;
+    while (check(t).kind === "ok" && t < wake + 2 * TIMEOUT) t += CHECK;
+    expect(t - wake).toBe(TIMEOUT + CHECK);
+  });
+
+  it("reads only a gap far longer than the check interval as a suspend", () => {
+    expect(SUSPEND_GAP_MS).toBeGreaterThanOrEqual(4 * CHECK);
+    expect(SUSPEND_GAP_MS).toBeLessThan(WORKER_PROGRESS_TIMEOUT_FLOOR_MS);
+    // A busy minute between two checks is judged, not forgiven.
+    const verdict = judgeWorkerProgress({
+      now: 100 * MIN,
+      previousCheckAt: 100 * MIN - 90_000,
+      running: true,
+      lastProgressAt: 60 * MIN,
+      resumedAt: null,
+      timeoutMs: TIMEOUT,
+    });
+    expect(verdict).toEqual({ kind: "stalled", stalledMs: 40 * MIN });
+  });
+
+  it("judges the first check normally, and never a worker that is not running", () => {
+    const base = { now: 100 * MIN, resumedAt: null, timeoutMs: TIMEOUT };
+    expect(
+      judgeWorkerProgress({ ...base, previousCheckAt: null, running: true, lastProgressAt: 0 }),
+    ).toEqual({ kind: "stalled", stalledMs: 100 * MIN });
+    expect(
+      judgeWorkerProgress({ ...base, previousCheckAt: null, running: false, lastProgressAt: 0 }),
+    ).toEqual({ kind: "ok" });
+  });
+});
+
 describe("the loop and the lanes emit beacons", () => {
   it("a pass reports its start, even one that returns early because the worker is paused", async () => {
     const prisma = {
@@ -206,17 +305,35 @@ describe("wiring", () => {
   });
 
   it("checks progress on its own local timer and restarts a silent worker through the crash path", () => {
-    expect(host).toContain("setInterval(checkWorkerProgress, 30_000)");
+    expect(host).toContain("const PROGRESS_CHECK_INTERVAL_MS = 30_000;");
+    expect(host).toContain("setInterval(checkWorkerProgress, PROGRESS_CHECK_INTERVAL_MS)");
     const check = host.slice(
       host.indexOf("function checkWorkerProgress()"),
       host.indexOf("async function withDbBudget("),
     );
-    expect(check).toContain("workerStalledForMs({");
+    expect(check).toContain("judgeWorkerProgress({");
     expect(check).toContain('eventName: "worker_hung_restart"');
     expect(check).toMatch(
       /const stopping = stopWorkerChild\("no progress — hung-pass watchdog"\);\s*const ticket = autoRestart\.ticket\(\);\s*await stopping;\s*await autoRestart\.afterCrash\(\{ code: null, signal: "SIGTERM" \}, ticket\);/,
     );
     // One event per stall, not one per check.
     expect(check).toContain("if (shuttingDown || hungRestartInFlight) return;");
+  });
+
+  it("measures every gap between checks, and only re-baselines after a suspend", () => {
+    const check = host.slice(
+      host.indexOf("function checkWorkerProgress()"),
+      host.indexOf("async function withDbBudget("),
+    );
+    // The previous check time is taken before any early return, so a gap is
+    // never measured across a skipped check.
+    expect(check.indexOf("lastProgressCheckAt = now;")).toBeLessThan(
+      check.indexOf("if (shuttingDown || hungRestartInFlight) return;"),
+    );
+    expect(check).toMatch(
+      /if \(verdict\.kind === "resumed"\) \{\s*[\s\S]*?resumedFromSuspendAt = now;/,
+    );
+    // The beacon time itself is left alone: the status shows the real last progress.
+    expect(check).not.toContain("host.lastProgressAt =");
   });
 });
