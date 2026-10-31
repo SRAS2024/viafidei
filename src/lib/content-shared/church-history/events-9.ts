@@ -991,7 +991,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     tags: ["persecution"],
     location: "Tyburn, London",
     context:
-      "John Houghton, prior of the London Charterhouse, is hanged, drawn and quartered at Tyburn after refusing the oath that acknowledged Henry VIII as Supreme Head of the Church of England.",
+      "John Houghton, prior of the London Charterhouse, and the priors arrested with him are hanged, drawn and quartered at Tyburn after refusing the oath that acknowledged Henry VIII as Supreme Head of the Church of England.",
     significance:
       "The first martyr to die under the Act of Supremacy, he is canonised by Paul VI in 1970.",
     citation: `${W}John_Houghton_(martyr)`,
@@ -1232,7 +1232,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     context:
       "In its sixth session the council promulgates its decree on justification, teaching that it is wholly a gift of God's grace while rejecting justification by faith alone.",
     significance:
-      "The council's central answer to the doctrinal question that began the Reformation.",
+      "It is the council's central answer to the doctrinal question at the heart of the Reformation.",
     citation: `${NA}15030c.htm`,
     links: { documentSlug: "council-of-trent", popes: ["pope-paul-iii"] },
   },
@@ -1452,7 +1452,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     location: "Rome",
     context: "Ignatius of Loyola, founder and first general of the Society of Jesus, dies in Rome.",
     significance:
-      "The Society he leaves is already the chief instrument of the Catholic reform; he is beatified by Paul V in 1609 and canonised by Gregory XV in 1622.",
+      "The Society he leaves is already a leading force of the Catholic reform; he is beatified by Paul V in 1609 and canonised by Gregory XV in 1622.",
     citation: `${NA}07639c.htm`,
     links: { saints: ["saint-ignatius-of-loyola"], popes: ["pope-paul-v", "pope-gregory-xv"] },
   },
