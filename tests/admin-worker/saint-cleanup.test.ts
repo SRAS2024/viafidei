@@ -230,15 +230,29 @@ const INFOBOXES: Record<string, Record<string, string>> = {
   },
 };
 
-function makePrisma(rows: Row[] = ROWS) {
+/**
+ * `findMany` is the run's opening snapshot; `findUnique` is the row as it
+ * stands when --apply writes it (`current` overrides it per row id, to stage
+ * what the live worker changed in between).
+ */
+function makePrisma(
+  rows: Row[] = ROWS,
+  current: Record<string, Partial<Row> & { isPublished?: boolean }> = {},
+) {
   const update = vi.fn(async () => ({}));
+  const findUnique = vi.fn(async (args: { where: { id: string } }) => {
+    const row = rows.find((r) => r.id === args.where.id);
+    if (!row) return null;
+    return { ...row, isPublished: true, ...current[row.id] };
+  });
   const prisma = {
     publishedContent: {
       findMany: vi.fn(async () => rows),
+      findUnique,
       update,
     },
   } as unknown as PrismaClient;
-  return { prisma, update };
+  return { prisma, update, findUnique };
 }
 
 beforeEach(() => {
@@ -475,6 +489,28 @@ describe("saint cleanup — dry run", () => {
     ]);
   });
 
+  it("never strips the feast of a row whose stage only its own payload claims", async () => {
+    // No Wikidata record (a web-pipeline row) and no article: nothing confirms
+    // "venerable", so the feast stays and the row is listed for review.
+    const web: Row = {
+      ...saint("webven", "Q1", "Web Venerable", {
+        ...VENERABLE,
+        feastDay: "03-01",
+        feastMonth: 3,
+        feastDayOfMonth: 1,
+        citations: ["https://example.org/a", "https://example.org/b"],
+      }),
+      sourceRef: null,
+    };
+    const { prisma } = makePrisma([web]);
+    mockedSparql.mockResolvedValue([]);
+    const report = await runSaintCleanup(prisma, { categories: new Set(["feastless"]) });
+    expect(report.actions).toEqual([]);
+    expect(report.stageReview).toEqual([
+      expect.objectContaining({ slug: "saint-webven", wikidata: null, articleUrl: null }),
+    ]);
+  });
+
   it("re-statuses only where the article agrees with Wikidata's Catholic stage", async () => {
     // An honorific row Wikidata also calls "Catholic saint", whose article
     // records only a beatification: neither source is trusted over the other.
@@ -543,6 +579,54 @@ describe("saint cleanup — --apply", () => {
     expect(events.filter((e) => e === "saint_cleanup_update")).toHaveLength(3);
     expect(events.filter((e) => e === "booster_saint_cleanup")).toHaveLength(1);
     expect(report.actions.every((a) => a.applied === true)).toBe(true);
+  });
+
+  it("writes each row as it stands NOW, and leaves one the worker changed since", async () => {
+    const marello = ROWS.find((r) => r.id === "marello")!;
+    const sheen = ROWS.find((r) => r.id === "sheen")!;
+    const { prisma, update, findUnique } = makePrisma(ROWS, {
+      // The repair lane already stripped Sheen's feast while the audit ran.
+      sheen: {
+        payload: { ...sheen.payload, feastDay: undefined, feastMonth: undefined },
+      },
+      // A translation landed on Marello's row meanwhile: it must survive.
+      marello: { payload: { ...marello.payload, translations: { it: "Giuseppe Marello" } } },
+      // Someone unpublished Theodora by hand.
+      theodora: { isPublished: false },
+      // The repair lane re-statused de' Rossi to canonized already.
+      rossi: {
+        payload: {
+          ...ROWS.find((r) => r.id === "rossi")!.payload,
+          canonizationStatus: "canonized",
+        },
+      },
+    });
+
+    const report = await runSaintCleanup(prisma, { apply: true });
+    const bySlug = new Map(report.actions.map((a) => [a.slug, a]));
+
+    // Every action re-read its row first.
+    expect(findUnique).toHaveBeenCalledTimes(report.actions.length);
+    // Applied on the fresh row: the translation is kept.
+    const calls = mockedUpdate.mock.calls.map((c) => c[1]);
+    expect(calls.find((c) => c.contentId === "marello")!.proposedPayload).toMatchObject({
+      canonizationStatus: "canonized",
+      translations: { it: "Giuseppe Marello" },
+    });
+    // Left alone, with the reason, when the decision no longer holds.
+    for (const slug of ["saint-sheen", "saint-rossi", "saint-theodora"]) {
+      expect(bySlug.get(slug)).toMatchObject({ applied: false });
+      expect(bySlug.get(slug)!.error).toMatch(/left unchanged/);
+    }
+    expect(bySlug.get("saint-sheen")!.error).toMatch(/feastDay changed/);
+    expect(bySlug.get("saint-rossi")!.error).toMatch(/stage is now "canonized"/);
+    expect(bySlug.get("saint-theodora")!.error).toMatch(/no longer published/);
+    expect(calls.some((c) => ["sheen", "rossi"].includes(c.contentId))).toBe(false);
+    const unpublished = (update.mock.calls as unknown as Array<[{ where: { id: string } }]>).map(
+      (c) => c[0].where.id,
+    );
+    expect(unpublished).not.toContain("theodora");
+    expect(unpublished).toContain("severus");
   });
 
   it("unpublishes the suspects only when asked", async () => {

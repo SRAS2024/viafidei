@@ -42,7 +42,10 @@
  * `apply`, every change goes through the existing paths with a recorded
  * reason: `unpublishStructuredSaint` (flag + WARN log + review row) or
  * `applyProtectedContentUpdate` (versioned, reversible) followed by its own
- * AdminWorkerLog row. Nothing is ever deleted.
+ * AdminWorkerLog row. Each row is re-read just before it is written and the
+ * change is made on that fresh row; one the worker changed since the decision
+ * (re-statused, edited, unpublished) is reported and left for a rerun. Nothing
+ * is ever deleted.
  *
  * Network: one Query-Service request per 100 saints through the shared SPARQL
  * gate, and one Wikipedia Action API parse per article it has to read,
@@ -254,6 +257,57 @@ async function loadFacts(
     log(`facts ${Math.min(i + FACTS_BATCH, qids.length)}/${qids.length}`);
   }
   return out;
+}
+
+/** A published row as it stands at write time. */
+interface CurrentRow {
+  id: string;
+  slug: string;
+  title: string;
+  payload: Record<string, unknown>;
+  isPublished: boolean;
+}
+
+/** Re-read one row just before writing it (null when it cannot be read). */
+async function readCurrentRow(prisma: PrismaClient, id: string): Promise<CurrentRow | null> {
+  try {
+    const row = await prisma.publishedContent.findUnique({
+      where: { id },
+      select: { id: true, slug: true, title: true, payload: true, isPublished: true },
+    });
+    if (!row) return null;
+    return {
+      id: row.id,
+      slug: row.slug,
+      title: row.title,
+      payload: (row.payload ?? {}) as Record<string, unknown>,
+      isPublished: row.isPublished,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Why a planned action no longer holds for the row as it stands now, or null
+ * when it does: the row must still be published, still at the stage the
+ * decision was made on, and every field the action changes must still hold
+ * the value it is changed FROM.
+ */
+function driftSince(action: CleanupAction, planned: Target, now: CurrentRow): string | null {
+  if (!now.isPublished) return "no longer published";
+  const stage = now.payload.canonizationStatus;
+  if (stage !== planned.payload.canonizationStatus) {
+    return `its stage is now "${String(stage ?? "none")}"`;
+  }
+  for (const [field, [from]] of Object.entries(action.changes)) {
+    if (field === "isPublished") continue;
+    const value = field === "title" ? now.title : now.payload[field];
+    if (JSON.stringify(value ?? null) !== JSON.stringify(from ?? null)) {
+      return `${field} changed since the dry run`;
+    }
+  }
+  return null;
 }
 
 /** What one article read gave: its infobox, and whether the read completed. */
@@ -573,10 +627,12 @@ export async function runSaintCleanup(
         review(t, wikidata, articleStage(infobox), article?.url ?? null);
         continue;
       }
-      // A record that proves no Catholic stage needs the article to confirm
-      // one (Bartholomew Holzhauser: "Venerable", venerated in the Roman
-      // Catholic Church); otherwise the feast stays and the row goes to review.
-      if (f && !decided && !wikidata) {
+      // A record that proves no Catholic stage — or a row with no Wikidata
+      // record at all, whose stage only its own payload claims — needs the
+      // article to confirm one (Bartholomew Holzhauser: "Venerable", venerated
+      // in the Roman Catholic Church); otherwise the feast stays and the row
+      // goes to review.
+      if (!decided && !wikidata) {
         const stated = statusFromInfobox(infobox);
         if (!stated || !FEASTLESS_CANONIZATION_STATUSES.has(stated)) {
           review(t, null, articleStage(infobox), article?.url ?? null);
@@ -655,17 +711,31 @@ export async function runSaintCleanup(
   if (!apply) return report;
 
   // ── Apply ────────────────────────────────────────────────────────────────
+  // Every write is made on the row as it stands NOW. The decisions above rest
+  // on the snapshot read when the run started — the feast audit alone reads
+  // ~3,000 articles, a quarter of an hour — and the live worker (its saint
+  // repair lane, the hygiene sweep) may have re-statused, edited or
+  // unpublished the row since. Writing the old snapshot back would undo that
+  // work, so a row whose decision no longer holds is reported, not written.
   const byId = new Map(targets.map((t) => [t.id, t]));
   for (const action of report.actions) {
+    const target = byId.get(action.contentId);
+    if (!target) continue;
+    const fresh = await readCurrentRow(prisma, target.id);
+    const drift = fresh ? driftSince(action, target, fresh) : "the row could not be read";
+    if (!fresh || drift) {
+      action.applied = false;
+      action.error = `left unchanged: ${drift}; rerun the dry run`;
+      continue;
+    }
     if (action.kind === "unpublish") {
-      const target = byId.get(action.contentId);
-      if (!target?.qid) {
+      if (!target.qid) {
         action.applied = false;
         action.error = "no Wikidata id";
         continue;
       }
       const r = await unpublishStructuredSaint(prisma, {
-        row: target,
+        row: fresh,
         qid: target.qid,
         reason: action.reason,
         facts: facts.get(target.qid) ?? null,
@@ -677,10 +747,8 @@ export async function runSaintCleanup(
       if (!r.ok) action.error = r.error;
       continue;
     }
-    const entry = pending.get(action.contentId);
-    if (!entry) continue;
-    const { target } = entry;
-    const proposed: Record<string, unknown> = { ...target.payload };
+    if (!pending.has(action.contentId)) continue;
+    const proposed: Record<string, unknown> = { ...fresh.payload };
     const status = action.changes.canonizationStatus?.[1];
     if (typeof status === "string") proposed.canonizationStatus = status;
     const saintType = action.changes.saintType?.[1];
@@ -688,7 +756,7 @@ export async function runSaintCleanup(
     const newTitle = action.changes.title?.[1];
     if (typeof newTitle === "string") proposed.title = newTitle;
     if (action.changes.feastDay) for (const f of FEAST_FIELDS) delete proposed[f];
-    const proposedTitle = typeof newTitle === "string" ? newTitle : target.title;
+    const proposedTitle = typeof newTitle === "string" ? newTitle : fresh.title;
     const proposedSubtitle = generateContentSubtitle({
       contentType: "SAINT",
       title: proposedTitle,
@@ -714,10 +782,10 @@ export async function runSaintCleanup(
       eventName: "saint_cleanup_update",
       contentType: "SAINT",
       relatedEntityId: target.id,
-      message: `Saint cleanup (${action.category}) ${result.applied ? "updated" : "could not update"} "${target.title}" (${target.slug}): ${action.reason}`,
+      message: `Saint cleanup (${action.category}) ${result.applied ? "updated" : "could not update"} "${fresh.title}" (${fresh.slug}): ${action.reason}`,
       safeMetadata: {
         contentId: target.id,
-        slug: target.slug,
+        slug: fresh.slug,
         wikidataQid: target.qid,
         category: action.category,
         changes: action.changes,

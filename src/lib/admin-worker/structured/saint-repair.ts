@@ -25,6 +25,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { FEASTLESS_CANONIZATION_STATUSES } from "@/lib/checklist/schemas/saint";
+import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
 
 import { applyProtectedContentUpdate } from "../content-protection";
 import { fileHumanReview } from "../human-review";
@@ -406,6 +407,14 @@ export async function runStructuredSaintRepair(
       contentId: row.id,
       proposedPayload: proposed,
       proposedTitle: title,
+      // The stored subtitle repeats the stage and the feast ("Venerable ·
+      // Bishop · Feast December 9"): rewrite it with them, or a stripped feast
+      // would still be printed under the title.
+      proposedSubtitle: generateContentSubtitle({
+        contentType: "SAINT",
+        title,
+        fields: proposed,
+      }),
       reason: "structured saint repair",
       allowReplace: true,
       qualityScore: 0.92,

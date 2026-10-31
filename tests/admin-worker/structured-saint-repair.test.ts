@@ -310,6 +310,10 @@ describe("runStructuredSaintRepair", () => {
     expect(proposed).not.toHaveProperty("feastMonth");
     expect(proposed).not.toHaveProperty("feastDayOfMonth");
     expect(mockedUpdate.mock.calls[0][1].allowReplace).toBe(true);
+    // The subtitle under the title is rewritten with it: no feast left there.
+    const subtitle = mockedUpdate.mock.calls[0][1].proposedSubtitle;
+    expect(subtitle).toMatch(/^Venerable · Bishop/);
+    expect(subtitle).not.toMatch(/feast/i);
   });
 
   it("never strips the feast of a Blessed that Wikidata still calls Venerable", async () => {
