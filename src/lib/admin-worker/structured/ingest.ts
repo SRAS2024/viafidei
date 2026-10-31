@@ -41,7 +41,7 @@ import { runPublishOrchestrator } from "../publish-orchestrator";
 import { writeAdminWorkerLog } from "../logs";
 import { lastSparqlFailure, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
 import { structuredNetworkEnabled } from "./http";
-import { mapSourceRow } from "./map-row";
+import { mapSourceRowDetailed, type MappedRow } from "./map-row";
 import { fetchSourcePage } from "./source-page";
 import {
   formatRejections,
@@ -108,19 +108,24 @@ export const DEFAULT_STRUCTURED_BUDGET_MS = envInt(
 );
 
 /**
- * Consecutive rows whose source read failed (`wikipedia_fetch_failed`, or
- * `source_read_failed` from map-row.ts) after which a pass stops mapping and
- * holds its page: Wikipedia is down or throttling us, and walking on would
- * only spend the budget on timeouts — and, worse, judge a page as barren that
- * was never actually read.
+ * Consecutive rows rejected while one of their source reads did NOT complete
+ * (no response, timeout, 429, 5xx — see map-row.ts) after which a pass stops
+ * mapping and holds its page: Wikipedia is down or throttling us, and walking
+ * on would only spend the budget on timeouts — and, worse, judge a page as
+ * barren that was never actually read.
+ *
+ * Judged on the read ledger, never on the rejection code alone. A REST
+ * summary that answered 404 (a dead sitelink) or came back empty also ends in
+ * `wikipedia_fetch_failed`, and that code is never remembered; counting it
+ * would hold a page with five such entities in a row on every pass, forever —
+ * the very livelock the cursor fix exists to end.
  */
 export const WIKIPEDIA_FAILURE_STREAK_LIMIT = 5;
 
-/** Rejection codes that mean "the source did not answer", not "the entity failed". */
-const SOURCE_FAILURE_CODES: ReadonlySet<RejectionCode> = new Set<RejectionCode>([
-  "wikipedia_fetch_failed",
-  "source_read_failed",
-]);
+/** True when a mapped row was REJECTED while one of its sources did not answer. */
+function sourceDidNotAnswer(mapped: MappedRow): boolean {
+  return isRejection(mapped.result) && mapped.unreadSources > 0;
+}
 
 /**
  * The page size for one ingestor: the explicit `batch`, else
@@ -864,6 +869,10 @@ export async function runStructuredIngest(
   const limit = opts.limit ?? DEFAULT_STRUCTURED_LIMIT;
   const budgetMs = opts.budgetMs ?? DEFAULT_STRUCTURED_BUDGET_MS;
   const cursorId = opts.cursorId ?? ingestor.id;
+  // Every log row of a booster's pass names its cursor, so a booster's own row
+  // can never read as the WORKER running this ingestor (sweep.ts looks for
+  // exactly that to warn about a worker that ignores the lease).
+  const via = cursorId !== ingestor.id ? ` via ${cursorId}` : "";
   const state = await readCursor(prisma, cursorId);
   const now = Date.now();
   if (state.exhaustedUntil != null && state.exhaustedUntil > now) {
@@ -964,7 +973,7 @@ export async function runStructuredIngest(
         category: "CONTENT_BUILD",
         severity: unusable ? "ERROR" : "WARN",
         eventName: "structured_knowledge_ingest",
-        message: `Structured-knowledge ingest (${ingestor.id}): the structured source FAILED (${out.sourceFailure}) ${failures} consecutive time(s) with no successful page; cursor held at offset ${pageStart}${cooldownUntil ? `, source cooling until ${new Date(cooldownUntil).toISOString()}` : ""}.${unusable ? ` Declared UNUSABLE — backing ${ingestor.id} off until ${new Date(next.exhaustedUntil ?? 0).toISOString()} instead of retrying every pass; the other ingestors continue normally.` : ""} If this persists, either the query itself cannot be executed by the Query Service within its 60s cap, or the deployment's network egress does not allow query.wikidata.org / en.wikipedia.org, or the Query Service is throttling this client.`,
+        message: `Structured-knowledge ingest (${ingestor.id}${via}): the structured source FAILED (${out.sourceFailure}) ${failures} consecutive time(s) with no successful page; cursor held at offset ${pageStart}${cooldownUntil ? `, source cooling until ${new Date(cooldownUntil).toISOString()}` : ""}.${unusable ? ` Declared UNUSABLE — backing ${ingestor.id} off until ${new Date(next.exhaustedUntil ?? 0).toISOString()} instead of retrying every pass; the other ingestors continue normally.` : ""} If this persists, either the query itself cannot be executed by the Query Service within its 60s cap, or the deployment's network egress does not allow query.wikidata.org / en.wikipedia.org, or the Query Service is throttling this client.`,
         safeMetadata: {
           ingestorId: ingestor.id,
           contentType: ingestor.contentType,
@@ -1009,9 +1018,10 @@ export async function runStructuredIngest(
    * an ATTRIBUTED rejection. A thrown mapper is itself a reason (`map_threw`),
    * so even the fail-open path is counted instead of vanishing, and a rejection
    * reached after a source read that did not complete is `source_read_failed`,
-   * which the rejection memory never defers.
+   * which the rejection memory never defers. The reads that did not complete
+   * ride along for the outage streak below.
    */
-  const mapOne = (row: SparqlBinding): Promise<MapResult> => mapSourceRow(ingestor, row);
+  const mapOne = (row: SparqlBinding): Promise<MappedRow> => mapSourceRowDetailed(ingestor, row);
 
   /**
    * Record one discard. Never throws and never touches the network: attributing
@@ -1061,10 +1071,13 @@ export async function runStructuredIngest(
       break;
     }
     const row = candidates[idx];
-    const result = await mapOne(row);
+    const mapped = await mapOne(row);
+    const result: MapResult = mapped.result;
     const rowQid = candidateQids[idx];
     if (isRejection(result)) {
-      fetchFailureStreak = SOURCE_FAILURE_CODES.has(result.code) ? fetchFailureStreak + 1 : 0;
+      // Only a source that did not ANSWER extends the streak: a dead article
+      // (404, empty summary) answered, so Wikipedia is up and the page walks on.
+      fetchFailureStreak = sourceDidNotAnswer(mapped) ? fetchFailureStreak + 1 : 0;
       out.skipped += 1;
       note(result.code, result.detail);
       if (rowQid) rejectedEntities.push({ qid: rowQid, code: result.code, detail: result.detail });
@@ -1252,7 +1265,7 @@ export async function runStructuredIngest(
       category: "CONTENT_BUILD",
       severity: "INFO",
       eventName: "structured_knowledge_ingest",
-      message: `Structured-knowledge ingest (${ingestor.id}${cursorId !== ingestor.id ? ` via ${cursorId}` : ""}): published ${out.published} new ${ingestor.contentType} record(s) from Wikidata + Wikipedia (fetched ${out.fetched}, ${out.alreadyPublished} already live, ${out.rejectionsDeferred} known rejection(s) waiting out their backoff, ${out.skipped} skipped, ${out.pagesSkipped} live page(s) skipped).${reasons ? ` Dropped ${rejected}: ${reasons}.` : ""}${out.pageHeld ? ` Page at offset ${pageStart} held for the next pass (${out.errors[out.errors.length - 1] ?? "stopped early"}).` : ""}`,
+      message: `Structured-knowledge ingest (${ingestor.id}${via}): published ${out.published} new ${ingestor.contentType} record(s) from Wikidata + Wikipedia (fetched ${out.fetched}, ${out.alreadyPublished} already live, ${out.rejectionsDeferred} known rejection(s) waiting out their backoff, ${out.skipped} skipped, ${out.pagesSkipped} live page(s) skipped).${reasons ? ` Dropped ${rejected}: ${reasons}.` : ""}${out.pageHeld ? ` Page at offset ${pageStart} held for the next pass (${out.errors[out.errors.length - 1] ?? "stopped early"}).` : ""}`,
       safeMetadata: {
         ingestorId: ingestor.id,
         contentType: ingestor.contentType,

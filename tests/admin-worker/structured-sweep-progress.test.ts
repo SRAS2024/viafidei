@@ -40,6 +40,7 @@ import { leaseKey } from "@/lib/admin-worker/structured/lease";
 import { runSparql, type SparqlBinding } from "@/lib/admin-worker/structured/wikidata";
 import { fetchSummaryForArticleUrl } from "@/lib/admin-worker/structured/wikipedia";
 import { runPublishOrchestrator } from "@/lib/admin-worker/publish-orchestrator";
+import { writeAdminWorkerLog } from "@/lib/admin-worker/logs";
 
 const mockedSparql = vi.mocked(runSparql);
 const mockedSummary = vi.mocked(fetchSummaryForArticleUrl);
@@ -246,11 +247,14 @@ describe("a page that cannot be finished is held, not skipped", () => {
   it("holds the page when Wikipedia keeps failing", async () => {
     // A pope without a summary still publishes (the summary is optional for
     // POPE), so use the SAINT mapper's hard dependency on the article instead:
-    // simulate it with a mapper that reports `wikipedia_fetch_failed`.
+    // simulate it with a mapper whose summary read got no answer (a 503 /
+    // timeout lands in the row's read ledger) and that reports
+    // `wikipedia_fetch_failed`.
     const popeIngestor = ingestorFor("POPE")!;
-    const spy = vi
-      .spyOn(popeIngestor, "map")
-      .mockResolvedValue({ rejected: true, code: "wikipedia_fetch_failed" });
+    const spy = vi.spyOn(popeIngestor, "map").mockImplementation(async (_row, ctx) => {
+      ctx.reads?.unread.push("https://en.wikipedia.org/api/rest_v1/page/summary/Down");
+      return { rejected: true, code: "wikipedia_fetch_failed" };
+    });
     const rows = Array.from({ length: 10 }, (_, i) => pope(`Q${300 + i}`, `Down ${i}`));
     mockedSparql.mockResolvedValueOnce(rows);
     const { prisma, memory } = makePrisma(
@@ -265,6 +269,29 @@ describe("a page that cannot be finished is held, not skipped", () => {
     const cursor = memory.get("structured-cursor:wikidata-popes")!;
     expect(cursor.offset).toBe(40);
     expect(cursor.zeroStreak).toBe(0);
+  });
+
+  it("walks past dead articles that ANSWERED: a 404 is not an outage", async () => {
+    // A REST summary that answered 404 (a dead sitelink) or came back empty also
+    // ends in `wikipedia_fetch_failed`, a code never remembered. Counting it as
+    // an outage held any page with five of them in a row on every pass, for
+    // ever: the cursor livelock again, by another road.
+    const popeIngestor = ingestorFor("POPE")!;
+    const spy = vi
+      .spyOn(popeIngestor, "map")
+      .mockResolvedValue({ rejected: true, code: "wikipedia_fetch_failed" });
+    const rows = Array.from({ length: 10 }, (_, i) => pope(`Q${400 + i}`, `Gone ${i}`));
+    mockedSparql.mockResolvedValueOnce(rows);
+    const { prisma, memory } = makePrisma(
+      new Map([["structured-cursor:wikidata-popes", { offset: 40, zeroStreak: 0 }]]),
+    );
+
+    const out = await runStructuredIngest(prisma, { contentType: "POPE", batch: 10 });
+
+    expect(spy).toHaveBeenCalledTimes(10);
+    expect(out.pageHeld).toBe(false);
+    expect(out.skipReasons).toEqual({ wikipedia_fetch_failed: 10 });
+    expect(memory.get("structured-cursor:wikidata-popes")!.offset).toBe(50);
   });
 });
 
@@ -307,6 +334,29 @@ describe("leases and booster cursors", () => {
     expect(out.leasedTo).toBeNull();
     expect(memory.get("structured-cursor:wikidata-popes@booster")!.offset).toBe(3);
     expect(memory.get("structured-cursor:wikidata-popes")!.offset).toBe(120);
+  });
+
+  it("names the booster cursor in a failed pass's log row, so it never reads as the worker", async () => {
+    // sweep.ts warns that the worker ignores the lease when it finds a row
+    // starting "Structured-knowledge ingest (<ingestor>):" — a booster's own
+    // source-failure row must not look like that.
+    mockedSparql.mockResolvedValueOnce(null);
+    const { prisma } = makePrisma();
+    const log = vi.mocked(writeAdminWorkerLog);
+    log.mockClear();
+
+    const out = await runStructuredIngest(prisma, {
+      contentType: "POPE",
+      batch: 3,
+      cursorId: "wikidata-popes@booster",
+    });
+
+    expect(out.sourceFailure).not.toBeNull();
+    const messages = log.mock.calls.map((c) => c[1].message);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatch(
+      /^Structured-knowledge ingest \(wikidata-popes via wikidata-popes@booster\): /,
+    );
   });
 
   it("is never PICKED while leased, so the lane serves the other ingestors", async () => {
