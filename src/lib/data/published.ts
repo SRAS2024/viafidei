@@ -98,6 +98,36 @@ export async function getPublishedBySlug(
 }
 
 /**
+ * Several published items of one type, by slug, in ONE query — returned in the
+ * order the slugs were given, with unknown or unpublished slugs dropped and
+ * duplicates collapsed. The pages that list a set of prayers (a guide's, a
+ * novena's, a devotion's) used to issue one query per prayer.
+ *
+ * Memoised on the list tier: the same handful of sets (the Rosary's prayers,
+ * the building-block prayers every prayer page checks) is requested on every
+ * view, and the publish path flushes the memo.
+ */
+export async function listPublishedBySlugs(
+  contentType: ChecklistContentType,
+  slugs: ReadonlyArray<string>,
+): Promise<PublishedItem[]> {
+  const wanted = [...new Set(slugs.filter((s) => typeof s === "string" && s.trim()))];
+  if (wanted.length === 0) return [];
+  const items = await memo(
+    `published:by-slugs:${contentType}:${wanted.join(",")}`,
+    MEMO_TTL.list,
+    async () => {
+      const rows = await prisma.publishedContent.findMany({
+        where: { contentType, slug: { in: wanted }, isPublished: true },
+      });
+      return rows.map((row) => deserialize(row)!).filter(Boolean);
+    },
+  );
+  const bySlug = new Map(items.map((item) => [item.slug, item]));
+  return wanted.map((slug) => bySlug.get(slug)).filter((i): i is PublishedItem => i != null);
+}
+
+/**
  * Resolve a published item by slug across several candidate content types, in
  * order — used by the routes that serve more than one type from one path
  * (Our Lady = Marian title or apparition; Liturgy & History = liturgical entry

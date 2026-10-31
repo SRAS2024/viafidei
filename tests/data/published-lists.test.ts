@@ -30,6 +30,7 @@ import { memoClear } from "@/lib/cache/memo";
 import {
   countPublishedBySubtype,
   listFeaturedPrayers,
+  listPublishedBySlugs,
   listPublishedPage,
   listSaintsForFeast,
   DEFAULT_PAGE_SIZE,
@@ -208,5 +209,38 @@ describe("listFeaturedPrayers", () => {
     expect(queryRaw).toHaveBeenCalledTimes(1);
     await listFeaturedPrayers("2026-09-08");
     expect(queryRaw).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("listPublishedBySlugs", () => {
+  const prayerRow = (slug: string) =>
+    saintRow({ contentType: "PRAYER", slug, title: slug, subtype: null, payload: { body: slug } });
+
+  it("reads a set of prayers in ONE query, in the order asked, dropping the unpublished", async () => {
+    // A guide's prayer list used to be one query per prayer.
+    findMany.mockResolvedValue([prayerRow("hail-mary"), prayerRow("our-father")]);
+    const items = await listPublishedBySlugs("PRAYER", [
+      "our-father",
+      "not-published",
+      "hail-mary",
+    ]);
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(findMany.mock.calls[0][0]).toEqual({
+      where: {
+        contentType: "PRAYER",
+        slug: { in: ["our-father", "not-published", "hail-mary"] },
+        isPublished: true,
+      },
+    });
+    expect(items.map((i) => i.slug)).toEqual(["our-father", "hail-mary"]);
+  });
+
+  it("collapses duplicates, memoises the set, and skips the query for an empty list", async () => {
+    findMany.mockResolvedValue([prayerRow("our-father")]);
+    await listPublishedBySlugs("PRAYER", ["our-father", "our-father"]);
+    await listPublishedBySlugs("PRAYER", ["our-father"]);
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(await listPublishedBySlugs("PRAYER", [])).toEqual([]);
+    expect(findMany).toHaveBeenCalledTimes(1);
   });
 });

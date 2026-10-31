@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import {
+  GuidePrayers,
   OfficialSourceLink,
   PublishedDetail,
   RelatedContentLinks,
@@ -13,6 +14,7 @@ import {
   getAnyPublishedBySlug,
   buildPublishedMetadata,
 } from "@/lib/data/published";
+import { loadPrayerSet } from "@/lib/data/prayer-sets";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +29,9 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
   const { slug } = await params;
   const marian = await getPublishedBySlug("MARIAN_TITLE", slug);
   if (marian) {
-    // The payload's cross-references are slugs; resolved here into titled
-    // links so the page never prints "our-lady-of-lourdes" as text.
+    // The apparition cross-reference is a slug, resolved here into a titled
+    // link so the page never prints "our-lady-of-lourdes" as text. The prayers
+    // are shown in full, as dropdowns with the Latin / Greek chips.
     const [apparitions, prayers] = await Promise.all([
       resolveRelatedLinks(
         "APPARITION",
@@ -36,22 +39,25 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
           ? [marian.payload.associatedApparitionSlug]
           : [],
       ),
-      resolveRelatedLinks("PRAYER", marian.payload.associatedPrayers),
+      loadPrayerSet(marian.payload.associatedPrayers),
     ]);
     return (
-      <PublishedDetail
-        item={marian}
-        primaryFields={["origin", "theologicalSignificance"]}
-        secondaryFields={["feastDay", "region", "iconographyNotes"]}
-        footer={
-          apparitions.length > 0 || prayers.length > 0 ? (
-            <div className="w-full">
-              <RelatedContentLinks title="Apparitions" links={apparitions} />
-              <RelatedContentLinks title="Prayers" links={prayers} />
-            </div>
-          ) : null
-        }
-      />
+      <>
+        <PublishedDetail
+          item={marian}
+          primaryFields={["origin", "theologicalSignificance"]}
+          secondaryFields={["feastDay", "region", "iconographyNotes"]}
+          linkedPrayers={prayers}
+          footer={
+            apparitions.length > 0 ? (
+              <div className="w-full">
+                <RelatedContentLinks title="Apparitions" links={apparitions} />
+              </div>
+            ) : null
+          }
+        />
+        <GuidePrayers prayers={prayers} heading="Prayers" />
+      </>
     );
   }
   const apparition = await getPublishedBySlug("APPARITION", slug);

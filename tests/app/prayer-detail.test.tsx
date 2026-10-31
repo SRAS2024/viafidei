@@ -10,7 +10,7 @@
  * no source, no occasions and no related saints at all.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { PublishedItem } from "@/lib/data/published";
 
 const published = new Map<string, PublishedItem>();
@@ -31,6 +31,10 @@ vi.mock("@/lib/data/published", async (importOriginal) => {
     ...actual,
     getPublishedBySlug: async (contentType: string, slug: string) =>
       published.get(`${contentType}:${slug}`) ?? null,
+    listPublishedBySlugs: async (contentType: string, slugs: string[]) =>
+      slugs
+        .map((slug) => published.get(`${contentType}:${slug}`))
+        .filter((item): item is PublishedItem => item != null),
     buildPublishedMetadata: () => ({}),
   };
 });
@@ -145,6 +149,36 @@ describe("prayer detail page", () => {
     // The unpublished reference simply disappears — no dead link, no slug.
     expect(container.textContent).not.toContain("not-published");
     expect(container.textContent).not.toContain("st-teresa-of-avila");
+  });
+
+  it("opens the prayers a Rosary or chaplet prayer names, in place, with their Latin", async () => {
+    seed({ body: OUR_FATHER_BODY, latin: "Pater noster, qui es in caelis." });
+    published.set("PRAYER:rosary-opening-prayers", {
+      id: "p2",
+      contentType: "PRAYER",
+      slug: "rosary-opening-prayers",
+      title: "Opening Prayers of the Rosary",
+      subtitle: "",
+      authorityLevel: "USCCB",
+      version: 1,
+      payload: { body: "3. On the single bead, pray the Our Father.", prayerType: "rosary" },
+    } as unknown as PublishedItem);
+    render(await PrayerDetailPage({ params: Promise.resolve({ slug: "rosary-opening-prayers" }) }));
+
+    const name = screen.getByRole("button", { name: /Our Father/ });
+    fireEvent.click(name);
+    expect(screen.getByText(/hallowed be thy name/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Latin" }));
+    expect(screen.getByText("Pater noster, qui es in caelis.")).toHaveAttribute("translate", "no");
+  });
+
+  it("never links a prayer's own name inside its text", async () => {
+    seed({ body: OUR_FATHER_BODY, latin: "Pater noster, qui es in caelis." });
+    await renderPrayer();
+    // Only the Share control carries the name; the prayer text has no link.
+    expect(screen.getAllByRole("button", { name: /Our Father/ })).toEqual([
+      screen.getByRole("button", { name: "Share Our Father" }),
+    ]);
   });
 
   it("uses the prayer's canonical category as the eyebrow, never a stored raw string", async () => {

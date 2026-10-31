@@ -23,6 +23,18 @@ describe("toDisclosureItems (guide prayers / novena days → dropdowns)", () => 
     expect(items?.[0]?.body).toMatch(/Day one prayer/);
   });
 
+  it("keeps a novena day's number as the eyebrow over its title", () => {
+    // The shape every published novena stores: { day, title, meditation, prayerText }.
+    const items = toDisclosureItems([
+      { day: 1, title: "All mankind, especially sinners", prayerText: "Pray the chaplet." },
+      { day: 2, prayerText: "A day stored without a title." },
+    ]);
+    expect(items).toEqual([
+      { eyebrow: "Day 1", title: "All mankind, especially sinners", body: "Pray the chaplet." },
+      { title: "Day 2", body: "A day stored without a title." },
+    ]);
+  });
+
   it("joins array-of-strings bodies (steps) into multi-line text", () => {
     const items = toDisclosureItems([
       { title: "Day 1", steps: ["Make the Sign of the Cross", "Pray"] },

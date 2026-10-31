@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import { PublishedDetail, RelatedContentLinks, resolveRelatedLinks } from "@/components/ui";
+import {
+  GuidePrayers,
+  PublishedDetail,
+  RelatedContentLinks,
+  resolveRelatedLinks,
+} from "@/components/ui";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { loadPrayerSet } from "@/lib/data/prayer-sets";
 
 export const dynamic = "force-dynamic";
 
@@ -17,25 +23,29 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
   const { slug } = await params;
   const practice = await getPublishedBySlug("SPIRITUAL_PRACTICE", slug);
   if (practice) {
-    // Slug lists resolved to titled links; PublishedDetail refuses to print them raw.
+    // The practice's prayers open in place from its instructions and are listed
+    // below with the Latin / Greek chips; saints stay titled links, never slugs.
     const [prayers, saints] = await Promise.all([
-      resolveRelatedLinks("PRAYER", practice.payload.relatedPrayers),
+      loadPrayerSet(practice.payload.relatedPrayers),
       resolveRelatedLinks("SAINT", practice.payload.relatedSaints),
     ]);
     return (
-      <PublishedDetail
-        item={practice}
-        primaryFields={["instructions", "background"]}
-        secondaryFields={["practiceKind", "tradition", "durationMinutes", "frequency"]}
-        footer={
-          prayers.length > 0 || saints.length > 0 ? (
-            <div className="w-full">
-              <RelatedContentLinks title="Related prayers" links={prayers} />
-              <RelatedContentLinks title="Related saints" links={saints} />
-            </div>
-          ) : null
-        }
-      />
+      <>
+        <PublishedDetail
+          item={practice}
+          primaryFields={["instructions", "background"]}
+          secondaryFields={["practiceKind", "tradition", "durationMinutes", "frequency"]}
+          linkedPrayers={prayers}
+          footer={
+            saints.length > 0 ? (
+              <div className="w-full">
+                <RelatedContentLinks title="Related saints" links={saints} />
+              </div>
+            ) : null
+          }
+        />
+        <GuidePrayers prayers={prayers} heading="Prayers" />
+      </>
     );
   }
   // Guides moved to their own /guides tab — preserve any old links.

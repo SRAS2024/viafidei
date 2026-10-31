@@ -8,14 +8,13 @@ import {
   RosaryMysteries,
   ShareButton,
   resolveRelatedLinks,
-  type GuidePrayerData,
 } from "@/components/ui";
 import { isRosaryGuide } from "@/lib/content-shared/rosary";
 import { guideEyebrow } from "@/lib/content-shared/guide-categories";
 import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
 import { toGuideSteps } from "@/lib/content-shared/structured-content";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
-import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
+import { loadPrayerSet } from "@/lib/data/prayer-sets";
 
 export const dynamic = "force-dynamic";
 
@@ -51,19 +50,12 @@ export default async function GuideDetailPage({ params }: Props) {
 
   const payload = guide.payload;
 
-  // The guide's applicable prayers, in the order they are prayed — fetched so
-  // they can be shown at the bottom as dropdowns with a universal language
-  // (English / Latin / Greek) toggle, and so prayer names inside the steps
-  // become inline-expandable.
-  const relatedSlugs = stringList(payload, "relatedPrayers");
-  const fetched = await Promise.all(relatedSlugs.map((s) => getPublishedBySlug("PRAYER", s)));
-  const prayers: GuidePrayerData[] = fetched
-    .map((p) =>
-      p ? { slug: p.slug, title: p.title, variants: buildPrayerVariants(p.payload) } : null,
-    )
-    .filter((p): p is GuidePrayerData => p != null && p.variants.length > 0);
-
-  const [devotions, practices, saints] = await Promise.all([
+  // The guide's applicable prayers, in the order they are prayed — fetched in
+  // one query so they can be shown at the bottom as dropdowns with the shared
+  // Latin / Greek chips, and so prayer names inside the steps become
+  // inline-expandable.
+  const [prayers, devotions, practices, saints] = await Promise.all([
+    loadPrayerSet(payload.relatedPrayers),
     resolveRelatedLinks("DEVOTION", payload.relatedDevotions),
     resolveRelatedLinks("SPIRITUAL_PRACTICE", payload.relatedPractices),
     resolveRelatedLinks("SAINT", payload.relatedSaints),

@@ -8,9 +8,10 @@ import {
   ShareButton,
   resolveRelatedLinks,
 } from "@/components/ui";
-import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
+import { buildPrayerVariants, resolvePrayerLanguage } from "@/lib/content-shared/prayer-language";
 import { categorizePrayer, prayerCategoryLabel } from "@/lib/content-shared/prayer-categories";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { loadNamedPrayers } from "@/lib/data/prayer-sets";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,14 @@ export default async function PrayerDetailPage({ params }: Props) {
     (payload.body as string | undefined) ?? (payload.prayerText as string | undefined) ?? "";
   const variants = buildPrayerVariants(payload);
   const summary = payload.summary as string | undefined;
+  // The Rosary and chaplet prayers (and a litany ending "Our Father, Hail Mary,
+  // Glory Be") name other prayers: each name opens that prayer in place, with
+  // its own Latin / Greek chips. Matched case-sensitively, because this text is
+  // itself prayer — "our father Abraham" in a canticle is not a rubric.
+  const linkedPrayers = await loadNamedPrayers(
+    [resolvePrayerLanguage(variants, null).vernacular?.text ?? ""],
+    { matchCase: true, exclude: slug },
+  );
 
   // The official text is shown ONLY when it is genuinely a different text from
   // the one already on the page — otherwise the reader saw the same prayer in
@@ -110,7 +119,7 @@ export default async function PrayerDetailPage({ params }: Props) {
 
       <section>
         {variants.length > 0 ? (
-          <PrayerLanguageToggle variants={variants} />
+          <PrayerLanguageToggle variants={variants} linkedPrayers={linkedPrayers} />
         ) : (
           <p className="whitespace-pre-line font-serif text-lg leading-relaxed text-ink">{body}</p>
         )}

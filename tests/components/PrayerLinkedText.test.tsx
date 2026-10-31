@@ -6,13 +6,15 @@
  * with its own language toggle and verbatim (translate="no") Latin/Greek. Text
  * that names no known prayer renders untouched.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { PrayerLinkedText } from "@/components/ui/PrayerLinkedText";
 import type { GuidePrayerData } from "@/components/ui/GuidePrayers";
 
 afterEach(() => cleanup());
+// The language choice is session-wide, so one test's Latin must not leak into the next.
+beforeEach(() => window.sessionStorage.clear());
 
 const OUR_FATHER: GuidePrayerData = {
   slug: "our-father",
@@ -83,5 +85,33 @@ describe("PrayerLinkedText", () => {
     // "father" alone must not match the "Our Father" entry.
     render(<PrayerLinkedText text="Honor your father and mother." prayers={[OUR_FATHER]} />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("offers the same Latin chip as the prayer page, never an English one", () => {
+    render(<PrayerLinkedText text="Pray the Our Father." prayers={[OUR_FATHER]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Our Father/ }));
+    expect(screen.getByRole("group", { name: "Our Father language" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "English" })).not.toBeInTheDocument();
+  });
+
+  it("shows no chip for a prayer that has only its vernacular", () => {
+    render(<PrayerLinkedText text="Pray the Glory Be." prayers={[GLORY_BE]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Glory Be/ }));
+    expect(screen.queryByRole("group")).not.toBeInTheDocument();
+  });
+
+  it("with matchCase, links only names capitalised as names (the text is itself prayer)", () => {
+    render(
+      <PrayerLinkedText
+        text={"Joseph is our father in faith.\nOur Father, Hail Mary, Glory Be"}
+        prayers={[OUR_FATHER, GLORY_BE]}
+        matchCase
+      />,
+    );
+    const links = screen.getAllByRole("button");
+    expect(links.map((b) => b.textContent?.replace(/[▾▴]/g, ""))).toEqual([
+      "Our Father",
+      "Glory Be",
+    ]);
   });
 });

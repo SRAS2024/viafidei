@@ -1,98 +1,69 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { resolvePrayerLanguage, type PrayerVariant } from "@/lib/content-shared/prayer-language";
 
-import type { PrayerVariant } from "@/lib/content-shared/prayer-language";
+import type { GuidePrayerData } from "./GuidePrayers";
+import { PrayerLanguageChips, usePrayerLanguage } from "./PrayerLanguageChips";
+import { PrayerLinkedText } from "./PrayerLinkedText";
 
 /**
- * Session-persisted language selector for a prayer's text.
+ * A prayer's text with its language selector (the prayer page).
  *
  * The vernacular text is the implicit default and is NOT shown as a button —
  * the page already renders in the reader's language. Every OTHER language the
  * prayer carries gets a chip: the liturgical languages (Latin / Greek) and any
- * vernacular translation the payload supplies (Spanish, Italian, …), which the
- * schema and `buildPrayerVariants` have always accepted but which could not be
- * selected. Selecting a chip shows that language; selecting it again (or never
- * selecting one) falls back to the vernacular. A prayer with only one language
- * — including a Latin-only prayer — shows no chips at all, rather than a chip
- * that toggles nothing. The choice is stored in `sessionStorage` so it carries
- * across every prayer for the rest of the session: pick Latin once and each
- * prayer that offers Latin opens in Latin, falling back to the vernacular when
- * a given prayer doesn't have that language.
+ * vernacular translation the payload supplies (Spanish, Italian, …). Selecting
+ * a chip shows that language; selecting it again (or never selecting one)
+ * falls back to the vernacular. A prayer with only one language — including a
+ * Latin-only prayer — shows no chips at all, rather than a chip that toggles
+ * nothing. The choice is the session-wide one from `usePrayerLanguage`, so it
+ * carries across every prayer — and every guide, novena and devotion dropdown —
+ * for the rest of the session, falling back to the vernacular when a given
+ * prayer doesn't have that language.
  *
  * Latin / Greek variants are marked `translate="no"` so device or future
  * auto-translation never rewrites the verbatim liturgical text.
+ *
+ * `linkedPrayers` are the prayers the vernacular text names ("pray the Our
+ * Father", "three Hail Marys"), as in the Rosary and chaplet prayers: each name
+ * opens that prayer in place, with its own language chips.
  */
-const STORAGE_KEY = "vf_prayer_lang";
-/** Sentinel stored when the reader explicitly toggles back to the vernacular. */
-const VERNACULAR = "vernacular";
+export function PrayerLanguageToggle({
+  variants,
+  linkedPrayers,
+}: {
+  variants: PrayerVariant[];
+  linkedPrayers?: GuidePrayerData[];
+}) {
+  const { language, toggle } = usePrayerLanguage();
+  const { vernacular, alternates, shown } = resolvePrayerLanguage(variants, language);
+  if (!shown) return null;
 
-export function PrayerLanguageToggle({ variants }: { variants: PrayerVariant[] }) {
-  // The vernacular is the first non-preserved variant (English/Spanish/…);
-  // everything else the prayer carries — Latin, Greek, and any translation —
-  // is selectable.
-  const vernacular = variants.find((v) => !v.preserve) ?? variants[0];
-  const alternates = variants.filter((v) => v.code !== vernacular?.code);
-
-  // `null` → render the vernacular. Otherwise an alternate language code.
-  const [code, setCode] = useState<string | null>(null);
-
-  // On mount, restore the session-persisted choice when this prayer offers it.
-  useEffect(() => {
-    let stored: string | null = null;
-    try {
-      stored = window.sessionStorage.getItem(STORAGE_KEY);
-    } catch {
-      stored = null;
-    }
-    if (stored === VERNACULAR) setCode(null);
-    else if (stored && alternates.some((v) => v.code === stored)) setCode(stored);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variants]);
-
-  const select = (next: string) => {
-    // Re-selecting the active chip toggles back to the vernacular.
-    const value = next === code ? null : next;
-    setCode(value);
-    try {
-      window.sessionStorage.setItem(STORAGE_KEY, value ?? VERNACULAR);
-    } catch {
-      // sessionStorage may be unavailable (private mode); selection still works for this view.
-    }
-  };
-
-  const active = (code ? alternates.find((v) => v.code === code) : null) ?? vernacular;
-  if (!active) return null;
+  const activeCode = shown === vernacular ? null : shown.code;
+  const linked =
+    shown === vernacular && linkedPrayers && linkedPrayers.length > 0 ? linkedPrayers : null;
 
   return (
     <div>
-      {alternates.length > 0 && (
-        <div role="group" aria-label="Prayer language" className="mb-4 flex flex-wrap gap-2">
-          {alternates.map((v) => {
-            const isActive = v.code === code;
-            return (
-              <button
-                key={v.code}
-                type="button"
-                onClick={() => select(v.code)}
-                aria-pressed={isActive}
-                className={`vf-btn !py-1 !px-3 text-xs ${
-                  isActive ? "vf-btn-primary" : "vf-btn-ghost"
-                }`}
-              >
-                {v.label}
-              </button>
-            );
-          })}
+      <PrayerLanguageChips
+        options={alternates}
+        active={activeCode}
+        onSelect={(code) => toggle(code, activeCode)}
+        className="mb-4"
+      />
+      {linked ? (
+        <div lang={shown.code} className="font-serif text-lg leading-relaxed text-ink">
+          <PrayerLinkedText text={shown.text} prayers={linked} matchCase />
         </div>
+      ) : (
+        <p
+          lang={shown.code}
+          translate={shown.preserve ? "no" : undefined}
+          className="whitespace-pre-line font-serif text-lg leading-relaxed text-ink"
+        >
+          {shown.text}
+        </p>
       )}
-      <p
-        lang={active.code}
-        translate={active.preserve ? "no" : undefined}
-        className="whitespace-pre-line font-serif text-lg leading-relaxed text-ink"
-      >
-        {active.text}
-      </p>
     </div>
   );
 }

@@ -22,6 +22,14 @@ export interface PrayerVariant {
   preserve: boolean;
 }
 
+/** A published prayer as the language-aware prayer lists and inline panels need it. */
+export interface PrayerWithVariants {
+  slug: string;
+  title: string;
+  /** Ordered variants (vernacular first, then Latin / Greek / …). */
+  variants: PrayerVariant[];
+}
+
 const LANGUAGE_LABELS: Record<string, string> = {
   en: "English",
   la: "Latin",
@@ -48,6 +56,23 @@ function normalizeCode(raw: string): string {
 
 function labelFor(code: string): string {
   return LANGUAGE_LABELS[code] ?? code.toUpperCase();
+}
+
+/**
+ * How a prayer reads in the language the reader chose. The vernacular is the
+ * first variant that is not a preserved liturgical language (English, Spanish,
+ * …), or the only variant there is; every other variant is an alternate the
+ * reader can select. `chosen` falls back to the vernacular when this prayer does
+ * not carry it, so choosing Greek never blanks a prayer that has no Greek.
+ */
+export function resolvePrayerLanguage(
+  variants: readonly PrayerVariant[],
+  chosen: string | null,
+): { vernacular?: PrayerVariant; alternates: PrayerVariant[]; shown?: PrayerVariant } {
+  const vernacular = variants.find((v) => !v.preserve) ?? variants[0];
+  const alternates = variants.filter((v) => v.code !== vernacular?.code);
+  const shown = (chosen ? alternates.find((v) => v.code === chosen) : undefined) ?? vernacular;
+  return { vernacular, alternates, shown };
 }
 
 /**

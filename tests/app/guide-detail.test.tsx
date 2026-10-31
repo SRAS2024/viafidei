@@ -27,6 +27,10 @@ vi.mock("@/lib/data/published", async (importOriginal) => {
     ...actual,
     getPublishedBySlug: async (contentType: string, slug: string) =>
       published.get(`${contentType}:${slug}`) ?? null,
+    listPublishedBySlugs: async (contentType: string, slugs: string[]) =>
+      slugs
+        .map((slug) => published.get(`${contentType}:${slug}`))
+        .filter((item): item is PublishedItem => item != null),
     buildPublishedMetadata: () => ({}),
   };
 });

@@ -26,10 +26,11 @@ export interface PublishedDetailProps {
   /** Optional header action (e.g. the Save/Add button) shown beside the title. */
   action?: React.ReactNode;
   /**
-   * Prayers this item uses (guides / novenas). When provided, any prayer named
-   * inside a disclosure body (a step or a day) becomes inline-expandable — tap
-   * the name to drop the full prayer open in place. Omitted everywhere else, so
-   * those pages render exactly as before.
+   * Prayers this item uses (novenas, devotions, practices, Marian titles). When
+   * provided, any of them named inside a disclosure body (a day) or a text field
+   * (how to practise) becomes inline-expandable — tap the name to drop the full
+   * prayer open in place, with its Latin / Greek chips. Omitted everywhere else,
+   * so those pages render exactly as before.
    */
   linkedPrayers?: GuidePrayerData[];
   /**
@@ -125,6 +126,7 @@ const HIDDEN_FIELDS = new Set([
   // "Related Prayers" heading. Pages that want them resolve the real titles
   // from the data layer and render them as links (see RelatedContentLinks).
   "relatedPrayers",
+  "associatedPrayers",
   "relatedDevotions",
   "relatedPractices",
   "relatedSaints",
@@ -235,6 +237,7 @@ export function PublishedDetail({
       typeof payload.prayerType === "string" ? payload.prayerType : null,
     );
 
+  const linked = linkedPrayers && linkedPrayers.length > 0 ? linkedPrayers : null;
   const keysShown = new Set<string>();
   const renderField = (key: string) => {
     if (HIDDEN_FIELDS.has(key)) return null;
@@ -287,9 +290,10 @@ export function PublishedDetail({
         {disclosures ? (
           <div className="mt-3 flex flex-col gap-3">
             {disclosures.map((d, i) => (
-              <Disclosure key={`${key}-${i}`} title={d.title}>
-                {linkedPrayers && linkedPrayers.length > 0 ? (
-                  <PrayerLinkedText text={d.body} prayers={linkedPrayers} />
+              <Disclosure key={`${key}-${i}`} title={d.title} eyebrow={d.eyebrow}>
+                {linked ? (
+                  // A day's text is itself prayer: only capitalised names link.
+                  <PrayerLinkedText text={d.body} prayers={linked} matchCase />
                 ) : (
                   <p className="whitespace-pre-line">{d.body}</p>
                 )}
@@ -298,7 +302,12 @@ export function PublishedDetail({
           </div>
         ) : (
           <div className="mt-2 font-serif leading-relaxed text-ink">
-            {renderPresented(presented as PresentedValue)}
+            {linked && presented?.kind === "text" ? (
+              // Instructions name prayers in running prose ("pray the Our Father").
+              <PrayerLinkedText text={presented.text} prayers={linked} />
+            ) : (
+              renderPresented(presented as PresentedValue)
+            )}
           </div>
         )}
       </section>

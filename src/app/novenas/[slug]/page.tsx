@@ -7,10 +7,10 @@ import {
   PublishedDetail,
   RelatedContentLinks,
   resolveRelatedLinks,
-  type GuidePrayerData,
 } from "@/components/ui";
+import { toDisclosureItems } from "@/lib/content-shared/structured-content";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
-import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
+import { loadNamedPrayers, loadPrayerSet } from "@/lib/data/prayer-sets";
 
 export const dynamic = "force-dynamic";
 
@@ -21,27 +21,36 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildPublishedMetadata(await getPublishedBySlug("NOVENA", slug));
 }
 
-// The prayers prayed every day of a novena (opening / closing). Shown at the
-// bottom as dropdowns with the universal English / Latin / Greek toggle, so the
-// full text is readily available alongside each day's own prayer.
+// The prayers customarily prayed with every day of a novena, shown when its
+// days name none of their own.
 const NOVENA_COMMON_PRAYERS = ["our-father", "hail-mary", "glory-be"];
+
+/**
+ * The prayers of a novena: its own `relatedPrayers` when the payload lists
+ * them, otherwise the prayers its days actually name ("Begin with the Sign of
+ * the Cross, one Our Father, one Hail Mary and the Apostles' Creed"), and the
+ * customary Our Father / Hail Mary / Glory Be when they name none. Each opens
+ * inline from the day that names it and is listed below the days, with the
+ * Latin / Greek chips.
+ */
+async function novenaPrayers(payload: Record<string, unknown>) {
+  if (Array.isArray(payload.relatedPrayers) && payload.relatedPrayers.length > 0) {
+    return loadPrayerSet(payload.relatedPrayers);
+  }
+  const dayTexts = (toDisclosureItems(payload.days) ?? []).map((d) => d.body);
+  const named = await loadNamedPrayers(dayTexts, { matchCase: true });
+  return named.length > 0 ? named : loadPrayerSet(NOVENA_COMMON_PRAYERS);
+}
 
 export default async function NovenaDetailPage({ params }: Props) {
   const { slug } = await params;
   const item = await getPublishedBySlug("NOVENA", slug);
   if (!item) notFound();
 
-  const related = Array.isArray(item.payload.relatedPrayers)
-    ? (item.payload.relatedPrayers as unknown[]).filter((s): s is string => typeof s === "string")
-    : NOVENA_COMMON_PRAYERS;
-  const fetched = await Promise.all(related.map((s) => getPublishedBySlug("PRAYER", s)));
-  const prayers: GuidePrayerData[] = fetched
-    .map((p) =>
-      p ? { slug: p.slug, title: p.title, variants: buildPrayerVariants(p.payload) } : null,
-    )
-    .filter((p): p is GuidePrayerData => p != null && p.variants.length > 0);
-
-  const saints = await resolveRelatedLinks("SAINT", item.payload.relatedSaints);
+  const [prayers, saints] = await Promise.all([
+    novenaPrayers(item.payload),
+    resolveRelatedLinks("SAINT", item.payload.relatedSaints),
+  ]);
 
   return (
     <>
@@ -59,7 +68,7 @@ export default async function NovenaDetailPage({ params }: Props) {
           ) : null
         }
       />
-      <GuidePrayers prayers={prayers} />
+      <GuidePrayers prayers={prayers} heading="Prayers of this novena" />
     </>
   );
 }

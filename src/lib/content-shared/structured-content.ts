@@ -7,6 +7,8 @@
 export interface DisclosureItem {
   title: string;
   body: string;
+  /** "Day 3" for a novena day that carries its number; shown above the title. */
+  eyebrow?: string;
 }
 
 const LABEL_KEYS = [
@@ -33,6 +35,10 @@ function stringFrom(value: unknown): string | null {
  * Returns one {title, body} per element when the array is a list of
  * label+body objects (e.g. novena days, guide prayers); otherwise null so the
  * caller falls back to its normal rendering.
+ *
+ * A novena day stores its number as `day: 3` beside its title, so it becomes
+ * the eyebrow ("Day 3") over the day's title; a day with a number and no title
+ * is titled "Day 3".
  */
 export function toDisclosureItems(value: unknown): DisclosureItem[] | null {
   if (!Array.isArray(value) || value.length === 0) return null;
@@ -49,8 +55,14 @@ export function toDisclosureItems(value: unknown): DisclosureItem[] | null {
         break;
       }
     }
-    if (!labelKey || body == null) return null;
-    items.push({ title: String(o[labelKey]).trim(), body });
+    const dayLabel =
+      typeof o.day === "number" && Number.isInteger(o.day) && o.day > 0 ? `Day ${o.day}` : null;
+    if ((!labelKey && !dayLabel) || body == null) return null;
+    items.push(
+      labelKey
+        ? { title: String(o[labelKey]).trim(), body, ...(dayLabel ? { eyebrow: dayLabel } : {}) }
+        : { title: dayLabel!, body },
+    );
   }
   return items;
 }
@@ -66,9 +78,9 @@ export interface GuideStep {
 /**
  * Reads a guide's `steps` array into ordered, numbered steps.
  *
- * `toDisclosureItems` deliberately drops `order` (a novena day has no number
- * of its own), which is why guide steps used to render as unnumbered collapsed
- * rows. Guides need the number, so they get their own reader: it keeps `order`
+ * `toDisclosureItems` deliberately drops `order` (it keeps only a novena's
+ * `day` number, as an eyebrow), which is why guide steps used to render as
+ * unnumbered collapsed rows. Guides need the number, so they get their own reader: it keeps `order`
  * when the payload carries one, sorts by it, and returns null for anything
  * that is not a list of title+body objects so the caller can fall back.
  */
