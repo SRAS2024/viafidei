@@ -1,17 +1,23 @@
 /**
  * The Church-history timeline's static spine, aggregated.
  *
- * The 232 events live in four hand-curated parts under `church-history/`
- * (split only to keep each file reviewable). This module merges them into
- * one chronologically sorted list and re-exports the shared types and
- * helpers, so every consumer — the /history page, the content catalog, the
- * dataset test — reads a single ordered source and never sorts on its own.
+ * The events live in hand-curated parts under `church-history/` (split only
+ * to keep each file reviewable): parts 1–4 are the original spine from
+ * Pentecost to the present, and later parts deepen it — part 12 is the
+ * completeness pass (every Holy Year, the papal transitions since 1823, the
+ * remaining Doctors, dogmatic decrees, orders, reunions, missions, martyrs,
+ * approved apparitions, encyclicals, law books and catechisms). Every part
+ * must be registered below. This module merges them into one
+ * chronologically sorted list and re-exports the shared types and helpers,
+ * so every consumer — the /history page, the content catalog, the dataset
+ * test — reads a single ordered source and never sorts on its own.
  */
 
 import { EVENTS_1 } from "./church-history/events-1";
 import { EVENTS_2 } from "./church-history/events-2";
 import { EVENTS_3 } from "./church-history/events-3";
 import { EVENTS_4 } from "./church-history/events-4";
+import { EVENTS_12 } from "./church-history/events-12";
 import { historySortKey, type ChurchHistoryEvent } from "./church-history/types";
 
 export {
@@ -59,4 +65,5 @@ export const CHURCH_HISTORY_EVENTS: ReadonlyArray<ChurchHistoryEvent> = [
   ...EVENTS_2,
   ...EVENTS_3,
   ...EVENTS_4,
+  ...EVENTS_12,
 ].sort(compareHistoryEvents);
