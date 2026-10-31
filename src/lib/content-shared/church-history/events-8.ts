@@ -899,7 +899,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
       "Innocent III canonizes a married cloth merchant of Cremona, honest in trade and lavish to the poor, only fourteen months after his death.",
     significance:
       "Hailed by the pope as 'father of the poor', he became patron of business people and a model of holiness lived in the world of work and family.",
-    citation: `${W}Homobonus`,
+    citation: `${W}Saint_Homobonus`,
     links: { saints: ["saint-homobonus"], popes: ["pope-innocent-iii"] },
   },
   // ------------------------------------- Albigensians and friars (1202–1253)
@@ -1065,7 +1065,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
       "Berard of Carbio and four companions, sent by Francis to preach in Morocco, are put to death after openly proclaiming the Gospel and denouncing Islam.",
     significance:
       "Seeing their relics pass, a young Portuguese canon joined the friars and became St Anthony of Padua; Sixtus IV canonized the five in 1481.",
-    citation: `${W}Martyrs_of_Morocco`,
+    citation: `${W}Berard_of_Carbio`,
     links: { saints: ["saint-anthony-of-padua"] },
   },
   {
@@ -1227,7 +1227,7 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
       "After the bishops assembled at Mainz refuse to endorse his charges against the Count of Sayn, the zealous inquisitor, once St Elizabeth's confessor, is killed on the road by a band of knights.",
     significance:
       "His summary trials and burnings had made him notorious as an overly harsh judge, and his memory long turned opinion in the Empire against the Inquisition.",
-    citation: `${W}Conrad_of_Marburg`,
+    citation: `${W}Konrad_von_Marburg`,
     links: { saints: ["saint-elizabeth-of-hungary"] },
   },
   {
@@ -1402,5 +1402,347 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
       "Her long fight for the 'privilege of poverty' shaped the Poor Clares; Alexander IV canonized her in 1255.",
     citation: `${NA}04004a.htm`,
     links: { saints: ["saint-clare-of-assisi"], popes: ["pope-innocent-iv"] },
+  },
+  // ------------------------------------- Schoolmen, missions, Boniface (1254–1308)
+  {
+    slug: "rubruck-reaches-karakorum",
+    title: "William of Rubruck reaches the Great Khan at Karakorum",
+    year: 1254,
+    precision: "year",
+    era: "high-medieval",
+    kind: "mission",
+    tags: ["mission"],
+    location: "Karakorum",
+    context:
+      "Sent by Louis IX in hope of converting the Mongols and winning them as allies, the Franciscan crosses the steppe and reaches Karakorum and the court of the Great Khan Möngke at Easter 1254.",
+    significance:
+      "He came home without an alliance or conversions, but his report to the king is a geographical masterpiece of the Middle Ages.",
+    citation: `${NA}13217a.htm`,
+    links: { saints: ["saint-louis-ix"] },
+  },
+  {
+    slug: "william-of-saint-amour-condemned",
+    title: "Alexander IV condemns William of Saint-Amour's attack on the friars",
+    year: 1256,
+    precision: "year",
+    era: "high-medieval",
+    kind: "document",
+    location: "Anagni",
+    context:
+      "The pope orders the burning of 'On the Perils of the Last Times', in which the Paris master William of Saint-Amour had branded the mendicant life unchristian and a sign of Antichrist, and banishes its author from France.",
+    significance:
+      "The friars kept their place at the University of Paris, though their quarrel with the secular masters dragged on long after William's death.",
+    citation: `${NA}15637d.htm`,
+  },
+  {
+    slug: "grand-union-of-the-augustinian-friars",
+    title: "The Grand Union forms the Augustinian friars",
+    year: 1256,
+    precision: "year",
+    era: "high-medieval",
+    kind: "order",
+    location: "Rome",
+    context:
+      "At Alexander IV's command, delegates of several Italian hermit congregations meet in Rome and unite as one order under the Rule of St Augustine, with Lanfranc Septala as first prior general.",
+    significance:
+      "Ratified by the bull Licet ecclesiae catholicae, the Hermits of St Augustine took their place among the great mendicant orders.",
+    citation: `${NA}07281a.htm`,
+  },
+  {
+    slug: "bonaventure-elected-minister-general",
+    title: "St Bonaventure elected Minister General of the Franciscans",
+    year: 1257,
+    date: "1257-02-02",
+    precision: "day",
+    era: "high-medieval",
+    kind: "saint",
+    tags: ["doctor"],
+    context:
+      "Not yet thirty-six, the Paris master is chosen to lead the Friars Minor while the order is torn between the zealous Spirituals and the laxer party.",
+    significance:
+      "He governed the order until his death in 1274, pressing reform on the lax while restraining the extremists.",
+    citation: `${NA}02648c.htm`,
+    links: { saints: ["saint-bonaventure"], doctors: ["doctor-bonaventure"] },
+  },
+  {
+    slug: "sorbonne-founded",
+    title: "Robert de Sorbon founds the Sorbonne",
+    year: 1257,
+    precision: "circa",
+    era: "high-medieval",
+    kind: "event",
+    location: "Paris",
+    context:
+      "So that poor secular students might have the free teaching the friars already offered in their Paris houses, the theologian Robert de Sorbon founds a college whose masters share a common life.",
+    significance:
+      "Its members came to make up the Paris faculty of theology itself, and its name became a byword for that faculty.",
+    citation: `${NA}14149a.htm`,
+  },
+  {
+    slug: "bonaventure-writes-the-itinerarium",
+    title: "St Bonaventure writes the Journey of the Mind into God",
+    year: 1259,
+    precision: "year",
+    era: "high-medieval",
+    kind: "document",
+    tags: ["doctor"],
+    location: "La Verna",
+    context:
+      "On the mountain where Francis had received the stigmata, Bonaventure writes the Itinerarium mentis in Deum, leading the mind through creation back to God, its source and end.",
+    significance:
+      "A classic of Christian mysticism, it was the delight of Jean Gerson and a source for later spiritual writers such as Henry Suso.",
+    citation: `${NA}02648c.htm`,
+    links: { saints: ["saint-bonaventure"], doctors: ["doctor-bonaventure"] },
+  },
+  {
+    slug: "golden-legend-compiled",
+    title: "Jacobus de Voragine compiles the Golden Legend",
+    year: 1260,
+    precision: "circa",
+    era: "high-medieval",
+    kind: "document",
+    context:
+      "The Dominican preacher Jacobus de Voragine, later archbishop of Genoa, gathers 153 lives of the saints, arranged through the Church's year, into the collection soon known as the Golden Legend.",
+    significance:
+      "More than a thousand manuscripts survive, and among early printed books it ran to more editions than the Bible, feeding preaching and religious art for centuries.",
+    citation: `${W}Golden_Legend`,
+  },
+  {
+    slug: "death-of-saint-louis-ix",
+    title: "St Louis IX dies before Tunis",
+    year: 1270,
+    date: "1270-08-25",
+    precision: "day",
+    era: "high-medieval",
+    kind: "saint",
+    tags: ["crusade"],
+    location: "Tunis",
+    context: "On his second crusade, the king of France dies in camp outside Tunis.",
+    significance:
+      "Canonized by Boniface VIII in 1297, he became for centuries the pattern of the Christian king and a source of prestige for the French monarchy.",
+    citation: `${NA}09368a.htm`,
+    links: { saints: ["saint-louis-ix"], popes: ["pope-boniface-viii"] },
+  },
+  {
+    slug: "longest-papal-election-ends-at-viterbo",
+    title: "Longest papal election ends at Viterbo",
+    year: 1271,
+    precision: "year",
+    era: "high-medieval",
+    kind: "pope",
+    tags: ["papacy"],
+    location: "Viterbo",
+    context:
+      "After a vacancy of more than two years and nine months, the weary local authorities lock the cardinals in, and they at last elect Teobaldo Visconti, who takes the name Gregory X.",
+    significance:
+      "To prevent such delays, Gregory X imposed the first law of the conclave at the Second Council of Lyon in 1274.",
+    citation: `${NA}04192a.htm`,
+    links: { popes: ["pope-gregory-x"] },
+  },
+  {
+    slug: "death-of-saint-zita",
+    title: "Death of St Zita of Lucca",
+    year: 1271,
+    precision: "circa",
+    era: "high-medieval",
+    kind: "saint",
+    location: "Lucca",
+    context:
+      "A servant of the Fatinelli household from the age of twelve, Zita dies after a life of patient work, prayer and quiet charity to the poor.",
+    significance:
+      "Venerated at once around Lucca, she became the patroness of domestic servants; Innocent XII approved her cult in 1696.",
+    citation: `${NA}15762a.htm`,
+    links: { saints: ["saint-zita"] },
+  },
+  {
+    slug: "aquinas-lays-down-his-pen",
+    title: "St Thomas Aquinas lays down his pen",
+    year: 1273,
+    date: "1273-12-06",
+    precision: "day",
+    era: "high-medieval",
+    kind: "saint",
+    tags: ["doctor"],
+    context:
+      "After a long ecstasy at Mass, Thomas stops writing, telling his companion Reginald that what had been revealed to him made all he had written seem of little worth.",
+    significance:
+      "The Summa Theologiae was left unfinished in its third part; three months later Thomas died on his way to the Council of Lyon.",
+    citation: `${NA}14663b.htm`,
+    links: { saints: ["saint-thomas-aquinas"], doctors: ["doctor-thomas-aquinas"] },
+  },
+  {
+    slug: "condemnation-of-1277",
+    title: "Bishop Tempier condemns 219 propositions at Paris",
+    year: 1277,
+    date: "1277-03-07",
+    precision: "day",
+    era: "high-medieval",
+    kind: "document",
+    location: "Paris",
+    context:
+      "Weeks after a papal request to investigate, the bishop of Paris condemns 219 philosophical and theological theses taught in the arts faculty, some of them echoing ideas of Thomas Aquinas.",
+    significance:
+      "The condemnation checked radical Aristotelianism at Paris; the parts touching Aquinas's teaching were later annulled.",
+    citation: `${W}Condemnations_of_1210–1277`,
+  },
+  {
+    slug: "death-of-albert-the-great",
+    title: "Death of St Albert the Great",
+    year: 1280,
+    date: "1280-11-15",
+    precision: "day",
+    era: "high-medieval",
+    kind: "saint",
+    tags: ["doctor"],
+    location: "Cologne",
+    context:
+      "The Dominican master, sometime bishop of Regensburg and student of nature, dies at Cologne, where Thomas Aquinas had once been his pupil.",
+    significance:
+      "Called the Universal Doctor for the range of his learning, he defended Thomas's teaching after his pupil's death; he was canonized in 1931.",
+    citation: `${NA}01264a.htm`,
+    links: { doctors: ["doctor-albert-the-great"] },
+  },
+  {
+    slug: "rabban-bar-sauma-in-rome",
+    title: "Rabban Bar Sauma receives Communion from Nicholas IV",
+    year: 1288,
+    precision: "year",
+    era: "high-medieval",
+    kind: "event",
+    tags: ["mission"],
+    location: "Rome",
+    context:
+      "A monk of the Church of the East born near Beijing, sent west as envoy of the Mongol Ilkhan, is welcomed in Rome, where on Palm Sunday Pope Nicholas IV gives him Communion and lets him celebrate his own Eucharist.",
+    significance:
+      "A rare meeting of the Latin Church with the Christians of Asia; the papacy soon sent missionaries such as John of Montecorvino to the Mongol court.",
+    citation: `${W}Rabban_Bar_Sauma`,
+  },
+  {
+    slug: "fall-of-acre-1291",
+    title: "Fall of Acre ends the crusader states",
+    year: 1291,
+    date: "1291-05-18",
+    precision: "day",
+    era: "high-medieval",
+    kind: "event",
+    tags: ["crusade"],
+    location: "Acre",
+    context:
+      "After a six-week siege the Mamluks storm Acre, the last major stronghold of the crusader Kingdom of Jerusalem.",
+    significance:
+      "Crusading continued for centuries, but the fall of Acre ended the crusades to the Holy Land.",
+    citation: `${W}Siege_of_Acre_(1291)`,
+  },
+  {
+    slug: "montecorvino-reaches-china",
+    title: "John of Montecorvino brings the Catholic faith to China",
+    year: 1294,
+    precision: "year",
+    era: "high-medieval",
+    kind: "mission",
+    tags: ["mission"],
+    location: "Peking",
+    context:
+      "Sent by Nicholas IV by way of Persia and India, the Franciscan reaches the Mongol capital just after Kublai Khan's death and is allowed to preach.",
+    significance:
+      "He founded the first Catholic mission in China and built churches in Peking; in 1307 Clement V had him consecrated archbishop there.",
+    citation: `${NA}08474a.htm`,
+    links: { popes: ["pope-clement-v"] },
+  },
+  {
+    slug: "clericis-laicos",
+    title: "Clericis laicos forbids taxing the clergy without papal consent",
+    year: 1296,
+    date: "1296-02-25",
+    precision: "day",
+    era: "high-medieval",
+    kind: "document",
+    tags: ["papacy"],
+    context:
+      "Answering appeals from English and French prelates against royal levies, Boniface VIII forbids rulers to tax the clergy, and the clergy to pay, without the consent of the Holy See.",
+    significance:
+      "The bull roused the anger of Philip IV and Edward I, and the quarrel that followed with the French king put the pope on the defensive.",
+    citation: `${NA}04050b.htm`,
+    links: { popes: ["pope-boniface-viii"] },
+  },
+  {
+    slug: "liber-sextus",
+    title: "Boniface VIII publishes the Liber Sextus",
+    year: 1298,
+    date: "1298-03-03",
+    precision: "day",
+    era: "high-medieval",
+    kind: "document",
+    tags: ["canon"],
+    context:
+      "The pope issues a 'Sixth Book' of decretals, gathering the law made since Gregory IX's collection together with a set of general rules of law.",
+    significance:
+      "It became part of the Corpus Juris Canonici, the body of canon law taught in the universities for centuries.",
+    citation: `${W}Corpus_Juris_Canonici`,
+    links: { popes: ["pope-boniface-viii"] },
+  },
+  {
+    slug: "jubilee-of-1300",
+    title: "Boniface VIII proclaims the first Holy Year",
+    year: 1300,
+    date: "1300-02-22",
+    precision: "day",
+    era: "high-medieval",
+    kind: "event",
+    tags: ["papacy"],
+    location: "Rome",
+    context:
+      "As pilgrims throng Rome, the pope grants great indulgences to the penitent who visit the basilicas of the Apostles during the year 1300.",
+    significance:
+      "The first jubilee of which there is precise record, it began the tradition of Holy Years that the Church still keeps.",
+    citation: `${NA}08531c.htm`,
+    links: { popes: ["pope-boniface-viii"] },
+  },
+  {
+    slug: "death-of-saint-gertrude-the-great",
+    title: "Death of St Gertrude the Great",
+    year: 1302,
+    precision: "circa",
+    era: "high-medieval",
+    kind: "saint",
+    location: "Helfta",
+    context:
+      "The Benedictine nun of Helfta, schooled in its cloister from the age of five, dies in her mid-forties after years of mystical prayer and writing.",
+    significance:
+      "Her Herald of Divine Love made her an early witness to devotion to the Sacred Heart; her feast was extended to the whole Church in 1677.",
+    citation: `${NA}06534a.htm`,
+    links: { saints: ["saint-gertrude-the-great"] },
+  },
+  {
+    slug: "arrest-of-the-templars",
+    title: "Philip IV has the Templars arrested",
+    year: 1307,
+    date: "1307-10-13",
+    precision: "day",
+    era: "high-medieval",
+    kind: "event",
+    location: "France",
+    context:
+      "On secret orders from King Philip the Fair, the Templars of France are seized on a single day and interrogated under torture so ferocious that many die; most confess to the crimes alleged.",
+    significance:
+      "Inquiries in most other countries found the Templars innocent, but under French pressure Clement V dissolved the order in 1312.",
+    citation: `${NA}14493a.htm`,
+    links: { popes: ["pope-clement-v"] },
+  },
+  {
+    slug: "death-of-duns-scotus",
+    title: "Death of John Duns Scotus",
+    year: 1308,
+    date: "1308-11-08",
+    precision: "day",
+    era: "high-medieval",
+    kind: "saint",
+    tags: ["marian", "dogma"],
+    location: "Cologne",
+    context:
+      "The Franciscan 'Subtle Doctor', who had taught in England and at Paris, dies at Cologne soon after being sent there to teach.",
+    significance:
+      "Founder of the Scotist school, he championed the Immaculate Conception of Mary, a doctrine the Church later defined as dogma.",
+    citation: `${NA}05194a.htm`,
   },
 ];
