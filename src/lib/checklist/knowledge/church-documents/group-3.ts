@@ -109,6 +109,19 @@ const PIUS_XII_CONSTITUTIONS =
   "https://www.vatican.va/content/pius-xii/en/apost_constitutions.index.html";
 const PIUS_XII_EXHORTATIONS =
   "https://www.vatican.va/content/pius-xii/en/apost_exhortations.index.html";
+const JOHN_XXIII_ENCYCLICALS =
+  "https://www.vatican.va/content/john-xxiii/en/encyclicals.index.html";
+const JOHN_XXIII_CONSTITUTIONS_1961 =
+  "https://www.vatican.va/content/john-xxiii/en/apost_constitutions/1961.index.html";
+const PAUL_VI_ENCYCLICALS = "https://www.vatican.va/content/paul-vi/en/encyclicals.index.html";
+const PAUL_VI_EXHORTATIONS =
+  "https://www.vatican.va/content/paul-vi/en/apost_exhortations.index.html";
+const PAUL_VI_CONSTITUTIONS =
+  "https://www.vatican.va/content/paul-vi/en/apost_constitutions.index.html";
+const PAUL_VI_CONSTITUTIONS_LATIN =
+  "https://www.vatican.va/content/paul-vi/la/apost_constitutions.index.html";
+const PAUL_VI_MOTU_PROPRIO = "https://www.vatican.va/content/paul-vi/en/motu_proprio.index.html";
+const PAUL_VI_LETTERS = "https://www.vatican.va/content/paul-vi/en/apost_letters.index.html";
 
 export const churchDocumentGroupThree: CuratedEntry[] = [
   // ---------------------------------------------------------------------------
@@ -1631,5 +1644,510 @@ export const churchDocumentGroupThree: CuratedEntry[] = [
       "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_24051953_doctor-mellifluus.html",
     indexUrl: PIUS_XII_ENCYCLICALS,
     relatedDocuments: ["studiorum-ducem", "ad-caeli-reginam"],
+  }),
+  doc({
+    slug: "fulgens-corona",
+    title: "Fulgens Corona",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1953-09-08",
+    summary:
+      "The encyclical in which Pius XII proclaimed a Marian Year for the centenary of the definition of the Immaculate Conception. The Pope recalls Pius IX's definition and the apparitions at Lourdes four years later, which the faithful understood as a heavenly confirmation of it, and sets out the foundations of the doctrine: the promise in Genesis of enmity between the woman and the serpent, the angel's greeting full of grace, and the unanimous witness of the Fathers, who gave Mary such titles as lily among thorns and land wholly intact. He notes that even Eastern Christians separated from Rome keep a feast of the Conception, and that the definition of the Assumption in the Holy Year of 1950 has cast new light on the older dogma, the two being closely joined. He asks that the Marian Year be marked not only by celebrations but by imitation of Mary's virtues and the reform of Christian life, that Rome lead the way at the Liberian basilica, and that prayer be offered above all for the freedom of the Church where she was persecuted.",
+    keyThemes: [
+      "Centenary of the Immaculate Conception",
+      "The Marian Year 1953-1954",
+      "Scriptural and patristic foundations of the dogma",
+      "The Immaculate Conception and the Assumption",
+      "Prayer for the persecuted Church",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_08091953_fulgens-corona.html",
+    indexUrl: PIUS_XII_ENCYCLICALS,
+    relatedDocuments: ["ineffabilis-deus", "ad-caeli-reginam", "le-pelerinage-de-lourdes"],
+  }),
+  doc({
+    slug: "musicae-sacrae",
+    title: "Musicae Sacrae",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1955-12-25",
+    summary:
+      "Pius XII's encyclical on sacred music, given on Christmas Day 1955 and building on Tra le Sollecitudini. The Pope traces the place of song and instruments in the worship of Israel and of the Church from apostolic times, the rise of Gregorian chant, the organ and polyphony, and the vigilance of the popes and the Council of Trent against profane intrusions. Sacred music shares in the dignity of the liturgy: it must be holy, a true art and universal, and Gregorian chant, the Church's own patrimony, keeps the first place, with polyphony and fitting modern compositions also admitted and the organ held in special honour among instruments. Beyond the liturgy, the Pope commends popular religious hymns, often in the vernacular, as a powerful means of catechesis, especially for children and in the missions, where native musical traditions may be drawn into worship. He asks bishops to see to the training of clergy and choirs, the work of scholae cantorum and institutes of sacred music, and the sound formation of composers and musicians, whose art is a true apostolate.",
+    keyThemes: [
+      "The history of sacred music in the Church",
+      "Holiness, art and universality",
+      "Gregorian chant, polyphony and the organ",
+      "Popular religious song and catechesis",
+      "Music in the missions",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_25121955_musicae-sacrae.html",
+    indexUrl: PIUS_XII_ENCYCLICALS,
+    relatedDocuments: ["tra-le-sollecitudini", "divini-cultus", "mediator-dei"],
+  }),
+  doc({
+    slug: "le-pelerinage-de-lourdes",
+    title: "Le Pèlerinage de Lourdes",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1957-07-02",
+    summary:
+      "Pius XII's encyclical to the cardinals, archbishops and bishops of France for the centenary of the apparitions of the Blessed Virgin at Lourdes, known by its French opening words and dated on the feast of the Visitation. Recalling his own pilgrimage there as papal legate in 1935, the Pope reviews the long history of Marian devotion in France, the Miraculous Medal, and the apparitions to Bernadette between February and July 1858, which came only a few years after the definition of the Immaculate Conception and seemed to confirm it; he traces the bonds between the popes and the shrine. Lourdes, he says, leads to Christ, and its message is one of prayer and penance. He warns against the materialism of the age — not only the atheistic philosophy that governed whole nations, but the love of money, the unrestrained search for pleasure and indifference to one's neighbour — and asks that the jubilee year be one of conversion: for priests and religious, for families, which he invites to consecrate themselves to the Immaculate Heart of Mary, and for a society made more just and fraternal.",
+    keyThemes: [
+      "Centenary of the apparitions at Lourdes",
+      "Bernadette and the Immaculate Conception",
+      "Prayer and penance",
+      "Materialism in its many forms",
+      "Renewal of families and society",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_02071957_le-pelerinage-de-lourdes.html",
+    indexUrl: PIUS_XII_ENCYCLICALS,
+    relatedDocuments: ["ineffabilis-deus", "fulgens-corona"],
+  }),
+  doc({
+    slug: "miranda-prorsus",
+    title: "Miranda Prorsus",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Pius XII",
+    issuedDate: "1957-09-08",
+    summary:
+      "Pius XII's encyclical on motion pictures, radio and television. The Church welcomes these remarkable inventions, the Pope explains, because they can carry truth and the Gospel to whole peoples, and watches over them because of their great influence on how people think and act. Recalling the teaching of Pius XI in Vigilanti Cura and his own many addresses, and the commission he had set up in the Roman Curia to study these questions, he sets out the principles that should govern them: the right to information and the freedom of expression are subject to truth and the moral law; the public authority has duties to protect the common good; and those who produce, distribute and use these media share responsibility for their effects, especially on the young. He then treats each medium in turn — the review and classification of films, radio, and television, whose programmes enter directly into the family circle — and asks bishops to establish national offices for cinema, radio and television under their authority, working with the commission in Rome, and calls on priests, lay people and Catholic artists to bring these arts into the service of the faith.",
+    keyThemes: [
+      "Cinema, radio and television",
+      "Freedom of information and the moral law",
+      "Responsibilities of producers, authorities and audiences",
+      "Protection of the young and the family",
+      "National Catholic offices for the media",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/pius-xii/en/encyclicals/documents/hf_p-xii_enc_08091957_miranda-prorsus.html",
+    indexUrl: PIUS_XII_ENCYCLICALS,
+    relatedDocuments: ["vigilanti-cura", "inter-mirifica"],
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Pope Saint John XXIII
+  // ---------------------------------------------------------------------------
+  doc({
+    slug: "ad-petri-cathedram",
+    title: "Ad Petri Cathedram",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Saint John XXIII",
+    issuedDate: "1959-06-29",
+    summary:
+      "The first encyclical of Saint John XXIII, on truth, unity and peace in a spirit of charity, issued on the feast of Saints Peter and Paul a few months after he had announced an ecumenical council, a Roman synod and the revision of the Code of Canon Law. The Pope finds the root of the world's evils in ignorance or contempt of the truth, and asks that truth be served — by reason, by revelation, by a responsible press — rather than treated as a matter of indifference. He then speaks of unity: among nations and peoples, among social classes, within the family, and above all in the Church, whose unity of doctrine, government and worship he describes, addressing with fatherly warmth the Christians separated from the Apostolic See and expressing the hope that the coming council would be a sign inviting them to unity. Finally he treats peace, which rests on justice and charity and must begin in each person's heart, and closes with words of encouragement to bishops, clergy, religious, missionaries, the laity and the persecuted Church.",
+    keyThemes: [
+      "Truth, unity and peace",
+      "Respect for truth and the role of the press",
+      "Concord among nations and social classes",
+      "The unity of the Church and separated Christians",
+      "The coming ecumenical council",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-xxiii/en/encyclicals/documents/hf_j-xxiii_enc_29061959_ad-petri.html",
+    indexUrl: JOHN_XXIII_ENCYCLICALS,
+    relatedDocuments: ["humanae-salutis", "mater-et-magistra", "pacem-in-terris"],
+  }),
+  doc({
+    slug: "sacerdotii-nostri-primordia",
+    title: "Sacerdotii Nostri Primordia",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Saint John XXIII",
+    issuedDate: "1959-08-01",
+    summary:
+      "Saint John XXIII's encyclical for the centenary of the death of Saint John Mary Vianney, the Curé of Ars, whom he proposes to priests as a model. The Pope recalls how the saint had marked his own life, from the beatification he attended as a young priest to the canonisation in the year he became a bishop. He then draws three lessons from the Curé's life: his asceticism — voluntary penance, poverty and detachment, chastity and humble obedience, practised out of love of God and for the salvation of souls; his prayer and his devotion to the Eucharist, celebrated and adored with fervour; and his pastoral zeal, shown above all in catechesis, preaching and the long hours spent in the confessional, through which he converted so many. The letter calls the clergy of the world to the same holiness and pastoral charity, and asks the faithful to pray for and support their priests.",
+    keyThemes: [
+      "Centenary of Saint John Vianney",
+      "The Curé of Ars as a model for priests",
+      "Priestly asceticism: poverty, chastity, obedience",
+      "Prayer and devotion to the Eucharist",
+      "Pastoral zeal in catechesis and confession",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-xxiii/en/encyclicals/documents/hf_j-xxiii_enc_19590801_sacerdotii.html",
+    indexUrl: JOHN_XXIII_ENCYCLICALS,
+    relatedDocuments: ["haerent-animo", "ad-catholici-sacerdotii", "menti-nostrae"],
+  }),
+  doc({
+    slug: "princeps-pastorum",
+    title: "Princeps Pastorum",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Saint John XXIII",
+    issuedDate: "1959-11-28",
+    summary:
+      "Saint John XXIII's encyclical on the missions, the native clergy and the participation of the laity, written for the fortieth anniversary of Benedict XV's apostolic letter Maximum Illud. The Pope rejoices that the hope of his predecessors had been fulfilled in a numerous body of bishops and priests drawn from the mission peoples themselves, while the young Churches still need missionaries from abroad. He asks that native clergy be formed with care — in holiness, in sound learning adapted to their own cultures, and with teachers from their own peoples in the seminaries — so that the Church in each land may be rooted in its life. He gives particular attention to the laity: well-trained catechists and lay apostles, Catholic Action adapted to local conditions, and Christians who bring their faith into public, social and cultural life. He closes by asking all Catholics for prayer, vocations and generous support for the missions.",
+    keyThemes: [
+      "Fortieth anniversary of Maximum Illud",
+      "The growth of a native clergy and hierarchy",
+      "Formation of seminarians in mission lands",
+      "Catechists and the lay apostolate",
+      "Support of the whole Church for the missions",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-xxiii/en/encyclicals/documents/hf_j-xxiii_enc_28111959_princeps.html",
+    indexUrl: JOHN_XXIII_ENCYCLICALS,
+    relatedDocuments: ["rerum-ecclesiae", "evangelii-praecones", "ad-gentes"],
+  }),
+  doc({
+    slug: "aeterna-dei-sapientia",
+    title: "Aeterna Dei Sapientia",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Saint John XXIII",
+    issuedDate: "1961-11-11",
+    summary:
+      "Saint John XXIII's encyclical for the fifteenth centenary of the death of Saint Leo the Great, Pope and Doctor of the Church. The Pope recalls Leo's greatness: his courage in confronting Attila at the river Mincio in 452, his wisdom in governing the Church, his preaching and his care for the liturgy. Above all he presents Leo as the Doctor of the Church's unity — the defender of the true faith in the Incarnation through his letter to Flavian, which the Council of Chalcedon received as the voice of Peter, the judge who condemned the Robber Council of Ephesus, and the witness to the primacy of the See of Peter as the centre of unity. Recalling that the Byzantine liturgy still keeps Leo's feast, and drawing the lesson for his own time as the Second Vatican Council approached, the Pope makes Leo's appeal for unity his own and prays that all Christians may come to recognise the marks of the true Church.",
+    keyThemes: [
+      "Fifteenth centenary of Saint Leo the Great",
+      "Leo as Doctor of the Church's unity",
+      "The Tome of Leo and Chalcedon",
+      "The primacy of the See of Peter",
+      "Preparation for the Second Vatican Council",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-xxiii/en/encyclicals/documents/hf_j-xxiii_enc_11111961_aeterna-dei.html",
+    indexUrl: JOHN_XXIII_ENCYCLICALS,
+    relatedDocuments: ["sempiternus-rex-christus", "council-of-chalcedon", "humanae-salutis"],
+  }),
+  doc({
+    slug: "humanae-salutis",
+    title: "Humanae Salutis",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Saint John XXIII",
+    issuedDate: "1961-12-25",
+    summary:
+      "The apostolic constitution, given on Christmas Day 1961, by which Saint John XXIII formally convoked the Second Vatican Council. Looking at a world rich in technical progress but poor in spiritual values, and at a Church full of vitality, the Pope explains that the council is meant to strengthen the faith, renew the Church and help her bring the Gospel to the needs of the age, to promote the unity of Christians, which so many were then seeking, and to serve peace among peoples. He recalls that he had first announced the council on 25 January 1959 and describes the work of the preparatory commissions, and then, having heard the cardinals, he announces, proclaims and convokes the ecumenical council for 1962. He entrusts it to the intercession of Mary and Saint Joseph, asks the whole Church to prepare by prayer and penance, and asks Christians not in communion with the Catholic Church to pray for it as well. The opening date of 11 October 1962 was fixed by a later motu proprio. The Holy See publishes the text on vatican.va in Italian, Latin and other languages.",
+    keyThemes: [
+      "Convocation of the Second Vatican Council",
+      "The Church and the needs of the modern world",
+      "Christian unity",
+      "Peace among peoples",
+      "Prayer and preparation for the council",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-xxiii/it/apost_constitutions/1961/documents/hf_j-xxiii_apc_19611225_humanae-salutis.html",
+    indexUrl: JOHN_XXIII_CONSTITUTIONS_1961,
+    relatedDocuments: ["second-vatican-council", "ad-petri-cathedram", "paenitentiam-agere"],
+  }),
+  doc({
+    slug: "paenitentiam-agere",
+    title: "Paenitentiam Agere",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Saint John XXIII",
+    issuedDate: "1962-07-01",
+    summary:
+      "Saint John XXIII's encyclical on the need for interior and exterior penance as preparation for the Second Vatican Council, given on the feast of the Precious Blood a few months before the council opened. Repeating the request he had made when he convoked it, the Pope explains that the council, a gathering of the successors of the Apostles charged to teach all nations, should be prepared for by prayer and penance. He shows from Scripture that God has never revealed himself in any solemn way without first calling people to prayer and penance, from the prophets to John the Baptist, Christ and the Apostles, and teaches that penance is needed not only for conversion but throughout Christian life, to restrain concupiscence and to make reparation for sin. He asks bishops to lead the faithful in penitential practices, especially a novena to the Holy Spirit, and urges everyone to accept the trials and duties of daily life in a spirit of penance and to perform works of charity.",
+    keyThemes: [
+      "Penance as preparation for the council",
+      "Calls to penance in Scripture",
+      "Interior and exterior penance",
+      "Penance in the Christian life",
+      "Prayer for the council",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/john-xxiii/en/encyclicals/documents/hf_j-xxiii_enc_01071962_paenitentiam.html",
+    indexUrl: JOHN_XXIII_ENCYCLICALS,
+    relatedDocuments: ["humanae-salutis", "paenitemini"],
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Pope Saint Paul VI
+  // ---------------------------------------------------------------------------
+  doc({
+    slug: "apostolica-sollicitudo",
+    title: "Apostolica Sollicitudo",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1965-09-15",
+    summary:
+      "The apostolic letter given motu proprio by which Paul VI established the Synod of Bishops, issued on the eve of the fourth and final session of the Second Vatican Council. Wishing to make wider use of the counsel of the bishops in caring for the universal Church, the Pope creates a permanent council of bishops for the whole Church, directly subject to his authority, whose purposes are to foster union and cooperation between the Pope and the bishops, to provide direct information on the condition of the Church and the questions it faces, and to facilitate agreement on doctrine and action. The Synod is to give information and advice, and may have deliberative power only when the Pope grants it; it is convoked by the Pope, who sets its agenda and presides over it. The letter provides for general, extraordinary and special sessions, sets out who takes part in each — chiefly bishops elected by episcopal conferences, Eastern patriarchs and heads of Curial dicasteries — and establishes a permanent general secretary.",
+    keyThemes: [
+      "Establishment of the Synod of Bishops",
+      "Collegial cooperation with the Pope",
+      "Consultative and deliberative roles",
+      "General, extraordinary and special sessions",
+      "A permanent general secretariat",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/en/motu_proprio/documents/hf_p-vi_motu-proprio_19650915_apostolica-sollicitudo.html",
+    indexUrl: PAUL_VI_MOTU_PROPRIO,
+    relatedDocuments: ["christus-dominus", "lumen-gentium"],
+  }),
+  doc({
+    slug: "in-spiritu-sancto",
+    title: "In Spiritu Sancto",
+    documentType: "apostolic_letter",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1965-12-08",
+    summary:
+      "The apostolic letter in the form of a brief by which Paul VI formally closed the Second Vatican Council, read at the closing ceremony on the solemnity of the Immaculate Conception 1965. Recalling that the council had been assembled in the Holy Spirit under the protection of the Blessed Virgin Mary, whom he had declared Mother of the Church, of Saint Joseph and of the Apostles Peter and Paul, the Pope numbers it among the greatest events of the Church's history, a council rich in doctrine and concerned for all humanity. Since all its constitutions, decrees, declarations and votes had been approved by the council and promulgated by him, he declares the council closed in every respect, and decrees that everything it has established synodally be religiously observed by all the faithful, for the glory of God, the dignity of the Church and the peace of all people.",
+    keyThemes: [
+      "Closing of the Second Vatican Council",
+      "The council's place in the Church's history",
+      "Mary, Mother of the Church",
+      "Reception and observance of the council's decrees",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/en/apost_letters/documents/hf_p-vi_apl_19651208_in-spiritu-sancto.html",
+    indexUrl: PAUL_VI_LETTERS,
+    relatedDocuments: ["second-vatican-council", "humanae-salutis", "lumen-gentium"],
+  }),
+  doc({
+    slug: "paenitemini",
+    title: "Paenitemini",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1966-02-17",
+    summary:
+      "The apostolic constitution by which Paul VI reorganised the Church's discipline of penance, fast and abstinence after the Second Vatican Council. The first part sets out the meaning of penance in the Old Testament, in Christ, who began his preaching with the call to repent, and in the life of the Church: an interior conversion of heart that must also be expressed outwardly in body as well as soul, through the traditional triad of prayer, fasting and charity, and through acceptance of the trials of daily life. The norms that follow declare that all the faithful are bound by divine law to do penance; that Lent keeps its penitential character and every Friday and Ash Wednesday are days of penance; that abstinence from meat is observed on Fridays that are not holy days of obligation, and fasting with abstinence on Ash Wednesday and Good Friday; that abstinence binds from the completion of the fourteenth year and fasting from the twenty-first to the beginning of the sixtieth; and that episcopal conferences may substitute other forms of penance, especially works of charity and piety, for abstinence and fasting.",
+    keyThemes: [
+      "The meaning of penance in Scripture and the Church",
+      "Prayer, fasting and charity",
+      "Fridays and Lent as penitential times",
+      "Norms of fast and abstinence",
+      "The role of episcopal conferences",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/en/apost_constitutions/documents/hf_p-vi_apc_19660217_paenitemini.html",
+    indexUrl: PAUL_VI_CONSTITUTIONS,
+    relatedDocuments: ["paenitentiam-agere", "reconciliatio-et-paenitentia"],
+  }),
+  doc({
+    slug: "christi-matri",
+    title: "Christi Matri",
+    documentType: "encyclical",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1966-09-15",
+    summary:
+      "Paul VI's encyclical asking for prayers for peace during the month of October 1966, when an armed conflict then under way threatened to spread. Recalling his visit to the United Nations the previous year, where he had pleaded for an end to war, the Pope cries out once more to those responsible for the nations to stop the fighting and to turn to sincere negotiations, even at some cost, before greater slaughter makes them impossible, reminding them of their grave obligation in conscience. Turning to heaven for help, he asks the whole Christian family to pray to Mary, Queen of Peace, through the Rosary during October, which nourishes faith as well as warding off evils, and he asks that 4 October, the anniversary of his visit to the United Nations, be kept as a special day of prayer for peace, including true religious peace for those not free to profess their faith.",
+    keyThemes: [
+      "Prayer for peace in time of war",
+      "Appeal to the leaders of nations",
+      "Mary, Queen of Peace",
+      "The October Rosary",
+      "A day of prayer for peace",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/en/encyclicals/documents/hf_p-vi_enc_15091966_christi-matri.html",
+    indexUrl: PAUL_VI_ENCYCLICALS,
+    relatedDocuments: ["pacem-in-terris", "populorum-progressio"],
+  }),
+  doc({
+    slug: "indulgentiarum-doctrina",
+    title: "Indulgentiarum Doctrina",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1967-01-01",
+    summary:
+      "The apostolic constitution in which Paul VI restated the doctrine of indulgences and reformed their practice. The Pope explains that sin brings not only guilt but also punishment, which remains to be expiated even after the guilt is forgiven, and that the faithful are joined in the communion of saints, so that the infinite merits of Christ, together with the prayers and good works of the Blessed Virgin and the saints, form the treasury of the Church. In granting an indulgence the Church does not merely pray but, as minister of the redemption, authoritatively applies this treasury for the remission of temporal punishment, encouraging works of piety, penance and charity. The norms that follow define an indulgence; abolish the old reckoning of partial indulgences in days and years in favour of a measure based on the act and devotion of the person; allow a plenary indulgence to be gained only once a day, except at the hour of death; require for it sacramental confession, Eucharistic Communion, prayer for the Pope's intentions and freedom from all attachment to sin; and order a revision of the Enchiridion of indulgences.",
+    keyThemes: [
+      "Sin, guilt and temporal punishment",
+      "The communion of saints and the treasury of the Church",
+      "Plenary and partial indulgences",
+      "Conditions for a plenary indulgence",
+      "Reform of indulgence practice",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/en/apost_constitutions/documents/hf_p-vi_apc_01011967_indulgentiarum-doctrina.html",
+    indexUrl: PAUL_VI_CONSTITUTIONS,
+    relatedDocuments: ["paenitemini", "reconciliatio-et-paenitentia"],
+  }),
+  doc({
+    slug: "signum-magnum",
+    title: "Signum Magnum",
+    documentType: "apostolic_exhortation",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1967-05-13",
+    summary:
+      "Paul VI's apostolic exhortation on the veneration and imitation of the Blessed Virgin Mary, Mother of the Church, given on the day he went as a pilgrim to Fatima for the fiftieth anniversary of the apparitions. Recalling that he had proclaimed Mary the spiritual Mother of the Church at the close of the council's third session, the Pope explains two truths: Mary is Mother of the Church not only because she is the Mother of Christ but because she continues to cooperate, by her intercession and her example, in the birth and growth of the divine life in the faithful; and Christians are therefore called to imitate her virtues — her faith, her obedience to God's word and her charity. He presents her as a sign of unity among Christians and, on the twenty-fifth anniversary of Pius XII's consecration of the Church and the human race to her Immaculate Heart, invites all the faithful to renew their personal consecration to the Immaculate Heart of Mary.",
+    keyThemes: [
+      "Mary, Mother of the Church",
+      "Mary's intercession and example",
+      "Imitation of the Virgin's virtues",
+      "Fiftieth anniversary of Fatima",
+      "Consecration to the Immaculate Heart of Mary",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/en/apost_exhortations/documents/hf_p-vi_exh_19670513_signum-magnum.html",
+    indexUrl: PAUL_VI_EXHORTATIONS,
+    relatedDocuments: ["lumen-gentium", "marialis-cultus", "redemptoris-mater"],
+  }),
+  doc({
+    slug: "sacrum-diaconatus-ordinem",
+    title: "Sacrum Diaconatus Ordinem",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1967-06-18",
+    summary:
+      "The apostolic letter given motu proprio in which Paul VI laid down general norms for restoring the permanent diaconate in the Latin Church, as the Second Vatican Council had allowed. It belongs to the episcopal conferences, with the Pope's approval, to decide whether and where deacons of this kind should be ordained. Young men called to the diaconate are bound to celibacy and may not be ordained before the age of twenty-five, after at least three years of formation in a special institute; mature married men may be ordained from the age of thirty-five with their wives' consent, provided they have shown a Christian life worthy of esteem, though if widowed they may not marry again. The letter lists the functions that may be entrusted to deacons — assisting the bishop and priest at the liturgy, administering baptism, distributing the Eucharist and bringing Viaticum, assisting at and blessing marriages, presiding at funerals, reading Scripture and preaching, leading prayer, and carrying out works of charity and administration — and treats their spiritual life and incardination.",
+    keyThemes: [
+      "Restoration of the permanent diaconate",
+      "Celibate and married deacons",
+      "Formation of deacons",
+      "Liturgical and pastoral functions",
+      "The role of episcopal conferences",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/en/motu_proprio/documents/hf_p-vi_motu-proprio_19670618_sacrum-diaconatus.html",
+    indexUrl: PAUL_VI_MOTU_PROPRIO,
+    relatedDocuments: ["lumen-gentium", "ministeria-quaedam"],
+  }),
+  doc({
+    slug: "mysterii-paschalis",
+    title: "Mysterii Paschalis",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1969-02-14",
+    summary:
+      "The apostolic letter given motu proprio by which Paul VI approved the general norms for the liturgical year and the new General Roman Calendar. Since the paschal mystery is the heart of Christian worship in its daily, weekly and yearly cycle, the Pope explains, the restoration of the liturgical year decreed by the council must bring it into sharper focus, continuing the work of Saint Pius X and John XXIII in restoring Sunday as the original feast day and renewing Lent, and of Pius XII in reviving the solemn Paschal Vigil. The feasts of the Blessed Virgin and the saints keep their place, but because saints' days had multiplied over the centuries, many were left to particular Churches, nations or communities, some names were removed from the universal calendar, and saints from every part of the world and age of history were added, so that the calendar better reflects the universality of the Church. The new calendar and norms were to take effect on 1 January 1970.",
+    keyThemes: [
+      "The paschal mystery at the centre of the liturgical year",
+      "Restoration of Sunday",
+      "Reform of the calendar of saints",
+      "The universality of the Church in the calendar",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/en/motu_proprio/documents/hf_p-vi_motu-proprio_19690214_mysterii-paschalis.html",
+    indexUrl: PAUL_VI_MOTU_PROPRIO,
+    relatedDocuments: ["sacrosanctum-concilium", "missale-romanum", "dies-domini"],
+  }),
+  doc({
+    slug: "laudis-canticum",
+    title: "Laudis Canticum",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1970-11-01",
+    summary:
+      "The apostolic constitution, given on All Saints' Day 1970, by which Paul VI promulgated the Divine Office revised by decree of the Second Vatican Council, the Liturgy of the Hours. The Pope recalls that the hymn of praise sung eternally in heaven was brought to earth by Christ and is continued in the prayer of the Church, and explains the principal features of the reform, prepared after consultation of bishops, pastors, religious and laity: the Office is the prayer of the whole People of God, open to lay people as well as clergy and religious; Prime is suppressed, while Morning and Evening Prayer become the two hinges of the daily Office; the Office of Readings may be prayed at any hour; the psalter is distributed over four weeks in a new Latin version; the readings from Scripture and the Fathers are enriched; and intercessions are added at Lauds and Vespers, with the Lord's Prayer restored to its ancient place three times a day. Those mandated by the Church are to celebrate the whole cycle daily, keeping as far as possible to the true time of each hour. The Holy See publishes the text in Latin.",
+    keyThemes: [
+      "Promulgation of the Liturgy of the Hours",
+      "The prayer of the whole People of God",
+      "Morning and Evening Prayer as hinges of the day",
+      "The four-week psalter",
+      "The obligation of the Office",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/la/apost_constitutions/documents/hf_p-vi_apc_19701101_laudis-canticum.html",
+    indexUrl: PAUL_VI_CONSTITUTIONS_LATIN,
+    relatedDocuments: ["sacrosanctum-concilium", "divino-afflatu", "missale-romanum"],
+  }),
+  doc({
+    slug: "octogesima-adveniens",
+    title: "Octogesima Adveniens",
+    documentType: "apostolic_letter",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1971-05-14",
+    summary:
+      "The apostolic letter that Paul VI addressed to Cardinal Maurice Roy, president of the Council of the Laity and of the Pontifical Commission Justice and Peace, for the eightieth anniversary of Rerum Novarum. Acknowledging that situations differ so widely that no single solution can be proposed for the whole world, the Pope asks Christian communities to analyse their own situation in the light of the Gospel and of the Church's social teaching. He surveys new social questions — urbanisation and the uprooting it causes, the place of young people and of women, the rights of workers and the role of unions, the victims of change, discrimination, emigration, the influence of the media, and the environment endangered by ill-considered exploitation of nature — and then examines the ideologies on offer, warning that a Christian cannot adhere to Marxist ideology or to liberal ideology in their full systems. He calls Christians to political action as a demanding form of charity, carried out with discernment and respect for legitimate diversity.",
+    keyThemes: [
+      "Eightieth anniversary of Rerum Novarum",
+      "Discernment by local Christian communities",
+      "New social questions: cities, youth, women, migrants",
+      "The environment",
+      "Ideologies and Christian political action",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/en/apost_letters/documents/hf_p-vi_apl_19710514_octogesima-adveniens.html",
+    indexUrl: PAUL_VI_LETTERS,
+    relatedDocuments: ["rerum-novarum", "populorum-progressio", "quadragesimo-anno"],
+  }),
+  doc({
+    slug: "evangelica-testificatio",
+    title: "Evangelica Testificatio",
+    documentType: "apostolic_exhortation",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1971-06-29",
+    summary:
+      "Paul VI's apostolic exhortation on the renewal of religious life according to the teaching of the Second Vatican Council. Speaking to religious as dear sons and daughters, the Pope recalls how religious life grew in the Church under the Holy Spirit and distinguishes what must change — outdated external forms and encumbrances — from what must remain: the founders' charism and the total, irreversible gift of self to Christ through the evangelical counsels. He treats in turn the contemplative and the apostolic forms of religious life; consecrated chastity, given freely for the kingdom; poverty, which must make religious attentive to the cry of the poor and simple in their lifestyle; and obedience, lived in faith and in community. He insists on fraternal life, on prayer and the Eucharist as the centre of the community, on a sober and recognisable witness, and on fidelity, so that religious may show the world the primacy of God.",
+    keyThemes: [
+      "Renewal of religious life after the council",
+      "The charism of founders",
+      "Chastity, poverty and obedience",
+      "The cry of the poor",
+      "Community, prayer and witness",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/en/apost_exhortations/documents/hf_p-vi_exh_19710629_evangelica-testificatio.html",
+    indexUrl: PAUL_VI_EXHORTATIONS,
+    relatedDocuments: ["perfectae-caritatis", "vita-consecrata", "lumen-gentium"],
+  }),
+  doc({
+    slug: "divinae-consortium-naturae",
+    title: "Divinae Consortium Naturae",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1971-08-15",
+    summary:
+      "The apostolic constitution by which Paul VI approved the revised rite of Confirmation and determined its essential elements. The Pope explains that the sacraments of Christian initiation — Baptism, Confirmation and the Eucharist — together bring the faithful to the full stature of Christ, comparing them to the birth, growth and nourishment of natural life, and traces the gift of the Spirit from Christ's promises and Pentecost through the laying on of hands by the Apostles and the anointing with chrism attested in East and West. Reviewing the history of the rite and the various formulas used in the Churches, and taking into account a venerable formula of the Eastern tradition, he decrees that in the Latin Church the sacrament of Confirmation is conferred through the anointing with chrism on the forehead, done with the laying on of the hand, together with words by which the confirmed receives the seal of the gift of the Holy Spirit. The Holy See publishes the text on vatican.va in Italian, Latin and Portuguese.",
+    keyThemes: [
+      "Christian initiation",
+      "The gift of the Holy Spirit",
+      "Anointing with chrism and laying on of hands",
+      "The essential rite of Confirmation",
+      "Eastern and Western traditions",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/it/apost_constitutions/documents/hf_p-vi_apc_19710815_divina-consortium.html",
+    indexUrl: PAUL_VI_CONSTITUTIONS,
+    relatedDocuments: ["sacrosanctum-concilium", "lumen-gentium"],
+  }),
+  doc({
+    slug: "ministeria-quaedam",
+    title: "Ministeria Quaedam",
+    documentType: "motu_proprio",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1972-08-15",
+    summary:
+      "The apostolic letter given motu proprio by which Paul VI reformed the discipline of first tonsure, the minor orders and the subdiaconate in the Latin Church. Recalling that certain offices had long been regarded as steps toward the sacred orders, and that many bishops had asked for their review at the time of the council, the Pope decrees that first tonsure is no longer conferred and that entry into the clerical state is joined to the diaconate. What were called minor orders are henceforth called ministries and are conferred by institution rather than ordination; two are kept throughout the Latin Church, those of lector and acolyte, to which the functions of the former subdeacon pass, so that the major order of subdiaconate no longer exists, while episcopal conferences may ask the Holy See for others such as porter, exorcist or catechist. The letter sets out the functions of lector and acolyte, the requirements and intervals for candidates for orders, and, as was the norm at that time, reserves institution to these ministries to men. The Holy See publishes the text on vatican.va in Latin, Italian and Spanish.",
+    keyThemes: [
+      "Suppression of tonsure and the subdiaconate",
+      "Minor orders become ministries",
+      "The ministries of lector and acolyte",
+      "Entry into the clerical state through the diaconate",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/la/motu_proprio/documents/hf_p-vi_motu-proprio_19720815_ministeria-quaedam.html",
+    indexUrl: PAUL_VI_MOTU_PROPRIO,
+    relatedDocuments: ["sacrum-diaconatus-ordinem", "sacrosanctum-concilium"],
+  }),
+  doc({
+    slug: "sacram-unctionem-infirmorum",
+    title: "Sacram Unctionem Infirmorum",
+    documentType: "apostolic_constitution",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1972-11-30",
+    summary:
+      "The apostolic constitution by which Paul VI promulgated the revised rite of the Anointing of the Sick and determined its essential elements. The Pope recalls the Church's faith in this sacrament from the Letter of James, the Fathers and the Councils of Florence and Trent, and the Second Vatican Council's teaching that it is not only for those at the point of death but for any of the faithful who begin to be in danger because of sickness or old age. He decrees that the sacrament is conferred on those who are dangerously ill by anointing them on the forehead and hands with blessed olive oil or, where appropriate, another oil pressed from plants, while the prescribed words are said once; in necessity a single anointing on the forehead or another suitable part of the body suffices. He also provides that the sacrament may be repeated if the sick person recovers and falls ill again, or if the danger becomes more serious in the same illness.",
+    keyThemes: [
+      "The sacrament of the Anointing of the Sick",
+      "For the seriously ill, not only the dying",
+      "Anointing on the forehead and hands",
+      "Olive oil or other plant oil",
+      "Repetition of the sacrament",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/en/apost_constitutions/documents/hf_p-vi_apc_19721130_sacram-unctionem.html",
+    indexUrl: PAUL_VI_CONSTITUTIONS,
+    relatedDocuments: ["sacrosanctum-concilium", "salvifici-doloris"],
+  }),
+  doc({
+    slug: "gaudete-in-domino",
+    title: "Gaudete in Domino",
+    documentType: "apostolic_exhortation",
+    issuingAuthority: "Pope Saint Paul VI",
+    issuedDate: "1975-05-09",
+    summary:
+      "Paul VI's apostolic exhortation on Christian joy, written during the Holy Year 1975 as a kind of hymn to the divine joy, in preparation for Pentecost. The Pope observes that technological society multiplies pleasures yet struggles to give joy, which comes from another source, and asks people to learn again to savour the simple human joys the Creator gives. Christian joy, however, is a sharing in the joy of the heart of Christ glorified: it was announced in the history of Israel, revealed fully in Christ, who lived in the joy of the Father's love even through the cross, and poured out by the Holy Spirit on the Church. The Pope shows it shining in Mary, in the martyrs and in the saints of East and West, dwelling on three figures in particular — Saint Francis of Assisi, Saint Thérèse of Lisieux and Blessed Maximilian Kolbe — and finds it present even in suffering and death for those who believe. He addresses the faithful of every condition, and especially the young, inviting them to find in the Jubilee and in the Holy Spirit the source of a joy that the world cannot give.",
+    keyThemes: [
+      "Christian joy",
+      "Joy in the history of salvation",
+      "The joy of Christ and of the Holy Spirit",
+      "The saints as witnesses of joy",
+      "The Holy Year 1975",
+    ],
+    canonicalUrl:
+      "https://www.vatican.va/content/paul-vi/en/apost_exhortations/documents/hf_p-vi_exh_19750509_gaudete-in-domino.html",
+    indexUrl: PAUL_VI_EXHORTATIONS,
+    relatedDocuments: ["evangelii-nuntiandi", "evangelii-gaudium", "gaudete-et-exsultate"],
   }),
 ];
