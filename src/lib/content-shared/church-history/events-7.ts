@@ -133,9 +133,9 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     tags: ["monastic", "mission"],
     location: "Arbon and the Steinach valley",
     context:
-      "When Columbanus moves on from Bregenz to Italy, his companion Gall, too ill to travel, stays behind and later settles as a hermit near the source of the Steinach.",
+      "Too sick to go on to Italy with Columbanus, Gall stays behind near Lake Constance; once nursed back to health at Arbon, he settles as a hermit by the Steinach, and disciples gather round him.",
     significance:
-      "In 719 Othmar enlarged Gall's cell into the Abbey of St Gall, one of the great centres of learning of medieval Europe.",
+      "The Abbey of St Gall, founded on the site of his cell by its first abbot Othmar in 719 and Benedictine from 747, became famous for its scriptorium and learning.",
     citation: `${W}Saint_Gall`,
   },
   {
@@ -148,9 +148,9 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     tags: ["monastic"],
     location: "Bobbio, northern Italy",
     context:
-      "The Lombard king Agilulf grants Columbanus a ruined church and lands at Bobbio, where the Irish abbot builds his last monastery and dies the following year.",
+      "The Lombard king Agilulf gives Columbanus a derelict church of St Peter with abandoned land at Bobbio, where the Irish abbot builds his last monastery and dies the following year.",
     significance:
-      "Bobbio became a centre of resistance to the Arianism of the Lombards and one of the great libraries of the Middle Ages.",
+      "Bobbio's monks worked to bring the Arian Lombards into the Catholic Church, and the abbey's library, which held more than 600 volumes by the late ninth century, ranked among the richest of the Middle Ages.",
     citation: `${W}Bobbio_Abbey`,
   },
   {
@@ -364,13 +364,13 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     date: "0662-08-13",
     precision: "day",
     era: "early-medieval",
-    kind: "martyrdom",
+    kind: "saint",
     tags: ["dogma", "persecution"],
     location: "Colchis",
     context:
       "Condemned in Constantinople with two disciples and sentenced to lose his tongue and right hand, the aged monk dies in exile in Colchis.",
     significance:
-      "The great theologian of Christ's two wills gave his life for the orthodox faith and communion with Rome; Constantinople III vindicated his teaching.",
+      "Honoured as the Confessor, the great theologian of Christ's two wills suffered mutilation and exile for his loyalty to Rome and for that teaching, which the Third Council of Constantinople later upheld.",
     citation: `${NA}10078b.htm`,
   },
   // ------------------------------------------------- The English Church grows
@@ -393,14 +393,14 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     slug: "synod-of-hertford",
     title: "Synod of Hertford",
     year: 672,
-    precision: "circa",
+    precision: "year",
     era: "early-medieval",
     kind: "council",
     location: "Hertford",
     context:
       "Archbishop Theodore gathers the English bishops, who confirm the Roman Easter, forbid bishops to intrude on one another's dioceses and agree to meet in synod each year.",
     significance:
-      "The first general council of the Anglo-Saxon Church and the start of its tradition of national synods.",
+      "The first synod to bring bishops from all over England together under one archbishop, it set the pattern for the national councils that followed.",
     citation: `${W}Council_of_Hertford`,
   },
   {
@@ -529,11 +529,12 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     precision: "day",
     era: "early-medieval",
     kind: "event",
+    tags: ["marian"],
     location: "Constantinople",
     context:
-      "After thirteen months of siege by land and sea, the Umayyad forces under Maslama withdraw, worn down by Greek fire and Bulgar attacks.",
+      "Ordered home by Caliph Umar II, Maslama's army and fleet give up the blockade they had begun in the summer of 717, worn down by Greek fire, a winter of famine and disease, and Bulgar attacks. They leave on the feast of the Dormition, and the Byzantines credit the Mother of God with their deliverance.",
     significance:
-      "Emperor Leo III's victory halts the Muslim advance into south-eastern Europe for centuries.",
+      "Leo III's defence saved Byzantium, the caliphs gave up the aim of conquering its capital, and for centuries the city held back Muslim expansion into Europe's south-east.",
     citation: `${W}Siege_of_Constantinople_(717–718)`,
   },
   {
@@ -546,7 +547,7 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     kind: "mission",
     location: "Rome",
     context:
-      "Pope Gregory II gives the English monk Boniface (Winfrid) full authority to preach the Gospel to the pagan peoples of Germany.",
+      "Pope Gregory II sends the English monk Winfrid, known as Boniface, who had come to Rome the previous autumn, to preach to the pagans of Germany east of the Rhine, telling him to follow Roman practice in baptism and to turn to the Holy See when problems arise.",
     significance:
       "The German mission is bound to Rome from its start; Boniface becomes the Apostle of Germany.",
     citation: `${NA}02656a.htm`,
@@ -703,7 +704,7 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     kind: "document",
     tags: ["papacy"],
     context:
-      "A forged decree is composed in which Emperor Constantine supposedly hands Pope Sylvester authority over Rome and the western half of the empire.",
+      "Probably in the eighth century, and perhaps first drafted soon after 750, a forger fabricates a grant in Constantine's name: Pope Sylvester and his successors receive the imperial insignia, the Lateran Palace, and rule over Rome, Italy and the western provinces.",
     significance:
       "Taken as genuine for centuries and invoked by popes from Leo IX on, it was exposed as a forgery by Lorenzo Valla around 1440.",
     citation: `${W}Donation_of_Constantine`,
@@ -848,10 +849,10 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     tags: ["dogma"],
     location: "Frankfurt",
     context:
-      "Charlemagne's synod, attended by legates of Pope Adrian I, condemns the Adoptionism of Archbishop Elipandus of Toledo and Bishop Felix of Urgell.",
+      "At Charlemagne's command, bishops from the Frankish lands, Italy and Aquitaine meet at Frankfurt in the summer of 794 with two legates of Pope Adrian I present, and their opening canon condemns the Adoptionist heresy.",
     significance:
-      "Relying on the Frankish Libri Carolini, it also rejected the Second Council of Nicaea's decrees on images, which Pope Adrian had approved.",
-    citation: `${W}Council_of_Frankfurt`,
+      "Its second canon rejected the Second Council of Nicaea as the Franks knew it, through a Latin translation so faulty that the council seemed to demand for images the worship owed to the Holy Trinity. The Greek original in fact distinguishes the veneration (proskynesis) shown to images from the adoration (latreia) due to God alone.",
+    citation: `${NA}06236a.htm`,
     links: { popes: ["pope-adrian-i"] },
   },
   {
@@ -983,8 +984,9 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     tags: ["liturgy"],
     location: "Frankish Empire",
     context:
-      "At the urging of Pope Gregory IV and with the bishops' assent, Emperor Louis the Pious makes 1 November a holy day of obligation throughout the Frankish Empire.",
-    significance: "Fixes the date on which the Western Church still keeps the feast of All Saints.",
+      "Emperor Louis the Pious decrees that the feast of All Saints on 1 November is to be a holy day of obligation in all his lands; Pope Gregory IV had asked for the measure, and the bishops gave their consent.",
+    significance:
+      "It confirmed for the Frankish realm a date already kept in Ireland and Northumbria and commended by Alcuin to Arno of Salzburg; when Rome's older 13 May feast fell out of the liturgical books by the twelfth century, 1 November became the only Western date.",
     citation: `${W}All_Saints%27_Day`,
   },
   {
@@ -1314,7 +1316,7 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     context:
       "Olga, regent of Kievan Rus', is baptised, in Constantinople by the Slavonic chronicles' account, taking the name Helena; in 959 she asks Otto I to send a bishop.",
     significance:
-      "The first ruler of Rus' to be baptised and the grandmother of Vladimir, who would bring his people to the faith; she is venerated as equal to the apostles.",
+      "The first of the Rurikid rulers of Rus' to receive baptism and the grandmother of Vladimir, who would bring his people to the faith; she is venerated as equal to the apostles.",
     citation: `${W}Olga_of_Kiev`,
   },
   {
@@ -1343,10 +1345,10 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     tags: ["monastic"],
     location: "Mount Athos",
     context:
-      "With the support of his friend Emperor Nikephoros II Phokas, Athanasius the Athonite founds the first monastery on Mount Athos.",
+      "With Emperor Nikephoros II Phokas as patron, Athanasius the Athonite establishes the Great Lavra on Mount Athos, where hermits had lived since at least the ninth century.",
     significance:
-      "Organised monastic life begins on the Holy Mountain, which becomes the heart of Eastern monasticism.",
-    citation: `${W}Great_Lavra`,
+      "The first large coenobitic house on Athos, where the monks share a common life rather than living apart, it set the pattern for the monasteries later founded on the Holy Mountain.",
+    citation: `${W}Mount_Athos`,
   },
   {
     slug: "deposition-of-john-xii",
@@ -1498,13 +1500,12 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     slug: "congress-of-gniezno",
     title: "Congress of Gniezno",
     year: 1000,
-    date: "1000-03-11",
-    precision: "day",
+    precision: "year",
     era: "early-medieval",
     kind: "event",
     location: "Gniezno",
     context:
-      "Emperor Otto III comes on pilgrimage to the tomb of St Adalbert and, with Duke Bolesław I, raises Gniezno to an archbishopric with suffragan sees at Kraków, Wrocław and Kołobrzeg.",
+      "Coming as a pilgrim to St Adalbert's tomb, Emperor Otto III spends some days of mid-March 1000 at Gniezno with Duke Bolesław I and makes it the seat of an archbishop, with suffragan sees at Kraków, Wrocław and Kołobrzeg.",
     significance:
       "Poland gains its own church province, independent of the German archbishops of Magdeburg.",
     citation: `${W}Congress_of_Gniezno`,
@@ -1552,7 +1553,8 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     location: "Husaby, Västergötland",
     context:
       "Olof, king of the Swedes, is baptised, by later tradition at Husaby by the missionary Sigfrid, and has a bishop installed at Skara.",
-    significance: "The first Swedish king to remain a Christian until his death.",
+    significance:
+      "He kept the faith until he died, the first king of the Swedes to do so, though many of his subjects were still pagan.",
     citation: `${W}Olof_Sk%C3%B6tkonung`,
   },
   {
@@ -1581,9 +1583,9 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     tags: ["persecution"],
     location: "Jerusalem",
     context:
-      "The Fatimid caliph al-Hakim orders the Church of the Holy Sepulchre destroyed, and the tomb of Christ itself is almost entirely demolished.",
+      "Amid his attacks on churches and synagogues in Egypt and Palestine, the Fatimid caliph al-Hakim has the Church of the Holy Sepulchre torn down, leaving little of Christ's rock-cut tomb standing.",
     significance:
-      "The news shocked Western Europe, where it sparked expulsions of Jews and was later invoked to justify the Crusades; the church was rebuilt by 1048.",
+      "Outrage in the West brought expulsions of Jews, and the destruction was later cited to justify the Crusades. By 1048 Emperor Constantine IX Monomachos had rebuilt the rotunda over the tomb and the buildings around it, but the great fourth-century basilica was left in ruins.",
     citation: `${W}Church_of_the_Holy_Sepulchre`,
   },
   {
@@ -1655,9 +1657,9 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     kind: "event",
     location: "Orléans",
     context:
-      "A council at Orléans condemns a circle of clerics led by the canons Stephen and Lisois for heresy, and all but two of the group are burned alive outside the city walls.",
+      "A council at Orléans condemns as heretics a circle of clerics gathered around the canons Stephen and Lisois; with two exceptions, the condemned are shut in a house outside the city and burned to death.",
     significance:
-      "The first recorded execution of heretics by burning in the medieval West, a grim precedent for later centuries.",
+      "It is thought to be the earliest recorded burning of heretics in the medieval West, a grim precedent for the centuries that followed.",
     citation: `${W}Orl%C3%A9ans_heresy`,
   },
   {
@@ -1719,9 +1721,9 @@ export const EVENTS_7: ChurchHistoryEvent[] = [
     tags: ["papacy", "reform"],
     location: "Sutri, Lazio",
     context:
-      "King Henry III's synod sets aside the three rival claimants to the papacy, Benedict IX, Sylvester III and Gregory VI, who admits having paid Benedict for the office; Suidger of Bamberg is chosen as Clement II.",
+      "At the synod King Henry III opens at Sutri on 20 December 1046, Sylvester III is deposed and Gregory VI resigns, admitting he had paid Benedict IX for the papacy, though in good faith; a further session in Rome on 24 December removes Benedict. Henry's choice, Bishop Suidger of Bamberg, is enthroned as Clement II on Christmas Day and at once crowns Henry emperor.",
     significance:
-      "It ends a scandal of simony and rival popes, and Clement's crowning of Henry opens a run of German reforming popes.",
+      "For the moment it ended the scandal of rival claimants and a bought papacy, but it left the naming of popes to the emperor as Patricius of the Romans, a custom the Gregorian reformers would later challenge.",
     citation: `${W}Synod_of_Sutri`,
   },
   {
