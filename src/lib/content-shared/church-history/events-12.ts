@@ -3,6 +3,7 @@ import type { ChurchHistoryEvent } from "./types";
 const W = "https://en.wikipedia.org/wiki/";
 const NA = "https://www.newadvent.org/cathen/";
 const V = "https://www.vatican.va/content/";
+const VII = "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/";
 const JUBILEE = `${W}Jubilee_in_the_Catholic_Church`;
 const APPARITIONS = `${W}List_of_Marian_apparitions`;
 
@@ -1169,5 +1170,351 @@ export const EVENTS_12: ChurchHistoryEvent[] = [
       "An English translation of 1910 made the larger catechism widely known as the Catechism of St Pius X.",
     citation: `${W}Catechism_of_Saint_Pius_X`,
     links: { popes: ["pope-saint-pius-x"] },
+  },
+  // ---------------------------------------------------------------- Twentieth century
+  {
+    slug: "death-of-benedict-xv",
+    title: "Death of Benedict XV",
+    year: 1922,
+    date: "1922-01-22",
+    precision: "day",
+    era: "twentieth",
+    kind: "pope",
+    tags: ["papacy"],
+    location: "Apostolic Palace, Rome",
+    context: "Benedict XV dies at sixty-seven of pneumonia, after seven years as pope.",
+    significance:
+      "Elected as the First World War began, he devoted his reign to its victims and to the missions, earning the name 'Pope of the Missions'.",
+    citation: `${W}Pope_Benedict_XV`,
+    links: { popes: ["pope-benedict-xv"] },
+  },
+  {
+    slug: "jubilee-of-1925",
+    title: "Pius XI's Holy Year of 1925",
+    year: 1925,
+    precision: "year",
+    era: "twentieth",
+    kind: "event",
+    tags: ["papacy"],
+    location: "Rome",
+    context:
+      "With the bull Infinita Dei misericordia of 29 May 1924, Pius XI proclaims a universal jubilee for 1925, asking pilgrims to visit the four major basilicas.",
+    significance:
+      "He asked the faithful to pray above all for peace, in hearts and among the nations, after the Great War.",
+    citation: `${V}pius-xi/it/bulls/documents/hf_p-xi_bulls_19240529_dei-misericordia.html`,
+    links: { popes: ["pope-pius-xi"] },
+  },
+  {
+    slug: "divini-illius-magistri",
+    title: "Divini illius magistri: on Christian education",
+    year: 1929,
+    date: "1929-12-31",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    tags: ["education"],
+    location: "Rome",
+    context:
+      "Pius XI teaches that education belongs to three societies willed by God, the family, civil society and the Church, and defends the prior right of parents.",
+    significance:
+      "It condemned any state monopoly of schooling that forces families into government schools against their Christian conscience.",
+    citation: `${V}pius-xi/en/encyclicals/documents/hf_p-xi_enc_31121929_divini-illius-magistri.html`,
+    links: { popes: ["pope-pius-xi"] },
+  },
+  {
+    slug: "our-lady-of-tears-campinas",
+    title: "Our Lady of Tears at Campinas",
+    year: 1930,
+    date: "1930-03-08",
+    precision: "day",
+    era: "twentieth",
+    kind: "apparition",
+    tags: ["marian"],
+    location: "Campinas, Brazil",
+    context:
+      "Sister Amália of Jesus Scourged reports that the Virgin appeared to her in her institute's chapel and asked her to spread a rosary called the 'Crown of Tears'.",
+    significance:
+      "Bishop Francisco de Campos Barreto of Campinas recognised the events as supernatural a year later, on 8 March 1931.",
+    citation: APPARITIONS,
+  },
+  {
+    slug: "syro-malankara-reunion",
+    title: "Mar Ivanios and the Syro-Malankara reunion",
+    year: 1930,
+    date: "1930-09-20",
+    precision: "day",
+    era: "twentieth",
+    kind: "event",
+    tags: ["eastern-catholic"],
+    location: "Kerala, India",
+    context:
+      "Archbishop Geevarghese Mar Ivanios and another bishop of the Malankara Orthodox Church are received into full communion with Rome, with a priest, a deacon and a layman.",
+    significance:
+      "The resulting Syro-Malankara Catholic Church, which keeps the West Syriac liturgy, now numbers over 400,000 faithful in India and abroad.",
+    citation: `${W}Syro-Malankara_Catholic_Church`,
+    links: { popes: ["pope-pius-xi"] },
+  },
+  {
+    slug: "holy-year-of-the-redemption-1933",
+    title: "Extraordinary Holy Year of the Redemption",
+    year: 1933,
+    precision: "year",
+    era: "twentieth",
+    kind: "event",
+    tags: ["papacy"],
+    location: "Rome",
+    context:
+      "With the constitution Quod nuper of 6 January 1933, Pius XI proclaims an extraordinary Holy Year for the nineteenth centenary of the Redemption, running from Easter time to Easter time.",
+    significance:
+      "Pius XI asked the faithful to ponder how greatly the Saviour loved them and to receive Penance and the Eucharist often throughout the year.",
+    citation: `${V}pius-xi/la/apost_constitutions/documents/hf_p-xi_apc_19330106_quod-nuper.html`,
+    links: { popes: ["pope-pius-xi"] },
+  },
+  {
+    slug: "our-lady-of-cimbres",
+    title: "Our Lady of Grace at Cimbres",
+    year: 1936,
+    date: "1936-08-06",
+    precision: "day",
+    era: "twentieth",
+    kind: "apparition",
+    tags: ["marian"],
+    location: "Cimbres, Pernambuco, Brazil",
+    context:
+      "Two girls of thirteen and sixteen walking near Cimbres report seeing a woman with a child who calls herself 'Grace' and later warns them of the danger of communism.",
+    significance: "The Bishop of Pesqueira approved the apparitions on 13 October 2021.",
+    citation: APPARITIONS,
+  },
+  {
+    slug: "kiwanuka-first-african-bishop",
+    title: "Joseph Kiwanuka, first African bishop of modern times",
+    year: 1939,
+    date: "1939-10-29",
+    precision: "day",
+    era: "twentieth",
+    kind: "mission",
+    tags: ["mission"],
+    location: "St Peter's Basilica",
+    context:
+      "Pius XII himself consecrates the Ugandan White Father Joseph Kiwanuka, vicar apostolic of Masaka, as a bishop.",
+    significance:
+      "The first native African to become a Catholic bishop in modern times, he later served as Archbishop of Rubaga.",
+    citation: `${W}Joseph_Kiw%C3%A1nuka`,
+    links: { popes: ["pope-venerable-pius-xii"] },
+  },
+  {
+    slug: "jubilee-of-1950",
+    title: "Pius XII's Holy Year of 1950",
+    year: 1950,
+    precision: "year",
+    era: "twentieth",
+    kind: "event",
+    tags: ["papacy"],
+    location: "Rome",
+    context:
+      "By the bull Iubilaeum maximum of 26 May 1949, Pius XII proclaims a universal jubilee in Rome from Christmas 1949 to Christmas 1950.",
+    significance:
+      "The bull called it a year of expiation and granted the jubilee indulgence to pilgrims who visited the four major basilicas and prayed for the pope's intentions.",
+    citation: `${V}pius-xii/it/bulls/documents/hf_p-xii_bull_19490526_iubilaeum-maximum.html`,
+    links: { popes: ["pope-venerable-pius-xii"] },
+  },
+  {
+    slug: "fidei-donum",
+    title: "Fidei donum: on the missions in Africa",
+    year: 1957,
+    date: "1957-04-21",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    tags: ["mission"],
+    location: "Rome",
+    context:
+      "On Easter Sunday Pius XII issues an encyclical on the state of the Catholic missions, especially in Africa, where a few missionaries serve vast populations.",
+    significance:
+      "It pleaded for more apostolic workers and aid to be sent to help Africa's young local clergy before the opportunity was lost.",
+    citation: `${V}pius-xii/en/encyclicals/documents/hf_p-xii_enc_21041957_fidei-donum.html`,
+    links: { documentSlug: "fidei-donum", popes: ["pope-venerable-pius-xii"] },
+  },
+  {
+    slug: "inter-mirifica",
+    title: "Inter mirifica: the Decree on the Media of Social Communications",
+    year: 1963,
+    date: "1963-12-04",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    location: "Rome",
+    context:
+      "The Council's decree on the means of social communication recognises the power of the press, film, radio and television to reach and influence whole societies.",
+    significance:
+      "It urged Catholics to use these media for the good of souls and to form right consciences in their use.",
+    citation: `${VII}vat-ii_decree_19631204_inter-mirifica_en.html`,
+    links: { documentSlug: "inter-mirifica", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "canonization-of-the-uganda-martyrs",
+    title: "The Uganda Martyrs canonised",
+    year: 1964,
+    date: "1964-10-18",
+    precision: "day",
+    era: "twentieth",
+    kind: "saint",
+    tags: ["persecution"],
+    location: "St Peter's Basilica",
+    context:
+      "Paul VI canonises Charles Lwanga, Matthias Mulumba and their twenty Catholic companions, killed for their faith at the court of Buganda.",
+    significance:
+      "In the ceremony he also honoured the Anglican converts who died for Christ in the same persecution.",
+    citation: `${W}Uganda_Martyrs`,
+    links: { saints: ["saint-charles-lwanga"], popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "orientalium-ecclesiarum",
+    title: "Orientalium Ecclesiarum: the Decree on the Eastern Catholic Churches",
+    year: 1964,
+    date: "1964-11-21",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    tags: ["eastern-catholic"],
+    location: "Rome",
+    context:
+      "Promulgated with Lumen gentium, the decree declares the particular Churches of East and West of equal dignity and urges the Eastern Catholic Churches to keep their own rites and traditions.",
+    significance:
+      "It upheld the ancient rights of the Eastern patriarchs and gave the Eastern Catholic Churches a special duty of promoting the unity of all Christians, above all in the East.",
+    citation: `${VII}vat-ii_decree_19641121_orientalium-ecclesiarum_en.html`,
+    links: { documentSlug: "orientalium-ecclesiarum", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "mysterium-fidei",
+    title: "Mysterium fidei: on the Holy Eucharist",
+    year: 1965,
+    date: "1965-09-03",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    tags: ["eucharist", "dogma"],
+    location: "Rome",
+    context:
+      "Paul VI answers opinions he judges disturbing about private Masses and the dogma of transubstantiation by restating the Church's doctrine of the Eucharist.",
+    significance:
+      "It reaffirmed transubstantiation and the adoration owed to Christ present in the Blessed Sacrament as the liturgical reform got under way.",
+    citation: `${V}paul-vi/en/encyclicals/documents/hf_p-vi_enc_03091965_mysterium.html`,
+    links: { documentSlug: "mysterium-fidei", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "christus-dominus",
+    title: "Christus Dominus: the Decree on the Pastoral Office of Bishops",
+    year: 1965,
+    date: "1965-10-28",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    location: "Rome",
+    context:
+      "The Council sets out the pastoral office of bishops in the universal Church and in their own dioceses, and encourages national episcopal conferences.",
+    significance:
+      "It gave national conferences of bishops a defined place in the life of the Church.",
+    citation: `${VII}vat-ii_decree_19651028_christus-dominus_en.html`,
+    links: { documentSlug: "christus-dominus", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "perfectae-caritatis",
+    title: "Perfectae caritatis: the Decree on the Renewal of Religious Life",
+    year: 1965,
+    date: "1965-10-28",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    tags: ["monastic", "reform"],
+    location: "Rome",
+    context:
+      "The Council asks religious institutes to renew themselves by returning to the sources of Christian life and to their founders' original spirit, while adapting to the conditions of the time.",
+    significance:
+      "It set off the post-conciliar renewal of religious life, down to the habit, which it asked to be simple, modest and poor.",
+    citation: `${VII}vat-ii_decree_19651028_perfectae-caritatis_en.html`,
+    links: { documentSlug: "perfectae-caritatis", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "optatam-totius",
+    title: "Optatam totius: the Decree on Priestly Training",
+    year: 1965,
+    date: "1965-10-28",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    location: "Rome",
+    context:
+      "The Council asks each nation to draw up its own programme of priestly formation and sets out the spiritual, intellectual and pastoral training of seminarians.",
+    significance:
+      "It declared major seminaries necessary for priestly formation and reshaped their studies and spiritual training after the Council.",
+    citation: `${VII}vat-ii_decree_19651028_optatam-totius_en.html`,
+    links: { documentSlug: "optatam-totius", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "gravissimum-educationis",
+    title: "Gravissimum educationis: the Declaration on Christian Education",
+    year: 1965,
+    date: "1965-10-28",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    tags: ["education"],
+    location: "Rome",
+    context:
+      "The Council declares the right of all to an education and calls parents the primary and principal educators of their children, supported by Catholic schools and universities.",
+    significance:
+      "It also defended the place of Catholic schools and the Church's own right to educate.",
+    citation: `${VII}vat-ii_decl_19651028_gravissimum-educationis_en.html`,
+    links: { documentSlug: "gravissimum-educationis", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "apostolicam-actuositatem",
+    title: "Apostolicam actuositatem: the Decree on the Apostolate of the Laity",
+    year: 1965,
+    date: "1965-11-18",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    location: "Rome",
+    context:
+      "The Council teaches that lay people share in Christ's priestly, prophetic and royal office and so have their own part in the Church's mission in the Church and in the world.",
+    significance:
+      "It taught that lay people, joined to Christ in Baptism and strengthened by the Spirit in Confirmation, are sent to the apostolate by the Lord himself.",
+    citation: `${VII}vat-ii_decree_19651118_apostolicam-actuositatem_en.html`,
+    links: { documentSlug: "apostolicam-actuositatem", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "presbyterorum-ordinis",
+    title: "Presbyterorum ordinis: the Decree on the Ministry and Life of Priests",
+    year: 1965,
+    date: "1965-12-07",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    location: "Rome",
+    context:
+      "The Council's decree describes the priest's ministry of word and sacrament and commends celibacy as a gift to be embraced for the sake of the Kingdom.",
+    significance:
+      "It also stressed the sacramental brotherhood that unites priests with one another under their bishop and asked that they receive equitable support.",
+    citation: `${VII}vat-ii_decree_19651207_presbyterorum-ordinis_en.html`,
+    links: { documentSlug: "presbyterorum-ordinis", popes: ["pope-saint-paul-vi"] },
+  },
+  {
+    slug: "ad-gentes",
+    title: "Ad gentes: the Decree on the Mission Activity of the Church",
+    year: 1965,
+    date: "1965-12-07",
+    precision: "day",
+    era: "twentieth",
+    kind: "document",
+    tags: ["mission"],
+    location: "Rome",
+    context:
+      "The Council teaches that the pilgrim Church is missionary by her very nature, since she springs from the missions of the Son and of the Holy Spirit.",
+    significance:
+      "Because the whole Church is missionary, it called evangelisation a basic duty of all the People of God, not of missionary institutes alone.",
+    citation: `${VII}vat-ii_decree_19651207_ad-gentes_en.html`,
+    links: { documentSlug: "ad-gentes", popes: ["pope-saint-paul-vi"] },
   },
 ];
