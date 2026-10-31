@@ -25,6 +25,10 @@ import { corroboratingCitations } from "@/lib/admin-worker/web-extraction-helper
 const SRC = "https://www.catholic.org/saints/saint.php?saint_id=50";
 const CORROBORATION = "https://www.vatican.va/content/francesco/en/saints/francis.html";
 
+// These pin the MAPPING, so most cases hand it the corroborating page that
+// cross-source verification would have stored. Where that second witness
+// actually comes from, with nothing injected, is pinned end to end in
+// second-witness-corroboration.test.ts.
 const base = (fields: Record<string, unknown>, over: Record<string, unknown> = {}) => ({
   fields,
   title: "Untitled",
