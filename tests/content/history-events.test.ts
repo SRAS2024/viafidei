@@ -109,19 +109,47 @@ describe("buildTimeline", () => {
     expect(matches[0]?.kindLabel).toBe("Apostolic Constitution");
   });
 
-  it("turns an unmatched document into a dated document event with a capped excerpt", () => {
+  it("enriches a static encyclical event with its published document by slug", () => {
+    // Rerum Novarum is a static event under its published slug, so the
+    // published row adds the document link instead of a second entry.
     const timeline = toHistoryTimeline([
       doc("rerum-novarum", "Rerum Novarum", {
+        documentType: "encyclical",
+        issuedDate: "1891-05-15",
+        canonicalUrl: "https://www.vatican.va/rerum-novarum",
+      }),
+    ]);
+    const matches = timeline.events.filter((e) => e.slug === "rerum-novarum");
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toMatchObject({
+      dateLabel: "15 May 1891",
+      kindLabel: "Encyclical",
+      href: "/liturgy-history/rerum-novarum",
+      canonicalUrl: "https://www.vatican.va/rerum-novarum",
+      fromDataset: true,
+    });
+    expect(timeline.documentCount).toBe(0);
+    expect(timeline.events).toHaveLength(STATIC_COUNT);
+  });
+
+  it("turns an unmatched document into a dated document event with a capped excerpt", () => {
+    // A slug no static event claims, so nothing in the curated spine absorbs it.
+    const slug = "an-unlisted-labour-encyclical";
+    expect(
+      CHURCH_HISTORY_EVENTS.some((e) => e.slug === slug || e.links?.documentSlug === slug),
+    ).toBe(false);
+    const timeline = toHistoryTimeline([
+      doc(slug, "An Unlisted Labour Encyclical", {
         documentType: "encyclical",
         issuedDate: "1891-05-15",
         issuingAuthority: "Pope Leo XIII",
         keyThemes: ["Capital and labor", "Just wage"],
         summary: "x".repeat(600),
         bodyExcerpt: "BODY",
-        canonicalUrl: "https://www.vatican.va/rerum-novarum",
+        canonicalUrl: "https://www.vatican.va/an-unlisted-labour-encyclical",
       }),
     ]);
-    const rn = timeline.events.find((e) => e.slug === "rerum-novarum");
+    const rn = timeline.events.find((e) => e.slug === slug);
     expect(rn).toMatchObject({
       year: 1891,
       dateLabel: "15 May 1891",
@@ -131,7 +159,7 @@ describe("buildTimeline", () => {
       kindLabel: "Encyclical",
       context: "Pope Leo XIII",
       significance: "Capital and labor, Just wage",
-      href: "/liturgy-history/rerum-novarum",
+      href: `/liturgy-history/${slug}`,
       fromDataset: false,
     });
     expect(rn?.excerpt?.length).toBeLessThanOrEqual(400);
