@@ -400,19 +400,30 @@ export interface ArticleSource {
   infobox: Record<string, string>;
   /** Plain-text article body without its infoboxes ("" when unavailable). */
   prose: string;
+  /**
+   * False when the parse call did NOT complete (no response, timeout, 429,
+   * 5xx, an API error that is not about the page, network gate closed): the
+   * empty parts then say nothing about the article. True when Wikipedia
+   * answered — including "no such page".
+   */
+  read: boolean;
 }
 
 /**
  * Fetch an article's wikitext ONCE and return both its infobox and its body
- * prose. Returns empty parts when offline/disabled or anything fails; a read
- * that did not complete is recorded in `opts.ledger` when one is passed.
+ * prose. Returns empty parts when offline/disabled or anything fails, with
+ * `read` saying whether the article was actually read; a read that did not
+ * complete is also recorded in `opts.ledger` when one is passed.
  */
 export async function fetchArticleSource(
   articleUrl: string,
   opts: { ledger?: SourceReadLedger } = {},
 ): Promise<ArticleSource> {
-  const wikitext = await fetchArticleWikitext(articleUrl, { ledger: opts.ledger });
-  if (!wikitext) return { infobox: {}, prose: "" };
+  const own: SourceReadLedger = { unread: [] };
+  const wikitext = await fetchArticleWikitext(articleUrl, { ledger: own });
+  for (const url of own.unread) noteUnreadSource(opts.ledger, url);
+  const read = own.unread.length === 0;
+  if (!wikitext) return { infobox: {}, prose: "", read };
   let infobox: Record<string, string> = {};
   let prose = "";
   try {
@@ -425,5 +436,5 @@ export async function fetchArticleSource(
   } catch {
     prose = "";
   }
-  return { infobox, prose };
+  return { infobox, prose, read };
 }

@@ -106,8 +106,9 @@ export const REJECTION_CODES = [
   "no_canonization_date",
   /**
    * Wikidata's stage and the article's disagree: P411 says canonized but the
-   * article records only a beatification (Józef Cebula), or the article
-   * records a later stage than Wikidata does.
+   * article records only a beatification (Józef Cebula), the article records
+   * a later stage than Wikidata does, or the article names only another
+   * communion (Orthodox, Anglican, …) as venerating the person.
    */
   "status_contradicted",
   /** A Venerable / Servant of God stage the article itself never states. */

@@ -844,19 +844,33 @@ LIMIT ${limit} OFFSET ${offset}`,
     // Read the article up front (one Action API call): the infobox corroborates
     // the feast and the stage, supplies the status for branch 3 and enriches the
     // record; the body prose is the second place a feast may be stated.
-    // Fail-open: a missing infobox just means less corroboration — and a read
-    // that failed is in `ctx.reads`, so a rejection that rested on it is
-    // retried rather than remembered.
-    const source = await fetchArticleSource(articleUrl, { ledger: ctx.reads }).catch(() => ({
-      infobox: {},
-      prose: "",
-    }));
+    // An article that has no infobox is an answer (less corroboration); a parse
+    // call that did NOT complete (timeout, 429, 5xx) is not. It parses as "no
+    // infobox", which would hand the feast to the weaker prose rule and wave
+    // the stage check through — the infobox decides, so it must have been read.
+    // Such a row is retried on the next pass (`source_read_failed` is never
+    // remembered), and it counts toward the pass's outage streak.
+    const source = await fetchArticleSource(articleUrl, { ledger: ctx.reads });
+    if (source.read === false) {
+      return reject("source_read_failed", `${facts.label}: article not read (${articleUrl})`);
+    }
     const infobox: Record<string, string> = source.infobox;
 
     if (needsInfoboxStatus) canonizationStatus = statusFromInfobox(infobox);
     if (!canonizationStatus) return reject("no_canonization_date", articleUrl);
 
     // Accuracy guard 2 — the stage must agree with the article's own record.
+    // An article that names ONLY another communion as venerating the person
+    // contradicts every Catholic stage: Wikidata's "Venerable" (Q51619) is also
+    // given to Orthodox and Protestant figures, and the article's word
+    // "Venerable" is then theirs, not the Catholic Church's.
+    const bodies = venerationBodies(infobox);
+    if (bodies.otherCommunion && !bodies.catholicVenerator) {
+      return reject(
+        "status_contradicted",
+        `${facts.label}: Wikidata ${canonizationStatus}, article names only "${veneratedIn(infobox).slice(0, 80)}"`,
+      );
+    }
     const conflict = articleStageConflict(canonizationStatus, infobox);
     if (conflict) {
       return reject(

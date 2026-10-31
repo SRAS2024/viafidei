@@ -315,6 +315,58 @@ describe("Wikidata's stage must agree with the article", () => {
   });
 });
 
+describe("a stage the article gives another communion is not a Catholic one", () => {
+  // Wikidata's "Venerable" (Q51619) is shared with Orthodox and Protestant
+  // usage. With no religion on the record, an Orthodox monk resolves to the
+  // Catholic stage, and his article's own "Venerable" honorific used to be
+  // read as confirming it.
+  const ORTHODOX_MONK = {
+    s: `${WD}Q5000101`,
+    label: "Paisius Velichkovsky",
+    statuses: VENERABLE,
+    feasts: "15 November",
+    art: "https://en.wikipedia.org/wiki/Paisius_Velichkovsky",
+  };
+  const LEAD =
+    "Paisius Velichkovsky was a monk and spiritual writer from Poltava who revived hesychasm in " +
+    "the monasteries of Moldavia; he is honoured as the Venerable Paisius.";
+
+  it("SKIPS a 'Venerable' whose article names only the Orthodox Church", async () => {
+    mockedSummary.mockResolvedValue({ extract: LEAD, url: ORTHODOX_MONK.art, lang: "en" });
+    mockedInfobox.mockResolvedValue({
+      honorific_prefix: "Venerable",
+      venerated_in: "Eastern Orthodox Church",
+      feast_day: "15 November",
+    });
+    expect(rejectionOf(await saintMap(row(ORTHODOX_MONK)))?.code).toBe("status_contradicted");
+  });
+
+  it("SKIPS a 'Catholic saint' whose article names only the Anglican Communion", async () => {
+    mockedSummary.mockResolvedValue({
+      extract: `${KOLPING_LEAD} His feast day is 4 December.`,
+      url: KOLPING.art,
+      lang: "en",
+    });
+    mockedInfobox.mockResolvedValue({
+      venerated_in: "Anglican Communion",
+      feast_day: "4 December",
+    });
+    expect(rejectionOf(await saintMap(row({ ...KOLPING, statuses: CATHOLIC_SAINT })))?.code).toBe(
+      "status_contradicted",
+    );
+  });
+
+  it("still publishes when the article names the Catholic Church beside another communion", async () => {
+    mockedSummary.mockResolvedValue({ extract: KOLPING_LEAD, url: KOLPING.art, lang: "en" });
+    mockedInfobox.mockResolvedValue({
+      venerated_in: "Catholic Church; Eastern Orthodox Church",
+      beatified_date: "1991-10-27",
+      feast_day: "4 December",
+    });
+    expect(rejectionOf(await saintMap(row(KOLPING)))).toBeNull();
+  });
+});
+
 describe("Venerables and Servants of God have no liturgical feast", () => {
   const SHEEN = {
     s: `${WD}Q463048`,

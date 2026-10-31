@@ -42,7 +42,7 @@ import {
 } from "@/lib/admin-worker/structured/http";
 import { runStructuredIngest } from "@/lib/admin-worker/structured/ingest";
 import { ingestorFor } from "@/lib/admin-worker/structured/ingestors";
-import { mapSourceRow } from "@/lib/admin-worker/structured/map-row";
+import { mapSourceRow, mapSourceRowDetailed } from "@/lib/admin-worker/structured/map-row";
 import { isRejection } from "@/lib/admin-worker/structured/reject";
 import {
   isRememberedRejection,
@@ -51,7 +51,10 @@ import {
 } from "@/lib/admin-worker/structured/reject-memory";
 import { runSparql, type SparqlBinding } from "@/lib/admin-worker/structured/wikidata";
 import { fetchIntroForArticleUrl } from "@/lib/admin-worker/structured/wikipedia";
-import { fetchArticleWikitext } from "@/lib/admin-worker/structured/wikipedia-infobox";
+import {
+  fetchArticleSource,
+  fetchArticleWikitext,
+} from "@/lib/admin-worker/structured/wikipedia-infobox";
 
 const mockedSparql = vi.mocked(runSparql);
 const WD = "http://www.wikidata.org/entity/";
@@ -176,6 +179,36 @@ describe("the read ledger (http.ts)", () => {
     expect(l.unread).toHaveLength(1);
     expect(l.unread[0]).toContain("page=Busy");
   });
+
+  it("says whether the article itself was read, not only what it held", async () => {
+    stubFetch([
+      [/page=Missing/, () => json({ error: { code: "missingtitle" } })],
+      [/page=Busy/, () => json({}, 503)],
+      [
+        /page=Kolping/,
+        () =>
+          json({
+            parse: { wikitext: "{{Infobox saint\n|feast_day=6 December\n}}\nHe was a priest." },
+          }),
+      ],
+    ]);
+    const l = ledger();
+    const read = await fetchArticleSource("https://en.wikipedia.org/wiki/Kolping", { ledger: l });
+    expect(read).toMatchObject({ read: true, infobox: { feast_day: "6 December" } });
+    expect(read.prose).toContain("He was a priest.");
+    // "No such page" is an answer: nothing to corroborate, but nothing unread.
+    expect(
+      await fetchArticleSource("https://en.wikipedia.org/wiki/Missing", { ledger: l }),
+    ).toEqual({ infobox: {}, prose: "", read: true });
+    expect(l.unread).toEqual([]);
+    // A 503 is not: the empty parts say nothing about the article.
+    expect(await fetchArticleSource("https://en.wikipedia.org/wiki/Busy", { ledger: l })).toEqual({
+      infobox: {},
+      prose: "",
+      read: false,
+    });
+    expect(l.unread).toHaveLength(1);
+  });
 });
 
 describe("the article introduction (TextExtracts)", () => {
@@ -237,15 +270,46 @@ const EGINO_SUMMARY = {
 };
 
 describe("mapSourceRow — the SAINT mapper", () => {
-  it("reports a status rejection reached on a failed infobox read as source_read_failed", async () => {
+  it("refuses, as source_read_failed, a saint whose article could not be read", async () => {
     stubFetch([
       [/rest_v1\/page\/summary\/Egino_of_Augsburg/, () => json(EGINO_SUMMARY)],
       [/action=parse/, () => json({}, 503)],
     ]);
-    const result = await mapSourceRow(ingestorFor("SAINT")!, EGINO);
-    expect(isRejection(result) && result.code).toBe("source_read_failed");
-    expect(isRejection(result) && result.detail).toMatch(/^no_canonization_date/);
+    const mapped = await mapSourceRowDetailed(ingestorFor("SAINT")!, EGINO);
+    expect(isRejection(mapped.result) && mapped.result.code).toBe("source_read_failed");
+    expect(isRejection(mapped.result) && mapped.result.detail).toMatch(/article not read/);
     expect(isRememberedRejection("source_read_failed")).toBe(false);
+    // The read that failed is what the ingest's outage streak counts.
+    expect(mapped.unreadSources).toBe(1);
+  });
+
+  it("never publishes on the lead alone when the infobox read failed", async () => {
+    // Before: a 503 on the parse call read as "no infobox", the prose rule took
+    // over, and the lead's feast sentence published a day the infobox (never
+    // seen) might contradict — Kolping's lead could say 4 December while his
+    // infobox says 6 December.
+    const saint = binding({
+      s: `${WD}Q60619`,
+      label: "Adolph Kolping",
+      statuses: `${WD}Q2369287`,
+      feasts: "4 December",
+      art: "https://en.wikipedia.org/wiki/Adolph_Kolping",
+    });
+    stubFetch([
+      [
+        /rest_v1\/page\/summary\/Adolph_Kolping/,
+        () =>
+          json({
+            extract:
+              "Adolph Kolping was a German Catholic priest and the founder of the Kolping " +
+              "Association. His feast day is 4 December in the Catholic calendar.",
+            content_urls: { desktop: { page: "https://en.wikipedia.org/wiki/Adolph_Kolping" } },
+          }),
+      ],
+      [/action=parse/, () => json({}, 429)],
+    ]);
+    const result = await mapSourceRow(ingestorFor("SAINT")!, saint);
+    expect(isRejection(result) && result.code).toBe("source_read_failed");
   });
 
   it("keeps the entity's own verdict when the infobox was read and states no status", async () => {
