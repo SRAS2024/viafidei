@@ -5,6 +5,9 @@
  * one https citation on an allowed host, every related slug resolvable to a
  * curated knowledge entry, and every era / filter populated.
  */
+import fs from "node:fs";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -15,11 +18,8 @@ import {
   eraForYear,
   formatHistoryDate,
   historySortKey,
+  type ChurchHistoryEvent,
 } from "@/lib/content-shared/church-history-events";
-import { EVENTS_1 } from "@/lib/content-shared/church-history/events-1";
-import { EVENTS_2 } from "@/lib/content-shared/church-history/events-2";
-import { EVENTS_3 } from "@/lib/content-shared/church-history/events-3";
-import { EVENTS_4 } from "@/lib/content-shared/church-history/events-4";
 import { apparitionKnowledge } from "@/lib/checklist/knowledge/apparitions";
 import { churchDocumentKnowledge } from "@/lib/checklist/knowledge/church-documents";
 import { churchHistoryKnowledge } from "@/lib/checklist/knowledge/church-history";
@@ -32,17 +32,45 @@ import { buildTimeline } from "@/lib/content-shared/church-history/timeline";
 const CURRENT_YEAR = new Date().getUTCFullYear();
 const slugsOf = (entries: Array<{ slug: string }>) => new Set(entries.map((e) => e.slug));
 
+/** Every `events-N.ts` part on disk, each read through its one exported array. */
+const PART_DIR = path.join(process.cwd(), "src/lib/content-shared/church-history");
+async function loadParts(): Promise<Array<{ file: string; events: ChurchHistoryEvent[] }>> {
+  const files = fs
+    .readdirSync(PART_DIR)
+    .filter((f) => /^events-\d+\.ts$/.test(f))
+    .sort();
+  return Promise.all(
+    files.map(async (file) => {
+      const mod = (await import(/* @vite-ignore */ path.join(PART_DIR, file))) as Record<
+        string,
+        unknown
+      >;
+      const arrays = Object.values(mod).filter(Array.isArray) as ChurchHistoryEvent[][];
+      expect(arrays, file).toHaveLength(1);
+      return { file, events: arrays[0]! };
+    }),
+  );
+}
+
 describe("CHURCH_HISTORY_EVENTS dataset", () => {
-  it("aggregates every part, sorted chronologically", () => {
-    expect(CHURCH_HISTORY_EVENTS).toHaveLength(
-      EVENTS_1.length + EVENTS_2.length + EVENTS_3.length + EVENTS_4.length,
-    );
-    // The curated spine is four reviewed parts of 58. Pinning the totals is a
-    // tripwire: a part that fails to load, or is truncated by a bad merge,
-    // silently shrinks the timeline instead of failing. Raise these numbers
-    // deliberately when events are added.
-    for (const part of [EVENTS_1, EVENTS_2, EVENTS_3, EVENTS_4]) expect(part).toHaveLength(58);
-    expect(CHURCH_HISTORY_EVENTS).toHaveLength(232);
+  it("aggregates every part, sorted chronologically", async () => {
+    // A tripwire without a pinned count, so curators can add events and parts
+    // freely: every events-N.ts part on disk must be non-empty and merged into
+    // the aggregate whole, and the aggregate must hold nothing else. A part
+    // that fails to load, is never registered, or loses events in a bad merge
+    // fails here instead of silently shrinking the timeline. The original
+    // reviewed spine had 232 events, so the timeline never drops below that.
+    const parts = await loadParts();
+    expect(parts.length).toBeGreaterThanOrEqual(5);
+    const aggregated = new Set(CHURCH_HISTORY_EVENTS);
+    let total = 0;
+    for (const { file, events } of parts) {
+      expect(events.length, file).toBeGreaterThan(0);
+      for (const e of events) expect(aggregated.has(e), `${file}: ${e.slug}`).toBe(true);
+      total += events.length;
+    }
+    expect(CHURCH_HISTORY_EVENTS).toHaveLength(total);
+    expect(CHURCH_HISTORY_EVENTS.length).toBeGreaterThanOrEqual(232);
     for (let i = 1; i < CHURCH_HISTORY_EVENTS.length; i++) {
       expect(compareHistoryEvents(CHURCH_HISTORY_EVENTS[i - 1]!, CHURCH_HISTORY_EVENTS[i]!)).toBe(
         -1,
