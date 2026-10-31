@@ -43,7 +43,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     context:
       "The Dominican tertiary who had implored Gregory XI to leave Avignon, and who rallied to Urban VI from the outset of the schism, dies in Rome aged thirty-three.",
     significance:
-      "Pius II canonises her in 1461; her Dialogue and nearly four hundred letters rank among the classics of the Italian language.",
+      "Pius II canonises her in 1461, and her Dialogue and almost four hundred letters, written in her native Tuscan, are prized as masterpieces of Italian prose.",
     citation: `${NA}03447a.htm`,
     links: { saints: ["saint-catherine-of-siena"], doctors: ["doctor-catherine-of-siena"] },
   },
@@ -154,7 +154,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     tags: ["reform"],
     location: "Constance",
     context:
-      "In its thirty-ninth session the Council of Constance decrees that a general council shall be held every ten years.",
+      "In its thirty-ninth session the Council of Constance orders the pope to convoke the next general council in five years, at Pavia, another seven years after that, and from then on one every ten years.",
     significance:
       "Together with Haec sancta it embodies the conciliar programme that the popes of the following decades resist.",
     citation: `${NA}04288a.htm`,
@@ -509,8 +509,9 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     kind: "saint",
     location: "Grodno",
     context:
-      "The Polish prince Casimir, noted for his special devotion to the Blessed Virgin, dies at the court of Grodno on a journey to Lithuania.",
-    significance: "Canonised in 1522, he is the patron of Poland and Lithuania.",
+      "The Polish prince Casimir, known for his particular devotion to Our Lady, dies at the court of Grodno on a journey to Lithuania.",
+    significance:
+      "Venerated for the miracles credited to him, he becomes the subject of a canonisation inquiry under Leo X, completed in 1520, and is honoured as patron of Poland and Lithuania.",
     citation: `${NA}03402a.htm`,
     links: { saints: ["saint-casimir"] },
   },
@@ -589,7 +590,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     context:
       "Cardinal Rodrigo Borgia, father of four children by Vannozza Cattanei, is proclaimed pope amid a general belief that he had bought his election.",
     significance:
-      "Catholic historians judge that he carried into the papacy the manner of life that had disgraced his cardinalate, while distinguishing the man from the office he held.",
+      "Catholic historians judge that he lived as scandalously as pope as he had as cardinal, while distinguishing the man from the office he held.",
     citation: `${NA}01289a.htm`,
     links: { popes: ["pope-alexander-vi"] },
   },
@@ -864,7 +865,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     context:
       "Clement VII approves the clerks regular founded by Cajetan of Thiene and Gian Pietro Carafa, later Paul IV, who take their name from Carafa's see of Chieti (Theate).",
     significance:
-      "Bound by strict poverty, they set out to recall the clergy to an edifying life, an early fruit of the Catholic reform.",
+      "Vowed to strict poverty, they set out to renew the clergy and the laity by the example of their own lives, an early fruit of the Catholic reform.",
     citation: `${NA}14557a.htm`,
     links: { saints: ["saint-cajetan"], popes: ["pope-clement-vii"] },
   },
@@ -881,7 +882,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     context:
       "Radicals who reject infant baptism begin rebaptising adults in Zurich, Conrad Grebel baptising George Blaurock.",
     significance:
-      "Catholics and Protestants alike persecute the Anabaptists; Felix Manz, drowned in 1527, is their first martyr.",
+      "Catholics and Protestants alike persecute the Anabaptists; in 1527 Zurich drowns Felix Manz, the first of them put to death by a Protestant government.",
     citation: `${W}Anabaptism`,
   },
   {
@@ -1008,7 +1009,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     context:
       "John Calvin publishes the first, Latin edition of the Institutes of the Christian Religion, prefaced by an appeal to Francis I to stop persecuting the Protestants.",
     significance:
-      "Expanded until 1559, it becomes one of the most influential works of Protestant theology and the core reference of the Reformed churches.",
+      "Enlarged through later editions to the definitive Latin text of 1559, it eclipses earlier Protestant summaries of doctrine and becomes the classic statement of Reformed teaching.",
     citation: `${W}Institutes_of_the_Christian_Religion`,
   },
   {
@@ -1104,9 +1105,9 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     location: "Rome",
     context: "Paul III excommunicates Henry VIII and lays an interdict on England.",
     significance:
-      "Coming after Henry's execution of Cardinal John Fisher, the sentence seals the breach between Rome and the English crown.",
+      "Provoked by the despoiling of St Thomas Becket's shrine at Canterbury, the climax of Henry's campaign against images and relics, this second and final excommunication seals the breach between Rome and the English crown.",
     citation: `${W}Pope_Paul_III`,
-    links: { popes: ["pope-paul-iii"], saints: ["saint-john-fisher"] },
+    links: { popes: ["pope-paul-iii"], saints: ["saint-thomas-becket"] },
   },
   {
     slug: "colloquy-of-regensburg",
@@ -1120,7 +1121,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     context:
       "Under the eye of the papal legate Gasparo Contarini, the Catholics Eck, Gropper and Pflug and the Protestants Melanchthon, Bucer and Pistorius agree a text on justification but nothing on church authority or the sacraments.",
     significance:
-      "It marks the culmination, and the failure, of efforts to restore religious unity in the Empire through theological dialogue.",
+      "A papal consistory rejects the agreed formula on justification and Luther demands that even the agreed articles be dropped, so the best hope of reuniting the German Church by negotiation is lost.",
     citation: `${W}Regensburg_Colloquy`,
   },
   {
@@ -1305,7 +1306,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     year: 1551,
     precision: "year",
     era: "reformation-trent",
-    kind: "order",
+    kind: "event",
     tags: ["reform"],
     location: "Rome",
     context:
@@ -1344,7 +1345,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     context:
       "Yohannan Sulaqa, chosen patriarch by members of the Church of the East who rejected hereditary succession, makes his profession of faith in Rome and is consecrated in St Peter's under Julius III.",
     significance:
-      "Executed in 1555 and honoured as a martyr, he is the first patriarch of the line from which the Chaldean Catholic Church descends.",
+      "Executed in 1555 and honoured by Catholics as a martyr, he is the first to bear the title Patriarch of the Chaldeans. His own line later broke with Rome and became the Assyrian Church of the East; today's Chaldean Catholic patriarchate begins in 1830 with Yohannan VIII Hormizd of the Alqosh line.",
     citation: `${W}Shimun_VIII_Yohannan_Sulaqa`,
   },
   {
@@ -1465,7 +1466,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     kind: "document",
     location: "Rome",
     context:
-      "Paul IV issues the first papal Index of forbidden books, banning the entire works of some 550 authors.",
+      "Two years after an earlier list was printed and withdrawn, Paul IV publishes the first papal Index to take effect, condemning everything written by about 550 authors besides many single titles.",
     significance:
       "Moderated in the Tridentine Index of 1564 and kept by a Congregation of the Index from 1571, the Index loses its force of law only in 1966.",
     citation: `${W}Index_Librorum_Prohibitorum`,
@@ -1593,7 +1594,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     tags: ["mission"],
     location: "Cebu",
     context:
-      "A day after Miguel López de Legazpi's expedition reaches Cebu, the mariner Juan Camus finds in a pine box the image of the Child Jesus that Magellan had given at the baptism of Rajah Humabon in 1521.",
+      "Miguel López de Legazpi, his attempt at a peaceful settlement rebuffed, turns his guns on Cebu: the coastal town is burned, with about 1,500 houses lost and perhaps 500 people killed. Among the ruins the mariner Juan Camus finds, in a pine box, the image of the Child Jesus that Magellan had given at the baptism of Rajah Humabon in 1521.",
     significance:
       "A church is built where the image was found, the forerunner of today's Basilica of the Santo Niño, as Spanish rule and the evangelisation of the Philippines begin.",
     citation: `${W}Santo_Niño_de_Cebú`,
@@ -1694,7 +1695,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     context:
       "Pius V's bull on the Rosary sets out the essence of its form, recalls its Dominican roots and confirms the indulgences granted by earlier popes.",
     significance:
-      "The Rosary keeps essentially this form for more than four centuries, and two years later Pius V attributes the victory of Lepanto to it.",
+      "It fixes the essentials of the Rosary as Catholics still pray it: decades of Hail Marys, each joined to an Our Father and to meditation on the life of Christ.",
     citation: `${W}Consueverunt_Romani_Pontifices`,
     links: { popes: ["pope-saint-pius-v"] },
   },
@@ -1726,10 +1727,10 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     tags: ["persecution"],
     location: "Brielle",
     context:
-      "Nineteen priests and religious seized at Gorkum, most of them Franciscans, are hanged at Brielle by the Sea Beggars under Lumey after refusing to deny the Blessed Sacrament and the primacy of the pope.",
+      "Nineteen Catholic priests and religious, most of them Franciscans and most taken when the Sea Beggars captured Gorkum, are hanged at Brielle on the orders of the Lord of Lumey after refusing to renounce the Real Presence and the primacy of the pope.",
     significance:
-      "Beatified in 1675 and canonised in 1865, they are honoured as martyrs for the Eucharist and the papacy.",
-    citation: `${NA}06651c.htm`,
+      "Beatified by Clement X in 1675 and canonised by Pius IX in 1867, they are honoured as martyrs for the Eucharist and the papacy.",
+    citation: `${W}Martyrs_of_Gorkum`,
   },
   {
     slug: "cuthbert-mayne-martyred",
@@ -1806,9 +1807,9 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     tags: ["mission"],
     location: "Zhaoqing",
     context:
-      "The Jesuits Matteo Ricci and Michele Ruggieri settle at Zhaoqing in southern China, where Ricci draws in 1584 the first European-style world map in Chinese.",
+      "The Jesuits Matteo Ricci and Michele Ruggieri settle at Zhaoqing in southern China, where in 1584 Ricci draws the first world map in Chinese made on the European model.",
     significance:
-      "Adopting the learning and dress of the Confucian literati, Ricci begins the inculturated mission that later takes him to Beijing.",
+      "Zhaoqing is the starting point of Ricci's inculturated mission, which in later years, now in the dress of a Confucian scholar, brings him to Beijing.",
     citation: `${W}Matteo_Ricci`,
   },
   {
@@ -1888,7 +1889,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     context:
       "Robert Bellarmine begins publishing his Disputations on the Controversies of the Christian Faith, grown from his lectures at the Roman College.",
     significance:
-      "The first systematic Catholic answer to the Protestant controversies makes an immense impression across Europe; chairs are founded in Germany and England to refute it.",
+      "The first Catholic work to set all the disputed questions of the age in one ordered system, it is read throughout Europe and long remains the standard treatment; in Germany and England professorships are created just to answer it.",
     citation: `${NA}02411d.htm`,
     links: { doctors: ["doctor-robert-bellarmine"] },
   },
@@ -1948,10 +1949,10 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     kind: "saint",
     location: "Rome",
     context:
-      "Aloysius Gonzaga, who had renounced his princely inheritance to become a Jesuit, dies at twenty-three after nursing the sick during the famine and pestilence of 1591.",
+      "Aloysius Gonzaga, who had renounced his princely inheritance to become a Jesuit, dies at twenty-three of the illness he caught while nursing the sick in the epidemic that struck Rome in 1591.",
     significance:
-      "Beatified in 1621 and canonised by Benedict XIII in 1726, he is held up to the young as a model of purity and charity.",
-    citation: `${NA}01331c.htm`,
+      "Beatified by Paul V in 1605 and canonised by Benedict XIII in 1726, he is honoured as the patron of young people and students.",
+    citation: `${W}Aloysius_Gonzaga`,
     links: { saints: ["saint-aloysius-gonzaga"] },
   },
   {
@@ -2075,7 +2076,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     context:
       "After a seven-year trial by the Roman Inquisition on charges including denial of the Trinity and other core doctrines, Giordano Bruno is burned alive in the Campo de' Fiori.",
     significance:
-      "In 2000 Cardinal Angelo Sodano called his death a sad episode, in the year John Paul II asked pardon for violence used in the service of truth.",
+      "On the 400th anniversary in 2000 Cardinal Angelo Sodano called his death a sad episode but defended his judges as having tried to save his life; the Church has never formally withdrawn the charges against him.",
     citation: `${W}Giordano_Bruno`,
   },
   {
@@ -2106,7 +2107,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     context:
       "A plot by Catholic conspirators led by Robert Catesby to blow up Parliament with gunpowder hidden beneath the House of Lords is discovered and Guy Fawkes arrested.",
     significance:
-      "The government blames the Jesuits and executes Henry Garnet, and harsher penal laws with a new Oath of Allegiance weigh on English Catholics until 1846.",
+      "The government blames the Jesuits and executes Henry Garnet; a harsh new act against recusants, with its Oath of Allegiance, stays on the statute book until 1846, though earlier relief acts had already made its penalties a dead letter.",
     citation: `${NA}07081b.htm`,
   },
   {
@@ -2244,7 +2245,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     tags: ["reform"],
     location: "Annecy",
     context:
-      "On Trinity Sunday Francis de Sales and Jane Frances de Chantal begin the Visitation at Annecy, a congregation whose sisters were to go out by turns to visit the sick poor.",
+      "On Trinity Sunday Francis de Sales and Jane Frances de Chantal begin the Visitation at Annecy, planned not as an enclosed order but as a congregation whose members, once their novitiate was over, would take turns visiting poor people who were ill.",
     significance:
       "Required to accept enclosure, it is erected as a religious order by Paul V in 1618 and spreads across Catholic Europe.",
     citation: `${NA}15481a.htm`,
@@ -2320,7 +2321,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
   },
   {
     slug: "recollects-reach-new-france",
-    title: "Recollects bring the first missionaries to New France",
+    title: "Recollects open the missions of Quebec",
     year: 1615,
     precision: "year",
     era: "reformation-trent",
@@ -2328,9 +2329,9 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     tags: ["mission"],
     location: "Quebec",
     context:
-      "Recollect friars sail to New France with Samuel de Champlain; Jean Dolbeau celebrates the first Mass ever said at Quebec, and Joseph Le Caron takes up the mission to the Huron.",
+      "Four Recollects, Denis Jamet, Jean Dolbeau, Joseph Le Caron and Brother Pacifique Duplessis, sail with Samuel de Champlain to the St Lawrence; Dolbeau says the first Mass at Quebec, and Le Caron takes up the mission to the Huron.",
     significance:
-      "Their missions open the evangelisation of New France until the English capture of Quebec in 1629 forces them and the Jesuits home.",
+      "Jesuits had worked in Acadia since 1611, but the Recollects are the first order to settle in the St Lawrence colony, where they carry the mission until the English capture of Quebec in 1629 sends them and the Jesuits back to France.",
     citation: `${W}Recollects`,
   },
   {
@@ -2513,7 +2514,7 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     tags: ["persecution", "mission"],
     location: "Nagasaki",
     context:
-      "Fifty-five Christians, among them the Jesuit Charles Spinola, Dominican and Franciscan friars and Japanese laypeople including five children, are burned alive or beheaded on Nishizaka Hill.",
+      "Fifty-five Christians, among them the Jesuit Charles Spinola, Dominican and Franciscan friars, and Japanese and Korean laypeople including five children, are burned alive or beheaded on Nishizaka Hill.",
     significance: "Pius IX beatifies all of them in 1867 among the 205 Martyrs of Japan.",
     citation: `${W}Great_Genna_Martyrdom`,
   },
@@ -2589,9 +2590,9 @@ export const EVENTS_9: ChurchHistoryEvent[] = [
     kind: "order",
     location: "Rome",
     context:
-      "The institute of unenclosed women religious founded by the Englishwoman Mary Ward at Saint-Omer, borrowing much from the Society of Jesus, is suppressed, and she is confined in a convent as a heretic on the pope's instructions.",
+      "The institute of unenclosed women religious that the Englishwoman Mary Ward had founded at Saint-Omer on the model of the Society of Jesus is suppressed, and on Urban VIII's orders she is detained in a convent on a charge of heresy.",
     significance:
-      "Her vision of active religious life for women is vindicated in time: her sisters adopt the Jesuit constitutions in 2002, and Benedict XVI declares her Venerable in 2009.",
+      "Her vision of active religious life for women is vindicated in time: in 2002 the Congregation of Jesus, one of the two institutes descended from her foundation (the other is the Loreto Sisters), is permitted to take the Jesuit constitutions as its own, and Benedict XVI declares her Venerable in 2009.",
     citation: `${W}Mary_Ward_(nun)`,
     links: { popes: ["pope-urban-viii"] },
   },
