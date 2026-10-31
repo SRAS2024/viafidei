@@ -44,6 +44,14 @@ export interface VerifyInput {
     host: string;
     fields: Record<string, unknown>;
   }>;
+  /**
+   * The facts to compare, when the caller verifies more than the type's
+   * REQUIRED_FACTS (the dispatcher passes REQUIRED_FACTS plus the artifact's
+   * validation needs). Without this, a validation need outside REQUIRED_FACTS
+   * (APPARITION apparitionDate, CHURCH_DOCUMENT dateOrEra) was fetched but
+   * never compared or recorded, so the publish gate could never see it.
+   */
+  requiredFacts?: string[];
 }
 
 export interface VerifyOutcome {
@@ -146,7 +154,10 @@ function compare(a: unknown, b: unknown): VerifyMatchStatus {
 }
 
 export function verifyCrossSource(input: VerifyInput): VerifyOutcome {
-  const required = REQUIRED_FACTS[input.contentType];
+  const required =
+    input.requiredFacts && input.requiredFacts.length > 0
+      ? [...new Set(input.requiredFacts)]
+      : (REQUIRED_FACTS[input.contentType] ?? []);
   const evidence: ValidationEvidence[] = [];
   const missingRequired: string[] = [];
 
@@ -206,7 +217,9 @@ export function verifyCrossSource(input: VerifyInput): VerifyOutcome {
   }
 
   const hasConflict = evidence.some((row) => row.conflict);
+  // Fail closed: a type with no facts to compare has verified nothing.
   const publishAllowed =
+    required.length > 0 &&
     missingRequired.length === 0 &&
     !hasConflict &&
     required.every((field) =>

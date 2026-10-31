@@ -384,6 +384,62 @@ export function derivedParentField(contentType: string, field: string): string |
   return DERIVED_FIELDS[contentType]?.[field] ?? null;
 }
 
+/** How stored cross-source evidence stands against an artifact's validation needs. */
+export interface ValidationNeedsVerdict {
+  /** Needs with at least one MATCH/PASS row and no MISMATCH. */
+  confirmed: string[];
+  /** Needs with no evidence row at all (never compared). */
+  missing: string[];
+  /** Needs compared but never confirmed (only MISSING / AMBIGUOUS rows). */
+  unconfirmed: string[];
+  /** Needs a validation source contradicted (a MISMATCH row). */
+  conflicted: string[];
+  /** True when every need is confirmed. */
+  allConfirmed: boolean;
+}
+
+/**
+ * Judge an artifact's validation needs against its stored
+ * AdminWorkerCrossSourceVerification rows. This is the ONE predicate the
+ * verification stage (promote to VERIFICATION_READY), the BUILD_READY drain
+ * (triage) and the publish gate (stored-evidence verifier) share, so a need the
+ * publish gate would refuse can never be promoted past verification. A derived
+ * need (SAINT feastMonth from feastDay) stands or falls with its parent: it is
+ * never fetched or recorded on its own.
+ */
+export function evaluateValidationNeeds(
+  contentType: string,
+  needs: readonly string[],
+  rows: ReadonlyArray<{ fieldName: string; matchResult: string }>,
+): ValidationNeedsVerdict {
+  const byField = new Map<string, string[]>();
+  for (const r of rows) {
+    const arr = byField.get(r.fieldName) ?? [];
+    arr.push(r.matchResult);
+    byField.set(r.fieldName, arr);
+  }
+  const verdict: ValidationNeedsVerdict = {
+    confirmed: [],
+    missing: [],
+    unconfirmed: [],
+    conflicted: [],
+    allConfirmed: true,
+  };
+  for (const need of new Set(needs)) {
+    const field = derivedParentField(contentType, need) ?? need;
+    const results = byField.get(field) ?? [];
+    if (results.length === 0) verdict.missing.push(need);
+    else if (results.includes("MISMATCH")) verdict.conflicted.push(need);
+    else if (!results.some((r) => r === "MATCH" || r === "PASS")) verdict.unconfirmed.push(need);
+    else verdict.confirmed.push(need);
+  }
+  verdict.allConfirmed =
+    verdict.missing.length === 0 &&
+    verdict.unconfirmed.length === 0 &&
+    verdict.conflicted.length === 0;
+  return verdict;
+}
+
 /** "Saint Francis of Assisi" / "St. Francis" → "Francis of Assisi" / "Francis". */
 export function stripHonorific(name: string): string {
   return name
@@ -448,6 +504,30 @@ export function expectedValueVariants(
       const all = [`${md[0]}, ${year}`, `${md[1]} ${year}`, `${md[2]} ${year}`, value];
       return { primary: all[0], all };
     }
+  }
+  // Prose dates the extractors lift verbatim ("May 15, 1891" from a Church
+  // document, "February 11, 1858" from an apparition page). A page that prints
+  // "15 May 1891" states the same fact; the year alone is never offered, since
+  // it would also match a different date in the same year.
+  const prose =
+    /^([A-Za-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{3,4})$/.exec(value) ??
+    /^(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([A-Za-z]+),?\s+(\d{3,4})$/.exec(value);
+  if (prose) {
+    const monthWord = (/^\d/.test(prose[1]) ? prose[2] : prose[1]).toLowerCase();
+    const day = Number(/^\d/.test(prose[1]) ? prose[1] : prose[2]);
+    const monthIndex = MONTHS.findIndex((mo) => mo === monthWord || mo.slice(0, 3) === monthWord);
+    if (monthIndex >= 0 && day >= 1 && day <= 31) {
+      const md = monthDayVariants(monthIndex + 1, day);
+      const year = prose[3];
+      const all = [`${md[0]}, ${year}`, `${md[1]} ${year}`, `${md[0]} ${year}`, value];
+      return { primary: all[0], all: [...new Set(all)] };
+    }
+  }
+  // Year ranges ("1917-1918", "1545–1563"): the dash a page uses varies.
+  m = /^(\d{3,4})\s*[-–]\s*(\d{2,4})$/.exec(value);
+  if (m) {
+    const all = [`${m[1]}–${m[2]}`, `${m[1]}-${m[2]}`, `${m[1]} to ${m[2]}`];
+    return { primary: value, all: [...new Set([value, ...all])] };
   }
   if (NAME_FIELDS.has(field)) {
     const cleaned = cleanSourceTitle(value) ?? value;

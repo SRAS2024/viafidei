@@ -43,6 +43,7 @@ import {
   derivedParentField,
   detectReadLanguage,
   entityHintFor,
+  evaluateValidationNeeds,
   expectedValueVariants,
   extractionCursorWhere,
   extractorFieldTitle,
@@ -352,6 +353,7 @@ async function loadVerifierFromStoredEvidence(
   prisma: PrismaClient,
   artifactId: string,
   validationNeeds: string[],
+  contentType = "",
 ): Promise<{
   evidence: never[];
   hasConflict: boolean;
@@ -379,30 +381,12 @@ async function loadVerifierFromStoredEvidence(
       select: { id: true, fieldName: true, matchResult: true },
     })
     .catch(() => [] as Array<{ id: string; fieldName: string; matchResult: string }>);
-  const byField = new Map<string, string[]>();
-  for (const r of rows) {
-    const arr = byField.get(r.fieldName) ?? [];
-    arr.push(r.matchResult);
-    byField.set(r.fieldName, arr);
-  }
-  const missingRequired: string[] = [];
-  const blockingSensitiveFields: string[] = [];
-  let hasConflict = false;
-  for (const need of needs) {
-    const results = byField.get(need) ?? [];
-    if (results.length === 0) {
-      missingRequired.push(need);
-      continue;
-    }
-    if (results.some((r) => r === "MISMATCH")) {
-      blockingSensitiveFields.push(need);
-      hasConflict = true;
-      continue;
-    }
-    if (!results.some((r) => r === "MATCH" || r === "PASS")) {
-      blockingSensitiveFields.push(need);
-    }
-  }
+  // The same predicate the verification stage promoted on (shared helper), so
+  // the two can never disagree about whether a need is confirmed.
+  const verdict = evaluateValidationNeeds(contentType, needs, rows);
+  const missingRequired = verdict.missing;
+  const blockingSensitiveFields = [...verdict.conflicted, ...verdict.unconfirmed];
+  const hasConflict = verdict.conflicted.length > 0;
   const publishAllowed =
     missingRequired.length === 0 && blockingSensitiveFields.length === 0 && !hasConflict;
   const summary = publishAllowed
@@ -2137,12 +2121,19 @@ export async function runCrossSourceVerification(
       for (const field of fieldsToVerify) {
         if (field in fields) comparableFields[field] = verifiableExpectedString(fields[field]);
       }
+      // Compare + record EVERY field fetched above, not only REQUIRED_FACTS:
+      // a validation need outside that table (APPARITION apparitionDate,
+      // CHURCH_DOCUMENT dateOrEra) used to be fetched, never compared, never
+      // stored — and the publish gate, which demands a row per need, routed
+      // the artifact to repair on every attempt.
       const result = await runVerifier(prisma, {
         contentType: artifact.contentType,
         contentId: artifact.id,
         packageChecksum: artifact.packageChecksum,
         fields: comparableFields,
         validationSources,
+        requiredFacts: fieldsToVerify,
+        validationNeeds: artifact.validationNeeds,
       }).catch(() => null);
       blockingFields = result?.blockingSensitiveFields ?? [];
 
@@ -2240,10 +2231,28 @@ export async function runCrossSourceVerification(
       }
     }
 
-    // Recount MATCH/PASS evidence after any fetch this pass.
-    const matchCount = await prisma.adminWorkerCrossSourceVerification
-      .count({ where: { ...evidenceWhere, matchResult: { in: ["MATCH", "PASS"] } } })
-      .catch(() => 0);
+    // Re-read the stored evidence after any fetch this pass. The same rows
+    // feed the publish gate's stored-evidence verifier, so judging the
+    // validation needs from them here means nothing is promoted that the
+    // publish gate would bounce back to repair.
+    const storedRows = await prisma.adminWorkerCrossSourceVerification
+      .findMany({ where: evidenceWhere, select: { fieldName: true, matchResult: true } })
+      .catch(() => [] as Array<{ fieldName: string; matchResult: string }>);
+    const matchCount = storedRows.filter(
+      (r) => r.matchResult === "MATCH" || r.matchResult === "PASS",
+    ).length;
+    const needsVerdict = evaluateValidationNeeds(
+      artifact.contentType,
+      artifact.validationNeeds,
+      storedRows,
+    );
+    for (const need of [
+      ...needsVerdict.missing,
+      ...needsVerdict.unconfirmed,
+      ...needsVerdict.conflicted,
+    ]) {
+      if (!blockingFields.includes(need)) blockingFields.push(need);
+    }
 
     // Verification is by CROSS-SOURCE evidence only — no external AI confirmation.
     // An artifact clears when independent approved sources agree on its sensitive
@@ -2253,12 +2262,13 @@ export async function runCrossSourceVerification(
     verifiedFieldCount = matchCount;
 
     // The artifact MUST leave BUILD_READY on this pass so the brain stops
-    // re-selecting it and the pipeline never stalls. Promote only on real
-    // MATCH evidence with no blocking sensitive field; otherwise file a
-    // VALIDATION_EVIDENCE_MISSING repair and park in NEEDS_REPAIR —
-    // sensitive content never publishes without stored evidence
-    // (spec §246, §258).
-    if (matchCount > 0 && blockingFields.length === 0) {
+    // re-selecting it and the pipeline never stalls. Promote only when EVERY
+    // validation need has a confirming match and no sensitive field is
+    // blocked; otherwise file a VALIDATION_EVIDENCE_MISSING repair and park in
+    // NEEDS_REPAIR — sensitive content never publishes without stored evidence
+    // (spec §246, §258). A single title MATCH used to promote an apparition
+    // whose date no source had confirmed.
+    if (matchCount > 0 && blockingFields.length === 0 && needsVerdict.allConfirmed) {
       await prisma.adminWorkerPackageArtifact
         .update({ where: { id: artifact.id }, data: { status: "VERIFICATION_READY" } })
         .catch(() => undefined);
@@ -2624,7 +2634,12 @@ export async function runPersistAndPublish(
     // validationSources: []. For doctrinal content, missing evidence
     // routes to repair via VALIDATION_EVIDENCE_MISSING.
     const verifier = isDoctrinal
-      ? await loadVerifierFromStoredEvidence(prisma, artifact.id, artifact.validationNeeds)
+      ? await loadVerifierFromStoredEvidence(
+          prisma,
+          artifact.id,
+          artifact.validationNeeds,
+          artifact.contentType,
+        )
       : undefined;
 
     // The authoritative quality signal for the publish gate is the

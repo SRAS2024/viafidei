@@ -18,6 +18,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { verifyCrossSource, type VerifyInput, type VerifyOutcome } from "./cross-source-verifier";
+import { evaluateValidationNeeds } from "./web-extraction-helpers";
 
 /**
  * Sensitive fields per content type that MUST verify before
@@ -25,8 +26,11 @@ import { verifyCrossSource, type VerifyInput, type VerifyOutcome } from "./cross
  */
 export const SENSITIVE_FIELDS: Record<string, string[]> = {
   SAINT: ["feastDay", "feastMonth", "feastDayNumber"],
-  APPARITION: ["approvalStatus"],
-  CHURCH_DOCUMENT: ["date", "era", "authority"],
+  // The field names the extractors actually emit. CHURCH_DOCUMENT used to list
+  // "date" / "era" / "authority", which no extractor produces, so its one
+  // sensitive fact (dateOrEra) was never held to a match.
+  APPARITION: ["approvalStatus", "apparitionDate"],
+  CHURCH_DOCUMENT: ["dateOrEra"],
   SACRAMENT: ["sacramentKey", "sacramentBadge"],
   NOVENA: ["duration", "daySections"],
   ROSARY: ["mysterySets"],
@@ -41,6 +45,14 @@ export interface VerifierPersistInput {
   packageChecksum?: string;
   fields: Record<string, unknown>;
   validationSources: Array<{ host: string; fields: Record<string, unknown>; url?: string }>;
+  /** Facts to compare (defaults to the type's REQUIRED_FACTS). */
+  requiredFacts?: string[];
+  /**
+   * The artifact's validation needs. A need no source confirmed blocks the
+   * publish exactly like a sensitive field, whether or not it is listed in
+   * SENSITIVE_FIELDS — these are the facts the publish gate will demand.
+   */
+  validationNeeds?: string[];
 }
 
 export interface VerifierOutcome extends VerifyOutcome {
@@ -68,6 +80,7 @@ export async function runVerifier(
       host: s.host,
       fields: s.fields,
     })),
+    requiredFacts: input.requiredFacts,
   });
 
   const sensitive = SENSITIVE_FIELDS[input.contentType] ?? [];
@@ -112,6 +125,17 @@ export async function runVerifier(
       })
       .catch(() => null);
     if (created) rowIds.push(created.id);
+  }
+
+  // A validation need with no confirming row blocks too (a derived need is
+  // judged by its parent's rows — it is never compared on its own).
+  const needs = evaluateValidationNeeds(
+    input.contentType,
+    input.validationNeeds ?? [],
+    pure.evidence.map((row) => ({ fieldName: row.fieldVerified, matchResult: row.matchStatus })),
+  );
+  for (const need of [...needs.missing, ...needs.unconfirmed, ...needs.conflicted]) {
+    if (!blockingSensitiveFields.includes(need)) blockingSensitiveFields.push(need);
   }
 
   // PublishAllowed is the strict combination: pure verifier OK +
