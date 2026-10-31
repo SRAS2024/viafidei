@@ -1745,4 +1745,376 @@ export const EVENTS_8: ChurchHistoryEvent[] = [
       "Founder of the Scotist school, he championed the Immaculate Conception of Mary, a doctrine the Church later defined as dogma.",
     citation: `${NA}05194a.htm`,
   },
+  // ------------------------------------------- The Avignon popes (1313–1377)
+  {
+    slug: "canonization-of-celestine-v",
+    title: "Clement V canonizes Celestine V",
+    year: 1313,
+    date: "1313-05-05",
+    precision: "day",
+    era: "high-medieval",
+    kind: "saint",
+    context:
+      "Seventeen years after the hermit pope died in Boniface VIII's custody at Fumone, Clement V enrolls him among the saints.",
+    significance:
+      "Philip IV, Boniface's bitter enemy, had pressed the cause, and Boniface's Caetani kin were outvoted in the consistory that approved it.",
+    citation: `${W}Pope_Celestine_V`,
+    links: { popes: ["pope-saint-celestine-v", "pope-clement-v"] },
+  },
+  {
+    slug: "burning-of-jacques-de-molay",
+    title: "Jacques de Molay burned at the stake",
+    year: 1314,
+    precision: "year",
+    era: "high-medieval",
+    kind: "event",
+    location: "Paris",
+    context:
+      "Brought before Notre-Dame to hear a sentence of life imprisonment, the last grand master of the Templars and Geoffroi de Charney retract their confessions and declare the order innocent; that evening they are burned on an island in the Seine.",
+    significance:
+      "Their deaths won them a name as martyrs among the people; the Chinon Parchment, found in the Vatican archives in 2001, shows that Clement V had absolved the order's leaders in 1308.",
+    citation: `${W}Jacques_de_Molay`,
+    links: { popes: ["pope-clement-v"] },
+  },
+  {
+    slug: "death-of-dante",
+    title: "Dante dies at Ravenna, his Commedia complete",
+    year: 1321,
+    date: "1321-09-14",
+    precision: "day",
+    era: "high-medieval",
+    kind: "event",
+    location: "Ravenna",
+    context:
+      "The exiled Florentine poet dies at Ravenna, where he had finished the Divine Comedy; the last cantos of the Paradiso were found after his death by his son Jacopo.",
+    significance:
+      "His journey through hell, purgatory and paradise became the summit of Christian poetry and the foundation of Italian literature.",
+    citation: `${NA}04628a.htm`,
+  },
+  {
+    slug: "canonization-of-thomas-aquinas",
+    title: "John XXII canonizes Thomas Aquinas",
+    year: 1323,
+    date: "1323-07-18",
+    precision: "day",
+    era: "high-medieval",
+    kind: "saint",
+    tags: ["doctor"],
+    context:
+      "Forty-nine years after the Dominican theologian's death at Fossanova, and with many miracles attested, John XXII proclaims him a saint.",
+    significance:
+      "Dominican chapters had already bound the order to his teaching; his canonization gave it the Church's highest commendation.",
+    citation: `${NA}14663b.htm`,
+    links: { saints: ["saint-thomas-aquinas"], doctors: ["doctor-thomas-aquinas"] },
+  },
+  {
+    slug: "john-xxii-condemns-absolute-poverty",
+    title: "John XXII rejects the doctrine of Christ's absolute poverty",
+    year: 1323,
+    precision: "year",
+    era: "high-medieval",
+    kind: "document",
+    tags: ["dogma"],
+    location: "Avignon",
+    context:
+      "Ending a bitter Franciscan dispute, the pope declares heretical the claim that Christ and the Apostles owned nothing, either individually or in common.",
+    significance:
+      "The minister general Michael of Cesena and William of Ockham defied the ruling, fled Avignon for the court of Louis of Bavaria in 1328, and were excommunicated.",
+    citation: `${NA}08431a.htm`,
+  },
+  {
+    slug: "defensor-pacis-condemned",
+    title: "Marsilius of Padua's Defensor pacis condemned",
+    year: 1327,
+    precision: "year",
+    era: "high-medieval",
+    kind: "document",
+    location: "Avignon",
+    context:
+      "John XXII excommunicates Marsilius of Padua and John of Jandun, whose Defensor pacis taught that all power comes from the people and that the emperor stands above pope and council, and a papal commission condemns its theses.",
+    significance:
+      "Its vision of a Church governed by the community and the prince armed Louis of Bavaria against the pope and is often counted among the roots of the Reformation.",
+    citation: `${NA}09719c.htm`,
+  },
+  {
+    slug: "antipope-nicholas-v-1328",
+    title: "Louis of Bavaria raises the antipope Nicholas V",
+    year: 1328,
+    date: "1328-05-12",
+    precision: "day",
+    era: "high-medieval",
+    kind: "schism",
+    tags: ["schism"],
+    location: "Rome",
+    context:
+      "In Rome the excommunicated emperor has the Franciscan Pietro Rainalducci chosen by an assembly of clergy and laity and consecrated at St Peter's as Nicholas V, against John XXII at Avignon.",
+    significance:
+      "The last antipope set up by an emperor, he submitted to John XXII in 1330 and was absolved.",
+    citation: `${W}Antipope_Nicholas_V`,
+  },
+  {
+    slug: "eckhart-propositions-condemned",
+    title: "John XXII condemns propositions of Meister Eckhart",
+    year: 1329,
+    date: "1329-03-27",
+    precision: "day",
+    era: "high-medieval",
+    kind: "document",
+    location: "Avignon",
+    context:
+      "Two years after the Dominican preacher's death, the pope condemns seventeen of his propositions as heretical and eleven as rash or suspect, noting that Eckhart had retracted any errors and submitted to the Holy See.",
+    significance:
+      "Counted the father of German mysticism, Eckhart passed his ideas and his plain, warm style to his disciples Tauler and Suso.",
+    citation: `${NA}05274a.htm`,
+  },
+  {
+    slug: "benedictus-deus",
+    title: "Benedictus Deus defines the beatific vision",
+    year: 1336,
+    date: "1336-01-29",
+    precision: "day",
+    era: "high-medieval",
+    kind: "document",
+    tags: ["dogma"],
+    location: "Avignon",
+    context:
+      "Settling the dispute stirred by John XXII's opinion that the blessed wait for the Last Judgment to see God, Benedict XII defines that the souls of the just with nothing left to expiate see God face to face at once.",
+    significance:
+      "Prepared by months of study of the Fathers, it remains the Church's defined teaching on the immediate reward of the blessed.",
+    citation: `${NA}02430a.htm`,
+  },
+  {
+    slug: "death-of-saint-elizabeth-of-portugal",
+    title: "Death of St Elizabeth of Portugal",
+    year: 1336,
+    precision: "year",
+    era: "high-medieval",
+    kind: "saint",
+    location: "Estremoz",
+    context:
+      "Aged and frail, the queen dowager hurries to Estremoz to stop a war between her son Afonso IV and the king of Castile, makes the peace, and dies there of fever.",
+    significance:
+      "Known as the Peacemaker, she had spent her widowhood as a Franciscan tertiary beside the Poor Clares she founded at Coimbra; she was canonized in 1625.",
+    citation: `${NA}05391a.htm`,
+    links: { saints: ["saint-elizabeth-of-portugal"] },
+  },
+  {
+    slug: "unigenitus-1343",
+    title: "Unigenitus sets a Jubilee every fifty years",
+    year: 1343,
+    date: "1343-01-27",
+    precision: "day",
+    era: "high-medieval",
+    kind: "document",
+    tags: ["dogma"],
+    location: "Avignon",
+    context:
+      "Clement VI proclaims a Holy Year for 1350 and every fiftieth year after, grounding indulgences in a 'treasury' of the superabundant merits of Christ, Our Lady and the saints.",
+    significance:
+      "Its teaching on the treasury of merit was the doctrine Luther would contest in his Ninety-five Theses.",
+    citation: `${W}Unigenitus_(1343)`,
+  },
+  {
+    slug: "bridgettines-founded",
+    title: "St Bridget founds the Order of the Most Holy Saviour",
+    year: 1346,
+    precision: "year",
+    era: "high-medieval",
+    kind: "order",
+    location: "Vadstena, Sweden",
+    context:
+      "Widowed two years earlier, Bridget of Sweden founds at Vadstena, with King Magnus's help, a new order of double monasteries following a rule she believed had been revealed to her.",
+    significance:
+      "Urban V approved its constitutions, and Vadstena became the great center of Catholic life in Sweden until the Reformation.",
+    citation: `${NA}02785a.htm`,
+    links: { saints: ["saint-bridget-of-sweden"] },
+  },
+  {
+    slug: "university-of-prague-founded",
+    title: "Clement VI founds the University of Prague",
+    year: 1347,
+    date: "1347-01-26",
+    precision: "day",
+    era: "high-medieval",
+    kind: "event",
+    location: "Prague",
+    context:
+      "At the request of Charles IV, the pope issues the bull establishing a university in Prague on the model of Paris, with all four faculties, theology included.",
+    significance:
+      "Charles granted its privileges in 1348, and it remains one of the oldest universities in continuous operation.",
+    citation: `${W}Charles_University`,
+  },
+  {
+    slug: "clement-vi-buys-avignon",
+    title: "Clement VI buys Avignon",
+    year: 1348,
+    date: "1348-06-09",
+    precision: "day",
+    era: "high-medieval",
+    kind: "event",
+    tags: ["papacy"],
+    location: "Avignon",
+    context:
+      "The pope purchases the sovereignty of Avignon for 80,000 florins from Queen Joanna of Naples, countess of Provence.",
+    significance:
+      "Having declined Rome's plea that he return, Clement made the papacy's residence abroad seem permanent.",
+    citation: `${NA}04023a.htm`,
+  },
+  {
+    slug: "clement-vi-protects-the-jews",
+    title: "Clement VI defends the Jews during the Black Death",
+    year: 1348,
+    precision: "year",
+    era: "high-medieval",
+    kind: "document",
+    tags: ["persecution"],
+    location: "Avignon",
+    context:
+      "As mobs in many places massacre Jews blamed for the plague, the pope issues bulls for their protection and gives them refuge in his small state around Avignon.",
+    significance:
+      "Many communities were still destroyed, but the bulls set the papacy against the slaughter and gave Avignon's Jews a haven.",
+    citation: `${NA}04023a.htm`,
+  },
+  {
+    slug: "flagellants-condemned",
+    title: "Clement VI condemns the Flagellants",
+    year: 1349,
+    date: "1349-10-20",
+    precision: "day",
+    era: "high-medieval",
+    kind: "document",
+    location: "Avignon",
+    context:
+      "After plague-stricken bands of self-scourging penitents spread across Europe, defying the clergy and inciting attacks on Jews, the pope forbids their processions in letters to the bishops of Christendom.",
+    significance:
+      "Together with a turn in public opinion, the ban broke a movement that had begun to claim the power to absolve its own members.",
+    citation: `${NA}06089c.htm`,
+  },
+  {
+    slug: "jubilee-of-1350",
+    title: "The Jubilee of 1350",
+    year: 1350,
+    precision: "year",
+    era: "high-medieval",
+    kind: "event",
+    location: "Rome",
+    context:
+      "Urged by St Bridget, Petrarch and others not to wait a hundred years, Clement VI holds a second Holy Year, represented in Rome by a cardinal legate while he remains at Avignon.",
+    significance:
+      "It made the fifty-year Jubilee a reality and added St John Lateran to the basilicas pilgrims must visit, a condition the Roman Jubilee still keeps.",
+    citation: `${NA}08531c.htm`,
+    links: { saints: ["saint-bridget-of-sweden"] },
+  },
+  {
+    slug: "urban-v-returns-to-rome",
+    title: "Urban V brings the papacy back to Rome",
+    year: 1367,
+    date: "1367-10-16",
+    precision: "day",
+    era: "high-medieval",
+    kind: "pope",
+    tags: ["papacy"],
+    location: "Rome",
+    context:
+      "Over the protests of his French cardinals, Urban V leaves Avignon and, after months at Viterbo, enters Rome with an imposing escort.",
+    significance:
+      "He received the Eastern emperor John V's profession of faith at St Peter's, but in 1370 sailed back to Avignon, where he died that December.",
+    citation: `${NA}15214a.htm`,
+  },
+  {
+    slug: "death-of-saint-bridget",
+    title: "Death of St Bridget of Sweden",
+    year: 1373,
+    date: "1373-07-23",
+    precision: "day",
+    era: "high-medieval",
+    kind: "saint",
+    location: "Rome",
+    context:
+      "Soon after a pilgrimage to the Holy Land, the Swedish visionary dies in Rome, where she had lived since 1349 urging the popes to leave Avignon.",
+    significance:
+      "Her Revelations were widely read through the Middle Ages, and her remains were carried home to Vadstena the following year.",
+    citation: `${NA}02782a.htm`,
+    links: { saints: ["saint-bridget-of-sweden"] },
+  },
+  {
+    slug: "julian-of-norwich-showings",
+    title: "Julian of Norwich receives her showings",
+    year: 1373,
+    precision: "year",
+    era: "high-medieval",
+    kind: "event",
+    location: "Norwich",
+    context:
+      "Gravely ill and thought near death, a thirty-year-old Englishwoman gazing on a crucifix receives sixteen visions of Christ's Passion and of God's love.",
+    significance:
+      "Her Revelations of Divine Love, written over the following decades, are counted the finest fruit of late medieval English mysticism.",
+    citation: `${NA}08557a.htm`,
+  },
+  {
+    slug: "conversion-of-geert-groote",
+    title: "Geert Groote's conversion begins the Modern Devotion",
+    year: 1374,
+    precision: "year",
+    era: "high-medieval",
+    kind: "event",
+    tags: ["reform"],
+    location: "Deventer",
+    context:
+      "After a dangerous illness and the rebuke of a Carthusian friend, the learned Deventer cleric gives up his worldly life and turns his family house into a home for poor women.",
+    significance:
+      "As preacher and founder of the Brethren of the Common Life he started the Devotio Moderna, whose spirit later reached readers through The Imitation of Christ.",
+    citation: `${W}Geert_Groote`,
+  },
+  {
+    slug: "catherine-of-siena-receives-the-stigmata",
+    title: "St Catherine of Siena receives the stigmata",
+    year: 1375,
+    precision: "year",
+    era: "high-medieval",
+    kind: "saint",
+    tags: ["doctor"],
+    location: "Pisa",
+    context:
+      "At Pisa on the fourth Sunday of Lent, Catherine receives the wounds of Christ, which at her own prayer remain invisible during her life.",
+    significance:
+      "Consulted by papal legates, the Sienese tertiary was already pressing Gregory XI to leave Avignon and reform the clergy.",
+    citation: `${NA}03447a.htm`,
+    links: { saints: ["saint-catherine-of-siena"], doctors: ["doctor-catherine-of-siena"] },
+  },
+  {
+    slug: "catherine-of-siena-at-avignon",
+    title: "St Catherine of Siena goes to Avignon",
+    year: 1376,
+    precision: "year",
+    era: "high-medieval",
+    kind: "saint",
+    tags: ["doctor"],
+    location: "Avignon",
+    context:
+      "In June Catherine travels to the papal court as envoy of Florence, then at war with the Holy See, to make peace and to urge Gregory XI to return to Rome.",
+    significance:
+      "The Florentine peace failed, but she so impressed the pope that he left for Rome despite the opposition of the French king and most of the cardinals.",
+    citation: `${NA}03447a.htm`,
+    links: {
+      saints: ["saint-catherine-of-siena"],
+      doctors: ["doctor-catherine-of-siena"],
+      popes: ["pope-gregory-xi"],
+    },
+  },
+  {
+    slug: "gregory-xi-condemns-wycliffe",
+    title: "Gregory XI condemns the teachings of John Wycliffe",
+    year: 1377,
+    date: "1377-05-22",
+    precision: "day",
+    era: "high-medieval",
+    kind: "document",
+    context:
+      "The pope sends bulls to the archbishop of Canterbury, the bishop of London, the king and Oxford University censuring the Oxford theologian's theses on lordship and Church property.",
+    significance:
+      "Shielded by John of Gaunt and much of Oxford, Wycliffe went unpunished, and his ideas spread through the Lollard preachers.",
+    citation: `${W}John_Wycliffe`,
+    links: { popes: ["pope-gregory-xi"] },
+  },
 ];
