@@ -19,8 +19,9 @@ const page = (n: number | string) => `${RACCOLTA}${n}/mode/1up`;
  * page's text word for word: the typed text was compared with the archive.org
  * OCR and with an independent OCR of the same page images, and every point where
  * either disagreed was checked against the scan. Corrections are limited to
- * plain scanning slips. Typography is normalised, never wording: words the book
- * sets in small capitals (God, Lord, Jesus Christ, Father, Holy Ghost) and the
+ * plain printing or scanning slips, such as "ot" printed for "of" on pages 229
+ * and 283. Typography is normalised, never wording: words the book sets in
+ * small capitals (God, Lord, Jesus Christ, Father, Holy Ghost) and the
  * capitalised word after a drop initial are written in ordinary case, the signs
  * ℣ and ℟ are written V. and R., lines broken by the page are rejoined, and
  * rubrics printed in italics ("Ave Maria thrice") are kept as plain text. The
@@ -33,7 +34,11 @@ const page = (n: number | string) => `${RACCOLTA}${n}/mode/1up`;
  * after the contents, cited second) corrects a word on the page, the corrected
  * reading is given and the summary says so. A `latin` value is given only where
  * the same page prints the Latin alongside the English. Prayers whose text is
- * already in the catalogue under another title were left out.
+ * already in the catalogue under another title were left out, among them the
+ * Raccolta's novena prayer to St Francis Xavier, which is the catalogue's
+ * Novena of Grace in another translation. A prayer that a novena in the
+ * catalogue includes among its parts (the Tota pulchra; O Joseph, virgo pater
+ * Jesu) is still given as a prayer in its own right.
  */
 export const prayerBatch10: CuratedEntry[] = [
   {
@@ -496,7 +501,7 @@ export const prayerBatch10: CuratedEntry[] = [
     contentType: "PRAYER",
     slug: "rosary-of-the-seven-dolours-servite-chaplet",
     authorityLevel: "TRUSTED_PUBLISHER",
-    citations: [page(218)],
+    citations: [page(218), page(217)],
     payload: {
       slug: "rosary-of-the-seven-dolours-servite-chaplet",
       title: "The Rosary of the Seven Dolours (Servite Chaplet)",
@@ -505,10 +510,10 @@ export const prayerBatch10: CuratedEntry[] = [
       category: "chaplet",
       language: "en",
       summary:
-        "The prayers of the chaplet of the Seven Sorrows of the Blessed Virgin as the Servite Order propagated it: an act of contrition, the seven sorrows, from Simeon's prophecy to the burial of Jesus, each with an Our Father and seven Hail Marys, three Hail Marys in honour of Mary's tears, and the collect Grant, we beseech Thee. The Raccolta gives its indulgences, granted from Benedict XIII onwards, for beads blessed by a Servite Father.",
+        "The prayers of the chaplet of the Seven Sorrows of the Blessed Virgin as the Servite Order propagated it: an act of contrition, the seven sorrows, from Simeon's prophecy to the burial of Jesus, each with an Our Father and seven Hail Marys, three Hail Marys in honour of Mary's tears, and the collect Grant, we beseech Thee. The Raccolta gives its indulgences, granted from Benedict XIII onwards, for beads blessed by a Servite Father or another priest with special faculties (second citation).",
       occasions: ["our-lady-of-sorrows", "september-15", "lent", "fridays"],
       relatedSaints: [],
-      citations: [page(218)],
+      citations: [page(218), page(217)],
     },
   },
   {
@@ -591,7 +596,7 @@ export const prayerBatch10: CuratedEntry[] = [
     contentType: "PRAYER",
     slug: "tota-pulchra-es-maria",
     authorityLevel: "TRUSTED_PUBLISHER",
-    citations: [page(178)],
+    citations: [page(178), page(176)],
     payload: {
       slug: "tota-pulchra-es-maria",
       title: "Tota Pulchra Es, Maria (All Fair Art Thou, O Mary)",
@@ -602,10 +607,10 @@ export const prayerBatch10: CuratedEntry[] = [
       latin:
         "V. Tota pulchra es Maria.\nR. Tota pulchra es Maria.\nV. Et macula originalis non est in te.\nR. Et macula originalis non est in te.\nV. Tu gloria Jerusalem.\nR. Tu lætitia Israel.\nV. Tu honorificentia populi nostri.\nR. Tu advocata peccatorum.\nV. O Maria.\nR. O Maria.\nV. Virgo prudentissima.\nR. Mater clementissima.\nV. Ora pro nobis.\nR. Intercede pro nobis ad Dominum Jesum Christum.\nV. In Conceptione tua, Virgo, immaculata fuisti.\nR. Ora pro nobis Patrem, cujus Filium peperisti.\n\nOremus.\n\nDeus qui per Immaculatam Virginis Conceptionem dignum Filio tuo habitaculum præparasti: quæsumus ut qui ex morte ejusdem Filii tui prævisa eam ab omni labe præservasti, nos quoque mundos ejus intercessione ad te pervenire concedas. Per Christum Dominum nostrum. Amen.",
       summary:
-        "The ancient versicles in praise of the Immaculate Conception, taken from the Song of Songs and the praise of Judith (all fair art thou, the glory of Jerusalem, the joy of Israel), followed by the versicle In thy Conception and the collect of the feast, Deus qui per Immaculatam. The Raccolta prints the Latin and English side by side in its novena for the Immaculate Conception and indulgences the whole as a separate devotion (Pius X, 1904).",
+        "The ancient versicles in praise of the Immaculate Conception, taken from the Song of Songs and the praise of Judith (all fair art thou, the glory of Jerusalem, the joy of Israel), followed by the versicle In thy Conception and the collect of the feast, Deus qui per Immaculatam. The Raccolta prints the Latin and English side by side in its novena for the Immaculate Conception, and records the indulgence Pius X granted in 1904 for the whole said as a separate devotion (second citation).",
       occasions: ["immaculate-conception", "december-8", "marian-feasts"],
       relatedSaints: [],
-      citations: [page(178)],
+      citations: [page(178), page(176)],
     },
   },
   {
@@ -823,7 +828,7 @@ export const prayerBatch10: CuratedEntry[] = [
       category: "marian",
       language: "en",
       summary:
-        "The first of the three prayers to Our Lady of Perpetual Succour that the Raccolta gives with Pius IX's grant of 1866, the year he entrusted the Roman icon to the Redemptorists: a fallen sinner places his hope in her and begs the grace always to have recourse to her in temptation. The second of the three is already in the catalogue as the Prayer to Our Lady of Perpetual Help.",
+        "The first of the three prayers to Our Lady of Perpetual Succour that the Raccolta gives with Pius IX's grant of 1866, the year he entrusted the Roman icon to the Redemptorists: a fallen sinner places his hope in her and begs the grace always to have recourse to her in temptation. Its text closely follows the Sunday and Monday prayers to Our Lady that the Raccolta gives under St Alphonsus's name, recast under the title of Perpetual Succour. The second of the three is already in the catalogue as the Prayer to Our Lady of Perpetual Help.",
       occasions: ["wednesdays", "june-27", "marian-devotion", "temptation"],
       relatedSaints: [],
       citations: [page(244)],
@@ -842,7 +847,7 @@ export const prayerBatch10: CuratedEntry[] = [
       category: "marian",
       language: "en",
       summary:
-        "The third of the three prayers to Our Lady of Perpetual Succour that the Raccolta gives with Pius IX's grant of 1866: the one praying entrusts his salvation to her as dispenser of the gifts of God and asks above all the grace never to fail to call on her in temptation. The second of the three is already in the catalogue as the Prayer to Our Lady of Perpetual Help.",
+        "The third of the three prayers to Our Lady of Perpetual Succour that the Raccolta gives with Pius IX's grant of 1866: the one praying entrusts his salvation to her as dispenser of the gifts of God and asks above all the grace never to fail to call on her in temptation. Its text closely follows the Saturday prayer to Our Lady that the Raccolta gives under St Alphonsus's name, recast under the title of Perpetual Succour; the book records a separate indulgence for each. The second of the three is already in the catalogue as the Prayer to Our Lady of Perpetual Help.",
       occasions: ["wednesdays", "june-27", "marian-devotion", "temptation"],
       relatedSaints: [],
       citations: [page(245)],
@@ -994,7 +999,7 @@ export const prayerBatch10: CuratedEntry[] = [
       category: "marian",
       language: "en",
       summary:
-        'A prayer recalling the eighteen apparitions at Lourdes, where the Blessed Virgin chose "a simple little child" as confidant and named herself the Immaculate Conception, asking perseverance and the pardon of sins, the conversion of friends who have abandoned their religion, a blessing on "our country" (the prayer was written for France) and protection for the Pope. The Raccolta records its indulgence by Leo XIII in 1902; Our Lady of Lourdes is honoured on 11 February.',
+        'A prayer recalling the eighteen apparitions at Lourdes, where the Blessed Virgin chose "a simple little child" as confidant and named herself the Immaculate Conception, asking perseverance and the pardon of sins, the conversion of friends who have given up the practice of their faith, a blessing on "our country" and protection for the Pope. The Raccolta records its indulgence by Leo XIII in 1902; Our Lady of Lourdes is honoured on 11 February.',
       occasions: ["february-11", "sickness", "pilgrimage", "marian-devotion"],
       relatedSaints: ["saint-bernadette-soubirous"],
       citations: [page(253)],
@@ -1060,7 +1065,7 @@ export const prayerBatch10: CuratedEntry[] = [
       category: "marian",
       language: "en",
       summary:
-        "Sixteen short ejaculations to the Blessed Virgin that the Raccolta prints and indulgences one by one between 1793 and 1907, gathered here in the book's order: among them the Miraculous Medal invocation O Mary, conceived without sin, Sweet Heart of Mary, be my salvation, and invocations of Our Lady of the Blessed Sacrament, of Lourdes, of the Pillar of Saragossa, of Ransom (deliverer of slaves) and of Good Studies. Each line is a complete prayer that may be said by itself through the day; every page it is taken from is cited.",
+        "Sixteen short ejaculations to the Blessed Virgin that the Raccolta prints one by one, each with its own indulgence granted between 1852 and 1908, gathered here in the book's order: among them the Miraculous Medal invocation O Mary, conceived without sin, Sweet Heart of Mary, be my salvation, and invocations of Our Lady of the Blessed Sacrament, of Lourdes, of the Pillar of Saragossa, of Ransom (deliverer of slaves) and of Good Studies. Each line is a complete prayer that may be said by itself through the day; every page it is taken from is cited.",
       occasions: ["daily", "marian-devotion", "immaculate-conception"],
       relatedSaints: [],
       citations: [
@@ -1904,7 +1909,7 @@ export const prayerBatch10: CuratedEntry[] = [
       language: "en",
       summary:
         "A prayer to St Camillus de Lellis, who for forty years served the sick with heroic charity and whom the Church has given them as protector, asking that the sick may be healed or sanctified by patient resignation and strengthened at death, and that we may live and die in the practice of divine love; it ends with an Our Father and Hail Mary. The Raccolta records its indulgence by Leo XIII in 1894, eight years after he named Camillus patron of the sick and of hospitals.",
-      occasions: ["july-14", "sickness", "hospital-visit", "deathbed"],
+      occasions: ["july-18", "sickness", "hospital-visit", "deathbed"],
       relatedSaints: ["saint-camillus-de-lellis"],
       citations: [page(316)],
     },
@@ -1959,6 +1964,8 @@ export const prayerBatch10: CuratedEntry[] = [
       prayerType: "intercession",
       category: "saintly",
       language: "en",
+      latin:
+        "Doctor angelice, Sancte Thoma, theologorum princeps et philosophorum norma, præclarum Christiani orbis decus et ecclesiæ lumen, scholarum omnium Catholicarum cœlestis patrone, qui sapientiam sine fictione didicisti et sine invidia communicas, ipsam Sapientiam, Filium Dei, deprecare pro nobis, ut veniente in nos spiritus sapientiæ, ea quæ docuisti intellectu, conspiciamus et quæ egisti imitatione compleamus; doctrinæ et virtutis, quibus in terris solis instar semper eluxisti, participes efficiamur; ac tandem earum suavissimis fructibus perenniter tecum delectemur in cœlis, Divinam Sapientiam collaudantes per infinita sæcula sæculorum. Amen.",
       summary:
         "The prayer Doctor angelice to St Thomas Aquinas, prince of theologians and model of philosophers, whom Leo XIII named heavenly patron of all Catholic schools, asking that the spirit of wisdom may enable us to understand what he taught and to imitate what he did. The Raccolta prints the Latin beside the English and records the indulgence of Leo XIII in 1885; St Thomas is honoured on 28 January.",
       occasions: ["january-28", "study", "before-study"],
@@ -2464,25 +2471,6 @@ export const prayerBatch10: CuratedEntry[] = [
   },
   {
     contentType: "PRAYER",
-    slug: "prayer-to-saint-francis-xavier-for-a-holy-life-and-death",
-    authorityLevel: "TRUSTED_PUBLISHER",
-    citations: [page(344)],
-    payload: {
-      slug: "prayer-to-saint-francis-xavier-for-a-holy-life-and-death",
-      title: "Prayer to St Francis Xavier for a Holy Life and a Particular Favour",
-      body: "O great St Francis, well beloved and full of charity, with thee I reverently adore the divine Majesty; and since I specially rejoice in the singular gifts of grace, bestowed on thee in life, and of glory after death, I give thanks to God, and beg of thee, with all the affections of my heart, that by thy powerful intercession thou mayest obtain for me above all things the grace to live a holy life and die a holy death. Moreover, I beg of thee to obtain for me (here insert some special spiritual or temporal favour); but if what I ask does not tend to the glory of God and the greater good of my soul, do thou, I beseech thee, obtain for me what will more certainly attain these ends. Amen.",
-      prayerType: "intercession",
-      category: "saintly",
-      language: "en",
-      summary:
-        "The prayer to St Francis Xavier that the Raccolta prescribes for each day of a novena in his honour (or, instead, five Our Fathers, Hail Marys and Glory bes): adoring the divine Majesty with him, the one praying asks above all the grace to live and die holily, and then a particular favour, but only if it serves the glory of God and the good of the soul. It is the prayer familiar from the Novena of Grace; the book records its indulgence by Pius X in 1904.",
-      occasions: ["december-3", "novena", "special-intentions"],
-      relatedSaints: ["saint-francis-xavier"],
-      citations: [page(344)],
-    },
-  },
-  {
-    contentType: "PRAYER",
     slug: "prayer-to-saint-paul-of-the-cross-for-devotion-to-the-passion",
     authorityLevel: "TRUSTED_PUBLISHER",
     citations: [page(344)],
@@ -2584,7 +2572,7 @@ export const prayerBatch10: CuratedEntry[] = [
     payload: {
       slug: "prayer-for-teachers-and-those-who-are-taught",
       title: "Prayer to Jesus for Teachers and Those Who Are Taught",
-      body: "Lord Jesus Christ, the Way, the Truth and the Life, Thou who so lovest souls, and who, not content with giving us an example, hast made such magnificent promises to those who shall teach the truth; fill with thy spirit of wisdom, knowledge, and fear, all those who teach; fill with thy grace those who are taught, so that, instructed in a profitable and useful manner, their minds may receive the truth, their hearts cling to what is right, and their lives be full of good works; and may thy holy Name be glorified in everything. O Jesus, teacher, who, moved to compassion for thy children, like sheep without a shepherd, didst say to thy disciples, Pray to the Lord of the harvest that He send labourers, deign, we beseech Thee, to multiply worthy instructors of youth; sanctify them in truth, and increase in them faith, hope and charity.\n\nO good Jesus, who hast said, Suffer little children to come unto Me, let not one of these little ones, purchased with thy Precious Blood, perish; remove them from all scandal of impiety, of vice, and error; we ask this from Thee in the name of thy holy Passion, of the sorrows of thy holy Mother, and by the intercession of the angels and saints. Amen.",
+      body: "Lord Jesus Christ, the Way, the Truth and the Life, Thou who so lovest souls, and who, not content with giving us an example, hast made such magnificent promises to those who shall teach the truth; fill with thy spirit of wisdom, knowledge, and fear, all those who teach; fill with thy grace those who are taught, so that, instructed in a profitable and useful manner, their minds may receive the truth, their hearts cling to what is right, and their lives be full of good works; and may thy holy Name be glorified in everything. O Jesus, teacher, who, moved to compassion for thy children, like sheep without a shepherd, didst say to thy disciples, Pray to the Lord of the harvest that He send labourers; deign, we beseech Thee, to multiply worthy instructors of youth; sanctify them in truth, and increase in them faith, hope and charity.\n\nO good Jesus, who hast said, Suffer little children to come unto Me, let not one of these little ones, purchased with thy Precious Blood, perish; remove them from all scandal of impiety, of vice, and error; we ask this from Thee in the name of thy holy Passion, of the sorrows of thy holy Mother, and by the intercession of the angels and saints. Amen.",
       prayerType: "intercession",
       category: "general",
       language: "en",
@@ -2645,8 +2633,9 @@ export const prayerBatch10: CuratedEntry[] = [
       prayerType: "intercession",
       category: "general",
       language: "en",
+      latin: "V. Te ergo quæsumus, tuis famulis subveni, quos pretioso sanguine redemisti.",
       summary:
-        "The versicle from the Te Deum, We therefore beseech Thee, help thy servants, whom Thou hast redeemed with thy Precious Blood, with the ejaculation Eternal Father, by the Precious Blood of Jesus, Mercy! and the Eternal rest. The Raccolta prescribes them for those who, meditating on the Passion, say five Our Fathers and Hail Marys for the departed, and records the indulgence of Pius VII.",
+        "The versicle from the Te Deum, We therefore beseech Thee, help thy servants, whom Thou hast redeemed with thy Precious Blood, with the ejaculation Eternal Father, by the Precious Blood of Jesus, Mercy! and the Eternal rest. The Raccolta prescribes them for those who, meditating on the Passion, say five Our Fathers and Hail Marys for the departed, prints the Latin of the versicle beside the English, and records the indulgence of Pius VII.",
       occasions: ["all-souls", "november", "precious-blood"],
       relatedSaints: [],
       citations: [page(354)],
@@ -2725,7 +2714,7 @@ export const prayerBatch10: CuratedEntry[] = [
       language: "en",
       summary:
         "A prayer of a young person to the Blessed Virgin, asking her to look with pity on the dangers that false maxims and evil examples pose to the faith received in Baptism, to guard against the snares of the devil one whom she received as her child on Calvary, and to direct all one's actions to the glory of God and the salvation of the soul; three Hail Marys follow. The Raccolta gives it among the prayers for young students and records its indulgence by Leo XIII in 1895.",
-      occasions: ["students", "youth", "temptation", "marian-devotion"],
+      occasions: ["study", "children", "temptation", "marian-devotion"],
       relatedSaints: [],
       citations: [page(408)],
     },
@@ -2763,7 +2752,7 @@ export const prayerBatch10: CuratedEntry[] = [
       language: "en",
       summary:
         "A prayer to St Paul that recalls the burning of harmful books at Ephesus during his preaching there (Acts 19:19), asking him to enlighten writers whose works injure faith and morals, and to obtain the grace never to give oneself to reading evil books but to read and, as far as possible, spread wholesome ones for the glory of God, the exaltation of the Church and the salvation of souls. The Raccolta records its indulgence by Pius X in 1908.",
-      occasions: ["january-25", "june-30", "reading", "for-the-church"],
+      occasions: ["january-25", "june-29", "reading", "for-the-church"],
       relatedSaints: ["saint-paul"],
       citations: [page(412)],
     },
