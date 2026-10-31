@@ -1210,4 +1210,503 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
       "The first and most famous of the pillar-dwelling ascetics; his fame spread as far as Western Europe.",
     citation: `${NA}13795a.htm`,
   },
+
+  // ---------------------------------------------------------------- After Rome: kingdoms, schisms and monks
+  {
+    slug: "saint-brigid-founds-kildare",
+    title: "St Brigid founds Kildare",
+    year: 480,
+    precision: "circa",
+    era: "fathers",
+    kind: "order",
+    tags: ["monastic"],
+    location: "Kildare, Ireland",
+    context:
+      "According to tradition, Brigid founds a double monastery for women and for men at Kildare around 480.",
+    significance:
+      "Kildare grows into a centre of religion and learning, and Brigid is honoured with Patrick and Columba as one of Ireland's three national saints.",
+    citation: `${W}Brigid_of_Kildare`,
+    links: { saints: ["saint-brigid-of-ireland"] },
+  },
+  {
+    slug: "henotikon-of-zeno",
+    title: "Emperor Zeno's Henotikon",
+    year: 482,
+    precision: "year",
+    era: "fathers",
+    kind: "document",
+    tags: ["dogma"],
+    location: "Constantinople",
+    context:
+      "Devised by Patriarch Acacius and issued by Zeno without any council, the formula of union condemns Nestorius and Eutyches and approves Cyril's anathemas while avoiding the question of Christ's one or two natures.",
+    significance:
+      "Meant to reconcile the opponents of Chalcedon, it satisfies neither side and leads to the Acacian Schism with Rome.",
+    citation: `${W}Henotikon`,
+  },
+  {
+    slug: "death-of-saint-severinus-of-noricum",
+    title: "Death of St Severinus of Noricum",
+    year: 482,
+    date: "0482-01-08",
+    precision: "day",
+    era: "fathers",
+    kind: "saint",
+    tags: ["monastic"],
+    location: "Favianae, Noricum",
+    context:
+      "Severinus, who since Attila's death had cared for the Roman frontier people along the Danube, organising refuge and food and founding monasteries at Passau and Favianae, dies in his cell at Favianae.",
+    significance:
+      "A saint of the collapsing frontier, respected even by the Germanic chieftain Odoacer; his disciple Eugippius preserved his story in a Life written in 511.",
+    citation: `${W}Severinus_of_Noricum`,
+  },
+  {
+    slug: "saint-sabbas-founds-the-great-lavra",
+    title: "St Sabbas founds the Great Lavra",
+    year: 484,
+    precision: "circa",
+    era: "fathers",
+    kind: "order",
+    tags: ["monastic"],
+    location: "Kidron Valley, near Jerusalem",
+    context:
+      "The monk Sabbas founds a lavra of hermits' cells in the Kidron Valley south of Jerusalem, traditionally in 484, and is later made archimandrite of the region's anchorites.",
+    significance:
+      "Mar Saba long remains the most influential monastery in the region, and Sabbas a leading defender of Chalcedon against its opponents.",
+    citation: `${W}Sabbas_the_Sanctified`,
+  },
+  {
+    slug: "huneric-persecutes-african-catholics",
+    title: "Huneric's persecution of the African Church",
+    year: 484,
+    precision: "year",
+    era: "fathers",
+    kind: "event",
+    tags: ["persecution"],
+    location: "Vandal North Africa",
+    context:
+      "After summoning Nicene and Arian bishops to Carthage in February 484, the Arian Vandal king Huneric strips the Catholic bishops of their sees and exiles some to Corsica; at Tipasa, Catholics have their tongues and right hands cut off.",
+    significance:
+      "The persecution for which his reign is chiefly remembered; his contemporary Victor of Vita wrote its history.",
+    citation: `${W}Huneric`,
+  },
+  {
+    slug: "gelasius-letter-on-the-two-powers",
+    title: "Pope Gelasius I on the two powers",
+    year: 494,
+    precision: "year",
+    era: "fathers",
+    kind: "document",
+    tags: ["papacy"],
+    location: "Rome → Constantinople",
+    context:
+      "Writing to Emperor Anastasius I, Gelasius distinguishes the sacred authority of bishops from royal power, each independent in its own sphere and meant to work in harmony.",
+    significance:
+      "The classic statement of the two powers, which underlay Western thinking on Church and state for nearly a thousand years.",
+    citation: `${W}Duo_sunt`,
+    links: { popes: ["pope-saint-gelasius-i"] },
+  },
+  {
+    slug: "laurentian-schism",
+    title: "Laurentian Schism",
+    year: 498,
+    date: "0498-11-22",
+    precision: "day",
+    era: "fathers",
+    kind: "schism",
+    tags: ["schism", "papacy"],
+    location: "Rome",
+    context:
+      "Most of the Roman clergy elect Symmachus while a minority elect the archpriest Laurentius; King Theodoric rules for Symmachus, but the quarrel revives when his opponents bring charges against him.",
+    significance:
+      "Rival factions fight for years in Rome until Theodoric has the city's churches restored to Symmachus and the Laurentian party collapses.",
+    citation: `${NA}14377a.htm`,
+  },
+  {
+    slug: "athanasian-creed",
+    title: "The Athanasian Creed",
+    year: 500,
+    precision: "circa",
+    era: "fathers",
+    kind: "document",
+    tags: ["dogma"],
+    location: "Southern Gaul",
+    context:
+      "A Latin creed on the Trinity and the Incarnation, long attributed to Athanasius, is composed, most likely in southern Gaul in the late fifth or early sixth century.",
+    significance:
+      "Recited for centuries at Sunday Prime and still used on Trinity Sunday, it became a standard Western statement of faith in the Trinity and in Christ.",
+    citation: `${W}Athanasian_Creed`,
+  },
+  {
+    slug: "writings-of-pseudo-dionysius",
+    title: "The writings of Pseudo-Dionysius",
+    year: 500,
+    precision: "circa",
+    era: "fathers",
+    kind: "document",
+    context:
+      "An unknown author writing at the close of the fifth century, under the name of Paul's Athenian convert Dionysius the Areopagite, composes treatises on the divine names, the heavenly and church hierarchies and mystical theology.",
+    significance:
+      "Long received as apostolic, they deeply shaped medieval theology and mysticism, from Albert the Great and Aquinas to the Rhineland mystics.",
+    citation: `${NA}05013a.htm`,
+  },
+  {
+    slug: "saint-benedict-at-subiaco",
+    title: "St Benedict withdraws to Subiaco",
+    year: 500,
+    precision: "circa",
+    era: "fathers",
+    kind: "saint",
+    tags: ["monastic"],
+    location: "Subiaco",
+    context:
+      "Leaving Rome around 500, the young Benedict lives for three years as a hermit in a cave above the lake at Subiaco, then gathers disciples into twelve monasteries of twelve monks each.",
+    significance:
+      "The first form of the monastic life he later carried to Monte Cassino and set down in his Rule.",
+    citation: `${NA}02467b.htm`,
+    links: { saints: ["saint-benedict-of-nursia"] },
+  },
+  {
+    slug: "first-council-of-orleans",
+    title: "First Council of Orléans",
+    year: 511,
+    precision: "year",
+    era: "fathers",
+    kind: "council",
+    location: "Orléans",
+    context:
+      "Summoned by Clovis, the bishops of the Frankish kingdom rule on the right of sanctuary in churches, the ordination of freemen, and the relations of monks with abbots and of abbots with bishops.",
+    significance:
+      "The first settlement between the Frankish state and the Church after Clovis's baptism.",
+    citation: `${NA}11318a.htm`,
+  },
+  {
+    slug: "caesarius-of-arles-rule-for-nuns",
+    title: "Caesarius of Arles writes a rule for nuns",
+    year: 512,
+    precision: "year",
+    era: "fathers",
+    kind: "order",
+    tags: ["monastic"],
+    location: "Arles",
+    context:
+      "Bishop Caesarius gives the community of women he founded at Arles, led by his sister Caesaria, a Rule for Virgins.",
+    significance:
+      "The first rule in the West written specifically for women, with lifelong enclosure as its hallmark.",
+    citation: `${W}Caesarius_of_Arles`,
+  },
+  {
+    slug: "martyrs-of-najran",
+    title: "Martyrs of Najran",
+    year: 523,
+    precision: "circa",
+    era: "fathers",
+    kind: "martyrdom",
+    tags: ["persecution"],
+    location: "Najran, Arabia",
+    context:
+      "The Himyarite king Dhu Nuwas has the Christians of Najran put to death; their leader al-Harith, known as Arethas, is among the dead, though the numbers given vary widely.",
+    significance:
+      "They are honoured as martyrs in East and West, and the outrage brings an army from Christian Aksum, at Byzantium's request, to overthrow Dhu Nuwas.",
+    citation: `${W}Christian_community_of_Najran`,
+  },
+  {
+    slug: "boethius-consolation-of-philosophy",
+    title: "Boethius writes The Consolation of Philosophy",
+    year: 524,
+    precision: "circa",
+    era: "fathers",
+    kind: "document",
+    location: "Pavia",
+    context:
+      "Accused of disloyalty to the Ostrogothic king Theodoric, the Roman statesman Boethius is imprisoned and condemned unheard; in prison he writes his Consolation before he is executed.",
+    significance:
+      "A classic of Western literature; his translations of Aristotle taught the medieval schools, and Pavia honours him as St Severinus Boethius.",
+    citation: `${NA}02610b.htm`,
+  },
+  {
+    slug: "dionysius-exiguus-anno-domini",
+    title: "Dionysius Exiguus counts the years from the Incarnation",
+    year: 525,
+    precision: "year",
+    era: "fathers",
+    kind: "event",
+    tags: ["liturgy"],
+    location: "Rome",
+    context:
+      "Preparing an Easter table at the request of Pope John I, the monk Dionysius numbers the years from the Incarnation instead of from the reign of Diocletian, a persecutor he did not wish to commemorate.",
+    significance: "The origin of the Anno Domini era by which the years are still counted.",
+    citation: `${W}Dionysius_Exiguus`,
+  },
+  {
+    slug: "pope-john-i-dies-in-prison",
+    title: "Pope John I dies in Theodoric's prison",
+    year: 526,
+    precision: "year",
+    era: "fathers",
+    kind: "martyrdom",
+    tags: ["papacy"],
+    location: "Ravenna",
+    context:
+      "Forced by Theodoric to lead an embassy to Constantinople about Emperor Justin's measures against the Arians, John is received there with great honour, but on his return he is imprisoned at Ravenna and dies in May 526.",
+    significance: "The Latin Church honours him as a martyr.",
+    citation: `${NA}08421a.htm`,
+  },
+  {
+    slug: "john-ii-takes-a-new-name",
+    title: "John II, the first pope to take a new name",
+    year: 533,
+    date: "0533-01-02",
+    precision: "day",
+    era: "fathers",
+    kind: "pope",
+    tags: ["papacy"],
+    location: "Rome",
+    context:
+      "Mercurius, a priest of the Roman church of St Clement, is consecrated pope and takes the name John.",
+    significance:
+      "He seems to be the first pope to change his name on election, a custom that later became the rule.",
+    citation: `${NA}08421b.htm`,
+  },
+  {
+    slug: "agapetus-deposes-anthimus",
+    title: "Pope Agapetus I deposes Patriarch Anthimus",
+    year: 536,
+    precision: "year",
+    era: "fathers",
+    kind: "pope",
+    tags: ["papacy"],
+    location: "Constantinople",
+    context:
+      "Sent to Constantinople by the Gothic king Theodahad, Agapetus refuses to deal with Patriarch Anthimus, who had left his see of Trebizond uncanonically and sided with the crypto-Monophysites, then deposes him and consecrates Mennas in his place.",
+    significance:
+      "A rare act of papal judgment within the imperial capital itself; Agapetus dies there in April 536.",
+    citation: `${NA}01202c.htm`,
+  },
+  {
+    slug: "deposition-of-pope-silverius",
+    title: "Deposition of Pope Silverius",
+    year: 537,
+    precision: "year",
+    era: "fathers",
+    kind: "pope",
+    tags: ["papacy"],
+    location: "Rome",
+    context:
+      "With Byzantine forces holding Rome, Silverius is accused through a forged letter of plotting with the Goths, arrested in March 537 and exiled; Vigilius, favoured by the Empress Theodora, is consecrated in his place.",
+    significance:
+      "A low point of imperial interference in the papacy; Silverius dies in exile and is later venerated as a saint.",
+    citation: `${NA}13793a.htm`,
+    links: { popes: ["pope-vigilius"] },
+  },
+  {
+    slug: "dedication-of-hagia-sophia",
+    title: "Dedication of Hagia Sophia",
+    year: 537,
+    date: "0537-12-27",
+    precision: "day",
+    era: "fathers",
+    kind: "event",
+    location: "Constantinople",
+    context:
+      "Justinian and Patriarch Menas inaugurate the new church of Holy Wisdom, raised in under six years by the architects Anthemius of Tralles and Isidore of Miletus.",
+    significance:
+      "The largest church in the world for more than five hundred years and the heart of Byzantine worship.",
+    citation: `${W}Hagia_Sophia`,
+  },
+  {
+    slug: "nobatia-accepts-christianity",
+    title: "Nobatia in Nubia adopts Christianity",
+    year: 543,
+    precision: "year",
+    era: "fathers",
+    kind: "mission",
+    location: "Nobatia (Nubia)",
+    context:
+      "The Nubian kingdom of Nobatia officially adopts Christianity in its Coptic, Miaphysite form, after years in which the faith had been spreading among its people.",
+    significance:
+      "The beginning of Christian Nubia; the faith then spread through the kingdom at varying speeds, reaching the villages only in the seventh to ninth centuries.",
+    citation: `${W}Nobatia`,
+  },
+  {
+    slug: "jacob-baradaeus-builds-a-miaphysite-hierarchy",
+    title: "Jacob Baradaeus builds a separate Miaphysite hierarchy",
+    year: 543,
+    precision: "circa",
+    era: "fathers",
+    kind: "schism",
+    tags: ["schism"],
+    location: "Edessa and the East",
+    context:
+      "Consecrated bishop of Edessa in Constantinople in 543 or 544 by the exiled Patriarch Theodosius of Alexandria, Jacob travels through Mesopotamia, Asia Minor, Syria, Palestine and Egypt ordaining non-Chalcedonian clergy.",
+    significance:
+      "The opponents of Chalcedon gain a hierarchy of their own, and the Syriac Orthodox Church comes to be called Jacobite after him.",
+    citation: `${W}Jacob_Baradaeus`,
+  },
+  {
+    slug: "cassiodorus-founds-vivarium",
+    title: "Cassiodorus founds Vivarium",
+    year: 544,
+    precision: "circa",
+    era: "fathers",
+    kind: "order",
+    tags: ["monastic"],
+    location: "Squillace, Calabria",
+    context:
+      "Retired from public life, the Roman statesman Cassiodorus founds a monastery near Squillace where monks copy, preserve and study sacred and classical texts.",
+    significance:
+      "Its library and centre of biblical study make it a model for the monastic preservation of learning in the West.",
+    citation: `${W}Vivarium_(monastery)`,
+  },
+  {
+    slug: "saint-ciaran-founds-clonmacnoise",
+    title: "St Ciarán founds Clonmacnoise",
+    year: 544,
+    precision: "circa",
+    era: "fathers",
+    kind: "order",
+    tags: ["monastic"],
+    location: "Clonmacnoise, Ireland",
+    context:
+      "Ciarán and seven companions found a monastery where the main road across central Ireland crosses the River Shannon.",
+    significance:
+      "It grows into one of Ireland's great centres of religion and learning, known for its manuscripts, annals and high crosses.",
+    citation: `${W}Clonmacnoise`,
+  },
+  {
+    slug: "vigilius-taken-to-constantinople",
+    title: "Pope Vigilius taken to Constantinople",
+    year: 545,
+    precision: "year",
+    era: "fathers",
+    kind: "pope",
+    tags: ["papacy"],
+    location: "Rome → Constantinople",
+    context:
+      "On imperial orders Vigilius is taken from Rome in November 545 and kept for years in Constantinople, where he suffers much for refusing Justinian concessions on the Three Chapters.",
+    significance:
+      "He finally accepts the verdict of the council of 553 and dies at Syracuse on his way home in 555, a stark instance of imperial pressure on the papacy.",
+    citation: `${NA}15427b.htm`,
+    links: { popes: ["pope-vigilius"] },
+  },
+  {
+    slug: "martin-of-braga-and-the-suebi",
+    title: "Martin of Braga and the conversion of the Suebi",
+    year: 550,
+    precision: "circa",
+    era: "fathers",
+    kind: "mission",
+    location: "Gallaecia",
+    context:
+      "Arriving by sea around 550, Martin founds monasteries, the best known at Dumium near Braga, and helps bring the Suebian kingdom from Arianism to the Catholic faith.",
+    significance:
+      "As metropolitan of Braga he shapes the Church of north-western Iberia, and his sermon On the Correction of Rustics addresses lingering pagan customs.",
+    citation: `${W}Martin_of_Braga`,
+  },
+  {
+    slug: "schism-of-the-three-chapters",
+    title: "Schism of the Three Chapters",
+    year: 553,
+    precision: "year",
+    era: "fathers",
+    kind: "schism",
+    tags: ["schism"],
+    location: "Northern Italy",
+    context:
+      "Holding that the condemnation of the Three Chapters by Justinian and the council of 553 betrays Chalcedon, the bishops of Aquileia, Milan, Istria and neighbouring regions refuse to accept it and break communion with Rome.",
+    significance:
+      "Milan returns to communion around 581, but Aquileia ends the schism only at the Synod of Pavia in 698.",
+    citation: `${W}Schism_of_the_Three_Chapters`,
+  },
+  {
+    slug: "lombards-invade-italy",
+    title: "The Lombards invade Italy",
+    year: 568,
+    precision: "year",
+    era: "fathers",
+    kind: "event",
+    location: "Northern Italy",
+    context:
+      "In the spring of 568 King Alboin leads the Lombards into Italy; some of them are still pagan, others Arian Christians.",
+    significance:
+      "Much of Italy passes under Lombard rule; the Catholic queen Theodelinda, a correspondent of Gregory the Great, later encourages their conversion.",
+    citation: `${W}Lombards`,
+  },
+  {
+    slug: "vexilla-regis-first-sung",
+    title: "Vexilla Regis first sung at Poitiers",
+    year: 569,
+    date: "0569-11-19",
+    precision: "day",
+    era: "fathers",
+    kind: "event",
+    tags: ["liturgy"],
+    location: "Poitiers",
+    context:
+      "Venantius Fortunatus writes the hymn for the procession that brings a relic of the True Cross, sent by Emperor Justin II at St Radegund's request, to her convent at Poitiers.",
+    significance:
+      "The hymn still belongs to the Church's Passiontide office and is recalled in the Good Friday liturgy.",
+    citation: `${NA}15396a.htm`,
+  },
+  {
+    slug: "gregory-becomes-bishop-of-tours",
+    title: "St Gregory becomes Bishop of Tours",
+    year: 573,
+    precision: "year",
+    era: "fathers",
+    kind: "saint",
+    location: "Tours",
+    context: "Gregory succeeds Euphronius as bishop of Tours, the city of St Martin.",
+    significance:
+      "His ten-book History of the Franks preserves much of what is known of the early Frankish kingdom and its Church.",
+    citation: `${NA}07018b.htm`,
+  },
+  {
+    slug: "gregory-founds-saint-andrews-monastery",
+    title: "Gregory turns his Roman home into St Andrew's monastery",
+    year: 574,
+    precision: "circa",
+    era: "fathers",
+    kind: "order",
+    tags: ["monastic"],
+    location: "Caelian Hill, Rome",
+    context:
+      "Leaving his office as prefect of Rome, Gregory gives his Sicilian estates to found six monasteries and makes his family house on the Caelian Hill into the monastery of St Andrew, where he becomes a monk.",
+    significance:
+      "The monastic formation of the future Pope Gregory the Great, who is drawn from St Andrew's into papal service and, in 590, to the papacy itself.",
+    citation: `${NA}06780a.htm`,
+    links: {
+      popes: ["pope-saint-gregory-the-great"],
+      saints: ["saint-gregory-the-great"],
+      doctors: ["doctor-gregory-the-great"],
+    },
+  },
+  {
+    slug: "conversion-of-reccared",
+    title: "Reccared and the Visigoths embrace the Catholic faith",
+    year: 587,
+    precision: "year",
+    era: "fathers",
+    kind: "event",
+    location: "Toledo",
+    context:
+      "In January 587 the Visigothic king Reccared renounces Arianism for the Catholic faith, and most of the Arian nobles and clergy around him follow.",
+    significance:
+      "The turning point for Visigothic Spain, sealed two years later at the Third Council of Toledo.",
+    citation: `${W}Reccared_I`,
+  },
+  {
+    slug: "third-council-of-toledo",
+    title: "Third Council of Toledo",
+    year: 589,
+    precision: "year",
+    era: "fathers",
+    kind: "council",
+    tags: ["dogma", "liturgy"],
+    location: "Toledo",
+    context:
+      "Convoked by Reccared and organised by Leander of Seville, the council hears the king renounce Arianism, and Arian bishops, clergy and Gothic nobles subscribe to the Catholic creeds.",
+    significance:
+      "It orders the Creed to be recited at Mass with the Filioque, a Western addition the Christian East never accepted.",
+    citation: `${W}Third_Council_of_Toledo`,
+  },
 ];
