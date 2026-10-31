@@ -107,6 +107,20 @@ const DR_1899 = "https://archive.org/details/holybibletransla00denv/page/";
  * Parens clementiae, the Lauds form of Beate Pastor Petre that joins the two
  * stanzas given separately here, and the alternative translations Britt
  * numbers with a "B".
+ *
+ * The last group adds more Douay-Rheims canticles and prayers of Scripture
+ * from drbo.org, by the same method as the second group: the canticles of
+ * the Liturgy of the Hours not yet in the catalogue (Apocalypse 11:17-18 with
+ * 12:10-12, 1 Timothy 3:16 and the second half of Tobias 13), and the prayers
+ * of Jesus son of Sirach, of David, of Solomon at the dedication of the
+ * Temple, of Nehemias, of Mardochai, of the exiles in Baruch, of Jonas, of
+ * Daniel, of Isaias (63:15-64:12), of the apostles in Acts 4, of Saint Paul in
+ * Ephesians 3, of Agur in Proverbs 30, the priestly blessing of Numbers 6 and
+ * the doxology of Romans 11:33-36. Every verse was compared with the 1899
+ * Benziger printing; no slips were found, and the e-text's readings where the
+ * two editions differ in form ("shew" for "show", "Woe" for "Wo", "riseth" for
+ * "raiseth", "commandedst" for "commandest", "name's sake" for "name sake")
+ * are kept as the cited page prints them.
  */
 export const prayerBatch11: CuratedEntry[] = [
   {
@@ -3505,6 +3519,351 @@ export const prayerBatch11: CuratedEntry[] = [
       occasions: ["meditation", "funerals", "all-saints"],
       relatedSaints: [],
       citations: [`${BRITT}353/mode/1up`, `${BRITT}354/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-the-judgement-of-god-apocalypse-11-12",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}73011.htm`, `${DRBO}73012.htm`],
+    payload: {
+      slug: "canticle-of-the-judgement-of-god-apocalypse-11-12",
+      title:
+        "Canticle of the Elders: We Give Thee Thanks, O Lord God Almighty (Apocalypse 11:17-18; 12:10-12)",
+      body: "We give thee thanks, O Lord God Almighty, who art, and who wast, and who art to come: because thou hast taken to thee thy great power, and thou hast reigned.\nAnd the nations were angry, and thy wrath is come, and the time of the dead, that they should be judged, and that thou shouldest render reward to thy servants the prophets and the saints, and to them that fear thy name, little and great, and shouldest destroy them who have corrupted the earth.\nAnd I heard a loud voice in heaven, saying: Now is come salvation, and strength, and the kingdom of our God, and the power of his Christ: because the accuser of our brethren is cast forth, who accused them before our God day and night.\nAnd they overcame him by the blood of the Lamb, and by the word of the testimony, and they loved not their lives unto death.\nTherefore rejoice, O heavens, and you that dwell therein. Woe to the earth, and to the sea, because the devil is come down unto you, having great wrath, knowing that he hath but a short time.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The thanksgiving of the four and twenty elders when the seventh trumpet sounds, that God has taken his great power and reigned, joined to the loud voice in heaven that proclaims the salvation and the kingdom of God now that the accuser of the brethren is cast down, overcome by the blood of the Lamb. The Liturgy of the Hours sings 11:17-18 and 12:10b-12a as the New Testament canticle of Evening Prayer on Thursdays; both passages are given here whole. Douay-Rheims text, Apocalypse 11:17-18 and 12:10-12.",
+      occasions: ["vespers", "thursday", "evening", "thanksgiving"],
+      relatedSaints: [],
+      citations: [`${DRBO}73011.htm`, `${DRBO}73012.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-first-timothy-mystery-of-godliness",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}61003.htm`],
+    payload: {
+      slug: "canticle-of-first-timothy-mystery-of-godliness",
+      title: "Canticle of First Timothy: Great Is the Mystery of Godliness (1 Timothy 3:16)",
+      body: "And evidently great is the mystery of godliness, which was manifested in the flesh, was justified in the spirit, appeared unto angels, hath been preached unto the Gentiles, is believed in the world, is taken up in glory.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "Saint Paul's summary of the mystery of godliness, perhaps taken from an early Christian hymn: Christ was manifested in the flesh, justified in the spirit, seen by angels, preached to the Gentiles, believed in the world and taken up in glory. The Liturgy of the Hours sings it as the New Testament canticle of Evening Prayer on the Epiphany, the Baptism of the Lord and the Transfiguration. Douay-Rheims text, 1 Timothy 3:16.",
+      occasions: ["vespers", "epiphany", "transfiguration", "christmas"],
+      relatedSaints: [],
+      citations: [`${DRBO}61003.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-tobias-jerusalem-city-of-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}17013.htm`],
+    payload: {
+      slug: "canticle-of-tobias-jerusalem-city-of-god",
+      title: "Canticle of Tobias: Jerusalem, City of God (Tobias 13:11-23)",
+      body: "Jerusalem, city of God, the Lord hath chastised thee for the works of thy hands.\nGive glory to the Lord for thy good things, and bless the God eternal, that he may rebuild his tabernacle in thee, and may call back all the captives to thee, and thou mayst rejoice for ever and ever.\nThou shalt shine with a glorious light: and all the ends of the earth shall worship thee.\nNations from afar shall come to thee: and shall bring gifts, and shall adore the Lord in thee, and shall esteem thy land as holy.\nFor they shall call upon the great name in thee.\nThey shall be cursed that shall despise thee: and they shall be condemned that shall blaspheme thee: and blessed shall they be that shall build thee up.\nBut thou shalt rejoice in thy children, because they shall all be blessed, and shall be gathered together to the Lord.\nBlessed are all they that love thee, and that rejoice in thy peace.\nMy soul, bless thou the Lord, because the Lord our God hath delivered Jerusalem his city from all her troubles.\nHappy shall I be if there shall remain of my seed, to see the glory of Jerusalem.\nThe gates of Jerusalem shall be built of sapphire, and of emerald, and all the walls thereof round about of precious stones.\nAll its streets shall be paved with white and clean stones: and Alleluia shall be sung in its streets.\nBlessed be the Lord, who hath exalted it, and may he reign over it for ever and ever, Amen.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The second part of the elder Tobias's song of praise, addressed to Jerusalem: the city chastised for its people's sins will shine with a glorious light, the nations will come from afar bringing gifts, and its gates will be built of sapphire and emerald and its streets resound with Alleluia. It continues the canticle of Tobias 13:1-10 already in this catalogue. The Liturgy of the Hours sings part of it at Morning Prayer on Friday of the fourth week; the passage is given here whole. Douay-Rheims text, Tobias 13:11-23.",
+      occasions: ["lauds", "friday", "morning", "praise"],
+      relatedSaints: [],
+      citations: [`${DRBO}17013.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-jesus-son-of-sirach",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}26051.htm`],
+    payload: {
+      slug: "prayer-of-jesus-son-of-sirach",
+      title: "Prayer of Jesus, Son of Sirach (Ecclesiasticus 51:1-17)",
+      body: "A prayer of Jesus the son of Sirach. I will give glory to thee, O Lord, O King, and I will praise thee, O God my Saviour.\nI will give glory to thy name: for thou hast been a helper and protector to me.\nAnd hast preserved my body from destruction, from the snare of an unjust tongue, and from the lips of them that forge lies, and in the sight of them that stood by, thou hast been my helper.\nAnd thou hast delivered me, according to the multitude of the mercy of thy name, from them that did roar, prepared to devour.\nOut of the hands of them that sought my life, and from the gates of afflictions, which compassed me about:\nFrom the oppression of the flame which surrounded me, and in the midst of the fire I was not burnt.\nFrom the depth of the belly of hell, and from an unclean tongue, and from lying words, from an unjust king, and from a slanderous tongue:\nMy soul shall praise the Lord even to death.\nAnd my life was drawing near to hell beneath.\nThey compassed me on every side, and there was no one that would help me. I looked for the succour of men, and there was none.\nI remembered thy mercy, O Lord, and thy works, which are from the beginning of the world.\nHow thou deliverest them that wait for thee, O Lord, and savest them out of the hands of the nations.\nThou hast exalted my dwelling place upon the earth and I have prayed for death to pass away.\nI called upon the Lord, the father of my Lord, that he would not leave me in the day of my trouble, and in the time of the proud without help.\nI will praise thy name continually, and will praise it with thanksgiving, and my prayer was heard.\nAnd thou hast saved me from destruction, and hast delivered me from the evil time.\nTherefore I will give thanks, and praise thee, and bless the name of the Lord.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The thanksgiving with which the Book of Ecclesiasticus closes: Jesus, son of Sirach, praises God his Saviour for delivering him from slanderous tongues, from those who sought his life and from the flame that surrounded him, and remembers the mercy of the Lord, who saves those who wait for him. Douay-Rheims text, Ecclesiasticus 51:1-17.",
+      occasions: ["thanksgiving", "trial", "protection"],
+      relatedSaints: [],
+      citations: [`${DRBO}26051.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-self-control-ecclesiasticus-23",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}26023.htm`],
+    payload: {
+      slug: "prayer-for-self-control-ecclesiasticus-23",
+      title:
+        "Prayer for Self-Control: O Lord, Father and Sovereign Ruler of My Life (Ecclesiasticus 23:1-6)",
+      body: "O Lord, father, and sovereign ruler of my life, leave me not to their counsel: nor suffer me to fall by them.\nWho will set scourges over my thoughts, and the discipline of wisdom over my heart, that they spare me not in their ignorances, and that their sins may not appear:\nLest my ignorance increase, and my offences be multiplied, and my sins abound, and I fall before my adversaries, and my enemy rejoice over me?\nO Lord, father, and God of my life, leave me not to their devices.\nGive me not haughtiness of my eyes, and turn away from me all coveting.\nTake from me the greediness of the belly, and let not the lusts of the flesh take hold of me, and give me not over to a shameless and foolish mind.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A short prayer from Ecclesiasticus asking God, father and ruler of the speaker's life, not to abandon him to the counsel of his lips: that the discipline of wisdom may chasten his thoughts, and that he may be kept from haughty eyes, covetousness, gluttony and the lusts of the flesh. Douay-Rheims text, Ecclesiasticus 23:1-6.",
+      occasions: ["temptation", "chastity", "examination-of-conscience"],
+      relatedSaints: [],
+      citations: [`${DRBO}26023.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-david-after-the-promise",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}10007.htm`],
+    payload: {
+      slug: "prayer-of-david-after-the-promise",
+      title: "Prayer of David: Who Am I, O Lord God? (2 Kings [2 Samuel] 7:18-29)",
+      body: "And David went in, and sat before the Lord, and said: Who am I, O Lord God, and what is my house, that thou hast brought me thus far?\nBut yet this hath seemed little in thy sight, O Lord God, unless thou didst also speak of the house of thy servant for a long time to come: for this is the law of Adam, O Lord God.\nAnd what can David say more unto thee? for thou knowest thy servant, O Lord God:\nFor thy word's sake, and according to thy own heart thou hast done all these great things, so that thou wouldst make it known to thy servant.\nTherefore thou art magnified, O Lord God, because there is none like to thee, neither is there any God besides thee, in all the things that we have heard with our ears.\nAnd what nation is there upon earth, as thy people Israel, whom God went to redeem for a people to himself, and to make him a name, and to do for them great and terrible things, upon the earth, before the face of thy people, whom thou redeemedst to thyself out of Egypt, from the nations and their gods.\nFor thou hast confirmed to thyself thy people Israel to be an everlasting people: and thou, O Lord God, art become their God.\nAnd now, O Lord God, raise up for ever the word that thou hast spoken, concerning thy servant and concerning his house: and do as thou hast spoken,\nThat thy name may be magnified for ever, and it may be said: The Lord of hosts is God over Israel. And the house of thy servant David shall be established before the Lord.\nBecause thou, O Lord of hosts, God of Israel, hast revealed to the ear of thy servant, saying: I will build thee a house: therefore hath thy servant found in his heart to pray this prayer to thee.\nAnd now, O Lord God, thou art God, and thy words shall be true: for thou hast spoken to thy servant these good things.\nAnd now begin, and bless the house of thy servant, that it may endure for ever before thee: because thou, O Lord God, hast spoken it, and with thy blessing let the house of thy servant be blessed for ever.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "King David's prayer after the prophet Nathan brought him God's promise that his house and kingdom would endure for ever: Who am I, O Lord God, and what is my house, that thou hast brought me thus far? He praises God, beside whom there is no other, and asks him to fulfil his word and bless the house of his servant. Douay-Rheims text, 2 Kings 7:18-29 (2 Samuel in modern Bibles).",
+      occasions: ["thanksgiving", "families", "humility"],
+      relatedSaints: [],
+      citations: [`${DRBO}10007.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-solomon-at-the-dedication-of-the-temple",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}11008.htm`],
+    payload: {
+      slug: "prayer-of-solomon-at-the-dedication-of-the-temple",
+      title: "Prayer of Solomon at the Dedication of the Temple (3 Kings [1 Kings] 8:22-53)",
+      body: "And Solomon stood before the altar of the Lord in the sight of the assembly of Israel, and spread forth his hands towards heaven;\nAnd said: Lord God of Israel, there is no God like thee in heaven above, or on earth beneath: who keepest covenant and mercy with thy servants that have walked before thee with all their heart.\nWho hast kept with thy servant David my father what thou hast promised him: with thy mouth thou didst speak, and with thy hands thou hast performed, as this day proveth.\nNow therefore, O Lord God of Israel, keep with thy servant David my father what thou hast spoken to him, saying: There shall not be taken away of thee a man in my sight, to sit on the throne of Israel: yet so that thy children take heed to their way, that they walk before me as thou hast walked in my sight.\nAnd now, Lord God of Israel, let thy words be established, which thou hast spoken to thy servant David my father.\nIs it then to be thought that God should indeed dwell upon earth? for if heaven, and the heavens of heavens cannot contain thee, how much less this house which I have built?\nBut have regard to the prayer of thy servant, and to his supplications, O Lord my God: hear the hymn and the prayer, which thy servant prayeth before thee this day:\nThat thy eyes may be open upon this house night and day: upon the house of which thou hast said: My name shall be there: that thou mayest hearken to the prayer, which thy servant prayeth in this place to thee.\nThat thou mayest hearken to the supplication of thy servant and of thy people Israel, whatsoever they shall pray for in this place, and hear them in the place of thy dwelling in heaven; and when thou hearest, shew them mercy.\nIf any man trespass against his neighbour, and have an oath upon him, wherewith he is bound: and come because of the oath before thy altar to thy house,\nThen hear thou in heaven: and do, and judge thy servants, condemning the wicked, and bringing his way upon his own head, and justifying the just, and rewarding him according to his justice.\nIf thy people Israel shall fly before their enemies, (because they will sin against thee,) and doing penance, and confessing to thy name, shall come, and pray, and make supplications to thee in this house:\nThen hear thou in heaven, and forgive the sin of thy people Israel, and bring them back to the land which thou gavest to their fathers.\nIf heaven shall be shut up, and there shall be no rain, because of their sins, and they praying in this place, shall do penance to thy name, and shall be converted from their sins, by occasion of their afflictions:\nThen hear thou them in heaven, and forgive the sins of thy servants, and of thy people Israel: and shew them the good way wherein they should walk, and give rain upon thy land, which thou hast given to thy people in possession.\nIf a famine arise in the land, or a pestilence, or corrupt air, or blasting, or locust, or mildew, if their enemy afflict them besieging the gates, whatsoever plague, whatsoever infirmity,\nWhatsoever curse or imprecation shall happen to any man of thy people Israel: when a man shall know the wound of his own heart, and shall spread forth his hands in this house,\nThen hear thou in heaven, in the place of thy dwelling, and forgive, and do so as to give to every one according to his ways, as thou shalt see his heart (for thou only knowest the heart of all the children of men)\nThat they may fear thee all the days that they live upon the face of the land, which thou hast given to our fathers.\nMoreover also the stranger, who is not of thy people Israel, when he shall come out of a far country for thy name's sake, (for they shall hear everywhere of thy great name and thy mighty hand,\nAnd thy stretched out arm,) so when he shall come, and shall pray in this place,\nThen hear thou in heaven, in the firmament of thy dwelling place, and do all those things, for which that stranger shall call upon thee: that all the people of the earth may learn to fear thy name, as do thy people Israel, and may prove that thy name is called upon on this house, which I have built.\nIf thy people go out to war against their enemies, by what way soever thou shalt send them, they shall pray to thee towards the way of the city, which thou hast chosen, and towards the house, which I have built to thy name:\nAnd then hear thou in heaven their prayers, and their supplications, and do judgment for them.\nBut if they sin against thee (for there is no man who sinneth not) and thou being angry deliver them up to their enemies, so that they be led away captives into the land of their enemies far or near;\nThen if they do penance in their heart in the place of captivity, and being converted make supplication to thee in their captivity, saying: We have sinned, we have done unjustly, we have committed wickedness:\nAnd return to thee with all their heart, and all their soul, in the land of their enemies, to which they had been led captives: and pray to thee towards the way of their land, which thou gavest to their fathers, and of the city which thou hast chosen, and of the temple which I have built to thy name:\nThen hear thou in heaven, in the firmament of thy throne, their prayers, and their supplications, and do judgment for them:\nAnd forgive thy people, that have sinned against thee, and all their iniquities, by which they have transgressed against thee: and give them mercy before them that have made them captives, that they may have compassion on them.\nFor they are thy people, and thy inheritance, whom thou hast brought out of the land of Egypt, from the midst of the furnace of iron.\nThat thy eyes may be open to the supplication of thy servant, and of thy people Israel, to hear them in all things for which they shall call upon thee.\nFor thou hast separated them to thyself for an inheritance from among all the people of the earth, as thou hast spoken by Moses thy servant, when thou broughtest our fathers out of Egypt, O Lord God.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer King Solomon made with outstretched hands before the altar when the Temple was dedicated: if the heaven of heavens cannot contain God, how much less this house; yet may his eyes be open upon it night and day, and may he hear from heaven and forgive whenever his people, or even the stranger, pray toward it in sin, defeat, drought, famine, war or exile. Douay-Rheims text, 3 Kings 8:22-53 (1 Kings in modern Bibles).",
+      occasions: ["dedication", "for-the-church", "penance"],
+      relatedSaints: [],
+      citations: [`${DRBO}11008.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-nehemias",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}16001.htm`],
+    payload: {
+      slug: "prayer-of-nehemias",
+      title: "Prayer of Nehemias for His People (2 Esdras [Nehemiah] 1:4-11)",
+      body: "And when I had heard these words, I sat down, and wept, and mourned for many days: and I fasted, and prayed before the face of the God of heaven.\nAnd I said: I beseech thee, O Lord God of heaven, strong, great, and terrible, who keepest covenant and mercy with those that love thee, and keep thy commandments:\nLet thy ears be attentive, and thy eyes open, to hear the prayer of thy servant, which I pray before thee now, night and day, for the children of Israel thy servants: and I confess the sins of the children of Israel, by which they have sinned against thee: I and my father's house have sinned.\nWe have been seduced by vanity, and have not kept thy commandments, and ceremonies and judgments, which thou hast commanded thy servant Moses.\nRemember the word that thou commandedst to Moses thy servant, saying: If you shall transgress, I will scatter you abroad among the nations:\nBut if you return to me, and keep my commandments, and do them, though you should be led away to the uttermost parts of the world, I will gather you from thence, and bring you back to the place which I have chosen for my name to dwell there.\nAnd these are thy servants, and thy people: whom thou hast redeemed by thy great strength, and by thy mighty hand.\nI beseech thee, O Lord, let thy ear be attentive to the prayer of thy servant, and to the prayer of thy servants who desire to fear thy name: and direct thy servant this day, and give him mercy before this man. For I was the king's cupbearer.",
+      prayerType: "intercession",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The prayer of Nehemias, cupbearer to the king of Persia, when he heard that the walls of Jerusalem lay broken: after days of fasting and mourning he confesses the sins of Israel and of his father's house, recalls God's promise to gather his scattered people if they return to him, and asks for favour before the king. Douay-Rheims text, 2 Esdras 1:4-11 (Nehemiah in modern Bibles).",
+      occasions: ["penance", "for-the-church", "times-of-trouble"],
+      relatedSaints: [],
+      citations: [`${DRBO}16001.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-mardochai",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}19013.htm`],
+    payload: {
+      slug: "prayer-of-mardochai",
+      title: "Prayer of Mardochai (Esther 13:8-17)",
+      body: "But Mardochai besought the Lord, remembering all his works,\nAnd said: O Lord, Lord, almighty king, for all things are in thy power, and there is none that can resist thy will, if thou determine to save Israel.\nThou hast made heaven and earth, and all things that are under the cope of heaven.\nThou art Lord of all, and there is none that can resist thy majesty.\nThou knowest all things, and thou knowest that it was not out of pride and contempt, or any desire of glory, that I refused to worship the proud Aman,\n(For I would willingly and readily for the salvation of Israel have kissed even the steps of his feet,)\nBut I feared lest I should transfer the honour of my God to a man, and lest I should adore any one except my God.\nAnd now, O Lord, O king, O God of Abraham, have mercy on thy people, because our enemies resolve to destroy us, and extinguish thy inheritance.\nDespise not thy portion, which thou hast redeemed for thyself out of Egypt.\nHear my supplication, and be merciful to thy lot and inheritance, and turn our mourning into joy, that we may live and praise thy name, O Lord, and shut not the mouths of them that sing to thee.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer of Mardochai when the decree for the destruction of the Jews had gone out: he confesses God as the almighty King whose will none can resist, explains that he refused to bow to Aman only lest he give God's honour to a man, and asks God to spare his inheritance and turn his people's mourning into joy. It precedes the prayer of Queen Esther in the parts of Esther preserved in the Greek and Latin Bible. Douay-Rheims text, Esther 13:8-17.",
+      occasions: ["times-of-trouble", "protection", "trust"],
+      relatedSaints: [],
+      citations: [`${DRBO}19013.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-the-exiles-baruch-3",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}30003.htm`],
+    payload: {
+      slug: "prayer-of-the-exiles-baruch-3",
+      title: "Prayer of the Exiles: The Soul in Anguish Crieth to Thee (Baruch 3:1-8)",
+      body: "And now, O Lord Almighty, the God of Israel, the soul in anguish, and the troubled spirit crieth to thee:\nHear, O Lord, and have mercy, for thou art a merciful God, and have pity on us: for we have sinned before thee.\nFor thou remainest for ever, and shall we perish everlastingly?\nO Lord Almighty, the God of Israel, hear now the prayer of the dead of Israel, and of their children, that have sinned before thee, and have not hearkened to the voice of the Lord their God, wherefore evils have cleaved fast to us.\nRemember not the iniquities of our fathers, but think upon thy hand, and upon thy name at this time:\nFor thou art the Lord our God, and we will praise thee, O Lord:\nBecause for this end thou hast put thy fear in our hearts, to the intent that we should call upon thy name, and praise thee in our captivity, for we are converted from the iniquity of our fathers, who sinned before thee.\nAnd behold we are at this day in our captivity, whereby thou hast scattered us to be a reproach, and a curse, and an offence, according to all the iniquities of our fathers, who departed from thee, O Lord our God.",
+      prayerType: "intercession",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The confession of the exiles in Babylon: the soul in anguish and the troubled spirit cry to the Lord Almighty to hear and have mercy, to remember not the iniquities of their fathers but his own hand and name, for he has put his fear in their hearts that they might call upon him and praise him in their captivity. Douay-Rheims text, Baruch 3:1-8.",
+      occasions: ["penance", "lent", "times-of-trouble"],
+      relatedSaints: [],
+      citations: [`${DRBO}30003.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-jonas",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}37002.htm`],
+    payload: {
+      slug: "prayer-of-jonas",
+      title: "Prayer of Jonas from the Belly of the Fish (Jonas 2:2-10)",
+      body: "And Jonas prayed to the Lord his God out of the belly of the fish.\nAnd he said: I cried out of my affliction to the Lord, and he heard me: I cried out of the belly of hell, and thou hast heard my voice.\nAnd thou hast cast me forth into the deep in the heart of the sea, and a flood hath compassed me: all thy billows, and thy waves have passed over me.\nAnd I said: I am cast away out of the sight of thy eyes: but yet I shall see thy holy temple again.\nThe waters compassed me about even to the soul: the deep hath closed me round about, the sea hath covered my head.\nI went down to the lowest parts of the mountains: the bars of the earth have shut me up for ever: and thou wilt bring up my life from corruption, O Lord my God.\nWhen my soul was in distress within me, I remembered the Lord: that my prayer may come to thee, unto thy holy temple.\nThey that are vain observe vanities, forsake their own mercy.\nBut I with the voice of praise will sacrifice to thee: I will pay whatsoever I have vowed for my salvation to the Lord.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer Jonas made to the Lord from the belly of the fish: he cried out of his affliction and out of the belly of hell and was heard, though all the billows passed over him and the bars of the earth shut him in, and he promises to sacrifice with the voice of praise. Our Lord cites the sign of Jonas as a figure of his own three days in the tomb (Matthew 12:40). Douay-Rheims text, Jonas 2:2-10.",
+      occasions: ["trial", "suffering", "thanksgiving"],
+      relatedSaints: [],
+      citations: [`${DRBO}37002.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "thanksgiving-of-daniel",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}32002.htm`],
+    payload: {
+      slug: "thanksgiving-of-daniel",
+      title: "Thanksgiving of Daniel: Blessed Be the Name of the Lord (Daniel 2:19-23)",
+      body: "Then was the mystery revealed to Daniel by a vision in the night: and Daniel blessed the God of heaven,\nAnd speaking he said: Blessed be the name of the Lord from eternity and for evermore: for wisdom and fortitude are his.\nAnd he changeth times and ages: taketh away kingdoms and establisheth them, giveth wisdom to the wise, and knowledge to them that have understanding.\nHe revealeth deep and hidden things, and knoweth what is in darkness: and light is with him.\nTo thee, O God of our fathers, I give thanks, and I praise thee: because thou hast given me wisdom and strength: and now thou hast shewn me what we desired of thee, for thou hast made known to us, the king's discourse.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Daniel's blessing of the God of heaven when the mystery of Nabuchodonosor's dream was revealed to him in a vision of the night: wisdom and fortitude are God's, who changes times and ages, gives wisdom to the wise and reveals deep and hidden things, and Daniel thanks him for the wisdom and strength given to him. Douay-Rheims text, Daniel 2:19-23.",
+      occasions: ["thanksgiving", "praise", "before-study"],
+      relatedSaints: [],
+      citations: [`${DRBO}32002.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-isaias-that-thou-wouldst-rend-the-heavens",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}27063.htm`, `${DRBO}27064.htm`],
+    payload: {
+      slug: "prayer-of-isaias-that-thou-wouldst-rend-the-heavens",
+      title: "Prayer of Isaias: That Thou Wouldst Rend the Heavens (Isaias 63:15-64:12)",
+      body: "Look down from heaven, and behold from thy holy habitation and the place of thy glory: where is thy zeal, and thy strength, the multitude of thy bowels, and of thy mercies? they have held back themselves from me.\nFor thou art our father, and Abraham hath not known us, and Israel hath been ignorant of us: thou, O Lord, art our father, our redeemer, from everlasting is thy name.\nWhy hast thou made us to err, O Lord, from thy ways: why hast thou hardened our heart, that we should not fear thee? return for the sake of thy servants, the tribes of thy inheritance.\nThey have possessed thy holy people as nothing: our enemies have trodden down thy sanctuary.\nWe are become as in the beginning, when thou didst not rule over us, and when we were not called by thy name.\nThat thou wouldst rend the heavens, and wouldst come down: the mountains would melt away at thy presence.\nThey would melt as at the burning of fire, the waters would burn with fire, that thy name might be made known to thy enemies: that the nations might tremble at thy presence.\nWhen thou shalt do wonderful things, we shall not bear them: thou didst come down, and at thy presence the mountains melted away.\nFrom the beginning of the world they have not heard, nor perceived with the ears: the eye hath not seen, O God, besides thee, what things thou hast prepared for them that wait for thee.\nThou hast met him that rejoiceth, and doth justice: in thy ways they shall remember thee: behold thou art angry, and we have sinned: in them we have been always, and we shall be saved.\nAnd we are all become as one unclean, and all our justices as the rag of a menstruous woman: and we have all fallen as a leaf, and our iniquities, like the wind, have taken us away.\nThere is none that calleth upon thy name: that riseth up, and taketh hold of thee: thou hast hid thy face from us, and hast crushed us in the hand of our iniquity.\nAnd now, O Lord, thou art our father, and we are clay: and thou art our maker, and we all are the works of thy hands.\nBe not very angry, O Lord, and remember no longer our iniquity: behold, see we are all thy people.\nThe city of thy sanctuary is become a desert, Sion is made a desert, Jerusalem is desolate.\nThe house of our holiness, and of our glory, where our fathers praised thee, is burnt with fire, and all our lovely things are turned into ruins.\nWilt thou refrain thyself, O Lord, upon these things, wilt thou hold thy peace, and afflict us vehemently?",
+      prayerType: "intercession",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The prophet's lament and plea for the people: Look down from heaven, for thou art our father and our redeemer; O that thou wouldst rend the heavens and come down; eye hath not seen what thou hast prepared for them that wait for thee; we are the clay and thou our maker, remember no longer our iniquity. Its cry for God to come down is part of the Church's Advent prayer, and Saint Paul echoes its words in 1 Corinthians 2:9. Douay-Rheims text, Isaias 63:15-64:12.",
+      occasions: ["advent", "penance", "times-of-trouble"],
+      relatedSaints: [],
+      citations: [`${DRBO}27063.htm`, `${DRBO}27064.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-the-apostles-acts-4",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}51004.htm`],
+    payload: {
+      slug: "prayer-of-the-apostles-acts-4",
+      title: "Prayer of the Apostles: Grant unto Thy Servants Confidence (Acts 4:24-30)",
+      body: "Who having heard it, with one accord lifted up their voice to God, and said: Lord, thou art he that didst make heaven and earth, the sea, and all things that are in them.\nWho, by the Holy Ghost, by the mouth of our father David, thy servant, hast said: Why did the Gentiles rage, and the people meditate vain things?\nThe kings of the earth stood up, and the princes assembled together against the Lord and his Christ.\nFor of a truth there assembled together in this city against thy holy child Jesus, whom thou hast anointed, Herod, and Pontius Pilate, with the Gentiles and the people of Israel,\nTo do what thy hand and thy counsel decreed to be done.\nAnd now, Lord, behold their threatenings, and grant unto thy servants, that with all confidence they may speak thy word,\nBy stretching forth thy hand to cures, and signs, and wonders to be done by the name of thy holy Son Jesus.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer of the first Christian community when Peter and John were released and threatened by the Sanhedrin: they praise the Lord who made heaven and earth, see the rage of the nations against his Christ foretold in the second psalm, and ask boldness to speak his word, with healings and signs in the name of his holy Son Jesus; when they had prayed, the place was shaken and all were filled with the Holy Ghost. Douay-Rheims text, Acts 4:24-30.",
+      occasions: ["for-the-church", "missions", "pentecost"],
+      relatedSaints: [],
+      citations: [`${DRBO}51004.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-saint-paul-for-the-ephesians",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}56003.htm`],
+    payload: {
+      slug: "prayer-of-saint-paul-for-the-ephesians",
+      title:
+        "Prayer of Saint Paul: That Christ May Dwell by Faith in Your Hearts (Ephesians 3:14-21)",
+      body: "For this cause I bow my knees to the Father of our Lord Jesus Christ,\nOf whom all paternity in heaven and earth is named,\nThat he would grant you, according to the riches of his glory, to be strengthened by his Spirit with might unto the inward man,\nThat Christ may dwell by faith in your hearts; that being rooted and founded in charity,\nYou may be able to comprehend, with all the saints, what is the breadth, and length, and height, and depth:\nTo know also the charity of Christ, which surpasseth all knowledge, that you may be filled unto all the fulness of God.\nNow to him who is able to do all things more abundantly than we desire or understand, according to the power that worketh in us;\nTo him be glory in the church, and in Christ Jesus unto all generations, world without end. Amen.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "Saint Paul bows his knees to the Father, from whom all fatherhood in heaven and earth is named, asking that the faithful be strengthened by his Spirit, that Christ may dwell in their hearts by faith, and that, rooted in charity, they may know the love of Christ which surpasses all knowledge; it ends with a doxology to him who is able to do more than we ask or understand. Douay-Rheims text, Ephesians 3:14-21.",
+      occasions: ["for-the-church", "families", "praise"],
+      relatedSaints: ["saint-paul"],
+      citations: [`${DRBO}56003.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "priestly-blessing-of-aaron",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}04006.htm`],
+    payload: {
+      slug: "priestly-blessing-of-aaron",
+      title: "The Priestly Blessing: The Lord Bless Thee and Keep Thee (Numbers 6:22-27)",
+      body: "And the Lord spoke to Moses, saying:\nSay to Aaron and his sons: Thus shall you bless the children of Israel, and you shall say to them:\nThe Lord bless thee, and keep thee.\nThe Lord shew his face to thee, and have mercy on thee.\nThe Lord turn his countenance to thee, and give thee peace.\nAnd they shall invoke my name upon the children of Israel, and I will bless them.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The blessing the Lord gave Moses for Aaron and his sons to pronounce over the children of Israel: The Lord bless thee and keep thee, show his face to thee and have mercy on thee, turn his countenance to thee and give thee peace. It is read at Mass on the first day of January, and its threefold form has long been used in blessings. Douay-Rheims text, Numbers 6:22-27.",
+      occasions: ["blessing", "new-year", "january"],
+      relatedSaints: [],
+      citations: [`${DRBO}04006.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-agur-neither-beggary-nor-riches",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}22030.htm`],
+    payload: {
+      slug: "prayer-of-agur-neither-beggary-nor-riches",
+      title: "Prayer of Agur: Give Me Neither Beggary nor Riches (Proverbs 30:7-9)",
+      body: "Two things I have asked of thee, deny them not to me before I die.\nRemove far from me vanity, and lying words. Give me neither beggary, nor riches: give me only the necessaries of life:\nLest perhaps being filled, I should be tempted to deny, and say: Who is the Lord? or being compelled by poverty, I should steal, and forswear the name of my God.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A wise man's prayer for two things before he dies: that vanity and lying words be kept far from him, and that he be given neither beggary nor riches but only the necessaries of life, lest plenty tempt him to deny the Lord or poverty drive him to steal. Douay-Rheims text, Proverbs 30:7-9.",
+      occasions: ["daily", "work", "trust"],
+      relatedSaints: [],
+      citations: [`${DRBO}22030.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "o-the-depth-of-the-riches-romans-11",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}52011.htm`],
+    payload: {
+      slug: "o-the-depth-of-the-riches-romans-11",
+      title: "O the Depth of the Riches of the Wisdom of God (Romans 11:33-36)",
+      body: "O the depth of the riches of the wisdom and of the knowledge of God! How incomprehensible are his judgments, and how unsearchable his ways!\nFor who hath known the mind of the Lord? Or who hath been his counsellor?\nOr who hath first given to him, and recompense shall be made him?\nFor of him, and by him, and in him, are all things: to him be glory for ever. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Saint Paul's cry of wonder at the close of his teaching on the mercy of God to Jews and Gentiles: how incomprehensible are God's judgments and unsearchable his ways, for of him, and by him, and in him, are all things, to him be glory for ever. It is read on Trinity Sunday in the traditional Missal. Douay-Rheims text, Romans 11:33-36.",
+      occasions: ["praise", "adoration", "trinity-sunday"],
+      relatedSaints: ["saint-paul"],
+      citations: [`${DRBO}52011.htm`],
     },
   },
 ];
