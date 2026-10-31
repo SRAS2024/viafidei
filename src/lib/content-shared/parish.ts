@@ -1,16 +1,16 @@
 /**
  * Parish classification filters.
  *
- * Parish records carry a single `designation` (parish / shrine / cathedral /
- * major-basilica / minor-basilica). The directory groups these into the
- * classifications the user can filter by — Parish, Cathedral, Basilica,
- * Shrine — so cathedrals, basilicas, and shrines are clearly distinct from
- * ordinary parishes. A church that is also a basilica, cathedral, or shrine
- * surfaces under that classification (its specific designation label is still
- * shown on the card).
+ * Parish records carry a single `designation` (parish / chapel / shrine /
+ * cathedral / major-basilica / minor-basilica). The directory groups these
+ * into the classifications the user can filter by — Parish, Cathedral,
+ * Basilica, Shrine, Chapel — so cathedrals, basilicas, shrines and chapels are
+ * clearly distinct from ordinary parishes. A church that is also a basilica,
+ * cathedral, or shrine surfaces under that classification (its specific
+ * designation label is still shown on the card).
  */
 
-export type ParishClassification = "parish" | "cathedral" | "basilica" | "shrine";
+export type ParishClassification = "parish" | "cathedral" | "basilica" | "shrine" | "chapel";
 export type ParishFilter = ParishClassification | "all";
 
 export const PARISH_FILTERS: ReadonlyArray<{ key: ParishFilter; label: string }> = [
@@ -19,7 +19,16 @@ export const PARISH_FILTERS: ReadonlyArray<{ key: ParishFilter; label: string }>
   { key: "cathedral", label: "Cathedrals" },
   { key: "basilica", label: "Basilicas" },
   { key: "shrine", label: "Shrines" },
+  { key: "chapel", label: "Chapels" },
 ];
+
+const CLASSIFICATIONS: ReadonlySet<string> = new Set([
+  "parish",
+  "cathedral",
+  "basilica",
+  "shrine",
+  "chapel",
+]);
 
 /** Group a raw designation into one of the filterable classifications. */
 export function classifyParish(designation: unknown): ParishClassification {
@@ -27,14 +36,13 @@ export function classifyParish(designation: unknown): ParishClassification {
   if (d === "cathedral") return "cathedral";
   if (d.includes("basilica")) return "basilica";
   if (d === "shrine") return "shrine";
+  if (d === "chapel") return "chapel";
   return "parish";
 }
 
 /** Resolve a `?class=` value into the active filter (defaults to "all"). */
 export function resolveParishFilter(param: string | null | undefined): ParishFilter {
-  return param === "parish" || param === "cathedral" || param === "basilica" || param === "shrine"
-    ? param
-    : "all";
+  return param && CLASSIFICATIONS.has(param) ? (param as ParishClassification) : "all";
 }
 
 /** Whether a record with the given designation matches the active filter. */
@@ -50,7 +58,7 @@ export function parishMatchesFilter(designation: unknown, filter: ParishFilter):
  * database write and no republish. Nothing here reads or reshapes stored data.
  */
 
-/** The parts of a parish record the "Diocese" line is built from. */
+/** The place parts of a parish record: town, region and country. */
 export type ParishPlaceParts = {
   city?: string | null;
   state?: string | null;
@@ -62,23 +70,9 @@ function trimmed(value: unknown): string {
 }
 
 /**
- * City, state and country joined with ", " ("Denver, Colorado, United
- * States"), with missing parts dropped — what the card's old "Diocese" line
- * printed (the card now prints the whole address, see `parishAddressLines`).
- *
- * Returns null when the record has none of the three. That is the COMMON case
- * — only about a third of published parishes carry a city — so a caller must
- * omit the line rather than print an empty one.
- */
-export function parishDioceseLine(parts: ParishPlaceParts): string | null {
-  const joined = [parts.city, parts.state, parts.country].map(trimmed).filter(Boolean).join(", ");
-  return joined || null;
-}
-
-/**
  * The street address out of a projected directory row. `ParishListItem.location`
- * is "address, city, state" already joined, but the card prints city/state on
- * the "Diocese" line, so the trailing place parts are stripped here instead of
+ * is "address, city, state" already joined, but the card prints the place on
+ * its own line, so the trailing place parts are stripped here instead of
  * being repeated one line apart. Returns null when nothing but the place is
  * left (the record has no postal address at all).
  */
@@ -109,32 +103,19 @@ export function parishDirectionsAddress(parts: ParishAddressParts): string {
 }
 
 /**
- * A parish website as an (href, label) pair, or null when the record has no
- * usable one. Stored values are inconsistent about the scheme, so a bare
- * "stmarys.org" still becomes a working https link, and the label drops the
- * scheme and any trailing slash so the card shows a domain, not a raw URL.
- */
-export function parishWebsite(value: unknown): { href: string; label: string } | null {
-  const raw = trimmed(value);
-  if (!raw) return null;
-  const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-  const label = href.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
-  return label ? { href, label } : null;
-}
-
-/**
  * What a church is, as its card says it under the name: "Parish",
- * "Cathedral", "Shrine", "Chapel", and always "Minor Basilica" or "Major
- * Basilica" — the stored designations are `minor-basilica` / `major-basilica`.
- * A bare "basilica" (no record carries one today) says only "Basilica" rather
- * than guess which. A designation this list does not know returns null, so a
- * raw token never reaches the card.
+ * "Cathedral", "Shrine", "Chapel", "Oratory", and always "Minor Basilica" or
+ * "Major Basilica" — the stored designations are `minor-basilica` /
+ * `major-basilica`. A bare "basilica" (no record carries one today) says only
+ * "Basilica" rather than guess which. A designation this list does not know
+ * returns null, so a raw token never reaches the card.
  */
 const DESIGNATION_LABELS: Readonly<Record<string, string>> = {
   parish: "Parish",
   cathedral: "Cathedral",
   shrine: "Shrine",
   chapel: "Chapel",
+  oratory: "Oratory",
   "minor-basilica": "Minor Basilica",
   "major-basilica": "Major Basilica",
   basilica: "Basilica",
@@ -162,9 +143,22 @@ export type ParishAddressParts = ParishPlaceParts & {
 
 /**
  * Countries whose addresses put the postal code after the town and region
- * ("Chicago, IL 60629"); everywhere else it leads the town ("00184 Roma").
+ * ("Chicago, IL 60629", "Singapore 048616"); everywhere else it leads the town
+ * ("00184 Roma").
  */
-const POSTCODE_AFTER_LOCALITY = new Set(["US", "CA", "AU", "NZ", "GB", "IE", "IN", "BR"]);
+const POSTCODE_AFTER_LOCALITY: ReadonlySet<string> = new Set([
+  "US",
+  "CA",
+  "GB",
+  "IE",
+  "AU",
+  "NZ",
+  "IN",
+  "PH",
+  "ZA",
+  "SG",
+  "BR",
+]);
 
 /** The same, for a record that names its country but carries no code. */
 const COUNTRY_CODES_BY_NAME: Readonly<Record<string, string>> = {
@@ -177,6 +171,9 @@ const COUNTRY_CODES_BY_NAME: Readonly<Record<string, string>> = {
   "united kingdom": "GB",
   ireland: "IE",
   india: "IN",
+  philippines: "PH",
+  "south africa": "ZA",
+  singapore: "SG",
   brazil: "BR",
   brasil: "BR",
 };

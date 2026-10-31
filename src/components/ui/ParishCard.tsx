@@ -19,7 +19,10 @@ export type ParishCardProps = {
    * HTML and swallows the directions tap.
    */
   href?: string | null;
-  /** Stored designation: parish, cathedral, shrine, chapel, minor-basilica, major-basilica. */
+  /**
+   * Stored designation: parish, cathedral, shrine, chapel, oratory,
+   * minor-basilica, major-basilica.
+   */
   designation?: string | null;
   /** The street line ("6135 South Austin Avenue"). */
   address?: string | null;
@@ -45,17 +48,20 @@ export type ParishCardProps = {
 };
 
 /**
- * The one and only church presentation — parish, cathedral, basilica, shrine
- * or chapel, on its own page and on the directory.
+ * The one and only church presentation — parish, cathedral, basilica, shrine,
+ * chapel or oratory, on its own page and on the directory.
  *
  * It shows what the owner asked for and nothing else: the name, then what the
  * church is ("Minor Basilica" — a basilica always says minor or major), then
  * its address (street, postal code, town, region, country, as the record has
  * them) with Get directions. The website and the "Diocese" label (which sat on
- * a line that was really the town) are gone. Because this is rendering and not
- * data, every published parish changes the moment this component does: no
- * migration, no backfill, no worker pass. Phone, Mass and confession times,
- * the website and the rest stay in the payload; they are simply not shown.
+ * a line that was really the town) are gone. Directions aim at the record's
+ * coordinates when it has them, so a church with no street (most of them) can
+ * still be reached; the street address is the fallback destination. Because
+ * this is rendering and not data, every published parish changes the moment
+ * this component does: no migration, no backfill, no worker pass. Phone, Mass
+ * and confession times, the website and the rest stay in the payload; they
+ * are simply not shown.
  */
 export function ParishCard({
   name,
@@ -79,6 +85,9 @@ export function ParishCard({
   const kind = parishDesignationLabel(designation);
   const lines = parishAddressLines(parts);
   const street = typeof address === "string" && address.trim() ? address.trim() : null;
+  const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
+  // A town alone is no destination; a street or the exact coordinates are.
+  const directions = street != null || hasCoordinates;
 
   // The directory card sits in a list under the page's h1, so it is an h2
   // there and an h1 on the parish's own page.
@@ -119,23 +128,25 @@ export function ParishCard({
         {action ? <div className="flex shrink-0 items-center gap-2 pt-1">{action}</div> : null}
       </div>
 
-      {/* Omitted entirely when the record has no address part at all, so the
-          card never shows an empty row. Directions need a street to aim at. */}
-      {lines.length > 0 ? (
+      {/* Omitted entirely when there is neither an address part nor a place
+          to aim directions at, so the card never shows an empty row. */}
+      {lines.length > 0 || directions ? (
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <address className="font-serif not-italic leading-relaxed text-ink">
-            {lines.map((line, i) => (
-              <span key={i} className="block break-words">
-                {line}
-              </span>
-            ))}
-          </address>
-          {street ? (
+          {lines.length > 0 ? (
+            <address className="font-serif not-italic leading-relaxed text-ink">
+              {lines.map((line, i) => (
+                <span key={i} className="block break-words">
+                  {line}
+                </span>
+              ))}
+            </address>
+          ) : null}
+          {directions ? (
             <MapsAddressLink
               variant="block"
-              address={parishDirectionsAddress(parts)}
-              latitude={latitude ?? undefined}
-              longitude={longitude ?? undefined}
+              address={parishDirectionsAddress(parts) || name}
+              latitude={hasCoordinates ? (latitude as number) : undefined}
+              longitude={hasCoordinates ? (longitude as number) : undefined}
               className="vf-btn vf-btn-ghost inline-flex shrink-0 items-center gap-2 self-start !px-3 !py-1.5 text-sm"
             />
           ) : null}

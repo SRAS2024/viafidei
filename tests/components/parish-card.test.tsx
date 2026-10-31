@@ -2,7 +2,8 @@
  * @vitest-environment jsdom
  */
 /**
- * The church card (PARISH-CARD) — parish, cathedral, basilica, shrine, chapel.
+ * The church card (PARISH-CARD) — parish, cathedral, basilica, shrine, chapel,
+ * oratory.
  *
  * The owner asked for three things and nothing else: the name, what the church
  * is (a basilica always minor or major), and its address. The September card
@@ -10,7 +11,8 @@
  * It is a RENDERING change, so every published parish changes at once with no
  * worker pass over the rows, and every address part is optional: only about a
  * third of published parishes have a street, and none has a postal code until
- * the address backfill writes one.
+ * the address backfill writes one. Every parish has coordinates, so directions
+ * are offered from them when there is no street.
  */
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
@@ -19,9 +21,7 @@ import { ParishCard } from "@/components/ui/ParishCard";
 import {
   parishAddressLines,
   parishDesignationLabel,
-  parishDioceseLine,
   parishStreetAddress,
-  parishWebsite,
 } from "@/lib/content-shared/parish";
 
 /** The address block's lines, in order. */
@@ -55,12 +55,13 @@ describe("ParishCard", () => {
     expect(screen.getByRole("button", { name: /get directions/i })).toBeInTheDocument();
   });
 
-  it("says minor or major for every basilica, and names chapels", () => {
+  it("says minor or major for every basilica, and names chapels and oratories", () => {
     for (const [stored, label] of [
       ["parish", "Parish"],
       ["cathedral", "Cathedral"],
       ["shrine", "Shrine"],
       ["chapel", "Chapel"],
+      ["oratory", "Oratory"],
       ["minor-basilica", "Minor Basilica"],
       ["major-basilica", "Major Basilica"],
     ]) {
@@ -111,13 +112,35 @@ describe("ParishCard", () => {
   it("degrades gracefully: no postal code, no street, no designation, no address at all", () => {
     const { unmount } = render(<ParishCard name="St Anne" city="Denver" state="Colorado" />);
     expect(addressLines()).toEqual(["Denver, Colorado"]);
-    // Directions need a street to aim at.
+    // A town alone is no destination: no street and no coordinates, no directions.
     expect(screen.queryByRole("button", { name: /get directions/i })).not.toBeInTheDocument();
     unmount();
 
     render(<ParishCard name="St Jude" designation="oratory-of-unknown-kind" />);
     expect(document.querySelector("address")).toBeNull();
     expect(document.querySelectorAll("p")).toHaveLength(0);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("offers directions from the coordinates when there is no street", () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+
+    // The common case: a town and coordinates, no street.
+    const { unmount } = render(
+      <ParishCard name="Chiesa" city="Roma" country="Italy" latitude={41.89} longitude={12.48} />,
+    );
+    expect(addressLines()).toEqual(["Roma", "Italy"]);
+    screen.getByRole("button", { name: /get directions/i }).click();
+    expect(String(open.mock.calls[0]![0])).toContain(encodeURIComponent("41.89,12.48"));
+    unmount();
+
+    // Nothing but coordinates: no address block, and the church can still be reached.
+    render(<ParishCard name="Kapelle" designation="chapel" latitude={46.7} longitude={9.1} />);
+    expect(document.querySelector("address")).toBeNull();
+    screen.getByRole("button", { name: /get directions/i }).click();
+    expect(String(open.mock.calls[1]![0])).toContain(encodeURIComponent("46.7,9.1"));
+    vi.unstubAllGlobals();
   });
 
   it("sends Maps the coordinates when the record has them, and the full address otherwise", () => {
@@ -207,11 +230,40 @@ describe("church address and designation helpers", () => {
     expect(parishAddressLines({ city: " ", country: null })).toEqual([]);
   });
 
+  it("writes the postal code after the town in the countries that do", () => {
+    expect(
+      parishAddressLines({ city: "Singapore", postalCode: "048616", countryCode: "SG" }),
+    ).toEqual(["Singapore 048616"]);
+    expect(
+      parishAddressLines({
+        city: "Cape Town",
+        state: "Western Cape",
+        postalCode: "8001",
+        country: "South Africa",
+      }),
+    ).toEqual(["Cape Town, Western Cape 8001", "South Africa"]);
+    expect(parishAddressLines({ city: "Makati", postalCode: "1226", countryCode: "PH" })).toEqual([
+      "Makati 1226",
+    ]);
+    expect(
+      parishAddressLines({
+        city: "São Paulo",
+        state: "SP",
+        postalCode: "01310-100",
+        countryCode: "BR",
+      }),
+    ).toEqual(["São Paulo, SP 01310-100"]);
+    expect(
+      parishAddressLines({ city: "London", postalCode: "SW1A 1AA", countryCode: "GB" }),
+    ).toEqual(["London SW1A 1AA"]);
+  });
+
   it("labels only the designations it knows — never a raw token", () => {
     expect(parishDesignationLabel("minor-basilica")).toBe("Minor Basilica");
     expect(parishDesignationLabel("Major Basilica")).toBe("Major Basilica");
     expect(parishDesignationLabel("major_basilica")).toBe("Major Basilica");
     expect(parishDesignationLabel("chapel")).toBe("Chapel");
+    expect(parishDesignationLabel("oratory")).toBe("Oratory");
     expect(parishDesignationLabel("basilica")).toBe("Basilica");
     expect(parishDesignationLabel("wayside_cross")).toBeNull();
     expect(parishDesignationLabel(undefined)).toBeNull();
@@ -219,15 +271,6 @@ describe("church address and designation helpers", () => {
 });
 
 describe("parish card helpers", () => {
-  it("joins the place parts with ', ' and returns null when there are none", () => {
-    expect(parishDioceseLine({ city: "Denver", state: "Colorado", country: "United States" })).toBe(
-      "Denver, Colorado, United States",
-    );
-    expect(parishDioceseLine({ city: " ", state: null, country: "Italy" })).toBe("Italy");
-    expect(parishDioceseLine({ city: null, state: null, country: null })).toBeNull();
-    expect(parishDioceseLine({})).toBeNull();
-  });
-
   it("strips the place parts a directory row already joined into `location`", () => {
     // ParishListItem.location is "address, city, state".
     expect(
@@ -243,15 +286,5 @@ describe("parish card helpers", () => {
     ).toBeNull();
     expect(parishStreetAddress({ location: "" })).toBeNull();
     expect(parishStreetAddress({ location: "12 Chapel Rd" })).toBe("12 Chapel Rd");
-  });
-
-  it("makes a scheme-less website usable and labels it without the scheme", () => {
-    expect(parishWebsite("stmarys.org")).toEqual({
-      href: "https://stmarys.org",
-      label: "stmarys.org",
-    });
-    expect(parishWebsite("http://x.org/")).toEqual({ href: "http://x.org/", label: "x.org" });
-    expect(parishWebsite("  ")).toBeNull();
-    expect(parishWebsite(null)).toBeNull();
   });
 });
