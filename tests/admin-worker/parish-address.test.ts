@@ -141,6 +141,10 @@ describe("streetLineHasHouseNumber", () => {
     expect(streetLineHasHouseNumber("Calle 60 No. 491", "MX")).toBe(true);
     expect(streetLineHasHouseNumber("3 Maja 12", "PL")).toBe(true);
     expect(streetLineHasHouseNumber("1 Main St", null)).toBe(true);
+    // After a regnal name, and a lettered number on a French avenue.
+    expect(streetLineHasHouseNumber("Piazza Pio XII 12", "IT")).toBe(true);
+    expect(streetLineHasHouseNumber("Jana Pawła II 5", "PL")).toBe(true);
+    expect(streetLineHasHouseNumber("3a Avenue d'Emptinne", "FR")).toBe(true);
   });
 
   it("finds none on a bare street or square — Nominatim's parent street", () => {
@@ -166,6 +170,9 @@ describe("streetLineHasHouseNumber", () => {
       ["6a Avenida", "GT"],
       ["3 Sur", "MX"],
       ["B 12", "DE"],
+      ["CL 601", "ES"],
+      ["Chemin n° 13", "BE"],
+      ["Calle 60 x 61", "MX"],
       ["Straße 70", "DE"],
       ["Route 66", "US"],
       ["West 51st Street", "US"],

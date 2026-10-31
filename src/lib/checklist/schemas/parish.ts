@@ -43,7 +43,9 @@ export const parishSchema: ContentSchema = {
       massTimes: z.string().optional(),
       confessionTimes: z.string().optional(),
       // Normalized address fingerprint for duplicate detection: two parishes with
-      // the same addressKey are the same place and must not both be published.
+      // the same addressKey within 250 m are the same place and must not both be
+      // published — when the street has no house number, only if their names
+      // agree as well (admin-worker/parish-address.ts).
       addressKey: z.string().optional(),
       // Stable source identity (`osm:node/123`, a Google place id, …) so a
       // re-swept source updates its own row instead of creating a duplicate.

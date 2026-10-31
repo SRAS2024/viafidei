@@ -161,8 +161,11 @@ export function parishAddressKeyForPayload(payload: Record<string, unknown>): st
 const HOUSE_NUMBER_RE = /^\d{1,5}(?:[a-z]|bis|ter|quater)?$/;
 /** The year of a date a street is named after ("8 Mai 1945", "1 Decembrie 1918"). */
 const YEAR_RE = /^(?:1[6-9]|20)\d\d$/;
-/** A Spanish ordinal ("6ª Avenida" folds to "6a avenida"). */
+/** A Spanish ordinal ("6ª Avenida" folds to "6a avenida"), and the streets it numbers. */
 const ORDINAL_RE = /^\d+[ao]$/;
+const ORDINAL_STREETS = new Set(["avenida", "calle", "carrera", "diagonal", "transversal"]);
+/** A Roman numeral, as in a regnal name ("Piazza Pio XII", "Jana Pawła II"). */
+const ROMAN_RE = /^(?=[ivxlc])c{0,3}(?:xc|xl|l?x{0,3})(?:ix|iv|v?i{0,3})$/;
 
 /** Folded month names, as dates in street names spell them ("3 Maja", "28. října"). */
 const MONTHS = new Set(
@@ -207,7 +210,7 @@ function leadingNumberNamesStreet(tokens: string[]): boolean {
     MONTHS.has(next) ||
     (DATE_LINKS.has(next) && MONTHS.has(tokens[2] ?? "")) ||
     (tokens.length === 2 && COMPASS.has(next)) ||
-    (ORDINAL_RE.test(tokens[0] ?? "") && ROAD_WORDS.has(next))
+    (ORDINAL_RE.test(tokens[0] ?? "") && ORDINAL_STREETS.has(next))
   );
 }
 
@@ -217,6 +220,10 @@ function trailingNumberNamesStreet(tokens: string[]): boolean {
   const prev = tokens[tokens.length - 2] ?? "";
   if (MONTHS.has(prev) && YEAR_RE.test(last)) return true;
   if (/\d/.test(prev) || HOUSE_NUMBER_MARKERS.has(prev)) return false;
+  // A regnal number ends a name, so the number after it is the house's:
+  // "Piazza Pio XII 12", "Jana Pawła II 5" (not a road class like "CL 601").
+  const name = tokens[tokens.length - 3] ?? "";
+  if (ROMAN_RE.test(prev) && /^[a-z]+$/.test(name) && !ROAD_WORDS.has(name)) return false;
   // A road word, or a short road class / abbreviation ("B 12", "SS 16",
   // "Cra 7", the "x 61" of a cross-street).
   return ROAD_WORDS.has(prev) || prev.length <= 3;
