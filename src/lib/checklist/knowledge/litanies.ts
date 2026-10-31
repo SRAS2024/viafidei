@@ -1,4 +1,5 @@
 import type { CuratedEntry } from "./index";
+import { withCuratedTranslation } from "./prayer-translations";
 
 const VATICAN = "https://www.vatican.va/";
 const USCCB = "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/prayers";
@@ -37,6 +38,9 @@ function litany(slug: string, title: string, category: string, body: string): Cu
  * official Latin issued 1 May 2021) — two entries with one slug would seed two
  * ChecklistItem rows. batch-1 deliberately did NOT rewrite the Sacred Heart
  * litany, so this correct text stands.
+ *
+ * Like every curated prayer registry, each entry gets its PRAYER_TRANSLATIONS
+ * Latin/Greek merged in (none is recorded for the Sacred Heart litany yet).
  */
 export const litanyKnowledge: CuratedEntry[] = [
   litany(
@@ -90,4 +94,4 @@ export const litanyKnowledge: CuratedEntry[] = [
       "Lamb of God, who take away the sins of the world, have mercy on us.",
     ].join("\n"),
   ),
-];
+].map(withCuratedTranslation);

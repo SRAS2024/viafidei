@@ -161,3 +161,28 @@ export const PRAYER_TRANSLATIONS: Record<string, PrayerTranslation> = {
 export function hasCuratedTranslation(slug: string): boolean {
   return PRAYER_TRANSLATIONS[slug] != null;
 }
+
+/**
+ * A curated PRAYER entry with its translation from PRAYER_TRANSLATIONS merged
+ * into the payload (an entry here wins over an inline `latin` / `greek`).
+ *
+ * Every curated prayer registry runs its entries through this — the legacy
+ * list in `./prayers.ts`, each `./prayers/batch-N` file and `./litanies.ts`.
+ * The merge used to cover the legacy list only, so a translation added here
+ * for a batch or litany slug (the Litany of Loreto lives in batch-1) was
+ * silently never published and never reached the Admin Worker's translator.
+ */
+export function withCuratedTranslation<
+  T extends { slug: string; payload: Record<string, unknown> },
+>(entry: T): T {
+  const t = PRAYER_TRANSLATIONS[entry.slug];
+  if (!t) return entry;
+  return {
+    ...entry,
+    payload: {
+      ...entry.payload,
+      ...(t.latin ? { latin: t.latin } : {}),
+      ...(t.greek ? { greek: t.greek } : {}),
+    },
+  };
+}

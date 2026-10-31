@@ -11,6 +11,12 @@
  * service to invent liturgical text. A prayer the corpus can't resolve simply
  * keeps the languages it has, rather than being filled with fabricated text.
  *
+ * It also retires the machine translations an earlier version of this lane
+ * published (June 2026, marked `machineTranslated`): when the corpus can render
+ * the authentic text for a marked language, that text replaces the machine one
+ * and the language leaves the marker. A marked language the corpus cannot
+ * render is left exactly as it is — this pass never deletes a translation.
+ *
  * Bounded + self-throttled + cursor-walked across passes, so it works through the
  * whole catalogue without re-doing finished prayers. Fail-open.
  */
@@ -26,8 +32,28 @@ const CURSOR_KEY = "prayer-translation-backfill-cursor";
 
 export interface TranslationBackfillResult {
   scanned: number;
+  /** Empty Latin/Greek fields filled with authentic received text. */
   filledCanonical: number;
+  /** Machine-translated Latin/Greek replaced by the authentic received text. */
+  upgradedMachine: number;
   detail: string;
+}
+
+type Language = "latin" | "greek";
+
+/**
+ * The languages a payload's `machineTranslated` marker names. Before external
+ * AI was removed (July 2026) the backfill machine-translated whatever the corpus
+ * could not resolve and recorded each such language here "so a curator can later
+ * find + verify them". Those texts are not received liturgical text.
+ */
+function machineFilledLanguages(payload: Record<string, unknown>): Set<Language> {
+  const marker = payload.machineTranslated;
+  const out = new Set<Language>();
+  if (Array.isArray(marker)) {
+    for (const lang of marker) if (lang === "latin" || lang === "greek") out.add(lang);
+  }
+  return out;
 }
 
 async function memInt(prisma: PrismaClient, key: string): Promise<number> {
@@ -86,8 +112,9 @@ function has(value: unknown): boolean {
 
 /**
  * Run one translation-backfill pass. Fills canonical (authentic, deterministic)
- * Latin/Greek directly; anything the corpus can't resolve is left as-is (no
- * external AI/machine translation).
+ * Latin/Greek directly, and replaces a machine-translated language with the
+ * authentic text when the corpus resolves it; anything the corpus can't resolve
+ * is left as-is (no external AI/machine translation).
  */
 export async function runPrayerTranslationBackfill(
   prisma: PrismaClient,
@@ -96,6 +123,7 @@ export async function runPrayerTranslationBackfill(
   const out: TranslationBackfillResult = {
     scanned: 0,
     filledCanonical: 0,
+    upgradedMachine: 0,
     detail: "",
   };
   if (!opts.force && !(await throttleOk(prisma))) {
@@ -126,37 +154,65 @@ export async function runPrayerTranslationBackfill(
         ? (p.prayerText as string)
         : "";
     if (!english) continue;
-    const needLatin = !has(p.latin);
-    const needGreek = !has(p.greek);
+    // A language still counts as missing when the text it holds is one of the
+    // June 2026 machine fills: the marker exists so authentic text can replace
+    // it, and before this the "has latin" test made that replacement impossible.
+    const machine = machineFilledLanguages(p);
+    const needLatin = !has(p.latin) || machine.has("latin");
+    const needGreek = !has(p.greek) || machine.has("greek");
     if (!needLatin && !needGreek) continue;
     out.scanned += 1;
 
     const update: Record<string, string> = {};
+    const upgraded: Language[] = [];
+    let filled = 0;
 
     // Canonical (keyless, deterministic, accurate-only). No AI/machine fallback.
     const canonical = translatePrayerLanguages(english);
-    if (needLatin && canonical.latin) {
-      update.latin = canonical.latin;
-      out.filledCanonical += 1;
-    }
-    if (needGreek && canonical.greek) {
-      update.greek = canonical.greek;
-      out.filledCanonical += 1;
+    for (const [lang, needed, text] of [
+      ["latin", needLatin, canonical.latin],
+      ["greek", needGreek, canonical.greek],
+    ] as const) {
+      if (!needed || !text) continue;
+      if (!has(p[lang])) {
+        update[lang] = text;
+        filled += 1;
+      } else if (p[lang] !== text) {
+        // Machine text present and the authentic received text resolved.
+        update[lang] = text;
+        upgraded.push(lang);
+      }
+      // Otherwise the stored text already IS the authentic one and only the
+      // marker is stale; a marker-only edit is not a content change, so the
+      // protection gate would refuse it — leave it rather than bypass the gate.
     }
 
     if (Object.keys(update).length > 0) {
-      const newPayload = { ...p, ...update };
+      // The marker keeps naming only the languages that are still machine text.
+      const newPayload: Record<string, unknown> = { ...p, ...update };
+      const remaining = [...machine].filter((lang) => !(lang in update));
+      if (remaining.length > 0) newPayload.machineTranslated = remaining;
+      else delete newPayload.machineTranslated;
       // Route the live-row edit through the content-protection gate: it
-      // snapshots the current payload first (so this enrichment is reversible)
-      // and, being purely additive (fill latin/greek), applies as an "enrich"
-      // with a version bump. A destructive change would be refused, but these
-      // fills never remove or shorten existing content.
+      // snapshots the current payload first (so the edit is reversible). A
+      // fill into an empty field is additive and applies as an "enrich". An
+      // upgrade REPLACES a machine fill, which the gate treats as destructive,
+      // so it is explicitly allowed and backed: the replacement is the curated
+      // received text (evidence), matched whole or segment by segment
+      // (quality 1). Nothing else in the payload changes.
       const { applyProtectedContentUpdate } = await import("./content-protection");
-      await applyProtectedContentUpdate(prisma, {
+      const result = await applyProtectedContentUpdate(prisma, {
         contentId: r.id,
         proposedPayload: newPayload,
-        reason: "prayer-translation-backfill",
-      }).catch(() => undefined);
+        reason:
+          upgraded.length > 0
+            ? `prayer-translation-backfill: authentic ${upgraded.join("+")} replaces machine translation`
+            : "prayer-translation-backfill",
+        ...(upgraded.length > 0 ? { allowReplace: true, qualityScore: 1, evidenceCount: 1 } : {}),
+      }).catch(() => null);
+      if (!result?.applied) continue;
+      out.filledCanonical += filled;
+      out.upgradedMachine += upgraded.length;
       // Nudge the public route to revalidate so the new translations serve.
       try {
         const { flagCacheRefresh } = await import("./repair");
@@ -169,8 +225,11 @@ export async function runPrayerTranslationBackfill(
 
   await setMemInt(prisma, CURSOR_KEY, nextOffset);
 
-  out.detail = `scanned ${out.scanned} prayer(s): ${out.filledCanonical} canonical fill(s) (deterministic; no external AI).`;
-  if (out.filledCanonical > 0) {
+  out.detail =
+    `scanned ${out.scanned} prayer(s): ${out.filledCanonical} canonical fill(s), ` +
+    `${out.upgradedMachine} machine translation(s) replaced by authentic text ` +
+    `(deterministic; no external AI).`;
+  if (out.filledCanonical > 0 || out.upgradedMachine > 0) {
     await writeAdminWorkerLog(prisma, {
       category: "CONTENT_BUILD",
       severity: "INFO",

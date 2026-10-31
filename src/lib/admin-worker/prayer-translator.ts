@@ -25,6 +25,7 @@
  * received liturgical text. The worker only auto-publishes accurate output.
  */
 
+import { litanyKnowledge } from "@/lib/checklist/knowledge/litanies";
 import { prayerKnowledge } from "@/lib/checklist/knowledge/prayers";
 
 export type TargetLang = "la" | "el";
@@ -141,7 +142,9 @@ const STOCK_SEGMENTS: Segment[] = [
  * Every curated prayer that carries an authentic Latin / Greek text becomes a
  * whole-prayer entry (folded English body → verbatim translation) and also a
  * segment entry, so a devotion that embeds it (e.g. a novena that prays the
- * Our Father) resolves that block.
+ * Our Father) resolves that block. Both curated PRAYER registries feed it: the
+ * prayer batches and the litany file, whose entries are published as PRAYER
+ * rows like any other and so must be translatable the same way.
  */
 interface WholePrayer {
   slug: string;
@@ -162,7 +165,7 @@ function buildCorpus(): { whole: WholePrayer[]; segments: Map<string, Segment> }
 
   for (const seg of STOCK_SEGMENTS) addSegment(seg.en, seg.la, seg.el);
 
-  for (const entry of prayerKnowledge) {
+  for (const entry of [...prayerKnowledge, ...litanyKnowledge]) {
     const p = entry.payload as Record<string, unknown>;
     const body = typeof p.body === "string" ? p.body : "";
     const la = typeof p.latin === "string" ? p.latin : undefined;
