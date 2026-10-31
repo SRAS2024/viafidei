@@ -84,6 +84,30 @@ describe("tokenizePrayerMentions", () => {
     ]);
   });
 
+  it("never reads the person a title credits, or a bare psalm number, as the prayer's name", () => {
+    const consecration = {
+      slug: "act-of-consecration-to-mary-de-montfort",
+      title: "Act of Consecration to Jesus through Mary (Saint Louis de Montfort)",
+    };
+    const psalm = { slug: "psalm-102", title: "Psalm 102 (103): Bless the Lord, O my soul" };
+    // From the live Marian consecration guide: the saint is a person here.
+    const text =
+      "Saint Louis de Montfort calls it the 'perfect renewal of the vows and promises of holy " +
+      "Baptism.' The 103 Korean Martyrs were canonized in 1984.";
+    expect(tokenizePrayerMentions(text, [consecration, psalm]).matched).toEqual([]);
+    // The prayer's own name, outside the brackets, still opens it.
+    const named = tokenizePrayerMentions(
+      "Pray the Act of Consecration to Jesus through Mary on the feast.",
+      [consecration],
+    );
+    expect(slugs(named.matched)).toEqual(["act-of-consecration-to-mary-de-montfort"]);
+    // A parenthetical that IS another name of the prayer still links.
+    const eternalRest = { slug: "eternal-rest", title: "Eternal Rest (Requiem Aeternam)" };
+    expect(
+      slugs(tokenizePrayerMentions("Close with the Requiem aeternam.", [eternalRest]).matched),
+    ).toEqual(["eternal-rest"]);
+  });
+
   it("leaves text that names nothing as a single plain segment", () => {
     const { segments, matched } = tokenizePrayerMentions("Honor your father and mother.", PRAYERS);
     expect(matched).toEqual([]);

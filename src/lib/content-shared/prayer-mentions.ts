@@ -52,6 +52,24 @@ const INCIPITS_NOT_NAMES: Record<string, string[]> = {
 };
 
 /**
+ * Whether a title parenthetical credits the prayer or cites its place rather
+ * than naming it: a person ("(Saint Louis de Montfort)", "(Saint Alphonsus
+ * Liguori)") or a bare number or verse ("Psalm 102 (103)", "(116:10-19)").
+ * Read as a name, the first turned "Saint Louis de Montfort calls it…" in the
+ * consecration guides into a button that opened the Act of Consecration, and
+ * the second would make every "103" in a text a psalm. A parenthetical led by
+ * a saint's title is dropped even when it does name the prayer ("(Saint Andrew
+ * Christmas Novena)"): the title outside the brackets still links, so the cost
+ * is a link, never a wrong one.
+ */
+function isAttribution(parenthetical: string): boolean {
+  return (
+    /^(?:saints?|sts?|blessed|bl|venerable|pope)\b\.?\s/i.test(parenthetical) ||
+    /^[\d\s:,.–-]+$/.test(parenthetical)
+  );
+}
+
+/**
  * The prayers other prayers and devotions name as units: the building blocks
  * of the Rosary, the chaplets and most novenas. A page with no explicit prayer
  * list of its own looks for these in its text.
@@ -101,7 +119,7 @@ function candidateNames(p: MentionablePrayer): string[] {
   if (noParen) names.add(noParen);
   for (const m of title.matchAll(/\(([^)]+)\)/g)) {
     const inner = m[1].trim();
-    if (inner) names.add(inner);
+    if (inner && !isAttribution(inner)) names.add(inner);
   }
   for (const a of PRAYER_ALIASES[p.slug] ?? []) names.add(a);
   const incipits = new Set((INCIPITS_NOT_NAMES[p.slug] ?? []).map(nameKey));
