@@ -221,6 +221,26 @@ describe("osmElementToParish", () => {
     expect(p!.website).toBeUndefined();
   });
 
+  it("slugs a non-Latin name by its name:en, never by the locality alone", () => {
+    const korean = (tags: Record<string, string>) =>
+      osmElementToParish({
+        type: "node",
+        id: 77,
+        lat: 40.76,
+        lon: -73.92,
+        tags: { name: "천주교 성 요셉 성당", denomination: "roman_catholic", ...tags },
+      })!;
+    expect(
+      korean({ "name:en": "St. Joseph Korean Catholic Church", "addr:city": "New York" }).slugBase,
+    ).toBe("st-joseph-korean-catholic-church-new-york");
+    // No Latin name at all: the source id, not "new-york".
+    expect(korean({ "addr:city": "New York" }).slugBase).toBe("parish-node-77");
+    // A Latin name keeps its own slug.
+    expect(
+      osmElementToParish({ type: "node", id: 1, lat: 1, lon: 1, tags: FULL_TAGS })!.slugBase,
+    ).toBe("cathedral-of-the-holy-cross-boston");
+  });
+
   it("folds parish names to their distinctive words for the proximity dedup", () => {
     expect(normalizedParishName("St. Mary Catholic Church")).toBe("mary");
     expect(normalizedParishName("Parish of Saint Mary")).toBe("mary");
@@ -541,6 +561,33 @@ describe("applyLookupToCandidate", () => {
     expect(full.formattedAddress).toBe("Main Street 1505, Houston");
   });
 
+  it("keeps the name:en slug when the lookup fills a Latin locality for a non-Latin name", () => {
+    const korean = (tags: Record<string, string>) =>
+      osmElementToParish({
+        type: "node",
+        id: 77,
+        lat: 40.76,
+        lon: -73.92,
+        tags: { name: "천주교 성 요셉 성당", denomination: "roman_catholic", ...tags },
+      })!;
+    const newYork: NominatimPlace = {
+      ...rome,
+      osmType: "node",
+      osmId: 77,
+      sourceRef: "osm:node/77",
+      address: { road: "Northern Boulevard", city: "New York", country_code: "us" },
+    };
+    const named = korean({ "name:en": "St. Joseph Korean Catholic Church" });
+    expect(named.slugBase).toBe("st-joseph-korean-catholic-church");
+    applyLookupToCandidate(named, newYork, NOW);
+    expect(named.city).toBe("New York");
+    expect(named.slugBase).toBe("st-joseph-korean-catholic-church-new-york");
+
+    const unnamed = korean({});
+    applyLookupToCandidate(unnamed, newYork, NOW);
+    expect(unnamed.slugBase).toBe("parish-node-77");
+  });
+
   it("records an object Nominatim no longer returns", () => {
     const c = candidate({}, { countryCode: "IT" });
     applyLookupToCandidate(c, null, NOW);
@@ -795,6 +842,30 @@ describe("runOsmParishDiscovery", () => {
       countryCode: "US",
       country: "United States",
     });
+  });
+
+  it("keeps the name:en slug when the reverse lookup supplies the city", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ address: { city: "New York", country_code: "us" } }),
+    })) as unknown as typeof global.fetch;
+    const candidate = osmElementToParish({
+      type: "node",
+      id: 77,
+      lat: 40.76,
+      lon: -73.92,
+      tags: {
+        name: "천주교 성 요셉 성당",
+        "name:en": "St. Joseph Korean Catholic Church",
+        denomination: "roman_catholic",
+      },
+    })!;
+    const { prisma } = makePrisma();
+
+    await processOsmCandidate(prisma, candidate, { brainActive: true, reverse: { remaining: 1 } });
+
+    expect(mockedPublish.mock.calls[0]![1].slug).toBe("st-joseph-korean-catholic-church-new-york");
   });
 
   it("enriches a re-swept parish in place (sourceRef match) instead of publishing a duplicate", async () => {

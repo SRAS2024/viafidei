@@ -273,6 +273,8 @@ export interface OsmCandidate extends PlaceParish {
   osmId: number;
   /** Slug base derived from the English name when the local one is non-Latin. */
   slugBase: string;
+  /** The `name:en` tag, for the slug when the name itself has no Latin word. */
+  englishName?: string;
   /** From OSM tags (`building`, `place_of_worship`, `church:type`, …) and the name. */
   designation: ParishDesignation;
   /**
@@ -324,6 +326,17 @@ function websiteFromTag(raw: string): string | undefined {
 }
 
 /**
+ * The slug base for a church: its name — or `name:en` when the name is in a
+ * script slugify cannot spell — with the locality. "" when neither name has a
+ * Latin word: a locality alone ("new-york") names no church, and every
+ * non-Latin church in a city would compete for it.
+ */
+function parishSlugBase(name: string, englishName: string | undefined, locality: string): string {
+  const named = [name, englishName ?? ""].find((n) => slugify(n) !== "");
+  return named ? slugify(`${named} ${locality}`) : "";
+}
+
+/**
  * Map one Overpass element to a parish candidate, or null when it is not an
  * explicitly Catholic, named church that can be located (a locality tag OR
  * coordinates), or is not a parish at all (`parishExclusionFor`). `fallback`
@@ -372,7 +385,6 @@ export function osmElementToParish(
 
   const osmRef = `${el.type}/${el.id}`;
   const englishName = (tags["name:en"] ?? "").trim();
-  const slugBase = slugify(`${name} ${city}`) || slugify(`${englishName} ${city}`);
 
   return {
     name,
@@ -398,7 +410,8 @@ export function osmElementToParish(
     denomination,
     osmType: el.type,
     osmId: el.id,
-    slugBase: slugBase || `parish-${el.type}-${el.id}`,
+    slugBase: parishSlugBase(name, englishName, city) || `parish-${el.type}-${el.id}`,
+    englishName: englishName || undefined,
     designation: designationFor(name, tags),
   };
 }
@@ -471,7 +484,8 @@ export function applyLookupToCandidate(
   }
   if (!candidate.city && parts.locality) {
     candidate.city = parts.locality;
-    candidate.slugBase = slugify(`${candidate.name} ${parts.locality}`) || candidate.slugBase;
+    candidate.slugBase =
+      parishSlugBase(candidate.name, candidate.englishName, parts.locality) || candidate.slugBase;
     used = true;
   }
   if (!candidate.state && parts.state && sameCountry) {
@@ -905,7 +919,8 @@ export async function processOsmCandidate(
     const r = await reverseLookupCity(prisma, candidate.latitude, candidate.longitude, ctx.reverse);
     if (r.city) {
       candidate.city = r.city;
-      candidate.slugBase = slugify(`${candidate.name} ${r.city}`) || candidate.slugBase;
+      candidate.slugBase =
+        parishSlugBase(candidate.name, candidate.englishName, r.city) || candidate.slugBase;
     }
     // Nominatim's country is where the point lies: it replaces a tile
     // fallback (which can be a neighbouring country's) but never a tag.
