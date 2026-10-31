@@ -449,7 +449,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     precision: "year",
     era: "early-modern",
     kind: "order",
-    location: "Castellazzo, Piedmont",
+    location: "Castellazzo",
     context:
       "Clothed by his bishop in the habit of the Passion, Paul Danei writes in December 1720 the rule of a congregation devoted to preaching Christ crucified.",
     significance:
@@ -526,7 +526,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     kind: "order",
     location: "Montreal",
     context:
-      "The widowed Marguerite d'Youville and three companions open a small house in Montreal and take in the poor, the start of the Sisters of Charity of the General Hospital.",
+      "Marguerite d'Youville and three companions rent a small house in Montreal and take in the poor, the start of the Sisters of Charity of the General Hospital.",
     significance:
       "Entrusted with Montreal's General Hospital in 1747, the 'Grey Nuns' receive episcopal approval of their rule in 1754.",
     citation: `${NA}07031a.htm`,
@@ -607,7 +607,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     context:
       "When the Treaty of Madrid hands seven Jesuit reductions east of the Uruguay River to Portugal, the Guaraní refuse to leave; at Caiboaté a Spanish–Portuguese army kills some 1,500 of them.",
     significance:
-      "The occupation ends the missions' self-rule; Spain recovers the territory when the treaty is annulled in 1761, a story retold in the film The Mission.",
+      "The occupation ends the missions' self-rule; Spain recovers the territory when the treaty is annulled in 1761; the events lie behind the 1986 film The Mission.",
     citation: `${W}Guaraní_War`,
   },
   {
@@ -903,7 +903,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     tags: ["papacy"],
     location: "San Giorgio Maggiore, Venice",
     context:
-      "With Rome in French hands after Pius VI's death in captivity, the cardinals meet under Austrian protection in Venice and elect Barnaba Chiaramonti.",
+      "With Rome in French hands after Pius VI's death in captivity, the cardinals meet in Austrian-held Venice at the emperor's expense and elect Barnaba Chiaramonti.",
     significance:
       "With Ercole Consalvi as secretary of state he steers the Church through the Napoleonic age; he enters Rome on 3 July 1800.",
     citation: `${NA}12132a.htm`,
@@ -1238,7 +1238,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     tags: ["persecution"],
     location: "Cologne",
     context:
-      "Archbishop Clemens August Droste zu Vischering, who insists that mixed marriages require a pledge to raise the children Catholic, is seized at night and held in the fortress of Minden.",
+      "Archbishop Clemens August Droste zu Vischering, who insists that mixed marriages require a pledge to raise the children Catholic, is seized one evening and held in the fortress of Minden.",
     significance:
       "Gregory XVI protests, other Prussian bishops withdraw from the government's arrangement, and the 'Cologne troubles' rouse Catholic Germany.",
     citation: `${NA}05161b.htm`,
@@ -1269,7 +1269,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     kind: "order",
     location: "Saint-Servan, Brittany",
     context:
-      "One winter night Jeanne Jugan carries home a blind, partly paralysed old woman and gives her own bed, the start of a life of begging for the aged poor.",
+      "In the winter of 1839 Jeanne Jugan carries home a blind, partly paralysed old woman and gives her own bed, the start of a life of begging for the aged poor.",
     significance:
       "Over a hundred women join her by 1850; pushed aside by the priest named superior, she dies unknown to many of her sisters, and was canonised in 2009.",
     citation: `${W}Jeanne_Jugan`,
@@ -1444,7 +1444,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     context:
       "Cardinal Giovanni Maria Mastai-Ferretti, the candidate of those wanting moderate political reform, is elected on the fourth ballot of a short conclave.",
     significance:
-      "His amnesty for political prisoners a month later makes him a hero of liberals; his reign lasts until 1878.",
+      "His amnesty for political prisoners a month later is hailed with enthusiasm; his reign lasts until 1878.",
     citation: `${NA}12134b.htm`,
     links: { popes: ["pope-pius-ix"] },
   },
@@ -1669,7 +1669,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     context:
       "Pius IX canonises Paul Miki and his companions, crucified at Nagasaki in 1597 and beatified in 1627.",
     significance:
-      "Missionaries returning to Japan build a church at Nagasaki in their honour, where the country's hidden Catholics soon come forward.",
+      "When missionaries return to Japan, they soon find communities of 'hidden Catholics' who had survived underground.",
     citation: `${W}26_Martyrs_of_Japan`,
     links: { saints: ["saint-paul-miki"], popes: ["pope-pius-ix"] },
   },
@@ -1954,7 +1954,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     tags: ["mission"],
     location: "Steyl, Netherlands",
     context:
-      "The German priest Arnold Janssen opens the mission house of St Michael at Steyl, just across the Dutch border, to train missionaries from his homeland.",
+      "The German priest Arnold Janssen opens the mission house of St Michael at Steyl in the Netherlands to train missionaries from his homeland.",
     significance:
       "The Society of the Divine Word, approved in 1901, soon has flourishing missions in many parts of the world.",
     citation: `${NA}16047a.htm`,
@@ -2024,7 +2024,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     location: "Rome",
     context:
       "Pius IX dies after the longest pontificate in the history of the papacy, in which he lost the Papal States and defined the Immaculate Conception and papal infallibility.",
-    significance: "He is buried at San Lorenzo fuori le Mura; John Paul II beatified him in 2000.",
+    significance: "He is buried at San Lorenzo fuori le Mura and was beatified in 2000.",
     citation: `${NA}12134b.htm`,
     links: { popes: ["pope-pius-ix"] },
   },
@@ -2124,7 +2124,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     tags: ["charity"],
     location: "New Haven, Connecticut",
     context:
-      "Fr Michael McGivney and Catholic laymen of New Haven found a fraternal and benevolent society of Catholic men, incorporated in March.",
+      "Fr McGivney and Catholic laymen of New Haven found a fraternal and benevolent society of Catholic men, incorporated in March.",
     significance:
       "Its aims are to foster the faith, Catholic education and charity, and through insurance to support the families of members who die.",
     citation: `${NA}08670c.htm`,
@@ -2469,7 +2469,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     kind: "saint",
     location: "Lucca",
     context:
-      "The young mystic of Lucca, who reported visions and bore the stigmata, dies at the age of twenty-five.",
+      "The young mystic of Lucca, who reported visions and the wounds of the stigmata, dies at the age of twenty-five.",
     significance: "She was canonised in 1940.",
     citation: `${W}Gemma_Galgani`,
   },
@@ -2485,7 +2485,7 @@ export const EVENTS_10: ChurchHistoryEvent[] = [
     location: "Rome",
     context: "Leo XIII dies at ninety-three after a reign of twenty-five years.",
     significance:
-      "Besides his encyclicals he had arbitrated between Germany and Spain, set up the hierarchy of India and made Newman a cardinal.",
+      "Besides his encyclicals, he had been asked by Bismarck to arbitrate between Germany and Spain, set up the hierarchy of India and made Newman a cardinal.",
     citation: `${NA}09169a.htm`,
     links: { popes: ["pope-leo-xiii"] },
   },
