@@ -13,7 +13,10 @@ import type { CuratedEntry } from "../index";
  *     transcription (#33596) and checked word by word against two archive.org
  *     scans of the 1909 printing; where the transcription departs from the
  *     printed page, the printed page is followed (the invocation of St.
- *     Erasmus reads "pray Jesus for me").
+ *     Erasmus reads "pray Jesus for me"). The same book's novena in honour of
+ *     the Seven Sorrows of Mary is taken the same way and checked against the
+ *     page images; its other Marian novenas share their day prayers with the
+ *     Raccolta's and are not repeated here.
  *
  *   - The Raccolta, or Collection of Indulgenced Prayers and Good Works
  *     (London: Burns & Oates; New York: Benziger Bros., 1910), no. 199: the
@@ -49,6 +52,26 @@ import type { CuratedEntry } from "../index";
  *     images. The printer's "splended" on the first day is corrected to
  *     "splendid", as the book itself spells it in the daily prayer.
  *
+ *   - "Novenas, Hymns, and Litanies, in honour of St. Francis of Assisi and
+ *     St. Clare", by a Religious of the Order of Poor Clares (London: Thomas
+ *     Richardson and Son, 1863; introduction dated at the Convent of Poor
+ *     Clares, Kenmare): the novenas of St. Francis and St. Clare translated
+ *     from those used at Ara Coeli in Rome, and the novena for the feast of
+ *     the Stigmata. The Google scan's OCR is poor, so the text was read from
+ *     the page images, with a second OCR made from the same images to check
+ *     every word; one misprint, "bidden manna" for "hidden manna", is
+ *     corrected.
+ *
+ *   - "Our Favorite Novenas", compiled by the Very Rev. Dean A. A. Lings
+ *     (New York: Benziger Brothers, copyright 1897). The archive.org copy is
+ *     a later printing from the same plates, which adds a few novenas on its
+ *     last pages and in one or two places within the book (to Christ the
+ *     King, St. Rita, St. Teresa of the Child Jesus and St. Roch); only
+ *     novenas belonging to the original compilation are used, and none of
+ *     those additions. The text was read from the page images and checked
+ *     word by word against archive.org's OCR and a second OCR of the same
+ *     images; commas whose tails are broken in the scan are read as commas.
+ *
  * Every `prayerText` is copied from the first cited source and nothing in it is
  * paraphrased, shortened, composed or merged across versions. Where a novena's
  * received form says the same prayers on each of the nine days, the prayers are
@@ -70,9 +93,11 @@ import type { CuratedEntry } from "../index";
  *
  * Typographic conventions of the printed books are normalised without changing
  * any word: opening words set in capitals or small capitals are given in
- * ordinary case, italics are not marked, and curly quotation marks are
- * straightened. Obvious scanning
- * slips in the transcriptions have been corrected against the page images.
+ * ordinary case, italics are not marked, curly quotation marks are
+ * straightened, the indentation of verse lines is not reproduced (stanza breaks
+ * are kept), and words divided at the end of a printed line are joined. Obvious
+ * scanning slips in the transcriptions have been corrected against the page
+ * images.
  */
 
 const HAMMER_SCAN = "https://archive.org/details/maryhelpofchrist0000hamm/page/219/mode/1up";
@@ -721,6 +746,330 @@ const TERESA_NOVENA_DAY_9 = [
  * prayers on every day. The day-by-day distinction is the meditation subject,
  * which is editorial; the prayer is the received text, unaltered.
  */
+const HAMMER_SORROWS_SCAN =
+  "https://archive.org/details/maryhelpofchrist0000hamm/page/115/mode/1up";
+const CE_SEVEN_SORROWS = "https://www.newadvent.org/cathen/14151b.htm";
+const KENMARE_NOVENAS_FRANCIS =
+  "https://archive.org/details/NovenasHymnsAndLitanies/page/n15/mode/1up";
+const KENMARE_NOVENAS_CLARE =
+  "https://archive.org/details/NovenasHymnsAndLitanies/page/n37/mode/1up";
+const KENMARE_NOVENAS_STIGMATA =
+  "https://archive.org/details/NovenasHymnsAndLitanies/page/n67/mode/1up";
+const CE_FRANCIS_OF_ASSISI = "https://www.newadvent.org/cathen/06221a.htm";
+const CE_CLARE_OF_ASSISI = "https://www.newadvent.org/cathen/04004a.htm";
+const CE_STIGMATA = "https://www.newadvent.org/cathen/14294b.htm";
+const LINGS_PAUL = "https://archive.org/details/ourfavoritenoven0000revd/page/334/mode/1up";
+const LINGS_VINCENT_DE_PAUL =
+  "https://archive.org/details/ourfavoritenoven0000revd/page/387/mode/1up";
+const LINGS_MARY_MAGDALEN =
+  "https://archive.org/details/ourfavoritenoven0000revd/page/388/mode/1up";
+const LINGS_STEPHEN = "https://archive.org/details/ourfavoritenoven0000revd/page/392/mode/1up";
+const LINGS_FRANCIS_XAVIER =
+  "https://archive.org/details/ourfavoritenoven0000revd/page/395/mode/1up";
+const LINGS_GERTRUDE = "https://archive.org/details/ourfavoritenoven0000revd/page/396/mode/1up";
+const LINGS_CHARLES_BORROMEO =
+  "https://archive.org/details/ourfavoritenoven0000revd/page/401/mode/1up";
+const LINGS_FIRST_COMMUNION =
+  "https://archive.org/details/ourfavoritenoven0000revd/page/420/mode/1up";
+const CE_STEPHEN = "https://www.newadvent.org/cathen/14286b.htm";
+const CE_FRANCIS_XAVIER = "https://www.newadvent.org/cathen/06233b.htm";
+const CE_GERTRUDE = "https://www.newadvent.org/cathen/06534a.htm";
+const CE_CHARLES_BORROMEO = "https://www.newadvent.org/cathen/03619a.htm";
+const CE_VINCENT_DE_PAUL = "https://www.newadvent.org/cathen/15434c.htm";
+const CE_MARY_MAGDALEN = "https://www.newadvent.org/cathen/09761a.htm";
+const CE_PAUL = "https://www.newadvent.org/cathen/11567b.htm";
+const CE_COMMUNION_OF_CHILDREN = "https://www.newadvent.org/cathen/04170b.htm";
+
+/** Hammer's Seven Sorrows novena: the preparatory verse, the Church's collect and the Litany of Loreto, the day's prayer, the Hail Mary and the ejaculation, as printed for each day. */
+const SORROWS_NOVENA_DAY_1 = [
+  "Bid me bear, O Mother blessed,\nOn my heart the wounds impressed\nSuffered by the Crucified!",
+  "Grant, we beseech Thee, O Lord Jesus Christ, that the most blessed Virgin Mary, Thy Mother, may intercede for us before the throne of Thy mercy, now and at the hour of our death, through whose most holy soul, in the hour of Thine own passion, the sword of sorrow passed. Through Thee, Jesus Christ, Saviour of the world, who livest and reignest with the Father and the Holy Ghost, for ever and ever. Amen.",
+  "Litany of Loreto.",
+  "Ever glorious Blessed Virgin Mary, queen of martyrs, mother of mercy, hope, and comfort of dejected and desolate souls, through the sorrows that pierced thy tender heart I beseech thee take pity on my poverty and necessities, have compassion on my anxieties and miseries. I ask it through the mercy of thy divine Son; I ask it through His immaculate life, bitter passion, and ignominious death on the cross. As I am persuaded that He honors thee as His beloved Mother, to whom He refuses nothing, let me experience the efficacy of thy powerful intercession, according to the tenderness of thy maternal affection, now and at the hour of my death. Amen.",
+  "Hail Mary, etc.",
+  "Mother of Sorrows, queen of martyrs, pray for us!",
+].join("\n\n");
+
+const SORROWS_NOVENA_DAY_2 = [
+  "Bid me bear, O Mother blessed,\nOn my heart the wounds impressed\nSuffered by the Crucified!",
+  "Grant, we beseech Thee, O Lord Jesus Christ, that the most blessed Virgin Mary, Thy Mother, may intercede for us before the throne of Thy mercy, now and at the hour of our death, through whose most holy soul, in the hour of Thine own passion, the sword of sorrow passed. Through Thee, Jesus Christ, Saviour of the world, who livest and reignest with the Father and the Holy Ghost, for ever and ever. Amen.",
+  "Litany of Loreto.",
+  "I compassionate thee, sorrowing Mary, in the grief thy tender heart underwent when the holy old man Simeon prophesied to thee. Dear Mother, by thy heart then so afflicted, obtain for me the virtue of humility and the gift of the holy fear of God.",
+  "Hail Mary, etc.",
+  "Mother of Sorrows, queen of martyrs, pray for us!",
+].join("\n\n");
+
+const SORROWS_NOVENA_DAY_3 = [
+  "Bid me bear, O Mother blessed,\nOn my heart the wounds impressed\nSuffered by the Crucified!",
+  "Grant, we beseech Thee, O Lord Jesus Christ, that the most blessed Virgin Mary, Thy Mother, may intercede for us before the throne of Thy mercy, now and at the hour of our death, through whose most holy soul, in the hour of Thine own passion, the sword of sorrow passed. Through Thee, Jesus Christ, Saviour of the world, who livest and reignest with the Father and the Holy Ghost, for ever and ever. Amen.",
+  "Litany of Loreto.",
+  "I compassionate thee, sorrowing Mary, for the anxiety which thy most tender heart underwent during thy flight into Egypt and thy sojourn there. Dear Mother, by thy heart then so sorrowful, obtain for me the virtue of liberality, especially toward the poor, and the gift of piety.",
+  "Hail Mary, etc.",
+  "Mother of Sorrows, queen of martyrs, pray for us!",
+].join("\n\n");
+
+const SORROWS_NOVENA_DAY_4 = [
+  "Bid me bear, O Mother blessed,\nOn my heart the wounds impressed\nSuffered by the Crucified!",
+  "Grant, we beseech Thee, O Lord Jesus Christ, that the most blessed Virgin Mary, Thy Mother, may intercede for us before the throne of Thy mercy, now and at the hour of our death, through whose most holy soul, in the hour of Thine own passion, the sword of sorrow passed. Through Thee, Jesus Christ, Saviour of the world, who livest and reignest with the Father and the Holy Ghost, for ever and ever. Amen.",
+  "Litany of Loreto.",
+  "I compassionate thee, sorrowing Mary, for the terrors felt by thy anxious heart when thou didst lose thy dear Son, Jesus. Dear Mother, by thy heart, then so agitated, obtain for me the virtue of chastity, and with it the gift of knowledge.",
+  "Hail Mary, etc.",
+  "Mother of Sorrows, queen of martyrs, pray for us!",
+].join("\n\n");
+
+const SORROWS_NOVENA_DAY_5 = [
+  "Bid me bear, O Mother blessed,\nOn my heart the wounds impressed\nSuffered by the Crucified!",
+  "Grant, we beseech Thee, O Lord Jesus Christ, that the most blessed Virgin Mary, Thy Mother, may intercede for us before the throne of Thy mercy, now and at the hour of our death, through whose most holy soul, in the hour of Thine own passion, the sword of sorrow passed. Through Thee, Jesus Christ, Saviour of the world, who livest and reignest with the Father and the Holy Ghost, for ever and ever. Amen.",
+  "Litany of Loreto.",
+  "I compassionate thee, sorrowing Mary, for the shock thy mother heart experienced when Jesus met thee as He carried His cross. Dear Mother, by that heart of thine, then so afflicted, obtain for me the virtue of patience and the gift of fortitude.",
+  "Hail Mary, etc.",
+  "Mother of Sorrows, queen of martyrs, pray for us!",
+].join("\n\n");
+
+const SORROWS_NOVENA_DAY_6 = [
+  "Bid me bear, O Mother blessed,\nOn my heart the wounds impressed\nSuffered by the Crucified!",
+  "Grant, we beseech Thee, O Lord Jesus Christ, that the most blessed Virgin Mary, Thy Mother, may intercede for us before the throne of Thy mercy, now and at the hour of our death, through whose most holy soul, in the hour of Thine own passion, the sword of sorrow passed. Through Thee, Jesus Christ, Saviour of the world, who livest and reignest with the Father and the Holy Ghost, for ever and ever. Amen.",
+  "Litany of Loreto.",
+  "I compassionate thee, sorrowing Mary, for the martyrdom thy generous heart bore so nobly whilst thou didst stand by Jesus agonizing. Dear Mother, by thy heart then so cruelly martyred, obtain for me the virtue of temperance and the gift of counsel.",
+  "Hail Mary, etc.",
+  "Mother of Sorrows, queen of martyrs, pray for us!",
+].join("\n\n");
+
+const SORROWS_NOVENA_DAY_7 = [
+  "Bid me bear, O Mother blessed,\nOn my heart the wounds impressed\nSuffered by the Crucified!",
+  "Grant, we beseech Thee, O Lord Jesus Christ, that the most blessed Virgin Mary, Thy Mother, may intercede for us before the throne of Thy mercy, now and at the hour of our death, through whose most holy soul, in the hour of Thine own passion, the sword of sorrow passed. Through Thee, Jesus Christ, Saviour of the world, who livest and reignest with the Father and the Holy Ghost, for ever and ever. Amen.",
+  "Litany of Loreto.",
+  "I compassionate thee, sorrowing Mary, for the pain thou didst suffer when the body of thy divine Son, taken down all torn and bloody from the cross, was placed in thy arms. Dear Mother, by thy heart pierced through, obtain for me the virtue of fraternal charity and the gift of understanding.",
+  "Hail Mary, etc.",
+  "Mother of Sorrows, queen of martyrs, pray for us!",
+].join("\n\n");
+
+const SORROWS_NOVENA_DAY_8 = [
+  "Bid me bear, O Mother blessed,\nOn my heart the wounds impressed\nSuffered by the Crucified!",
+  "Grant, we beseech Thee, O Lord Jesus Christ, that the most blessed Virgin Mary, Thy Mother, may intercede for us before the throne of Thy mercy, now and at the hour of our death, through whose most holy soul, in the hour of Thine own passion, the sword of sorrow passed. Through Thee, Jesus Christ, Saviour of the world, who livest and reignest with the Father and the Holy Ghost, for ever and ever. Amen.",
+  "Litany of Loreto.",
+  "I compassionate thee, sorrowing Mary, for the anguish felt by thy loving heart when Jesus' body was laid in the sepulcher. Dear Mother, by all the bitterness of desolation thou didst know, obtain for me the virtue of diligence and the gift of wisdom.",
+  "Hail Mary, etc.",
+  "Mother of Sorrows, queen of martyrs, pray for us!",
+].join("\n\n");
+
+const SORROWS_NOVENA_DAY_9 = [
+  "Bid me bear, O Mother blessed,\nOn my heart the wounds impressed\nSuffered by the Crucified!",
+  "Grant, we beseech Thee, O Lord Jesus Christ, that the most blessed Virgin Mary, Thy Mother, may intercede for us before the throne of Thy mercy, now and at the hour of our death, through whose most holy soul, in the hour of Thine own passion, the sword of sorrow passed. Through Thee, Jesus Christ, Saviour of the world, who livest and reignest with the Father and the Holy Ghost, for ever and ever. Amen.",
+  "Litany of Loreto.",
+  "I compassionate thee, sorrowing Mary, for all thy sorrows. I beseech thee, dear Mother, by thy heart pierced through by them, obtain for me full abandonment to the will of God in everything and perseverance to the end.",
+  "Hail Mary, etc.",
+  "Mother of Sorrows, queen of martyrs, pray for us!",
+].join("\n\n");
+
+/** The hymn Plaude, turba paupercula with its versicle and collect, printed after the ninth day of the Ara Coeli novena of St. Francis and named in the first day's rubric. */
+const FRANCIS_HYMN_VERSICLE_AND_PRAYER = [
+  "Come, ye poor ones of your God,\nCome and sing your father's praise,\nAll his merits and his love\nUtter in melodious lays.\n\nSimple, humble, full of peace,\nBlessings follow where he goes;\nLight and joy from every word\nThat he utters, richly flows.\n\nPoverty is all he asks,\nChrist's blest wounds are in his heart,\nFor to poor ones our dear Lord\nWill His richest gifts impart.\n\nTrampling down our three-fold foe,\nThus he wins the victor's crown;\nThrough the world his teaching still\nGaineth honour and renown.\n\nPoor on earth, but rich in heaven,\nHere he wants—but golden store\nHe shall win who cures the souls\nAnd the bodies of the poor.\n\nFather of the truly poor,\nTeach us like thyself to be;\nThat with thee we may be blest,\nRich for all eternity.\n\nNow to Father and to Son\nAnd Holy Ghost be endless praise,\nAnd may the merits of our saint\nBring us to join angelic lays.",
+  "V. Pray for us, O blessed father St. Francis.\nR. That we may be made worthy of the promises of Christ.",
+  "O God, who, through the merits of blessed Francis dost enlarge Thy Church by the progeny of a new offspring; grant unto us, that, by imitating him, we may despise earthly things, and ever rejoice in the participation of heavenly gifts. Through, &c.",
+].join("\n\n");
+
+const FRANCIS_ARA_COELI_DAY_1 = [
+  "O my Saviour, it is from your instructions that St. Francis has learned this deep humility. He has advanced in it with giant strides, whilst I, a miserable sinner, overwhelmed with guilt, know not how to subdue the pride of my heart; grant me, I beseech Thee, the help of Thy Divine grace, to humble myself as I ought, and that I may never again be led astray by the spirit of pride, grant, O my God, that imitating this great saint, I may conform myself always to your divine example, and unite myself always to your cross. O glorious St. Francis, may your humility be my model, that, like you, I may desire to see myself beneath the feet of all, and that I may never forget that my true happiness consists not in earthly honours, but in suffering humiliations, and in rejoicing in them for the love of my God.",
+  "Three Our Fathers—Hail Mary, and Gloria—Hymn, versicle and prayer of the saint.",
+  FRANCIS_HYMN_VERSICLE_AND_PRAYER,
+].join("\n\n");
+
+const FRANCIS_ARA_COELI_DAY_2 = [
+  'O my sweet Jesus, who can recall without the tenderest emotion, the extreme poverty which Thou and Thy blessed Mother didst suffer for our sakes? It was this thought which caused Francis to weep, to meditate so constantly. As soon as he had discovered the excellence of a virtue which was so dear to you, and which you cherished in so wonderful a manner, he excited in himself such an ardent desire for it, that he could not rest without having obtained it. Ah, Lord! grant that, touched by such powerful motives, I may likewise divest myself of all ill-regulated affection for the things of earth, that I may say with truth, like my seraphic father, "Deus meus et omnia," my God is my all. O, my holy patron, obtain for me one drop of that ineffable sweetness which you found in poverty. May I no longer regard it with the eyes of blinded worldlings, but with those of your mind, that I may be touched by the powerful attractions of the most poor life of Jesus and Mary.',
+  "Our Father, &c.",
+  FRANCIS_HYMN_VERSICLE_AND_PRAYER,
+].join("\n\n");
+
+const FRANCIS_ARA_COELI_DAY_3 = [
+  "O, my blessed Saviour, how different is the conduct of St. Francis to mine! He led a pure and holy life, and yet he treated himself with the greatest severity, whilst I, though overwhelmed with sin, seek only to gratify my senses, and am alarmed even at the idea of penance. O my God, may the example of Thy life, which was one continual suffering, withdraw me from this dangerous slumber, and encourage me rather to suffer a thousand deaths than to offend Thee by gratifying my passions. Such is my firm resolution, since nothing can be more contradictory than to behold a head crowned with thorns and one of its members immersed in worldly pleasures. And thou, O illustrious penitent, thou who in dying didst ask pardon of thy body for having treated it too roughly, permit not that I should so forget, through my false delicacy to mortify mine, as to be obliged to repent uselessly that I have served it but too well.",
+  "Our Father, Hail Mary, &c.",
+  FRANCIS_HYMN_VERSICLE_AND_PRAYER,
+].join("\n\n");
+
+const FRANCIS_ARA_COELI_DAY_4 = [
+  "O my Saviour, when shall I find in the wearinesses and sufferings of this life as much pleasure as I now find in rest and consolation? In order to accomplish this I have only to reflect on your holy Passion, then I would adore and love your holy will in all things; but this is one of the great gifts of the Holy Spirit. I ask it of you, O my God, with the deepest humility of heart, I am confident that you will grant it to me, and from this hour I will return thanks for all the afflictions that may befall me. Alas! even should they be increased a hundredfold, they will never exceed the number of my sins. I will consider it a happiness to be allowed to suffer with you, and rejoice only in your cross. May your sufferings, O glorious St. Francis, help to strengthen my weakness, and to convince me of the truth you so loved to teach; that the perfect joy, the true happiness and glory of those who serve God consists in suffering willingly for Him.",
+  "Our Father, Hail Mary, &c.",
+  FRANCIS_HYMN_VERSICLE_AND_PRAYER,
+].join("\n\n");
+
+const FRANCIS_ARA_COELI_DAY_5 = [
+  "O my Saviour, the seraphic Doctor St. Bonaventura has truly said that St. Francis resembled a burning coal absorbed in the fire of your love. How confounded should I be, O my God! All creatures were so many steps by which this blessed father ascended to Thee, and furnished food for the divine love which consumed him; but as for me they are only an occasion of increased relaxation, a means of falling into sin, or of continually offending Thy Divine Majesty; vouchsafe to pardon me, O! my God; grant me, I beseech Thee, one spark of that heavenly fire which enkindled Thy blessed servant, that, following his example, I may seek only to please Thee, and consecrate myself entirely to Thy glory. And thou, O seraph of love, who excellest so exceedingly in the love of God, do not refuse me the help which I implore. Draw, by your example, all my inclinations towards this ocean of goodness, that I may henceforth fear nothing but to offend my God, and may my only consolation be to labour and suffer for His love.",
+  "Our Father, Hail Mary, &c.",
+  FRANCIS_HYMN_VERSICLE_AND_PRAYER,
+].join("\n\n");
+
+const FRANCIS_ARA_COELI_DAY_6 = [
+  "Eternal thanks to Thee, O sweet Jesus, for all the good which the amazing charity of Francis has effected throughout the world. Alas! how far I am from imitating his blessed example. How often excessive love of self causes me to forget what I owe to others. But I repent now of my obduracy. Yes, my God, from henceforth I will see in each of my brethren another self. Since sin is the greatest evil which can befall them, deign to afflict me as it pleases Thee, but preserve them from this misfortune; for it is but just to place the salvation of souls before all things, since Thou hast given Thy life for this end. And you, O great saint, whose compassionate bounty I implore, obtain for me a heart like thine, that I may behold my neighbour, not with the prejudice of self-love, but with the sweet bond of charity which unites me to him by the profession of Christianity, and by the life and doctrine of the Saviour.",
+  "Our Father, Hail Mary, &c.",
+  FRANCIS_HYMN_VERSICLE_AND_PRAYER,
+].join("\n\n");
+
+const FRANCIS_ARA_COELI_DAY_7 = [
+  "It was thus, O my sweet Jesus, that St. Francis drew from Thy divine mysteries as from an inexhaustible and heavenly mine the immense treasures of perfection, and I think it a great thing if I honour them by some trifling marks of exterior devotion, even while my mind is full of a thousand follies. Ah, Lord, shed upon me the resplendent light of Thy divine countenance, that I may know Thy holy will. I adore Thee, and love Thee, in Thy life, and in Thy death; in Thy spotless Mother, and in Thy saints; but deign to show me Thy will and my duty, in order that the true spirit of your holy laws may animate my worship, and that I may offer you with my praises the sacrifice of my sinful inclinations. And thou, O most glorious Francis, perfect model of devotion, who for the glory of God rebuilt with such love so many churches falling to decay, grant me your help in order that I may myself become a living temple of the Most High, redolent with the perfume of true devotion, and that I may praise my God, not only with my words, but in my heart, by my works, and by every faculty of my being.",
+  "Our Father, Hail Mary, &c.",
+  FRANCIS_HYMN_VERSICLE_AND_PRAYER,
+].join("\n\n");
+
+const FRANCIS_ARA_COELI_DAY_8 = [
+  'Who can worthily praise Thee, O my Saviour, for so wonderful a work. Doubtless it is not only for Francis that Thou hast accomplished it, it is for me, and for all the faithful. Thou hast willed that the wounds of Thy servant, in recalling Thine to us, should excite us to pay the debt of love which is due to Thee for Thy most bitter Passion. May Thy divine providence be for ever blest. Vouchsafe, O my God, by the merits of Thy saint, to fortify and increase the desire with which his wounds have inspired me, of dying to the world and myself, to live only for Thee, since Thou by Thy death hast become the Author of our true life. And thou, my blessed Father, inflame by the sublime ardour of your heart the joys which your wounds have caused me, in order that while embracing them with profound respect I may understand perfectly the mysterious language with which, as so many heavenly tongues, they address me: "Love your God, who by an excess of goodness has condescended to suffer and die for your love."',
+  "Our Father, Hail Mary, &c.",
+  FRANCIS_HYMN_VERSICLE_AND_PRAYER,
+].join("\n\n");
+
+const FRANCIS_ARA_COELI_DAY_9 = [
+  "O my Jesus, how precious is the death of Thy saints. When St. Francis felt his last hour approach, he returned Thee a thousand thanks, and desired that his religious should sing Thy praises. I thank Thee for this, O my God, with my whole heart, and beseech Thee by the sacred wounds of Thy servant to grant me grace henceforward to lead a new life. May I be always occupied with promoting Thy divine glory as the only interest I should have in this world, in order that my life may render my death holy, and that whether living or dying I may have the happiness of ever giving Thee glory. Such, O my blessed patron, are the holy desires which are suggested by your blessed passage from this valley of tears to our celestial country, your blessed life could not have been more happily ended. How happy shall I be if I learn to follow your example, if I feel the like sentiments in my dying hour. Far from fearing death, I will rather consider it as my benefactor and my friend; for it will deliver me from the fear of offending God, and will secure to me the happiness of loving Him eternally. May I, through your powerful intercession, obtain this grace. Amen.",
+  "Our Father, Hail Mary, &c.",
+  FRANCIS_HYMN_VERSICLE_AND_PRAYER,
+].join("\n\n");
+
+/** The antiphon, versicle and prayer of St. Clare, printed on the first day of her Ara Coeli novena and referred back to on the later days. */
+const CLARE_ANTIPHON_AND_PRAYER = [
+  "Ant. Hail spouse of Jesus, holy virgin, little plant of the poor, vessel of singular purity; thou who hast given a rule to thy sisters, O Clare, by thy merits and prayers bring us to the celestial kingdom.",
+  "V. Pray for us, O blessed Mother Clare,\nR. That we may be made worthy of the promises of Christ.",
+  "O God, who by the admirable virtues of the blessed virgin Clare, hast adorned Thy Church and given it new children, graciously vouchsafe, that walking in the steps of this holy virgin, we may obtain eternal joy. Through Jesus Christ our Lord. Amen.",
+].join("\n\n");
+
+const CLARE_ARA_COELI_DAY_1 = [
+  'How admirable is your conduct, O eldest daughter of the patriarch of the poor. "Quam pulchri sunt gressus tui!" From your childhood you have continually increased in virtue, and your mind detached from earth has been only occupied with heavenly contemplation. Your shorn hair is symbolical of the contempt you entertain for all those vanities which the world esteems. O my dearest mother! how beautiful you appear to me when I behold you clothed in this serge habit, more precious in your eyes than the most costly and magnificent garment. I have chosen you for my mother, but, alas, I fear lest my infidelities to your holy rule and my attachment to earthly things will not allow you to acknowledge me for your child. Oh my holy patroness, forget my past relapses, obtain for me from your Divine Spouse, who has called me to serve Him in this monastery, the grace to follow your example and imitate your virtues. Prostrate at your feet, I implore of you with all my heart, as from the tenderest of mothers, your holy benediction. Amen.',
+  "Five Paters, Aves, and Glorias, in honour of the passion; and of the devotion of St. Clare to these mysteries.",
+  CLARE_ANTIPHON_AND_PRAYER,
+].join("\n\n");
+
+const CLARE_ARA_COELI_DAY_2 = [
+  "Be thou blessed a thousand times, O wise restorer of evangelical poverty; and since I have been so happy as to find this precious treasure in the field of the seraphic order, obtain for me the grace to preserve it faithfully. And that I may not degenerate from that rigid poverty which you so often inculcated on your dear children, I am firmly resolved not only to abandon all superfluities, but even to repress the least desire of possessing them, because I am convinced, like St. Teresa, that a religious cannot be considered truly poor who has every necessary. I desire, then, for the love of God, to suffer all the inconvenience of poverty even in necessary things, choosing always that which is the poorest, the most useless, and the most painful to self-love. The poorer a religious is in this life, the richer her Divine Spouse will make her after death. We are truly rich even if deprived of all things, if we possess Jesus Christ; we are poor in the midst of riches if we have not Jesus.",
+  "Pater, Ave, &c.",
+  CLARE_ANTIPHON_AND_PRAYER,
+].join("\n\n");
+
+const CLARE_ARA_COELI_DAY_3 = [
+  'Oh, how beautiful thou art, holy mother, adorned in heaven with the rich and brilliant crown won by your humility. If when on earth you never refused the lowest offices, if acts of humility were your delight, it was because you knew that those who humble themselves on earth shall be exalted in heaven, "qui se humiliat, exaltabitur." Make one ray of this precious virtue shine upon me. Do not permit that one who wears your humble habit should retain in her heart the least thought of pride. Make my interior sentiments correspond faithfully with the lowliness of the garment which I wear. Knowing that I am a sinner and a nothing, I desire by your example to humble myself with my whole heart for the love of Jesus Christ, who has humbled Himself to death, even to the death of the cross. I desire to bear all the injuries and contempt which may be shown to me, and as holy obedience is the inseparable companion of humility, I promise to obey blindly and to submit with a willing mind to all that I am commanded to do, that, like you, I may attain one day to the glory which God has prepared for the humble.',
+  "Pater, Ave, &c.",
+  CLARE_ANTIPHON_AND_PRAYER,
+].join("\n\n");
+
+const CLARE_ARA_COELI_DAY_4 = [
+  'I salute you, faithful spouse of Jesus Christ, sacred virgin, seraphic plant, beneath whose shadow so many lilies, radiant with purity, have flourished even to our own days. Your holy lessons recall the recompense which is prepared for pure virgins. Nevertheless I tremble when I think of the fearful pains, the eternal torments which await those spouses who are unfaithful to their sacred engagements. Drive away, I beseech you, all that may impress my senses. Turn away my eyes from the vanities of the earth. "Averte oculos meos ne videant vanitatem." Far from me be all sensual pleasures, all thoughts, all dangerous conversations which might make me lose the treasures of eternity. I purpose, with the help of divine grace, to watch and combat without ceasing, that I may not lose the crown of virgins and may win the crown of martyrs.',
+  "Pater, Ave, &c.",
+  CLARE_ANTIPHON_AND_PRAYER,
+].join("\n\n");
+
+const CLARE_ARA_COELI_DAY_5 = [
+  "How confounded I am, oh! my holy mother, when I consider the severity of your penance. Though your soul was pure and innocent, and you were loaded with the benedictions of heaven, you ceased not to afflict and crucify your flesh as if you had been the greatest sinner in the world. And even when it was already worn out by long vigils, and seemed no longer capable of rebelling against you, you ceased not to mortify it by fasts, by hair-cloths, and the most rigorous austerities. And I, miserable though I am, full of vices and imperfections, have a horror of penance. You continually implored your Lord for sufferings, and I, on the contrary, almost desire that He should work miracles to deliver me from the most trifling affliction. Oh, what a rigorous account I will have to render to God at the moment of my death if I do not seriously enter into myself. But I am resolved, with the help of Divine grace, to bear the cross of penance courageously, to repress the perverse inclinations of nature, and to expiate by mortification the sins and errors of my life. Penance closes the gates of hell and opens those of paradise. Oh, hell, how fearful thou art! oh, paradise, how sweet!\n\nOh, holy mother, deliver me from the one, and obtain for me, through the divine mercy, entrance into the other.",
+  "Pater, Ave, &c.",
+  CLARE_ANTIPHON_AND_PRAYER,
+].join("\n\n");
+
+const CLARE_ARA_COELI_DAY_6 = [
+  "Teach me to weep, oh dear tears of St. Clare, teach me to weep for the Passion of my Saviour; impress on my heart this salutary lesson; that he who desires to have a share in the kingdom of heaven, must partake with Jesus in the sorrows of Calvary. He who walks on this road will find continual triumphs, while he who seeks another will encounter only defeat. I desire then, by your example, O my blessed mother, to ascend the mountain of myrrh. There, I will learn, like you, that in order to be transfigured with Jesus on Thabor, we must be transpierced with Him on Calvary. Obtain for me, I implore you, from this dear Jesus whom you have so ardently loved, that He will come and dwell in my heart, and that His sacred wounds may close it to all besides; that the nails which pierced His hands and feet may bind me for ever to His cross, so that my thoughts and my desires may never more wander from my crucified Redeemer; that the thorns which pierced His Heart may pierce my heart, so as to close it against all the temptations of the evil one; that the gall with which His lips were moistened may flow upon even the innocent joys of my life. If I have this happiness, blessed mother, I may truly reckon myself amongst the number of your children.",
+  "Pater, Ave, &c.",
+  CLARE_ANTIPHON_AND_PRAYER,
+].join("\n\n");
+
+const CLARE_ARA_COELI_DAY_7 = [
+  "O holy mother, I am filled with compunction on considering all that you did before venturing to refresh yourself with the Body and Blood of Jesus Christ in the sacrament of the Eucharist. Alas! where are my tears? Where are my sighs? Where is the ardour which should inflame me when I approach the holy communion? O my soul, soul insensible to the benefits of God, why dost thou not fear? Why dost thou not weep? Why dost thou not burn with love like the blessed Clare? It is because thou art full of pride. Destitute of virtue, thou dost not reflect sufficiently on thy misery, or thy unworthiness, and on the majesty of the God whom thou art about to entertain. What union can exist between the Body of Jesus mortified, of Jesus crucified, and one who is nothing but sensuality and self-love? This sacrament is the memorial of His Passion, and thou dreadest suffering. This is a sacrament of love, since it has its origin in love, and it produces love in the soul that receives it, and thou comest to, and goest from, this burning furnace colder than ice. What insensibility! what ingratitude! what a subject of confusion, what a motive for grief and repentance. Oh holy mother, I acknowledge myself unworthy to be reckoned amongst the number of your children, and still more to be nourished with the bread of angels. But since my good Jesus has commanded me to approach to His holy table, and that He even threatens me with His anger if I refuse to eat His Flesh and drink His Blood, I will approach for the future with the greatest confidence, and the most profound respect, I will receive Him into my heart that He may expel the enemy of my salvation; and then, following your example, I will sing the mercies of my Divine Liberator.",
+  "Pater, Ave, &c.",
+  CLARE_ANTIPHON_AND_PRAYER,
+].join("\n\n");
+
+const CLARE_ARA_COELI_DAY_8 = [
+  'Although I do not merit your favours, O blessed mother, yet I beseech you hear my prayer, obtain for me, I implore you, one spark of that tender love, so constant and so generous, which made you so ardently desire the glory of God. This little spark will be sufficient, by purifying me more and more from my sins, to give me strength to resist courageously all the attacks of the evil one. This divine light will show me the value of the grace which was conferred on me, in bringing me to serve God in this monastery. I am confounded to see how negligent I have been in corresponding to so singular a favour. "Charitatem primam dereliquisti." Thou hast forsaken thy first love. Yes, it is to me that this terrible reproach is addressed. I have lost, through my own fault, my first fervour. I have gone back instead of advancing in the service and love of God. For how have I used the many holy inspirations, the many special graces which I have received from God? What fruit have I gained from the many good examples I constantly see; from so many pious lectures, so many retreats, meditations, and still more from the many sacraments I have received? Grant me your blessed protection, O my good mother, that I may again enter on the path of divine love. Teach me how to serve my God well, that I may love Him well. Make me understand, and engrave deeply on my heart this truth, that a love which does not seek Jesus with ardour in everything, is weak, languishing, and imperfect. Oh, how happy, how rich I should be, if my heart was full of the love of Jesus Christ, how perfect I should be if in all my actions I only sought to please Jesus. We must love Him on earth, if we would one day possess Him in heaven.',
+  "Pater, Ave, &c.",
+  CLARE_ANTIPHON_AND_PRAYER,
+].join("\n\n");
+
+const CLARE_ARA_COELI_DAY_9 = [
+  "O my blessed mother, my soul is full of joy, when I consider your passage from this life of misery to your heavenly country. The poor garment which served to protect your mortal body from the rigours of the season is now changed into a mantle of glory surpassing the riches of Solomon; your humility has purchased heaven; your poverty has put you in possession of the treasures of paradise; the modesty which you so scrupulously observed has merited for you the crown of virgins; the austerity of your penance has opened a path for you strewn with roses and lilies; the attention with which you meditated all your life on the Passion of your Redeemer, has procured for you the happiness of enjoying His resurrection glory for all eternity. You now taste, and will taste for ever, the hidden manna which contains all the sweetness of heaven, in recompense of the profound veneration which you had for the Most Holy Sacrament. In fine, your ardent charity has exalted you amongst the seraphim to possess and contemplate eternally that God, who was ever the object of your love. But the more I rejoice in your unending glory, the more I am troubled and overwhelmed by my own misery. To die a holy death like yours, I feel that I must live a holy life. I need your powerful assistance to accomplish this. The love which you entertained for your children while on earth has not lessened now that you are in heaven. Obtain for me then, O my Blessed Mother, the zeal which I ought to have for the rules of your holy Order, and the exact observance of the vows which I pronounced before heaven and earth on the happy day of my profession. Accept, I implore you, these little devotions which I now conclude, and obtain notwithstanding my coldness, that they may be for my eternal welfare, that they may renew in me the love of God, the love of my neighbour, and that spirit of mortification which is so essential for me. In fine, O my glorious Mother, do not abandon me at the awful moment of death, obtain for me the last grace, the grace of final perseverance; obtain for me the grace to resign my soul into the hands of my Creator, kissing tenderly the wounds of my Saviour, and uttering the holy names of Jesus and Mary; and since before thy death thou didst bless all thy children present and to come, I beseech of you now to pour down your special benediction on me and on every member of this Community.",
+  "Pater, Ave, &c.",
+  CLARE_ANTIPHON_AND_PRAYER,
+].join("\n\n");
+
+const STIGMATA_NOVENA_DAY_1 = [
+  "O sweet Jesus, who hast Thyself taught us to be meek and humble of heart, I offer Thee Thy own deep humility, and in union with it, the humility of St. Francis, in reparation for all my sins of pride, and to obtain grace from henceforth to practise the most profound humility in my every thought, word, and action.",
+  "Five Gloria Patris in honour of the wounds of Jesus, and the sacred Stigmata of St. Francis.",
+].join("\n\n");
+
+const STIGMATA_NOVENA_DAY_2 = [
+  "O sweet Jesus, who for our love wast born poor, of a poor mother, in a poor stable, and who hast so singularly loved and honoured poverty; I offer Thee Thy own most blessed poverty, and in union with it the holy poverty of St. Francis, praying, that like him I too may become truly poor, and henceforth desire nothing but to be poor with Thee on earth, that I may be rich with Thee in heaven.",
+  "Five Gloria Patris, &c.",
+].join("\n\n");
+
+const STIGMATA_NOVENA_DAY_3 = [
+  "O sweet Jesus, who for our sake didst so often fast and watch in prayer, I offer Thee all Thy blessed fastings and watchings; and in union with them the constant fasts and great austerities of the blessed Francis, praying that through his merits I may obtain grace henceforth so to mortify my body on earth, and to conquer my miserable self-love, that I may daily become more fervent and devoted in Thy divine service.",
+  "Five Gloria Patris, &c.",
+].join("\n\n");
+
+const STIGMATA_NOVENA_DAY_4 = [
+  "O sweet Jesus, who didst bear with such exceeding patience all the trials and distresses of our mortal life, I humbly offer Thee Thine own adorable patience; and in union with it the great patience with which St. Francis supported so many sicknesses and trials, praying that through his merits I may obtain the grace of patience, and glorify Thee by bearing meekly all the little trials and annoyances of my daily life.",
+  "Five Gloria Patris, &c.",
+].join("\n\n");
+
+const STIGMATA_NOVENA_DAY_5 = [
+  "O sweetest Jesus, who hast loved us so much, and who art loved so little by us, I rejoice in the great love which the blessed Francis had for Thee, and I humbly pray Thee by his merits, for the sake of Thine own inconceivable love, to kindle in my heart such an ardent fire of charity, that henceforth I may be entirely consumed with love, and have no other thought or desire but to please Thee.",
+  "Five Gloria Patris, &c.",
+].join("\n\n");
+
+const STIGMATA_NOVENA_DAY_6 = [
+  "O sweetest Jesus, who didst so tenderly love Thy own Immaculate Mother, and dying didst give her to us that we might honour and cherish her, and us to her that she might be our very own Mother; I offer Thee the tender love which St. Francis entertained for her, and the ardent desire he had that all men should honour her, particularly in the mystery of her Immaculate Conception, and I pray, sweet Jesus, by Thy love for Mary, and the merits of Francis, that I may ever increase in fervent devotion to Thy blessed mother, and may never say, or do, anything that would be in the least displeasing to her dear and adorable Heart.",
+  "Five Gloria Patris, &c.",
+].join("\n\n");
+
+const STIGMATA_NOVENA_DAY_7 = [
+  "O sweet Lord Jesus, who wast obedient at Nazareth to Mary and Joseph, and on the cross to Thy cruel executioners, I offer Thee the deep obedience of the blessed Francis to Thy holy will, to his ecclesiastical superiors, and to all creatures for Thy sake; and I pray that through his merits I may obtain the grace of a prompt, cheerful, and loving obedience to those whom Thou hast placed over me, and that Thou wouldst grant to them the special graces and consolations they need for their holy office.",
+  "Five Gloria Patris.",
+].join("\n\n");
+
+const STIGMATA_NOVENA_DAY_8 = [
+  "Oh sweet Jesus, Good Samaritan, who wert so full of the tenderest charity for all Thy creatures, I offer Thee the devotion with which St. Francis nursed the lepers and consoled the sick, the great love which he had for his spiritual children, and his unwearied zeal for the welfare of all mankind; by Thy own ineffable charity towards poor sinners, and through the merits of Francis I humbly pray for the grace of a most tender and self-sacrificing charity towards all men, and that I may exercise it specially towards those with whom I live.",
+  "Five Gloria Patris, as above.",
+].join("\n\n");
+
+const STIGMATA_NOVENA_DAY_9 = [
+  "O sweet Jesus, whose most bitter Passion is so little thought of, and so little loved, I rejoice in the great tenderness that the blessed Francis felt for it, and the tears he shed over Thy sufferings; O sweet Jesus, for the sake of Thy most bitter and cruel Passion, and for the great merits of Francis, which obtained for him the favour of the impression of Thy most sacred wounds, grant me grace so to love and compassionate Thy sufferings that I may be incited to a continual reparation for them, and to an ever increased devotion to the adorable Sacrament of the altar; and may so weep with Thee here, that I may be made worthy to rejoice with Thee eternally in heaven.",
+  "Five Gloria Patris, as above.",
+].join("\n\n");
+
+/** The prayer of the novena to St. Stephen in Lings's Our Favorite Novenas, said on each of the nine days. */
+const LINGS_STEPHEN_NOVENA_PRAYER =
+  "Happy St. Stephen! great was the honor granted to thee in being the first to shed thy blood in testimony of the faith of Christ. O holy martyr, first of all martyrs, obtain for us a living faith, a faith that is not dead, but that lives by good works, that thus our hope of salvation may not prove vain. Beg also, great saint, by the blood thou didst shed so willingly, that we may obtain the favor which we so ardently desire, and which we solicit through thy intercession in this novena. Amen.";
+
+/** The prayer of the novena to St. Francis Xavier in Our Favorite Novenas, said on each of the nine days. */
+const LINGS_FRANCIS_XAVIER_NOVENA_PRAYER =
+  "Most holy father, St. Francis Xavier, who didst receive thy praises from the mouths of innocent children, I most humbly implore thy bountiful charity, for the sake of the most precious blood of Jesus, and of the immaculate conception of our blessed Lady, the Mother of God, to the end that thou mayst obtain of God's infinite goodness [here name your request], and that at the approach of my last hour my heart may be separated and withdrawn from all worldly thoughts and distractions and be fixed in the most ardent love of Him and a vehement desire of a happy eternity, so that, laying aside the multiplicity of earthly things which hitherto have perplexed me, I may most diligently seek and perfectly find that one thing which is necessary: which is to die and rest in peace under the protection of the most holy Virgin Mary, in the wounds of Jesus, her most blessed Son, in the sweet embraces of my God, and in thy presence, holy saint, through whose intercession I hope to obtain this mercy. Amen.";
+
+/** The prayer of the novena to St. Gertrude in Our Favorite Novenas, said on each of the nine days. */
+const LINGS_GERTRUDE_NOVENA_PRAYER =
+  "O dear St. Gertrude, true lover of the heart of Jesus! obtain for us some share in that ardent love with which thy holy heart was filled, and which made it a pure mirror in which naught but the will of Jesus was reflected. Offer us to the heart of Jesus, that we may be enclosed therein. Thou knowest, dear St. Gertrude, how heavy are our hearts, how filled with earthly cares and anxieties, and how urgent is our need of this our present desire. [Mention it.] Take pity on us, then, holy and loving Gertrude, and do thou thyself present our petition to the divine heart of Jesus; but if it be not His holy will to grant us the desires of our hearts, obtain for us that we may rest content in what He wills. Amen.";
+
+/** The prayer of the novena to St. Charles Borromeo in Our Favorite Novenas, said on each of the nine days. */
+const LINGS_CHARLES_BORROMEO_NOVENA_PRAYER =
+  "O glorious St. Charles, the father of the clergy and the perfect model of holy prelates! thou art that good pastor who, like thy divine Master, didst give up thy life for thy flock, if not by thy death, at least by the numerous sacrifices of thy painful mission. Thy sanctified life on earth was a spur to the most fervent, thy exemplary penance was a reproach to the slothful, and thy indefatigable zeal was the support of the Church. O great prelate! since the glory of God and the salvation of souls are the only objects of solicitude to the blessed in heaven, vouchsafe to intercede for me now, and to offer up for the intention of this novena those fervent prayers which were so successful while thou wast on earth. [Here specify your request.]\n\nThou art, O great St. Charles! among all the saints of God, one in whose intercession I should most confide, because thou wast chosen by God to promote the interests of religion by promoting the Christian education of youth. Thou wast, like Jesus Christ Himself, always accessible to little ones, for whom thou didst thyself break the bread of the word of God, and procure for them also the blessings of a Christian education. To thee, then, I have recourse with confidence, beseeching thee to obtain for me the grace to profit by the advantages I enjoy, and for which I am so considerably indebted to thy zeal. Preserve me by thy prayers from the dangers of the world; obtain that my heart may be impressed with a lively horror of sin, a deep sense of my duty as a Christian, a sincere contempt for the opinion and false maxims of the world, an ardent love for God, and that holy fear which is the beginning of wisdom.";
+
+/** The prayer, versicle and response of the novena to St. Vincent de Paul in Our Favorite Novenas, said on each of the nine days. */
+const LINGS_VINCENT_DE_PAUL_NOVENA_PRAYER = [
+  "O God, Who, for the salvation of the poor and the sanctification of the clergy, hast raised up, by blessed Vincent, a new family in Thy Church, grant, we beseech Thee, through his intercession [name your request], and that, animated with his spirit, we may love what he loved and practise what he taught, through Our Lord Jesus Christ, Who with the Father and the Holy Ghost liveth and reigneth, God, world without end. Amen.",
+  "V. Pray for us, O holy St. Vincent de Paul.\nR. That we may be made worthy of the promises of Christ.",
+].join("\n\n");
+
+/** The invocations and prayer of the novena to St. Mary Magdalen in Our Favorite Novenas, said on each of the nine days. */
+const LINGS_MARY_MAGDALEN_NOVENA_PRAYER = [
+  "St. Mary Magdalen, who in pouring out the perfumes on the feet of Jesus poured into His divine heart the sacred perfume of lively contrition and ardent love, I unite with thee.\n\nSt. Mary Magdalen, who hast found more consolation in thy tears and humiliations at the feet of Jesus than thou ever didst experience before in all the pleasures of life and in the vain praises of the children of men, I unite with thee.\n\nSt. Mary Magdalen, who in offering to God the passions of a too-fickle heart hast purified these stains and made it equal almost to the heart of a seraph, I unite with thee.\n\nSt. Mary Magdalen, who after having run in the way of iniquity hast sanctified all thy steps in following Jesus Christ, I unite with thee.\n\nSt. Mary Magdalen, who didst exchange thy brilliant ornaments for the habit of poverty and penance, and didst gain by it the heart of the King of kings, I unite with thee.\n\nSt. Mary Magdalen, who after thy conversion didst not taste any other joy than to find thyself at the feet of Jesus to listen to His divine word, I unite with thee.\n\nSt. Mary Magdalen, whom love retained at the tomb of Jesus, and who by the ardor of thy searching for Him didst merit to see that God-Saviour among the first, and to announce His glorious resurrection to His apostles—thou whose heart followed Jesus to heaven, and whose life was ever after no longer divided except by the tears of penance and the transports of divine love, I unite with thee.\n\nSt. Mary Magdalen, who gavest up thy pure and holy soul to the Lord, to be transported by the angels into heaven, to be an eternal testimony of the goodness of the heart of Jesus towards those who sincerely turn to Him, pray for us. Amen.",
+  "O model of penitents, thou to whom much was forgiven on account of thy great love, we kneel with thee at the foot of the cross and beg of our crucified Lord the grace to imitate thee in thy penitence and conversion. O illustrious penitent, obtain for us [here name your request], and the grace never more to offend God by even the least wilful transgression. Amen.",
+].join("\n\n");
+
+/** The prayer for prelates and pastors, the Responsory of St. Paul, the antiphon, versicle and collect of the novena to St. Paul in Our Favorite Novenas. */
+const LINGS_PAUL_NOVENA_PRAYER = [
+  "O blessed victim of charity, whose heart was consumed with the most ardent zeal for the glory of God, be not insensible to the unbounded confidence we repose in thy intercession. We entreat of thee in particular, by that tender charity which on earth would have made thee sacrifice ten thousand lives to benefit one soul, to obtain for our prelates and pastors that ardent zeal for the salvation of others and union with God which are essential to their holy vocations, as they were to thine.\n\nBeg for them from the adorable heart of Jesus a constant increase of divine love, great purity of intention, a continual sense of the presence of God, and such a faithful imitation of thy virtues as may at length rank them among those who owe their perfection and salvation to thy prayers and example.\n\nPenetrated with gratitude to God for their having been consecrated to His divine service, we now beseech thee to present their hearts to Jesus, our dear Saviour, that by thy intercession they may be replenished with the true spirit of their holy state.\n\nObtain for our prelates and pastors, O glorious St. Paul, the particular favors we ask for them in this novena. [Here name your request.] We thank the Almighty for having crowned thy zeal with eternal glory and confirmed thee forever in the possession of the divine and only object of thy affections. Amen.",
+  "All ye who groan beneath\nA load of ills oppressed,\nEntreat St. Paul, and he will pray\nThe Lord to give you rest.\n\nO victim dear to heaven!\nO Paul, thou teacher true!\nThou joy and love of Christendom!\nTo thee for help we sue.\n\nPierced by the flame of love\nDescending from on high,\n'Twas thine to preach the faith which once\nThou soughtest to destroy.\nO victim, etc.\n\nNor toil, nor threatened death,\nNor tempest, scourge, or chain,\nCould from th' assembly of the saints\nThy loving heart detain.\nO victim, etc.\n\nOh! by that quenchless love\nWhich burnt in thee of yore,\nTake pity on our miseries,\nOur fainting hope restore.\nO victim, etc.\n\nTrue champion of the Lord,\nCrush thou the scheme of hell,\nAnd with adoring multitudes\nThy sacred temple fill.\nO victim, etc.\n\nThrough thy prevailing prayer\nMay charity abound—\nSweet charity, which knows no ill,\nWhich nothing can confound.\nO victim, etc.\n\nTo earth's remotest shores\nMay one same faith extend,\nAnd thy epistles through all climes\nTheir blessed perfume send.\nO victim, etc.\n\nGrant us the will and power\nTo serve the God of might,\nLest, wavering still and unprepared,\nWe sink in depths of night.\nO victim, etc.\n\nGlory be to the Father, and to the Son, and to the Holy Ghost.\nO victim, etc.",
+  "Ant. This is My vessel of election, to carry My name among the Gentiles, and kings, and the children of Israel.",
+  "V. Pray for us, O blessed Apostle Paul.\nR. That we may be made worthy of the promises of Christ.",
+  "Let us Pray.\nAlmighty and eternal God, Who, in Thy divine compassion, didst direct Thy blessed Apostle Paul what to do that he might be filled with Thy Holy Spirit, grant that we may be so counselled by his teaching and aided by his merits that, serving Thee in fear and trembling, we too may be filled with the consolation of Thy heavenly gifts, through Christ, Our Lord. Amen.",
+].join("\n\n");
+
+/** The prayer of the novena in preparation for First Holy Communion in Our Favorite Novenas, said on each of the nine days. */
+const LINGS_FIRST_COMMUNION_NOVENA_PRAYER =
+  'Lord, hear my prayer and let the cry of my heart come to Thee. O my God, Thou dost love children; thou dost protect them in a special manner. Listen to me who invoke Thee, that I may be prepared for my First Communion. Fill my young heart with the unction of Thy grace, and place in my soul all the sentiments of piety and recollection which so august a sacrament demands of those who are to partake of it. O Lord, Thou hast given me in Baptism the treasure of innocence. Thou hast honored me with the character and the name of a child of God. Complete in me the work by giving me the grace to receive Thee worthily in a well-disposed heart. From my birth Thou hast had great consideration for my soul\'s eternal salvation. Thou hast given me an angel who is to devote all his attention to my welfare. So far Thou hast favored me with many means of sanctification. Grant me, O Lord, the fulness of all Thy heavenly benedictions in permitting me to partake in a most holy and fervent manner of the sacred bread of angels. My heart has not always been innocent; perhaps Satan has succeeded in making me commit sin and tarnish the beauty of my soul; but, O Lord, Thy mercies are infinite and Thou lovest to pardon. Purify, then, this heart, O God of mercy, give it back its perfect innocence, inspire it with sentiments of true contrition and the firm purpose of amendment necessary for the Sacrament of Penance. May Thy goodness receive it tenderly with the words: "I am thy salvation." At the same time increase its intelligence, fill it with Thy celestial light, that the spirit may conform and that the heart may feel how delicious and adorable is the banquet to which Thou invitest holy souls, and how advantageous it is to receive Jesus Christ in the Sacrament of the Altar. Jesus, have pity on me. Mary, who didst give so much care to the Infant Jesus, pray for me. Glorious St. Joseph, faithful guardian and foster-father, pray for me. St. Aloysius Gonzaga, pray for me. Grant me one more grace, O Lord: that after my First Communion I may preserve all the good sentiments with which Thou hast inspired me. Assure me of Thy friendship. May my conduct, my Christian life, so attach me to Thee that my soul may be agreeable to Thee all through life, and that Thou mayst bring me after my death into eternal glory. Amen.';
+
 function repeatedPrayerDays(
   prayerText: string,
   subjects: Array<{ title: string; meditation: string; intentionPrompt: string }>,
@@ -2916,6 +3265,1006 @@ export const novenaGroupThree: CuratedEntry[] = [
       typicalStartDate:
         "7 October, ending on her feast on 15 October; the book also names 8-16 July, 19-27 August and 11-19 March",
       citations: [TERESA_NOVENA_1852, CE_TERESA_OF_AVILA],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-seven-sorrows-of-mary",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [HAMMER_SORROWS_SCAN, HAMMER_GUTENBERG, CE_SEVEN_SORROWS],
+    payload: {
+      slug: "novena-seven-sorrows-of-mary",
+      title: "Novena in Honor of the Seven Sorrows of Mary",
+      summary:
+        "Bonaventure Hammer's novena in honour of the Seven Sorrows of the Blessed Virgin, printed in 1909. Each day joins a short preparatory verse, the Church's collect of the Seven Dolours, the Litany of Loreto and a prayer of its own; from the second to the eighth day the prayers take the seven sorrows in turn, from Simeon's prophecy to the burial of Christ, each asking for one virtue and one gift of the Holy Ghost.",
+      background:
+        "The seven sorrows commonly meditated are Simeon's prophecy, the flight into Egypt, the loss of the Child Jesus in Jerusalem, the meeting on the way to Calvary, the Crucifixion, the taking down from the Cross and the burial. The Servite Order took the sorrows of Mary standing beneath the Cross as its principal devotion from 1239. A feast of her sorrows, first enacted by a provincial synod of Cologne in 1413, was extended to the whole Latin Church by Benedict XIII in 1727 on the Friday before Palm Sunday; a second feast, granted to the Servites in 1668 for the third Sunday of September, was extended to the whole Church by Pius VII in 1814, and the memorial of Our Lady of Sorrows is now kept on 15 September. Hammer's novena, in 'Mary, Help of Christians' (New York: Benziger Brothers, 1909), sets a meditation and a practice before each day's prayers; they are summarised in the day meditations, and the indulgence notes are omitted.",
+      intentionTheme:
+        "compassion with the sorrowful Mother, and the virtues and gifts asked through her sorrows",
+      days: [
+        {
+          day: 1,
+          title: "Devotion to the Seven Sorrows",
+          meditation:
+            "As the Church sets the fourteen Stations of the Passion before us, the devotion of the faithful has chosen seven sorrows of Mary to contemplate. Our sins caused her Son's sufferings, and so caused hers; the practice is to remember them often.",
+          prayerText: SORROWS_NOVENA_DAY_1,
+          intentionPrompt: "Which of Mary's sorrows speaks most to my own life just now?",
+        },
+        {
+          day: 2,
+          title: "The First Sorrow: Simeon's Prophecy",
+          meditation:
+            "Forty days after the Nativity, Simeon took the Child in his arms and told Mary that a sword would pierce her own soul. She knew from the prophets what awaited her Son; to hear it said aloud in the Temple was the first thrust of the sword.",
+          prayerText: SORROWS_NOVENA_DAY_2,
+          intentionPrompt: "Can I receive hard news without bitterness?",
+        },
+        {
+          day: 3,
+          title: "The Second Sorrow: The Flight into Egypt",
+          meditation:
+            "Warned in the night, Mary set out with Joseph and the Child for a heathen land and found no shelter there. She asked for no reasons and made no complaint, and the day asks that our own trials be borne as quietly.",
+          prayerText: SORROWS_NOVENA_DAY_3,
+          intentionPrompt: "What trial am I complaining about that I could carry more patiently?",
+        },
+        {
+          day: 4,
+          title: "The Third Sorrow: The Child Lost in Jerusalem",
+          meditation:
+            "For three days Mary and Joseph searched Jerusalem for the boy Jesus. The book sets her grief against the indifference of Christians who lose God by sin and never look for Him again.",
+          prayerText: SORROWS_NOVENA_DAY_4,
+          intentionPrompt: "Have I lost God anywhere in my life, and am I looking for Him?",
+        },
+        {
+          day: 5,
+          title: "The Fourth Sorrow: The Meeting on the Way of the Cross",
+          meditation:
+            "Scourged, crowned with thorns and bearing His cross, Jesus met His Mother on the road to Calvary and raised His head to look at her. Every grievous sin, the meditation says, renews the sword in her heart.",
+          prayerText: SORROWS_NOVENA_DAY_5,
+          intentionPrompt: "Which sin do I most need to hate and flee?",
+        },
+        {
+          day: 6,
+          title: "The Fifth Sorrow: Beneath the Cross",
+          meditation:
+            "For three hours Mary stood beneath the Cross, unable to help her Son. From the Cross He gave her to the beloved disciple, and in him to all of us, as our Mother.",
+          prayerText: SORROWS_NOVENA_DAY_6,
+          intentionPrompt: "How will I thank Mary for being my Mother?",
+        },
+        {
+          day: 7,
+          title: "The Sixth Sorrow: The Body Taken Down from the Cross",
+          meditation:
+            "When the body of Jesus was laid in her arms, Mary saw every wound; St. Anselm thought she would have died of grief had God not sustained her. Her sorrow teaches patience: whoever does not take up his cross is not worthy of Christ.",
+          prayerText: SORROWS_NOVENA_DAY_7,
+          intentionPrompt: "What cross am I being asked to take up rather than set down?",
+        },
+        {
+          day: 8,
+          title: "The Seventh Sorrow: The Burial of Jesus",
+          meditation:
+            "Joseph of Arimathea wrapped the body in clean linen and laid it in his own new tomb, and Mary looked her last upon it. The practice is submission to God's will, above all when He takes from us those we love.",
+          prayerText: SORROWS_NOVENA_DAY_8,
+          intentionPrompt: "Whom have I lost, and have I given them back to God?",
+        },
+        {
+          day: 9,
+          title: "Why Mary Had to Suffer",
+          meditation:
+            "God let Mary suffer out of love for her, since her sorrow won her greater glory, and out of love for us, since one who has suffered knows how to console. She is ready to help all who call on her, repentant sinners above all.",
+          prayerText: SORROWS_NOVENA_DAY_9,
+          intentionPrompt: "What will I bring to the sorrowful Mother as this novena ends?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      associatedDevotionSlug: "seven-sorrows-of-mary",
+      associatedMarianTitleSlug: "our-lady-of-sorrows",
+      typicalStartDate:
+        "6 September, ending on 14 September, the eve of the memorial of Our Lady of Sorrows",
+      relatedFeastSlug: "memorial-our-lady-of-sorrows",
+      citations: [HAMMER_SORROWS_SCAN, HAMMER_GUTENBERG, CE_SEVEN_SORROWS],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-francis-of-assisi-ara-coeli",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [KENMARE_NOVENAS_FRANCIS, CE_FRANCIS_OF_ASSISI],
+    payload: {
+      slug: "novena-saint-francis-of-assisi-ara-coeli",
+      title: "Novena in Honour of St. Francis of Assisi (Ara Coeli)",
+      summary:
+        "A nine-day novena to St. Francis of Assisi translated from the novenas used at Ara Coeli, the great Franciscan church in Rome, and published by a Poor Clare of Kenmare in 1863. Each day considers one of his virtues, from humility and poverty to his love of God and of his neighbour, the Stigmata and his happy death, and closes with a prayer, the Our Father and Hail Mary, and the hymn, versicle and prayer of the saint.",
+      background:
+        "Francis was born at Assisi in 1181 or 1182 and died there on 3 October 1226; he received the stigmata on La Verna about the feast of the Exaltation of the Cross in 1224, and Gregory IX canonized him in 1228. The novena was printed in 'Novenas, Hymns, and Litanies, in honour of St. Francis of Assisi and St. Clare' (London: Thomas Richardson and Son, 1863), compiled at the Convent of Poor Clares, Kenmare; a note says it may be begun on 25 September for the feast of 4 October, or on 8 September before the feast of the Stigmata. Each day's consideration, summarised in the day meditations, is followed by a prayer. The first day's rubric adds three Our Fathers, the Hail Mary and Gloria, and the hymn, versicle and prayer of the saint; the hymn 'Plaude, turba paupercula' and its versicle and collect are printed after the ninth day and are given on every day here.",
+      intentionTheme:
+        "the virtues of St. Francis, humility, poverty, penance and the love of God and neighbour",
+      days: [
+        {
+          day: 1,
+          title: "Humility",
+          meditation:
+            "The more he was esteemed, the more Francis humbled himself. He thought himself the greatest sinner in the world, would not be ordained priest, had his faults proclaimed, and gave up the government of his order, as ready to obey the youngest novice as the oldest friar.",
+          prayerText: FRANCIS_ARA_COELI_DAY_1,
+          intentionPrompt:
+            "Where am I seeking the esteem of others rather than the truth about myself?",
+        },
+        {
+          day: 2,
+          title: "Poverty",
+          meditation:
+            "Evangelical poverty was his favourite virtue. Before his father and the bishop he gave up everything, even his clothes; he called poverty his sister, mother, spouse and queen, and could not bear to meet anyone poorer than himself.",
+          prayerText: FRANCIS_ARA_COELI_DAY_2,
+          intentionPrompt: "What possession has too strong a hold on me?",
+        },
+        {
+          day: 3,
+          title: "Penance",
+          meditation:
+            "From his conversion Francis kept one lent after another, seasoned his food with ashes and overcame temptation by throwing himself into the snow or among thorns, until his flesh was wholly obedient to his spirit.",
+          prayerText: FRANCIS_ARA_COELI_DAY_3,
+          intentionPrompt: "What small mortification will I take up today?",
+        },
+        {
+          day: 4,
+          title: "Patience",
+          meditation:
+            "Christ crucified bade him renounce himself and take up his cross. Francis bore insults, stones and dirt, his father's anger, robbers and long and painful sickness, and cherished his sufferings as gifts from heaven.",
+          prayerText: FRANCIS_ARA_COELI_DAY_4,
+          intentionPrompt: "How do I answer when I am treated unjustly?",
+        },
+        {
+          day: 5,
+          title: "The Love of God",
+          meditation:
+            "Francis resolved never to refuse anything asked of him for the love of God. Love made him strip himself before the bishop of Assisi and seek martyrdom among the infidels, and St. Francis de Sales held that it was love that brought about his death.",
+          prayerText: FRANCIS_ARA_COELI_DAY_5,
+          intentionPrompt: "What has God asked of me that I have not yet given?",
+        },
+        {
+          day: 6,
+          title: "The Love of Neighbour",
+          meditation:
+            "As a young man he gave his own clothes to a poor soldier; he served the lepers, could not see a poor man without pity, and travelled through many countries for the salvation of souls.",
+          prayerText: FRANCIS_ARA_COELI_DAY_6,
+          intentionPrompt: "Whom do I find it hardest to treat as another self?",
+        },
+        {
+          day: 7,
+          title: "Devotion to the Divine Mysteries",
+          meditation:
+            "Francis kept the great feasts with long fasts and prayer and loved the Nativity above all; the book recalls that he first set up the crib at Christmas. He wept over the Passion and was often rapt at Holy Communion.",
+          prayerText: FRANCIS_ARA_COELI_DAY_7,
+          intentionPrompt: "How do I prepare my heart for the great feasts?",
+        },
+        {
+          day: 8,
+          title: "The Stigmata",
+          meditation:
+            "His likeness to Christ was sealed when a seraph fastened to a cross appeared to him and the wounds of the Passion were impressed on his hands, his feet and his side. He bore them, in great pain, for two years.",
+          prayerText: FRANCIS_ARA_COELI_DAY_8,
+          intentionPrompt: "What is Christ's love asking me to suffer for Him?",
+        },
+        {
+          day: 9,
+          title: "His Happy Death",
+          meditation:
+            "Dying, Francis had himself laid on the bare floor, took his habit as an alms, asked for the Passion according to St. John and died after repeating the words of the psalm, 'Deliver, O Lord, my soul from prison, that I may praise Thy name.'",
+          prayerText: FRANCIS_ARA_COELI_DAY_9,
+          intentionPrompt: "Am I living now as I would wish to die?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-francis-of-assisi",
+      typicalStartDate: "25 September, ending on the eve of his feast, 4 October",
+      citations: [KENMARE_NOVENAS_FRANCIS, CE_FRANCIS_OF_ASSISI],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-clare-of-assisi",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [KENMARE_NOVENAS_CLARE, CE_CLARE_OF_ASSISI],
+    payload: {
+      slug: "novena-saint-clare-of-assisi",
+      title: "Novena to St. Clare (Ara Coeli)",
+      summary:
+        "A nine-day novena to St. Clare of Assisi, translated from the novenas used at Ara Coeli in Rome and published by a Poor Clare of Kenmare in 1863 for the sisters of her order. Each day considers an episode or virtue of the saint, from her leaving the world to her happy death, and closes with a colloquy to St. Clare, the Our Father and Hail Mary, and her antiphon, versicle and prayer.",
+      background:
+        "Clare was born at Assisi in 1194 and on Palm Sunday 1212 left her father's house to follow St. Francis, who gave her the habit; she governed the community of Poor Ladies at San Damiano for some forty years, and Innocent IV confirmed her Rule two days before her death on 11 August 1253. Alexander IV canonized her in 1255. The novena follows the novena of St. Francis in 'Novenas, Hymns, and Litanies, in honour of St. Francis of Assisi and St. Clare' (London: Thomas Richardson and Son, 1863) and is written for Poor Clare nuns, who speak of their monastery, their rule and their profession. Each day's consideration is summarised in the day meditation. The first day prescribes five Our Fathers, Hail Marys and Glorias in honour of the Passion, followed by the antiphon, versicle and prayer of St. Clare; the later days print only 'Pater, Ave, &c.', and the antiphon, versicle and prayer are written out on each day. One misprint, 'bidden manna' for 'hidden manna' on the ninth day, is corrected.",
+      intentionTheme:
+        "the poverty, humility, purity and love of God of St. Clare, and fidelity to one's state of life",
+      days: [
+        {
+          day: 1,
+          title: "She Leaves the World",
+          meditation:
+            "Nothing matters more than to begin well and to give oneself early to God. From childhood Clare grew in piety; taught by St. Francis she left her father's house, exchanged her rich dress for a coarse habit and gave herself to Christ before the altar of Our Lady.",
+          prayerText: CLARE_ARA_COELI_DAY_1,
+          intentionPrompt: "What have I still kept back from God?",
+        },
+        {
+          day: 2,
+          title: "Her Poverty",
+          meditation:
+            "Clare urged her daughters not to fall away from the poverty of their poor mother. The colloquy resolves to give up every superfluity and to choose always what is poorest and most painful to self-love, since we are rich if we possess Jesus Christ.",
+          prayerText: CLARE_ARA_COELI_DAY_2,
+          intentionPrompt: "Which superfluity could I give up this week?",
+        },
+        {
+          day: 3,
+          title: "Her Humility",
+          meditation:
+            "Clare listened with the utmost attention to the word of God and never refused the lowest offices. The colloquy recalls that whoever humbles himself shall be exalted, and joins obedience to humility as its inseparable companion.",
+          prayerText: CLARE_ARA_COELI_DAY_3,
+          intentionPrompt: "Which humble task do I try to avoid?",
+        },
+        {
+          day: 4,
+          title: "Her Purity",
+          meditation:
+            "The little plant of St. Francis bore fruit throughout the world, and countless virgins were trained in Clare's school. The colloquy asks the saint to turn away the eyes from vanity and to keep far off every dangerous pleasure and conversation.",
+          prayerText: CLARE_ARA_COELI_DAY_4,
+          intentionPrompt: "What do I need to stop looking at or listening to?",
+        },
+        {
+          day: 5,
+          title: "Her Penance",
+          meditation:
+            "Though her soul was innocent, Clare afflicted her body with vigils, fasts and hair-cloth as if she were the greatest of sinners. The colloquy sets our horror of penance beside her austerity: penance closes the gates of hell and opens those of paradise.",
+          prayerText: CLARE_ARA_COELI_DAY_5,
+          intentionPrompt: "Which penance have I been putting off?",
+        },
+        {
+          day: 6,
+          title: "Her Devotion to the Passion",
+          meditation:
+            "Clare taught her daughters to mourn for Christ crucified and wept for Him herself. Whoever would be transfigured with Jesus on Thabor, the colloquy says, must be pierced with Him on Calvary.",
+          prayerText: CLARE_ARA_COELI_DAY_6,
+          intentionPrompt: "When did I last spend time with the Passion of Christ?",
+        },
+        {
+          day: 7,
+          title: "Her Devotion to the Blessed Sacrament",
+          meditation:
+            "Clare spent long hours before the tabernacle, and when soldiers threatened San Damiano she is said to have driven them off by raising the Blessed Sacrament before them. Her reverence before Communion rebukes our coldness.",
+          prayerText: CLARE_ARA_COELI_DAY_7,
+          intentionPrompt: "How do I prepare to receive Holy Communion?",
+        },
+        {
+          day: 8,
+          title: "Her Love of God",
+          meditation:
+            "St. Francis urged Clare to love the God whose love had made Him man. The colloquy takes to itself the reproach of the Apocalypse, 'thou hast forsaken thy first love', and asks to recover first fervour.",
+          prayerText: CLARE_ARA_COELI_DAY_8,
+          intentionPrompt: "Where has my first fervour cooled?",
+        },
+        {
+          day: 9,
+          title: "Her Happy Death",
+          meditation:
+            "After a life full of merit Clare passed to heaven, and the book pictures her welcomed by a troop of virgins. The colloquy rejoices in her glory, asks for a holy life and final perseverance, and begs her blessing.",
+          prayerText: CLARE_ARA_COELI_DAY_9,
+          intentionPrompt: "What grace do I ask of St. Clare for the end of my life?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-clare-of-assisi",
+      typicalStartDate: "2 August, ending on the eve of her feast, 11 August",
+      citations: [KENMARE_NOVENAS_CLARE, CE_CLARE_OF_ASSISI],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-stigmata-of-saint-francis",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [KENMARE_NOVENAS_STIGMATA, CE_STIGMATA, CE_FRANCIS_OF_ASSISI],
+    payload: {
+      slug: "novena-stigmata-of-saint-francis",
+      title: "Novena for the Feast of the Stigmata of St. Francis",
+      summary:
+        "A short novena for the feast of the Stigmata of St. Francis on 17 September, printed by a Poor Clare of Kenmare in 1863. On each of the nine days a prayer to Jesus offers Him one of His own virtues, humility, poverty, fasting, patience, love, love of His Mother, obedience, charity and His Passion, together with the same virtue in St. Francis, and asks for the grace to practise it; five Glorias in honour of the wounds follow.",
+      background:
+        "St. Francis received the stigmata on La Verna about the feast of the Exaltation of the Cross in 1224, and the Catholic Encyclopedia notes that the feast of the Stigmata of St. Francis is kept on 17 September. This novena is printed after the novenas of St. Francis and St. Clare in 'Novenas, Hymns, and Litanies, in honour of St. Francis of Assisi and St. Clare' (London: Thomas Richardson and Son, 1863); unlike them it has no considerations, only the prayer and the Glorias for each day, so the day meditations here are editorial introductions to each day's virtue.",
+      intentionTheme:
+        "the virtues of Christ that St. Francis imitated, and a share in his love of the Passion",
+      days: [
+        {
+          day: 1,
+          title: "Humility",
+          meditation:
+            "The novena begins with Christ who taught us to be meek and humble of heart, offering His humility and that of St. Francis in reparation for sins of pride.",
+          prayerText: STIGMATA_NOVENA_DAY_1,
+          intentionPrompt: "Where has pride shaped my thoughts or words today?",
+        },
+        {
+          day: 2,
+          title: "Poverty",
+          meditation:
+            "Christ was born poor, of a poor mother, in a poor stable. The prayer asks to become truly poor with Him on earth, in order to be rich with Him in heaven.",
+          prayerText: STIGMATA_NOVENA_DAY_2,
+          intentionPrompt: "What could I do without, for love of the poor Christ?",
+        },
+        {
+          day: 3,
+          title: "Fasting and Watching",
+          meditation:
+            "Christ fasted and watched in prayer, and Francis kept constant fasts and great austerities. The day asks for the grace to mortify the body and conquer self-love.",
+          prayerText: STIGMATA_NOVENA_DAY_3,
+          intentionPrompt: "How will I deny myself in some small thing today?",
+        },
+        {
+          day: 4,
+          title: "Patience",
+          meditation:
+            "Christ bore with exceeding patience the trials of our mortal life, and Francis bore many sicknesses. The prayer asks to glorify God by bearing meekly the little annoyances of every day.",
+          prayerText: STIGMATA_NOVENA_DAY_4,
+          intentionPrompt: "Which daily annoyance will I offer instead of complaining?",
+        },
+        {
+          day: 5,
+          title: "The Love of God",
+          meditation:
+            "Christ loves us much and is loved little. Rejoicing in the great love of Francis, the prayer asks for a fire of charity that leaves no other desire but to please Him.",
+          prayerText: STIGMATA_NOVENA_DAY_5,
+          intentionPrompt: "What would I do differently today if I wished only to please God?",
+        },
+        {
+          day: 6,
+          title: "Love for Our Lady",
+          meditation:
+            "Dying, Christ gave His Mother to us and us to her. Francis loved her tenderly and wished all to honour her Immaculate Conception; the day asks for growing devotion to her.",
+          prayerText: STIGMATA_NOVENA_DAY_6,
+          intentionPrompt: "How will I honour Our Lady today?",
+        },
+        {
+          day: 7,
+          title: "Obedience",
+          meditation:
+            "Christ was obedient at Nazareth and on the cross, and Francis obeyed God, his superiors and all creatures for His sake. The prayer asks for prompt and cheerful obedience, and for graces for those who command.",
+          prayerText: STIGMATA_NOVENA_DAY_7,
+          intentionPrompt: "Whom am I called to obey more willingly?",
+        },
+        {
+          day: 8,
+          title: "Charity",
+          meditation:
+            "Christ is the Good Samaritan. Francis nursed the lepers, consoled the sick and laboured for all mankind; the prayer asks for a tender, self-sacrificing charity, above all towards those with whom we live.",
+          prayerText: STIGMATA_NOVENA_DAY_8,
+          intentionPrompt: "Who in my own household needs my patience and care?",
+        },
+        {
+          day: 9,
+          title: "The Passion",
+          meditation:
+            "The Passion is little thought of and little loved. Francis wept over it and was marked with the sacred wounds; the last day asks to love and share Christ's sufferings, and to grow in devotion to the Blessed Sacrament.",
+          prayerText: STIGMATA_NOVENA_DAY_9,
+          intentionPrompt: "How will I keep the Passion of Christ before me?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-francis-of-assisi",
+      typicalStartDate: "8 September, ending on the eve of the feast of the Stigmata, 17 September",
+      citations: [KENMARE_NOVENAS_STIGMATA, CE_STIGMATA, CE_FRANCIS_OF_ASSISI],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-stephen",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_STEPHEN, CE_STEPHEN],
+    payload: {
+      slug: "novena-saint-stephen",
+      title: "Novena to St. Stephen",
+      summary:
+        "A novena to St. Stephen, deacon and first martyr, kept from 17 to 25 December before his feast on the day after Christmas. Its prayer recalls that he was the first to shed his blood for Christ and asks for a living faith that shows itself in good works, together with the favour sought in the novena.",
+      background:
+        "Stephen was one of the seven men chosen by the Apostles to serve the poorer members of the church at Jerusalem, and the first of them to be named; accused before the Sanhedrin, he was stoned outside the city, praying for those who killed him (Acts 6-7). His feast is kept on 26 December. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), which gives the novena's dates and its prayer, to be said on each of the nine days; the book's preface offers its prayers as subjects and suggestions for the novena's petitions. The day meditations are editorial introductions, and the indulgence notes are omitted.",
+      intentionTheme:
+        "a living faith that works through charity, after the example of the first martyr",
+      days: repeatedPrayerDays(LINGS_STEPHEN_NOVENA_PRAYER, [
+        {
+          title: "One of the Seven",
+          meditation:
+            "When the Greek-speaking widows were neglected in the daily distribution, the Apostles chose seven men to serve them, and Stephen, a man full of faith and of the Holy Ghost, is the first named.",
+          intentionPrompt: "What practical service is being asked of me?",
+        },
+        {
+          title: "Full of Grace and Fortitude",
+          meditation:
+            "Stephen, full of grace and fortitude, did great wonders and signs among the people. His strength came from the Spirit, not from himself.",
+          intentionPrompt: "Do I lean on God's grace or on my own strength?",
+        },
+        {
+          title: "Wisdom That Could Not Be Resisted",
+          meditation:
+            "Men from the synagogues disputed with him and could not resist the wisdom and the spirit with which he spoke.",
+          intentionPrompt: "How can I speak of the faith with both truth and charity?",
+        },
+        {
+          title: "His Defence before the Council",
+          meditation:
+            "Brought before the Sanhedrin on false witness, Stephen told again the story of God's dealings with Israel, from Abraham to the building of the Temple.",
+          intentionPrompt: "Do I know the story of salvation well enough to tell it?",
+        },
+        {
+          title: "The Face of an Angel",
+          meditation:
+            "As the council looked at him, they saw his face as if it had been the face of an angel. Peace in the face of hostility is itself a witness.",
+          intentionPrompt: "What do others see in me when I am under pressure?",
+        },
+        {
+          title: "The Heavens Opened",
+          meditation:
+            "Full of the Holy Ghost, Stephen looked up and saw the glory of God, and Jesus standing at the right hand of God.",
+          intentionPrompt: "Where do I fix my gaze when I am afraid?",
+        },
+        {
+          title: "Lord Jesus, Receive My Spirit",
+          meditation:
+            "Cast out of the city and stoned, he commended his spirit to Christ, as Christ on the cross had commended His to the Father.",
+          intentionPrompt: "Have I entrusted my own death to the Lord?",
+        },
+        {
+          title: "Lay Not This Sin to Their Charge",
+          meditation:
+            "Kneeling, he cried out for those who were killing him. Among those who consented to his death was Saul, who became the Apostle Paul.",
+          intentionPrompt: "Whom do I need to forgive today?",
+        },
+        {
+          title: "A Living Faith",
+          meditation:
+            "The prayer asks for a faith that is not dead but lives by good works, so that our hope of salvation may not prove vain.",
+          intentionPrompt: "Which good work will show my faith this Christmas?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-stephen",
+      typicalStartDate: "17 December, ending on Christmas Day, the eve of his feast on 26 December",
+      relatedFeastSlug: "feast-saint-stephen",
+      citations: [LINGS_STEPHEN, CE_STEPHEN],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-francis-xavier-lings",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_FRANCIS_XAVIER, CE_FRANCIS_XAVIER],
+    payload: {
+      slug: "novena-saint-francis-xavier-lings",
+      title: "Novena to St. Francis Xavier (Our Favorite Novenas)",
+      summary:
+        "A novena to St. Francis Xavier, apostle of the Indies and Japan, kept from 24 November to 2 December before his feast. Its single prayer, distinct from the Novena of Grace, begs through the Precious Blood and the Immaculate Conception for the favour sought and for a heart withdrawn from the world at the approach of death.",
+      background:
+        "Francis Xavier was born at the castle of Xavier in Navarre in 1506, joined St. Ignatius Loyola in Paris in founding the Society of Jesus, sailed for India in 1541 and preached in India, the Moluccas and Japan before dying on the island of Sancian near the coast of China on 2 December 1552; Gregory XV canonized him with St. Ignatius in 1622. His feast is kept on 3 December. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), which gives the novena's dates and its prayer, to be said on each of the nine days; the book's preface offers its prayers as subjects and suggestions for the novena's petitions. The day meditations are editorial introductions, and the indulgence notes are omitted.",
+      intentionTheme:
+        "the favour sought through St. Francis Xavier, and a holy death in the love of God",
+      days: repeatedPrayerDays(LINGS_FRANCIS_XAVIER_NOVENA_PRAYER, [
+        {
+          title: "The Vow of Montmartre",
+          meditation:
+            "At the college of Sainte-Barbe in Paris, Francis met Ignatius Loyola, and on 15 August 1534 he made the vow of Montmartre with him and five companions.",
+          intentionPrompt: "Who has helped me hear God's call?",
+        },
+        {
+          title: "Sent to the Indies",
+          meditation:
+            "In April 1541 he sailed for India and, after a long and dangerous voyage, landed at Goa in May 1542.",
+          intentionPrompt: "Where is God sending me, near or far?",
+        },
+        {
+          title: "Teacher of Children",
+          meditation:
+            "He went through the streets ringing a little bell to call the children to hear the word of God. The prayer remembers the saint who received his praises from the mouths of innocent children.",
+          intentionPrompt: "Which child could I help to know God better?",
+        },
+        {
+          title: "Japan",
+          meditation:
+            "With two companions he set out for Japan in 1549 and landed at Kagoshima on 15 August, the feast of the Assumption.",
+          intentionPrompt: "What fear keeps me from bringing Christ to others?",
+        },
+        {
+          title: "The Precious Blood and the Immaculate Conception",
+          meditation:
+            "The prayer pleads for its request by the most precious blood of Jesus and by the immaculate conception of His Mother.",
+          intentionPrompt: "How do I thank God for the price of my redemption?",
+        },
+        {
+          title: "Withdrawn from the World",
+          meditation:
+            "It asks that at the approach of the last hour the heart be withdrawn from worldly thoughts and fixed in the love of God and the desire of heaven.",
+          intentionPrompt: "Which worldly care would I most want to let go of at the end?",
+        },
+        {
+          title: "The One Thing Necessary",
+          meditation:
+            "The prayer takes up Christ's word to Martha and asks to seek and find the one thing necessary.",
+          intentionPrompt: "What is the one thing necessary in my life now?",
+        },
+        {
+          title: "Death on Sancian",
+          meditation:
+            "Francis died on the island of Sancian near the coast of China on 2 December 1552, his work unfinished in the eyes of men.",
+          intentionPrompt: "Can I leave the fruit of my labours to God?",
+        },
+        {
+          title: "In the Wounds of Jesus",
+          meditation:
+            "The prayer ends by asking to die and rest in peace under Mary's protection, in the wounds of Jesus and in the presence of the saint.",
+          intentionPrompt: "How do I want to meet death?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-francis-xavier",
+      typicalStartDate: "24 November, ending on the eve of his feast, 3 December",
+      citations: [LINGS_FRANCIS_XAVIER, CE_FRANCIS_XAVIER],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-gertrude",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_GERTRUDE, CE_GERTRUDE],
+    payload: {
+      slug: "novena-saint-gertrude",
+      title: "Novena to St. Gertrude",
+      summary:
+        "A novena to St. Gertrude the Great, the Benedictine mystic of Helfta, in which a single prayer asks her to obtain a share of her love for the heart of Jesus, to present our petition to that heart, and, if it is not His will to grant it, to obtain that we rest content in what He wills.",
+      background:
+        "Gertrude was born in Germany in 1256 and entered the monastery of Helfta in Saxony at the age of five; from her twenty-sixth year she received the visions recorded in the 'Herald of Divine Love', and the Catholic Encyclopedia names devotion to the Sacred Heart as the mark of her piety. She died at Helfta in 1301 or 1302. Her feast, extended to the universal Church in 1677, was then kept on 15 November and is now kept on 16 November. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), which gives the novena's dates and its prayer, to be said on each of the nine days; the book's preface offers its prayers as subjects and suggestions for the novena's petitions. The day meditations are editorial introductions, and the indulgence notes are omitted.",
+      intentionTheme: "love for the heart of Jesus and contentment with His will",
+      days: repeatedPrayerDays(LINGS_GERTRUDE_NOVENA_PRAYER, [
+        {
+          title: "A Child at Helfta",
+          meditation:
+            "At five years old Gertrude was brought to the monastery of Helfta, where she grew up in an atmosphere of prayer, learning and the solemn Divine Office.",
+          intentionPrompt: "What place or people formed my faith?",
+        },
+        {
+          title: "The First Vision",
+          meditation:
+            "In her twenty-sixth year she received the first of the visions that continued for the rest of her life.",
+          intentionPrompt: "How attentive am I to God's quiet visits?",
+        },
+        {
+          title: "The Herald of Divine Love",
+          meditation:
+            "Her revelations are preserved in the five books of the 'Herald of Divine Love'.",
+          intentionPrompt: "What spiritual reading is feeding me now?",
+        },
+        {
+          title: "Lover of the Heart of Jesus",
+          meditation:
+            "The prayer calls Gertrude the true lover of the heart of Jesus and asks for some share in her ardent love.",
+          intentionPrompt: "Where is my heart, really, today?",
+        },
+        {
+          title: "A Pure Mirror",
+          meditation:
+            "Her heart, the prayer says, was a pure mirror in which nothing but the will of Jesus was reflected.",
+          intentionPrompt: "What in me clouds the reflection of God's will?",
+        },
+        {
+          title: "Enclosed in His Heart",
+          meditation:
+            "We ask Gertrude to offer us to the heart of Jesus, that we may be enclosed there.",
+          intentionPrompt: "What would it mean to rest in the heart of Jesus?",
+        },
+        {
+          title: "Heavy Hearts",
+          meditation:
+            "The prayer admits how heavy our hearts are with earthly cares, and how urgent our present need.",
+          intentionPrompt: "Which care will I place before the heart of Jesus?",
+        },
+        {
+          title: "Charity Without Limits",
+          meditation:
+            "Her charity reached rich and poor, and showed itself in tender compassion for the souls in Purgatory.",
+          intentionPrompt: "Whom have I forgotten in my prayers?",
+        },
+        {
+          title: "Content in What He Wills",
+          meditation:
+            "If it is not His will to grant our desire, we ask to rest content in what He wills.",
+          intentionPrompt: "Can I accept a refusal from God with peace?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-gertrude-the-great",
+      typicalStartDate:
+        "7 November, ending on the eve of her memorial, 16 November; the book, following the calendar of its day, has 6 to 14 November",
+      citations: [LINGS_GERTRUDE, CE_GERTRUDE],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-charles-borromeo",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_CHARLES_BORROMEO, CE_CHARLES_BORROMEO],
+    payload: {
+      slug: "novena-saint-charles-borromeo",
+      title: "Novena to St. Charles Borromeo",
+      summary:
+        "A novena to St. Charles Borromeo, Archbishop of Milan, kept from 26 October to 3 November before his feast. Its prayer honours him as father of the clergy and model of prelates, asks him to offer for the novena's intention the prayers that were so successful on earth, and, recalling his care for the Christian education of youth, asks for horror of sin and holy fear.",
+      background:
+        "Charles Borromeo was born at Arona on Lake Maggiore on 2 October 1538. His uncle Pius IV made him a cardinal and his secretary of state; he worked for the reassembling and completion of the Council of Trent, governed Milan as its archbishop, opened a seminary for his clergy, promoted the Confraternity of Christian Doctrine for the instruction of children, and in the plague walked barefoot in procession with a rope round his neck in penance for his people. He died at Milan on 3 November 1584 and was canonized by Paul V in 1610; his feast is kept on 4 November. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), which gives the novena's dates and its prayer, to be said on each of the nine days; the book's preface offers its prayers as subjects and suggestions for the novena's petitions. The day meditations are editorial introductions, and the indulgence notes are omitted. The prayer, as printed, ends without an Amen.",
+      intentionTheme:
+        "zeal, a lively horror of sin and holy fear, through the intercession of St. Charles Borromeo",
+      days: repeatedPrayerDays(LINGS_CHARLES_BORROMEO_NOVENA_PRAYER, [
+        {
+          title: "Born at Arona",
+          meditation:
+            "Charles was born in the castle of Arona on Lake Maggiore in 1538, into a noble family; his mother's brother became Pope Pius IV.",
+          intentionPrompt: "How have I used the advantages I was born with?",
+        },
+        {
+          title: "In the Service of the Pope",
+          meditation:
+            "Pius IV called his nephew to Rome, made him a cardinal and gave him the work of his secretary of state.",
+          intentionPrompt: "How do I serve the Church in my own place?",
+        },
+        {
+          title: "The Council of Trent",
+          meditation:
+            "Charles worked to have the suspended Council of Trent reassembled, and after it was concluded in 1563 he was occupied with its catechism and the revision of the Missal and Breviary.",
+          intentionPrompt: "Do I know and love the teaching of the Church?",
+        },
+        {
+          title: "Archbishop of Milan",
+          meditation:
+            "As archbishop he reformed his diocese, held synods and opened a seminary for the training of priests.",
+          intentionPrompt: "Which priest or bishop will I pray for by name?",
+        },
+        {
+          title: "Christian Doctrine for Children",
+          meditation:
+            "He promoted the Confraternity of Christian Doctrine so that children might be systematically instructed, and the prayer thanks him for the Christian education of youth.",
+          intentionPrompt: "Who taught me the faith, and have I thanked God for them?",
+        },
+        {
+          title: "The Good Pastor",
+          meditation:
+            "The prayer calls him the good pastor who gave his life for his flock, if not by his death, then by the many sacrifices of his office.",
+          intentionPrompt: "What sacrifice is my state of life asking of me?",
+        },
+        {
+          title: "Penance in the Plague",
+          meditation:
+            "When plague struck Milan he stayed with his people and walked in procession barefoot, with a rope round his neck, doing penance for them.",
+          intentionPrompt: "How can I do penance for others as well as myself?",
+        },
+        {
+          title: "Humilitas",
+          meditation: "The word humilitas, crowned, from his family arms became his emblem.",
+          intentionPrompt: "Where do I need humility most?",
+        },
+        {
+          title: "Holy Fear",
+          meditation:
+            "Charles died on 3 November 1584. The prayer asks for a lively horror of sin, contempt for the false maxims of the world, love of God, and the holy fear that is the beginning of wisdom.",
+          intentionPrompt: "Which false maxim of the world have I believed?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-charles-borromeo",
+      typicalStartDate: "26 October, ending on the eve of his feast, 4 November",
+      citations: [LINGS_CHARLES_BORROMEO, CE_CHARLES_BORROMEO],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-vincent-de-paul",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_VINCENT_DE_PAUL, CE_VINCENT_DE_PAUL],
+    payload: {
+      slug: "novena-saint-vincent-de-paul",
+      title: "Novena to St. Vincent de Paul",
+      summary:
+        "A novena to St. Vincent de Paul, apostle of charity, using the Church's collect for his feast with its versicle and response: God raised up by blessed Vincent a new family in His Church for the salvation of the poor and the sanctification of the clergy, and we ask, with our own petition, to love what he loved and practise what he taught.",
+      background:
+        "Vincent de Paul was born of a peasant family at Pouy in Gascony about 1580 and ordained in 1600; captured by Turkish pirates in 1605, he was sold as a slave at Tunis and escaped in 1607. He founded the Congregation of the Mission to evangelize country people and the Daughters of Charity to serve the poor, and he laboured for the formation of the clergy. He died at Paris on 27 September 1660 and was canonized by Clement XII in 1737; Leo XIII named him patron of the Sisters of Charity in 1885. His feast, then kept on 19 July, is now kept on 27 September. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), which gives the novena's dates and its prayer, to be said on each of the nine days; the book's preface offers its prayers as subjects and suggestions for the novena's petitions. The day meditations are editorial introductions, and the indulgence notes are omitted.",
+      intentionTheme:
+        "love of the poor and of the priesthood, after the spirit of St. Vincent de Paul",
+      days: repeatedPrayerDays(LINGS_VINCENT_DE_PAUL_NOVENA_PRAYER, [
+        {
+          title: "A Peasant's Son",
+          meditation:
+            "Vincent was born of a peasant family at Pouy in Gascony and studied at Dax and Toulouse before his ordination in 1600.",
+          intentionPrompt: "Am I ashamed of humble things?",
+        },
+        {
+          title: "Captivity in Tunis",
+          meditation:
+            "Sailing home from Marseilles in 1605 he was taken by pirates and sold as a slave at Tunis; he escaped in 1607 with his master, whom he had brought back to the faith.",
+          intentionPrompt: "How can God use my trials for others' good?",
+        },
+        {
+          title: "Missions to the Country People",
+          meditation:
+            "Seeing the spiritual poverty of country people, he founded the Congregation of the Mission to preach to them.",
+          intentionPrompt: "Who around me is spiritually neglected?",
+        },
+        {
+          title: "The Daughters of Charity",
+          meditation:
+            "He founded the Daughters of Charity to serve the poor in their homes and hospitals.",
+          intentionPrompt: "How will I serve someone poor this week?",
+        },
+        {
+          title: "The Sanctification of the Clergy",
+          meditation:
+            "The collect names the sanctification of the clergy beside the salvation of the poor: Vincent gave retreats for ordinands and helped form priests.",
+          intentionPrompt: "Will I pray today for the priests I know?",
+        },
+        {
+          title: "A New Family in the Church",
+          meditation:
+            "The Church thanks God for raising up by Vincent a new family, the priests and sisters who carry on his work.",
+          intentionPrompt: "What family in the Church do I belong to, and how do I serve it?",
+        },
+        {
+          title: "Love What He Loved",
+          meditation: "We ask to love what he loved: God in the poor.",
+          intentionPrompt: "Whom do I find hardest to love?",
+        },
+        {
+          title: "Practise What He Taught",
+          meditation:
+            "And we ask to practise what he taught, charity in deed and not only in word.",
+          intentionPrompt: "What good intention have I not yet put into practice?",
+        },
+        {
+          title: "Patron of the Sisters of Charity",
+          meditation:
+            "Vincent died at Paris on 27 September 1660, and in 1885 Leo XIII gave him as patron to the Sisters of Charity.",
+          intentionPrompt: "What work of charity could I take up regularly?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-vincent-de-paul",
+      typicalStartDate:
+        "18 September, ending on the eve of his feast, 27 September; the book, following the calendar of its day, has 10 to 18 July",
+      citations: [LINGS_VINCENT_DE_PAUL, CE_VINCENT_DE_PAUL],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-mary-magdalen",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_MARY_MAGDALEN, CE_MARY_MAGDALEN],
+    payload: {
+      slug: "novena-saint-mary-magdalen",
+      title: "Novena to St. Mary Magdalen",
+      summary:
+        "A novena to St. Mary Magdalen, model of penitents, kept from 13 to 21 July before her feast. Each day eight invocations, each closing 'I unite with thee', follow her from the house of the Pharisee to the tomb of the risen Christ and her death, and a prayer asks for her penitence and conversion and the favour sought.",
+      background:
+        "The Gospels name Mary Magdalen among the women who followed and served Christ, from whom seven devils had been cast out; she stood by the Cross and was the first to see the risen Lord and to announce His resurrection to the apostles. Following the Western tradition, the book identifies her with the sinful woman who washed the Lord's feet with her tears in the house of Simon the Pharisee (Luke 7), a point the Greek Fathers did not accept. Her feast is kept on 22 July. The novena, from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), opens with an instruction retelling that Gospel scene and inviting the reader to weep for sin at the feet of Jesus before saying the invocations and prayer. The day meditations are editorial.",
+      intentionTheme:
+        "true contrition and a love of Christ that never turns back, after the example of St. Mary Magdalen",
+      days: repeatedPrayerDays(LINGS_MARY_MAGDALEN_NOVENA_PRAYER, [
+        {
+          title: "At the Feet of Jesus",
+          meditation:
+            "In the house of the Pharisee she poured perfume on the Lord's feet and washed them with her tears; many sins were forgiven her because she loved much.",
+          intentionPrompt: "What do I need to bring to the feet of Jesus?",
+        },
+        {
+          title: "Consolation in Tears",
+          meditation:
+            "The second invocation recalls that she found more consolation in her tears at His feet than in all the pleasures and praises of the world.",
+          intentionPrompt: "Where do I look for consolation?",
+        },
+        {
+          title: "A Heart Made New",
+          meditation:
+            "She offered God the passions of a fickle heart, and grace purified it until it was almost like the heart of a seraph.",
+          intentionPrompt: "Which passion do I need to give to God?",
+        },
+        {
+          title: "Following Jesus",
+          meditation:
+            "Having run in the way of iniquity, she sanctified every step by following Jesus Christ.",
+          intentionPrompt: "Where is Jesus asking me to follow Him today?",
+        },
+        {
+          title: "Poverty and Penance",
+          meditation:
+            "She exchanged her ornaments for the habit of poverty and penance, and so won the heart of the King of kings.",
+          intentionPrompt: "What vanity could I give up?",
+        },
+        {
+          title: "Listening to His Word",
+          meditation:
+            "After her conversion she wanted no joy but to sit at the feet of Jesus and listen to His word.",
+          intentionPrompt: "When will I sit still and listen to the Gospel?",
+        },
+        {
+          title: "Seeking Him at the Tomb",
+          meditation:
+            "Love kept her at the tomb; seeking Him, she was among the first to see the risen Saviour and was sent to tell His apostles.",
+          intentionPrompt: "Do I keep seeking Christ when He seems absent?",
+        },
+        {
+          title: "A Life Undivided",
+          meditation:
+            "Her heart followed Jesus to heaven, and her life afterwards was shared only between tears of penance and the transports of divine love.",
+          intentionPrompt: "What divides my heart?",
+        },
+        {
+          title: "Model of Penitents",
+          meditation:
+            "The closing prayer kneels with her at the foot of the Cross and asks never more to offend God even by the least wilful transgression.",
+          intentionPrompt: "What is my firm purpose of amendment?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-mary-magdalene",
+      typicalStartDate: "13 July, ending on the eve of her feast, 22 July",
+      citations: [LINGS_MARY_MAGDALEN, CE_MARY_MAGDALEN],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-paul-the-apostle",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_PAUL, CE_PAUL],
+    payload: {
+      slug: "novena-saint-paul-the-apostle",
+      title: "Novena to St. Paul the Apostle",
+      summary:
+        "A novena to St. Paul, kept from 20 to 28 June before the feast of Saints Peter and Paul. Each day joins a prayer to the Apostle for prelates and pastors of the Church, the Responsory of St. Paul in English verse ('All ye who groan beneath a load of ills oppressed'), and his antiphon, versicle and collect.",
+      background:
+        "Saul of Tarsus persecuted the Church until Christ appeared to him on the road to Damascus; as Paul he became the Apostle of the Gentiles, travelled and wrote the epistles that bear his name, and suffered martyrdom near Rome at the place called Aquae Salviae. The Church keeps his conversion on 25 January and his feast with St. Peter on 29 June. The novena is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayers are said on each of the nine days; the day meditations are editorial and the indulgence notes are omitted.",
+      intentionTheme:
+        "zeal and holiness for bishops and pastors, through the intercession of St. Paul",
+      days: repeatedPrayerDays(LINGS_PAUL_NOVENA_PRAYER, [
+        {
+          title: "Saul the Persecutor",
+          meditation:
+            "Saul consented to the death of Stephen and went from house to house dragging Christians to prison.",
+          intentionPrompt: "Is there someone I have written off as beyond conversion?",
+        },
+        {
+          title: "On the Road to Damascus",
+          meditation:
+            "Struck down on the road, he heard Christ ask why he persecuted Him, and rose to be baptized.",
+          intentionPrompt: "How has Christ interrupted my plans?",
+        },
+        {
+          title: "A Vessel of Election",
+          meditation:
+            "The Lord called him His vessel of election, to carry His name among the Gentiles, kings and the children of Israel, as the antiphon recalls.",
+          intentionPrompt: "What has God chosen me to carry to others?",
+        },
+        {
+          title: "Apostle of the Gentiles",
+          meditation:
+            "Paul preached Christ to those who had never heard of Him and founded churches across the Roman world.",
+          intentionPrompt: "Whom do I know who does not know Christ?",
+        },
+        {
+          title: "Toil, Scourge and Chain",
+          meditation:
+            "Neither labour, threats, tempest, scourging nor chains, the responsory sings, could hold him back from the assembly of the saints.",
+          intentionPrompt: "What hardship is testing my perseverance?",
+        },
+        {
+          title: "The Care of All the Churches",
+          meditation:
+            "Paul carried the care of all the churches, and the novena's prayer asks him to obtain for prelates and pastors zeal, union with God and the true spirit of their state.",
+          intentionPrompt: "Which bishop or priest will I pray for by name?",
+        },
+        {
+          title: "Sweet Charity",
+          meditation:
+            "The responsory asks that through his prayer charity may abound, the charity he praised to the Corinthians, which thinks no evil.",
+          intentionPrompt: "Where am I failing in charity?",
+        },
+        {
+          title: "His Epistles",
+          meditation:
+            "The responsory prays that his epistles may send their perfume through all lands; through them Paul still teaches the Church.",
+          intentionPrompt: "Will I read one of St. Paul's letters this week?",
+        },
+        {
+          title: "Martyrdom at Rome",
+          meditation:
+            "Paul suffered martyrdom near Rome, at Aquae Salviae, and the Church honours him with St. Peter on 29 June.",
+          intentionPrompt: "What would I be willing to suffer for Christ?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-paul",
+      typicalStartDate:
+        "20 June, ending on the eve of the solemnity of Saints Peter and Paul, 29 June",
+      relatedFeastSlug: "solemnity-saints-peter-and-paul",
+      citations: [LINGS_PAUL, CE_PAUL],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-first-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_FIRST_COMMUNION, CE_COMMUNION_OF_CHILDREN],
+    payload: {
+      slug: "novena-first-holy-communion",
+      title: "Novena in Preparation for First Holy Communion",
+      summary:
+        "A novena for children preparing for their First Communion. On each of the nine days the child says one prayer asking God, who loves children, to prepare a young heart, to restore its innocence through a good confession, to make it understand the banquet of the altar, and to keep it faithful afterwards; it invokes Jesus, Mary, St. Joseph and St. Aloysius.",
+      background:
+        "The Fourth Lateran Council bound the faithful to receive Communion once a year from the age of discretion, a rule later confirmed by the Council of Trent, and the Catholic Encyclopedia (1908) describes how children were prepared for their First Communion. This novena is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), where it has no fixed dates; its single prayer is said on each of the nine days, and the day meditations are editorial introductions written for a child.",
+      intentionTheme: "a worthy and fervent First Communion, and perseverance afterwards",
+      days: repeatedPrayerDays(LINGS_FIRST_COMMUNION_NOVENA_PRAYER, [
+        {
+          title: "God Loves Children",
+          meditation:
+            "The prayer begins by reminding God that He loves children and protects them, and asks Him to hear a young heart preparing to receive Him.",
+          intentionPrompt: "What would I like to say to Jesus about my First Communion?",
+        },
+        {
+          title: "The Gift of Baptism",
+          meditation:
+            "In Baptism God gave the treasure of innocence and the name of a child of God. First Communion completes what Baptism began.",
+          intentionPrompt: "Do I know the day I was baptized?",
+        },
+        {
+          title: "My Guardian Angel",
+          meditation:
+            "God has given each of us an angel to watch over us; the prayer thanks Him for this and for all the other helps He has given.",
+          intentionPrompt: "Will I ask my guardian angel to help me prepare?",
+        },
+        {
+          title: "A Well-Disposed Heart",
+          meditation:
+            "We ask for the piety and recollection that so great a sacrament deserves, so as to receive Jesus worthily.",
+          intentionPrompt: "How can I keep quiet and prayerful before Mass?",
+        },
+        {
+          title: "Sorrow for Sin",
+          meditation:
+            "The prayer admits that the heart has not always been innocent, and asks for true sorrow and a firm purpose of amendment in confession.",
+          intentionPrompt: "What will I bring to confession?",
+        },
+        {
+          title: "I Am Thy Salvation",
+          meditation:
+            "God's mercy is infinite and He loves to pardon. The prayer asks Him to receive the child with the words, 'I am thy salvation.'",
+          intentionPrompt: "Do I trust that God forgives me?",
+        },
+        {
+          title: "The Bread of Angels",
+          meditation:
+            "We ask for light to understand how good it is to receive Jesus Christ in the Sacrament of the Altar.",
+          intentionPrompt: "What do I believe I will receive in Holy Communion?",
+        },
+        {
+          title: "Mary, Joseph and St. Aloysius",
+          meditation:
+            "The prayer calls on Mary, who cared for the Child Jesus, on St. Joseph His guardian, and on St. Aloysius Gonzaga, model of young people.",
+          intentionPrompt: "Which saint will I ask to pray for me on the day?",
+        },
+        {
+          title: "After First Communion",
+          meditation:
+            "The last request is to keep the good desires of this time, and to live so close to Jesus that He may bring us to eternal glory.",
+          intentionPrompt: "What promise will I make to Jesus for afterwards?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      typicalStartDate: "The nine days before a child's First Communion",
+      citations: [LINGS_FIRST_COMMUNION, CE_COMMUNION_OF_CHILDREN],
     },
   },
 ];
