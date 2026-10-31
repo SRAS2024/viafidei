@@ -6,8 +6,8 @@
  * Pentecost to the present; parts 5–11 deepen one era each (the Apostolic Age
  * and the persecutions; the Fathers; the early and the high Middle Ages; the
  * Western Schism, Renaissance and Reformation; the early-modern era and the
- * nineteenth century; 1914 to the present); part 12 fills the gaps a
- * completeness review found across them all. Every part must be registered
+ * nineteenth century; 1914 to the present); parts 12 and 13 fill the gaps
+ * two completeness reviews found across them all. Every part must be registered
  * below — the dataset test fails on a part that is not. This module merges
  * them into one chronologically sorted list and re-exports the shared types
  * and helpers, so every consumer — the /history page, the content catalog,
@@ -26,6 +26,7 @@ import { EVENTS_9 } from "./church-history/events-9";
 import { EVENTS_10 } from "./church-history/events-10";
 import { EVENTS_11 } from "./church-history/events-11";
 import { EVENTS_12 } from "./church-history/events-12";
+import { EVENTS_13 } from "./church-history/events-13";
 import { historySortKey, type ChurchHistoryEvent } from "./church-history/types";
 
 export {
@@ -81,4 +82,5 @@ export const CHURCH_HISTORY_EVENTS: ReadonlyArray<ChurchHistoryEvent> = [
   ...EVENTS_10,
   ...EVENTS_11,
   ...EVENTS_12,
+  ...EVENTS_13,
 ].sort(compareHistoryEvents);

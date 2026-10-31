@@ -489,7 +489,7 @@ export const EVENTS_4: ChurchHistoryEvent[] = [
       "Paul VI promulgates the reformed Roman Missal; the new Order of Mass comes into use on 30 November 1969.",
     significance: "Mass in the vernacular becomes the norm worldwide.",
     citation: `${W}Mass_of_Paul_VI`,
-    links: { popes: ["pope-saint-paul-vi"] },
+    links: { documentSlug: "missale-romanum", popes: ["pope-saint-paul-vi"] },
   },
   {
     slug: "election-of-john-paul-ii",
