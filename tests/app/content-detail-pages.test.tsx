@@ -44,6 +44,8 @@ vi.mock("@/lib/data/published", async (importOriginal) => {
       published.get(`${contentType}:${slug}`) ?? null,
     getAnyPublishedBySlug: async (slug: string, types: string[]) =>
       types.map((t) => published.get(`${t}:${slug}`)).find(Boolean) ?? null,
+    listPublished: async (contentType: string) =>
+      [...published.values()].filter((item) => item.contentType === contentType),
     listPublishedBySlugs: async (contentType: string, slugs: string[]) =>
       slugs
         .map((slug) => published.get(`${contentType}:${slug}`))

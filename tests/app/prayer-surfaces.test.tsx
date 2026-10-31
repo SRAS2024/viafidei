@@ -10,10 +10,13 @@
  * Divine Mercy Chaplet showed no prayer text and no chip at all. Novenas listed
  * the same three prayers whatever their days actually prayed. These pages now
  * carry the prayers themselves — inline where they are named and as dropdowns
- * below — with the shared Latin / Greek chips.
+ * below — with the shared Latin / Greek chips. A list holds every prayer the
+ * text names as well as the stored ones, in the order the text prays them, and
+ * nothing the page's own text and payload do not give.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { findCuratedEntry } from "@/lib/checklist/knowledge";
 import type { PublishedItem } from "@/lib/data/published";
 
 const published = new Map<string, PublishedItem>();
@@ -39,6 +42,8 @@ vi.mock("@/lib/data/published", async (importOriginal) => {
       published.get(`${contentType}:${slug}`) ?? null,
     getAnyPublishedBySlug: async (slug: string, types: string[]) =>
       types.map((t) => published.get(`${t}:${slug}`)).find(Boolean) ?? null,
+    listPublished: async (contentType: string) =>
+      [...published.values()].filter((item) => item.contentType === contentType),
     listPublishedBySlugs: async (contentType: string, slugs: string[]) =>
       slugs
         .map((slug) => published.get(`${contentType}:${slug}`))
@@ -84,11 +89,20 @@ function seedPrayers() {
     body: "I believe in God...",
     latin: "Credo in Deum...",
   });
+  put("PRAYER", "salve-regina", "Hail Holy Queen (Salve Regina)", {
+    body: "Hail, holy Queen, Mother of mercy...",
+    latin: "Salve, Regina, mater misericordiae...",
+  });
 }
 
 const params = (slug: string) => ({ params: Promise.resolve({ slug }) });
 const prayerList = (heading: string) =>
   screen.getByRole("heading", { name: heading }).closest("section")!;
+/** The dropdown titles of a prayer list, in order (eyebrow included). */
+const listedPrayers = (list: HTMLElement) =>
+  within(list)
+    .getAllByRole("button", { expanded: false })
+    .map((b) => b.textContent ?? "");
 
 beforeEach(() => {
   published.clear();
@@ -131,6 +145,73 @@ describe("/devotions/[slug] — the Rosary and the chaplets", () => {
     expect(screen.queryByRole("heading", { name: "Related prayers" })).not.toBeInTheDocument();
     expect(container.querySelector('a[href^="/prayers/"]')).toBeNull();
   });
+
+  // The live Rosary: its stored list has no Sign of the Cross and puts the
+  // Creed fourth, though the instructions begin with both.
+  const ROSARY = {
+    background: "The Rosary is the great Marian psalter of the Latin Church.",
+    practiceInstructions:
+      "Begin with the Sign of the Cross and the Apostles' Creed. Pray one Our Father, three " +
+      "Hail Marys (for an increase of faith, hope, and charity), and a Glory Be. Then meditate " +
+      "on each of the five mysteries in turn, praying one Our Father, ten Hail Marys, and a " +
+      "Glory Be for each. Conclude with the Hail Holy Queen.",
+    relatedPrayers: ["our-father", "hail-mary", "glory-be", "apostles-creed", "salve-regina"],
+  };
+
+  it("lists every prayer the Rosary's instructions name, in the order they are prayed", async () => {
+    put("DEVOTION", "holy-rosary", "The Holy Rosary", ROSARY);
+    render(await DevotionDetailPage(params("holy-rosary")));
+    const list = prayerList("Prayers of this devotion");
+    expect(listedPrayers(list)).toEqual([
+      "Prayer 1Sign of the Cross",
+      "Prayer 2Apostles' Creed",
+      "Prayer 3Our Father",
+      "Prayer 4Hail Mary",
+      "Prayer 5Glory Be",
+      "Prayer 6Hail Holy Queen (Salve Regina)",
+    ]);
+    expect(list).toHaveTextContent("In the order they are prayed");
+
+    // The Sign of the Cross the instructions open with now opens in place too.
+    const article = screen.getByRole("article");
+    fireEvent.click(within(article).getByRole("button", { name: /Sign of the Cross/ }));
+    expect(within(article).getByText("In the name of the Father...")).toBeInTheDocument();
+  });
+
+  it("links the step-by-step guide that names the devotion, not every guide that mentions it", async () => {
+    put("DEVOTION", "holy-rosary", "The Holy Rosary", ROSARY);
+    put("GUIDE", "how-to-pray-the-rosary", "How to Pray the Holy Rosary", {
+      relatedDevotions: ["holy-rosary"],
+    });
+    put("GUIDE", "joyful-mysteries-of-the-rosary", "The Joyful Mysteries of the Rosary", {
+      relatedDevotions: ["holy-rosary"],
+    });
+    put("GUIDE", "how-to-pray-the-holy-rosary-elsewhere", "How to Pray the Holy Rosary Again", {
+      relatedDevotions: ["stations-of-the-cross"],
+    });
+    render(await DevotionDetailPage(params("holy-rosary")));
+    const guide = screen.getByRole("heading", { name: "Guide" }).closest("section")!;
+    const links = within(guide).getAllByRole("link");
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/guides/how-to-pray-the-rosary"]);
+    expect(links[0]).toHaveTextContent("How to Pray the Holy Rosary");
+  });
+
+  it("shows no guide row when no guide names the devotion", async () => {
+    render(await DevotionDetailPage(params("divine-mercy-chaplet")));
+    expect(screen.queryByRole("heading", { name: "Guide" })).not.toBeInTheDocument();
+  });
+
+  it("never prints an indulgence's source citation (the curated scapular shape)", async () => {
+    const curated = findCuratedEntry("DEVOTION", "green-scapular")!;
+    expect(curated.payload.indulgences).toMatchObject({ claimed: true });
+    put("DEVOTION", "green-scapular", "The Green Scapular", curated.payload);
+    const { container } = render(await DevotionDetailPage(params("green-scapular")));
+    expect(container.querySelectorAll("dt")).toHaveLength(0);
+    const text = container.textContent ?? "";
+    for (const source of ["Citation", "Enchiridion", "Apostolic Penitentiary", "Indulgences"]) {
+      expect(text, source).not.toContain(source);
+    }
+  });
 });
 
 describe("/novenas/[slug]", () => {
@@ -163,15 +244,28 @@ describe("/novenas/[slug]", () => {
     expect(within(list).getByRole("button", { name: "Latin" })).toBeInTheDocument();
   });
 
-  it("falls back to the Our Father, Hail Mary and Glory Be when the days name no prayer", async () => {
+  it("lists no prayers its days do not pray — no customary Our Father, Hail Mary, Glory Be", async () => {
     put("NOVENA", "novena-saint-jude", "Novena to Saint Jude", {
       days: [{ day: 1, title: "Patron of hopeless cases", prayerText: "O blessed apostle..." }],
     });
     render(await NovenaDetailPage(params("novena-saint-jude")));
+    expect(
+      screen.queryByRole("heading", { name: "Prayers of this novena" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Our Father|Hail Mary|Glory Be/ })).toBeNull();
+  });
+
+  it("still opens the prayers a day names when its listed prayers are not published", async () => {
+    put("NOVENA", "novena-x", "Novena X", {
+      relatedPrayers: ["not-published"],
+      days: [{ day: 1, title: "First day", prayerText: "Pray one Our Father." }],
+    });
+    render(await NovenaDetailPage(params("novena-x")));
     const list = prayerList("Prayers of this novena");
-    expect(within(list).getByRole("button", { name: /Our Father/ })).toBeInTheDocument();
-    expect(within(list).getByRole("button", { name: /Hail Mary/ })).toBeInTheDocument();
-    expect(within(list).getByRole("button", { name: /Glory Be/ })).toBeInTheDocument();
+    expect(listedPrayers(list)).toEqual(["Prayer 1Our Father"]);
+    fireEvent.click(screen.getByRole("button", { name: /Day 1\s*First day/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Our Father/ }));
+    expect(screen.getByText("Our Father, who art in heaven...")).toBeInTheDocument();
   });
 });
 
@@ -187,6 +281,18 @@ describe("/our-lady/[slug] and /spiritual-life/[slug]", () => {
     expect(within(list).getByRole("button", { name: "Latin" })).toBeInTheDocument();
     expect(container.textContent).not.toContain("hail-mary");
     expect(container.textContent).not.toContain("not-published");
+  });
+
+  it("does not number a Marian title's prayers as a sequence — they are alternatives", async () => {
+    put("MARIAN_TITLE", "our-lady-of-mercy", "Our Lady of Mercy", {
+      origin: "Honoured by the Mercedarians since the thirteenth century.",
+      associatedPrayers: ["salve-regina", "hail-mary"],
+    });
+    render(await OurLadyDetailPage(params("our-lady-of-mercy")));
+    const list = prayerList("Prayers");
+    expect(listedPrayers(list)).toEqual(["Hail Holy Queen (Salve Regina)", "Hail Mary"]);
+    expect(list).not.toHaveTextContent("In the order they are prayed");
+    expect(list).toHaveTextContent("Tap a prayer to reveal its full text in the chosen language.");
   });
 
   it("shows a practice's prayers in full", async () => {

@@ -76,7 +76,8 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
             ) : null
           }
         />
-        <GuidePrayers prayers={prayers} heading="Prayers" />
+        {/* A title's prayers are alternatives, not a sequence: no "Prayer 1". */}
+        <GuidePrayers prayers={prayers} heading="Prayers" ordered={false} />
       </>
     );
   }

@@ -88,6 +88,21 @@ describe("GuidePrayers", () => {
     expect(screen.getByRole("heading", { name: "Prayers of this novena" })).toBeInTheDocument();
   });
 
+  it("numbers a sequence, and claims no order for a set of alternatives", () => {
+    const { unmount } = render(<GuidePrayers prayers={[OUR_FATHER, DAY_PRAYER]} />);
+    expect(screen.getByRole("button", { name: /^Prayer 1\s*Our Father/ })).toBeInTheDocument();
+    expect(screen.getByText(/In the order they are prayed/)).toBeInTheDocument();
+    unmount();
+
+    render(<GuidePrayers prayers={[OUR_FATHER, DAY_PRAYER]} ordered={false} />);
+    expect(screen.getByRole("button", { name: "Our Father" })).toBeInTheDocument();
+    expect(screen.queryByText(/Prayer \d/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/In the order they are prayed/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Tap a prayer to reveal its full text in the chosen language."),
+    ).toBeInTheDocument();
+  });
+
   it("shares one choice with every other prayer on the page", () => {
     render(
       <>

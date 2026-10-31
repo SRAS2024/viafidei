@@ -10,13 +10,17 @@ import { Disclosure } from "./Disclosure";
 import { PrayerLanguageChips, usePrayerLanguage, type LanguageOption } from "./PrayerLanguageChips";
 
 /**
- * The prayers of a guide, novena, devotion or chaplet, in the order they are
- * prayed, each as a dropdown (so the full text is readily available), with one
- * UNIVERSAL set of language chips (Latin / Greek / …) that switches every
- * dropdown at once. It is the same session-wide choice as the prayer page's
- * chips (`usePrayerLanguage`), so Latin picked anywhere opens here in Latin;
- * a prayer without the chosen language shows its vernacular text. Latin /
- * Greek text is marked translate="no" so it is never auto-translated.
+ * The prayers of a guide, novena, devotion or chaplet, each as a dropdown (so
+ * the full text is readily available), with one UNIVERSAL set of language
+ * chips (Latin / Greek / …) that switches every dropdown at once. It is the
+ * same session-wide choice as the prayer page's chips (`usePrayerLanguage`),
+ * so Latin picked anywhere opens here in Latin; a prayer without the chosen
+ * language shows its vernacular text. Latin / Greek text is marked
+ * translate="no" so it is never auto-translated.
+ *
+ * An `ordered` list is the sequence in which the prayers are prayed, so each
+ * is numbered ("Prayer 1"). A set that is not a sequence (a Marian title's
+ * prayers, which are alternatives) is listed without numbers or that claim.
  */
 export type GuidePrayerData = PrayerWithVariants;
 
@@ -25,10 +29,13 @@ const LANG_ORDER = ["la", "el"];
 export function GuidePrayers({
   prayers,
   heading = "Prayers of this guide",
+  ordered = true,
 }: {
   prayers: GuidePrayerData[];
   /** Section heading ("Prayers of this novena", "Prayers of this devotion", …). */
   heading?: string;
+  /** The list is the order in which the prayers are prayed (default). */
+  ordered?: boolean;
 }) {
   // Every language some prayer offers beyond its own vernacular — the chips.
   const languages = useMemo<LanguageOption[]>(() => {
@@ -65,14 +72,18 @@ export function GuidePrayers({
         />
       </div>
       <p className="mt-1 font-serif text-sm text-ink-soft">
-        In the order they are prayed — tap a prayer to reveal its full text
+        {ordered ? "In the order they are prayed — tap" : "Tap"} a prayer to reveal its full text
         {languages.length > 0 ? " in the chosen language" : ""}.
       </p>
       <div className="mt-4 space-y-3">
         {prayers.map((p, i) => {
           const { shown } = resolvePrayerLanguage(p.variants, language);
           return (
-            <Disclosure key={p.slug} eyebrow={`Prayer ${i + 1}`} title={p.title}>
+            <Disclosure
+              key={p.slug}
+              eyebrow={ordered ? `Prayer ${i + 1}` : undefined}
+              title={p.title}
+            >
               {shown ? (
                 <p
                   className="whitespace-pre-line"

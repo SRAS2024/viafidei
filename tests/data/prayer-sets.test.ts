@@ -14,7 +14,7 @@ vi.mock("@/lib/data/published", () => ({
     lookupFails ? Promise.reject(new Error("db down")) : listPublishedBySlugs(...args),
 }));
 
-import { loadNamedPrayers, loadPrayerSet } from "@/lib/data/prayer-sets";
+import { loadNamedPrayers, loadPrayerSet, loadPrayersForText } from "@/lib/data/prayer-sets";
 
 function prayer(slug: string, title: string, payload: Record<string, unknown>): PublishedItem {
   return { id: slug, contentType: "PRAYER", slug, title, subtitle: "", payload } as PublishedItem;
@@ -26,6 +26,15 @@ const OUR_FATHER = prayer("our-father", "Our Father", {
   greek: "Πάτερ ἡμῶν...",
 });
 const HAIL_MARY = prayer("hail-mary", "Hail Mary", { body: "Hail Mary, full of grace..." });
+const SIGN_OF_THE_CROSS = prayer("sign-of-the-cross", "Sign of the Cross", {
+  body: "In the name of the Father...",
+  latin: "In nomine Patris...",
+});
+const APOSTLES_CREED = prayer("apostles-creed", "Apostles' Creed", { body: "I believe in God..." });
+const SALVE_REGINA = prayer("salve-regina", "Hail Holy Queen (Salve Regina)", {
+  body: "Hail, holy Queen, Mother of mercy...",
+});
+const MEMORARE = prayer("memorare", "Memorare", { body: "Remember, O most gracious Virgin..." });
 const TITLE_ONLY = prayer("prayer-videos", "Prayer Videos", {});
 
 beforeEach(() => {
@@ -75,5 +84,69 @@ describe("loadNamedPrayers", () => {
   it("does not query at all for empty text", async () => {
     expect(await loadNamedPrayers(["", " "])).toEqual([]);
     expect(listPublishedBySlugs).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadPrayersForText", () => {
+  /** The published rows behind whatever slugs a call asks for. */
+  const PUBLISHED = [
+    SIGN_OF_THE_CROSS,
+    APOSTLES_CREED,
+    OUR_FATHER,
+    HAIL_MARY,
+    SALVE_REGINA,
+    MEMORARE,
+  ];
+  beforeEach(() => {
+    listPublishedBySlugs.mockImplementation(async (_type: string, slugs: string[]) =>
+      slugs
+        .map((slug) => PUBLISHED.find((p) => p.slug === slug))
+        .filter((p): p is PublishedItem => p != null),
+    );
+  });
+
+  // The live Rosary devotion: its stored list lacks the Sign of the Cross its
+  // instructions begin with, and lists the Creed fourth though it comes first.
+  const ROSARY_INSTRUCTIONS =
+    "Begin with the Sign of the Cross and the Apostles' Creed. Pray one Our Father, three " +
+    "Hail Marys, and a Glory Be. Conclude with the Hail Holy Queen.";
+
+  it("adds the prayers the text names and orders the list as the text prays it", async () => {
+    const { prayers, ordered } = await loadPrayersForText(
+      ["our-father", "hail-mary", "apostles-creed", "salve-regina"],
+      [ROSARY_INSTRUCTIONS],
+    );
+    expect(prayers.map((p) => p.slug)).toEqual([
+      "sign-of-the-cross",
+      "apostles-creed",
+      "our-father",
+      "hail-mary",
+      "salve-regina",
+    ]);
+    expect(ordered).toBe(true);
+  });
+
+  it("keeps a listed prayer the text never names, after the named ones, and is then unordered", async () => {
+    const { prayers, ordered } = await loadPrayersForText(
+      ["memorare", "our-father"],
+      ["Pray one Our Father."],
+    );
+    expect(prayers.map((p) => p.slug)).toEqual(["our-father", "memorare"]);
+    expect(ordered).toBe(false);
+  });
+
+  it("falls through to the named prayers when the listed ones are not published", async () => {
+    const { prayers } = await loadPrayersForText(["not-published"], ["Pray one Our Father."], {
+      matchCase: true,
+    });
+    expect(prayers.map((p) => p.slug)).toEqual(["our-father"]);
+  });
+
+  it("invents nothing: no list and no text means no prayers", async () => {
+    expect(await loadPrayersForText(undefined, ["O blessed apostle, pray for us."])).toEqual({
+      prayers: [],
+      ordered: false,
+    });
+    expect(await loadPrayersForText([], [])).toEqual({ prayers: [], ordered: false });
   });
 });
