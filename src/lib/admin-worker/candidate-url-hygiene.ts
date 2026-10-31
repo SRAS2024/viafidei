@@ -80,7 +80,8 @@ const TRACKING_KEYS: ReadonlySet<string> = new Set([
   "mkt_tok",
 ]);
 
-const ACCOUNT_SEGMENTS: ReadonlySet<string> = new Set([
+/** Path segments of sign-in / sign-up / account / password pages (`account_page`). */
+export const ACCOUNT_SEGMENTS: ReadonlySet<string> = new Set([
   "login",
   "log-in",
   "logout",
@@ -104,7 +105,8 @@ const ACCOUNT_SEGMENTS: ReadonlySet<string> = new Set([
   "password-reset",
 ]);
 
-const CART_SEGMENTS: ReadonlySet<string> = new Set([
+/** Path segments of cart, basket and checkout pages (`cart_page`). */
+export const CART_SEGMENTS: ReadonlySet<string> = new Set([
   "cart",
   "basket",
   "checkout",
@@ -112,7 +114,8 @@ const CART_SEGMENTS: ReadonlySet<string> = new Set([
   "shopping-cart",
 ]);
 
-const SEARCH_SEGMENTS: ReadonlySet<string> = new Set([
+/** Path segments of site-search result pages (`search_results`). */
+export const SEARCH_SEGMENTS: ReadonlySet<string> = new Set([
   "search",
   "search-results",
   "searchresults",
@@ -120,7 +123,8 @@ const SEARCH_SEGMENTS: ReadonlySet<string> = new Set([
   "sitesearch",
 ]);
 
-const CMS_FILES: ReadonlySet<string> = new Set([
+/** CMS machine-endpoint file names (`cms_endpoint`). */
+export const CMS_FILES: ReadonlySet<string> = new Set([
   "xmlrpc.php",
   "wp-login.php",
   "wp-cron.php",
@@ -271,7 +275,11 @@ const SWEEP_EXAMPLES = 3;
  * separately). Only a cheap SQL prefilter: each row it returns is re-judged by
  * `screenCandidateUrl`, so a rare false positive ("/carthusians/" contains
  * "/cart") is examined and left alone. A new shape needs its substring here,
- * or the queue sweep cannot find the rows queued before it.
+ * or the queue sweep cannot find the rows queued before it — which is why the
+ * path-segment shapes are DERIVED from the very sets `screenCandidateUrl`
+ * matches: the hand-kept list missed "/registration" (it does not contain
+ * "/register"), so those rows were screened at enqueue but never retired. The
+ * fixed paths and query keys are listed by hand.
  */
 export const JUNK_SHAPE_PREFILTER: readonly string[] = [
   "/cdn-cgi",
@@ -280,31 +288,9 @@ export const JUNK_SHAPE_PREFILTER: readonly string[] = [
   "rest_route=",
   "/wp-admin",
   ...CMS_FILES,
-  "/login",
-  "/log-in",
-  "/logout",
-  "/log-out",
-  "/signin",
-  "/sign-in",
-  "/signout",
-  "/sign-out",
-  "/signup",
-  "/sign-up",
-  "/register",
-  "/account",
-  "/my-account",
-  "/myaccount",
-  "password",
-  "/cart",
-  "/basket",
-  "/checkout",
-  "/my-cart",
-  "/shopping-cart",
+  ...[...ACCOUNT_SEGMENTS, ...CART_SEGMENTS, ...SEARCH_SEGMENTS].map((segment) => `/${segment}`),
   "add-to-cart",
   "add_to_cart",
-  "/search",
-  "/site-search",
-  "/sitesearch",
   "?s=",
   "&s=",
   "searchword=",

@@ -27,8 +27,12 @@ vi.mock("@/lib/checklist", async (importOriginal) => ({
 import type { PrismaClient } from "@prisma/client";
 
 import {
+  ACCOUNT_SEGMENTS,
+  CART_SEGMENTS,
+  CMS_FILES,
   JUNK_SHAPE_PREFILTER,
   JUNK_SHAPE_SWEEP_INTERVAL_MS,
+  SEARCH_SEGMENTS,
   canonicalCandidateUrl,
   resetJunkShapeSweepClock,
   retireJunkShapedCandidates,
@@ -58,6 +62,7 @@ describe("screenCandidateUrl — junk shapes", () => {
     ["https://example.org/my-account/", "account_page"],
     ["https://example.org/sign-up", "account_page"],
     ["https://example.org/register", "account_page"],
+    ["https://example.org/events/registration/", "account_page"],
     ["https://example.org/lost-password", "account_page"],
     ["https://shop.example.org/cart", "cart_page"],
     ["https://shop.example.org/checkout/", "cart_page"],
@@ -82,16 +87,47 @@ describe("screenCandidateUrl — junk shapes", () => {
     if (!verdict.ok) expect(verdict.shape).toBe(shape);
   });
 
+  /** The sweep's SQL prefilter is `contains`, case-insensitive. */
+  const reachable = (url: string) =>
+    JUNK_SHAPE_PREFILTER.some((s) => url.toLowerCase().includes(s.toLowerCase()));
+
   it("every rejected http(s) shape is reachable by the queue sweep's prefilter", () => {
     // The sweep only examines rows its SQL prefilter returns (plus non-http
     // ones), so a shape without a prefilter substring could never be retired.
     for (const [url] of JUNK) {
       if (!/^https?:/i.test(url)) continue;
-      const lower = url.toLowerCase();
-      expect(
-        JUNK_SHAPE_PREFILTER.some((s) => lower.includes(s.toLowerCase())),
-        url,
-      ).toBe(true);
+      expect(reachable(url), url).toBe(true);
+    }
+  });
+
+  it("every screened path segment and CMS file is reachable — generated from the sets themselves", () => {
+    // Hand-picked samples missed `/registration` (it does not contain
+    // "/register"): screened at enqueue, never retired from the queue. So
+    // every member of every set `screenCandidateUrl` matches is checked, in
+    // the middle and at the end of a path and in upper case.
+    const segments: Array<[string, string]> = [
+      ...[...ACCOUNT_SEGMENTS].map((s): [string, string] => [s, "account_page"]),
+      ...[...CART_SEGMENTS].map((s): [string, string] => [s, "cart_page"]),
+      ...[...SEARCH_SEGMENTS].map((s): [string, string] => [s, "search_results"]),
+    ];
+    expect(segments.map(([s]) => s)).toContain("registration");
+    for (const [segment, shape] of segments) {
+      for (const url of [
+        `https://parish.example/${segment}`,
+        `https://parish.example/en/${segment}/step-2?next=/`,
+        `https://parish.example/${segment.toUpperCase()}/`,
+      ]) {
+        const verdict = screenCandidateUrl(url);
+        expect(verdict.ok, url).toBe(false);
+        if (!verdict.ok) expect(verdict.shape, url).toBe(shape);
+        expect(reachable(url), url).toBe(true);
+      }
+    }
+    for (const file of CMS_FILES) {
+      const url = `https://parish.example/blog/${file}`;
+      const verdict = screenCandidateUrl(url);
+      expect(!verdict.ok && verdict.shape, url).toBe("cms_endpoint");
+      expect(reachable(url), url).toBe(true);
     }
   });
 
@@ -192,12 +228,31 @@ function candidatePrisma(seed: CandidateRow[] = []) {
           where,
           take,
         }: {
-          where: { status: { in: string[] }; id?: { gt: string } };
+          where: {
+            status: { in: string[] };
+            id?: { gt: string };
+            // The sweep's prefilter, applied like Postgres would (ILIKE).
+            OR?: Array<{
+              discoveredUrl?: { contains: string };
+              NOT?: { discoveredUrl: { startsWith: string } };
+            }>;
+          };
           take: number;
         }) =>
           [...rows.values()]
             .filter((r) => where.status.in.includes(r.status))
             .filter((r) => !where.id || r.id > where.id.gt)
+            .filter(
+              (r) =>
+                !where.OR ||
+                where.OR.some((c) =>
+                  c.discoveredUrl
+                    ? r.discoveredUrl.toLowerCase().includes(c.discoveredUrl.contains.toLowerCase())
+                    : !r.discoveredUrl
+                        .toLowerCase()
+                        .startsWith(c.NOT?.discoveredUrl.startsWith.toLowerCase() ?? ""),
+                ),
+            )
             .sort((a, b) => a.id.localeCompare(b.id))
             .slice(0, take)
             .map((r) => ({ id: r.id, discoveredUrl: r.discoveredUrl })),
@@ -414,6 +469,31 @@ describe("retireJunkShapedCandidates", () => {
       "fetch_queue_shape_retired",
     ]);
     expect(prisma.logs.every((l) => l.severity === "WARN")).toBe(true);
+  });
+
+  it("reaches a queued /registration page (the prefilter used to miss it)", async () => {
+    const prisma = candidatePrisma([
+      {
+        id: "r1",
+        discoveredUrl: "https://parish.example/events/Registration/",
+        status: "PRIORITIZED",
+      },
+      {
+        id: "r2",
+        discoveredUrl: "https://parish.example/registry-of-baptisms",
+        status: "DISCOVERED",
+      },
+    ]);
+    const out = await retireJunkShapedCandidates(prisma as unknown as PrismaClient, {
+      force: true,
+    });
+    expect(out.byShape).toEqual({ account_page: 1 });
+    const byId = new Map([...prisma.rows.values()].map((r) => [r.id, r]));
+    expect(byId.get("r1")).toMatchObject({
+      status: "REJECTED",
+      rejectionPattern: "url-shape:account_page",
+    });
+    expect(byId.get("r2")?.status).toBe("DISCOVERED");
   });
 
   it("is throttled, writes nothing when the queue is clean, and can be forced", async () => {
