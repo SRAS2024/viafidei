@@ -267,12 +267,14 @@ const SWEEP_MAX_PAGES = 10;
 const SWEEP_EXAMPLES = 3;
 
 /**
- * Substrings that every junk shape above contains. Only a cheap SQL prefilter:
- * each row it returns is re-judged by `screenCandidateUrl`, so a rare false
- * positive ("/carthusians/" contains "/cart") is examined and left alone.
+ * Substrings that every junk shape above contains (non-http URLs are matched
+ * separately). Only a cheap SQL prefilter: each row it returns is re-judged by
+ * `screenCandidateUrl`, so a rare false positive ("/carthusians/" contains
+ * "/cart") is examined and left alone. A new shape needs its substring here,
+ * or the queue sweep cannot find the rows queued before it.
  */
-const PREFILTER_SUBSTRINGS = [
-  "/cdn-cgi/",
+export const JUNK_SHAPE_PREFILTER: readonly string[] = [
+  "/cdn-cgi",
   "cf_chl",
   "/wp-json",
   "rest_route=",
@@ -358,7 +360,7 @@ export async function retireJunkShapedCandidates(
             status: { in: ["DISCOVERED", "PRIORITIZED"] },
             ...(afterId ? { id: { gt: afterId } } : {}),
             OR: [
-              ...PREFILTER_SUBSTRINGS.map((s) => ({
+              ...JUNK_SHAPE_PREFILTER.map((s) => ({
                 discoveredUrl: { contains: s, mode: "insensitive" as const },
               })),
               { NOT: { discoveredUrl: { startsWith: "http", mode: "insensitive" as const } } },

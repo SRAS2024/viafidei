@@ -27,6 +27,7 @@ vi.mock("@/lib/checklist", async (importOriginal) => ({
 import type { PrismaClient } from "@prisma/client";
 
 import {
+  JUNK_SHAPE_PREFILTER,
   JUNK_SHAPE_SWEEP_INTERVAL_MS,
   canonicalCandidateUrl,
   resetJunkShapeSweepClock,
@@ -40,8 +41,9 @@ import { discoverFromFeed } from "@/lib/admin-worker/rss-discovery";
 import { discoverCandidate } from "@/lib/admin-worker/web-navigator";
 
 describe("screenCandidateUrl — junk shapes", () => {
-  it.each([
+  const JUNK: Array<[string, string]> = [
     ["https://www.vaticannews.va/cdn-cgi/content?id=9pPFi_KmX0aQ", "cloudflare_challenge"],
+    ["https://www.vaticannews.va/cdn-cgi", "cloudflare_challenge"],
     ["https://www.vatican.va/cdn-cgi/l/email-protection#a1b2c3", "cloudflare_challenge"],
     ["https://www.usccb.org/prayers?__cf_chl_tk=abc123", "cloudflare_challenge"],
     ["https://www.usccb.org/prayers?__cf_chl_rt_tk=abc123", "cloudflare_challenge"],
@@ -72,10 +74,25 @@ describe("screenCandidateUrl — junk shapes", () => {
     ["javascript:void(0)", "non_http_url"],
     ["ftp://files.example.org/missal.pdf", "non_http_url"],
     ["/relative/path", "unparseable_url"],
-  ])("rejects %s as %s", (url, shape) => {
+  ];
+
+  it.each(JUNK)("rejects %s as %s", (url, shape) => {
     const verdict = screenCandidateUrl(url);
     expect(verdict.ok).toBe(false);
     if (!verdict.ok) expect(verdict.shape).toBe(shape);
+  });
+
+  it("every rejected http(s) shape is reachable by the queue sweep's prefilter", () => {
+    // The sweep only examines rows its SQL prefilter returns (plus non-http
+    // ones), so a shape without a prefilter substring could never be retired.
+    for (const [url] of JUNK) {
+      if (!/^https?:/i.test(url)) continue;
+      const lower = url.toLowerCase();
+      expect(
+        JUNK_SHAPE_PREFILTER.some((s) => lower.includes(s.toLowerCase())),
+        url,
+      ).toBe(true);
+    }
   });
 
   it.each([
