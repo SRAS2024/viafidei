@@ -45,7 +45,11 @@ describe("runCuratedIngest — worker curated-knowledge ingestion", () => {
     );
     const res = await runCuratedIngest(prisma, { passId: "p1", limit: 25 });
 
-    expect(seedCuratedContent).toHaveBeenCalledWith(prisma, { limit: 25 });
+    expect(seedCuratedContent).toHaveBeenCalledWith(prisma, {
+      limit: 25,
+      finalizeGoals: false,
+      honorBackoff: true,
+    });
     expect(res.published).toBe(25);
     expect(res.exhausted).toBe(false);
     expect(writeAdminWorkerLog).toHaveBeenCalledTimes(1);
@@ -56,6 +60,8 @@ describe("runCuratedIngest — worker curated-knowledge ingestion", () => {
     await runCuratedIngest(prisma, {});
     expect(seedCuratedContent).toHaveBeenCalledWith(prisma, {
       limit: DEFAULT_CURATED_INGEST_BATCH,
+      finalizeGoals: false,
+      honorBackoff: true,
     });
   });
 
@@ -73,5 +79,48 @@ describe("runCuratedIngest — worker curated-knowledge ingestion", () => {
     );
     await runCuratedIngest(prisma, { passId: "p3" });
     expect(writeAdminWorkerLog).toHaveBeenCalledTimes(1);
+  });
+
+  it("names every entry that failed this run, with its reason and next attempt", async () => {
+    // A skipped entry (invalid payload, a gate refusal) used to vanish into
+    // `errors` with no log line, and was re-attempted on every pass.
+    const nextAttemptAt = Date.parse("2026-10-31T12:00:00Z");
+    vi.mocked(seedCuratedContent).mockResolvedValueOnce(
+      seedResult({
+        attempted: 3,
+        skipped: 1,
+        alreadyPublished: 2,
+        failures: [
+          {
+            contentType: "PRAYER",
+            slug: "anima-christi",
+            reason: "blocked: publish safety: incomplete_prayer",
+            attempts: 2,
+            nextAttemptAt,
+          },
+        ],
+      }),
+    );
+    await runCuratedIngest(prisma, { passId: "p4" });
+    expect(writeAdminWorkerLog).toHaveBeenCalledTimes(1);
+    const entry = vi.mocked(writeAdminWorkerLog).mock.calls[0][1] as {
+      severity: string;
+      message: string;
+      safeMetadata: { failures: unknown[] };
+    };
+    expect(entry.severity).toBe("WARN");
+    expect(entry.message).toContain("PRAYER/anima-christi");
+    expect(entry.message).toContain("incomplete_prayer");
+    expect(entry.message).toContain("attempt 2");
+    expect(entry.message).toContain(new Date(nextAttemptAt).toISOString());
+    expect(entry.safeMetadata.failures).toHaveLength(1);
+  });
+
+  it("stays quiet while failing entries are only waiting out their backoff", async () => {
+    vi.mocked(seedCuratedContent).mockResolvedValueOnce(
+      seedResult({ attempted: 3, alreadyPublished: 2, deferred: 1, failures: [] }),
+    );
+    await runCuratedIngest(prisma, { passId: "p5" });
+    expect(writeAdminWorkerLog).not.toHaveBeenCalled();
   });
 });

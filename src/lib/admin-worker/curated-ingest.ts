@@ -38,28 +38,49 @@ export interface CuratedIngestResult extends SeedCuratedResult {
   exhausted: boolean;
 }
 
+/** Failing entries named in one log line (the payload carries the same bound). */
+const LOGGED_FAILURES = 10;
+
 /**
  * Publish up to `limit` not-yet-live curated entries through the real publish
  * pipeline and record the activity to the Admin Worker log. Returns the seed
  * result plus an `exhausted` flag (no new items remained).
+ *
+ * The seed's backoff decides when a failing entry is tried again, so an entry
+ * that cannot publish is attempted — and named in the log — once per backoff
+ * window rather than silently retried on every pass. Goal rows are left to
+ * the loop, which refreshes them once per pass.
  */
 export async function runCuratedIngest(
   prisma: PrismaClient,
   opts: { passId?: string; limit?: number } = {},
 ): Promise<CuratedIngestResult> {
   const limit = opts.limit ?? DEFAULT_CURATED_INGEST_BATCH;
-  const res = await seedCuratedContent(prisma, { limit });
+  const res = await seedCuratedContent(prisma, {
+    limit,
+    finalizeGoals: false,
+    honorBackoff: true,
+  });
   const updated = res.updated ?? 0;
+  const failures = res.failures ?? [];
   const exhausted = res.published === 0 && updated === 0;
 
   // Only log when the worker actually did something (published or updated
   // this pass) or hit a problem — a steady stream of "nothing to do" rows
-  // would be noise once the curated base is fully live.
-  if (res.published > 0 || updated > 0 || res.failed > 0) {
+  // would be noise once the curated base is fully live. A failing entry is
+  // only attempted once per backoff window, so naming it here is not a
+  // per-pass repeat.
+  if (res.published > 0 || updated > 0 || res.failed > 0 || failures.length > 0) {
+    const named = failures
+      .slice(0, LOGGED_FAILURES)
+      .map(
+        (f) =>
+          `${f.contentType}/${f.slug} (${f.reason}; attempt ${f.attempts}, next ${new Date(f.nextAttemptAt).toISOString()})`,
+      );
     await writeAdminWorkerLog(prisma, {
       passId: opts.passId,
       category: "CONTENT_BUILD",
-      severity: res.failed > 0 ? "WARN" : "INFO",
+      severity: res.failed > 0 || failures.length > 0 ? "WARN" : "INFO",
       eventName: "curated_knowledge_ingest",
       message: `Curated knowledge ingest: published ${res.published} new item(s)${
         updated > 0 ? `, re-published ${updated} updated item(s)` : ""
@@ -67,12 +88,18 @@ export async function runCuratedIngest(
         res.failed > 0 ? `, ${res.failed} failed` : ""
       } from the worker's ground-truth knowledge base (${Object.entries(res.byType)
         .map(([t, n]) => `${t}:${n}`)
-        .join(", ")}).`,
+        .join(", ")}).${
+        failures.length > 0
+          ? ` ${failures.length} entr${failures.length === 1 ? "y" : "ies"} did not publish and will be retried after a backoff: ${named.join("; ")}${failures.length > named.length ? "; …" : ""}.`
+          : ""
+      }`,
       safeMetadata: {
         published: res.published,
         updated,
         alreadyPublished: res.alreadyPublished,
         failed: res.failed,
+        deferred: res.deferred ?? 0,
+        failures: failures.slice(0, LOGGED_FAILURES),
         byType: res.byType,
       },
     }).catch(() => undefined);
