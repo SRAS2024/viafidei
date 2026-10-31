@@ -381,9 +381,12 @@ function entryQid(entry: CuratedEntry): string | undefined {
  * it, a type at or over its target scores 0 and is never picked while any
  * other ingestor has a gap (RITE, MARIAN_TITLE, SPIRITUAL_PRACTICE and DOCTOR
  * are at or over target while SAINT's gap is in the thousands), although open
- * types are meant to keep growing past target and a newly declared doctor or
- * newly elected pope must still arrive. One run per floor interval per
- * ingestor costs a handful of passes a day next to SAINT's hundreds.
+ * types are meant to keep growing past target and a newly elected pope must
+ * still arrive. The curated-set types (DOCTOR, RITE) are re-checked too, but a
+ * run of theirs publishes nothing: an entity it cannot match to a curated row
+ * is held for curation (`StructuredIngestor.curatedSet`). One run per floor
+ * interval per ingestor costs a handful of passes a day next to SAINT's
+ * hundreds.
  */
 export const INGESTOR_MAINTENANCE_FLOOR_MS = envInt(
   "ADMIN_WORKER_STRUCTURED_FLOOR_MS",
@@ -918,6 +921,19 @@ export async function runStructuredIngest(
         if (memoQid) clearedEntities.push(memoQid);
         continue;
       }
+    }
+    // A curated-set type (DOCTOR, RITE) never grows from Wikidata: an entity no
+    // live row matched is far more often a curated member under a different
+    // label than a new member, so it is held — counted, sampled in the log and
+    // remembered per QID — for a curator to add, never published.
+    if (ingestor.curatedSet) {
+      out.skipped += 1;
+      const held = `${entryDisplayName(entry)} (${qid ?? "no QID"})`;
+      note("curated_set_unmatched", held);
+      if (memoQid) {
+        rejectedEntities.push({ qid: memoQid, code: "curated_set_unmatched", detail: held });
+      }
+      continue;
     }
     try {
       const r = await publishStructuredEntry(prisma, entry);

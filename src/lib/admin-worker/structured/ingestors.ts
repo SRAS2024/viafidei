@@ -124,6 +124,23 @@ export interface StructuredIngestor {
    * ingests. Optional; returns [] when the row carries none.
    */
   discoveredSources?(row: SparqlBinding): string[];
+  /**
+   * True when the type's members ARE a curated set (the thirty-seven Doctors in
+   * `knowledge/doctors.ts`, the rite registry in `knowledge/rites.ts`): this
+   * ingestor may confirm that set but never adds to it.
+   *
+   * Curated rows carry no Wikidata QID, so the dedup against them rests on slug
+   * and name alone, and Wikidata's labels are not the curated titles ("Pope
+   * Gregory I" for Saint Gregory the Great, "Albertus Magnus" for Saint Albert
+   * the Great, "Antiochene Rite" for the West Syriac Rite). An entity no live
+   * row matches is therefore far more often a curated member under another name
+   * than a new member, and publishing it would put a second page for the same
+   * Doctor or rite on the site. The orchestrator holds every such entity
+   * (`curated_set_unmatched`, remembered per QID like any other rejection), so a
+   * sweep re-checks the set and names a newcomer — a newly declared Doctor —
+   * for a curator to add, and publishes nothing.
+   */
+  curatedSet?: boolean;
 }
 
 /** What `identify` returns: any subset, all cheap. */
@@ -920,6 +937,9 @@ const doctorIngestor: StructuredIngestor = {
   contentType: "DOCTOR",
   id: "wikidata-doctors",
   authorityLevel: "TRUSTED_PUBLISHER",
+  // The Doctors are the curated thirty-seven: Wikidata confirms them and names
+  // a newly declared one for curation, but never publishes one (see the field).
+  curatedSet: true,
   // Doctors of the Church — matched by the honorific label (position held P39
   // or award P166 containing "Doctor of the Church"), so it doesn't depend on a
   // single hard-coded QID. The schema is permissive (name + citations); the
@@ -998,6 +1018,10 @@ const riteIngestor: StructuredIngestor = {
   contentType: "RITE",
   id: "wikidata-rites",
   authorityLevel: "TRUSTED_PUBLISHER",
+  // The rite registry is curated (rites, uses and the Churches sui iuris), and
+  // `riteCoreSlug` only lines up the labels it was written for: an unmatched
+  // rite is held for curation, never published (see the field).
+  curatedSet: true,
   // The recognized Catholic rites + the Eastern Catholic Churches sui iuris — a
   // fixed, factual, low-sensitivity set Wikidata covers well. The RITE schema is
   // permissive (name + citations; description optional), so a cited Wikipedia

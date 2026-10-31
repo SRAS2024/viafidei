@@ -124,6 +124,12 @@ export const REJECTION_CODES = [
   "publish_rejected",
   /** The publish call threw. */
   "publish_threw",
+  /**
+   * The type's members are its curated set and no live row matched the entity
+   * by QID, slug or name: held for a curator instead of published (see
+   * `StructuredIngestor.curatedSet`).
+   */
+  "curated_set_unmatched",
 ] as const;
 
 /** One of the closed `REJECTION_CODES`. */
