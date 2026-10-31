@@ -1190,7 +1190,7 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "devotional",
     occasions: ["lent", "holy-face", "good-friday"],
     relatedSaints: ["saint-therese-of-lisieux"],
-    summary: `A prayer of veneration of the Holy Face of Christ disfigured in the Passion, whose tears are gathered "as precious pearls" to purchase the souls of sinners. Its words are those of St Thérèse of Lisieux's prayer to the Holy Face; the Raccolta (no. 136), published before her beatification, prints it under the title "Prayer to Jesus Dead" without naming her. Pius X indulgenced it in 1906. ${ST_JOHN}`,
+    summary: `A prayer of veneration of the Holy Face of Christ disfigured in the Passion, whose tears are gathered "as precious pearls" to purchase the souls of sinners. It is St Thérèse of Lisieux's prayer to the Holy Face, which the Raccolta (no. 136), published before her beatification, prints in this translation under the title "Prayer to Jesus Dead" without naming her. Pius X indulgenced it in 1906. ${ST_JOHN}`,
   }),
   raccolta({
     slug: "prayer-for-a-happy-death-o-jesus-while-adoring-thy-last-breath",
@@ -1361,8 +1361,8 @@ export const prayerBatch9: CuratedEntry[] = [
     ],
     prayerType: "intercession",
     category: "devotional",
-    occasions: ["for-the-dying", "daily", "three-oclock-hour"],
-    summary: `The prayer for the sinners of the whole world who are in their last agony and will die this day, asking Jesus, Lover of souls, to cleanse them in his Blood through the agony of his Sacred Heart and the sorrows of his Mother; it ends with the invocation "Heart of Jesus, once in agony, pity the dying". The Raccolta (no. 153) prints it in Latin and English and recommends saying it three times a day; Pius IX indulgenced it in 1850. ${ST_JOHN}`,
+    occasions: ["for-the-dying", "daily", "preparation-for-death"],
+    summary: `The prayer for the sinners of the whole world who are in their last agony and will die this day, asking Jesus, Lover of souls, to cleanse them in his Blood through the agony of his Sacred Heart and the sorrows of his Mother; it ends with the invocation "Heart of Jesus, once in agony, pity the dying". The Raccolta (no. 153) prints it in Latin and English and speaks of its being said three times a day; Pius IX indulgenced it in 1850. ${ST_JOHN}`,
   }),
   raccolta({
     slug: "prayer-to-the-eucharistic-heart-sweet-companion-in-our-exile",
@@ -1439,7 +1439,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "eucharistic",
     occasions: ["adoration", "sacred-heart", "visit-to-the-blessed-sacrament"],
-    summary: `A one-sentence act of praise of the Heart of Jesus present in every tabernacle of the world, much used before the Blessed Sacrament and at the end of a holy hour. Raccolta no. 161, indulgenced by Pius IX in 1868. ${ST_JOHN}`,
+    summary: `A one-sentence act of praise of the Heart of Jesus present in the Blessed Sacrament, asking that it be praised, adored and loved in every tabernacle of the world to the end of time. Raccolta no. 161, indulgenced by Pius IX in 1868. ${ST_JOHN}`,
   }),
   raccolta({
     slug: "prayer-o-divine-heart-of-jesus-grant-eternal-rest",
@@ -1523,7 +1523,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "devotional",
     occasions: ["all-souls", "november", "precious-blood", "funerals"],
-    summary: `A devotion for the souls in purgatory that offers the eternal Father, five times over, the Precious Blood shed from each of the five wounds of Christ together with the sorrow of Mary in beholding it; it opens with the collect Actiones nostras, asks Jesus and his Mother themselves to present their sufferings for the holy souls, and closes with the absolution Absolve, Domine, the versicles of the Office of the Dead and the collect Fidelium Deus. The Raccolta calls it "Devotion to the Five Wounds" (no. 412); Leo XIII indulgenced it in 1888. ${ST_JOHN}`,
+    summary: `A devotion for the souls in purgatory that offers the eternal Father, five times over, the Precious Blood shed from each of the five wounds of Christ together with the sorrow of Mary in beholding it; it opens with the collect Actiones nostras, asks Jesus and his Mother themselves to present their sufferings for the holy souls, and closes with the Requiem tract Absolve, Domine, the versicles of the Office of the Dead and the collect Fidelium Deus. The Raccolta calls it "Devotion to the Five Wounds" (no. 412); Leo XIII indulgenced it in 1888. ${ST_JOHN}`,
   }),
   raccolta({
     slug: "prayers-to-jesus-for-the-holy-souls-my-jesus-by-that-copious-sweat",
@@ -1554,7 +1554,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["children", "disability", "charity"],
-    summary: `A prayer to Jesus, who welcomed and blessed little children, for children who cannot hear or speak, asking that Christians may come to their aid and that those who provide homes and schools for them may be blessed. The Raccolta titles it "Prayer for Deaf-Mutes" (no. 432), in the language of its time; Pius X indulgenced it in 1906. ${ST_JOHN}`,
+    summary: `A prayer to Jesus, who welcomed and blessed little children, for children who cannot hear or speak, asking that Christians may come to their aid and that those who provide a safe refuge for them may be blessed. The Raccolta titles it "Prayer for Deaf-Mutes" (no. 432), in the language of its time; Pius X indulgenced it in 1906. ${ST_JOHN}`,
   }),
   raccolta({
     slug: "prayers-against-an-unprovided-death",
@@ -1600,7 +1600,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "general",
     category: "trinitarian",
     occasions: ["sunday", "trinity-sunday", "all-saints"],
-    summary: `A Sunday devotion in two parts: the antiphon of praise to the Holy and undivided Trinity with the collect of Trinity Sunday, and an invocation of all the choirs of angels and every rank of saints with the collect of All Saints. Raccolta no. 436, indulgenced by Pius VII in 1816 for every Sunday. ${ST_JOHN}`,
+    summary: `A Sunday devotion in two parts: the antiphon of praise to the Holy and undivided Trinity with the collect of Trinity Sunday, and an invocation of all the choirs of angels and every rank of saints with a collect, echoing that of All Saints, asking that as our intercessors are multiplied God would grant us the abundance of his mercy. Raccolta no. 436, indulgenced by Pius VII in 1816 for every Sunday. ${ST_JOHN}`,
   }),
   raccolta({
     slug: "prayer-o-father-of-mercies-and-source-of-every-good",
@@ -1697,7 +1697,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "devotional",
     occasions: ["times-of-trouble", "protection", "sickness"],
-    summary: `A prayer for deliverance in any plague or trouble: the verse "Help us, O God of our salvation" (Psalm 78:9), Psalm 53 (54) "Save me, O Lord, in thy name", a versicle and collect, and the verse from the Te Deum "We beseech Thee, therefore, help thy servants, whom Thou hast redeemed with thy Precious Blood". Raccolta no. 443, indulgenced by Pius IX in 1849. ${ST_JOHN}`,
+    summary: `A prayer for deliverance in any plague or trouble: the verse "Help us, O God of our salvation" (Psalm 78 (79):9), Psalm 53 (54) "Save me, O Lord, in thy name", a versicle and collect, and the verse from the Te Deum "We beseech Thee, therefore, help thy servants, whom Thou hast redeemed with thy Precious Blood". Raccolta no. 443, indulgenced by Pius IX in 1849. ${ST_JOHN}`,
   }),
   raccolta({
     slug: "three-offerings-of-the-precious-blood-for-the-immaculate-conception",
@@ -1783,7 +1783,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "intercession",
     category: "general",
     occasions: ["for-the-church", "daily", "benediction"],
-    summary: `The versicle and response Oremus pro Pontifice, sung for the Pope at Benediction and on papal occasions, its response drawn from Psalm 40, followed by an Our Father and a Hail Mary. The Raccolta (no. 449) prints it in Latin and English; Pius IX indulgenced it in 1876. ${ST_JOHN}`,
+    summary: `The versicle and response Oremus pro Pontifice, often sung for the Pope at Benediction, its response drawn from Psalm 40 (41), followed by an Our Father and a Hail Mary. The Raccolta (no. 449) prints it in Latin and English; Pius IX indulgenced it in 1876. ${ST_JOHN}`,
   }),
   raccolta({
     slug: "christian-acts-my-god-i-believe-in-thee-i-hope-in-thee",
@@ -1797,7 +1797,7 @@ export const prayerBatch9: CuratedEntry[] = [
     prayerType: "act",
     category: "theological-virtue",
     occasions: ["daily", "act-of-love", "confession"],
-    summary: `A single short act of faith, hope, love and contrition, which the Raccolta (no. 453) directs to be said thirty-three times, in honour of the years of Christ's life, with a Glory Be after each eleven. Leo XIII indulgenced it in 1885. ${ST_JOHN}`,
+    summary: `A single short act of faith, hope, love and contrition, which the Raccolta (no. 453) directs to be said thirty-three times, with a Glory Be after each eleven. Leo XIII indulgenced it in 1885. ${ST_JOHN}`,
   }),
   raccolta({
     slug: "prayer-in-times-of-calamity-o-lord-jesus-christ-god-of-sanctity",
@@ -1920,6 +1920,22 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "general",
     occasions: ["vocations", "for-the-church", "ordination"],
     summary: `Two short offices for priests, each an antiphon, versicle and collect: the first, built on the parable of the labourers in the vineyard, asks God to raise up labourers for his Church who will spend themselves for souls; the second, on the words "No one putting his hand to the plough and looking back", asks protection for priests who are in danger. The Raccolta (no. 464) prints them in Latin and English; Pius X indulgenced them in 1908. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-when-putting-on-the-surplice-indue-me-domine",
+    title: "Prayer when Putting on the Surplice (Indue me, Domine)",
+    pages: [400],
+    body: [
+      "Make the Sign of the Cross and say:",
+      "Clothe me, O Lord, with the new man, who was created according to God, in justice and the sanctity of truth. Amen.",
+    ],
+    latin: [
+      "Indue me, Domine, novum hominem, qui secundum Deum creatus est, in justitia et sanctitate veritatis. Amen.",
+    ],
+    prayerType: "general",
+    category: "liturgical",
+    occasions: ["mass", "before-mass", "altar-servers"],
+    summary: `The vesting prayer said by clerics, servers and students on putting on the cotta or surplice, asking to be clothed with "the new man, who was created according to God, in justice and the sanctity of truth" (Ephesians 4:24). The Raccolta (no. 465) prints it in Latin and English; Pius X indulgenced it in 1907. ${ST_JOHN}`,
   }),
   raccolta({
     slug: "prayer-in-choosing-a-state-of-life",
