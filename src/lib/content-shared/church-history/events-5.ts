@@ -119,7 +119,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     tags: ["mission"],
     location: "Ephesus",
     context:
-      "On his third journey Paul teaches daily in the lecture hall of Tyrannus for over two years, until the silversmith Demetrius, fearing for the trade in shrines of Artemis, stirs up a riot in the theatre (Acts 19).",
+      "On his third journey Paul preaches for three months in the synagogue at Ephesus and then teaches daily for two years in the lecture hall of Tyrannus, until the silversmith Demetrius, fearing for the trade in shrines of Artemis, stirs up a riot in the theatre (Acts 19).",
     significance:
       "From Ephesus the Gospel spreads through the Roman province of Asia, which becomes a heartland of early Christianity.",
     citation: `${NA}11567b.htm`,
@@ -259,7 +259,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     kind: "martyrdom",
     location: "Mylapore, India",
     context:
-      "According to Syrian Christian tradition, Thomas is killed with a spear on a hill near present-day Chennai and buried at Mylapore.",
+      "In the tradition of India's Syrian Christians, the Apostle is run through with a spear on St Thomas Mount, in today's Chennai, and laid to rest at Mylapore.",
     significance:
       "His reputed tomb at Mylapore has long drawn pilgrims and remains central to the identity of India's Saint Thomas Christians.",
     citation: `${W}Thomas_the_Apostle`,
@@ -290,7 +290,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     context:
       "A Gospel steeped in the Jewish Scriptures presents Jesus as the promised Messiah and gathers his teaching into great discourses such as the Sermon on the Mount; Papias is the first to name Matthew as its author.",
     significance:
-      "The early Church quoted it more than any other Gospel and placed it first in the canon.",
+      "No Gospel was cited more often by early Christian writers, who took it for the oldest of the four and set it at the head of the New Testament.",
     citation: `${W}Gospel_of_Matthew`,
     links: { saints: ["saint-matthew"] },
   },
@@ -426,7 +426,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     tags: ["papacy", "persecution"],
     location: "Rome",
     context:
-      "After about a decade as bishop of Rome, Telesphorus dies a martyr; Irenaeus, listing the Roman bishops, singles him out for his glorious witness.",
+      "Bishop of Rome from about 125, Telesphorus dies a martyr (Eusebius dates his death to 138–139); Irenaeus, listing the Roman bishops, singles him out for his glorious witness.",
     significance:
       "He kept Easter on a Sunday yet stayed in communion with churches that followed another custom, an example Irenaeus later held up to Pope Victor.",
     citation: `${NA}14477b.htm`,
@@ -457,10 +457,10 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     tags: ["canon"],
     location: "Rome",
     context:
-      "Hermas, said by the Muratorian fragment to be a brother of Pope Pius I, writes a book of visions, commandments and parables calling Christians who have sinned after baptism to repentance.",
+      "Hermas, said by the Muratorian fragment to be a brother of Pope Pius I, writes a book of visions, commandments and parables that calls Christians who have sinned after baptism to repentance and offers them one more chance of pardon.",
     significance:
-      "Widely read in the early churches and counted as Scripture by some, it is a key witness to the early practice of penance; later lists kept it out of the canon.",
-    citation: `${NA}12126b.htm`,
+      "Irenaeus quoted it as Scripture and churches read it publicly, yet its standing was disputed, and Athanasius set it outside the canon as reading for catechumens; it remains a key witness to early penitential practice.",
+    citation: `${NA}07268b.htm`,
     links: { popes: ["pope-saint-pius-i"] },
   },
   {
@@ -505,7 +505,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     context:
       "The aged bishop of Smyrna comes to Rome to confer with Anicetus; they cannot agree on Easter, Polycarp keeping the Asian date of 14 Nisan and Rome the Sunday.",
     significance:
-      "Each kept his own custom without breaking communion, and Anicetus let his guest celebrate the Eucharist in his church — an early model of unity amid differing practice.",
+      "Neither gave up his own usage, yet they parted in peace, and Anicetus honoured his guest by yielding him the celebration of the Eucharist — an early sign that unity could hold amid differing practice.",
     citation: `${W}Polycarp`,
     links: { saints: ["saint-polycarp"] },
   },
@@ -598,7 +598,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     context:
       "Melito, bishop of Sardis and a leading voice of the Asian churches, preaches a poetic Easter homily on Christ the true Passover and draws up the earliest known Christian list of Old Testament books.",
     significance:
-      "Rediscovered only in 1940, the homily is also the first text to blame the Jewish people as a whole for Christ's death, a charge the Catholic Church repudiated at the Second Vatican Council.",
+      "Recovered only in 1940, the homily also blames the Jewish people outright for Christ's death, rhetoric that helped entrench anti-Jewish prejudice among Christians for centuries.",
     citation: `${W}Melito_of_Sardis`,
   },
   {
@@ -700,7 +700,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     context:
       "Twelve Christians from the North African town of Scilli, seven men and five women, refuse to swear by the emperor and are beheaded at Carthage on the orders of the proconsul Vigellius Saturninus.",
     significance:
-      "The record of their trial is the oldest dated document of the Latin Church and the first witness to a Latin Bible.",
+      "The account of their trial is the oldest Latin Christian text that can be precisely dated, and the first to refer to the Scriptures in a Latin version.",
     citation: `${W}Scillitan_Martyrs`,
   },
   {
@@ -880,7 +880,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     tags: ["schism", "papacy"],
     location: "Rome",
     context:
-      "The learned presbyter Hippolytus, who had accused Pope Zephyrinus of modalism, is scandalised when Callixtus I absolves Christians guilty of grave sins and lets himself be set up as a rival bishop of Rome.",
+      "On the usual reconstruction, the learned Roman presbyter Hippolytus, who had accused Pope Zephyrinus of confusing the Father with the Son, breaks with Callixtus I for pardoning serious sinners such as adulterers and lets his followers make him a counter-bishop of Rome.",
     significance:
       "Often counted the first antipope, he was probably reconciled before dying in exile with Pope Pontian, and the Church honours the two together as martyrs.",
     citation: `${W}Hippolytus_of_Rome`,
@@ -1004,9 +1004,9 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     tags: ["liturgy"],
     location: "Dura-Europos, Syria",
     context:
-      "In the Roman frontier town of Dura-Europos, a house built in 232/233 is converted into a church whose baptistery is painted with the Good Shepherd, the healing of the paralytic and Christ walking on the water.",
+      "At Dura-Europos, a Roman garrison town in Syria, Christians turn a private house built in 232/233 into a church, painting its baptistery with Christ as the Good Shepherd, Peter stepping out onto the water towards him, and a cured paralytic carrying off his bed.",
     significance:
-      "Buried during the Persian siege of 256 and excavated in 1931–32, it is the earliest identified Christian house church, and its paintings are among the oldest images of Jesus.",
+      "A ramp the Romans heaped against the walls during the Persian siege of 256 buried and preserved it until its excavation in 1931–32. It is the oldest house church yet identified, and its frescoes include some of the first known pictures of Jesus.",
     citation: `${W}Dura-Europos_church`,
   },
   {
@@ -1028,15 +1028,15 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     slug: "mani-begins-to-preach",
     title: "Mani begins to preach in Persia",
     year: 242,
-    precision: "year",
+    precision: "circa",
     era: "persecution",
     kind: "event",
     tags: ["heresy"],
     location: "Sasanian Persia",
     context:
-      "Mani, raised in a Jewish-Christian baptist sect, first preaches publicly at the court of Shapur I, proclaiming a dualist religion of light and darkness and calling himself an apostle of Jesus Christ.",
+      "Raised in a Babylonian baptist sect, Mani proclaims at the court of Shapur I a dualist religion of light and darkness, styling himself an apostle of Jesus Christ.",
     significance:
-      "Manichaeism spread from the Roman West to China; the Fathers fought it as a heresy, and the young Augustine joined its community at Rome before his conversion.",
+      "Manichaeism came to stretch from Roman Africa to China; the Fathers fought it as a heresy, and Augustine, a follower as a young man, became its foremost Latin opponent after his conversion.",
     citation: `${NA}09591a.htm`,
   },
   {
@@ -1065,7 +1065,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     context:
       "At the urging of his patron Ambrose, Origen, now over sixty, writes Against Celsus, refuting the pagan philosopher's attack of some seventy years before.",
     significance:
-      "One of the most important apologetic works of the early Church; Eusebius thought it answered in advance every objection the Church would ever face.",
+      "Meeting a Platonist critic on his own philosophical ground, Origen won the faith a hearing among educated pagans, and Eusebius later judged the book a sufficient reply to any attack yet to come.",
     citation: `${W}Contra_Celsum`,
   },
   {
@@ -1078,7 +1078,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     tags: ["persecution"],
     location: "Alexandria",
     context:
-      "In a mob attack on Alexandria's Christians, the aged virgin Apollonia has her teeth broken and, threatened with burning unless she blasphemes, walks into the fire herself.",
+      "In a mob attack on Alexandria's Christians, the virgin Apollonia, much revered in the church and probably a deaconess, has her teeth broken and, threatened with burning unless she blasphemes, leaps into the flames herself.",
     significance:
       "Bishop Dionysius's letter preserves the story; the riot foreshadowed Decius's empire-wide persecution, and Apollonia is invoked against toothache.",
     citation: `${NA}01617c.htm`,
@@ -1232,9 +1232,9 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     tags: ["persecution"],
     location: "Roman Empire",
     context:
-      "After his father Valerian is captured by the Persians, Gallienus issues the first official declaration of tolerance toward Christians, returning their places of worship and cemeteries.",
+      "After the Persians take his father Valerian prisoner, Gallienus halts the persecution and has the Christians' churches and burial grounds handed back to them.",
     significance:
-      "Without making Christianity an official religion, it opens some forty years of peace in which the Church grows and builds openly.",
+      "No emperor had tolerated Christians officially before, and by giving back their property he tacitly accepted that the Church could own it, though Christianity did not become an official religion.",
     citation: `${W}Gallienus`,
   },
   {
@@ -1310,7 +1310,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     context:
       "Called up for military service, the young Maximilian tells the proconsul that as a Christian he cannot serve and is beheaded.",
     significance:
-      "The account of his trial, written before 313, makes him the earliest recorded conscientious objector.",
+      "The account of his trial, probably written before 313, makes him the first conscientious objector on record.",
     citation: `${W}Maximilian_of_Tebessa`,
   },
   {
@@ -1323,9 +1323,9 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     tags: ["mission"],
     location: "Vagharshapat, Armenia",
     context:
-      "After Armenia's conversion, Gregory the Illuminator builds the kingdom's cathedral near the royal palace at Vagharshapat on the site of a pagan temple, by tradition between 301 and 303.",
+      "Once King Tiridates III has made Christianity the faith of his kingdom, Gregory the Illuminator raises Armenia's first cathedral beside the palace in the royal city of Vagharshapat, over a former pagan shrine; Armenian tradition dates the work to 301–303.",
     significance:
-      "The mother church of the Armenian Apostolic Church, it is often regarded as the oldest cathedral in the world.",
+      "The Armenian Apostolic Church still honours it as its mother church; its supreme head, the Catholicos, resided there until the later fifth century, and it is widely held to be the oldest of all cathedrals.",
     citation: `${W}Etchmiadzin_Cathedral`,
   },
   {
@@ -1401,9 +1401,9 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     tags: ["persecution"],
     location: "Thessalonica",
     context:
-      "Three Christian sisters of Thessalonica are brought to the court of the governor Dulcitius; Agape and Chionia, who refused to eat sacrificial food, are burned, and Irene is put to death for keeping Christian books.",
+      "Three Christian sisters are tried at Thessalonica before the governor Dulcitius: Agape and Chionia, who would not eat food sacrificed to the gods, are burned alive, and Irene, who had also hidden their Christian books, is condemned to the same death soon after.",
     significance:
-      "Their story shows Diocletian's edicts at work, which made possessing the Scriptures a capital offence.",
+      "Their trial shows the persecution striking young women who refused pagan sacrifice and hid the Scriptures; in the tenth century Hrotsvitha of Gandersheim turned their story into a Latin play.",
     citation: `${W}Agape,_Chionia,_and_Irene`,
   },
   {
@@ -1474,7 +1474,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     context:
       "On the death of his father Constantius, the army at York acclaims Constantine as emperor.",
     significance:
-      "Ruling Britain, Gaul and Spain, he ends the persecution in his lands and restores what Christians had lost — the first step of a reign that would free the Church.",
+      "Ruling Britain, Gaul and Spain, he follows a policy of toleration toward Christians, setting himself apart from the persecuting emperors in the East — the first step of a reign that would free the Church.",
     citation: `${W}Constantine_the_Great`,
   },
   {
@@ -1516,12 +1516,12 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     era: "persecution",
     kind: "document",
     tags: ["persecution"],
-    location: "Serdica & Nicomedia",
+    location: "Serdica",
     context:
-      "The persecuting emperor Galerius grants Christians pardon and the right to exist again and hold their assemblies, asking them to pray for the emperor and the state; it is published at Nicomedia on 30 April.",
+      "On his deathbed the persecuting emperor Galerius pardons the Christians, lets them exist once more and re-establish their meeting places, and asks them to pray for him and the state; the edict takes effect on 30 April.",
     significance:
-      "It officially ends the Diocletianic persecution and in effect makes Christianity a permitted religion, two years before the Edict of Milan.",
-    citation: `${W}Edict_of_Serdica`,
+      "Granting Christians a lawful existence, it ends the persecution across the East two years before the Edict of Milan, though before the year is out Maximinus Daia renews it in Asia Minor, Palestine and Egypt, where it lasts until 313.",
+    citation: `${W}Diocletianic_Persecution`,
   },
   {
     slug: "pope-miltiades-recovers-church-property",
