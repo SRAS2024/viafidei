@@ -32,6 +32,7 @@ import { resolveContentSubtype } from "./content-subtype";
 import { isBrainEnabled } from "./intelligence";
 import { writeAdminWorkerLog } from "./logs";
 import { publicRouteFor } from "./public-routes";
+import { validatePayload } from "@/lib/checklist/schemas";
 import { authorityLevelForHost } from "@/lib/checklist/sources/authority-registry";
 import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
 import { derivedColumnsFor } from "@/lib/content-shared/derived-columns";
@@ -40,6 +41,7 @@ import { evaluatePublishSafety, type SafetyBlockReason } from "./publish-safety"
 import { recordReasoningEdge } from "./reasoning-graph";
 import type { QualityInputs } from "./quality";
 import type { VerifierOutcome } from "./verifier";
+import { citationSourceKey } from "./web-extraction-helpers";
 
 export interface PublishOrchestratorInput {
   contentType: string;
@@ -215,6 +217,36 @@ export async function runPublishOrchestrator(
       },
     }).catch(() => undefined);
     return { kind: "repair", reason };
+  }
+
+  if (input.strictQAArtifactId) {
+    // 0'. Schema (R1). A web artifact publishes the payload its content schema
+    // defines, validated here at the single publish writer — the dispatcher
+    // maps and validates first, so this is the backstop for any other caller
+    // that publishes an artifact. The zod defaults are applied; keys outside
+    // the schema (sourceUrl, latin/greek, …) are kept. A refused payload goes
+    // to repair: re-extraction heals the artifact only if its fresh fields map.
+    const schema = validatePublishPayload(input.contentType, input.payload);
+    if (!schema.ok) {
+      const reason = `SCHEMA_FIELDS_MISSING: ${input.contentType} payload failed schema validation: ${schema.errors
+        .slice(0, 3)
+        .join("; ")}`;
+      await logBlocked(prisma, input, reason);
+      const { filePlan } = await import("./repair-plans");
+      await filePlan(prisma, {
+        kind: "EXTRACT_FAILED",
+        failedEntity: input.strictQAArtifactId,
+        repairAction: `Re-extract ${input.contentType}/${input.slug}: ${reason}`,
+        metadata: {
+          artifactId: input.strictQAArtifactId,
+          contentType: input.contentType,
+          origin: "schema_payload",
+          errors: schema.errors.slice(0, 10),
+        },
+      }).catch(() => undefined);
+      return { kind: "repair", reason };
+    }
+    input = { ...input, payload: schema.payload as Prisma.InputJsonValue };
   }
 
   // 0b. Proof-based publishing for sensitive Catholic content (spec). When the
@@ -1015,6 +1047,28 @@ const HARD_SAFETY_REASONS: ReadonlySet<SafetyBlockReason> = new Set<SafetyBlockR
 ]);
 
 /**
+ * Validate a payload against its content schema and return it with the zod
+ * defaults applied. Keys the schema does not declare are kept (zod strips
+ * them from the parsed copy only). A type with no registered schema fails.
+ */
+function validatePublishPayload(
+  contentType: string,
+  payload: unknown,
+): { ok: true; payload: Record<string, unknown> } | { ok: false; errors: string[] } {
+  try {
+    const v = validatePayload(contentType as ChecklistContentType, payload);
+    if (!v.ok) return { ok: false, errors: v.errors };
+    const base =
+      payload && typeof payload === "object" && !Array.isArray(payload)
+        ? (payload as Record<string, unknown>)
+        : {};
+    return { ok: true, payload: { ...base, ...v.data } };
+  } catch {
+    return { ok: false, errors: [`no content schema for ${contentType}`] };
+  }
+}
+
+/**
  * Prisma error codes that are a verdict about the write itself: a unique /
  * foreign-key / null / length constraint the row breaks. Retrying the same
  * write reproduces them, so they are permanent. Everything else (connection
@@ -1150,30 +1204,6 @@ function brainAuthorityLevel(level: string): string {
 }
 
 /**
- * Registrable-ish key of a URL's host ("www.vatican.va" and
- * "press.vatican.va" are one source), or null for a non-URL. Two pages of
- * one site are one witness, not two.
- */
-function sourceKeyOf(url: string): string | null {
-  let host: string;
-  try {
-    host = new URL(url).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
-  const labels = host
-    .replace(/^www\d*\./, "")
-    .split(".")
-    .filter(Boolean);
-  if (labels.length <= 2) return labels.join(".");
-  const tld = labels[labels.length - 1];
-  const sld = labels[labels.length - 2];
-  // "diocese.org.uk" / "x.com.au": keep the registrable third label.
-  const take = tld.length === 2 && sld.length <= 3 ? 3 : 2;
-  return labels.slice(-take).join(".");
-}
-
-/**
  * Distinct sources among the citations, and how many of them are TRUSTED — a
  * host on the approved authority registry (or the Holy See's .va domain) at a
  * level above COMMUNITY. A host trusted only by name-pattern inference is not
@@ -1184,7 +1214,7 @@ function sourceKeyOf(url: string): string | null {
 export function countCitedSources(citations: string[]): { sources: number; trusted: number } {
   const keys = new Map<string, string>();
   for (const c of citations) {
-    const key = sourceKeyOf(c);
+    const key = citationSourceKey(c);
     if (!key || keys.has(key)) continue;
     let host = key;
     try {

@@ -92,10 +92,14 @@ const VALIDATION_NEEDS: Record<string, string[]> = {
  * does not require.
  */
 const OPTIONAL_FIELDS: Record<string, string[]> = {
-  PRAYER: ["liturgicalSeason", "patron", "audience"],
+  // `language` is the page language detected at extraction (PR-15); without it
+  // here the display fields dropped it and every web prayer published as "en".
+  PRAYER: ["liturgicalSeason", "patron", "audience", "language"],
   SAINT: ["birthDate", "deathDate", "birthplace", "patronage", "canonizationYear"],
   APPARITION: ["seers", "approvalCitation"],
-  NOVENA: ["intentions", "litanicalContext"],
+  // `days` holds the nine day prayers the NOVENA schema requires; it was
+  // dropped here, so no web novena could ever carry its own text.
+  NOVENA: ["intentions", "litanicalContext", "days"],
   ROSARY: ["history", "indulgences"],
   DEVOTION: ["origin", "audience"],
   CONSECRATION: ["intentions", "approvalCitation"],

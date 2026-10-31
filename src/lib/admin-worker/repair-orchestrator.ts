@@ -546,6 +546,27 @@ async function terminalizeStuckArtifacts(
 }
 
 /**
+ * Why a freshly re-extracted package still cannot become its schema payload —
+ * the same registry the publish stage uses. Empty when it maps, or when the
+ * only shortfall is the citation count (an evidence matter, not extraction).
+ */
+async function schemaPayloadGaps(
+  read: RepairSourceRead,
+  pkg: { displayFields: Record<string, unknown>; normalizedTitle: string; normalizedSlug: string },
+): Promise<string[]> {
+  const { buildWebPublishPayload } = await import("./web-publish-payloads");
+  const mapped = buildWebPublishPayload(read.detectedContentType ?? "", {
+    fields: pkg.displayFields,
+    title: pkg.normalizedTitle,
+    slug: pkg.normalizedSlug,
+    host: read.sourceHost,
+    sourceUrl: read.sourceUrl,
+  });
+  if (mapped.ok || mapped.code === "INSUFFICIENT_CITATIONS") return [];
+  return mapped.errors;
+}
+
+/**
  * Resolve the source read a CLASSIFY/EXTRACT repair should re-run against.
  * Prefers the `sourceReadId` recorded on the plan's metadata; falls back to
  * the artifact recorded on the metadata (`artifactId` — the shape the
@@ -965,6 +986,41 @@ async function executePlan(
           // same fields "succeeded", deleted the artifact, the stage rebuilt
           // the identical broken artifact, and a fresh plan was filed —
           // success/refile churn forever with nothing actually repaired.
+          // A plan filed because the artifact's fields did not make a valid
+          // schema payload (origin "schema_payload") is repaired only when the
+          // FRESH fields map. A complete package is not enough: it was already
+          // complete when the payload was refused, so healing it on that test
+          // alone sent it round verify → QA → publish → refuse → heal forever.
+          // A citation shortfall is not an extraction gap (another source
+          // clears it, and the publish path holds it for research), so it does
+          // not block the heal.
+          const schemaGaps =
+            pkg.rejectionReasons.length === 0 &&
+            pkg.missingFields.length === 0 &&
+            readPlanMetaString(plan, "origin") === "schema_payload"
+              ? await schemaPayloadGaps(read, pkg)
+              : [];
+          if (schemaGaps.length > 0) {
+            const { rememberFailurePattern } = await import("./memory");
+            await rememberFailurePattern(prisma, {
+              patternKey: `${plan.kind}|schema_payload|${read.detectedContentType}`,
+              details: { plan: plan.id, errors: schemaGaps.slice(0, 5) },
+            }).catch(() => undefined);
+            const closed = await terminalizeStuckArtifacts(
+              prisma,
+              plan,
+              read,
+              `SCHEMA_FIELDS_MISSING: ${schemaGaps.slice(0, 3).join("; ")}`,
+            );
+            return {
+              ok: true,
+              reason: `re-extraction still cannot fill the ${read.detectedContentType} schema (${schemaGaps
+                .slice(0, 3)
+                .join(
+                  "; ",
+                )}) — repair closed terminally${closed > 0 ? `; ${closed} artifact(s) rejected` : ""}.`,
+            };
+          }
           if (pkg.rejectionReasons.length === 0 && pkg.missingFields.length === 0) {
             // Recovered — heal the broken artifact IN PLACE to CHECKLIST_READY
             // (no delete/rebuild churn; identity keys stay stable). Only

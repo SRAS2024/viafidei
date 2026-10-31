@@ -84,7 +84,11 @@ const INPUT = {
   title: "Our Father",
   slug: "our-father",
   payload: {
-    prayerText: "Our Father, who art in heaven, hallowed be thy name. Amen.",
+    slug: "our-father",
+    title: "Our Father",
+    body: "Our Father, who art in heaven, hallowed be thy name. Amen.",
+    prayerType: "general",
+    category: "essential",
     citations: ["https://www.usccb.org/prayers/our-father"],
   },
   authorityLevel: "USCCB",

@@ -35,10 +35,10 @@ import { recordStageOutcome, toStageOutcome } from "./stage-outcomes";
 import {
   MAX_TRANSIENT_FETCH_ATTEMPTS,
   MAX_VERIFICATION_ROUNDS,
-  buildPrayerPublishPayload,
   candidateFetchEligibility,
   classifyFetchFailure,
   cleanSourceTitle,
+  corroboratingCitations,
   deriveDocumentTitle,
   derivedParentField,
   detectReadLanguage,
@@ -2697,61 +2697,51 @@ export async function runPersistAndPublish(
     const sourceHost = sourceRead?.sourceHost ?? null;
     const authorityLevel = sourceHost ? hostAuthorityLevel(sourceHost) : "COMMUNITY";
 
-    // PRAYER: publish the SCHEMA payload, not the raw extractor fields. A web
-    // prayer used to persist as {prayerTitle, prayerType, prayerText, category:
-    // "PRAYER"} — no body, no slug, no citations, no language, and the literal
-    // "PRAYER" printed as its category on the public rails — and it never went
-    // through validatePayload, so schema rules (body length, ≥1 citation) were
-    // bypassed on this path only (PR-04). A payload the schema refuses is NOT
-    // published: it routes to repair like any other incomplete package.
-    let publishPayload = artifact.extractedFields as Record<string, unknown>;
-    if (publishableType === "PRAYER") {
-      const prayerPayload = buildPrayerPublishPayload({
-        fields: publishPayload,
-        title: artifact.normalizedTitle,
+    // Publish the SCHEMA payload, not the raw extractor fields. Every web type
+    // except PRAYER used to persist its extractor shape ({saintName,
+    // background, …}): no slug, no citations, schema rules (≥2 citations, an
+    // MM-DD feast, an approvedStatus value, nine novena days) never checked,
+    // and the same type stored in a different shape than curated/structured
+    // rows (PR-04 fixed PRAYER only). The registry maps each type onto its
+    // schema without inventing a value; the citations are the source page plus
+    // independent pages whose stored evidence confirmed the artifact.
+    const { buildWebPublishPayload } = await import("./web-publish-payloads");
+    // Fail-open (a missing citation only means fewer witnesses, never a crash).
+    const evidenceRows = await Promise.resolve()
+      .then(() =>
+        prisma.adminWorkerCrossSourceVerification.findMany({
+          where: { contentId: artifact.id, matchResult: { in: ["MATCH", "PASS"] } },
+          select: { matchResult: true, validationSourceUrl: true },
+        }),
+      )
+      .catch(() => [] as Array<{ matchResult: string; validationSourceUrl: string | null }>);
+    const mapped = buildWebPublishPayload(artifact.contentType, {
+      fields: (artifact.extractedFields as Record<string, unknown>) ?? {},
+      title: artifact.normalizedTitle,
+      slug: artifact.normalizedSlug,
+      host: sourceHost,
+      sourceUrl: sourceRead?.sourceUrl ?? null,
+      corroboratingUrls: corroboratingCitations(evidenceRows, sourceRead?.sourceUrl ?? null),
+    });
+    if (!mapped.ok) {
+      return refuseWebPayload(prisma, passId, {
+        artifactId: artifact.id,
+        artifactType: artifact.contentType,
+        publishableType,
         slug: artifact.normalizedSlug,
-        host: sourceHost,
-        sourceUrl: sourceRead?.sourceUrl ?? null,
+        sourceReadId: artifact.sourceReadId,
+        code: mapped.code,
+        errors: mapped.errors,
       });
-      if (!prayerPayload.ok) {
-        const reason = `prayer payload failed schema validation: ${prayerPayload.errors.slice(0, 3).join("; ")}`;
-        await prisma.adminWorkerPackageArtifact
-          .update({
-            where: { id: artifact.id },
-            data: { status: "NEEDS_REPAIR", rejectionReason: reason.slice(0, 480) },
-          })
-          .catch(() => undefined);
-        const { filePlan } = await import("./repair-plans");
-        await filePlan(prisma, {
-          kind: "EXTRACT_FAILED",
-          failedEntity: artifact.id,
-          repairAction: `Re-extract PRAYER/${artifact.normalizedSlug} from another approved source: ${reason}`,
-          metadata: { artifactId: artifact.id, errors: prayerPayload.errors.slice(0, 10) },
-        }).catch(() => undefined);
-        await writeAdminWorkerLog(prisma, {
-          passId,
-          category: "PUBLISHING",
-          severity: "WARN",
-          eventName: "prayer_payload_invalid",
-          message: `Refused to publish PRAYER/${artifact.normalizedSlug}: ${reason}`,
-          contentType: "PRAYER",
-          safeMetadata: { artifactId: artifact.id, errors: prayerPayload.errors.slice(0, 10) },
-        }).catch(() => undefined);
-        return {
-          stage: "PUBLIC_PUBLISH",
-          kind: "repair-planned",
-          summary: reason,
-          repairsPlanned: 1,
-          metadata: { artifactId: artifact.id, reason: "prayer_payload_invalid" },
-        };
-      }
-      publishPayload = prayerPayload.payload;
     }
+    const publishPayload = mapped.payload;
 
     const result = await runPublishOrchestrator(prisma, {
       contentType: publishableType,
       contentId: artifact.checklistItemId ?? artifact.id,
-      title: artifact.normalizedTitle,
+      // The display title the payload names (the page title cleaned of its
+      // site suffix); the slug stays the artifact's publish identity.
+      title: mapped.title,
       slug: artifact.normalizedSlug,
       payload: publishPayload as never,
       authorityLevel,
@@ -2938,6 +2928,96 @@ export async function runPersistAndPublish(
 }
 
 type ReviewRouting = "repair" | "retry" | "terminal" | "research";
+
+/**
+ * Refuse a web artifact whose fields do not make a schema-valid payload.
+ *   - Only the citation count short (every field present, one witness where
+ *     the schema wants two): a research hold — another source, not another
+ *     extraction, is what clears it.
+ *   - A required field missing or invalid: NEEDS_REPAIR plus an EXTRACT_FAILED
+ *     plan tagged origin "schema_payload", whose handler re-extracts the read
+ *     and heals the artifact only if the fresh fields map; otherwise it closes
+ *     the artifact terminally with this reason.
+ * One WARN per refusal (prayer_payload_invalid keeps its old name).
+ */
+async function refuseWebPayload(
+  prisma: PrismaClient,
+  passId: string,
+  input: {
+    artifactId: string;
+    artifactType: string;
+    publishableType: string;
+    slug: string;
+    sourceReadId: string | null;
+    code: "SCHEMA_FIELDS_MISSING" | "INSUFFICIENT_CITATIONS" | "NO_SCHEMA_MAPPING";
+    errors: string[];
+  },
+): Promise<DispatchOutcome> {
+  const key = `${input.publishableType}/${input.slug}`;
+  const detail = `${input.publishableType} schema refused the web payload: ${input.errors
+    .slice(0, 3)
+    .join("; ")}`;
+  if (input.code === "INSUFFICIENT_CITATIONS") {
+    const { holdForResearch } = await import("./research-holds");
+    const hold = await holdForResearch(prisma, {
+      artifactId: input.artifactId,
+      contentType: input.publishableType,
+      slug: input.slug,
+      code: "INSUFFICIENT_CITATIONS",
+      detail,
+      missing: ["an independent page confirming this item (a second citation)"],
+      passId,
+    });
+    return {
+      stage: "PUBLIC_PUBLISH",
+      kind: "rejected",
+      summary: `Held ${key} for research (hold ${hold.attempts}): ${detail}`,
+      rejected: 1,
+      metadata: { artifactId: input.artifactId, reason: "INSUFFICIENT_CITATIONS" },
+    };
+  }
+  const reason = `${input.code}: ${detail}`.slice(0, 480);
+  await prisma.adminWorkerPackageArtifact
+    .update({
+      where: { id: input.artifactId },
+      data: { status: "NEEDS_REPAIR", rejectionReason: reason },
+    })
+    .catch(() => undefined);
+  const { filePlan } = await import("./repair-plans");
+  await filePlan(prisma, {
+    kind: "EXTRACT_FAILED",
+    failedEntity: input.artifactId,
+    repairAction: `Re-extract ${key}; its fields do not make a valid ${input.publishableType} payload: ${detail}`,
+    metadata: {
+      artifactId: input.artifactId,
+      sourceReadId: input.sourceReadId,
+      contentType: input.artifactType,
+      origin: "schema_payload",
+      errors: input.errors.slice(0, 10),
+    },
+  }).catch(() => undefined);
+  await writeAdminWorkerLog(prisma, {
+    passId,
+    category: "PUBLISHING",
+    severity: "WARN",
+    eventName:
+      input.publishableType === "PRAYER" ? "prayer_payload_invalid" : "web_payload_invalid",
+    message: `Refused to publish ${key}: ${reason}`,
+    contentType: input.publishableType,
+    safeMetadata: {
+      artifactId: input.artifactId,
+      code: input.code,
+      errors: input.errors.slice(0, 10),
+    },
+  }).catch(() => undefined);
+  return {
+    stage: "PUBLIC_PUBLISH",
+    kind: "repair-planned",
+    summary: reason,
+    repairsPlanned: 1,
+    metadata: { artifactId: input.artifactId, reason: input.code },
+  };
+}
 
 /**
  * Route a publish the orchestrator blocked for a TRANSIENT reason (a database

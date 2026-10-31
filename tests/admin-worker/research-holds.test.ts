@@ -226,7 +226,7 @@ function publishDecision(): BrainDecision {
 }
 
 describe("a doctrinal_trusted_support review is held for research, not retried", () => {
-  function publishPrisma(mem = memoryStore()) {
+  function publishPrisma(mem = memoryStore(), corroborated = true) {
     const artifactUpdate = vi.fn(async () => ({}));
     return {
       artifactUpdate,
@@ -251,9 +251,15 @@ describe("a doctrinal_trusted_support review is held for research, not retried",
           confidenceScore: 0.92,
           status: "QA_PASSED",
           checklistItemId: "ci-1",
-          sourceReadId: null,
+          sourceReadId: "sr-1",
         })),
         update: artifactUpdate,
+      },
+      adminWorkerSourceRead: {
+        findUnique: vi.fn(async () => ({
+          sourceHost: "www.usccb.org",
+          sourceUrl: "https://www.usccb.org/prayer-and-worship/liturgical-year",
+        })),
       },
       adminWorkerStrictQAResult: {
         findUnique: vi.fn(async () => ({
@@ -266,7 +272,18 @@ describe("a doctrinal_trusted_support review is held for research, not retried",
       },
       adminWorkerCrossSourceVerification: {
         count: vi.fn(async () => 0),
-        findMany: vi.fn(async () => []),
+        // One independent page, so the LITURGICAL schema (≥2 citations) maps
+        // and the outcome under test is the proof gate's.
+        findMany: vi.fn(async () =>
+          corroborated
+            ? [
+                {
+                  matchResult: "MATCH",
+                  validationSourceUrl: "https://www.vatican.va/liturgical-year.html",
+                },
+              ]
+            : [],
+        ),
       },
       adminWorkerMemory: mem.adminWorkerMemory,
     } as unknown as Parameters<typeof executeMissionStage>[0]["prisma"] & {
@@ -320,6 +337,34 @@ describe("a doctrinal_trusted_support review is held for research, not retried",
     expect(second.attempts).toBe(2);
     expect(second.nextAttemptAt.getTime() - Date.now()).toBeGreaterThan(13.9 * DAY);
     expect(mem.rows.has(researchFlagKey("art-loh"))).toBe(true);
+  });
+
+  // The live five: one usccb.org / catholic.org / vatican.va page and nothing
+  // else. The LITURGICAL schema needs two citations, so the payload is refused
+  // before the proof gate is ever asked — and held for research, not retried.
+  it("a single-source LITURGICAL page is held for research before publishing is attempted", async () => {
+    orchestrator.result = { kind: "published", publishedContentId: "x", slug: "s", route: "/r" };
+    const { runPublishOrchestrator } = await import("@/lib/admin-worker/publish-orchestrator");
+    vi.mocked(runPublishOrchestrator).mockClear();
+    const prisma = publishPrisma(memoryStore(), false);
+    const out = await executeMissionStage({
+      prisma,
+      workerId: "w1",
+      passId: "p1",
+      decision: publishDecision(),
+    });
+    expect(vi.mocked(runPublishOrchestrator)).not.toHaveBeenCalled();
+    const calls = prisma.artifactUpdate.mock.calls as unknown as Array<
+      [{ data: Record<string, unknown> }]
+    >;
+    const data = calls[calls.length - 1][0].data;
+    expect(data.status).toBe("NEEDS_REVIEW");
+    expect(data.gateDiagnosis).toBe(RESEARCH_HOLD_DIAGNOSIS);
+    expect(String(data.rejectionReason)).toMatch(/^INSUFFICIENT_CITATIONS: LITURGICAL schema/);
+    expect(out.summary).toMatch(/Held LITURGICAL\/liturgical-year-and-calendar-usccb for research/);
+    expect(await readResearchFlag(prisma, "art-loh")).toMatchObject({
+      code: "INSUFFICIENT_CITATIONS",
+    });
   });
 
   it("the brain being offline still gets the short retry", async () => {

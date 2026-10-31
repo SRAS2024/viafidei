@@ -188,16 +188,30 @@ function makePublishPrisma(mem = memoryStore()) {
         contentType: "SAINT",
         normalizedTitle: "Saint Example",
         normalizedSlug: "saint-example",
-        extractedFields: { name: "Saint Example" },
+        // Complete SAINT extractor fields, so the schema payload maps and the
+        // routing under test is the orchestrator's answer.
+        extractedFields: {
+          saintName: "Saint Example",
+          saintType: "saint",
+          feastDay: "10-04",
+          background:
+            "Saint Example was born in 1181 in Assisi and died in 1226 after a life of prayer, preaching and service to the poor.",
+        },
         fieldProvenance: [{ fieldName: "name", sourceUrl: "x", sourceHost: "vatican.va" }],
         missingFields: [],
         validationNeeds: [],
         confidenceScore: 0.83,
         status: "QA_PASSED",
         checklistItemId: "ci-1",
-        sourceReadId: null,
+        sourceReadId: "sr-1",
       })),
       update: artifactUpdate,
+    },
+    adminWorkerSourceRead: {
+      findUnique: vi.fn(async () => ({
+        sourceHost: "www.vatican.va",
+        sourceUrl: "https://www.vatican.va/saints/saint-example",
+      })),
     },
     adminWorkerStrictQAResult: {
       findUnique: vi.fn(async () => ({
@@ -210,7 +224,13 @@ function makePublishPrisma(mem = memoryStore()) {
     },
     adminWorkerCrossSourceVerification: {
       count: vi.fn(async () => 0),
-      findMany: vi.fn(async () => []),
+      // The saint's second citation: an independent page that confirmed it.
+      findMany: vi.fn(async () => [
+        {
+          matchResult: "MATCH",
+          validationSourceUrl: "https://www.usccb.org/saints/saint-example",
+        },
+      ]),
     },
     adminWorkerMemory: mem.adminWorkerMemory,
   } as unknown as Parameters<typeof executeMissionStage>[0]["prisma"] & {

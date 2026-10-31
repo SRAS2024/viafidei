@@ -88,7 +88,15 @@ const HEALTHY = {
   contentId: "ci-1",
   title: "Our Father",
   slug: "our-father",
-  payload: { prayerText: "Our Father, who art in heaven. Amen." },
+  // A web artifact publishes its schema payload: the orchestrator validates it.
+  payload: {
+    slug: "our-father",
+    title: "Our Father",
+    body: "Our Father, who art in heaven, hallowed be thy name. Amen.",
+    prayerType: "general",
+    category: "essential",
+    citations: ["https://www.vatican.va/prayers/our-father"],
+  },
   authorityLevel: "VATICAN",
   finalScore: 0.92,
   qaPassed: true,

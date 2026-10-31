@@ -558,6 +558,65 @@ export function entityHintFor(
   return stripHonorific(cleanSourceTitle(normalizedTitle) ?? normalizedTitle);
 }
 
+// ── Citation sources ───────────────────────────────────────────────────
+
+/**
+ * Registrable-ish key of a citation URL's host: "www.vatican.va" and
+ * "press.vatican.va" are one source, so two pages of one site count as one
+ * witness, never two. Null for anything that is not a URL.
+ */
+export function citationSourceKey(url: string): string | null {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  const labels = host
+    .replace(/^www\d*\./, "")
+    .split(".")
+    .filter(Boolean);
+  if (labels.length <= 2) return labels.join(".") || null;
+  const tld = labels[labels.length - 1];
+  const sld = labels[labels.length - 2];
+  // "diocese.org.uk" / "x.com.au": keep the registrable third label.
+  const take = tld.length === 2 && sld.length <= 3 ? 3 : 2;
+  return labels.slice(-take).join(".");
+}
+
+/**
+ * The independent pages stored cross-source evidence can cite for an artifact:
+ * the URLs of MATCH / PASS rows, on a source other than the artifact's own
+ * page, that point at a page rather than a bare site root (a homepage that
+ * happens to mention a date confirms nothing citable). De-duplicated per
+ * source, in row order.
+ */
+export function corroboratingCitations(
+  rows: ReadonlyArray<{ matchResult: string; validationSourceUrl: string | null }>,
+  primarySourceUrl: string | null | undefined,
+): string[] {
+  const primary = primarySourceUrl ? citationSourceKey(primarySourceUrl) : null;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of rows) {
+    if (r.matchResult !== "MATCH" && r.matchResult !== "PASS") continue;
+    const url = r.validationSourceUrl?.trim();
+    if (!url || !/^https?:\/\//i.test(url)) continue;
+    let path = "/";
+    try {
+      path = new URL(url).pathname;
+    } catch {
+      continue;
+    }
+    if (path === "/" || path === "") continue;
+    const key = citationSourceKey(url);
+    if (!key || key === primary || seen.has(key)) continue;
+    seen.add(key);
+    out.push(url);
+  }
+  return out;
+}
+
 // ── PRAYER publish payload ─────────────────────────────────────────────
 
 /** Extractor prayer types → the PRAYER schema enum. */
@@ -603,6 +662,8 @@ export function buildPrayerPublishPayload(input: {
   host?: string | null;
   /** The page the prayer was read from — the citation the schema requires. */
   sourceUrl?: string | null;
+  /** Independent pages whose stored evidence confirmed it (further citations). */
+  corroboratingUrls?: readonly string[];
 }): PrayerPayloadResult {
   const f = input.fields;
   const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
@@ -616,7 +677,11 @@ export function buildPrayerPublishPayload(input: {
   // citation) would refuse every web prayer.
   const sourceUrl = str(f.sourceUrl) ?? str(input.sourceUrl);
   const citations = [
-    ...new Set([...(Array.isArray(f.citations) ? f.citations : []), sourceUrl]),
+    ...new Set([
+      ...(Array.isArray(f.citations) ? f.citations : []),
+      sourceUrl,
+      ...(input.corroboratingUrls ?? []),
+    ]),
   ].filter((c): c is string => typeof c === "string" && /^https?:\/\//i.test(c));
   const category = categorizePrayer({
     title,
