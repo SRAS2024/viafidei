@@ -64,9 +64,10 @@ interface RaccoltaInput {
  * 1968).
  *
  * Corrections, all of them slips rather than readings: where the worn type of
- * the scan prints "of" as "or" or "ot" (nos. 23, 60, 75, 76) it is read as
- * "of", as the Latin beside it confirms where there is one; "O must just God"
- * is read "O most just God" (no. 58) and "througn-out" "throughout" (no. 88).
+ * the scan prints "of" as "or" or "ot" (nos. 23, 60, 75, 76, 150) it is read
+ * as "of", as the Latin beside it confirms where there is one, and the same
+ * broken "f" is read in "refuge" and "afresh" (no. 155); "O must just God" is
+ * read "O most just God" (no. 58) and "througn-out" "throughout" (no. 88).
  * The book's own errata ("Notification", November 1909) are applied where
  * they touch these prayers: "mi sery" is "misery" (no. 10, page 9), "in
  * perfection of thy ways" is "in the perfection of thy ways" (no. 48), "whom
@@ -1170,5 +1171,279 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "devotional",
     occasions: ["preparation-for-death", "good-friday", "evening"],
     summary: `A prayer of offering of one's own death, made in advance while the senses are still at command, asking that the last moment be united to the moment of Christ's death and the last heartbeat be an act of pure love. Raccolta no. 137, indulgenced by Leo XIII in 1902. ${ST_JOHN}`,
+  }),
+
+  // ── VIII. The Precious Blood ─────────────────────────────────────────────
+  raccolta({
+    slug: "chaplet-of-the-precious-blood-prayers",
+    title: "The Prayers of the Chaplet of the Precious Blood",
+    pages: [117, 118, 119, 120, 121],
+    body: [
+      "V. O God, come to my assistance.\nR. O Lord, make haste to help me.\nV. Glory be to the Father, etc.\nR. As it was in the beginning, etc.",
+      "First Mystery.\nThe first time our loving Saviour shed his Precious Blood for us was on the eighth day after his birth, when he was circumcised in order to fulfil the law of Moses. While, then, we reflect that Jesus did this to satisfy the justice of God for our lax ways, let us rouse ourselves to sorrow for them, and promise, with the help of his all-powerful grace, to be henceforth truly chaste in body and in soul. Pater noster five times, and Gloria Patri once.\nV. We beseech Thee, therefore, help thy servants, whom Thou hast redeemed with thy Precious Blood.",
+      "Second Mystery.\nNext, in the Garden of Olives, Jesus shed his Blood for us in such quantity that it bathed the earth around. He did this at the sight of the ingratitude with which men would meet his love. Let us, then, repent sincerely that we have hitherto corresponded so ill with the countless blessings of God, and resolve to make good use of his graces and inspirations. Pater noster five times, and Gloria Patri once.\nV. We beseech, etc.",
+      "Third Mystery.\nNext, in his cruel scourging, Jesus shed his Blood when his flesh was so torn that streams of Blood flowed from every part of his body, all of which he offered all the time to his Eternal Father in payment of our impatience and our softness. How comes it, then, that we do not curb our anger and love of self? Henceforth we will try our best to bear our troubles well, and, despising self, take peacefully the injuries which men may do us. Pater noster five times, and Gloria Patri once.\nV. We beseech, etc.",
+      "Fourth Mystery.\nAgain, from the sacred Head of Jesus, Blood poured down when it was crowned with thorns, in punishment of our pride and evil thoughts. Shall we, then, continue to nurture haughtiness, foster foul imaginations, and feed the wayward will within us? Henceforth let there be ever before our eyes our utter nothingness, our misery, and our weakness; and with generous hearts let us resist all the temptations of the devil. Pater noster five times, and Gloria Patri once.\nV. We beseech, etc.",
+      "Fifth Mystery.\nWhat streams of Precious Blood did not our loving Lord pour forth from his veins when laden with the heavy Cross on that most grievous journey to Calvary! The very streets and ways of Jerusalem, through which He passed, were watered with it! This He did in satisfaction for the scandals and bad example by which his own creatures had led others astray. Who can tell how many of us are of this unhappy number? Who knows how many he himself alone has, by his own bad example, brought down to hell? And what have we done to remedy this evil? Henceforth let us at least do all we can to save souls by word and by example, making ourselves a pattern to all of goodness and a holy life. Pater noster five times, and Gloria Patri once.\nV. We beseech, etc.",
+      "Sixth Mystery.\nMore, and still more Precious Blood did the Redeemer of mankind shed in his barbarous Crucifixion; when, his veins being rent and arteries burst, there rushed forth in a torrent, from his hands and his feet, that saving balm of life eternal, to pay for all the crimes and enormities of a lost world. Who, after this, would continue in sin, and so renew the cruel crucifixion of the Son of God? Let us weep bitterly for our bad deeds done, and detest them before the feet of the sacred minister of God; let us amend our evil ways, and henceforth begin a truly Christian life, with the remembrance ever in our hearts of all the Blood which our salvation cost the Saviour of men. Pater noster five times, and Gloria Patri once.\nV. We beseech, etc.",
+      "Seventh Mystery.\nLast of all, after his death, when his sacred Side was opened by the lance, and his loving Heart was wounded, Jesus shed Blood, and with it there came forth water, to show us how his Blood was all poured out to the last drop for our salvation. Oh, the great goodness of our redeeming Lord! Who will not love Thee, Saviour of my soul? What heart will not consume itself away for love of Thee, who hast done all this for our redemption? The tongue wants words to praise Thee; so let us invite all creatures upon earth, all angels and all saints in Paradise, and most of all our dear Mother Mary, to bless, praise, and celebrate thy most Precious Blood. Glory to the Blood of Jesus! Now and ever throughout all ages. Amen. Pater noster thrice, and Gloria Patri once.\nV. We beseech, etc.",
+      "Prayer.",
+      "Most Precious Blood of life eternal! price and ransom of the world! drink and bath of the soul! ever pleading the cause of man before the throne of Mercy; I adore Thee most profoundly; I would, if I were able, make Thee some compensation for the outrages and wrongs Thou dost ever suffer from men, and especially from those who dare in their rashness to blaspheme Thee. Who will not bless this Blood of value infinite? who does not feel himself on fire with the love of Jesus, who shed it all for us? What should I be but for this Blood, which hath redeemed me? And what drew Thee, Thou Precious Blood, from the veins of my Lord, even to the last drop? It was love. O boundless love, which gave to us this saving balsam! O balsam beyond all price, streaming forth from the fount of immeasurable love! Give to all hearts, all tongues, power to praise, celebrate, and thank Thee, now and ever, and throughout all eternity. Amen.",
+      "Thou hast redeemed us, O Lord, with thy Blood.\nAnd hast made us a kingdom to our God.",
+      "Let us pray.",
+      "Almighty and everlasting God, who hast appointed thine only-begotten Son the Saviour of the world, and hast willed to be appeased by his Blood; grant us, we beseech Thee, so to venerate this Blood, the price of our salvation, and so to be defended on earth by its power from the evils of this present life, that in heaven we may be made glad by its everlasting fruit. Who liveth and reigneth, etc. Amen.",
+    ],
+    latin: [
+      "V. Deus, in adjutorium meum intende.\nR. Domine, ad adjuvandum me festina.\nV. Gloria Patri, etc.\nR. Sicut erat, etc.",
+      "V. Te ergo quæsumus tuis famulis subveni quos pretioso Sanguine redemisti.",
+      "V. Redemisti nos, Domine, in Sanguine tuo:\nR. Et fecisti nos Deo nostro regnum.",
+      "Oremus.",
+      "Omnipotens sempiterne Deus, qui unigenitum Filium tuum mundi Redemptorem constituisti, ac ejus Sanguine placari voluisti; concede nobis, quæsumus, salutis nostræ pretium ita venerari, atque a præsentis vitæ malis ejus virtute defendi in terris, ut fructu perpetuo lætemur in cœlis. Qui tecum vivit et regnat, etc. Amen.",
+    ],
+    prayerType: "chaplet",
+    category: "chaplet",
+    occasions: ["july", "precious-blood", "lent"],
+    summary: `The Chaplet of the Precious Blood in seven mysteries, the seven times Christ shed his Blood — the Circumcision, the Agony in the Garden, the scourging, the crowning with thorns, the carrying of the Cross, the Crucifixion and the piercing of his side — with a meditation and resolution for each, thirty-three Our Fathers in all for the years of his life, and the closing prayer "Most Precious Blood of life eternal" with the collect of the feast. The Raccolta (no. 138; the closing prayer is also no. 139) records indulgences from Pius VII in 1815; the Latin is that of the versicles and collect printed beside the English. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "glory-be-to-jesus-hymn",
+    title: "Glory Be to Jesus (Hymn to the Precious Blood)",
+    pages: [121, 122],
+    body: [
+      "Glory be to Jesus!\nWho in bitter pains\nPour'd for me the life-blood\nFrom his sacred veins.",
+      "Grace and life eternal\nIn that Blood I find;\nBless'd be his compassion,\nInfinitely kind!",
+      "Bless'd through endless ages\nBe the precious stream,\nWhich from endless torment\nDoth the world redeem.",
+      "There the fainting spirit\nDrinks of life her fill;\nThere, as in a fountain,\nLaves herself at will.",
+      "Oh, the Blood of Christ!\nIt soothes the Father's ire,\nOpes the gate of heaven,\nQuells eternal fire.",
+      "Abel's blood for vengeance\nPleaded to the skies,\nBut the Blood of Jesus\nFor our pardon cries.",
+      "Oft as it is sprinkled\nOn our guilty hearts,\nSatan in confusion\nTerror-struck departs.",
+      "Oft as earth exulting\nWafts its praise on high,\nHell with terror trembles,\nHeaven is filled with joy.",
+      "Lift ye, then, your voices;\nSwell the mighty flood;\nLouder still and louder,\nPraise the Precious Blood!",
+    ],
+    prayerType: "hymn",
+    category: "hymn",
+    occasions: ["july", "precious-blood", "good-friday"],
+    summary: `The hymn "Glory be to Jesus", Edward Caswall's English rendering of the Italian hymn Viva! viva! Gesù, in nine stanzas praising the Precious Blood that pleads for pardon as Abel's blood cried for vengeance. The Raccolta (no. 140) prints it, without naming the translator, as the "Devout Aspirations" indulgenced by Pius VII in 1815. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "seven-offerings-of-the-precious-blood",
+    title: "Seven Offerings of the Precious Blood",
+    pages: [122, 123, 124],
+    body: [
+      "I\nEternal Father! I offer Thee the merits of the Precious Blood of Jesus, thy well-beloved Son, my Saviour and my God, for the propagation and exaltation of my dear Mother, thy Holy Church; for the safety and prosperity of her visible head, our chief pastor the Bishop of Rome; for the cardinals, bishops, and pastors of souls, and for all the ministers of the sanctuary. Gloria Patri.\nBlessed and praised for evermore be Jesus, who hath saved us with his Blood.",
+      "II\nEternal Father! I offer Thee the merits of the Precious Blood of Jesus, thy well-beloved Son, my Saviour and my God, for the peace and concord of Catholic kings and princes, for the humiliation of the enemies of our holy Faith, and for the welfare of all Christian people. Gloria Patri.\nBlessed and praised, etc.",
+      "III\nEternal Father! I offer Thee the merits of the Precious Blood of Jesus, thy well-beloved Son, my Saviour and my God, for the repentance of unbelievers, the uprooting of heresy, and the conversion of sinners. Gloria Patri.\nBlessed and praised, etc.",
+      "IV\nEternal Father! I offer Thee the merits of the Precious Blood of Jesus, thy well-beloved Son, my Saviour and my God, for all my relations, friends, and enemies; for the poor, the sick, and the afflicted, and for all those for whom Thou, my God, knowest that I ought to pray, or wouldst have me pray. Gloria Patri.\nBlessed and praised, etc.",
+      "V\nEternal Father! I offer Thee the merits of the precious Blood of Jesus, thy well-beloved Son, my Saviour and my God, for all who this day are passing to the other life; that thou wouldst save them from the pains of hell, and admit them quickly to the possession of thy glory. Gloria Patri.\nBlessed and praised, etc.",
+      "VI\nEternal Father! I offer Thee the merits of the Precious Blood of Jesus, thy well-beloved Son, my Saviour and my God, for all those who love this great treasure, for those who join with me in adoring it and honouring it, and for those who strive to spread devotion to it. Gloria Patri.\nBlessed and praised, etc.",
+      "VII\nEternal Father! I offer Thee the merits of the Precious Blood of Jesus, thy well-beloved Son, my Saviour and my God, for all my wants, spiritual and temporal; in suffrage for the holy souls in purgatory, and chiefly for those who were most devout lovers of this Blood, the price of our redemption, and of the sorrows and pains of our dear Mother, most holy Mary. Gloria Patri.\nBlessed and praised, etc.",
+      "Glory be to the Blood of Jesus, now and for ever, and throughout all ages! Amen.",
+    ],
+    prayerType: "intercession",
+    category: "devotional",
+    occasions: ["july", "precious-blood", "for-the-church", "all-souls"],
+    summary: `Seven offerings to the Eternal Father of the merits of the Precious Blood — for the Church and the Pope, for peace among rulers, for the conversion of unbelievers and sinners, for family, friends and enemies, for the dying, for those devoted to the Precious Blood, and for one's own needs and the holy souls — each closed with a Glory Be and a short praise of Jesus who saved us by his Blood. The Raccolta (no. 141) gives them in reparation for the outrages Christ receives in the Precious Blood; Pius VII indulgenced them in 1817. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "act-of-oblation-of-the-precious-blood-for-blessings",
+    title: "Act of Oblation of the Precious Blood in Thanksgiving for Blessings Received",
+    pages: [124],
+    body: [
+      "Eternal Father! we offer Thee the most Precious Blood of Jesus, shed for us with such great love and bitter pain from his Right Hand; and through the merits and the efficacy of that Blood, we entreat Thy Divine Majesty to grant us thy holy benediction, in order that we may be defended thereby from all our enemies, and be set free from every ill; whilst we say, May the blessing of Almighty God, Father, Son and Holy Spirit descend upon us and remain with us for ever. Amen. Pater, Ave and Gloria.",
+    ],
+    prayerType: "general",
+    category: "devotional",
+    occasions: ["precious-blood", "thanksgiving", "blessing"],
+    summary: `An offering to the Father of the Blood that Christ shed from his right hand, asking through it God's blessing and protection from every enemy and ill, and ending with the invocation of the blessing of the Holy Trinity. Raccolta no. 142, indulgenced by Leo XII in 1823. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-to-jesus-of-nazareth",
+    title: "Prayer to Jesus of Nazareth",
+    pages: [125, 126],
+    body: [
+      "Behold me at thy feet, O Jesus of Nazareth; behold the most miserable of creatures, who presents himself before Thee, humbled and penitent. Have mercy on me, O Lord, according to thy great mercy. I sinned, and my sins were committed against Thee, O God of infinite bounty. O Jesus, hear my prayers, graciously hear, O loving Father, the requests I lay at thy feet: cast a favourable look on my soul, Thou who art the loving Father of men, the Supreme Judge, the King of Heaven and of earth, the true benefactor of the wretched. Come then to my assistance, O Jesus of Nazareth. Grant me the graces which I ask of Thee, kneeling at thy feet. My soul belongs to Thee, because Thou hast created and redeemed it with thy Precious Blood. May thy work not be in vain. Turn, O loving Father, thy regard upon me and bless me. O God of mercy, have pity on me; pardon me, who am thy son; deal not severely with me; give me tears of repentance; pardon me as Thou didst pardon the penitent thief; watch over me from the height of Heaven and bless me. Amen.",
+      "End with the Apostles' Creed.",
+    ],
+    prayerType: "general",
+    category: "penitential",
+    occasions: ["penance", "lent", "confession"],
+    summary: `A penitent's prayer at the feet of Jesus of Nazareth, King of heaven and earth and benefactor of the wretched, confessing that the soul He created and redeemed with his Precious Blood belongs to Him, and begging pardon as He pardoned the penitent thief; it ends with the Apostles' Creed. Raccolta no. 144, indulgenced by Leo XIII in 1894. ${ST_JOHN}`,
+  }),
+
+  // ── IX. The Sacred Heart ─────────────────────────────────────────────────
+  raccolta({
+    slug: "acts-of-devotion-to-the-sacred-heart",
+    title: "Acts of Devotion to the Sacred Heart",
+    pages: [127, 128, 129, 130],
+    body: [
+      "I. The Word was made Flesh, and dwelt amongst us.\nEternal Word, made Man for love of us, humbly kneeling at thy feet we adore Thee with the deepest veneration of our souls; and in order that we may repair our ingratitude for this great benefit of thy Incarnation, we unite ourselves to the hearts of all those who love Thee, and together with them we offer Thee our humble loving thanksgiving. Pierced by the excess of humility, goodness, and sweetness which we behold in thy Divine Heart, we beseech Thee to give us thy grace, that in our lives we too may imitate these virtues so dear to Thee. Pater, Ave, and Gloria.",
+      "II. He was crucified also for us; suffered under Pontius Pilate, and was buried.\nJesus our loving Saviour, humbly kneeling at thy feet we adore Thee with the deepest veneration of our souls; and, in order that we may give Thee proof of the sorrow we feel at our insensibility to the outrages and sufferings which thy loving Heart made Thee undergo for our salvation in thy painful Passion and Death, we here unite ourselves with the hearts of all those who love Thee, and together with them we give thanks unto Thee with our whole soul. We wonder at the boundless patience and generosity of thy divine Heart; and we entreat Thee to fill our hearts with such a spirit of Christian penance as may enable us courageously to embrace suffering, and to make thy Cross our great comfort and all our glory. Pater, Ave, Gloria.",
+      "III. Thou didst give them bread from heaven to eat, containing in itself all sweetness.\nJesus, who dost burn with love for us, humbly kneeling at thy feet we adore Thee with the deepest veneration of our souls; and, in order to make Thee reparation for the outrages which thy divine Heart daily receives in the most holy Sacrament of the Altar, we unite ourselves with the hearts of all those who love Thee, and give Thee tenderest thanks. We love in thy divine Heart this thy incomprehensible fire of love towards thy Eternal Father, and we entreat Thee to inflame our hearts with ardent charity towards Thee and towards our neighbour. Pater, Ave, and Gloria.",
+      "Lastly, O most loving Jesu, we pray Thee, by the sweetness of thy Divine Heart, convert the sinner, console the afflicted, help the dying, lighten the pains of the souls in purgatory. Make all our hearts one in the bonds of true peace and charity, deliver us from sudden and unforeseen death, and grant us a death holy and peaceful. Amen.",
+      "V. Heart of Jesus, burning with love of us,\nR. Inflame our hearts with love of Thee.",
+      "Let us pray.",
+      "Grant, we beseech Thee, Almighty God, that we who glory in the most Sacred Heart of thy well-beloved Son, and call to mind the chief benefits of his heavenly charity towards us, may be gladdened by the operation and the fruit of those graces in our souls. Through the same Christ, etc.",
+      "O Divine Heart of my Jesus! I adore Thee with all the powers of my soul; I consecrate them to Thee for ever, together with all my thoughts, my words, my works, and my whole self. I purpose to offer to Thee, as far as I am able, acts of adoration, love, and glory, like unto those which Thou dost offer to thine Eternal Father. I beseech Thee, be Thou the reparation for my transgressions, the protector of my life, my refuge and asylum in the hour of my death. By thy sighs, and by that sea of bitterness in which Thou wast immersed for me throughout the whole course of thy mortal life, grant me true contrition for my sins, contempt of earthly things, an ardent longing for the glory of heaven, trust in thy infinite merits, and final perseverance in thy grace.",
+      "Heart of Jesus, all love! I offer Thee these humble prayers for myself, and for all who unite with me in spirit to adore Thee; vouchsafe, of thy infinite goodness, to receive and to answer them, and especially for that one of us who shall first end this mortal life. Sweet Heart of my Saviour, pour down upon him, in the agony of death, thine inward consolations; place him in thy sacred wounds; cleanse him from every stain in that furnace of love, that so Thou mayest open to him speedily the entrance into thy glory, there to intercede with Thee for all those who yet tarry in their land of exile.",
+      "Most Holy Heart of my most loving Jesus, I purpose to renew these acts of adoration and these prayers for myself, miserable sinner that I am, as well as for all who are associated with me to adore Thee, every moment while I live, down to the last instant of my life. I recommend to Thee, my Jesus, the Holy Church, thy well-beloved Spouse, our own true Mother, the souls that undergo thy justice, all poor sinners, those who are in affliction, the dying, and all mankind—let not thy Blood be shed in vain for them; and, last of all, vouchsafe to receive my poor prayers for the relief of the souls in purgatory, and, above all, for those who in the course of their life were wont devoutly to adore Thee.",
+      "Most loving heart of Mary, which, amongst the hearts of all creatures of God, art at once the most pure, most inflamed with love for Jesus, and most compassionate towards us poor sinners, gain for us from the Heart of Jesus our Redeemer all the graces which we ask of thee. Mother of mercies, one single throb, one beat of thy heart, all on fire with love towards the Heart of Jesus, has power to console us to the full. Only grant us this favour and the Heart of Jesus, out of that filial love It had and will ever have for thee, will not fail to hear and answer us. Amen.",
+    ],
+    prayerType: "act",
+    category: "devotional",
+    occasions: ["sacred-heart", "first-friday", "june", "feast-of-the-sacred-heart"],
+    summary: `Three acts of adoration and thanksgiving to the Sacred Heart, each headed by a verse of Scripture or the Creed — for the Incarnation, for the Passion and for the Blessed Sacrament — followed by petitions, the collect of the Sacred Heart, an act of consecration, a prayer for whichever of those who pray it shall die first, and an appeal to the heart of Mary. Raccolta no. 149, indulgenced by Pius VII in 1808 and by Pius IX in 1876. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "chaplet-of-the-sacred-heart-prayers",
+    title: "The Prayers of the Chaplet of the Sacred Heart",
+    pages: [130, 131, 132, 133],
+    body: [
+      "V. O God, come to my assistance.\nR. O Lord, make haste to help me.\nV. Glory be, etc.\nR. As it was, etc.",
+      "I\nMy most loving Jesus, when I ponder over thy most Sacred Heart, all tenderness and sweetness for sinners, then doth my heart rejoice, and I am filled with hope of thy kind welcome. But, ah me, my sins! how many and how great! With Peter and with Magdalen, I bewail and abhor them, because they are an offence to Thee, my Sovereign Good. Oh, grant me pardon for them all. I pray thy Sacred Heart that I may rather die than offend Thee again, and may live only to love Thee. Pater once, Gloria five times, in honour of the Sacred Heart, then:\nSweet Heart of my Jesus,\nMake me love Thee ever more and more.",
+      "II\nMy Jesus, I bless thy most humble Heart; and I give thanks unto Thee, who in making It my model dost urge me with strong pleadings to imitate It, and also, at the cost of so many humiliations, dost vouchsafe thyself to point out and smooth for me the way to follow Thee. Fool and ungrateful that I am, how have I wandered far away from Thee! Pardon me, my Jesus! Take away from me all hateful pride and ambition, that with lowly heart I may follow Thee, my Jesus, amidst humiliations, and so gain peace and salvation. Strengthen me, Thou who canst, and I will ever bless thy Sacred Heart. Pater once, Gloria five times. Sweet Heart, etc.",
+      "III\nMy Jesus, I marvel at thy most patient Heart, and I give Thee thanks for all the wondrous examples of unwearied patience which Thou hast left us. It grieves me that these examples still have to reproach me for my excessive delicacy, shrinking from every little pain. Pour, then, into my heart, O dear Jesus, a fervent and constant love of suffering and the cross, of mortification and of penance, that, following Thee to Calvary, I may with Thee attain the joys of Paradise. Pater once, Gloria five times. Sweet Heart, etc.",
+      "IV\nDear Jesus, beside thy most gentle Heart I set my own, and shudder to see how unlike mine is to thine. How am I wont to fret and grieve when a hint, a look, or a word thwarts me! Pardon all my violence, and give me for the future grace to imitate in every contradiction thy unalterable meekness, that so I may enjoy an everlasting holy peace. Pater once, Gloria five times. Sweet Heart, etc.",
+      "V\nLet us sing praise to Jesus for his generous Heart, Conqueror of death and hell; for well It merits every praise. Still more than ever confounded am I, looking upon my coward heart, which dreads even a rough word or injurious taunt. But it shall be so with me no more. My Jesus, I pray Thee for such strength that, fighting and conquering self on earth, I may one day rejoice triumphantly with Thee in heaven. Pater once, Gloria five times. Sweet Heart, etc.",
+      "Now let us turn to Mary, and dedicating ourselves yet more and more to her, and trusting in her Mother's heart, we say to her: By all the virtue of thy most sweet heart obtain for me, great Mother of God, our Mother Mary, a true and enduring devotion to the Sacred Heart of Jesus, thy Son, that, bound up in every thought and affection in union with his Heart, I may fulfil each duty of my state, serving Jesus evermore with readiness of heart, and specially this day.",
+      "V. Heart of Jesus, burning with love of us,\nR. Inflame our hearts with love of Thee.",
+      "Let us pray.",
+      "Lord, we beseech Thee, let thy Holy Spirit kindle in our hearts that fire of charity which our Lord Jesus Christ, thy Son, sent forth from his inmost Heart upon this earth, and willed that it should burn exceedingly. Who liveth and reigneth with Thee, in the unity of the same Holy Spirit, God for ever and ever. Amen.",
+    ],
+    prayerType: "chaplet",
+    category: "chaplet",
+    occasions: ["sacred-heart", "june", "first-friday"],
+    summary: `A chaplet of five meditations on the virtues of the Heart of Jesus — its tenderness toward sinners, its humility, its patience, its meekness and its generosity — each followed by an Our Father, five Glory Bes and the aspiration "Sweet Heart of my Jesus, make me love Thee ever more and more", then a prayer to Mary and the collect of the Sacred Heart. Raccolta no. 150, indulgenced by Pius VII in 1815. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-for-the-dying-o-most-merciful-jesus-lover-of-souls",
+    title: "Prayer for the Dying (O most merciful Jesus, Lover of souls)",
+    pages: [133, 134],
+    body: [
+      "O most merciful Jesus, Lover of souls: I pray Thee, by the agony of thy most Sacred Heart, and by the sorrows of thy Immaculate Mother, cleanse in thine own Blood the sinners of the whole world who are now in their agony and to die this day. Amen.",
+      "Heart of Jesus, once in agony, pity the dying.",
+    ],
+    latin: [
+      "O clementissime Jesu, amator animarum; obsecro te, per agoniam cordis tui sanctissimi, et per dolores Matris tuæ Immaculatæ, lava in sanguine tuo peccatores totius mundi, nunc positos in agonia et hodie morituros. Amen.",
+      "Cor Jesu, in agonia factum, miserere morientium.",
+    ],
+    prayerType: "intercession",
+    category: "devotional",
+    occasions: ["for-the-dying", "daily", "three-oclock-hour"],
+    summary: `The prayer for the sinners of the whole world who are in their last agony and will die this day, asking Jesus, Lover of souls, to cleanse them in his Blood through the agony of his Sacred Heart and the sorrows of his Mother; it ends with the invocation "Heart of Jesus, once in agony, pity the dying". The Raccolta (no. 153) prints it in Latin and English and recommends saying it three times a day; Pius IX indulgenced it in 1850. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-to-the-eucharistic-heart-sweet-companion-in-our-exile",
+    title:
+      "Prayer to the Eucharistic Heart of Jesus (Heart of Jesus in the Eucharist, sweet companion in our exile)",
+    pages: [135, 136],
+    body: [
+      "Heart of Jesus in the Eucharist, sweet companion in our exile, I adore Thee.",
+      "Eucharistic Heart of Jesus,\nHeart solitary, Heart humiliated,\nHeart abandoned, Heart forgotten,\nHeart despised, Heart outraged,\nHeart ignored by men,\nHeart, lover of our hearts,\nHeart desirous of being loved,\nHeart patient in waiting for us,\nHeart eager to hear us,\nHeart longing to be prayed to,\nHeart source of new graces,\nHeart wrapped in silence, desiring to speak to souls,\nHeart, the sweet refuge of the hidden life,\nHeart, teacher of the secrets of union with God,\nHeart of him who sleeps, yet ever watches,\nEucharistic Heart of Jesus, have pity on us.",
+      "Jesus victim, I desire to console Thee.\nI unite myself to Thee, and sacrifice myself with Thee\nI annihilate myself in thy presence.\nI would forget myself to be mindful of Thee.\nI would be forgotten and despised for love of Thee.\nAnd be neither understood nor loved, unless by Thee.\nI will silence myself to listen to Thee, I will abandon myself to lose myself in Thee.",
+      "Grant that I may thus appease thy thirst, the thirst for my sanctification and salvation, and that being purified I may bestow on Thee a pure and true love.",
+      "I would not longer weary thy patience; take possession of me, I give myself to Thee.",
+      "I offer Thee all my actions, my intellect to be illuminated by Thee, my heart to be guided by Thee, my will to be made strong, my soul and body to be nourished, my misery to be lightened.",
+      "Eucharistic Heart of my Jesus, whose blood is the life of my soul, may it be no longer I that live, but do thou alone live in me. Amen.",
+    ],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["adoration", "holy-hour", "sacred-heart"],
+    summary: `The first of the four "Acts of Homage to the Eucharistic Heart of Jesus": a series of titles of the Heart of Jesus present in the tabernacle — solitary, forgotten, patient in waiting for us, wrapped in silence — followed by acts of self-offering that end "may it be no longer I that live, but do thou alone live in me" (Galatians 2:20). The Raccolta (no. 155) notes that the devotion to the Eucharistic Heart differs from that to the Sacred Heart only in dwelling on the gift of the Eucharist; Leo XIII indulgenced the acts in 1899. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "act-of-consecration-to-the-eucharistic-heart",
+    title: "Act of Consecration to the Eucharistic Heart of Jesus",
+    pages: [136, 137],
+    body: [
+      "Jesus, adorable Lord, hidden in thy Sacrament of love, Thou who abidest with us to sweeten our exile, should I not occupy myself in consoling Thee in thine? To Thee who givest me thy heart, how should I not offer Thee mine?",
+      "Truly, to give myself to Thee is to benefit myself; it is to find an ineffable treasure, a heart, loving, disinterested, and faithful, such as I would wish my own to be. I cannot be for ever receiving, and giving nothing in return. Dear Lord, I could never vie with Thee in generosity, but I love Thee; deign to accept my poor heart, and though it is worthless, yet because Thou lovest it, it may become something by thy grace; make it good and take it into thy custody.",
+      "Eucharistic Heart of Jesus, I consecrate to Thee all the powers of my soul, and all the powers of my body; I desire to apply myself to the work of knowing Thee and loving Thee ever more and more, in order to make Thee better known and loved by others. I would do nothing except what tends to thy glory, nor act in anything but as thy divine Father wills. I consecrate to Thee all the moments of my life in a spirit of adoration before thy real presence, in a spirit of thanksgiving for this incomparable gift, of reparation for our cruel indifference, and of incessant supplication, so that our prayers offered to Thee, with Thee, and in Thee may rise to the throne of divine mercy pure and efficacious, and for God's eternal glory. Amen.",
+    ],
+    prayerType: "consecration",
+    category: "consecration",
+    occasions: ["adoration", "sacred-heart", "corpus-christi"],
+    summary: `The second of the Raccolta's "Acts of Homage to the Eucharistic Heart of Jesus" (no. 155): an act of consecration to Christ hidden in the Sacrament of love, offering Him the heart in return for his own and consecrating every moment of life to adoration, thanksgiving, reparation and supplication before his real presence. Leo XIII indulgenced it in 1899. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "act-of-reparation-to-the-eucharistic-heart",
+    title: "Act of Reparation to the Eucharistic Heart of Jesus",
+    pages: [137, 138],
+    body: [
+      "Eucharistic Heart of my God, living and beating under the veil of the sacred species, I adore Thee.",
+      "Moved afresh with love for the immense benefit of the divine Eucharist, penetrated with sorrow for my ingratitude, I humble and annihilate myself in the still greater abyss of thy mercies.",
+      "Thou didst choose me from childhood; Thou didst not despise my infirmity; Thou didst descend into my poor heart, and giving it happiness and peace, didst invite it to mutual love; and I have lost all, by being unfaithful to Thee, O Jesus, my Lord. I have allowed my spirit to become dissipated and my heart to grow cold; I have listened to my own voice and have forgotten Thee.",
+      "Thou wouldst have been my guide, my counsellor, protector of my life, and I, allowing my passions to destroy the sweet attraction of thy presence, have lost sight of Thee and forgotten Thee.",
+      "In the salutary trials of our probation, in times of joy and consolation, in my difficulties and necessities, instead of having recourse to Thee, I have gone after creatures and have forgotten Thee.",
+      "I have forgotten Thee in deserted tabernacles, where thy love languishes, in the churches of towns where Thou art outraged in the hearts of the indifferent and sacrilegious, and in my own sinful heart, O Jesus, as well when I approached to receive Thee, as after receiving Thee.",
+      "Eucharistic Heart of my Saviour, the delight of my first Communion and of the days of my fidelity, I surrender to Thee. Return! Return! draw me to Thyself afresh. Pardon me yet again this time; and I shall hope everything in the strength of thy love.",
+      "Glorious Archangel St Michael and thou, O beloved disciple St John, offer to Jesus this my act of reparation, and be propitious to me. Amen.",
+    ],
+    prayerType: "act",
+    category: "eucharistic",
+    occasions: ["adoration", "reparation", "holy-hour"],
+    summary: `The fourth of the Raccolta's "Acts of Homage to the Eucharistic Heart of Jesus" (no. 155): a confession of having forgotten Christ in the tabernacle and in one's own heart after the fervour of first Communion, ending with a plea to be drawn back and the intercession of St Michael and St John. Leo XIII indulgenced it in 1899. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "daily-act-of-oblation-to-the-sacred-heart",
+    title:
+      "Daily Act of Oblation through the Sacred Heart (O Lord Jesus Christ, in union with that divine intention)",
+    pages: [138],
+    body: [
+      "O Lord Jesus Christ, in union with that divine intention with which Thou didst on earth offer praises to God through thy Sacred Heart, and now dost continue to offer them in all places in the Sacrament of the Eucharist, and wilt do so to the end of the world, I most willingly offer Thee, throughout this entire day without the smallest exception, all my intentions and thoughts, all my affections and desires, all my words and actions, that they may be conformed to the most sacred heart of the blessed Virgin Mary ever Immaculate.",
+    ],
+    prayerType: "morning",
+    category: "devotional",
+    occasions: ["morning", "daily", "sacred-heart"],
+    summary: `A morning offering of the whole day — intentions, thoughts, affections, desires, words and actions — made in union with the praise Christ offers the Father through his Sacred Heart in the Eucharist, that all may be conformed to the heart of Mary. Raccolta no. 156, indulgenced by Leo XIII in 1885. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "may-the-heart-of-jesus-in-the-most-blessed-sacrament-be-praised",
+    title: "May the Heart of Jesus in the Most Blessed Sacrament Be Praised",
+    pages: [140],
+    body: [
+      "May the Heart of Jesus in the most Blessed Sacrament be praised, adored, and loved with grateful affection, at every moment, in all the Tabernacles of the world, even to the end of time. Amen.",
+    ],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["adoration", "sacred-heart", "visit-to-the-blessed-sacrament"],
+    summary: `A one-sentence act of praise of the Heart of Jesus present in every tabernacle of the world, much used before the Blessed Sacrament and at the end of a holy hour. Raccolta no. 161, indulgenced by Pius IX in 1868. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-o-divine-heart-of-jesus-grant-eternal-rest",
+    title:
+      "Prayer to the Divine Heart of Jesus for the Living and the Dead (O Divine Heart of Jesus, grant, we beseech Thee)",
+    pages: [145],
+    body: [
+      "O Divine Heart of Jesus, grant, we beseech Thee, eternal rest to the souls in purgatory, the final grace to those who shall die to-day, true repentance to sinners, the light of the faith to pagans, and thy blessing to me and mine. To Thee, O most compassionate Heart of Jesus, I commend all these souls, and I offer to Thee on their behalf all thy merits, together with the merits of thy most holy Mother and of all the saints and angels, and all the sacrifices of the holy Mass, Communions prayers and good works, which shall be accomplished to-day throughout the Christian world.",
+    ],
+    prayerType: "intercession",
+    category: "devotional",
+    occasions: ["sacred-heart", "all-souls", "for-the-dying", "daily"],
+    summary: `A short intercession to the Divine Heart of Jesus for the souls in purgatory, for those who will die today, for sinners, for those who do not know the faith, and for oneself and one's own, offering for them the merits of Christ, of Our Lady and the saints, and every Mass and good work of the day. Raccolta no. 167, indulgenced by Leo XIII in 1901. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-to-the-eucharistic-heart-o-sovereign-love",
+    title: "Prayer to the Eucharistic Heart (O sovereign love of our Lord Jesus)",
+    pages: [146, 147],
+    body: [
+      "O Eucharistic Heart, O sovereign love of our Lord Jesus, who hast instituted the august Sacrament, in order to dwell here below with us and to give to our souls thy Flesh as food and thy Blood as drink, we confidently trust, O Lord Jesus, in the supreme love which instituted the most holy Eucharist; and here, in the presence of this Victim, it is just that we should adore, confess, and exalt this love, as the great store-house of the life of thy Church. This love is an urgent invitation for us, as though Thou didst say to us: “See how I love you! giving you my Flesh as food, and my Blood as drink; I desire by this union to excite your charity, I desire to unite you to myself, I desire to effect the transformation of your souls into my crucified Self, I who am the Bread of eternal life. Give me then your hearts, live in my life, and you shall live in God.” We recognise, O Lord, that such is the appeal of thy Eucharistic Heart, and we thank Thee for it, and we desire earnestly to respond to it. Grant us the grace to be keenly alive to this supreme love, with which, before thy Passion, Thou didst invite us to receive and feed upon thy sacred Body. Print deeply on our souls the firm determination to respond faithfully to this invitation. Give us devotion and reverence whereby we may honour and receive worthily the gift of thy supreme love, and of thy Eucharistic Heart. Grant that we may thus be able, with thy grace, to celebrate profitably the remembrance of thy Passion, to make reparation for our offences and our coldness, to nourish and increase our love for Thee, and to keep ever living within our hearts this seed of a blessed immortality. Amen.",
+    ],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["adoration", "corpus-christi", "after-communion"],
+    summary: `A prayer during exposition of the Blessed Sacrament to the Eucharistic Heart, the love that instituted the Eucharist, hearing in it Christ's invitation to give Him our hearts and live in his life, and asking grace to receive Him worthily and to keep alive "this seed of a blessed immortality". Raccolta no. 170, indulgenced by Leo XIII in 1902. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayer-o-most-sacred-heart-pour-down-thy-blessings",
+    title:
+      "Prayer to the Sacred Heart for the Church (O most sacred Heart of Jesus, pour down thy blessings)",
+    pages: [147],
+    body: [
+      "O most sacred Heart of Jesus, pour down thy blessings abundantly upon thy Church, upon the Supreme Pontiff, and upon all the clergy; give perseverance to the just, convert sinners, enlighten unbelievers, bless our parents, friends and benefactors, help the dying, free the souls in Purgatory, and extend over all hearts the sweet empire of thy love. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "devotional",
+    occasions: ["sacred-heart", "first-friday", "for-the-church"],
+    summary: `A short intercession to the Sacred Heart for the Church, the Pope and the clergy, for the just and for sinners, for unbelievers, for parents, friends and benefactors, for the dying and the souls in purgatory, that the sweet empire of his love may extend over all hearts. Raccolta no. 171, indulgenced by Pius X in 1906. ${ST_JOHN}`,
   }),
 ];
