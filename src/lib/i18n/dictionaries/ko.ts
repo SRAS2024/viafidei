@@ -8,6 +8,7 @@ export const ko: Dict = {
   "nav.prayers": "기도문",
   "nav.saints": "성인과 성모",
   "nav.login": "로그인",
+  "parishes.distanceAway": "{distance} 거리",
   "admin.loading.greeting": "환영합니다!",
   "admin.login.title": "관리자 로그인",
   "admin.login.submit": "입장",

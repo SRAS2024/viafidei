@@ -9,6 +9,7 @@ export const pl: Dict = {
   "nav.spiritualLife": "Życie duchowe",
   "nav.saints": "Święci i Matka Boża",
   "nav.login": "Zaloguj się",
+  "parishes.distanceAway": "{distance} stąd",
   "admin.loading.greeting": "Witamy!",
   "admin.login.title": "Logowanie administratora",
   "admin.login.submit": "Wejdź",

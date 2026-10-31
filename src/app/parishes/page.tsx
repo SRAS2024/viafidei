@@ -1,6 +1,7 @@
 import { FilterChips, LIST_PAGE_SIZE, PageHero, Pagination, parsePageParam } from "@/components/ui";
 import { countPublishedBySubtype, listParishPage } from "@/lib/data/published";
 import { PARISH_FILTERS, resolveParishFilter } from "@/lib/content-shared/parish";
+import { getTranslator } from "@/lib/i18n/server";
 
 import { ParishLocator } from "./ParishLocator";
 
@@ -27,6 +28,9 @@ export default async function ParishesPage({
   const { class: classParam, q: rawQuery, page: pageParam } = await searchParams;
   const active = resolveParishFilter(classParam);
   const query = (rawQuery ?? "").trim();
+  // The "near me" distance line speaks the site language, and outside English
+  // that language alone settles the units; the browser's region does the rest.
+  const { t, locale } = await getTranslator();
 
   // One page of the directory, filtered and counted in SQL. The page used to
   // load every published parish and hand the whole array to a client
@@ -100,7 +104,12 @@ export default async function ParishesPage({
         </div>
       ) : (
         <>
-          <ParishLocator parishes={result.items} total={result.total} />
+          <ParishLocator
+            parishes={result.items}
+            total={result.total}
+            locale={locale}
+            awayTemplate={t("parishes.distanceAway")}
+          />
           <Pagination
             basePath="/parishes"
             page={result.page}

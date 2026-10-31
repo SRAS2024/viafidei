@@ -8,6 +8,7 @@ export const zh: Dict = {
   "nav.prayers": "祈祷文",
   "nav.saints": "圣人与圣母",
   "nav.login": "登录",
+  "parishes.distanceAway": "距您{distance}",
   "admin.loading.greeting": "欢迎！",
   "admin.login.title": "管理员登录",
   "admin.login.submit": "进入",

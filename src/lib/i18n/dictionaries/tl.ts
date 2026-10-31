@@ -8,6 +8,7 @@ export const tl: Dict = {
   "nav.prayers": "Mga Panalangin",
   "nav.saints": "Mga Santo at Ina ng Diyos",
   "nav.login": "Mag-sign in",
+  "parishes.distanceAway": "{distance} ang layo",
   "admin.loading.greeting": "Maligayang pagdating!",
   "admin.login.title": "Pag-sign in ng administrador",
   "admin.login.submit": "Pumasok",

@@ -12,6 +12,7 @@ export const pt: Dict = {
   "nav.saints": "Santos e Nossa Senhora",
   "nav.search": "Buscar",
   "nav.login": "Entrar",
+  "parishes.distanceAway": "A {distance} de distância",
   "admin.loading.greeting": "Bem-vindo!",
   "admin.login.title": "Entrada do administrador",
   "admin.login.submit": "Entrar",

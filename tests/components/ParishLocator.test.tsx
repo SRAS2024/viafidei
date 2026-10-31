@@ -16,13 +16,16 @@
  * records near the visitor yet. A blank list says "there are no Catholic
  * parishes near you"; the widened radius and the sentence explaining it are
  * pinned below, as is the distance line under each parish name — which appears
- * only once the visitor has actually located themselves.
+ * only once the visitor has actually located themselves, in the site's
+ * language, metric outside English and in miles only for US English.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { ParishLocator } from "@/app/parishes/ParishLocator";
 import type { ParishListItem } from "@/lib/data/published";
+import type { Locale } from "@/lib/i18n/locales";
+import { createTranslator } from "@/lib/i18n/translator";
 
 function parish(over: Partial<ParishListItem> & { id: string; title: string }): ParishListItem {
   return {
@@ -47,9 +50,10 @@ const PAGE: ParishListItem[] = [
   parish({ id: "b-basilica", title: "B Basilica", designation: "minor-basilica" }),
 ];
 
-/** Chicago, and a parish about half a mile due east of it. */
+/** Chicago, a parish about half a mile due east of it, and one about 780 ft east. */
 const HERE = { latitude: 41.88, longitude: -87.63 };
 const HALF_A_MILE_EAST = { latitude: 41.88, longitude: -87.62027 };
+const A_SHORT_WALK_EAST = { latitude: 41.88, longitude: -87.62713 };
 
 afterEach(() => {
   cleanup();
@@ -68,6 +72,33 @@ function stubGeolocation(lat: number, lon: number, languages?: string[]) {
 function nearResponse(body: Record<string, unknown>) {
   return vi.fn(async () => ({ ok: true, json: async () => body }));
 }
+
+/**
+ * Locate from Chicago on a browser with these languages, with the API
+ * answering `items` inside the requested radius.
+ */
+async function locateWith(
+  languages: string[],
+  props: { locale?: Locale; awayTemplate?: string } = {},
+  items: ParishListItem[] = [parish({ id: "near", title: "Near Parish", ...HALF_A_MILE_EAST })],
+) {
+  stubGeolocation(HERE.latitude, HERE.longitude, languages);
+  vi.stubGlobal(
+    "fetch",
+    nearResponse({ items, requestedRadiusMiles: 50, radiusMiles: 50, widened: false }),
+  );
+  render(<ParishLocator parishes={PAGE} {...props} />);
+  fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { name: items[0]!.title })).toBeInTheDocument(),
+  );
+}
+
+/** The props /parishes passes for a site language. */
+const siteLanguage = (locale: Locale) => ({
+  locale,
+  awayTemplate: createTranslator(locale)("parishes.distanceAway"),
+});
 
 const cardFor = (name: string) =>
   screen.getByRole("heading", { name }).closest("article") as HTMLElement;
@@ -121,49 +152,57 @@ describe("ParishLocator", () => {
 
     // The whole directory is NOT sorted in the browser — only what the API returned.
     expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(1);
-    expect(within(cardFor("Near Parish")).getByText("0.5 miles away")).toBeInTheDocument();
+    expect(within(cardFor("Near Parish")).getByText("0.5 mi away")).toBeInTheDocument();
     expect(explanation()).toHaveTextContent("The parishes nearest you, within 50 miles.");
   });
 
-  it("puts the distance directly below the parish name", async () => {
-    stubGeolocation(HERE.latitude, HERE.longitude, ["en-US"]);
-    vi.stubGlobal(
-      "fetch",
-      nearResponse({
-        items: [parish({ id: "near", title: "Near Parish", ...HALF_A_MILE_EAST })],
-        radiusMiles: 50,
-        requestedRadiusMiles: 50,
-        widened: false,
+  it("puts the distance in that parish's card, right below its name", async () => {
+    await locateWith(["en-US"], {}, [
+      parish({
+        id: "near",
+        title: "Near Parish",
+        city: "Chicago",
+        state: "Illinois",
+        ...HALF_A_MILE_EAST,
       }),
-    );
+    ]);
 
-    render(<ParishLocator parishes={PAGE} />);
-    fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
-    await waitFor(() => expect(screen.getByText("0.5 miles away")).toBeInTheDocument());
-
-    const heading = screen.getByRole("heading", { name: "Near Parish" });
-    const away = screen.getByText("0.5 miles away");
-    // DOCUMENT_POSITION_FOLLOWING: the distance comes after the name in the DOM.
+    const card = cardFor("Near Parish");
+    const heading = within(card).getByRole("heading", { name: "Near Parish" });
+    const away = within(card).getByText("0.5 mi away");
+    const place = within(card).getByText(/Chicago, Illinois/);
+    // DOCUMENT_POSITION_FOLLOWING: the name, then the distance, then the rest of the card.
     expect(heading.compareDocumentPosition(away) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(away.compareDocumentPosition(place) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // A small secondary line, not a second title.
+    expect(away.closest("h1, h2, h3")).toBeNull();
   });
 
-  it("takes the unit from the DEVICE's region, not from where the coordinate falls", async () => {
-    // A German phone standing in Chicago still reads metric.
-    stubGeolocation(HERE.latitude, HERE.longitude, ["de-DE", "en-US"]);
-    vi.stubGlobal(
-      "fetch",
-      nearResponse({
-        items: [parish({ id: "near", title: "Near Parish", ...HALF_A_MILE_EAST })],
-        radiusMiles: 50,
-        requestedRadiusMiles: 50,
-        widened: false,
-      }),
-    );
+  it.each([
+    // The site language picks the words; outside English it also settles the units.
+    ["pt", ["en-US"], "A 800 m de distância"],
+    ["es", ["es-US"], "A 800 m de distancia"],
+    ["de", ["de-DE"], "800 m entfernt"],
+    ["zh", ["zh-CN"], "距您800米"],
+    // English reads miles only for US English; which English is the browser's.
+    ["en", ["en-US", "en"], "0.5 mi away"],
+    ["en", ["en-GB", "en"], "800 m away"],
+    ["en", ["en-IE"], "800 m away"],
+    // A German browser in Chicago reading the English page: metric, not the coordinate's miles.
+    ["en", ["de-DE", "en-US"], "800 m away"],
+  ] as const)("on a %s page with a %j browser the line reads %j", async (site, browser, line) => {
+    await locateWith([...browser], siteLanguage(site));
+    expect(within(cardFor("Near Parish")).getByText(line)).toBeInTheDocument();
+  });
 
-    render(<ParishLocator parishes={PAGE} />);
-    fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
-    await waitFor(() => expect(screen.getByText(/metres away$/)).toBeInTheDocument());
-    expect(screen.queryByText(/miles away$/)).not.toBeInTheDocument();
+  it("rounds a short walk to the nearest hundred feet or hundred metres", async () => {
+    const walk = [parish({ id: "walk", title: "Walk Parish", ...A_SHORT_WALK_EAST })];
+    await locateWith(["en-US"], siteLanguage("en"), walk);
+    expect(within(cardFor("Walk Parish")).getByText("800 ft away")).toBeInTheDocument();
+    cleanup();
+
+    await locateWith(["en-GB"], siteLanguage("en"), walk);
+    expect(within(cardFor("Walk Parish")).getByText("200 m away")).toBeInTheDocument();
   });
 
   it("explains a widened radius instead of implying the requested one answered", async () => {
@@ -207,7 +246,7 @@ describe("ParishLocator", () => {
       "No parishes within 50 miles yet. Here are the nearest ones we have.",
     );
     // A thousands-of-miles distance drops the meaningless tenth.
-    expect(within(cardFor("Rome Parish")).getByText(/^[\d,]+ miles away$/)).toBeInTheDocument();
+    expect(within(cardFor("Rome Parish")).getByText(/^[\d,]+ mi away$/)).toBeInTheDocument();
   });
 
   it("never shows an empty list with no explanation", async () => {
