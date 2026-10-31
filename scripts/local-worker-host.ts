@@ -105,6 +105,11 @@ import { loadCommandCenterSnapshot } from "../src/lib/admin-worker/command-cente
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
 import { MAX_FILE_BYTES } from "../src/lib/admin-worker/file-extractors";
 import { writeHeartbeat } from "../src/lib/admin-worker/state";
+import {
+  isBrokenPipe,
+  silenceStdio,
+  watchSupervisor,
+} from "../src/lib/admin-worker/supervised-host";
 import { appConfig } from "../src/lib/config";
 import { prisma } from "../src/lib/db/client";
 
@@ -1745,6 +1750,10 @@ async function main(): Promise<void> {
   const shutdown = (signal: string) => {
     if (shuttingDown) return;
     shuttingDown = true;
+    // Whatever happens below (a hung database call, a stuck child), this
+    // process is gone within 20 s of being asked — it must never linger
+    // holding the lease or a CPU.
+    setTimeout(() => process.exit(1), 20_000).unref();
     pushLog("host", `received ${signal} — shutting the local Admin Worker down`);
     if (leaseTimer) clearTimeout(leaseTimer);
     if (reconcileTimer) clearTimeout(reconcileTimer);
@@ -1773,22 +1782,35 @@ async function main(): Promise<void> {
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   // A crash in the supervisor must not leave an orphaned worker tree holding a
   // lease that makes every surface report "active locally".
+  // A broken log pipe means the app is gone: never log THAT error (the log
+  // is the broken pipe — that is how an orphaned host once spun at 100% CPU
+  // for 8 days), just stop quietly.
   process.on("uncaughtException", (err) => {
+    if (isBrokenPipe(err)) {
+      silenceStdio();
+      shutdown("parent-exit (log pipe closed)");
+      return;
+    }
     console.error("[local-host] uncaught exception:", err);
     shutdown("uncaughtException");
   });
   process.on("unhandledRejection", (reason) => {
+    if (isBrokenPipe(reason)) {
+      silenceStdio();
+      shutdown("parent-exit (log pipe closed)");
+      return;
+    }
     console.error("[local-host] unhandled rejection:", reason);
     shutdown("unhandledRejection");
   });
 
   // When the native application supervises this host it passes --watch-parent
-  // and keeps a pipe on our stdin; closing that pipe (the app quitting) is the
-  // signal to stop the whole local workload. Run from a terminal without the
-  // flag and stdin is left alone, so `npm run worker:host` behaves normally.
+  // and keeps a pipe on our stdin. The app going away — its pipe closing, our
+  // log pipe breaking, or launchd adopting us — stops the whole local
+  // workload (see supervised-host.ts). Run from a terminal without the flag
+  // and none of this applies, so `npm run worker:host` behaves normally.
   if (process.argv.includes("--watch-parent")) {
-    process.stdin.on("end", () => shutdown("parent-exit"));
-    process.stdin.resume();
+    watchSupervisor(shutdown);
   }
 }
 
