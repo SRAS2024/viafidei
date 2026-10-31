@@ -104,11 +104,47 @@ export function webCitations(input: WebPayloadInput): string[] {
   ];
 }
 
+/**
+ * Titles abbreviated before a name, whose period ends no sentence ("St.
+ * Ignatius", "Fr. Faber", "Bl. Pier Giorgio"). Read as a sentence end, a
+ * practice page opening "St. Ignatius of Loyola taught …" had the summary "St.".
+ */
+const TITLE_ABBREVIATIONS: ReadonlySet<string> = new Set([
+  "st",
+  "sts",
+  "bl",
+  "ven",
+  "fr",
+  "frs",
+  "br",
+  "sr",
+  "msgr",
+  "rev",
+  "bp",
+  "abp",
+  "card",
+  "dr",
+  "mr",
+  "mrs",
+  "ms",
+  "mt",
+]);
+
 /** The first sentence of a passage, verbatim (null when it has none). */
 function firstSentence(text: string | undefined): string | undefined {
   if (!text) return undefined;
-  const m = /^[\s\S]*?[.!?](?=\s|$)/.exec(text.trim());
-  return m ? m[0].trim() : undefined;
+  const t = text.trim();
+  const end = /[.!?](?=\s|$)/g;
+  for (let m = end.exec(t); m; m = end.exec(t)) {
+    if (m[0] === ".") {
+      // The word the period closes: an abbreviated title or an initial
+      // ("John H. Newman") continues the sentence.
+      const word = (/(\S+)$/.exec(t.slice(0, m.index))?.[1] ?? "").replace(/^[^\p{L}]+/u, "");
+      if (/^\p{Lu}$/u.test(word) || TITLE_ABBREVIATIONS.has(word.toLowerCase())) continue;
+    }
+    return t.slice(0, m.index + 1);
+  }
+  return undefined;
 }
 
 const MONTHS = [

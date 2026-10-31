@@ -405,6 +405,24 @@ describe("other web types", () => {
     }
   });
 
+  // An abbreviated title or an initial is not a sentence end: a page opening
+  // "St. Ignatius …" used to get the summary "St." and be refused.
+  it("SPIRITUAL_PRACTICE: a saint's abbreviated title or an initial does not end the summary", () => {
+    const first =
+      "St. Ignatius of Loyola taught the Examen, which John H. Newman also commended, as a short daily review of the day in God's presence.";
+    const out = buildWebPublishPayload(
+      "SPIRITUAL_PRACTICE",
+      base({
+        title: "The Daily Examen",
+        body: `${first} It notices gifts and failings alike.`,
+        howToPractice:
+          "Each evening, become aware of God's presence, review the day with gratitude, and resolve to amend tomorrow.",
+      }),
+    );
+    expect(out.ok).toBe(true);
+    if (out.ok) expect(out.payload).toMatchObject({ practiceKind: "examen", summary: first });
+  });
+
   it("POPE / DOCTOR / RITE need one citation; a prose feast becomes MM-DD", () => {
     const pope = buildWebPublishPayload(
       "POPE",
