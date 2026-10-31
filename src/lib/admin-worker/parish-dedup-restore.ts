@@ -24,7 +24,8 @@
  *         or sourceRef, and this change's own `_meta.dedup` / `_meta.excluded`
  *         / `_meta.restored`.
  *     Each candidate is re-checked under the shared rule (same key within
- *     250 m, or the same name within 250 m). A true duplicate stays
+ *     250 m — with the same name too when the key's street has no house
+ *     number — or the same name within 250 m). A true duplicate stays
  *     unpublished and gains `_meta.dedup`; any other is republished through
  *     runPublishOrchestrator — its update branch re-publishes an unpublished
  *     row — with `_meta.restored {at, reason}`.
@@ -309,8 +310,14 @@ export async function runParishDedupRestore(
     const payload = obj(row.payload);
     const key = parishAddressKeyForPayload(payload);
     const located = { name: row.title, latitude: row.latitude, longitude: row.longitude };
+    const keyed = {
+      ...located,
+      addressKey: key,
+      address: typeof payload.address === "string" ? payload.address : null,
+      countryCode: typeof payload.countryCode === "string" ? payload.countryCode : null,
+    };
     const duplicate =
-      (await findDuplicateParish(prisma, { ...located, addressKey: key }, { excludeId: row.id })) ??
+      (await findDuplicateParish(prisma, keyed, { excludeId: row.id })) ??
       (await findNearbySameNameParish(prisma, located, { excludeId: row.id }));
     const now = nowFn();
     const next = { ...payload };

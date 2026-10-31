@@ -290,6 +290,79 @@ describe("runParishAddressMaintenance", () => {
     expect(updates).toHaveLength(0);
   });
 
+  it("keeps two different churches 90 m apart on one square without a house number", async () => {
+    // Nominatim's parent street: the key names the Kirchplatz, not a building.
+    const key = "kirchplatz 82496 bayern";
+    const square = {
+      address: "Kirchplatz",
+      postalCode: "82496",
+      state: "Bayern",
+      countryCode: "DE",
+    };
+    const { prisma, updates } = makePrisma(
+      [
+        {
+          id: "z2",
+          slug: "pfarrkirche-st-georg",
+          title: "Pfarrkirche St. Georg",
+          latitude: 47.5701,
+          longitude: 11.0002,
+          addressKey: key,
+          payload: { ...square, addressKey: key },
+        },
+      ],
+      [
+        {
+          id: "z1",
+          slug: "friedhofskapelle-st-michael",
+          title: "Friedhofskapelle St. Michael",
+          addressKey: key,
+          latitude: 47.5709,
+          longitude: 11.0002,
+        },
+      ],
+    );
+
+    const out = await runParishAddressMaintenance(prisma, { force: true, now: () => NOW });
+
+    expect(out.duplicatesRemoved).toBe(0);
+    expect(updates).toHaveLength(0);
+  });
+
+  it("still unpublishes the same church mapped twice on that square", async () => {
+    const key = "kirchplatz 82496 bayern";
+    const { prisma, updates } = makePrisma(
+      [
+        {
+          id: "z2",
+          slug: "st-georg",
+          title: "St. Georg",
+          latitude: 47.5701,
+          longitude: 11.0002,
+          addressKey: key,
+          payload: { address: "Kirchplatz", postalCode: "82496", state: "Bayern", addressKey: key },
+        },
+      ],
+      [
+        {
+          id: "z1",
+          slug: "pfarrkirche-st-georg",
+          title: "Pfarrkirche St. Georg",
+          addressKey: key,
+          latitude: 47.5702,
+          longitude: 11.0002,
+        },
+      ],
+    );
+
+    const out = await runParishAddressMaintenance(prisma, { force: true, now: () => NOW });
+
+    expect(out.duplicatesRemoved).toBe(1);
+    expect(
+      (updates[0]?.data.payload as { _meta: { dedup: { rule: string } } })._meta.dedup.rule,
+    ).toBe("street-key+same-name-within-250m");
+  });
+
   it("uses the name when a row has no coordinates", async () => {
     const { prisma, updates } = makePrisma(
       [{ id: "z2", slug: "b", title: "St. Mary", payload: { address: "1 Main St", city: "X" } }],

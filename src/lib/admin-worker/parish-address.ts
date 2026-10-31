@@ -26,10 +26,18 @@
  *   - a key match alone is never a duplicate: `findDuplicateParish` also needs
  *     the two rows within 250 m, or (when either has no coordinates) the same
  *     distinctive name. Every path — the OSM sweep, the Maps lane, the address
- *     maintenance and the dedup restore — goes through that one rule.
+ *     maintenance and the dedup restore — goes through that one rule;
+ *   - distance alone decides only for a key that names one building (a street
+ *     line WITH a house number). A street or square without one ("Kirchplatz",
+ *     "Via del Corso" — Nominatim's parent street, which had no house number in
+ *     50 of 50 sampled parishes) is shared by every church on it, so a parish
+ *     church and the chapel 90 m away on the same Kirchplatz also need the
+ *     same distinctive name before one counts as the other's duplicate.
  */
 
 import type { PrismaClient } from "@prisma/client";
+
+import { streetBeforeNumber } from "./parish-address-format";
 
 /** Long-form → canonical short token for the words that vary between sources. */
 const CANONICAL_TOKEN: Record<string, string> = {
@@ -147,18 +155,117 @@ export function parishAddressKeyForPayload(payload: Record<string, unknown>): st
   });
 }
 
+// ── Does the street line name one building? ─────────────────────────────────
+
+/** A house number as one folded token: "12", "12a", "3bis". */
+const HOUSE_NUMBER_RE = /^\d{1,5}(?:[a-z]|bis|ter|quater)?$/;
+/** The year of a date a street is named after ("8 Mai 1945", "1 Decembrie 1918"). */
+const YEAR_RE = /^(?:1[6-9]|20)\d\d$/;
+/** A Spanish ordinal ("6ª Avenida" folds to "6a avenida"). */
+const ORDINAL_RE = /^\d+[ao]$/;
+
+/** Folded month names, as dates in street names spell them ("3 Maja", "28. října"). */
+const MONTHS = new Set(
+  [
+    "january february march april may june july august september october november december",
+    "enero febrero marzo abril mayo junio julio agosto septiembre setiembre octubre noviembre",
+    "diciembre janeiro fevereiro marco maio junho julho setembro outubro novembro dezembro",
+    "gennaio febbraio aprile maggio giugno luglio settembre ottobre dicembre janvier fevrier",
+    "mars avril mai juin juillet aout decembre januar februar marz maerz juni juli oktober",
+    "dezember januari februari maart mei augustus",
+    "stycznia lutego marca kwietnia maja czerwca lipca sierpnia wrzesnia pazdziernika listopada",
+    "grudnia ledna unora brezna dubna kvetna cervna cervence srpna zari rijna listopadu prosince",
+    "januara februara aprila juna jula augusta septembra oktobra novembra decembra januarja",
+    "februarja junija julija avgusta sijecnja veljace ozujka travnja svibnja lipnja srpnja",
+    "kolovoza rujna studenoga prosinca ianuarie februarie martie aprilie iunie iulie",
+    "septembrie octombrie noiembrie decembrie marcius aprilis majus junius julius augusztus",
+    "szeptember",
+  ].flatMap((group) => group.split(" ")),
+);
+/** "5 de Mayo", "7 de Setembro": the word between a day and its month. */
+const DATE_LINKS = new Set(["de", "del", "du", "di"]);
+/** "3 Sur", "5 Oriente", "100 South": a numbered street with its direction. */
+const COMPASS = new Set(
+  "norte sur oriente poniente este oeste north south east west nord sud est ouest".split(" "),
+);
+/** Road words a number follows as the road's own name ("Calle 60", "Carrera 7", "Route 66"). */
+const ROAD_WORDS = new Set(
+  [
+    "calle carrera avenida diagonal transversal circunvalar autopista carretera camino ruta",
+    "rua estrada rodovia travessa via strada statale provinciale strasse straat ulica aleja",
+    "street road avenue route highway interstate nacional federal provincial estatal estadual",
+    "departamental regional sector zona quadra kilometro",
+  ].flatMap((group) => group.split(" ")),
+);
+/** Words that announce a house number ("Calle 60 No. 491", "Hauptstr. Nr. 5"). */
+const HOUSE_NUMBER_MARKERS = new Set(["no", "nr", "nro", "num", "numero"]);
+
+/** The leading number is part of the street's own name ("3 Maja", "5 de Mayo"). */
+function leadingNumberNamesStreet(tokens: string[]): boolean {
+  const next = tokens[1] ?? "";
+  return (
+    MONTHS.has(next) ||
+    (DATE_LINKS.has(next) && MONTHS.has(tokens[2] ?? "")) ||
+    (tokens.length === 2 && COMPASS.has(next)) ||
+    (ORDINAL_RE.test(tokens[0] ?? "") && ROAD_WORDS.has(next))
+  );
+}
+
+/** The trailing number is part of the street's own name ("Calle 60", "B 12"). */
+function trailingNumberNamesStreet(tokens: string[]): boolean {
+  const last = tokens[tokens.length - 1] ?? "";
+  const prev = tokens[tokens.length - 2] ?? "";
+  if (MONTHS.has(prev) && YEAR_RE.test(last)) return true;
+  if (/\d/.test(prev) || HOUSE_NUMBER_MARKERS.has(prev)) return false;
+  // A road word, or a short road class / abbreviation ("B 12", "SS 16",
+  // "Cra 7", the "x 61" of a cross-street).
+  return ROAD_WORDS.has(prev) || prev.length <= 3;
+}
+
+/**
+ * Whether a street line carries a house number — i.e. names one building, not
+ * a whole street or square. A house number sits at an edge of the line: first
+ * in number-first countries and in every row composed before the locale order
+ * existed ("12 Hauptstraße"), last in street-first countries ("Hauptstraße
+ * 12"). A number that belongs to the street's own name is not one: a date
+ * ("3 Maja", "5 de Mayo", "Rue du 8 Mai 1945"), a numbered street of a grid
+ * city ("Calle 60", "Carrera 7", "3 Sur") or a road ("B 12", "Route 66").
+ * Doubt reads as "no house number": the key then needs the name as well,
+ * which can at worst leave a duplicate listed, never hide a distinct church.
+ */
+export function streetLineHasHouseNumber(
+  address: string | null | undefined,
+  countryCode?: string | null,
+): boolean {
+  const tokens = foldToAsciiLatin(address).split(" ").filter(Boolean);
+  if (tokens.length < 2) return false;
+  if (HOUSE_NUMBER_RE.test(tokens[0]!) && !leadingNumberNamesStreet(tokens)) return true;
+  // A number-first country never writes the house number last.
+  const cc = (countryCode ?? "").trim().toUpperCase();
+  if (/^[A-Z]{2}$/.test(cc) && !streetBeforeNumber(cc)) return false;
+  return HOUSE_NUMBER_RE.test(tokens[tokens.length - 1]!) && !trailingNumberNamesStreet(tokens);
+}
+
 // ── Names ───────────────────────────────────────────────────────────────────
 
 const NAME_STOP_WORDS = new Set([
   "st",
+  "s",
   "saint",
   "san",
+  "sant",
   "santa",
   "santo",
+  "santi",
+  "santissima",
+  "santissimo",
+  "ss",
   "sao",
   "ste",
   "sainte",
   "sankt",
+  "sint",
+  "sv",
   "sw",
   "church",
   "parish",
@@ -182,6 +289,10 @@ const NAME_STOP_WORDS = new Set([
   "de",
   "del",
   "della",
+  "dello",
+  "delle",
+  "degli",
+  "dei",
   "di",
   "da",
   "do",
@@ -202,8 +313,10 @@ const NAME_STOP_WORDS = new Set([
 
 /**
  * Fold a parish name to its distinctive words so "St. Mary Catholic Church"
- * and "Parish of Saint Mary" compare equal. Empty when nothing distinctive
- * remains (then no name-based dedup is possible).
+ * and "Parish of Saint Mary" compare equal — and so do the abbreviated forms
+ * one church is often mapped under twice ("S. Eligio dei Ferrari", "Chiesa di
+ * Sant'Eligio dei Ferrari"). Empty when nothing distinctive remains (then no
+ * name-based dedup is possible).
  */
 export function normalizedParishName(name: string): string {
   return foldToAsciiLatin(name)
@@ -235,6 +348,7 @@ export function haversineMeters(
 
 export type ParishDuplicateRule =
   | "address-key+within-250m"
+  | "street-key+same-name-within-250m"
   | "address-key+same-name"
   | "same-name-within-250m";
 
@@ -242,6 +356,14 @@ export interface LocatedParish {
   name: string;
   latitude?: number | null;
   longitude?: number | null;
+}
+
+/** A parish with its address key and the street line (and country) the key came from. */
+export interface KeyedParish extends LocatedParish {
+  addressKey: string;
+  /** Whether this line carries a house number decides how strong a key match is. */
+  address: string | null | undefined;
+  countryCode?: string | null;
 }
 
 function coordsOf(p: LocatedParish): { latitude: number; longitude: number } | null {
@@ -255,25 +377,32 @@ function coordsOf(p: LocatedParish): { latitude: number; longitude: number } | n
 
 /**
  * Decide whether two parishes that already share an address key are the same
- * place. Pure: coordinates within DUPLICATE_RADIUS_M when both have them;
- * otherwise the same non-empty distinctive name. Null = distinct parishes.
+ * place. Pure. When both have coordinates they must lie within
+ * DUPLICATE_RADIUS_M — and, unless the shared key carries a house number
+ * (`key.houseNumber`: it names one building), also share their distinctive
+ * name, because a bare street or square is shared by every church on it.
+ * Without coordinates on both, the same non-empty name decides. Null =
+ * distinct parishes.
  */
 export function parishDuplicateRule(
   a: LocatedParish,
   b: LocatedParish,
+  key: { houseNumber: boolean },
 ): { rule: ParishDuplicateRule; distanceM: number | null } | null {
+  const na = normalizedParishName(a.name);
+  const sameName = na !== "" && na === normalizedParishName(b.name);
   const ca = coordsOf(a);
   const cb = coordsOf(b);
   if (ca && cb) {
     const distanceM = haversineMeters(ca, cb);
-    return distanceM <= DUPLICATE_RADIUS_M
-      ? { rule: "address-key+within-250m", distanceM: Math.round(distanceM) }
+    if (distanceM > DUPLICATE_RADIUS_M) return null;
+    if (key.houseNumber)
+      return { rule: "address-key+within-250m", distanceM: Math.round(distanceM) };
+    return sameName
+      ? { rule: "street-key+same-name-within-250m", distanceM: Math.round(distanceM) }
       : null;
   }
-  const na = normalizedParishName(a.name);
-  return na && na === normalizedParishName(b.name)
-    ? { rule: "address-key+same-name", distanceM: null }
-    : null;
+  return sameName ? { rule: "address-key+same-name", distanceM: null } : null;
 }
 
 export interface ParishDuplicateMatch {
@@ -287,16 +416,19 @@ export interface ParishDuplicateMatch {
 /**
  * The published parish this one duplicates, or null. Probes the indexed
  * `addressKey` column for live rows with the same key and keeps the first
- * (lowest id) that passes `parishDuplicateRule`. `excludeId` keeps a row from
+ * (lowest id) that passes `parishDuplicateRule` — told by the candidate's own
+ * street line whether the key names one building (rows sharing a key share
+ * its street words, house number included). `excludeId` keeps a row from
  * matching itself; `beforeId` restricts to rows published earlier (the
  * maintenance keeper rule). Fail-open: a query error is "no duplicate".
  */
 export async function findDuplicateParish(
   prisma: PrismaClient,
-  candidate: LocatedParish & { addressKey: string },
+  candidate: KeyedParish,
   opts: { excludeId?: string; beforeId?: string } = {},
 ): Promise<ParishDuplicateMatch | null> {
   if (!candidate.addressKey) return null;
+  const key = { houseNumber: streetLineHasHouseNumber(candidate.address, candidate.countryCode) };
   const idFilter: Record<string, string> = {};
   if (opts.beforeId) idFilter.lt = opts.beforeId;
   if (opts.excludeId) idFilter.not = opts.excludeId;
@@ -320,7 +452,7 @@ export async function findDuplicateParish(
     longitude: number | null;
   }>;
   for (const row of rows) {
-    const verdict = parishDuplicateRule(candidate, { ...row, name: row.title });
+    const verdict = parishDuplicateRule(candidate, { ...row, name: row.title }, key);
     if (verdict) return { id: row.id, slug: row.slug, title: row.title, ...verdict };
   }
   return null;

@@ -27,7 +27,8 @@
  * as before and the address-research lane completes it later; a missing city
  * may still come from `is_in` or one bounded reverse lookup. Dedup runs
  * cheapest-first — sourceRef, the shared address rule (same key AND within
- * 250 m, parish-address.ts), same-name-within-200 m, then slug (a collision
+ * 250 m, plus the same name for a street without a house number;
+ * parish-address.ts), same-name-within-200 m, then slug (a collision
  * gets a stable suffix, never a silent skip) — and a re-swept parish enriches
  * its own row in place. Every run is bounded (publish cap checked BEFORE any
  * per-candidate work, a wall-clock deadline under the lane watchdog) and
@@ -810,7 +811,9 @@ export async function processOsmCandidate(
 
   // 2. Same street address AND within 250 m (or the same name when either has
   //    no coordinates) → same place under another name or source. A shared
-  //    key alone — two street-less churches in one city — is not enough.
+  //    key alone — two street-less churches in one city — is not enough, and
+  //    a street without a house number (two churches on one Kirchplatz) also
+  //    needs the same name.
   const addressKey = parishAddressKey({
     address: candidate.formattedAddress,
     city: candidate.city,
@@ -819,6 +822,8 @@ export async function processOsmCandidate(
   });
   const byAddress = await findDuplicateParish(prisma, {
     addressKey,
+    address: candidate.formattedAddress,
+    countryCode: candidate.countryCode,
     latitude: candidate.latitude,
     longitude: candidate.longitude,
     name: candidate.name,

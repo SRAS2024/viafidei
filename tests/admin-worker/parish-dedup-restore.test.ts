@@ -293,12 +293,12 @@ describe("runParishDedupRestore", () => {
   });
 
   it("keeps a true duplicate down and records which row it duplicates", async () => {
-    const key = "del velabro via 00153 lazio";
+    const key = "9 del velabro via 00153 lazio";
     const dup = victim("v2", {
       payload: {
         slug: "parrocchia-v2-roma",
         title: "Parrocchia v2",
-        address: "Via del Velabro",
+        address: "Via del Velabro 9",
         postalCode: "00153",
         state: "Lazio",
         city: "Roma",
@@ -341,6 +341,44 @@ describe("runParishDedupRestore", () => {
         rule: "address-key+within-250m",
       },
     ]);
+  });
+
+  it("restores a different church on the same street when the street has no house number", async () => {
+    const key = "corso del via 00186 lazio";
+    const lata = victim("v4", {
+      title: "Santa Maria in Via Lata",
+      latitude: 41.8972,
+      longitude: 12.4822,
+      payload: {
+        slug: "parrocchia-v4-roma",
+        title: "Santa Maria in Via Lata",
+        address: "Via del Corso",
+        postalCode: "00186",
+        state: "Lazio",
+        city: "Roma",
+        latitude: 41.8972,
+        longitude: 12.4822,
+        citations: ["https://www.openstreetmap.org/way/4"],
+      },
+    });
+    const { prisma } = makePrisma({
+      unpublished: [lata],
+      published: [
+        {
+          id: "k4",
+          slug: "san-marcello-al-corso",
+          title: "San Marcello al Corso",
+          addressKey: key,
+          latitude: 41.899,
+          longitude: 12.4822,
+        },
+      ],
+    });
+
+    const out = await runParishDedupRestore(prisma, { now: () => NOW });
+
+    expect(out).toMatchObject({ restored: 1, deduped: 0 });
+    expect((mockedPublish.mock.calls[0]![1].payload as Row).addressKey).toBe(key);
   });
 
   it("keeps the same church mapped twice (same name within 250 m) down too", async () => {

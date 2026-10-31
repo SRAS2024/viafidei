@@ -6,8 +6,9 @@
  *    published-parish catalog on a slow throttle, stamping each row's normalized
  *    `addressKey` (so publish-time duplicate detection is reliable) and
  *    unpublishing any parish that duplicates an earlier published one under the
- *    shared rule (same address key AND within 250 m, or the same name when a
- *    row has no coordinates — parish-address.ts). The unpublished row records
+ *    shared rule (same address key AND within 250 m — plus the same name when
+ *    the key's street has no house number — or the same name when a row has
+ *    no coordinates; parish-address.ts). The unpublished row records
  *    which row it duplicated and why (`payload._meta.dedup`), so a mistake is
  *    visible and reversible. This is how "all previously published parishes
  *    are checked" for duplicates, not just newly discovered ones.
@@ -222,11 +223,19 @@ export async function runParishAddressMaintenance(
       // Is there an EARLIER published parish (lower id = seen first = the
       // keeper) that this row duplicates under the shared rule? The key probe
       // hits the indexed `addressKey` column; a key match only counts when the
-      // two are within 250 m (or share a name when one has no coordinates).
+      // two are within 250 m (or share a name when one has no coordinates),
+      // and a street without a house number also needs the same name.
       const keeper = key
         ? await findDuplicateParish(
             prisma,
-            { addressKey: key, latitude: row.latitude, longitude: row.longitude, name: row.title },
+            {
+              addressKey: key,
+              address: typeof payload.address === "string" ? payload.address : null,
+              countryCode: typeof payload.countryCode === "string" ? payload.countryCode : null,
+              latitude: row.latitude,
+              longitude: row.longitude,
+              name: row.title,
+            },
             { beforeId: row.id },
           )
         : null;

@@ -1303,7 +1303,7 @@ describe("runOsmParishDiscovery — Nominatim lookup for new candidates", () => 
     extratags: { building: "church", denomination: "catholic" },
   };
 
-  function overpassAndNominatim(answer: unknown[]) {
+  function overpassAndNominatim(answer: unknown[], elements: unknown[] = [ELIGIO]) {
     const calls: string[] = [];
     global.fetch = vi.fn(async (url: string) => {
       calls.push(String(url));
@@ -1316,7 +1316,7 @@ describe("runOsmParishDiscovery — Nominatim lookup for new candidates", () => 
       return {
         ok: true,
         headers: { get: () => "application/json" },
-        json: async () => ({ elements: [ELIGIO] }),
+        json: async () => ({ elements }),
       };
     }) as unknown as typeof global.fetch;
     return calls;
@@ -1364,16 +1364,18 @@ describe("runOsmParishDiscovery — Nominatim lookup for new candidates", () => 
   });
 
   it("dedups on the address the lookup supplied", async () => {
-    overpassAndNominatim([ANSWER]);
+    // With a house number the key names one building: the same key within
+    // 250 m is the same church, whatever it is called.
+    overpassAndNominatim([{ ...ANSWER, address: { ...ANSWER.address, house_number: "9" } }]);
     const { prisma } = makePrisma({
       rows: [
         {
           id: "known",
-          slug: "s-eligio-dei-ferrari",
-          title: "S. Eligio dei Ferrari",
+          slug: "sant-eligio",
+          title: "Sant'Eligio",
           isPublished: true,
           sourceRef: "osm:way/124282254",
-          addressKey: "del velabro via 00153 lazio",
+          addressKey: "9 del velabro via 00153 lazio",
           latitude: 41.89,
           longitude: 12.4825,
           payload: {},
@@ -1389,6 +1391,67 @@ describe("runOsmParishDiscovery — Nominatim lookup for new candidates", () => 
 
     expect(out.duplicates).toBe(1);
     expect(mockedPublish).not.toHaveBeenCalled();
+  });
+
+  it("publishes a parish church 90 m from a chapel on the same square — a street is no building", async () => {
+    // Nominatim answers with the square and no house number, so both churches
+    // share the key "kirchplatz 82496 bayern"; their names differ.
+    const pfarrkirche = {
+      type: "way",
+      id: 20,
+      center: { lat: 47.5701, lon: 11.0002 },
+      tags: { name: "Pfarrkirche St. Georg", religion: "christian", denomination: "catholic" },
+    };
+    overpassAndNominatim(
+      [
+        {
+          osm_type: "way",
+          osm_id: 20,
+          category: "amenity",
+          type: "place_of_worship",
+          name: "Pfarrkirche St. Georg",
+          address: {
+            road: "Kirchplatz",
+            village: "Oberau",
+            state: "Bayern",
+            postcode: "82496",
+            country: "Deutschland",
+            country_code: "de",
+          },
+          extratags: { building: "church" },
+        },
+      ],
+      [pfarrkirche],
+    );
+    const { prisma } = makePrisma({
+      rows: [
+        {
+          id: "chapel",
+          slug: "friedhofskapelle-st-michael-oberau",
+          title: "Friedhofskapelle St. Michael",
+          isPublished: true,
+          sourceRef: "osm:node/10",
+          addressKey: "kirchplatz 82496 bayern",
+          latitude: 47.5709,
+          longitude: 11.0002,
+          payload: {},
+        },
+      ],
+    });
+
+    const out = await runOsmParishDiscovery(prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+
+    expect(out.duplicates).toBe(0);
+    expect(out.published).toBe(1);
+    expect(publishedPayload()).toMatchObject({
+      title: "Pfarrkirche St. Georg",
+      address: "Kirchplatz",
+      addressKey: "kirchplatz 82496 bayern",
+    });
   });
 
   it("records a candidate Nominatim no longer returns, and publishes it anyway", async () => {

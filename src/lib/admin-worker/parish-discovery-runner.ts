@@ -338,7 +338,8 @@ export async function runMapsParishDiscovery(
       if (exists) continue;
 
       // …and by ADDRESS under the shared rule: the same key as a published
-      // parish AND within 250 m of it (or the same name when either lacks
+      // parish AND within 250 m of it (with the same name too when the street
+      // has no house number, or the same name alone when either lacks
       // coordinates) ⇒ same place, not published again.
       const addressKey = parishAddressKey({
         address: candidate.formattedAddress,
@@ -348,6 +349,8 @@ export async function runMapsParishDiscovery(
       });
       const duplicate = await findDuplicateParish(prisma, {
         addressKey,
+        address: candidate.formattedAddress,
+        countryCode: candidate.countryCode,
         latitude: candidate.latitude,
         longitude: candidate.longitude,
         name: candidate.name,
