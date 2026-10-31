@@ -34,7 +34,13 @@
  * most one page of memos; and a memo nobody has touched for
  * REJECTION_MEMORY_TTL_MS (longer than the longest wait, so an entity still in
  * its corpus is always re-tested — and re-stamped — first) is pruned, at most
- * once a day, with a hard cap on what is kept.
+ * once a day, with a hard cap on what is kept. A memo carries no learning
+ * counts, so the maintenance memory decay never reads or rewrites it.
+ *
+ * A memo is cleared when its entity publishes or turns out to be live once
+ * mapped. An entity that went live by another path (the web pipeline, a
+ * curated entry) is recognised as live BEFORE mapping, so its memo is simply
+ * never read again and leaves with the TTL prune.
  */
 
 import type { PrismaClient } from "@prisma/client";

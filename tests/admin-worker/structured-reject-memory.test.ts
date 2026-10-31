@@ -7,7 +7,8 @@
  *   - a rejection that describes the entity is remembered per (ingestor, QID)
  *     and the entity is not mapped again until its backoff expires;
  *   - the wait doubles per repeat and is capped; transient codes are never
- *     remembered; a publish (or the entity turning up live) clears the memo;
+ *     remembered; a publish (or the entity turning out live once mapped)
+ *     clears the memo;
  *   - a page of live rows and deferred rejections is skipped like a live page,
  *     and walking past remembered rejections never counts as a barren page;
  *   - the memory is bounded: TTL prune plus a hard cap, at most once a day.
