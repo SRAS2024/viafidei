@@ -1,0 +1,4876 @@
+import type { CuratedEntry } from "../index";
+
+/**
+ * Batch 12 of the curated prayer catalogue: prayers of the saints and of the
+ * classic Catholic prayer books, all in public-domain English printed before
+ * 1929.
+ *
+ * Every body is copied character for character from the first cited page and
+ * checked against the printed book. Two kinds of first page are used:
+ *   - a web transcription of the old book (the Newman Reader), collated word by
+ *     word with an archive.org scan of the printed edition, which is cited
+ *     second;
+ *   - the archive.org scan itself, cited at the leaf where the prayer begins,
+ *     transcribed from the page images and checked word by word against the
+ *     OCR of a second, independent scan of the same edition. For the Manual of
+ *     Prayers the text is the majority reading of six OCRs of the same plates
+ *     (the 1888, 1889, 1896 and 1898 issues), every doubtful reading settled
+ *     from the page image ("willest", which every OCR reads as "wiliest").
+ * Nothing is paraphrased, shortened, modernised, composed or merged across
+ * versions. The only changes are typographical, or restore the printed text,
+ * and none alters the wording:
+ *   - opening words set in small capitals ("O MY God", "GREAT art Thou") are
+ *     given in ordinary case, and the period's space before ! ? ; : is closed;
+ *   - page numbers, running heads, footnote and marginal references, and the
+ *     bracketed chapter and section numbers of the 1838 Confessions are dropped;
+ *   - plain printer's slips are corrected: "tabernacle.!" (Saint Francis's
+ *     Salutation of the Blessed Virgin), "but in, Thee" (his Praises), and
+ *     the full stop the Manual omits after "who come to Thee", the last words
+ *     of its Act of Humility before Communion;
+ *   - where a transcription departs from the printed book, the book is
+ *     followed: in Newman's prayers to Saint Philip "chose thee and made thee a
+ *     saint" (the third prayer drops "thee"), "Salvator earum" for "Salvador",
+ *     "Thou sayest" for "Thou savest", "Thou didst suffer" for "didst'", "my
+ *     very body" for "my very, body", "give us a safe lodging" where the
+ *     transcription omits "a", "illustrations are given of" for "given to",
+ *     "where all are present" for "where all are at present", a clause the
+ *     transcription repeats in The Infinite Knowledge of God ("to its origin,
+ *     and canst follow it into its whole growth") given once, as printed,
+ *     "Thou alone art holy" where the transcription omits "art" (The Bondage
+ *     of Sin), the closing quotation mark it drops after "they shall turn to
+ *     a curse." (the first meditation Against Thee Only Have I Sinned), "I am
+ *     to live for ever" for "forever" (God the Sole Stay for Eternity), and,
+ *     in the Good Friday intercessions, "in the midst of the years" for "in
+ *     the amidst of the years" and "through torments and blood" for
+ *     "torment". Each of these readings was confirmed in two separate scans.
+ *
+ * Saint John Henry Newman's prayers come from Meditations and Devotions
+ * (Longmans, 1893), Verses on Various Occasions (1868) and Sermons Bearing on
+ * Subjects of the Day (1843), as transcribed by the Newman Reader. Most of his
+ * meditations are written throughout as prayers and are given whole; where a
+ * prayer is the closing colloquy of a longer meditation, only that prayer is
+ * given and its summary says where it stands. Of his Twelve Meditations and
+ * Intercessions for Good Friday only the intercessions are given, each with
+ * the bidding printed before it ("Let us pray for ..."); the intercessions
+ * for pagans, for the Jewish people and for the unity of Christians were
+ * left out, as were the Manual's prayers of the same kind (below).
+ *
+ * Saint Francis's prayers are Paschal Robinson's translation, The Writings of
+ * Saint Francis of Assisi (Philadelphia: Dolphin Press, 1906); Saint
+ * Augustine's are from E. B. Pusey's Confessions in its first edition
+ * (Library of the Fathers, Oxford, 1838), not from later reprints, whose
+ * wording differs in places.
+ *
+ * The occasional prayers, the prayers for the dead, the devotions for
+ * Confession, the prayers for the sick, the devotions for Holy Communion and
+ * the Visit to the Blessed Sacrament come from A Manual of Prayers for the Use
+ * of the Catholic Laity (New York, 1889), the prayer book prepared by order of
+ * the Third Plenary Council of Baltimore. Most of the occasional prayers, and
+ * the collects before and after Communion, are the Roman Missal's in the
+ * Manual's English; its red initials and small capitals ("O GOD", "GRANT")
+ * are given in ordinary case, and its rubrics ("N." for a name, "this famine
+ * (or pestilence)") are kept as printed, as are the day headings (Sunday to
+ * Saturday) that divide the prayer O great High-Priest; the dotted blanks it
+ * leaves for the reader's own sins and intentions (". . . ,") are given as
+ * "...,". The Manual's old prayers for heretics, Jews and pagans were
+ * deliberately left out, and so were the Communion and Visit prayers already
+ * in the catalogue in another translation: Saint Thomas Aquinas's prayers
+ * before and after Communion, Saint Bonaventure's Transfige, the prayer of the
+ * Imitation of Christ for grace to do God's will, "How boundless, O Jesus, is
+ * Thy Love" (the Raccolta's "Behold, my most loving Jesus"), Saint Alphonsus's
+ * prayer for a visit, Saint Margaret Mary's consecration to the Sacred Heart
+ * and the prayer before a crucifix. The thanksgiving "Offer Yourself to
+ * Christ" was left out as well, since its second half is Saint Ignatius's
+ * Suscipe, and so was the Prayer in Times of Threatened Calamity ("O Jesus
+ * Christ, we call upon Thee, Holy, Immortal God"), a shorter English form of
+ * the prayer ascribed to Saint Benedict Joseph Labre that the Raccolta gives
+ * as its Prayer in Times of Calamity (no. 456, in prayer batch 9).
+ *
+ * The Sunday and feast collects come from the Manual's Introits, Collects,
+ * Epistles, Gospels and Postcommunions: those of the Sundays and chief days
+ * from Advent to the Sunday after the Ascension, and of the Sundays after
+ * Pentecost from the First to the Twenty-fourth except the Second, the Fifth
+ * and the Twenty-second (see below). Each is given as the book prints it
+ * after the word "Collect" (or "Collect of the Sunday", where a feast
+ * displaces the Sunday), with its abbreviated conclusion ("Through our Lord
+ * Jesus Christ, etc. Amen."); the rubric that follows it ("Others as on
+ * third Sunday") is dropped, and "JESUS" set in small capitals is given as
+ * "Jesus". The 1889 copy's "Grant us. we beseech Thee" (Sixth Sunday after
+ * Epiphany) is given with the comma of the 1888 issue. Collects already in
+ * the knowledge base inside other entries were left out: those of
+ * Pentecost, the Holy Trinity, the Patronage of Saint Joseph and the Second
+ * Sunday after Pentecost, which close the prayer to the Holy Spirit, the
+ * Trisagion and the Litanies of Saint Joseph and of the Holy Name, and that
+ * of Corpus Christi, which the guide to Benediction gives. So were those of
+ * the Fifth and the Twenty-second Sundays after Pentecost, which other
+ * entries give in another translation: the Raccolta's Chaplet of Acts of the
+ * Love of God (prayer batch 9) ends with the first, and the prayers for the
+ * Pope and the Church that close each day of the Raccolta's Marian novenas
+ * (novenas group 3) end with the second.
+ *
+ * Saint Anselm's prayers are the first and last chapters of the Proslogium in
+ * Sidney Norton Deane's translation (Chicago: Open Court, 1903); the
+ * transcription's "all the blessing I enjoy" is given as printed, "all the
+ * blessings I enjoy", a reading confirmed in two scans of the 1903 book. Saint
+ * Ignatius's oblation is from Elder Mullan's translation of the Spiritual
+ * Exercises (New York, 1914), and Saint Augustine's closing prayer of On the
+ * Trinity is A. W. Haddan's translation in the Nicene and Post-Nicene Fathers
+ * (vol. 3, 1887). All three come from the transcriptions of the Christian
+ * Classics Ethereal Library, collated with scans of the printed books; the
+ * quotation marks that enclose the oblation in the Exercises are dropped, and
+ * the transcriptions' double hyphen is given as a dash.
+ */
+export const prayerBatch12: CuratedEntry[] = [
+  {
+    contentType: "PRAYER",
+    slug: "newman-prayer-for-the-light-of-truth",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations8.html#truth",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-prayer-for-the-light-of-truth",
+      title: "Prayer for the Light of Truth (Saint John Henry Newman)",
+      body: "O my God, I confess that Thou canst enlighten my darkness. I confess that Thou alone canst. I wish my darkness to be enlightened. I do not know whether Thou wilt: but that Thou canst and that I wish, are sufficient reasons for me to ask, what Thou at least hast not forbidden my asking. I hereby promise that by Thy grace which I am asking, I will embrace whatever I at length feel certain is the truth, if ever I come to be certain. And by Thy grace I will guard against all self-deceit which may lead me to take what nature would have, rather than what reason approves.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A short prayer Newman wrote for anyone searching for religious truth, which he wished an enquirer to say continually: it confesses that God alone can enlighten the mind and promises, by his grace, to embrace the truth once it is certainly known. From Meditations and Devotions, the collection of Newman's private prayers published after his death in 1893.",
+      occasions: ["conversion", "discernment", "daily"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations8.html#truth",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-prayer-for-a-happy-death",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations8.html#death",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-prayer-for-a-happy-death",
+      title: "Prayer for a Happy Death (Saint John Henry Newman)",
+      body: "Oh, my Lord and Saviour, support me in that hour in the strong arms of Thy Sacraments, and by the fresh fragrance of Thy consolations. Let the absolving words be said over me, and the holy oil sign and seal me, and Thy own Body be my food, and Thy Blood my sprinkling; and let my sweet Mother, Mary, breathe on me, and my Angel whisper peace to me, and my glorious Saints ... smile upon me; that in them all, and through them all, I may receive the gift of perseverance, and die, as I desire to live, in Thy faith, in Thy Church, in Thy service, and in Thy love. Amen.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        'Newman\'s prayer to be upheld at the hour of death by the last sacraments, by the Blessed Virgin, his guardian angel and the saints, so as to die in the faith, the Church, the service and the love of Christ. The ellipsis after "my glorious Saints" stands in the printed book.',
+      occasions: ["preparation-for-death", "deathbed", "daily"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations8.html#death",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-four-prayers-to-saint-philip-neri",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations8.html#prayersphilip",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-four-prayers-to-saint-philip-neri",
+      title: "Four Prayers to Saint Philip Neri (Saint John Henry Newman)",
+      body: "Prayer I\n\nO my dear and holy Patron, Philip, I put myself into thy hands, and for the love of Jesus, for that love’s sake which chose thee and made thee a saint, I implore thee to pray for me, that, as He has brought thee to heaven, so in due time He may take me to heaven too.\n\nThou hast had experience of the trials and troubles of this life; thou knowest well what it is to bear the assaults of the devil, the mockery of the world, and the temptations of flesh and blood. Thou knowest how weak is human nature, and how treacherous the human heart, and thou art so full of sympathy and compassion, that, amidst all thy present ineffable glory and blessedness, thou canst, I know, give a thought to me.\n\nThink of me then, my dear St. Philip, be sure to think of me, even though I am at times so unmindful of thee. Gain for me all things necessary for my perseverance in the grace of God, and my eternal salvation. Gain for me, by thy powerful intercession, the strength to fight a good fight, to witness boldly for God and religion in the midst of sinners, to be brave when Satan would frighten or force me to what is wrong, to overcome myself, to do my whole duty, and thus to be acquitted in the judgment.\n\nVessel of the Holy Ghost, Apostle of Rome, Saint of primitive times, pray for me.\n\nPrayer II\n\nO my dear and holy Patron, Philip, I put myself into thy hands, and for the love of Jesus, for that love’s sake, which chose thee and made thee a saint, I implore thee to pray for me, that, as He has brought thee to heaven, so in due time He may take me to heaven also.\n\nAnd I ask of thee especially to gain for me a true devotion such as thou hadst to the Holy Ghost, the Third Person in the Ever-blessed Trinity; that, as He at Pentecost so miraculously filled thy heart with his grace, I too may in my measure have the gifts necessary for my salvation.\n\nTherefore I ask thee to gain for me those His seven great gifts, to dispose and excite my heart towards faith and virtue.\n\nBeg for me the gift of Wisdom, that I may prefer heaven to earth, and know truth from falsehood:\n\nThe gift of Understanding, by which I may have imprinted upon my mind the mysteries of His Word:\n\nThe gift of Counsel, that I may see my way in all perplexities:\n\nThe gift of Fortitude, that with bravery and stubbornness I may battle with my foe:\n\nThe gift of Knowledge, to enable me to direct all my doings with a pure intention to the glory of God:\n\nThe gift of Religion, to make me devout and conscientious:\n\nAnd the gift of Holy Fear, to make me feel awe, reverence and sobriety amid all my spiritual blessings.\n\nSweetest Father, Flower of Purity, Martyr of Charity, pray for me.\n\nPrayer III\n\nO my dear and holy Patron, Philip, I put myself into thy hands, and for the love of Jesus, for that love’s sake which chose thee and made thee a saint, I implore thee to pray for me, that, as He has brought thee to heaven, so in due time He may take me to heaven also.\n\nAnd I beg of thee to gain for me a true devotion to the Holy Ghost, by means of that grace which He Himself, the Third Person of the glorious Trinity, bestows. Gain for me a portion of that overflowing devotion which thou hadst towards Him when thou wast on earth; for that, O my dear father, was one of thy special distinctions from other saints, that, though they all adored supremely and solely the Holy Ghost as their one God, yet thou, like Pope St. Gregory, the Apostle of England, didst adore Him not only in the unity of the Godhead, but also as proceeding from the Father and the Son, the gift of the Most High and the Giver of life.\n\nGain for me, O holy Philip, such a measure of thy devotion towards Him, that, as He did deign to come into thy heart miraculously and set it on fire with love, He may reward us too with some special and corresponding gift of grace. O Philip, let us not be the cold sons of so fervent a Father. It will be a great reproach to thee, if thou dost not make us in some measure like thyself. Gain for us the grace of prayer and meditation, power to command our thoughts and keep from distractions, and the gift of conversing with God without being wearied.\n\nHeart of fire, Light of holy joy, Victim of love, pray for me.\n\nPrayer IV\n\nO my dear and holy Patron, Philip, I put myself into thy hands, and for the love of Jesus, for that love’s sake which chose thee and made thee a saint, I implore thee to pray for me, that, as He has brought thee to heaven, so in due time He may take me to heaven also.\n\nThou art my glorious protector, and, after Jesus, Mary, and Joseph, canst do most for me in life and death. In thy labours thou didst follow thy Lord and Saviour, and in thy hidden life and hidden virtues, in thy purity, humility, and fervour, art nearest to Mary and Joseph of all saints. I have long dedicated myself to thee, but I have done nothing worthy of thee, and I am ashamed to call myself thine, because thou hast a right to have followers of great innocence, great honesty of purpose, and great resolution, and these virtues I have not.\n\nThou, Philip, hast no anxiety about thyself, for thou art already in heaven, therefore thou canst afford to have a care for me. Watch over me, keep me from lagging behind, gain for me the grace necessary to keep me up to my duty, so that I may make progress in all virtues, in the three theological virtues of faith, hope, and charity; in the four cardinal virtues of prudence, fortitude, justice, temperance; moreover in humility, in chastity, in liberality, in meekness, and in truthfulness.\n\nDirector of souls, Patron of thine own, who didst turn so many hearts to God, pray for me.",
+      prayerType: "intercession",
+      category: "saintly",
+      language: "en",
+      summary:
+        "Four prayers to Saint Philip Neri, whose Oratory Newman brought to England. Each opens with the same act of entrustment, then asks in turn for perseverance, for the seven gifts of the Holy Ghost, for Philip's own devotion to the Holy Ghost and the grace of prayer, and for growth in every virtue. The 1893 editor notes that they are what survives of an unfinished novena, and that the invocation closing the fourth prayer was supplied for uniformity.",
+      occasions: ["may-26", "pentecost"],
+      relatedSaints: ["saint-john-henry-newman", "saint-philip-neri"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations8.html#prayersphilip",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-short-visit-to-the-blessed-sacrament",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations9.html",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-short-visit-to-the-blessed-sacrament",
+      title: "A Short Visit to the Blessed Sacrament before Meditation (Saint John Henry Newman)",
+      body: "In the Name of the Father, and of the Son, and of the Holy Ghost. Amen.\n\nI place myself in the presence of Him, in whose Incarnate Presence I am before I place myself there.\n\nI adore Thee, O my Saviour, present here as God and man, in soul and body, in true flesh and blood.\n\nI acknowledge and confess that I kneel before that Sacred Humanity, which was conceived in Mary's womb, and lay in Mary's bosom; which grew up to man's estate, and by the Sea of Galilee called the Twelve, wrought miracles, and spoke words of wisdom and peace; which in due season hung on the cross, lay in the tomb, rose from the dead, and now reigns in heaven.\n\nI praise, and bless, and give myself wholly to Him, who is the true Bread of my soul, and my everlasting joy.\n\nSunday\n\nO Sapientia, quæ ex ore Altissimi prodiisti, attingens à fine usque ad finem, fortiter suaviterque disponens omnia: Veni ad docendum nos viam prudentiæ.\n\nMonday\n\nO Adonai, et Dux domus Israel, qui Moysi in igne flammæ rubi apparuisti, et ei in Sina legem dedisti: Veni ad redimendum nos in brachio extento.\n\nTuesday\n\nO Radix Jesse, qui stas in signum populorum, super quem continebunt reges os suum, quem Gentes deprecabuntur: Veni ad liberandum nos, jam noli tardare.\n\nWednesday\n\nO Clavis David, et Sceptrum domus Israel, qui aperis et nemo claudit, claudis et nemo aperit: Veni, et educ vinctum de domo carceris, sedentem in tenebris et umbrâ mortis.\n\nThursday\n\nO Oriens, Splendor lucis æternæ, et sol justitiæ: Veni et illumina sedentes in tenebris et umbrâ mortis.\n\nFriday\n\nO Rex Gentium, et desideratus earum, lapisque angularis, qui facis utraque unum: Veni et salva hominem, quem de limo formasti.\n\nSaturday\n\nO Emmanuel, Rex et Legifer noster, Expectatio gentium, et Salvator earum: Veni ad salvandum nos, Domine Deus noster.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "Newman's brief act of adoration before the Blessed Sacrament, dated 1 March 1855 and meant to open a time of meditation: the sign of the cross, placing oneself in Christ's presence, adoration of his Sacred Humanity and an offering of self, followed by the Latin \"O\" antiphon of Advent that Newman assigned to each day of the week.",
+      occasions: ["adoration", "visit-to-the-blessed-sacrament", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations9.html",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-i-put-myself-without-reserve-into-thy-hands",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations9.html#doctrine1",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-i-put-myself-without-reserve-into-thy-hands",
+      title: "I Will Put Myself without Reserve into Thy Hands (Saint John Henry Newman)",
+      body: "O, my God, I will put myself without reserve into Thy hands. Wealth or woe, joy or sorrow, friends or bereavement, honour or humiliation, good report or ill report, comfort or discomfort, Thy presence or the hiding of Thy countenance, all is good if it comes from Thee. Thou art wisdom and Thou art love—what can I desire more? Thou hast led me in Thy counsel, and with glory hast Thou received me. What have I in heaven, and apart from Thee what want I upon earth? My flesh and my heart faileth: but God is the God of my heart, and my portion for ever.",
+      prayerType: "act",
+      category: "act",
+      language: "en",
+      summary:
+        "The colloquy that closes the first of Newman's meditations on Hope in God the Creator (6 March 1848): an act of surrender placing every circumstance of life, wealth or woe, honour or humiliation, into the hands of the God who is wisdom and love. It ends with verses of Psalm 72 (73).",
+      occasions: ["trust", "daily", "offering"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations9.html#doctrine1",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-i-ask-simply-to-be-used",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations9.html#doctrine1",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-i-ask-simply-to-be-used",
+      title: "I Ask Simply to Be Used (Saint John Henry Newman)",
+      body: "O Adonai, O Ruler of Israel, Thou that guidest Joseph like a flock, O Emmanuel, O Sapientia, I give myself to Thee. I trust Thee wholly. Thou art wiser than I—more loving to me than I myself. Deign to fulfil Thy high purposes in me whatever they be—work in and through me. I am born to serve Thee, to be Thine, to be Thy instrument. Let me be Thy blind instrument. I ask not to see—I ask not to know—I ask simply to be used.",
+      prayerType: "act",
+      category: "act",
+      language: "en",
+      summary:
+        "The prayer that ends Newman's meditation of 7 March 1848, the meditation known for its words on the definite service God has committed to each person. Addressing Christ by titles from the Advent antiphons, it trusts God's purposes without needing to see them and asks only to be his instrument.",
+      occasions: ["trust", "vocations", "discernment", "offering"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations9.html#doctrine1",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-the-blessedness-of-the-soul",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations9.html#doctrine3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-the-blessedness-of-the-soul",
+      title: "God the Blessedness of the Soul (Saint John Henry Newman)",
+      body: "1. To possess Thee, O Lover of Souls, is happiness, and the only happiness of the immortal soul! To enjoy the sight of Thee is the only happiness of eternity. At present I might amuse and sustain myself with the vanities of sense and time, but they will not last for ever. We shall be stripped of them when we pass out of this world. All shadows will one day be gone. And what shall I do then? There will be nothing left to me but the Almighty God. If I cannot take pleasure in the thought of Him, there is no one else then to take pleasure in; God and my soul will be the only two beings left in the whole world, as far as I am concerned. He will be all in all, whether I wish it or no. What a strait I shall then be in if I do not love Him, and there is then nothing else to love! if I feel averse to Him, and He is then ever looking upon me!\n\n2. Ah, my dear Lord, how can I bear to say that Thou wilt be all in all, whether I wish it or no? Should I not wish it with my whole heart? What can give me happiness but Thou? If I had all the resources of time and sense about me, just as I have now, should I not in course of ages, nay of years, weary of them? Did this world last for ever, would it be able ever to supply my soul with food? Is there any earthly thing which I do not weary of at length even now? Do old men love what young men love? Is there not constant change? I am sure then, my God, that the time would come, though it might be long in coming, when I should have exhausted all the enjoyment which the world could give. Thou alone, my dear Lord, art the food for eternity, and Thou alone. Thou only canst satisfy the soul of man. Eternity would be misery without Thee, even though Thou didst not inflict punishment. To see Thee, to gaze on Thee, to contemplate Thee, this alone is inexhaustible. Thou indeed art unchangeable, yet in Thee there are always more glorious depths and more varied attributes to search into; we shall ever be beginning as if we had never gazed upon Thee. In Thy presence are torrents of delight, which whoso tastes will never let go. This is my true portion, O my Lord, here and hereafter!\n\n3. My God, how far am I from acting according to what I know so well! I confess it, my heart goes after shadows. I love anything better than communion with Thee. I am ever eager to get away from Thee. Often I find it difficult even to say my prayers. There is hardly any amusement I would not rather take up than set myself to think of Thee. Give me grace, O my Father, to be utterly ashamed of my own reluctance! Rouse me from sloth and coldness, and make me desire Thee with my whole heart. Teach me to love meditation, sacred reading, and prayer. Teach me to love that which must engage my mind for all eternity.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A meditation of Newman's written throughout as a prayer: every earthly good wearies in the end, God alone can satisfy the soul for eternity, and so the speaker asks to be roused from sloth and taught to love meditation, sacred reading and prayer.",
+      occasions: ["meditation", "daily"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations9.html#doctrine3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-jesus-christ-yesterday-and-today",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations9.html#jesus",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-jesus-christ-yesterday-and-today",
+      title: "Jesus Christ Yesterday and Today, and the Same for Ever (Saint John Henry Newman)",
+      body: '1. All things change here below. I say it, O Lord; I believe it; and I shall feel it more and more the longer I live. Before Thy eyes, most awful Lord, the whole future of my life lies bare. Thou knowest exactly what will befall me every year and every day till my last hour. And, though I know not what Thou seest concerning me, so much I know, viz. that Thou dost read in my life perpetual change. Not a year will leave me as it found me, either within or without. I never shall remain any time in one state. How many things are sure to happen to me, unexpected, sudden, hard to bear! I know them not. I know not how long I have to live. I am hurried on, whether I will it or no, through continual change. O my God, what can I trust in? There is nothing I dare trust in; nay, did I trust in anything of earth, I believe for that very reason it would be taken away from me. I know Thou wouldest take it away, if Thou hadst love for me.\n\n2. Everything short of Thee, O Lord, is changeable, but Thou endurest. Thou art ever one and the same. Ever the true God of man, and unchangeably so. Thou art the rarest, most precious, the sole good; and withal Thou art the most lasting. The creature changes, the Creator never. Then only the creature stops changing, when it rests on Thee. On Thee the Angels look and are at peace; that is why they have perfect bliss. They never can lose their blessedness, for they never can lose Thee. They have no anxiety, no misgivings—because they love the Creator; not any being of time and sense, but "Jesus Christ, the same yesterday and today, who is also for ever.\n\n3. My Lord, my Only God, "Deus meus et omnia," let me never go after vanities. "Vanitas vanitatum et omnia vanitas." All is vanity and shadow here below. Let me not give my heart to anything here. Let nothing allure me from Thee; O keep me wholly and entirely. Keep thou this most frail heart and this most weak head in Thy Divine keeping. Draw me to Thee morning, noon, and night for consolation. Be Thou my own bright Light, to which I look, for guidance and for peace. Let me love Thee, O my Lord Jesus, with a pure affection and a fervent affection! Let me love Thee with the fervour, only greater, with which men of this earth love beings of this earth. Let me have that tenderness and constancy in loving Thee, which is so much praised among men, when the object is of the earth. Let me find and feel Thee to be my only joy, my only refuge, my only strength, my only comfort, my only hope, my only fear, my only love.',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's meditation-prayer on Hebrews 13:8: everything in this life changes and nothing earthly can be trusted, but Christ remains the same, and so the soul asks to be kept from vanities and to find in Jesus its only joy, refuge, strength and hope.",
+      occasions: ["meditation", "trust", "new-year"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations9.html#jesus",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-act-of-love",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations9.html#love",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-act-of-love",
+      title: "An Act of Love (Saint John Henry Newman)",
+      body: '1. My Lord, I believe, and know, and feel, that Thou art the Supreme Good. And, in saying so, I mean, not only supreme Goodness and Benevolence, but that Thou art the sovereign and transcendent Beautifulness. I believe that, beautiful as is Thy creation, it is mere dust and ashes, and of no account, compared with Thee, who art the infinitely more beautiful Creator. I know well, that therefore it is that the Angels and Saints have such perfect bliss, because they see Thee. To see even the glimpse of Thy true glory, even in this world throws holy men into an ecstasy. And I feel the truth of all this, in my own degree, because Thou hast mercifully taken our nature upon Thee, and hast come to me as man. "Et vidimus gloriam ejus, gloriam quasi Unigeniti a Patre"—"and we saw His glory, the glory as it were of the only begotten of the Father." The more, O my dear Lord, I meditate on Thy words, works, actions, and sufferings in the Gospel, the more wonderfully glorious and beautiful I see Thee to be.\n\n2. And therefore, O my dear Lord, since I perceive Thee to be so beautiful, I love Thee, and desire to love Thee more and more. Since Thou art the One Goodness, Beautifulness, Gloriousness, in the whole world of being, and there is nothing like Thee, but Thou art infinitely more glorious and good than even the most beautiful of creatures, therefore I love Thee with a singular love, a one, only, sovereign love. Everything, O my Lord, shall be dull and dim to me, after looking at Thee. There is nothing on earth, not even what is most naturally dear to me, that I can love in comparison of Thee. And I would lose everything whatever rather than lose Thee. For Thou, O my Lord, art my supreme and only Lord and love.\n\n3. My God, Thou knowest infinitely better than I, how little I love Thee. I should not love Thee at all, except for Thy grace. It is Thy grace which has opened the eyes of my mind, and enabled them to see Thy glory. It is Thy grace which has touched my heart, and brought upon it the influence of what is so wonderfully beautiful and fair. How can I help loving Thee, O my Lord, except by some dreadful perversion, which hinders me from looking at Thee? O my God, whatever is nearer to me than Thou, things of this earth, and things more naturally pleasing to me, will be sure to interrupt the sight of Thee, unless Thy grace interfere. Keep Thou my eyes, my ears, my heart, from any such miserable tyranny. Break my bonds—raise my heart. Keep my whole being fixed on Thee. Let me never lose sight of Thee; and, while I gaze on Thee, let my love of Thee grow more and more every day.',
+      prayerType: "act",
+      category: "act",
+      language: "en",
+      summary:
+        "Newman's act of love for God as the supreme Good and the supreme Beauty, seen most clearly in the incarnate Son of the Gospels, with a petition that grace keep the eyes and heart fixed on him so that love may grow every day.",
+      occasions: ["act-of-love", "daily", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations9.html#love",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-against-thee-only-have-i-sinned",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#sin2",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-against-thee-only-have-i-sinned",
+      title: "Against Thee Only Have I Sinned (Saint John Henry Newman)",
+      body: "1. My God, I dare not offend any earthly superior; I am afraid—for I know I shall get into trouble—yet I dare offend Thee. I know, O Lord, that, according to the greatness of the person offended against, the greater is the offence. Yet I do not fear to offend Thee, whom to offend is to offend the infinite God. O my dear Lord, how should I myself feel, what should I say of myself, if I were to strike some revered superior on earth? if I were violently to deal a blow upon some one as revered as a father, or a priest; if I were to strike them on the face? I cannot bear even to think of such a thing—yet what is this compared with lifting up my hand against Thee? and what is sin but this? To sin is to insult Thee in the grossest of all conceivable ways. This then, O my soul! is what the sinfulness of sin consists in. It is lifting up my hand against my Infinite Benefactor, against my Almighty Creator, Preserver and Judge—against Him in whom all majesty and glory and beauty and reverence and sanctity centre; against the one only God.\n\n2. O my God, I am utterly confounded to think of the state in which I lie! What will become of me if Thou art severe? What is my life, O my dear and merciful Lord, but a series of offences, little or great, against Thee! O what great sins I have committed against Thee before now—and how continually in lesser matters I am sinning! My God, what will become of me? What will be my position hereafter if I am left to myself! What can I do but come humbly to Him whom I have so heavily affronted and insulted, and beg Him to forgive the debt which lies against me? O my Lord Jesus, whose love for me has been so great as to bring Thee down from heaven to save me, teach me, dear Lord, my sin—teach me its heinousness—teach me truly to repent of it—and pardon it in Thy great mercy!\n\n3. I beg Thee, O my dear Saviour, to recover me! Thy grace alone can do it. I cannot save myself. I cannot recover my lost ground. I cannot turn to Thee, I cannot please Thee, or save my soul without Thee. I shall go from bad to worse, I shall fall from Thee entirely, I shall quite harden myself against my neglect of duty, if I rely on my own strength. I shall make myself my centre instead of making Thee. I shall worship some idol of my own framing instead of Thee, the only true God and my Maker, unless Thou hinder it by Thy grace. O my dear Lord, hear me! I have lived long enough in this undecided, wavering, unsatisfactory state. I wish to be Thy good servant. I wish to sin no more. Be gracious to me, and enable me to be what I know I ought to be.",
+      prayerType: "act",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A penitential meditation-prayer from Newman's series on sin: sin is an offence against the infinite God, a life of offences great and small is confessed, and Christ is begged to teach true repentance and by his grace to recover the sinner. Its title is taken from Psalm 50 (51).",
+      occasions: ["confession", "examination-of-conscience", "lent"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#sin2",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-power-of-the-cross",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#doctrine5",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-power-of-the-cross",
+      title: "The Power of the Cross (Saint John Henry Newman)",
+      body: "1. My God, who could have imagined, by any light of nature, that it was one of Thy attributes to lower Thyself, and to work out Thy purposes by Thy own humiliation and suffering? Thou hadst lived from eternity in ineffable blessedness. My God, I might have understood as much as this, viz. that, when Thou didst begin to create and surround Thyself with a world of creatures, that these attributes would show themselves in Thee which before had no exercise. Thou couldest not show Thy power when there was nothing whatever to exercise it. Then too, Thou didst begin to show thy wonderful and tender providence, Thy faithfulness, Thy solicitous care for those whom Thou hadst created. But who could have fancied that Thy creation of the universe implied and involved in it Thy humiliation? O my great God, Thou hast humbled Thyself, Thou hast stooped to take our flesh and blood, and hast been lifted up upon the tree! I praise and glorify Thee tenfold the more, because Thou hast shown Thy power by means of Thy suffering, than hadst Thou carried on Thy work without it. It is worthy of Thy infinitude thus to surpass and transcend all our thoughts.\n\n2. O my Lord Jesu, I believe, and by Thy grace will ever believe and hold, and I know that it is true, and will be true to the end of the world, that nothing great is done without suffering, without humiliation, and that all things are possible by means of it. I believe, O my God, that poverty is better than riches, pain better than pleasure, obscurity and contempt than name, and ignominy and reproach than honour. My Lord, I do not ask Thee to bring these trials on me, for I know not if I could face them; but at least, O Lord, whether I be in prosperity or adversity, I will believe that it is as I have said. I will never have faith in riches, rank, power, or reputation. I will never set my heart on worldly success or on worldly advantages. I will never wish for what men call the prizes of life. I will ever, with Thy grace, make much of those who are despised or neglected, honour the poor, revere the suffering, and admire and venerate Thy saints and confessors, and take my part with them in spite of the world.\n\n3. And lastly, O my dear Lord, though I am so very weak that I am not fit to ask Thee for suffering as a gift, and have not strength to do so, at least I will beg of Thee grace to meet suffering well, when Thou in Thy love and wisdom dost bring it upon me. Let me bear pain, reproach, disappointment, slander, anxiety, suspense, as Thou wouldest have me, O my Jesu, and as Thou by Thy own suffering hast taught me, when it comes. And I promise too, with Thy grace, that I will never set myself up, never seek pre-eminence, never court any great thing of the world, never prefer myself to others. I wish to bear insult meekly, and to return good for evil. I wish to humble myself in all things, and to be silent when I am ill-used, and to be patient when sorrow or pain is prolonged, and all for the love of Thee, and Thy Cross, knowing that in this way I shall gain the promise both of this life and of the next.",
+      prayerType: "general",
+      category: "devotional",
+      language: "en",
+      summary:
+        "Newman's prayer on the mystery that God works out his purposes through humiliation and suffering. It professes that nothing great is done without suffering, renounces trust in riches and worldly success, and asks for grace to bear pain, slander and disappointment patiently for love of Christ and his Cross.",
+      occasions: ["lent", "good-friday", "suffering", "exaltation-of-the-holy-cross"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#doctrine5",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-my-lord-and-my-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#resurrection2",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-my-lord-and-my-god",
+      title: "God Alone: My Lord and My God (Saint John Henry Newman)",
+      body: '1. I adore Thee, O my God, with Thomas; and if I have, like him, sinned through unbelief, I adore Thee the more. I adore Thee as the One Adorable, I adore Thee as more glorious in Thy humiliation, when men despised Thee, than when Angels worshipped Thee. Deus meus et omnia—"My God and my all." To have Thee is to have everything I can have. O my Eternal Father, give me Thyself. I dared not have made so bold a request, it would have been presumption, unless Thou hadst encouraged me. Thou hast put it into my mouth, Thou hast clothed Thyself in my nature, Thou hast become my Brother, Thou hast died as other men die, only in far greater bitterness, that, instead of my eyeing Thee fearfully from afar, I might confidently draw near to Thee. Thou dost speak to me as Thou didst speak to Thomas, and dost beckon me to take hold of Thee. My God and my all, what could I say more than this, if I spoke to all eternity! I am full and abound and overflow, when I have Thee; but without Thee I am nothing—I wither away, I dissolve and perish. My Lord and my God, my God and my all, give me Thyself and nothing else.\n\n2. Thomas came and touched Thy sacred wounds. O will the day ever come when I shall be allowed actually and visibly to kiss them? What a day will that be when I am thoroughly cleansed from all impurity and sin, and am fit to draw near to my Incarnate God in His palace of light above! what a morning, when having done with all penal suffering, I see Thee for the first time with these very eyes of mine, I see Thy countenance, gaze upon Thy eyes and gracious lips without quailing, and then kneel down with joy to kiss Thy feet, and am welcomed into Thy arms. O my only true Lover, the only Lover of my soul, Thee will I love now, that I may love Thee then. What a day, a long day without ending, the day of eternity, when I shall be so unlike what I am now, when I feel in myself a body of death, and am perplexed and distracted with ten thousand thoughts, any one of which would keep me from heaven. O my Lord, what a day when I shall have done once for all with all sins, venial as well as mortal, and shall stand perfect and acceptable in Thy sight, able to bear Thy presence, nothing shrinking from Thy eye, not shrinking from the pure scrutiny of Angels and Archangels, when I stand in the midst and they around me!\n\n3. O my God, though I am not fit to see or touch Thee yet, still I will ever come within Thy reach, and desire that which is not yet given me in its fulness. O my Saviour, Thou shalt be my sole God!—I will have no Lord but Thee. I will break to pieces all idols in my heart which rival Thee. I will have nothing but Jesus and Him crucified. It shall be my life to pray to Thee, to offer myself to Thee, to keep Thee before me, to worship Thee in Thy holy Sacrifice, and to surrender myself to Thee in Holy Communion.',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A meditation-prayer for Eastertide on the confession of Saint Thomas (John 20:28): adoring the risen Christ, the speaker longs for the day of seeing his wounds in heaven and resolves to have no Lord but Jesus, worshipped in the Mass and received in Holy Communion.",
+      occasions: ["easter", "divine-mercy-sunday", "adoration"],
+      relatedSaints: ["saint-john-henry-newman", "saint-thomas-the-apostle"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#resurrection2",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-jesus-the-hidden-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#god2",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-jesus-the-hidden-god",
+      title: "Jesus the Hidden God (Saint John Henry Newman)",
+      body: "1. I adore Thee, O my God, who art so awful, because Thou art hidden and unseen! I adore Thee, and I desire to live by faith in what I do not see; and considering what I am, a disinherited outcast, I think it has indeed gone well with me that I am allowed, O my unseen Lord and Saviour, to worship Thee anyhow. O my God, I know that it is sin that has separated between Thee and me. I know it is sin that has brought on me the penalty of ignorance. Adam, before he fell, was visited by Angels. Thy Saints, too, who keep close to Thee, see visions, and in many ways are brought into sensible perception of Thy presence. But to a sinner such as I am, what is left but to possess Thee without seeing Thee? Ah, should I not rejoice at having that most extreme mercy and favour of possessing Thee at all? It is sin that has reduced me to live by faith, as I must at best, and should I not rejoice in such a life, O Lord my God? I see and know, O my good Jesus, that the only way in which I can possibly approach Thee in this world is the way of faith, faith in what Thou hast told me, and I thankfully follow this only way which Thou hast given me.\n\n2. O my God, Thou dost over-abound in mercy! To live by faith is my necessity, from my present state of being and from my sin; but Thou hast pronounced a blessing on it. Thou hast said that I am more blessed if I believe on Thee, than if I saw Thee. Give me to share that blessedness, give it to me in its fulness. Enable me to believe as if I saw; let me have Thee always before me as if Thou wert always bodily and sensibly present. Let me ever hold communion with Thee, my hidden, but my living God. Thou art in my innermost heart. Thou art the life of my life. Every breath I breathe, every thought of my mind, every good desire of my heart, is from the presence within me of the unseen God. By nature and by grace Thou art in me. I see Thee not in the material world except dimly, but I recognise Thy voice in my own intimate consciousness. I turn round and say Rabboni. O be ever thus with me; and if I am tempted to leave Thee, do not Thou, O my God, leave me!\n\n3. O my dear Saviour, would that I had any right to ask to be allowed to make reparation to Thee for all the unbelief of the world, and all the insults offered to Thy Name, Thy Word, Thy Church, and the Sacrament of Thy Love! But, alas, I have a long score of unbelief and ingratitude of my own to atone for. Thou art in the Sacrifice of the Mass, Thou art in the Tabernacle, verily and indeed, in flesh and blood; and the world not only disbelieves, but mocks at this gracious truth. Thou didst warn us long ago by Thyself and by Thy Apostles that Thou wouldest hide Thyself from the world. The prophecy is fulfilled more than ever now; but I know what the world knows not. O accept my homage, my praise, my adoration!—let me at least not be found wanting. I cannot help the sins of others—but one at least of those whom Thou hast redeemed shall turn round and with a loud voice glorify God. The more men scoff, the more will I believe in Thee, the good God, the good Jesus, the hidden Lord of life, who hast done me nothing else but good from the very first moment that I began to live.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's prayer of faith in the God who is hidden from sight. It accepts the life of faith as the blessing Christ promised to those who believe without seeing (John 20:29), asks for constant communion with the unseen Lord dwelling within, and offers adoration in reparation for unbelief toward Christ present in the Mass and the tabernacle.",
+      occasions: ["easter", "adoration", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#god2",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-jesus-the-light-of-the-soul",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#god3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-jesus-the-light-of-the-soul",
+      title: "Jesus the Light of the Soul (Saint John Henry Newman)",
+      body: '1. I adore Thee, O my God, as the true and only Light! From Eternity to Eternity, before any creature was, when Thou wast alone, alone but not solitary, for Thou hast ever been Three in One, Thou wast the Infinite Light. There was none to see Thee but Thyself. The Father saw that Light in the Son, and the Son in the Father. Such as Thou wast in the beginning, such Thou art now. Most separate from all creatures in this Thy uncreated Brightness. Most glorious, most beautiful. Thy attributes are so many separate and resplendent colours, each as perfect in its own purity and grace as if it were the sole and highest perfection. Nothing created is more than the very shadow of Thee. Bright as are the Angels, they are poor and most unworthy shadows of Thee. They pale and look dim and gather blackness before Thee. They are so feeble beside Thee, that they are unable to gaze upon Thee. The highest Seraphim veil their eyes, by deed as well as by word proclaiming Thy unutterable glory. For me, I cannot even look upon the sun, and what is this but a base material emblem of Thee? How should I endure to look even on an Angel? and how could I look upon Thee and live? If I were placed in the illumination of Thy countenance, I should shrink up like the grass. O most gracious God, who shall approach Thee, being so glorious, yet how can I keep from Thee?\n\n2. How can I keep from Thee? For Thou, who art the Light of Angels, art the only Light of my soul. Thou enlightenest every man that cometh into this world. I am utterly dark, as dark as hell, without Thee. I droop and shrink when Thou art away. I revive only in proportion as Thou dawnest upon me. Thou comest and goest at Thy will. O my God, I cannot keep Thee! I can only beg of Thee to stay. "Mane nobiscum, Domine, quoniam advesperascit." Remain till morning, and then go not without giving me a blessing. Remain with me till death in this dark valley, when the darkness will end. Remain, O Light of my soul, jam advesperascit! The gloom, which is not Thine, falls over me. I am nothing. I have little command of myself. I cannot do what I would. I am disconsolate and sad. I want something, I know not what. It is Thou that I want, though I so little understand this. I say it and take it on faith; I partially understand it, but very poorly. Shine on me, O Ignis semper ardens et nunquam deficiens!—"O fire ever burning and never failing"—and I shall begin, through and in Thy Light, to see Light, and to recognise Thee truly, as the Source of Light. Mane nobiscum; stay, sweet Jesus, stay for ever. In this decay of nature, give more grace.\n\n3. Stay with me, and then I shall begin to shine as Thou shinest: so to shine as to be a light to others. The light, O Jesus, will be all from Thee. None of it will be mine. No merit to me. It will be Thou who shinest through me upon others. O let me thus praise Thee, in the way which Thou dost love best, by shining on all those around me. Give light to them as well as to me; light them with me, through me. Teach me to show forth Thy praise, Thy truth, Thy will. Make me preach Thee without preaching—not by words, but by my example and by the catching force, the sympathetic influence, of what I do—by my visible resemblance to Thy saints, and the evident fulness of the love which my heart bears to Thee.',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's prayer to Christ as the true and only Light, built on the plea of the disciples at Emmaus, \"Stay with us, because it is towards evening\" (Luke 24:29). Its closing section, asking to shine with Christ's light so as to preach him by example rather than words, is the text from which the popular prayer known as Radiating Christ was later adapted.",
+      occasions: ["evening", "meditation", "daily"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#god3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-is-love",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine10",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-is-love",
+      title: "God Is Love (Saint John Henry Newman)",
+      body: '1. Thou askest us to love Thee, O my God, and Thou art Thyself Love. There was one attribute of Thine which Thou didst exercise from eternity, and that was Love. We hear of no exercise of Thy power whilst Thou wast alone, nor of Thy justice before there were creatures on their trial; nor of Thy wisdom before the acts and works of Thy Providence; but from eternity Thou didst love, for Thou art not only One but Three. The Father loved from eternity His only begotten Son, and the Son returned to Him an equal love. And the Holy Ghost is that love in substance, wherewith the Father and the Son love one another. This, O Lord, is Thine ineffable and special blessedness. It is love. I adore Thee, O my infinite Love!\n\n2. And when Thou hadst created us, then Thou didst but love more, if that were possible. Thou didst love not only Thy own Co-equal Self in the multiplied Personality of the Godhead, but Thou didst love Thy creatures also. Thou wast love to us, as well as Love in Thyself. Thou wast love to man, more than to any other creatures. It was love that brought Thee from heaven, and subjected Thee to the laws of a created nature. It was love alone which was able to conquer Thee, the Highest—and bring Thee low. Thou didst die through Thine infinite love of sinners. And it is love, which keeps Thee here still, even now that Thou hast ascended on high, in a small tabernacle, and under cheap and common outward forms. O Amor meus, if Thou wert not infinite Love, wouldest Thou remain here, one hour, imprisoned and exposed to slight, indignity, and insult? O my God, I do not know what infinity means—but one thing I see, that Thou art loving to a depth and height far beyond any measurement of mine.\n\n3. And now Thou biddest me love Thee in turn, for Thou hast loved me. Thou wooest me to love Thee specially, above others. Thou dost say, "Lovest thou Me more than these?" O my God, how shameful that such a question need be put to me! yet, after all, do I really love Thee more than the run of men? The run of men do not really love Thee at all, but put Thee out of their thoughts. They feel it unpleasant to them to think of Thee; they have no sort of heart for Thee, yet Thou hast need to ask me whether I love Thee even a little. Why should I not love Thee much, how can I help loving Thee much, whom Thou hast brought so near to Thyself, whom Thou hast so wonderfully chosen out of the world to be Thy own special servant and son? Have I not cause to love Thee abundantly more than others, though all ought to love Thee? I do not know what Thou hast done for others personally, though Thou hast died for all—but I know what Thou hast done specially for me. Thou hast done that for me, O my love, which ought to make me love Thee with all my powers.',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        'A meditation-prayer on God as Love: love is the one attribute God exercised from eternity within the Blessed Trinity, love brought the Son from heaven and keeps him in the tabernacle, and Christ\'s question to Peter, "Lovest thou Me more than these?", calls for generous love in return.',
+      occasions: ["meditation", "act-of-love", "daily"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine10",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-resignation-to-gods-will",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#fortydays2",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-resignation-to-gods-will",
+      title: "Resignation to God's Will (Saint John Henry Newman)",
+      body: "1. O my God, Thou and Thou alone art all-wise and all-knowing! Thou knowest, Thou hast determined everything which will happen to us from first to last. Thou hast ordered things in the wisest way, and Thou knowest what will be my lot year by year till I die. Thou knowest how long I have to live. Thou knowest how I shall die. Thou hast precisely ordained everything, sin excepted. Every event of my life is the best for me that could be, for it comes from Thee. Thou dost bring me on year by year, by Thy wonderful Providence, from youth to age, with the most perfect wisdom, and with the most perfect love.\n\n2. My Lord, who camest into this world to do Thy Father's will, not Thine own, give me a most absolute and simple submission to the will of Father and Son. I believe, O my Saviour, that Thou knowest just what is best for me. I believe that Thou lovest me better than I love myself, that Thou art all-wise in Thy Providence, and all-powerful in Thy protection. I am as ignorant as Peter was what is to happen to me in time to come; but I resign myself entirely to my ignorance, and thank Thee with all my heart that Thou hast taken me out of my own keeping, and, instead of putting such a serious charge upon me, hast bidden me put myself into Thy hands. I can ask nothing better than this, to be Thy care, not my own. I protest, O my Lord, that, through Thy grace, I will follow Thee whithersoever Thou goest, and will not lead the way. I will wait on Thee for Thy guidance, and, on obtaining it, I will act upon it in simplicity and without fear. And I promise that I will not be impatient, if at any time I am kept by Thee in darkness and perplexity; nor will I ever complain or fret if I come into any misfortune or anxiety.\n\n3. I know, O Lord, Thou wilt do Thy part towards me, as I, through Thy grace, desire to do my part towards Thee. I know well Thou never canst forsake those who seek Thee, or canst disappoint those who trust Thee. Yet I know too, the more I pray for Thy protection, the more surely and fully I shall have it. And therefore now I cry out to Thee, and intreat Thee, first that Thou wouldest keep me from myself, and from following any will but Thine. Next I beg of Thee, that in Thy infinite compassion, Thou wouldest temper Thy will to me, that it may not be severe, but indulgent to me. Visit me not, O my loving Lord—if it be not wrong so to pray—visit me not with those trying visitations which saints alone can bear! Pity my weakness, and lead me heavenwards in a safe and tranquil course. Still I leave all in Thy hands, my dear Saviour—I bargain for nothing—only, if Thou shalt bring heavier trials on me, give me more grace—flood me with the fulness of Thy strength and consolation, that they may work in me not death, but life and salvation.",
+      prayerType: "act",
+      category: "act",
+      language: "en",
+      summary:
+        "Newman's prayer of complete trust in divine providence, set under Christ's words to Peter, \"Follow thou Me\" (John 21:22). It submits every future event to God's wise and loving ordering, promises to follow without fretting in darkness, and asks humbly to be led by a gentle way, or to be given more grace if heavier trials come.",
+      occasions: ["trust", "suffering", "times-of-trouble", "easter-season"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#fortydays2",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-paraclete-the-life-of-my-soul",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#paraclete3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-paraclete-the-life-of-my-soul",
+      title: "The Paraclete, the Life of My Soul (Saint John Henry Newman)",
+      body: "1. My God, I adore Thee for taking on Thee the charge of sinners; of those, who not only cannot profit Thee, but who continually grieve and profane Thee. Thou hast taken on Thyself the office of a minister, and that for those who did not ask for it. I adore Thee for Thy incomprehensible condescension in ministering to me. I know and feel, O my God, that Thou mightest have left me, as I wished to be left, to go my own way, to go straight forward in my wilfulness and self-trust to hell. Thou mightest have left me in that enmity to Thee which is in itself death. I should at length have died the second death, and should have had no one to blame for it but myself. But Thou, O Eternal Father, hast been kinder to me than I am to myself. Thou hast given me, Thou hast poured out upon me Thy grace, and thus I live.\n\n2. My God, I adore Thee, O Eternal Paraclete, the light and the life of my soul. Thou mightest have been content with merely giving me good suggestions, inspiring grace and helping from without. Thou mightest thus have led me on, cleansing me with Thy inward virtue, when I changed my state from this world to the next. But in Thine infinite compassion Thou hast from the first entered into my soul, and taken possession of it. Thou hast made it Thy Temple. Thou dwellest in me by Thy grace in an ineffable way, uniting me to Thyself and the whole company of angels and saints. Nay, as some have held, Thou art present in me, not only by Thy grace, but by Thy eternal substance, as if, though I did not lose my own individuality, yet in some sense I was even here absorbed in God. Nay—as though Thou hadst taken possession of my very body, this earthly, fleshly, wretched tabernacle—even my body is Thy Temple. O astonishing, awful truth! I believe it, I know it, O my God!\n\n3. O my God, can I sin when Thou art so intimately with me? Can I forget who is with me, who is in me? Can I expel a Divine Inhabitant by that which He abhors more than anything else, which is the one thing in the whole world which is offensive to Him, the only thing which is not His? Would not this be a kind of sin against the Holy Ghost? My God, I have a double security against sinning; first the dread of such a profanation of all Thou art to me in Thy very Presence; and next because I do trust that that Presence will preserve me from sin. My God, Thou wilt go from me, if I sin; and I shall be left to my own miserable self. God forbid! I will use what Thou hast given me; I will call on Thee when tried and tempted. I will guard against the sloth and carelessness into which I am continually falling. Through Thee I will never forsake Thee.",
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "Newman's adoration of the Holy Ghost, who dwells in the soul of the baptized as in his temple, with a resolve never to drive so intimate a Guest away by sin. One of four meditations on the Paraclete in Meditations and Devotions; suited to Pentecost and Confirmation.",
+      occasions: ["pentecost", "confirmation", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#paraclete3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-paraclete-the-fount-of-love",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#paraclete4",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-paraclete-the-fount-of-love",
+      title: "The Paraclete, the Fount of Love (Saint John Henry Newman)",
+      body: '1. My God, I adore Thee, as the Third Person of the Ever-Blessed Trinity, under the name and designation of Love. Thou art that Living Love, wherewith the Father and the Son love each other. And Thou art the Author of supernatural love in our hearts—"Fons vivus, ignis, charitas." As a fire Thou didst come down from heaven on the day of Pentecost; and as a fire Thou burnest away the dross of sin and vanity in the heart and dost light up the pure flame of devotion and affection. It is Thou who unitest heaven and earth by showing to us the glory and beauty of the Divine Nature, and making us love what is in Itself so winning and transporting. I adore Thee, O uncreate and everlasting Fire, by which our souls live, by which alone they are made fit for heaven.\n\n2. My God, the Paraclete, I acknowledge Thee as the Giver of that great gift, by which alone we are saved, supernatural love. Man is by nature blind and hardhearted in all spiritual matters; how is he to reach heaven? It is by the flame of Thy grace, which consumes him in order to new-make him, and so to fit him to enjoy what without Thee he would have no taste for. It is Thou, O Almighty Paraclete, who hast been and art the strength, the vigour and endurance, of the martyr in the midst of his torments. Thou art the stay of the confessor in his long, tedious, and humiliating toils. Thou art the fire, by which the preacher wins souls, without thought of himself, in his missionary labours. By Thee we wake up from the death of sin, to exchange the idolatry of the creature for the pure love of the Creator. By Thee we make acts of faith, hope, charity, and contrition. By Thee we live in the atmosphere of earth, proof against its infection. By Thee we are able to consecrate ourselves to the sacred ministry, and fulfil our awful engagements to it. By the fire which Thou didst kindle within us, we pray, and meditate, and do penance. As well could our bodies live, if the sun were extinguished, as our souls, if Thou art away.\n\n3. My most Holy Lord and Sanctifier, whatever there is of good in me is Thine. Without Thee, I should but get worse and worse as years went on, and should tend to be a devil. If I differ at all from the world, it is because Thou hast chosen me out of the world, and hast lit up the love of God in my heart. If I differ from Thy Saints, it is because I do not ask earnestly enough for Thy grace, and for enough of it, and because I do not diligently improve what Thou hast given me. Increase in me this grace of love, in spite of all my unworthiness. It is more precious than anything else in the world. I accept it in place of all the world can give me. O give it to me! It is my life.',
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "Newman's adoration of the Holy Ghost as the living Love of the Father and the Son and the giver of supernatural charity, the fire that strengthened martyrs, confessors and missionaries, ending with a plea for an increase of the grace of love.",
+      occasions: ["pentecost", "confirmation", "act-of-love"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#paraclete4",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-holy-sacrifice-of-the-mass",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine15",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-holy-sacrifice-of-the-mass",
+      title: "The Holy Sacrifice: The Mass (Saint John Henry Newman)",
+      body: "1. I adore Thee, O my Lord God, with the most profound awe for thy passion and crucifixion, in sacrifice for our sins. Thou didst suffer incommunicable sufferings in Thy sinless soul. Thou wast exposed in Thy innocent body to ignominious torments, to mingled pain and shame. Thou wast stripped and fiercely scourged, Thy sacred body vibrating under the heavy flail as trees under the blast. Thou wast, when thus mangled, hung up upon the Cross, naked, a spectacle for all to see Thee quivering and dying. What does all this imply, O Mighty God! What a depth is here which we cannot fathom! My God, I know well, Thou couldst have saved us at Thy word, without Thyself suffering; but Thou didst choose to purchase us at the price of Thy Blood. I look on Thee, the Victim lifted up on Calvary, and I know and protest that that death of Thine was an expiation for the sins of the whole world. I believe and know, that Thou alone couldst have offered a meritorious atonement; for it was Thy Divine Nature which gave Thy sufferings worth. Rather then than I should perish according to my deserts, Thou wast nailed to the Tree and didst die.\n\n2. Such a sacrifice was not to be forgotten. It was not to be—it could not be—a mere event in the world's history, which was to be done and over, and was to pass away except in its obscure, unrecognised effects. If that great deed was what we believe it to be, what we know it is, it must remain present, though past; it must be a standing fact for all times. Our own careful reflection upon it tells us this; and therefore, when we are told that Thou, O Lord, though Thou hast ascended to glory, hast renewed and perpetuated Thy sacrifice to the end of all things, not only is the news most touching and joyful, as testifying to so tender a Lord and Saviour, but it carries with it the full assent and sympathy of our reason. Though we neither could, nor would have dared, anticipate so wonderful a doctrine, yet we adore its very suitableness to Thy perfections, as well as its infinite compassionateness for us, now that we are told of it. Yes, my Lord, though Thou hast left the world, Thou art daily offered up in the Mass; and, though Thou canst not suffer pain and death, Thou dost still subject Thyself to indignity and restraint to carry out to the full Thy mercies towards us. Thou dost humble Thyself daily; for, being infinite, Thou couldst not end Thy humiliation while they existed for whom Thou didst submit to it. So Thou remainest a Priest for ever.\n\n3. My Lord, I offer Thee myself in turn as a sacrifice of thanksgiving. Thou hast died for me, and I in turn make myself over to Thee. I am not my own. Thou hast bought me; I will by my own act and deed complete the purchase. My wish is to be separated from everything of this world; to cleanse myself simply from sin; to put away from me even what is innocent, if used for its own sake, and not for Thine. I put away reputation and honour, and influence, and power, for my praise and strength shall be in Thee. Enable me to carry out what I profess.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "Newman's meditation-prayer on the Mass: adoration of Christ's sacrifice on Calvary, wonder that this one sacrifice is renewed and perpetuated daily on the altar, and an offering of oneself to him in return as a sacrifice of thanksgiving.",
+      occasions: ["mass", "before-mass", "corpus-christi"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine15",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#communion2",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-holy-communion",
+      title: "Holy Communion: Enable Me to Bear Thee (Saint John Henry Newman)",
+      body: '1. My God, who can be inhabited by Thee, except the pure and holy? Sinners may come to Thee, but to whom shouldst Thou come except to the sanctified? My God, I adore Thee as the Holiest; and, when Thou didst come upon earth, Thou didst prepare a holy habitation for Thyself in the most chaste womb of the Blessed Virgin. Thou didst make a dwelling place special for Thyself. She did not receive Thee without first being prepared for Thee; for from the moment that she was at all, she was filled with Thy grace, so that she never knew sin. And so she went on increasing in grace and merit year after year, till the time came, when Thou didst send down the Archangel to signify to her Thy presence within her. So holy must be the dwelling place of the Highest. I adore and glorify Thee, O Lord my God, for Thy great holiness.\n\n2. O my God, holiness becometh Thy House, and yet Thou dost make Thy abode in my breast. My Lord, my Saviour, to me Thou comest, hidden under the semblance of earthly things, yet in that very flesh and blood which Thou didst take from Mary. Thou, who didst first inhabit Mary\'s breast, dost come to me. My God, Thou seest me; I cannot see myself. Were I ever so good a judge about myself, ever so unbiassed, and with ever so correct a rule of judging, still, from my very nature, I cannot look at myself, and view myself truly and wholly. But Thou, as Thou comest to me, contemplatest me. When I say, Domine, non sum dignus—"Lord, I am not worthy"—Thou whom I am addressing, alone understandest in their fulness the words which I use. Thou seest how unworthy so great a sinner is to receive the One Holy God, whom the Seraphim adore with trembling. Thou seest, not only the stains and scars of past sins, but the mutilations, the deep cavities, the chronic disorders which they have left in my soul. Thou seest the innumerable living sins, though they be not mortal, living in their power and presence, their guilt, and their penalties, which clothe me. Thou seest all my bad habits, all my mean principles, all wayward lawless thoughts, my multitude of infirmities and miseries, yet Thou comest. Thou seest most perfectly how little I really feel what I am now saying, yet Thou comest. O my God, left to myself should I not perish under the awful splendour and the consuming fire of Thy Majesty. Enable me to bear Thee, lest I have to say with Peter, "Depart from me, for I am a sinful man, O Lord!"\n\n3. My God, enable me to bear Thee, for Thou alone canst. Cleanse my heart and mind from all that is past. Wipe out clean all my recollections of evil. Rid me from all languor, sickliness, irritability, feebleness of soul. Give me a true perception of things unseen, and make me truly, practically, and in the details of life, prefer Thee to anything on earth, and the future world to the present. Give me courage, a true instinct determining between right and wrong, humility in all things, and a tender longing love of Thee.',
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "Newman's prayer before receiving Holy Communion: as God prepared the sinless Virgin to be his dwelling, so the communicant, knowing that only Christ sees the soul truly, confesses his unworthiness and asks to be cleansed and given courage, humility and a tender longing love of God.",
+      occasions: ["before-communion", "mass", "corpus-christi"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#communion2",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-sacred-heart",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-sacred-heart",
+      title: "The Sacred Heart (Saint John Henry Newman)",
+      body: '1. O Sacred Heart of Jesus, I adore Thee in the oneness of the Personality of the Second Person of the Holy Trinity. Whatever belongs to the Person of Jesus, belongs therefore to God, and is to be worshipped with that one and the same worship which we pay to Jesus. He did not take on Him His human nature, as something distinct and separate from Himself, but as simply, absolutely, eternally His, so as to be included by us in the very thought of Him. I worship Thee, O Heart of Jesus, as being Jesus Himself, as being that Eternal Word in human nature which He took wholly and lives in wholly, and therefore in Thee. Thou art the Heart of the Most High made man. In worshipping Thee, I worship my Incarnate God, Emmanuel. I worship Thee, as bearing a part in that Passion which is my life, for Thou didst burst and break, through agony, in the garden of Gethsemani, and Thy precious contents trickled out, through the veins and pores of the skin, upon the earth. And again, Thou hadst been drained all but dry upon the Cross; and then, after death, Thou wast pierced by the lance, and gavest out the small remains of that inestimable treasure, which is our redemption.\n\n2. My God, my Saviour, I adore Thy Sacred Heart, for that heart is the seat and source of all Thy tenderest human affections for us sinners. It is the instrument and organ of Thy love. It did beat for us. It yearned over us. It ached for us, and for our salvation. It was on fire through zeal, that the glory of God might be manifested in and by us. It is the channel through which has come to us all Thy overflowing human affection, all Thy Divine Charity towards us. All Thy incomprehensible compassion for us, as God and Man, as our Creator and our Redeemer and Judge, has come to us, and comes, in one inseparably mingled stream, through that Sacred Heart. O most Sacred symbol and Sacrament of Love, divine and human, in its fulness, Thou didst save me by Thy divine strength, and Thy human affection, and then at length by that wonder-working blood, wherewith Thou didst overflow.\n\n3. O most Sacred, most loving Heart of Jesus, Thou art concealed in the Holy Eucharist, and Thou beatest for us still. Now as then Thou sayest, Desiderio desideravi—"With desire I have desired." I worship Thee then with all my best love and awe, with my fervent affection, with my most subdued, most resolved will. O my God, when Thou dost condescend to suffer me to receive Thee, to eat and drink Thee, and Thou for a while takest up Thy abode within me, O make my heart beat with Thy Heart. Purify it of all that is earthly, all that is proud and sensual, all that is hard and cruel, of all perversity, of all disorder, of all deadness. So fill it with Thee, that neither the events of the day nor the circumstances of the time may have power to ruffle it, but that in Thy love and Thy fear it may have peace.',
+      prayerType: "general",
+      category: "devotional",
+      language: "en",
+      summary:
+        "Newman's act of adoration of the Sacred Heart of Jesus as the heart of the incarnate Word, the seat of his human affections and the channel of his love, still beating for us in the Eucharist, with a prayer that the communicant's heart may beat with his.",
+      occasions: ["sacred-heart", "first-friday", "june", "feast-of-the-sacred-heart"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-providence-of-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine19",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-providence-of-god",
+      title: "The Providence of God (Saint John Henry Newman)",
+      body: "1. I adore Thee, my God, as having laid down the ends and the means of all things which Thou hast created. Thou hast created everything for some end of its own, and Thou dost direct it to that end. The end, which Thou didst in the beginning appoint for man, is Thy worship and service, and his own happiness in paying it; a blessed eternity of soul and body with Thee for ever. Thou hast provided for this, and that in the case of every man. As Thy hand and eye are upon the brute creation, so are they upon us. Thou sustainest everything in life and action for its own end. Not a reptile, not an insect, but Thou seest and makest to live, while its time lasts. Not a sinner, not an idolater, not a blasphemer, not an atheist lives, but by Thee, and in order that he may repent. Thou art careful and tender to each of the beings that Thou hast created, as if it were the only one in the whole world. For Thou canst see every one of them at once, and Thou lovest every one in this mortal life, and pursuest every one by itself, with all the fulness of Thy attributes, as if Thou wast waiting on it and ministering to it for its own sake. My God, I love to contemplate Thee, I love to adore Thee, thus the wonderful worker of all things every day in every place.\n\n2. All Thy acts of providence are acts of love. If Thou sendest evil upon us, it is in love. All the evils of the physical world are intended for the good of Thy creatures, or are the unavoidable attendants on that good. And Thou turnest that evil into good. Thou visitest men with evil to bring them to repentance, to increase their virtue, to gain for them greater good hereafter. Nothing is done in vain, but has its gracious end. Thou dost punish, yet in wrath Thou dost remember mercy. Even Thy justice when it overtakes the impenitent sinner, who had exhausted Thy loving providences towards him, is mercy to others, as saving them from his contamination, or granting them a warning. I acknowledge with a full and firm faith, O Lord, the wisdom and goodness of Thy Providence, even in Thy inscrutable judgments and Thy incomprehensible decrees.\n\n3. O my God, my whole life has been a course of mercies and blessings shewn to one who has been most unworthy of them. I require no faith, for I have had long experience, as to Thy providence towards me. Year after year Thou hast carried me on—removed dangers from my path—recovered me, recruited me, refreshed me, borne with me, directed me, sustained me. O forsake me not when my strength faileth me. And Thou never wilt forsake me. I may securely repose upon Thee. Sinner as I am, nevertheless, while I am true to Thee, Thou wilt still and to the end, be superabundantly true to me. I may rest upon Thy arm; I may go to sleep in Thy bosom. Only give me, and increase in me, that true loyalty to Thee, which is the bond of the covenant between Thee and me, and the pledge in my own heart and conscience that Thou, the Supreme God, wilt not forsake me, the most miserable of Thy children.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's prayer of thanksgiving and trust in divine providence: God directs every creature to its end with tender care and turns even evil to good, and the speaker, looking back on a lifetime of mercies, asks only for the loyalty that will keep him in God's covenant.",
+      occasions: ["thanksgiving", "trust", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine19",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-prayer-for-the-faithful-departed",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#departed",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-prayer-for-the-faithful-departed",
+      title: "Prayer for the Faithful Departed (Saint John Henry Newman)",
+      body: "O God of the Spirits of all flesh, O Jesu, Lover of souls, we recommend unto Thee the souls of all those Thy servants, who have departed with the sign of faith and sleep the sleep of peace. We beseech Thee, O Lord and Saviour, that, as in Thy mercy to them Thou becamest man, so now Thou wouldest hasten the time, and admit them to Thy presence above. Remember, O Lord, that they are Thy creatures, not made by strange gods, but by Thee, the only Living and True God; for there is no other God but Thou, and none that can equal Thy works. Let their souls rejoice in Thy light, and impute not to them their former iniquities, which they committed through the violence of passion, or the corrupt habits of their fallen nature. For, although they have sinned, yet they always firmly believed in the Father, Son, and Holy Ghost; and before they died, they reconciled themselves to Thee by true contrition and the Sacraments of Thy Church.\n\nO Gracious Lord, we beseech Thee, remember not against them the sins of their youth and their ignorances; but according to Thy great mercy, be mindful of them in Thy heavenly glory. May the heavens be opened to them, and the Angels rejoice with them. May the Archangel St. Michael conduct them to Thee. May Thy holy Angels come forth to meet them, and carry them to the city of the heavenly Jerusalem. May St. Peter, to whom Thou gavest the keys of the kingdom of heaven, receive them. May St. Paul, the vessel of election, stand by them. May St. John, the beloved disciple, who had the revelation of the secrets of heaven, intercede for them. May all the Holy Apostles, who received from Thee the power of binding and loosing, pray for them. May all the Saints and elect of God, who in this world suffered torments for Thy Name, befriend them; that, being freed from the prison beneath, they may be admitted into the glories of that kingdom, where with the Father and the Holy Ghost Thou livest and reignest one God, world without end.\n\nCome to their assistance, all ye Saints of God; gain for them deliverance from their place of punishment; meet them, all ye Angels; receive these holy souls, and present them before the Lord. Eternal rest give to them, O Lord. And may perpetual light shine on them.\n\nMay they rest in peace. Amen.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's prayer for all who have died in the faith, commending them to Christ, asking that Saint Michael, the angels and the apostles lead them into the heavenly Jerusalem, and closing with the Eternal Rest. It is printed with his twelve Good Friday intercessions in Meditations and Devotions.",
+      occasions: ["all-souls", "november", "funerals"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#departed",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-may-he-support-us-all-the-day-long",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/subjects/sermon20.html",
+      "https://archive.org/details/a600668900newmuoft",
+    ],
+    payload: {
+      slug: "newman-may-he-support-us-all-the-day-long",
+      title: "May He Support Us All the Day Long (Saint John Henry Newman)",
+      body: 'But for us, let us glory in what they disown; let us beg of our Divine Lord to take to Him His great power, and manifest Himself more and more, and reign both in our hearts and in the world. Let us beg of Him to stand by us in trouble, and guide us on our dangerous way. May He, as of old, choose "the foolish things of the world to confound the wise, and the weak things of the world to confound the things which are mighty"! May He support us all the day long, till the shades lengthen, and the evening comes, and the busy world is hushed, and the fever of life is over, and our work is done! Then in His mercy may He give us a safe lodging, and a holy rest, and peace at the last!',
+      prayerType: "evening",
+      category: "general",
+      language: "en",
+      summary:
+        "The closing words of Newman's Anglican sermon Wisdom and Innocence (1843), whose prayer that God will support us until the evening comes and the fever of life is over, and give a safe lodging and peace at the last, became one of his best-loved evening prayers.",
+      occasions: ["evening", "night-prayer", "funerals", "daily"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/subjects/sermon20.html",
+        "https://archive.org/details/a600668900newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "lead-kindly-light",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/verses/verse90.html",
+      "https://archive.org/details/a676839800newmuoft",
+    ],
+    payload: {
+      slug: "lead-kindly-light",
+      title: "Lead, Kindly Light (The Pillar of the Cloud)",
+      body: "Lead, Kindly Light, amid the encircling gloom\nLead Thou me on!\nThe night is dark, and I am far from home—\nLead Thou me on!\nKeep Thou my feet; I do not ask to see\nThe distant scene—one step enough for me.\n\nI was not ever thus, nor pray'd that Thou\nShouldst lead me on.\nI loved to choose and see my path, but now\nLead Thou me on!\nI loved the garish day, and, spite of fears,\nPride ruled my will: remember not past years.\n\nSo long Thy power hath blest me, sure it still\nWill lead me on,\nO'er moor and fen, o'er crag and torrent, till\nThe night is gone;\nAnd with the morn those angel faces smile\nWhich I have loved long since, and lost awhile.",
+      prayerType: "hymn",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's poem The Pillar of the Cloud, written at sea on 16 June 1833 as he sailed home from Sicily after a grave illness; asking only for light enough for the next step, it became one of the best-known English hymns. From Verses on Various Occasions (1868).",
+      occasions: ["trust", "discernment", "evening", "conversion"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/verses/verse90.html",
+        "https://archive.org/details/a676839800newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "firmly-i-believe-and-truly",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/verses/gerontius.html",
+      "https://archive.org/details/a676839800newmuoft",
+    ],
+    payload: {
+      slug: "firmly-i-believe-and-truly",
+      title: "Firmly I Believe and Truly (The Dream of Gerontius)",
+      body: "Sanctus fortis, Sanctus Deus,\nDe profundis oro te,\nMiserere, Judex meus,\nParce mihi, Domine.\nFirmly I believe and truly\nGod is three, and God is One;\nAnd I next acknowledge duly\nManhood taken by the Son.\nAnd I trust and hope most fully\nIn that Manhood crucified;\nAnd each thought and deed unruly\nDo to death, as He has died.\nSimply to His grace and wholly\nLight and life and strength belong,\nAnd I love, supremely, solely,\nHim the holy, Him the strong.\nSanctus fortis, Sanctus Deus,\nDe profundis oro te,\nMiserere, Judex meus,\nParce mihi, Domine.\nAnd I hold in veneration,\nFor the love of Him alone,\nHoly Church, as His creation,\nAnd her teachings, as His own.\nAnd I take with joy whatever\nNow besets me, pain or fear,\nAnd with a strong will I sever\nAll the ties which bind me here.\nAdoration aye be given,\nWith and through the angelic host,\nTo the God of earth and heaven,\nFather, Son, and Holy Ghost.\nSanctus fortis, Sanctus Deus,\nDe profundis oro te,\nMiserere, Judex meus,\nMortis in discrimine.",
+      prayerType: "hymn",
+      category: "general",
+      language: "en",
+      summary:
+        "The profession of faith that the dying Gerontius makes in Newman's poem The Dream of Gerontius (1865): belief in the Trinity and the Incarnation, hope in the crucified Christ, love of God and veneration of the Church, set between a Latin refrain asking the holy and strong God for mercy. Its English verses are sung as a hymn.",
+      occasions: ["trinity-sunday", "deathbed", "confirmation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/verses/gerontius.html",
+        "https://archive.org/details/a676839800newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "praise-to-the-holiest-in-the-height",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/verses/gerontius.html",
+      "https://archive.org/details/a676839800newmuoft",
+    ],
+    payload: {
+      slug: "praise-to-the-holiest-in-the-height",
+      title: "Praise to the Holiest in the Height (The Dream of Gerontius)",
+      body: "Praise to the Holiest in the height\nAnd in the depth be praise:\nIn all His words most wonderful;\nMost sure in all His ways!\n\nO loving wisdom of our God!\nWhen all was sin and shame,\nA second Adam to the fight\nAnd to the rescue came.\n\nO wisest love! that flesh and blood\nWhich did in Adam fail,\nShould strive afresh against the foe,\nShould strive and should prevail;\n\nAnd that a higher gift than grace\nShould flesh and blood refine,\nGod's Presence and His very Self,\nAnd Essence all-divine.\n\nO generous love! that He who smote\nIn man for man the foe,\nThe double agony in man\nFor man should undergo;\n\nAnd in the garden secretly,\nAnd on the cross on high,\nShould teach His brethren and inspire\nTo suffer and to die.",
+      prayerType: "hymn",
+      category: "general",
+      language: "en",
+      summary:
+        "The song of the Fifth Choir of Angelicals in Newman's The Dream of Gerontius (1865), praising the wisdom and love of God who sent Christ as a second Adam to fight and conquer where the first Adam fell. It is sung as a hymn in Catholic and Anglican churches alike.",
+      occasions: ["holy-week", "good-friday", "praise"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/verses/gerontius.html",
+        "https://archive.org/details/a676839800newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-it-is-consummated",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations9.html#consummated",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-it-is-consummated",
+      title: "It Is Consummated (Saint John Henry Newman)",
+      body: "1. It is over now, O Lord, as with Thy sufferings, so with our humiliations. We have followed Thee from Thy fasting in the wilderness till Thy death on the Cross. For forty days we have professed to do penance. The time has been long and it has been short; but whether long or short, it is now over. It is over, and we feel a pleasure that it is over; it is a relief and a release. We thank Thee that it is over. We thank Thee for the time of sorrow, but we thank Thee more as we look forward to the time of festival. Pardon our shortcomings in Lent and reward us in Easter.\n\n2. We have, indeed, done very little for Thee, O Lord. We recollect well our listlessness and weariness; our indisposition to mortify ourselves when we had no plea of health to stand in the way; our indisposition to pray and to meditate—our disorder of mind—our discontent, our peevishness. Yet some of us, perhaps, have done something for Thee. Look on us as a whole, O Lord, look on us as a community, and let what some have done well plead for us all.\n\n3. O Lord, the end is come. We are conscious of our languor and lukewarmness; we do not deserve to rejoice in Easter, yet we cannot help doing so. We feel more of pleasure, we rejoice in Thee more than our past humiliation warrants us in doing; yet may that very joy be its own warrant. O be indulgent to us, for the merits of Thy own all-powerful Passion, and for the merits of Thy Saints. Accept us as Thy little flock, in the day of small things, in a fallen country, in an age when faith and love are scarce. Pity us and spare us and give us peace.\n\nO my own Saviour, now in the tomb but soon to arise, Thou hast paid the price; it is done—consummatum est—it is secured. O fulfil Thy resurrection in us, and as Thou hast purchased us, claim us, take possession of us, make us Thine.",
+      prayerType: "general",
+      category: "devotional",
+      language: "en",
+      summary:
+        'The last of Newman\'s meditations on the Passion, addressed to Christ lying in the tomb after the words "It is consummated" (John 19:30): Lent is over, the forty days of penance kept with him from his fasting in the wilderness to his death, and the speaker asks him to fulfil his resurrection in us and claim us as his own.',
+      occasions: ["good-friday", "holy-saturday", "holy-week", "lent"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations9.html#consummated",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-temples-of-the-holy-ghost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#doctrine6",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-temples-of-the-holy-ghost",
+      title: "The Temples of the Holy Ghost (Saint John Henry Newman)",
+      body: '1. I adore Thee, O Eternal Word, for Thy gracious condescension, in not only taking a created nature, a created spirit or soul, but a material body. The Most High decreed that for ever and ever He would subject Himself to a created prison. He who from eternity was nothing but infinite incomprehensible Spirit, beyond all laws but those of His own transcendent Greatness, willed that for the eternity to come He should be united, in the most intimate of unions, with that which was under the conditions of a creature. Thy omnipotence, O Lord, ever protects itself—but nothing short of that omnipotence could enable Thee so to condescend without a loss of power. Thy Body has part in Thy power, rather than Thou hast part in its weakness. For this reason, my God, it was, that Thou couldst not but rise again, if Thou wast to die—because Thy Body, once taken by Thee, never was or could be separated from Thee, even in the grave. It was Thy Body even then, it could see no corruption; it could not remain under the power of death, for Thou hadst already wonderfully made it Thine, and whatever was Thine must last in its perfection for ever. I adore Thy Most Holy Body, O my dear Jesus, the instrument of our redemption!\n\n2. I look at Thee, my Lord Jesus, and think of Thy Most Holy Body, and I keep it before me as the pledge of my own resurrection. Though I die, as die I certainly shall, nevertheless I shall not for ever die, for I shall rise again. My Lord, the heathen who knew Thee not, thought the body to be of a miserable and contemptible nature—they thought it the seat, the cause, the excuse of all moral evil. When their thoughts soared highest, and they thought of a future life, they considered that the destruction of the body was the condition of that higher existence. That the body was really part of themselves and that its restoration could be a privilege, was beyond their utmost imagination. And indeed, what mind of man, O Lord, could ever have fancied without Thy revelation that what, according to our experience, is so vile, so degraded, so animal, so sinful, which is our fellowship with the brutes, which is full of corruption and becomes dust and ashes, was in its very nature capable of so high a destiny! that it could become celestial and immortal, without ceasing to be a body! And who but Thou, who art omnipotent, could have made it so! No wonder then, that the wise men of the world, who did not believe in Thee, scoffed at the Resurrection. But I, by Thy grace, will ever keep before me how differently I have been taught by Thee. O best and first and truest of Teachers! O Thou who art the Truth, I know, and believe with my whole heart, that this very flesh of mine will rise again. I know, base and odious as it is at present, that it will one day, if I be worthy, be raised incorruptible and altogether beautiful and glorious. This I know; this, by Thy grace, I will ever keep before me.\n\n3. O my God, teach me so to live, as one who does believe the great dignity, the great sanctity of that material frame in which Thou hast lodged me. And therefore, O my dear Saviour! do I come so often and so earnestly to be partaker of Thy Body and Blood, that by means of Thy own ineffable holiness I may be made holy. O my Lord Jesus, I know what is written, that our bodies are the temples of the Holy Ghost. Should I not venerate that which Thou dost miraculously feed, and which Thy Co-equal Spirit inhabits! O my God, who wast nailed to the Cross, confige timore tuo carnes meas—"pierce Thou my flesh with Thy fear;" crucify my soul and body in all that is sinful in them, and make me pure as Thou art pure.',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "An Eastertide meditation-prayer on Christ's risen Body as the pledge of our own resurrection, leading to a prayer to live as one who believes in the sanctity of the body as a temple of the Holy Ghost.",
+      occasions: ["easter", "purity", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#doctrine6",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-forbearance-of-jesus",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#resurrection3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-forbearance-of-jesus",
+      title: "The Forbearance of Jesus (Saint John Henry Newman)",
+      body: "1. I adore Thee, O my Lord, for Thy wonderful patience and Thy compassionate tenderhearted condescension. Thy disciples, in spite of all Thy teaching and miracles, disbelieved Thee when they saw Thee die, and fled. Nor did they take courage afterwards, nor think of Thy promise of rising again on the third day. They did not believe Magdalen, nor the other women, who said they had seen Thee alive again. Yet Thou didst appear to them—Thou didst show them Thy wounds—Thou didst let them touch Thee—Thou didst eat before them, and give them Thy peace. O Jesu, is any obstinacy too great for Thy love? does any number of falls and relapses vanquish the faithfulness and endurance of Thy compassion? Thou dost forgive not only seven times, but to seventy times seven. Many waters cannot quench a love like Thine. And such Thou art all over the earth, even to the end—forgiving, sparing, forbearing, waiting, though sinners are ever provoking Thee; pitying and taking into account their ignorance, visiting all men, all Thine enemies, with the gentle pleadings of Thy grace, day after day, year after year, up to the hour of their death—for He knoweth whereof we are made; He knoweth we are but dust.\n\n2. My God, what hast Thou done for me! Men say of Thee, O my only Good, that Thy judgments are severe, and Thy punishments excessive. All I can say is, that I have not found them so in my own case. Let others speak for themselves, and Thou wilt meet and overcome them to their own confusion in the day of reckoning. With them I have nothing to do—Thou wilt settle with them—but for me the only experience that I have is Thy dealings with myself, and here I bear witness, as I know so entirely and feel so intimately, that to me Thou hast been nothing but forbearance and mercy. O how Thou dost forget that I have ever rebelled against Thee! Again and again dost Thou help me. I fall, yet Thou dost not cast me off. In spite of all my sins, Thou dost still love me, prosper me, comfort me, surround me with blessings, sustain me, and further me. I grieve Thy good grace, yet Thou dost give more. I insult Thee, yet Thou never dost take offence, but art as kind as if I had nothing to explain, to repent of, to amend—as if I were Thy best, most faithful, most steady and loyal friend. Nay, alas! I am even led to presume upon Thy love, it is so like easiness and indulgence, though I ought to fear Thee. I confess it, O my true Saviour, every day is but a fresh memorial of Thy unwearied, unconquerable love!\n\n3. O my God, suffer me still—bear with me in spite of my waywardness, perverseness, and ingratitude! I improve very slowly, but really I am moving on to heaven, or at least I wish to move. I am putting Thee before me, vile sinner as I am, and I am really thinking in earnest of saving my soul. Give me time to collect my thoughts, and make one good effort. I protest I will put off this languor and lukewarmness—I will shake myself from this sullenness and despondency and gloom—I will rouse myself, and be cheerful, and walk in Thy light. I will have no hope or joy but Thee. Only give me Thy grace—meet me with Thy grace, I will through Thy grace do what I can—and Thou shalt perfect it for me. Then I shall have happy days in Thy presence, and in the sight and adoration of Thy five Sacred Wounds.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's prayer of thanks for the patience of the risen Christ, who showed his hands to the doubting disciples and asked them for something to eat (Luke 24:39-41), and who bears with every soul's waywardness year after year.",
+      occasions: ["easter", "thanksgiving", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#resurrection3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-all-sufficient",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#doctrine8",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-all-sufficient",
+      title: "God All-Sufficient (Saint John Henry Newman)",
+      body: '1. The Son is in the Father and the Father in the Son. O adorable mystery which has been from eternity! I adore Thee, O my incomprehensible Creator, before whom I am an atom, a being of yesterday or an hour ago! Go back a few years and I simply did not exist; I was not in being, and things went on without me: but Thou art from eternity; and nothing whatever for one moment could go on without Thee. And from eternity too Thou hast possessed Thy Nature; Thou hast been—this awful glorious mystery—the Son in the Father and the Father in the Son. Whether we be in existence, or whether we be not, Thou art one and the same always, the Son sufficient for the Father, the Father for the Son—and all other things, in themselves, but vanity. All things once were not, all things might not be, but it would be enough for the Father that He had begotten His co-equal consubstantial Son, and for the Son that He was embraced in the Bosom of the Eternal Father. O adorable mystery! Human reason has not conducted me to it, but I believe. I believe, because Thou hast spoken, O Lord. I joyfully accept Thy word about Thyself. Thou must know what Thou art—and who else? Not I surely, dust and ashes, except so far as Thou tellest me. I take then Thy own witness, O my Creator! and I believe firmly, I repeat after Thee, what I do not understand, because I wish to live a life of faith; and I prefer faith in Thee to trust in myself.\n\n2. O my great God, from eternity Thou wast sufficient for Thyself! The Father was sufficient for the Son, and the Son for the Father; art Thou not then sufficient for me, a poor creature, Thou so great, I so little! I have a double all-sufficiency in the Father and the Son. I will take then St. Philip\'s word and say, Show us the Father, and it suffices us. It suffices us, for then are we full to overflowing, when we have Thee. O mighty God, strengthen me with Thy strength, console me with Thy everlasting peace, soothe me with the beauty of Thy countenance; enlighten me with Thy uncreated brightness; purify me with the fragrance of Thy ineffable holiness. Bathe me in Thyself, and give me to drink, as far as mortal man may ask, of the rivers of grace which flow from the Father and the Son, the grace of Thy consubstantial, co-eternal Love.\n\n3. O my God, let me never forget this truth—that not only art Thou my Life, but my only Life! Thou art the Way, the Truth, and the Life. Thou art my Life, and the Life of all who live. All men, all I know, all I meet, all I see and hear of, live not unless they live by Thee. They live in Thee, or else they live not at all. No one can be saved out of Thee. Let me never forget this in the business of the day. O give me a true love of souls, of those souls for whom Thou didst die. Teach me to pray for their conversion, to do my part towards effecting it. However able they are, however amiable, however high and distinguished, they cannot be saved unless they have Thee. O my all-sufficient Lord, Thou only sufficest! Thy blood is sufficient for the whole world. As Thou art sufficient for me, so Thou art sufficient for the entire race of Adam. O my Lord Jesus, let Thy Cross be more than sufficient for them, let it be effectual! Let it be effectual for me more than all, lest I "have all and abound," yet bring no fruit to perfection.',
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        'A meditation-prayer on Philip\'s request, "Show us the Father, and it is enough for us" (John 14:8-9): God was sufficient to himself from eternity, and Christ, in whom the Father is seen, is the one and only life of the soul.',
+      occasions: ["trinity-sunday", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#doctrine8",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-alone-unchangeable",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-alone-unchangeable",
+      title: "God Alone Unchangeable (Saint John Henry Newman)",
+      body: '1. Thou alone, O my God, art what Thou ever hast been! Man changes. Thou art unchangeable; nay, even as man Thou hast ever been unchangeable, for Jesus is yesterday and today Himself, and for ever. Thy word endureth in heaven and earth. Thy decrees are fixed; Thy gifts are without repentance. Thy Nature, Thy Attributes, are ever the same. There ever was Father, ever Son, ever Holy Ghost. I adore Thee in the peace and serenity of Thy unchangeableness. I adore Thee in that imperturbable heaven, which is Thyself. Thou wast perfect from the first; nothing couldest Thou gain, and nothing mightest Thou lose. There was nothing that could touch Thee, because there was nothing but what Thou didst create and couldst destroy. Again, I adore Thee in this Thy infinite stability, which is the centre and stay of all created things.\n\n2. Man on the contrary is ever changing. Not a day passes but I am nearer the grave. Whatever be my age, whatever the number of my years, I am ever narrowing the interval between time and eternity. I am ever changing in myself. Youth is not like age; and I am continually changing, as I pass along out of youth towards the end of life. O my God, I am crumbling away, as I go on! I am already dissolving into my first elements. My soul indeed cannot die, for Thou hast made it immortal; but my bodily frame is continually resolving into that dust out of which it was taken. All below heaven changes: spring, summer, autumn, each has its turn. The fortunes of the world change; what was high, lies low; what was low rises high. Riches take wings and flee away; bereavements happen. Friends become enemies, and enemies friends. Our wishes, aims, and plans change. There is nothing stable but Thou, O my God! And Thou art the centre and life of all who change, who trust Thee as their Father, who look to Thee, and who are content to put themselves into Thy hands.\n\n3. I know, O my God, I must change, if I am to see Thy face! I must undergo the change of death. Body and soul must die to this world. My real self, my soul, must change by a true regeneration. None but the holy can see Thee. Like Peter, I cannot have a blessing now, which I shall have afterwards. "Thou canst not follow me now, but thou shalt follow hereafter." Oh, support me, as I proceed in this great, awful, happy change, with the grace of Thy unchangeableness. My unchangeableness here below is perseverance in changing. Let me day by day be moulded upon Thee, and be changed from glory to glory, by ever looking towards Thee, and ever leaning on Thy arm. I know, O Lord, I must go through trial, temptation, and much conflict, if I am to come to Thee. I know not what lies before me, but I know as much as this. I know, too, that if Thou art not with me, my change will be for the worse, not for the better. Whatever fortune I have, be I rich or poor, healthy or sick, with friends or without, all will turn to evil if I am not sustained by the Unchangeable; all will turn to good if I have Jesus with me, yesterday and today the same, and for ever.',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's prayer to the unchangeable God amid a life of constant change, accepting the great change of death that must come before one sees his face, with confidence that all will turn to good with Jesus, the same yesterday and today.",
+      occasions: ["meditation", "trust", "preparation-for-death"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-sanctity-of-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine11",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-sanctity-of-god",
+      title: "The Sanctity of God (Saint John Henry Newman)",
+      body: "1. Thou art holy, O Lord, in that Thou art infinitely separate from everything but Thyself, and incommunicable. I adore Thee, O Lord, in this Thy proper sanctity and everlasting purity, for that all Thy blessedness comes from within, and nothing touches Thee from without. I adore Thee as infinitely blessed, yet having all Thy blessedness in Thyself. I adore Thee in that perfect and most holy knowledge of Thyself, in which we conceive the generation of the Word. I adore Thee in that infinite and most pure love of Thyself, a love of Thy Son, and Thy Son's love for Thee, in which we conceive the procession of the Holy Ghost. I adore Thee in that blessedness which Thou didst possess in Thyself from all eternity. My God, I do not understand these heavenly things. I use words which I cannot master; but I believe, O God, that to be true, which I thus feebly express in human language.\n\n2. My God, I adore Thee, as holy without, as well as holy within. I adore Thee as holy in all Thy works as well as in Thy own nature. No creature can approach Thy incommunicable sanctity, but Thou dost approach, and touch, and compass, and possess, all creatures; and nothing lives but in Thee, and nothing hast Thou created but what is good. I adore Thee, as having made everything good after its kind. I adore Thee, as having infused Thy preserving and sustaining power into all things, while Thou didst create them, so that they continue to live, though Thou dost not touch them, and do not crumble back into nothing. I adore Thee, as having put real power into them, so that they are able to act, although from Thee and with Thee and yet of themselves. I adore Thee as having given power to will what is right, and Thy holy grace to Thy rational creatures. I adore Thee as having created man upright, and having bountifully given him an integrity of nature, and having filled him with Thy free grace, so that he was like an Angel upon earth; and I adore Thee still more, for having given him Thy grace over again in still more copious measure, and with far more lasting fruits, through Thy Eternal Son incarnate. In all Thy works Thou art holy, O my God, and I adore Thee in them all.\n\n3. Holy art Thou in all Thy works, O Lord, and, if there is sin in the world it is not from Thee—it is from an enemy, it is from me and mine. To me, to man, be the shame, for we might will what is right, and we will what is evil. What a gulf is there between Thee and me, O my Creator—not only as to nature but as to will! Thy will is ever holy; how, O Lord, shall I ever dare approach Thee? What have I to do with Thee? Yet I must approach Thee; Thou wilt call me to Thee when I die, and judge me. Woe is me, for I am a man of unclean lips, and dwell in the midst of a people of unclean lips! Thy Cross, O Lord, shows the distance that is between Thee and me, while it takes it away. It shows both my great sinfulness and Thy utter abhorrence of sin. Impart to me, my dear Lord, the doctrine of the Cross in its fulness, that it may not only teach me my alienation from Thee, but convey to me the virtue of Thy reconciliation.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A meditation-prayer adoring God's holiness, within himself and in all his works, and asking that the sight of sin in the world may teach the soul its alienation from God and bring it the grace of his reconciliation.",
+      occasions: ["meditation", "adoration"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine11",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-kingdom-of-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine12",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-kingdom-of-god",
+      title: "The Kingdom of God (Saint John Henry Newman)",
+      body: "1. My Lord Jesus, how wonderful were those conversations which Thou didst hold from time to time with Thy disciples after Thy resurrection. When Thou wentest with two of them to Emmaus, Thou didst explain all the prophecies which related to Thyself. And Thou didst commit to the Apostles the Sacraments in fulness, and the truths which it was Thy will to reveal, and the principles and maxims by which Thy Church was to be maintained and governed. And thus Thou didst prepare them against the day of Pentecost (as the risen bodies were put into shape for the Spirit in the Prophet's Vision), when life and illumination was to be infused into them. I will think over all Thou didst say to them with a true and simple faith. The \"kingdom of God\" was Thy sacred subject. Let me never for an instant forget that Thou hast established on earth a kingdom of Thy own, that the Church is Thy work, Thy establishment, Thy instrument; that we are under Thy rule, Thy laws and Thy eye—that when the Church speaks Thou dost speak. Let not familiarity with this wonderful truth lead me to be insensible to it—let not the weakness of Thy human representatives lead me to forget that it is Thou who dost speak and act through them. It was just when Thou wast going away, that then Thou didst leave this kingdom of Thine to take Thy place on to the end of the world, to speak for Thee, as Thy visible form, when Thy Personal Presence, sensible to man, was departing. I will in true loving faith bring Thee before me, teaching all the truths and laws of this kingdom to Thy Apostles, and I will adore Thee, while in my thoughts I gaze upon Thee and listen to Thy words.\n\n2. Come, O my dear Lord, and teach me in like manner. I need it not, and do not ask it, as far as this, that the word of truth which in the beginning was given to the Apostles by Thee, has been handed down from age to age, and has already been taught to me, and Thy Infallible Church is the warrant of it. But I need Thee to teach me day by day, according to each day's opportunities and needs. I need Thee to give me that true Divine instinct about revealed matters that, knowing one part, I may be able to anticipate or to approve of others. I need that understanding of the truths about Thyself which may prepare me for all Thy other truths—or at least may save me from conjecturing wrongly about them or commenting falsely upon them. I need the mind of the Spirit, which is the mind of the holy Fathers, and of the Church by which I may not only say what they say on definite points, but think what they think; in all I need to be saved from an originality of thought, which is not true if it leads away from Thee. Give me the gift of discriminating between true and false in all discourse of mind.\n\n3. And, for that end, give me, O my Lord, that purity of conscience which alone can receive, which alone can improve Thy inspirations. My ears are dull, so that I cannot hear Thy voice. My eyes are dim, so that I cannot see Thy tokens. Thou alone canst quicken my hearing, and purge my sight, and cleanse and renew my heart. Teach me, like Mary, to sit at Thy feet, and to hear Thy word. Give me that true wisdom, which seeks Thy will by prayer and meditation, by direct intercourse with Thee, more than by reading and reasoning. Give me the discernment to know Thy voice from the voice of strangers, and to rest upon it and to seek it in the first place, as something external to myself; and answer me through my own mind, if I worship and rely on Thee as above and beyond it.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's prayer on the forty days in which the risen Christ spoke to the apostles of the kingdom of God (Acts 1:3), asking to be taught in the same way, given a pure conscience and the gift of discerning true from false.",
+      occasions: ["easter-season", "discernment", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine12",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-our-lords-parting-with-his-apostles",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#fortydays3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-our-lords-parting-with-his-apostles",
+      title: "Our Lord's Parting with His Apostles (Saint John Henry Newman)",
+      body: "1. I adore Thee, O my God! together with Thy Apostles, during the forty days in which Thou didst visit them after Thy resurrection. So blessed was the time, so calm, so undisturbed from without, that it was good to be there with Thee, and when it was over, they could hardly believe that it was more than begun. How quickly must that first Tempus Paschale have flown! and they perhaps hardly knew when it was to end. At least, they did not like to anticipate its ending, but were engrossed with the joy of the present moment. O what a time of consolation! What a contrast to what had lately taken place! It was their happy time on earth—the foretaste of heaven; not noticed, not interfered with, by man. They passed it in wonder, in musing, in adoration, rejoicing in Thy light, O my risen God!\n\n2. But Thou, O my dear Lord, didst know better than they! They hoped and desired, perhaps fancied, that that resting time, that refrigerium, never would end till it was superseded by something better; but Thou didst know, in Thy eternal wisdom, that, in order to arrive at what was higher than any blessing which they were then enjoying, it was fitting, it was necessary, that they should sustain conflict and suffering. Thou knewest well, that unless Thou hadst departed, the Paraclete could not have come to them; and therefore Thou didst go, that they might gain more by Thy sorrowful absence than by Thy sensible visitations. I adore Thee, O Father, for sending the Son and the Holy Ghost! I adore Thee, O Son, and Thee, O Holy Ghost, for vouchsafing to be sent to us!\n\n3. O my God, let me never forget that seasons of consolation are refreshments here, and nothing more; not our abiding state. They will not remain with us except in heaven. Here they are only intended to prepare us for doing and suffering. I pray Thee, O my God, to give them to me from time to time. Shed over me the sweetness of Thy Presence, lest I faint by the way; lest I find religious service wearisome, through my exceeding infirmity, and give over prayer and meditation; lest I go about my daily work in a dry spirit, or am tempted to take pleasure in it for its own sake, and not for Thee. Give me Thy Divine consolations from time to time; but let me not rest in them. Let me use them for the purpose for which Thou givest them. Let me not think it grievous, let me not be downcast, if they go. Let them carry me forward to the thought and the desire of heaven.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A meditation-prayer on the joy of the forty days with the risen Lord and on his departure, which was for the apostles' good, closing with the prayer that seasons of consolation be taken as refreshments on the way and not as one's end.",
+      occasions: ["easter-season", "ascension", "trust"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#fortydays3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-gods-ways-not-our-ways",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#fortydays4",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-gods-ways-not-our-ways",
+      title: "God's Ways Not Our Ways (Saint John Henry Newman)",
+      body: '1. O my Saviour, I adore Thee for Thy infinite wisdom, which sees what we do not see, and orderest all things in its own most perfect way. When Thou didst say to the Apostles that Thou wast going away, they cried out, as if Thou hadst, if it may be so said, broken faith with them. They seemed to say to Thee, "O Jesu, did we not leave all things for Thee? Did we not give up home and family, father and wife, friends and neighbours, our habits, our accustomed way of living, that we might join Thee? Did we not divorce ourselves from the world, or rather die to it, that we might be eternally united and live to Thee? And now Thou sayest that Thou art leaving us. Is this reasonable? is this just? is this faithfulness to Thy promise? Did we bargain for this? O Lord Jesus, we adore Thee, but we are confounded, and we know not what to say!"\n\n2. Yet let God be true, and every man a liar. Let the Divine Word triumph in our minds over every argument and persuasion of sensible appearances. Let faith rule us and not sight. Thou art justified, O Lord, when Thou art arraigned, and dost gain the cause when Thou art judged. For Thou didst know that the true way of possessing Thee was to lose Thee. Thou didst know that what man stands most of all in need of, and in the first place, is not an outward guide, though that he needs too, but an inward, intimate, invisible aid. Thou didst intend to heal him thoroughly, not slightly; not merely to reform the surface, but to remove and destroy the heart and root of all his ills. Thou then didst purpose to visit his soul, and Thou didst depart in body, that Thou mightest come again to him in spirit. Thou didst not stay with Thy Apostles therefore, as in the days of Thy flesh, but Thou didst come to them and abide with them for ever, with a much more immediate and true communion in the power of the Paraclete.\n\n3. O my God, in Thy sight, I confess and bewail my extreme weakness, in distrusting, if not Thee, at least Thy own servants and representatives, when things do not turn out as I would have them, or expected! Thou hast given me St. Philip, that great creation of Thy grace, for my master and patron—and I have committed myself to him—and he has done very great things for me, and has in many ways fulfilled towards me all that I can fairly reckon he had promised. But, because in some things he has disappointed me, and delayed, I have got impatient; and have served him, though without conscious disloyalty, yet with peevishness and coldness. O my dear Lord, give me a generous faith in Thee and in Thy servants!',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's meditation-prayer on Christ's words \"It is expedient for you that I go\" (John 16:7): God's wisdom sees what we cannot, and the speaker confesses his distrust and asks for a generous faith in God and in his servants.",
+      occasions: ["easter-season", "trust", "discernment"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#fortydays4",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-he-ascended",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine13",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-he-ascended",
+      title: "He Ascended (Saint John Henry Newman)",
+      body: '1. My Lord, I follow Thee up to heaven; as Thou goest up, my heart and mind go with Thee. Never was triumph like this. Thou didst appear a babe in human flesh at Bethlehem. That flesh, taken from the Blessed Virgin, was not before Thou didst form it into a body; it was a new work of Thy hands. And Thy soul was new altogether, created by Thy Omnipotence, at the moment when Thou didst enter into her sacred breast. That pure soul and body, taken as a garment for Thyself, began on earth, and never had been elsewhere. This is the triumph. Earth rises to heaven. I see Thee going up. I see that Form which hung upon the Cross, those scarred hands and feet, that pierced side; they are mounting up to heaven. And the Angels are full of jubilee; the myriads of blessed spirits, which people the glorious expanse, part like the waters to let Thee pass. And the living pavement of God\'s palaces is cleft in twain, and the Cherubim with flaming swords, who form the rampart of heaven against fallen man, give way and open out, that Thou mayest enter, and Thy saints after Thee. O memorable day!\n\n2. O memorable day! The Apostles feel it to be so, now that it is come, though they felt so differently before it came. When it was coming they dreaded it. They could not think but it would be a great bereavement; but now, as we read, they returned to Jerusalem "with great joy." O what a time of triumph! They understood it now. They understood how weak it had been in them to grudge their Lord and Master, the glorious Captain of their salvation, the Champion and First fruits of the human family, this crown of His great work. It was the triumph of redeemed man. It is the completion of his redemption. It was the last act, making the whole sure, for now man is actually in heaven. He has entered into possession of his inheritance. The sinful race has now one of its own children there, its own flesh and blood, in the person of the Eternal Son. O what a wonderful marriage between heaven and earth! It began in sorrow; but now the long travail of that mysterious wedding day is over; the marriage feast is begun; marriage and birth have gone together; man is new born when Emmanuel enters heaven.\n\n3. O Emmanuel, O God in our flesh! we too hope, by Thy grace, to follow Thee. We will cling to the skirts of Thy garments, as Thou goest up; for without Thee we cannot ascend. O Emmanuel, what a day of joy when we shall enter heaven! O inexpressible ecstasy, after all trouble! There is none strong but Thou. Tenuisti manum dexteram meam: et in voluntate tua deduxisti me, et cum gloria suscepisti me. Quid enim mihi est in cœlo, et a Te quid volui super terram? Defecit caro mea et cor meum; Deus cordis mei, et pars mea Deus in æternum.—"Thou hast held me by my right hand; and by Thy will Thou hast conducted me, and with Thy glory Thou hast received me. For what have I in heaven? And besides Thee what do I desire upon earth? For Thee my flesh and my heart hath fainted away: Thou art the God of my heart, and the God that is my portion for ever."',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A prayer for the Ascension, following Christ in heart and mind as the gates of heaven open to him and to his saints after him, and resolving by his grace to cling to him who has gone before.",
+      occasions: ["ascension", "easter-season"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine13",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-ascendit-in-coelum",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#ascension2",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-ascendit-in-coelum",
+      title: "Ascendit in Coelum: He Ascended into Heaven (Saint John Henry Newman)",
+      body: "1. My Lord is gone up into heaven. I adore Thee, Son of Mary, Jesu Emmanuel, my God and my Saviour. I am allowed to adore Thee, my Saviour and my own Brother, for Thou art God. I follow Thee in my thoughts, O Thou First fruits of our race, as I hope one day by Thy grace to follow Thee in my person. To go to heaven is to go to God. God is there and God alone: for perfect bliss is there and nothing else, and none can be blessed who is not bathed and hidden and absorbed in the glory of the Divine Nature. All holy creatures are but the vestment of the Highest, which He has put on for ever, and which is bright with His uncreated light. There are many things on earth, and each is its own centre, but one Name alone is named above. It is God alone. This is that true supernatural life; and if I would live a supernatural life on earth, and attain to the supernatural eternal life which is in heaven, I have one thing to do, viz. to live on the thought of God here. Teach me this, O God; give me Thy supernatural grace to practise it; to have my reason, affections, intentions, aims, all penetrated and possessed by the love of Thee, plunged and drowned in the one Vision of Thee.\n\n2. There is but one Name and one Thought above: there are many thoughts below. This is the earthly life, which leads to death, viz. to follow the numberless objects and aims and toils and amusements which men pursue on earth. Even the good that is here below does not lead to heaven; it is spoilt in the handselling; it perishes in the using; it has no stay, no integrity, no consistency. It runs off into evil before it has well ceased, before it has well begun to be good. It is at best vanity, when it is nothing worse. It has in it commonly the seeds of real sin. My God, I acknowledge all this. My Lord Jesu, I confess and know that Thou only art the True, the Beautiful, and the Good. Thou alone canst make me bright and glorious, and canst lead me up after Thee. Thou art the way, the truth, and the life, and none but Thou. Earth will never lead me to heaven. Thou alone art the Way; Thou alone.\n\n3. My God, shall I for one moment doubt where my path lies? Shall I not at once take Thee for my portion? To whom should I go? Thou hast the words of Eternal Life. Thou camest down for the very purpose of doing that which no one here below could do for me. None but He who is in heaven can bring me to heaven. What strength have I to scale the high mountain? Though I served the world ever so well, though I did my duty in it (as men speak), what could the world do for me, however hard it tried? Though I filled my station well, did good to my fellows, had a fair name or a wide reputation, though I did great deeds and was celebrated, though I had the praise of history, how would all this bring me to heaven? I choose Thee then for my One Portion, because Thou livest and diest not. I cast away all idols. I give myself to Thee. I pray Thee to teach me, guide me, enable me, and receive me to Thee.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's second Ascension prayer: in heaven there is one Name and one Thought, while earth is full of distractions; Christ alone is the Way, and the speaker gives himself to him to be taught, guided and received.",
+      occasions: ["ascension", "easter-season", "discernment"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#ascension2",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-paraclete-the-life-of-all-things",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine14",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-paraclete-the-life-of-all-things",
+      title: "The Paraclete, the Life of All Things (Saint John Henry Newman)",
+      body: "1. I adore Thee, my Lord and God, the Eternal Paraclete, co-equal with the Father and the Son. I adore Thee as the Life of all that live. Through Thee the whole material Universe hangs together and consists, remains in its place, and moves internally in the order and reciprocity of its several parts. Through Thee the earth was brought into its present state, and was matured through its six days to be a habitation for man. Through Thee, all trees, herbs, fruits, thrive and are perfected. Through Thee, spring comes after winter and renews all things. That wonderful and beautiful, that irresistible burst into life again, in spite of all obstacles, that awful triumph of nature, is but Thy glorious Presence. Through Thee the many tribes of brute animals live day by day, drawing in their breath from Thee. Thou art the life of the whole creation, O Eternal Paraclete—and if of this animal and material framework, how much more of the world of spirits! Through Thee, Almighty Lord, the angels and saints sing Thee praises in heaven. Through Thee our own dead souls are quickened to serve Thee. From Thee is every good thought and desire, every good purpose, every good effort, every good success. It is by Thee that sinners are turned into saints. It is by Thee the Church is refreshed and strengthened, and champions start forth, and martyrs are carried on to their crown. Through Thee new religious orders, new devotions in the Church come into being; new countries are added to the faith, new manifestations and illustrations are given of the ancient Apostolic creed. I praise and adore Thee, my Sovereign Lord God, the Holy Ghost.\n\n2. I adore Thee, O dread Lord, for what Thou hast done for my soul. I acknowledge and feel, not only as a matter of faith but of experience, that I cannot have one good thought or do one good act without Thee. I know, that if I attempt anything good in my own strength, I shall to a certainty fail. I have bitter experience of this. My God, I am only safe when Thou dost breathe upon me. If Thou withdraw Thy breath, forthwith my three mortal enemies rush on me and overcome me. I am as weak as water, I am utterly impotent without Thee. The minute Thou dost cease to act in me, I begin to languish, to gasp, and to faint away. Of my good desires, whatever they may be, of my good aims, aspirations, attempts, successes, habits, practices, Thou art the sole cause and present continual source. I have nothing but what I have received, and I protest now in Thy presence, O Sovereign Paraclete, that I have nothing to glory in, and everything to be humbled at.\n\n3. O my dear Lord, how merciful Thou hast been to me. When I was young, Thou didst put into my heart a special devotion to Thee. Thou hast taken me up in my youth, and in my age Thou wilt not forsake me. Not for my merit, but from Thy free and bountiful love Thou didst put good resolutions into me when I was young, and didst turn me to Thee. Thou wilt never forsake me. I do earnestly trust so—never certainly without fearful provocation on my part. Yet I trust and pray, that Thou wilt keep me from that provocation. O keep me from the provocation of lukewarmness and sloth. O my dear Lord, lead me forward from strength to strength, gently, sweetly, tenderly, lovingly, powerfully, effectually, remembering my fretfulness and feebleness, till Thou bringest me into Thy heaven.",
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "The first of Newman's four meditations on the Holy Ghost: adoration of the Paraclete, co-equal with the Father and the Son, as the life of all creation, and thanks for all he has done in the speaker's own soul from childhood.",
+      occasions: ["pentecost", "confirmation", "thanksgiving"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#doctrine14",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-paraclete-the-life-of-the-church",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#paraclete2",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-paraclete-the-life-of-the-church",
+      title: "The Paraclete, the Life of the Church (Saint John Henry Newman)",
+      body: "1. I adore Thee, O my Lord, the Third Person of the All-Blessed Trinity, that Thou hast set up in this world of sin a great light upon a hill. Thou hast founded the Church, Thou hast established and maintained it. Thou fillest it continually with Thy gifts, that men may see, and draw near, and take, and live. Thou hast in this way brought down heaven upon earth. For Thou hast set up a great company which Angels visit by that ladder which the Patriarch saw in vision. Thou hast by Thy Presence restored the communion between God above and man below. Thou hast given him that light of grace which is one with and the commencement of the light of glory. I adore and praise Thee for Thy infinite mercy towards us, O my Lord and God.\n\n2. I adore Thee, O Almighty Lord, the Paraclete, because Thou in Thy infinite compassion hast brought me into this Church, the work of Thy supernatural power. I had no claim on Thee for so wonderful a favour over anyone else in the whole world. There were many men far better than I by nature, gifted with more pleasing natural gifts, and less stained with sin. Yet Thou, in Thy inscrutable love for me, hast chosen me and brought me into Thy fold. Thou hast a reason for everything Thou dost. I know there must have been an all-wise reason, as we speak in human language, for Thy choosing me and not another—but I know that that reason was something external to myself. I did nothing towards it—I did everything against it. I did everything to thwart Thy purpose. And thus I owe all to Thy grace. I should have lived and died in darkness and sin; I should have become worse and worse the longer I lived; I should have got more to hate and abjure Thee, O Source of my bliss; I should have got yearly more fit for hell, and at length I should have gone there, but for Thy incomprehensible love to me. O my God, that overpowering love took me captive. Was any boyhood so impious as some years of mine! Did I not in fact dare Thee to do Thy worst? Ah, how I struggled to get free from Thee; but Thou art stronger than I and hast prevailed. I have not a word to say, but to bow down in awe before the depths of Thy love.\n\n3. And then, in course of time, slowly but infallibly did Thy grace bring me on into Thy Church. Now then give me this further grace, Lord, to use all this grace well, and to turn it to my salvation. Teach me, make me, to come to the fountains of mercy continually with an awakened, eager mind, and with lively devotion. Give me a love of Thy Sacraments and Ordinances. Teach me to value as I ought, to prize as the inestimable pearl, that pardon which again and again Thou givest me, and the great and heavenly gift of the Presence of Him whose Spirit Thou art, upon the Altar. Without Thee I can do nothing, and Thou art there where Thy Church is and Thy Sacraments. Give me grace to rest in them for ever, till they are lost in the glory of Thy manifestation in the world to come.",
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "Newman's adoration of the Holy Ghost as the life of the Church, who keeps her from error, and his thanks for the grace that slowly but surely brought him into the Catholic Church.",
+      occasions: ["pentecost", "for-the-church", "conversion"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#paraclete2",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-food-of-the-soul",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#communion3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-food-of-the-soul",
+      title: "The Food of the Soul (Saint John Henry Newman)",
+      body: '1. In Thee, O Lord, all things live, and Thou dost give them their food. Oculi omnium in Te sperant—"the eyes of all hope in Thee." To the beasts of the field Thou givest meat and drink. They live on day by day, because Thou dost give them day by day to live. And, if Thou givest not, they feel their misery at once. Nature witnesses to this great truth, for they are visited at once with great agony, and they cry out and wildly wander about, seeking what they need. But, as to us Thy children, Thou feedest us with another food. Thou knowest, O my God, who madest us, that nothing can satisfy us but Thyself, and therefore Thou hast caused Thy own self to be meat and drink to us. O most adorable mystery! O most stupendous of mercies! Thou most Glorious, and Beautiful, and Strong, and Sweet, Thou didst know well that nothing else would support our immortal natures, our frail hearts, but Thyself; and so Thou didst take a human flesh and blood, that they, as being the flesh and blood of God, might be our life.\n\n2. O what an awful thought! Thou dealest otherwise with others, but, as to me, the flesh and blood of God is my sole life. I shall perish without it; yet shall I not perish with it and by it? How can I raise myself to such an act as to feed upon God? O my God, I am in a strait—shall I go forward, or shall I go back? I will go forward: I will go to meet Thee. I will open my mouth, and receive Thy gift. I do so with great awe and fear, but what else can I do? to whom should I go but to Thee? Who can save me but Thou? Who can cleanse me but Thou? Who can make me overcome myself but Thou? Who can raise my body from the grave but Thou? Therefore I come to Thee in all these my necessities, in fear, but in faith.\n\n3. My God, Thou art my life; if I leave Thee, I cannot but thirst. Lost spirits thirst in hell, because they have not God. They thirst, though they fain would have it otherwise, from the necessity of their original nature. But I, my God, wish to thirst for Thee with a better thirst. I wish to be clad in that new nature, which so longs for Thee from loving Thee, as to overcome in me the fear of coming to Thee. I come to Thee, O Lord, not only because I am unhappy without Thee, not only because I feel I need Thee, but because Thy grace draws me on to seek Thee for Thy own sake, because Thou art so glorious and beautiful. I come in great fear, but in greater love. O may I never lose, as years pass away, and the heart shuts up, and all things are a burden, let me never lose this youthful, eager, elastic love of Thee. Make Thy grace supply the failure of nature. Do the more for me, the less I can do for myself. The more I refuse to open my heart to Thee, so much the fuller and stronger be Thy supernatural visitings, and the more urgent and efficacious Thy presence in me.',
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "A Eucharistic meditation-prayer: all creatures live by the food God gives, and the soul's food is the flesh and blood of the Son of God; the speaker, thirsting for God, asks that his presence and visits may be ever more frequent and effectual.",
+      occasions: ["after-communion", "corpus-christi", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#communion3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-infinite-perfection-of-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine17",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-infinite-perfection-of-god",
+      title: "The Infinite Perfection of God (Saint John Henry Newman)",
+      body: '1. Ex ipso. I adore Thee, O my God, as the origin and source of all that is in the world. Once nothing was in being but Thou. It was so for a whole eternity. Thou alone hast had no beginning. Thou hast ever been in being without beginning. Thou hast necessarily been a whole eternity by Thyself, having in Thee all perfections stored up in Thyself, by Thyself; a world of worlds; an infinite abyss of all that is great and wonderful, beautiful and holy; a treasury of infinite attributes, all in one; infinitely one while thus infinitely various. My God, the thought simply exceeds a created nature, much more mine. I cannot attain to it; I can but use the words, and say "I believe," without comprehending. But this I can do. I can adore Thee, O my great and good God, as the one source of all perfection, and that I do, and with Thy grace will do always.\n\n2. Per ipsum. And when other beings began to be, they lived through Thee. They did not begin of themselves. They did not come into existence except by Thy determinate will, by Thy eternal counsel, by Thy sole operation. They are wholly from Thee. From eternity, in the deep ocean of Thy blessedness, Thou didst predestinate everything which in its hour took place. Not a substance, ever so insignificant, but is Thy design and Thy work. Much more, not a soul comes into being, but by Thy direct appointment and act. Thou seest, Thou hast seen from all eternity, every individual of Thy creatures. Thou hast seen me, O my God, from all eternity. Thou seest distinctly, and ever hast seen, whether I am to be saved or to be lost. Thou seest my history through all ages in heaven or in hell. O awful thought! My God, enable me to bear it, lest the thought of Thee confound me utterly; and lead me forward to salvation.\n\n3. In ipso. And I believe and know, moreover, that all things live in Thee. Whatever there is of being, of life, of excellence, of enjoyment, of happiness, in the whole creation, is, in its substance, simply and absolutely Thine. It is by dipping into the ocean of Thy infinite perfections that all beings have whatever they have of good. All the beautifulness and majesty of the visible world is a shadow or a glimpse of Thee, or the manifestation or operation in a created medium of one or other of Thy attributes. All that is wonderful in the way of talent or genius is but an unworthy reflexion of the faintest gleam of the Eternal Mind. Whatever we do well, is not only by Thy help, but is after all scarcely an imitation of that sanctity which is in fulness in Thee. O my God, shall I one day see Thee? what sight can compare to that great sight! Shall I see the source of that grace which enlightens me, strengthens me, and consoles me? As I came from Thee, as I am made through Thee, as I live in Thee, so, O my God, may I at last return to Thee, and be with Thee for ever and ever.',
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        'Newman\'s meditation-prayer on Romans 11:36, "of him, and by him, and in him, are all things": adoration of God as the source, the sustainer and the end of all that exists.',
+      occasions: ["trinity-sunday", "meditation", "adoration"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine17",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-infinite-knowledge-of-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine18",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-infinite-knowledge-of-god",
+      title: "The Infinite Knowledge of God (Saint John Henry Newman)",
+      body: "1. My God, I adore Thee, as beholding all things. Thou knowest in a way altogether different and higher than any knowledge which can belong to creatures. We know by means of sight and thought; there are few things we know in any other way; but how unlike this knowledge, not only in extent, but in its nature and its characteristics, is Thy knowledge! The Angels know many things, but their knowledge compared to Thine is mere ignorance. The human soul, which Thou didst take into Thyself when Thou didst become man, was filled from the first with all the knowledge possible to human nature: but even that was nothing but a drop compared to the abyss of that knowledge, and its keen luminousness, which is Thine as God.\n\n2. My God, could it be otherwise? for from the first and from everlasting Thou wast by Thyself; and Thy blessedness consisted in knowing and contemplating Thyself, the Father in the Son and Spirit, and the Son and Spirit severally in each other and in the Father, thus infinitely comprehending the infinite. If Thou didst know Thy infinite self thus perfectly, Thou didst know that which was greater and more than anything else could be. All that the whole universe contains, put together, is after all but finite. It is finite, though it be illimitable! it is finite, though it be so multiform; it is finite, though it be so marvellously skilful, beautiful, and magnificent; but Thou art the infinite God, and, knowing Thyself, much more dost Thou know the whole universe, however vast, however intricate and various, and all that is in it.\n\n3. My great God, Thou knowest all that is in the universe, because Thou Thyself didst make it. It is the very work of Thy hands. Thou art Omniscient, because Thou art omni-creative. Thou knowest each part, however minute, as perfectly as Thou knowest the whole. Thou knowest mind as perfectly as Thou knowest matter. Thou knowest the thoughts and purposes of every soul as perfectly as if there were no other soul in the whole of Thy creation. Thou knowest me through and through; all my present, past, and future are before Thee as one whole. Thou seest all those delicate and evanescent motions of my thought which altogether escape myself. Thou canst trace every act, whether deed or thought, to its origin, and canst follow it into its whole growth and consequences. Thou knowest how it will be with me at the end; Thou hast before Thee that hour when I shall come to Thee to be judged. How awful is the prospect of finding myself in the presence of my Judge! Yet, O Lord, I would not that Thou shouldst not know me. It is my greatest stay to know that Thou readest my heart. O give me more of that open-hearted sincerity which I have desired. Keep me ever from being afraid of Thy eye, from the inward consciousness that I am not honestly trying to please Thee. Teach me to love Thee more, and then I shall be at peace, without any fear of Thee at all.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A meditation-prayer on Hebrews 4:13, that all things are naked and open to God's eyes: adoration of a knowledge infinitely beyond our own, ending with a prayer to love God more and so to be at peace without fear of him.",
+      occasions: ["meditation", "trust"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine18",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-is-all-in-all",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine20",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-is-all-in-all",
+      title: "God Is All in All (Saint John Henry Newman)",
+      body: "1. God alone is in heaven; God is all in all. Eternal Lord, I acknowledge this truth, and I adore Thee in this sovereign and most glorious mystery. There is One God, and He fills heaven; and all blessed creatures, though they ever remain in their individuality, are, as the very means of their blessedness, absorbed, and (as it were) drowned in the fulness of Him who is super omnes, et per omnia, et in omnibus. If ever, through Thy grace, I attain to see Thee in heaven, I shall see nothing else but Thee, because I shall see all whom I see in Thee, and seeing them I shall see Thee. As I cannot see things here below without light, and to see them is to see the rays which come from them, so in that Eternal City claritas Dei illuminavit eam, et lucerna ejus est Agnus—the glory of God hath enlightened it, and the Lamb is the lamp thereof. My God, I adore Thee now (at least I will do so to the best of my powers) as the One Sole True Life and Light of the soul, as I shall know and see Thee to be hereafter, if by Thy grace I attain to heaven.\n\n2. Eternal, Incomprehensible God, I believe, and confess, and adore Thee, as being infinitely more wonderful, resourceful, and immense, than this universe which I see. I look into the depths of space, in which the stars are scattered about, and I understand that I should be millions upon millions of years in creeping along from one end of it to the other, if a bridge were thrown across it. I consider the overpowering variety, richness, intricacy of Thy work; the elements, principles, laws, results which go to make it up. I try to recount the multitudes of kinds of knowledge, of sciences, and of arts of which it can be made the subject. And, I know, I should be ages upon ages in learning everything that is to be learned about this world, supposing me to have the power of learning it at all. And new sciences would come to light, at present unsuspected, as fast as I had mastered the old, and the conclusions of today would be nothing more than starting points of tomorrow. And I see moreover, and the more I examined it, the more I should understand, the marvellous beauty of these works of Thy hands. And so, I might begin again, after this material universe, and find a new world of knowledge, higher and more wonderful, in Thy intellectual creations, Thy angels and other spirits, and men. But all, all that is in these worlds, high and low, are but an atom compared with the grandeur, the height and depth, the glory, on which Thy saints are gazing in their contemplation of Thee. It is the occupation of eternity, ever new, inexhaustible, ineffably ecstatic, the stay and the blessedness of existence, thus to drink in and be dissolved in Thee.\n\n3. My God, it was Thy supreme blessedness in the eternity past, as it is Thy blessedness in all eternities, to know Thyself, as Thou alone canst know Thee. It was by seeing Thyself in Thy Co-equal Son and Thy Co-eternal Spirit, and in Their seeing Thee, that Father, Son, and Holy Ghost, Three Persons, One God, was infinitely blessed. O my God, what am I that Thou shouldst make my blessedness to consist in that which is Thy own! That Thou shouldst grant me to have not only the sight of Thee, but to share in Thy very own joy! O prepare me for it, teach me to thirst for it.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's meditation-prayer on God as all in all, the whole blessedness of heaven, where the saints will share his very own joy, closing with the plea to be prepared for it and taught to thirst for it.",
+      occasions: ["meditation", "all-saints", "preparation-for-death"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine20",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-communicated-to-us",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine22",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-communicated-to-us",
+      title: "God Communicated to Us (Saint John Henry Newman)",
+      body: '1. Thou hast, O Lord, an incommunicable perfection, but still that Omnipotence by which Thou didst create, is sufficient also to the work of communicating Thyself to the spirits which Thou hast created. Thy Almighty Life is not for our destruction, but for our living. Thou remainest ever one and the same in Thyself, but there goes from Thee continually a power and virtue, which by its contact is our strength and good. I do not know how this can be; my reason does not satisfy me here; but in nature I see intimations, and by faith I have full assurance of the truth of this mystery. By Thee we cross the gulf that lies between Thee and us. The Living God is lifegiving. Thou art the Fount and Centre, as well as the Seat, of all good. The traces of Thy glory, as the many-coloured rays of the sun, are scattered over the whole face of nature, without diminution of Thy perfections, or violation of Thy transcendent and unapproachable Essence. How it can be, I know not; but so it is. And thus, remaining one and sole and infinitely removed from all things, still Thou art the fulness of all things, in Thee they consist, of Thee they partake, and into Thee, retaining their own individuality, they are absorbed. And thus, while we droop and decay in our own nature, we live by Thy breath; and Thy grace enables us to endure Thy presence.\n\n2. Make me then like Thyself, O my God, since, in spite of myself, such Thou canst make me, such I can be made. Look on me, O my Creator, pity the work of Thy hands, ne peream in infirmitate meâ—"that I perish not in my infirmity." Take me out of my natural imbecility, since that is possible for me, which is so necessary. Thou hast shewn it to be possible in the face of the whole world by the most overwhelming proof, by taking our created nature on Thyself, and exalting it in Thee. Give me in my own self the benefit of this wondrous truth, now it has been so publicly ascertained and guaranteed. Let me have in my own person, what in Jesus Thou hast given to my nature. Let me be partaker of that Divine Nature in all the riches of Its attributes, which in fulness of substance and in personal presence became the Son of Mary. Give me that life, suitable to my own need, which is stored up for us all in Him who is the Life of men. Teach me and enable me to live the life of Saints and Angels. Take me out of the languor, the irritability, the sensitiveness, the incapability, the anarchy, in which my soul lies, and fill it with Thy fulness. Breathe on me, that the dead bones may live. Breathe on me with that Breath which infuses energy and kindles fervour. In asking for fervour, I ask for all that I can need, and all that Thou canst give; for it is the crown of all gifts and all virtues. It cannot really and fully be, except where all are present. It is the beauty and the glory, as it is also the continual safeguard and purifier of them all. In asking for fervour, I am asking for effectual strength, consistency, and perseverance; I am asking for deadness to every human motive, and simplicity of intention to please Thee: I am asking for faith, hope, and charity in their most heavenly exercise. In asking for fervour I am asking to be rid of the fear of man, and the desire of his praise; I am asking for the gift of prayer, because it will be so sweet; I am asking for that loyal perception of duty, which follows on yearning affection; I am asking for sanctity, peace, and joy all at once. In asking for fervour, I am asking for the brightness of the Cherubim and the fire of the Seraphim, and the whiteness of all Saints. In asking for fervour, I am asking for that which, while it implies all gifts, is that in which I signally fail. Nothing would be a trouble to me, nothing a difficulty, had I but fervour of soul.\n\n3. Lord, in asking for fervour, I am asking for Thyself, for nothing short of Thee, O my God, who hast given Thyself wholly to us. Enter my heart substantially and personally, and fill it with fervour by filling it with Thee. Thou alone canst fill the soul of man, and Thou hast promised to do so. Thou art the living Flame, and ever burnest with love of man: enter into me and set me on fire after Thy pattern and likeness.',
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A meditation-prayer asking God, who communicates himself to us by grace, for fervour of soul, which is nothing less than God himself, and to set the heart on fire after the pattern of Christ.",
+      occasions: ["pentecost", "meditation", "act-of-love"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine22",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "praises-of-saint-francis-at-all-the-hours",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n182/mode/1up"],
+    payload: {
+      slug: "praises-of-saint-francis-at-all-the-hours",
+      title:
+        "The Praises at All the Hours, with the Paraphrase of the Our Father (Saint Francis of Assisi)",
+      body: "Our Father, most holy, our Creator, Redeemer, and Comforter.\n\nWho art in heaven, in the angels and in the saints illuminating them unto knowledge, for Thou, O Lord, art light; inflaming them unto love, for Thou, O Lord, art Love; dwelling in them and filling them with blessedness, for Thou, O Lord, art the highest Good, the eternal Good from whom is all good and without whom is no good.\n\nHallowed be Thy Name: may Thy knowledge shine in us that we may know the breadth of Thy benefits, the length of Thy promises, the height of Thy majesty, and the depth of Thy judgments.\n\nThy Kingdom come, that Thou mayest reign in us by grace and mayest make us come to Thy Kingdom, where there is the clear vision of Thee, the perfect love of Thee, the blessed company of Thee, the eternal enjoyment of Thee.\n\nThy will be done on earth as it is in heaven, that we may love Thee with the whole heart by always thinking of Thee; with the whole soul by always desiring Thee; with the whole mind by directing all our intentions to Thee and seeking Thy honor in all things and with all our strength, by spending all the powers and senses of body and soul in the service of Thy love and not in anything else; and that we may love our neighbors even as ourselves, drawing to the best of our power all to Thy love; rejoicing in the good of others as in our own and compassionating [them] in troubles and giving offence to no one.\n\nGive us this day, through memory and understanding and reverence for the love which He had for us and for those things which He said, did, and suffered, for us,—our daily bread, Thy Beloved Son, our Lord Jesus Christ.\n\nAnd forgive us our trespasses, by Thy ineffable mercy in virtue of the Passion of Thy Beloved Son, our Lord Jesus Christ, and through the merits and intercession of the most Blessed Virgin Mary and of all Thy elect.\n\nAs we forgive them that trespass against us, and what we do not fully forgive, do Thou, O Lord, make us fully forgive, that for Thy sake we may truly love our enemies and devoutly intercede for them with Thee; that we may render no evil for evil, but in Thee may strive to do good to all.\n\nAnd lead us not into temptation, hidden or visible, sudden or continuous.\n\nBut deliver us from evil, past, present, and to come. Amen.\n\nGlory be to the Father, etc.\n\nHoly, Holy, Holy, Lord God Almighty, who is and who was and who is to come. Let us praise and exalt Him above all forever.\n\nWorthy art Thou, O Lord, our God, to receive praise, glory and honor and benediction. Let us praise and exalt Him above all forever.\n\nThe Lamb that was slain is worthy to receive power and divinity and wisdom and strength and honor and benediction. Let us praise and exalt Him above all forever.\n\nLet us bless the Father and the Son with the Holy Ghost. Let us praise and exalt Him above all forever.\n\nAll ye works of the Lord, bless ye the Lord. Let us praise and exalt Him above all forever.\n\nGive praise to God all ye His servants and you that fear Him, little and great. Let us praise and exalt Him above all forever.\n\nLet the heavens and the earth praise Him, the Glorious, and every creature which is in heaven and on earth and under the earth, in the seas and all that are in them. Let us praise and exalt Him above all forever.\n\nGlory be to the Father, and to the Son, and to the Holy Ghost. Let us praise and exalt Him above all forever.\n\nAs it was in the beginning, is now and ever shall be world without end. Amen. Let us praise and exalt Him above all forever.\n\nPrayer.\n\nAlmighty, most holy, most high, and supreme God, highest good, all good, wholly good, who alone art good. To Thee we render all praise, all glory, all thanks, all honor, all blessing, and we shall always refer all good to Thee. Amen.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        'The Praises that Saint Francis composed and said at every Hour of the Divine Office and before the Office of the Blessed Virgin: his phrase-by-phrase meditation on the Our Father, the Glory Be, then scriptural acclamations from the Apocalypse and the Canticle of Daniel, each answered by "Let us praise and exalt Him above all forever", and a closing prayer to God who alone is good. Paschal Robinson\'s 1906 translation; "them" in square brackets is the translator\'s own insertion.',
+      occasions: ["lauds", "daily", "october-4"],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n182/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "salutation-of-the-blessed-virgin-saint-francis",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n186/mode/1up"],
+    payload: {
+      slug: "salutation-of-the-blessed-virgin-saint-francis",
+      title: "Salutation of the Blessed Virgin Mary (Saint Francis of Assisi)",
+      body: "Hail, holy Lady, most holy Queen, Mother of God, Mary who art ever Virgin, chosen from Heaven by the most Holy Father, whom He has consecrated with the most holy beloved Son and the Ghostly Paraclete, in whom was and is all the fulness of grace and all good. Hail thou His palace! Hail thou His tabernacle! Hail thou His house. Hail thou His garment! Hail thou His handmaid! Hail thou His Mother and all ye holy virtues which by the grace and illumination of the Holy Ghost thou infusest in the heart of the faithful, that from infidels ye mayest make them faithful to God.",
+      prayerType: "marian",
+      category: "marian",
+      language: "en",
+      summary:
+        "Saint Francis's greeting of the Blessed Virgin as the palace, tabernacle, house, garment, handmaid and Mother of God, chosen by the Father and consecrated with the Son and the Holy Spirit, together with the holy virtues the Spirit pours into the faithful. Paschal Robinson's 1906 translation from the Quaracchi critical text.",
+      occasions: ["marian-feasts", "october-4", "daily"],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n186/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "absorbeat-prayer-of-saint-francis",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n188/mode/1up"],
+    payload: {
+      slug: "absorbeat-prayer-of-saint-francis",
+      title: "Prayer to Obtain Divine Love (Absorbeat) (Saint Francis of Assisi)",
+      body: "I beseech Thee, O Lord, that the fiery and sweet strength of Thy love may absorb my soul from all things that are under heaven, that I may die for love of Thy love as Thou didst deign to die for love of my love.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "A short prayer known from its Latin opening as the Absorbeat, asking that the fire of God's love may draw the soul away from everything under heaven. Its attribution to Saint Francis rests on Ubertino da Casale, who gives it in his Arbor Vitae Crucifixae (1305), and on Saint Bernardine of Siena. Paschal Robinson's 1906 translation.",
+      occasions: ["daily", "act-of-love", "october-4"],
+      relatedSaints: ["saint-francis-of-assisi", "saint-bernardine-of-siena"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n188/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "praises-of-god-saint-francis",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n191/mode/1up"],
+    payload: {
+      slug: "praises-of-god-saint-francis",
+      title: "The Praises of God (Saint Francis of Assisi)",
+      body: "Thou art holy, Lord God, who alone workest wonders. Thou art strong. Thou art great. Thou art most high. Thou art the Almighty King, Thou, holy Father, King of heaven and earth. Thou art the Lord God Triune and One; all good. Thou art good, all good, highest good, Lord God living and true. Thou art charity, love. Thou art wisdom. Thou art humility. Thou art patience. Thou art security. Thou art quietude. Thou art joy and gladness. Thou art justice and temperance. Thou art all riches to sufficiency. Thou art beauty. Thou art meekness. Thou art protector. Thou art guardian and defender. Thou art strength. Thou art refreshment. Thou art our hope. Thou art our faith. Thou art our great sweetness. Thou art our eternal life, great and admirable Lord, God Almighty, merciful Saviour.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The litany of praise that Saint Francis wrote with his own hand on La Verna in September 1224, after receiving the stigmata, on the sheet he gave to Brother Leo; the autograph is kept at the Sacro Convento in Assisi. Paschal Robinson's 1906 translation of the Quaracchi text.",
+      occasions: ["praise", "thanksgiving", "september-17", "october-4"],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n191/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "blessing-of-brother-leo",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n194/mode/1up"],
+    payload: {
+      slug: "blessing-of-brother-leo",
+      title: "The Blessing of Brother Leo (Saint Francis of Assisi)",
+      body: "May the Lord bless thee and keep thee. May He shew His face to thee and have mercy on thee. May He turn His countenance to thee and give thee peace. Brother Leo may the Lord bless thee.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The blessing of Numbers 6:24-26 that Saint Francis wrote out for Brother Leo on the back of the sheet bearing the Praises of God (La Verna, 1224), adding a personal blessing in his own hand. In the autograph the tau that Francis used as his signature is drawn through Leo's name, and the 1906 printing sets a T within the name; it is given here as the plain name.",
+      occasions: ["blessing", "september-17", "october-4"],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n194/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-the-sun",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n197/mode/1up"],
+    payload: {
+      slug: "canticle-of-the-sun",
+      title: "The Canticle of the Sun (Canticle of the Creatures) (Saint Francis of Assisi)",
+      body: "Most high, omnipotent, good Lord,\nPraise, glory and honor and benediction all, are Thine.\nTo Thee alone do they belong, most High,\nAnd there is no man fit to mention Thee.\n\nPraise be to Thee, my Lord, with all Thy creatures,\nEspecially to my worshipful brother sun,\nThe which lights up the day, and through him dost Thou brightness give;\nAnd beautiful is he and radiant with splendor great;\nOf Thee, most High, signification gives.\n\nPraised be my Lord, for sister moon and for the stars,\nIn heaven Thou hast formed them clear and precious and fair.\n\nPraised be my Lord for brother wind\nAnd for the air and clouds and fair and every kind of weather,\nBy the which Thou givest to Thy creatures nourishment.\nPraised be my Lord for sister water,\nThe which is greatly helpful and humble and precious and pure.\n\nPraised be my Lord for brother fire,\nBy the which Thou lightest up the dark.\nAnd fair is he and gay and mighty and strong.\n\nPraised be my Lord for our sister, mother earth,\nThe which sustains and keeps us\nAnd brings forth diverse fruits with grass and flowers bright.\n\nPraised be my Lord for those who for Thy love forgive\nAnd weakness bear and tribulation.\nBlessed those who shall in peace endure,\nFor by Thee, most High, shall they be crowned.\n\nPraised be my Lord for our sister, the bodily death,\nFrom the which no living man can flee.\nWoe to them who die in mortal sin;\nBlessed those who shall find themselves in Thy most holy will,\nFor the second death shall do them no ill.\n\nPraise ye and bless ye my Lord, and give Him thanks,\nAnd be subject unto Him with great humility.",
+      prayerType: "canticle",
+      category: "saintly",
+      language: "en",
+      summary:
+        "Saint Francis's Italian song of praise for God through brother sun, sister moon, wind, water, fire and mother earth, made while he lay ill at San Damiano; the tradition recorded in the Speculum Perfectionis holds that he added the strophe on pardon and peace to reconcile the bishop and magistrates of Assisi, and the strophe on sister bodily death as his own death approached. This is Paschal Robinson's deliberately literal 1906 rendering of the Assisi manuscript, keeping the rhythm of the original rather than rhyming it.",
+      occasions: ["creation", "praise", "october-4", "deathbed"],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n197/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "salutation-of-the-virtues",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n61/mode/1up"],
+    payload: {
+      slug: "salutation-of-the-virtues",
+      title: "Salutation of the Virtues (Saint Francis of Assisi)",
+      body: "Hail, queen wisdom! May the Lord save thee with thy sister holy pure simplicity! O Lady, holy poverty, may the Lord save thee with thy sister holy humility! O Lady, holy charity, may the Lord save thee with thy sister holy obedience! O all ye most holy virtues, may the Lord, from whom you proceed and come, save you! There is absolutely no man in the whole world who can possess one among you unless he first die. He who possesses one and does not offend the others, possesses all; and he who offends one, possesses none and offends all; and every one [of them] confounds vices and sins. Holy wisdom confounds Satan and all his wickednesses. Pure holy simplicity confounds all the wisdom of this world and the wisdom of the flesh. Holy poverty confounds cupidity and avarice and the cares of this world. Holy humility confounds pride and all the men of this world and all things that are in the world. Holy charity confounds all diabolical and fleshly temptations and all fleshly fears. Holy obedience confounds all bodily and fleshly desires and keeps the body mortified to the obedience of the spirit and to the obedience of one's brother and makes a man subject to all the men of this world and not to men alone, but also to all beasts and wild animals, so that they may do with him whatsoever they will, in so far as it may be granted to them from above by the Lord.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "Saint Francis's greeting of the virtues as ladies paired in sisterhood (wisdom with simplicity, poverty with humility, charity with obedience) and his teaching on how each confounds its opposing vice. Thomas of Celano quotes its opening in his Second Life (about 1247). Paschal Robinson's 1906 translation; \"of them\" in square brackets is the translator's insertion.",
+      occasions: ["october-4", "daily"],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n61/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "we-adore-thee-lord-jesus-christ-saint-francis",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/cu31924029364787/page/n123/mode/1up"],
+    payload: {
+      slug: "we-adore-thee-lord-jesus-christ-saint-francis",
+      title: "We Adore Thee, Lord Jesus Christ (Prayer of Saint Francis from the Testament)",
+      body: "We adore Thee Lord Jesus Christ here and in all Thy churches which are in the whole world, and we bless Thee because by Thy holy cross Thou hast redeemed the world.",
+      prayerType: "general",
+      category: "devotional",
+      language: "en",
+      summary:
+        "The prayer that Saint Francis says in his Testament (1226) the Lord gave him such faith in churches that he would simply say on entering them. Paschal Robinson's 1906 translation; it is distinct from, though echoed by, the versicle said at each Station of the Cross.",
+      occasions: [
+        "adoration",
+        "visit-to-the-blessed-sacrament",
+        "stations-of-the-cross",
+        "october-4",
+      ],
+      relatedSaints: ["saint-francis-of-assisi"],
+      citations: ["https://archive.org/details/cu31924029364787/page/n123/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-great-art-thou-o-lord",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n50/mode/1up"],
+    payload: {
+      slug: "augustine-great-art-thou-o-lord",
+      title: "Great Art Thou, O Lord (Saint Augustine, Confessions I.1)",
+      body: "Great art Thou, O Lord, and greatly to be praised; great is Thy power, and Thy wisdom infinite. And Thee would man praise; man, but a particle of Thy creation; man, that bears about him his mortality, the witness of his sin, the witness, that Thou resistest the proud: yet would man praise Thee; he, but a particle of Thy creation. Thou awakest us to delight in Thy praise; for Thou madest us for Thyself, and our heart is restless, until it repose in Thee. Grant me, Lord, to know and understand which is first, to call on Thee or to praise Thee? and, again, to know Thee or to call on Thee? For who can call on Thee, not knowing Thee? For he that knoweth Thee not, may call on Thee as other than Thou art. Or, is it rather, that we call on Thee that we may know Thee? But how shall they call on Him in whom they have not believed? or how shall they believe without a preacher? And they that seek the Lord shall praise Him. For they that seek shall find Him, and they that find shall praise Him. I will seek Thee, Lord, by calling on Thee; and will call on Thee, believing in Thee; for to us hast Thou been preached. My faith, Lord, shall call on Thee, which Thou hast given me, wherewith Thou hast inspired me, through the Incarnation of Thy Son, through the ministry of the Preacher.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The opening chapter of Saint Augustine's Confessions, a prayer of praise that contains his best-known line: God made us for himself, and our heart is restless until it rests in him. The Preacher of the last line is Saint Ambrose, through whom Augustine came to the faith. E. B. Pusey's translation (1838).",
+      occasions: ["daily", "august-28", "praise"],
+      relatedSaints: ["saint-augustine-of-hippo", "saint-ambrose"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n50/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-what-art-thou-then-my-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n52/mode/1up"],
+    payload: {
+      slug: "augustine-what-art-thou-then-my-god",
+      title: "What Art Thou Then, My God? (Saint Augustine, Confessions I.4)",
+      body: "What art Thou then, my God? What, but the Lord God? For who is Lord but the Lord? or who is God save our God? Most highest, most good, most potent, most omnipotent; most merciful, yet most just; most hidden, yet most present; most beautiful, yet most strong; stable, yet incomprehensible; unchangeable, yet all-changing; never new, never old; all-renewing, and bringing age upon the proud, and they know it not; ever working, ever at rest; still gathering, yet nothing lacking; supporting, filling, and overspreading; creating, nourishing, and maturing; seeking, yet having all things. Thou lovest, without passion; art jealous, without anxiety; repentest, yet grievest not; art angry, yet serene; changest Thy works, Thy purpose unchanged; receivest again what Thou findest, yet didst never lose; never in need, yet rejoicing in gains; never covetous, yet exacting usury. Thou receivest over and above, that Thou mayest owe; and who hath aught that is not Thine? Thou payest debts, owing nothing; remittest debts, losing nothing. And what have I now said, my God, my life, my holy joy? or what saith any man when he speaks of Thee? Yet woe to him that speaketh not, since mute are even the most eloquent.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "Saint Augustine's hymn to the attributes of God from the fourth chapter of the Confessions, praising him in paradoxes as most hidden yet most present, never new and never old, ever working and ever at rest. E. B. Pusey's translation (1838).",
+      occasions: ["praise", "meditation", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n52/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-oh-that-i-might-repose-on-thee",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n52/mode/1up"],
+    payload: {
+      slug: "augustine-oh-that-i-might-repose-on-thee",
+      title: "Oh! That I Might Repose on Thee (Saint Augustine, Confessions I.5)",
+      body: "Oh! that I might repose on Thee! Oh! that Thou wouldest enter into my heart, and inebriate it, that I may forget my ills, and embrace Thee, my sole good? What art Thou to me? In Thy pity, teach me to utter it. Or what am I to Thee that Thou demandest my love, and, if I give it not, art wroth with me, and threatenest me with grievous woes? Is it then a slight woe to love Thee not? Oh! for Thy mercies' sake, tell me, O Lord my God, what Thou art unto me. Say unto my soul, I am thy salvation. So speak, that I may hear. Behold, Lord, my heart is before Thee; open Thou the ears thereof, and say unto my soul, I am thy salvation. After this voice let me haste, and take hold on Thee. Hide not Thy face from me. Let me die—lest I die—only let me see Thy face.\n\nNarrow is the mansion of my soul; enlarge Thou it, that Thou mayest enter in. It is ruinous; repair Thou it. It has that within which must offend Thine eyes; I confess and know it. But who shall cleanse it? or to whom should I cry, save Thee? Lord, cleanse me from my secret faults, and spare Thy servant from the power of the enemy. I believe, and therefore do I speak. Lord, Thou knowest. Have I not confessed against myself my transgressions unto Thee, and Thou, my God, hast forgiven the iniquity of my heart? I contend not in judgment with Thee, who art the truth; I fear to deceive myself; lest mine iniquity lie unto itself. Therefore I contend not in judgment with Thee; for if Thou, Lord, shouldest mark iniquities, O Lord, who shall abide it?",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        'Saint Augustine\'s plea from the fifth chapter of the Confessions that God would enter his heart and say to his soul, "I am thy salvation", enlarging the narrow mansion of the soul and cleansing it of its secret faults. A note in the 1838 edition explains the words "Let me die—lest I die": let me see the face of God though I die (Exodus 33:20), since not to see it is the second death. E. B. Pusey\'s translation (1838).',
+      occasions: ["daily", "confession", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n52/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-o-lord-i-am-thy-servant",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n204/mode/1up"],
+    payload: {
+      slug: "augustine-o-lord-i-am-thy-servant",
+      title: "O Lord, I Am Thy Servant (Saint Augustine, Confessions IX.1)",
+      body: "O Lord, I am Thy servant; I am Thy servant, and the son of Thy handmaid: Thou hast broken my bonds in sunder. I will offer to Thee the sacrifice of praise. Let my heart and my tongue praise Thee; yea let all my bones say, O Lord, who is like unto Thee? Let them say, and answer Thou me, and say unto my soul, I am thy salvation. Who am I, and what am I? What evil have not been either my deeds, or if not my deeds, my words, or if not my words, my will? But Thou, O Lord, art good and merciful, and Thy right hand had respect unto the depth of my death, and from the bottom of my heart emptied that abyss of corruption. And this Thy whole gift was, to nill what I willed, and to will what Thou willedst. But where through all those years, and out of what low and deep recess was my free-will called forth in a moment, whereby to submit my neck to Thy easy yoke, and my shoulders unto Thy light burthen, O Christ Jesus, my Helper and my Redeemer? How sweet did it at once become to me, to want the sweetnesses of those toys! and what I feared to be parted from, was now a joy to part with. For Thou didst cast them forth from me, Thou true and highest sweetness. Thou castest them forth, and for them enteredst in Thyself, sweeter than all pleasure, though not to flesh and blood; brighter than all light, but more hidden than all depths, higher than all honour, but not to the high in their own conceits. Now was my soul free from the biting cares of canvassing and getting, and weltering in filth, and scratching off the itch of lust. And my infant tongue spake freely to Thee, my brightness, and my riches, and my health, the Lord my God.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "Saint Augustine's thanksgiving, at the opening of Book IX of the Confessions, for the grace of his conversion, when God broke his bonds and made sweet the easy yoke of Christ he had feared to take up. E. B. Pusey's translation (1838).",
+      occasions: ["thanksgiving", "conversion", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n204/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-prayer-for-his-mother-monica",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n229/mode/1up"],
+    payload: {
+      slug: "augustine-prayer-for-his-mother-monica",
+      title: "Prayer for His Mother Monica (Saint Augustine, Confessions IX.13)",
+      body: "I therefore, O my Praise and my Life, God of my heart, laying aside for a while her good deeds, for which I give thanks to Thee with joy, do now beseech Thee for the sins of my mother. Hearken unto me, I entreat Thee, by the Medicine of our wounds, Who hung upon the tree, and now sitting at Thy right hand maketh intercession to Thee for us. I know that she dealt mercifully, and from her heart forgave her debtors their debts; do Thou also forgive her debts, whatever she may have contracted in so many years, since the water of salvation. Forgive her, Lord, forgive, I beseech Thee; enter not into judgment with her. Let Thy mercy be exalted above Thy justice, since Thy words are true, and Thou hast promised mercy unto the merciful; which Thou gavest them to be, who wilt have mercy on whom thou wilt have mercy; and wilt have compassion, on whom Thou hast had compassion.\n\nAnd, I believe, Thou hast already done what I ask; but accept, O Lord, the free-will offerings of my mouth. For she, the day of her dissolution now at hand, took no thought to have her body sumptuously wound up, or embalmed with spices; nor desired she a choice monument, or to be buried in her own land. These things she enjoined us not; but desired only to have her name commemorated at Thy Altar, which she had served without intermission of one day: whence she knew that holy sacrifice to be dispensed, by which the hand-writing that was against us, is blotted out; through which the enemy was triumphed over, who summing up our offences, and seeking what to lay to our charge, found nothing in Him, in Whom we conquer. Who shall restore to Him the innocent blood? Who repay Him the price wherewith He bought us, and so take us from Him? Unto the Sacrament of which our ransom, Thy handmaid bound her soul by the bond of faith. Let none sever her from Thy protection: let neither the lion nor the dragon interpose himself by force or fraud. For she will not answer that she owes nothing, lest she be convicted and seized by the crafty accuser: but she will answer, that her sins are forgiven her by Him, to Whom none can repay that price, which He, Who owed nothing, paid for us.\n\nMay she rest then in peace with the husband, before and after whom she had never any; whom she obeyed, with patience bringing forth fruit unto Thee, that she might win him also unto Thee. And inspire, O Lord my God, inspire Thy servants my brethren, Thy sons my masters, whom with voice, and heart, and pen I serve, that so many as shall read these Confessions, may at Thy Altar remember Monnica Thy handmaid, with Patricius, her sometimes husband, by whose bodies Thou broughtest me into this life, how, I know not. May they with devout affection remember my parents in this transitory light, my brethren under Thee our Father in our Catholic Mother, and my fellow citizens in that eternal Jerusalem, which Thy pilgrim people sigheth after from their Exodus, even unto their return thither. That so, my mother's last request of me, may through my confessions, more than through my prayers, be, through the prayers of many, more abundantly fulfilled to her.",
+      prayerType: "intercession",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The prayer with which Saint Augustine closes Book IX of the Confessions: he begs forgiveness for the sins of his mother, Saint Monica, who asked only to be remembered at the altar, and asks all who read the book to remember her and his father Patricius at Mass. E. B. Pusey's translation (1838), which spells her name Monnica.",
+      occasions: ["all-souls", "funerals", "august-27", "mothers"],
+      relatedSaints: ["saint-augustine-of-hippo", "saint-monica"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n229/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-let-me-know-thee-o-lord",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n231/mode/1up"],
+    payload: {
+      slug: "augustine-let-me-know-thee-o-lord",
+      title: "Let Me Know Thee, O Lord (Saint Augustine, Confessions X.1)",
+      body: "Let me know Thee, O Lord, who knowest me: let me know Thee, as I am known. Power of my soul, enter into it, and fit it for Thee, that Thou mayest have and hold it without spot or wrinkle. This is my hope, therefore do I speak; and in this hope do I rejoice, when I rejoice healthfully. Other things of this life are the less to be sorrowed for, the more they are sorrowed for; and the more to be sorrowed for, the less men sorrow for them. For behold, Thou lovest the truth, and he that doth it, cometh to the light. This would I do in my heart before Thee in confession: and in my writing, before many witnesses.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The prayer that opens Book X of the Confessions, asking to know God as one is known by him (1 Corinthians 13:12) and that he, the power of the soul, would enter it and fit it for himself. E. B. Pusey's translation (1838).",
+      occasions: ["daily", "meditation", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n231/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-give-what-thou-enjoinest",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n253/mode/1up"],
+    payload: {
+      slug: "augustine-give-what-thou-enjoinest",
+      title: "Give What Thou Enjoinest (Saint Augustine, Confessions X.29)",
+      body: "And all my hope is no where but in Thy exceeding great mercy. Give what Thou enjoinest, and enjoin what Thou wilt. Thou enjoinest us continency; and when I knew, saith one, that no man can be continent, unless God give it, this also was a part of wisdom to know whose gift she is. By continency verily, are we bound up and brought back into One, whence we were dissipated into many. For too little doth he love Thee, who loves any thing with Thee, which he loveth not for Thee. O love, who ever burnest and never consumest! O charity, my God! kindle me. Thou enjoinest continency: give me what Thou enjoinest, and enjoin what Thou wilt.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "Saint Augustine's short prayer of entire dependence on grace from Book X of the Confessions: \"Give what Thou enjoinest, and enjoin what Thou wilt\", with the cry to the love that ever burns and is never consumed to kindle him. A note in the 1838 edition recalls Augustine's own report that Pelagius could not bear to hear these words. E. B. Pusey's translation (1838).",
+      occasions: ["temptation", "chastity", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n253/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-o-lord-god-give-peace-unto-us",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/confessionsofsau01augu/page/n361/mode/1up"],
+    payload: {
+      slug: "augustine-o-lord-god-give-peace-unto-us",
+      title: "O Lord God, Give Peace unto Us (Saint Augustine, Confessions XIII.35-38)",
+      body: "O Lord God, give peace unto us: (for Thou hast given us all things;) the peace of rest, the peace of the Sabbath, which hath no evening. For all this most goodly array of things very good, having finished their courses, is to pass away, for in them there was morning and evening.\n\nBut the seventh day hath no evening, nor hath it setting; because Thou hast sanctified it to an everlasting continuance; that that which Thou didst after Thy works which were very good, resting the seventh day, although Thou madest them in unbroken rest, that may the voice of Thy Book announce beforehand unto us, that we also after our works, (therefore very good, because Thou hast given them us,) shall rest in Thee also in the Sabbath of eternal life.\n\nFor then shalt Thou so rest in us, as now Thou workest in us; and so shall that be Thy rest through us, as these are Thy works through us. But Thou, Lord, ever workest, and art ever at rest. Nor dost Thou see in time, nor art moved in time, nor restest in a time; and yet Thou makest things seen in time, yea the times themselves, and the rest which results from time.\n\nWe therefore see these things which Thou madest, because they are: but they are, because Thou seest them. And we see without, that they are, and within, that they are good, but Thou sawest them there, when made, where Thou sawest them, yet to be made. And we were at a later time moved to do well, after our hearts had conceived of Thy Spirit; but in the former time we were moved to do evil, forsaking Thee; but Thou, the One, the Good God, didst never cease doing good. And we also have some good works, of Thy gift, but not eternal; after them we trust to rest in Thy great hallowing. But Thou, being the Good which needeth no good, art ever at rest, because Thy rest is Thou Thyself. And what man can teach man to understand this? or what Angel, an Angel? or what Angel, a man? Let it be asked of Thee, sought in Thee, knocked for at Thee; so, so shall it be received, so shall it be found, so shall it be opened. Amen.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The four closing chapters of the Confessions, praying for the peace of the eternal Sabbath that has no evening, when God, who ever works and is ever at rest, will rest in us as he now works in us. E. B. Pusey's translation (1838).",
+      occasions: ["evening", "sunday", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://archive.org/details/confessionsofsau01augu/page/n361/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-bishops-and-the-people-committed-to-them",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n172/mode/1up"],
+    payload: {
+      slug: "prayer-for-bishops-and-the-people-committed-to-them",
+      title: "Prayer for Bishops and the People Committed to Them",
+      body: "Almighty and Everlasting God, who alone doest great wonders, send down upon Thy servants, and the congregations committed unto them, the spirit of Thy saving grace; and that they may truly please Thee, pour forth upon them the continual dew of Thy blessing.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking the spirit of saving grace and the continual dew of God's blessing for bishops and the flocks entrusted to them.",
+      occasions: ["for-the-church", "ordination"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n172/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-the-bishop-of-the-diocese",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n172/mode/1up"],
+    payload: {
+      slug: "prayer-for-the-bishop-of-the-diocese",
+      title: "Prayer for the Bishop of the Diocese",
+      body: "Grant, we beseech Thee, O Lord, to Thy servant our Bishop, that, by preaching and doing such things as are right, he may by the example of good works edify the minds of those under his authority, and receive of Thee, most tender Shepherd, an everlasting recompense and reward.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, praying that the diocesan bishop may teach by word and good example and receive an everlasting reward from God, the most tender Shepherd.",
+      occasions: ["for-the-church"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n172/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-concord-in-a-congregation",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n173/mode/1up"],
+    payload: {
+      slug: "prayer-for-concord-in-a-congregation",
+      title: "Prayer for Concord in a Congregation",
+      body: "O God, the Giver of peace and Lover of charity, grant to Thy servants true concord and union with Thy holy will, that we may be delivered from all temptations which assault us.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for true concord in a parish, community or household and union with the will of God.",
+      occasions: ["peace", "families", "for-the-church"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n173/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-against-the-persecutors-of-the-church",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n173/mode/1up"],
+    payload: {
+      slug: "prayer-against-the-persecutors-of-the-church",
+      title: "Prayer against the Persecutors of the Church",
+      body: "Mercifully hear, O Lord, we beseech Thee, the prayers of Thy Church: that all adversities and errors being done away, we may serve Thee with a pure and undisturbed devotion.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking that the Church, freed from every adversity and error, may serve God in undisturbed devotion.",
+      occasions: ["for-the-church", "persecuted-christians"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n173/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-in-any-tribulation",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n173/mode/1up"],
+    payload: {
+      slug: "prayer-in-any-tribulation",
+      title: "Prayer in Any Tribulation",
+      body: "O Almighty God, despise not Thy people who cry unto Thee in their affliction; but, for the glory of Thy name, turn away Thine anger, and help us in our tribulations.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, a short cry for help in any affliction.",
+      occasions: ["times-of-trouble", "suffering"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n173/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-in-time-of-famine-or-pestilence",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n173/mode/1up"],
+    payload: {
+      slug: "prayer-in-time-of-famine-or-pestilence",
+      title: "Prayer in Time of Famine or Pestilence",
+      body: "Grant, we beseech Thee, O Lord, an answer to our hearty supplications; and, Thy wrath being appeased, turn away from us this famine (or pestilence), that the hearts of men may know that these scourges proceed from Thine anger, and cease by Thy mercy.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, said in time of famine or of epidemic disease; the words in brackets are the book's own direction to name the affliction.",
+      occasions: ["times-of-trouble", "epidemic", "sickness"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n173/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-rain",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n174/mode/1up"],
+    payload: {
+      slug: "prayer-for-rain",
+      title: "Prayer for Rain",
+      body: "O God, in whom we live, and move, and are, grant us seasonable rain; that we, enjoying a sufficiency of support in this life, may with more confidence strive after the things which are eternal.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking seasonable rain in time of drought in the words of Saint Paul at Athens, "in whom we live, and move, and are" (Acts 17:28).',
+      occasions: ["drought", "creation", "rogation-days"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n174/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-fair-weather",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n174/mode/1up"],
+    payload: {
+      slug: "prayer-for-fair-weather",
+      title: "Prayer for Fair Weather",
+      body: "Hear us, O Lord, who cry unto Thee, and grant fair weather to us, Thy suppliant servants; that we, who are justly afflicted for our sins, may by Thy preventing pity find mercy.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking fair weather in a season of storms or excessive rain.",
+      occasions: ["weather", "rogation-days", "creation"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n174/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-the-gift-of-tears",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n174/mode/1up"],
+    payload: {
+      slug: "prayer-for-the-gift-of-tears",
+      title: "Prayer for the Gift of Tears",
+      body: "Almighty and most Merciful God, who didst cause a fount of living water to spring out of a rock, for Thy people in their thirst: draw forth tears of compunction from our stony hearts; that we may weep over our sins, and by Thy mercy deserve to obtain pardon for the same.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking that as God drew water from the rock for Israel in the desert, he may draw tears of compunction from hearts of stone.",
+      occasions: ["lent", "penance", "confession"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n174/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-the-forgiveness-of-sins",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n174/mode/1up"],
+    payload: {
+      slug: "prayer-for-the-forgiveness-of-sins",
+      title: "Prayer for the Forgiveness of Sins",
+      body: "O God, who rejectest none that come unto Thee, but in loving-kindness art appeased even with the greatest sinners who repent: mercifully regard our prayers in our humiliation, and enlighten our hearts, that we may be able to fulfil Thy commandments.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, trusting in the God who rejects no repentant sinner.",
+      occasions: ["confession", "penance", "lent"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n174/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-the-tempted-and-afflicted",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n175/mode/1up"],
+    payload: {
+      slug: "prayer-for-the-tempted-and-afflicted",
+      title: "Prayer for the Tempted and Afflicted",
+      body: "O God, who justifiest the ungodly, and willest not the death of a sinner: we humbly entreat Thy Majesty to protect Thy servants, who trust in Thy mercy, with Thy heavenly assistance, and preserve them by Thy continual protection; that they may constantly serve Thee, and by no temptation be separated from Thee.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for all who are tempted or troubled, that no temptation may separate them from God.",
+      occasions: ["temptation", "times-of-trouble"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n175/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-against-evil-thoughts",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n175/mode/1up"],
+    payload: {
+      slug: "prayer-against-evil-thoughts",
+      title: "Prayer against Evil Thoughts",
+      body: "Almighty and most Merciful God, graciously hearken unto our prayers: and free our hearts from the temptations of evil thoughts; that we may worthily become a fit habitation for Thy Holy Spirit.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking to be freed from tempting thoughts so as to become a fit dwelling for the Holy Spirit.",
+      occasions: ["temptation", "purity"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n175/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-the-gift-of-humility",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n175/mode/1up"],
+    payload: {
+      slug: "prayer-for-the-gift-of-humility",
+      title: "Prayer for the Gift of Humility",
+      body: "O God, who resistest the proud, and givest grace to the humble: grant us the virtue of true humility, whereof Thine Only-begotten showed in Himself a pattern for Thy faithful; that we may never by our pride provoke Thine anger, but rather by our meekness receive the riches of Thy grace.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, built on James 4:6, "God resisteth the proud, and giveth grace to the humble", asking for the humility of which Christ is the pattern.',
+      occasions: ["humility", "daily"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n175/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-the-gift-of-patience",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n176/mode/1up"],
+    payload: {
+      slug: "prayer-for-the-gift-of-patience",
+      title: "Prayer for the Gift of Patience",
+      body: "O God, who didst crush the pride of the enemy by the long-suffering of Thine Only-begotten Son: grant, we beseech Thee, that we may worthily recall those things which in His tender love He bore for us; and thus following His example may patiently endure all our adversities.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking to bear every adversity patiently after the example of Christ's long-suffering.",
+      occasions: ["suffering", "daily"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n176/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-the-gift-of-charity",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n176/mode/1up"],
+    payload: {
+      slug: "prayer-for-the-gift-of-charity",
+      title: "Prayer for the Gift of Charity",
+      body: "O God, who makest all things to work together for good unto those who love Thee: give to our hearts the lasting affection of Thy love; that such desires as are inspired by Thee may never be changed by any temptation.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, echoing Romans 8:28 and asking for a lasting love of God that no temptation can change.",
+      occasions: ["act-of-love", "daily"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n176/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-those-at-sea",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n176/mode/1up"],
+    payload: {
+      slug: "prayer-for-those-at-sea",
+      title: "Prayer for Those at Sea",
+      body: "O God, who didst bring our fathers through the Red Sea, and bear them through the great waters singing praises unto Thy name: we humbly beseech Thee to vouchsafe to turn away all adversities from Thy servants at sea, and to bring them with a calm voyage unto the haven where they would be.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for sailors and all who travel by sea, recalling the crossing of the Red Sea.",
+      occasions: ["travel", "seafarers"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n176/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-our-friends",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n177/mode/1up"],
+    payload: {
+      slug: "prayer-for-our-friends",
+      title: "Prayer for Our Friends",
+      body: "O God, who, by the grace of the Holy Spirit, hast poured into the hearts of Thy faithful the gifts of charity: grant to Thy servants and handmaids, for whom we implore Thy mercy, health both of body and soul; that they may love Thee with all their strength, and cheerfully perform those things which are pleasing unto Thee.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking health of body and soul for friends and for all for whom we pray.",
+      occasions: ["friends", "healing"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n177/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-our-enemies",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n177/mode/1up"],
+    payload: {
+      slug: "prayer-for-our-enemies",
+      title: "Prayer for Our Enemies",
+      body: "O God, the lover and preserver of peace and charity: grant unto all our enemies peace and true charity; give them remission of all their sins, and by Thy power deliver us from their snares.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, fulfilling Christ's command to pray for those who persecute us by asking peace, charity and pardon for them.",
+      occasions: ["peace", "forgiveness"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n177/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "a-short-recommendation-to-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n178/mode/1up"],
+    payload: {
+      slug: "a-short-recommendation-to-god",
+      title: "A Short Recommendation to God",
+      body: "Into the hands of Thy unspeakable mercy, O Lord, I commend my soul and body; my senses, my words, my thoughts, and all my actions, with all the necessities of my body and soul; my going forth and my coming in; my faith and conversation; the course and end of my life; the day and hour of my death; my rest and resurrection with the Saints and Elect.",
+      prayerType: "act",
+      category: "general",
+      language: "en",
+      summary:
+        "A brief act of commending body, soul and the whole course of life and death into God's mercy, printed among the occasional prayers of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["morning", "evening", "offering"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n178/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-a-sick-person-near-death",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n178/mode/1up"],
+    payload: {
+      slug: "prayer-for-a-sick-person-near-death",
+      title: "Prayer for a Sick Person near Death",
+      body: "Almighty and Everlasting God, preserver of souls, who dost correct those whom Thou dost love, and for their amendment dost tenderly chastise those whom Thou dost receive, we call upon Thee, O Lord, to bestow Thy healing, that the soul of Thy servant, at the hour of its departure from the body, may by the hands of Thy holy Angels be presented without spot unto Thee.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the collects for particular needs in the Roman Missal (orationes diversae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for a sick person close to death, that the soul may be presented spotless to God by the hands of the angels.",
+      occasions: ["deathbed", "for-the-dying", "sickness"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n178/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-parents-for-their-children",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n179/mode/1up"],
+    payload: {
+      slug: "prayer-of-parents-for-their-children",
+      title: "Prayer of Parents for Their Children",
+      body: "O Father of mankind, who hast given unto me these my children, and committed them to my charge to bring them up for Thee, and to prepare them for everlasting life: assist me with Thy heavenly grace, that I may be able to fulfil this most sacred duty and stewardship. Teach me both what to give and what to withhold; when to reprove and when to forbear; make me to be gentle, yet firm; considerate and watchful; and deliver me equally from the weakness of indulgence, and the excess of severity; and grant that, both by word and example, I may be careful to lead them in the ways of wisdom and true piety, so that at last I may, with them, be admitted to the unspeakable joys of our true home in heaven, in the company of the blessed Angels and Saints.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "A parent's prayer for the grace to raise children for God, knowing what to give and what to withhold, when to reprove and when to forbear, and to be gentle yet firm. Printed among the occasional prayers of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["families", "children", "parents"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n179/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-parents-commending-their-children-to-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n180/mode/1up"],
+    payload: {
+      slug: "prayer-of-parents-commending-their-children-to-god",
+      title: "Prayer of Parents Commending Their Children to God",
+      body: "O Heavenly Father, I commend my children unto Thee. Be Thou their God and Father; and mercifully supply whatever is wanting in me through frailty or negligence. Strengthen them to overcome the corruptions of the world, to resist all solicitations to evil, whether from within or without; and deliver them from the secret snares of the enemy. Pour Thy grace into their hearts, and confirm and multiply in them the gifts of Thy Holy Spirit, that they may daily grow in grace and in the knowledge of our Lord Jesus Christ; and so, faithfully serving Thee here, may come to rejoice in Thy presence hereafter.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "A parent's act of entrusting children to God as their Father, asking him to supply what is lacking in the parent and to strengthen them against evil. The second of the parents' prayers in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["families", "children", "parents"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n180/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "a-childs-prayer-for-parents",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n180/mode/1up"],
+    payload: {
+      slug: "a-childs-prayer-for-parents",
+      title: "A Child's Prayer for Parents",
+      body: "O Almighty God, who hast given unto me my father and mother, and made them to be an image of Thine authority, and love, and tender watchfulness; and hast commanded me to love, and honor, and obey them in all things: give me grace cheerfully and with my whole heart to keep this Thy law. Help me to love them fervently, to honor them truly, to yield a ready obedience to their commands, to comply with their wishes, to study their happiness in everything, and to bear their rebukes with patience and humility. Deliver me, O God, from pride, rebellion, and wilfulness, from passion and stubbornness, from sloth and carelessness. Make me diligent in all my duties and studies, and patient in all my trials; that so living, I may deserve to be Thy child, who art our Father in Heaven.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A child's prayer to keep the Fourth Commandment, seeing in father and mother an image of God's authority and love, printed as A Child's Prayer in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["children", "families", "parents"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n180/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-choosing-a-state-of-life",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n181/mode/1up"],
+    payload: {
+      slug: "prayer-for-choosing-a-state-of-life",
+      title: "Prayer for Choosing a State of Life",
+      body: "O Lord, I beseech Thee to grant me Thy divine light, that I may know the designs of Thy providence concerning me, and that, filled with a sincere desire for my soul's salvation, I may say, with the young man in the Gospel: What must I do to be saved? All states of life are before me; but, still undecided what to do, I await Thy commands, I offer myself to Thee without restriction, without reserve, with a most perfect submission.\n\nFar be it from me, O Lord, to oppose the order of Thy wisdom, and, unfaithful to the inspiration of Thy grace, to strive to subject the will of the Creator to the caprice of the creature. It is not for the servant to choose the way in which he will serve his master: do Thou lay upon me what commands Thou pleasest. My lot is in Thy hands. I make no exception, lest perchance what I except be that which Thou willest, and because I am too short-sighted to discover in the future the different obstacles I shall meet with, if, without Thy guidance, I make myself the arbiter of my own conduct. Speak, Lord, to my soul; speak to me as Thou didst to the youthful Samuel: Speak, Lord; for Thy servant heareth. I cast myself at Thy feet, and I am ready, if it be Thy will, to sacrifice myself as a victim to Thee for the remainder of my days, in such wise as Thou shalt deem most worthy of Thy greatness.\n\nO my God, inspire the affections of my parents, and guide their projects according to the counsels of Thy wisdom. Lord, I sincerely desire to consult Thee who art the Eternal Truth; grant that my parents also may submit themselves to its decrees, faithfully and without reserve.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A young person's prayer for light to know God's will about a state of life, offering to follow his call without reserve in the words of the rich young man and of the boy Samuel (1 Samuel 3:10), and praying that parents too may accept God's plan. From the occasional prayers of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["vocations", "discernment"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n181/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-the-church-and-the-civil-authorities",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n63/mode/1up"],
+    payload: {
+      slug: "prayer-for-the-church-and-the-civil-authorities",
+      title: "Prayer for the Church and the Civil Authorities (Archbishop John Carroll)",
+      body: "We pray Thee, O Almighty and Eternal God, who through Jesus Christ hast revealed Thy glory to all nations, to preserve the works of Thy mercy; that Thy Church, being spread through the whole world, may continue, with unchanging faith, in the confession of Thy Name.\n\nWe pray Thee, who alone art good and holy, to endow with heavenly knowledge, sincere zeal, and sanctity of life our chief Bishop, N., the Vicar of our Lord Jesus Christ in the government of His Church; our own Bishop, (or Archbishop,) N. (if he is not consecrated, our Bishop-elect); all other Bishops, Prelates, and Pastors of the Church; and especially those who are appointed to exercise among us the functions of the holy ministry, and conduct Thy people into the ways of salvation.\n\nWe pray Thee, O God of might, wisdom, and justice, through whom authority is rightly administered, laws are enacted, and judgment decreed, assist, with Thy Holy Spirit of counsel and fortitude, the President of these United States, that his administration may be conducted in righteousness, and be eminently useful to Thy people, over whom he presides, by encouraging due respect for virtue and religion; by a faithful execution of the laws in justice and mercy; and by restraining vice and immorality. Let the light of Thy divine wisdom direct the deliberations of Congress, and shine forth in all the proceedings and laws framed for our rule and government; so that they may tend to the preservation of peace, the promotion of national happiness, the increase of industry, sobriety, and useful knowledge, and may perpetuate to us the blessings of equal liberty.\n\nWe pray for his Excellency the Governor of this State, for the members of the Assembly, for all Judges, Magistrates, and other officers who are appointed to guard our political welfare; that they may be enabled, by Thy powerful protection, to discharge the duties of their respective stations with honesty and ability.\n\nWe recommend likewise to Thy unbounded mercy all our brethren and fellow-citizens, throughout the United States, that they may be blessed in the knowledge, and sanctified in the observance of Thy most holy law; that they may be preserved in union, and in that peace which the world cannot give; and, after enjoying the blessings of this life, be admitted to those which are eternal.\n\nFinally, we pray Thee, O Lord of mercy, to remember the souls of Thy servants departed who are gone before us with the sign of faith, and repose in the sleep of peace: the souls of our parents, relations, and friends; of those who, when living, were members of this congregation; and particularly of such as are lately deceased; of all benefactors who, by their donations or legacies to this Church, witnessed their zeal for the decency of divine worship, and proved their claim to our grateful and charitable remembrance. To these, O Lord, and to all that rest in Christ, grant, we beseech Thee, a place of refreshment, light, and everlasting peace, through the same Jesus Christ, our Lord and Saviour. Amen.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        'The prayer composed by John Carroll, first bishop and archbishop of Baltimore, for the Pope and the bishops, for the President, Congress, the Governor and all who hold public office, for the whole people of the United States, and for the faithful departed. The Manual of Prayers (1889) heads it with the date 1800; "N." marks where the names of the Pope and the local bishop are said.',
+      occasions: ["for-the-church", "country", "all-souls"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n63/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "universal-prayer-of-pope-clement-xi",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n182/mode/1up"],
+    payload: {
+      slug: "universal-prayer-of-pope-clement-xi",
+      title: "The Universal Prayer for All Things Necessary to Salvation (Pope Clement XI)",
+      body: "O my God, I believe in Thee; do Thou strengthen my faith. All my hopes are in Thee; do Thou secure them. I love Thee; teach me to love Thee daily more and more. I am sorry that I have offended Thee; do Thou increase my sorrow.\n\nI adore Thee as my first beginning; I aspire after Thee as my last end. I give Thee thanks as my constant benefactor; I call upon Thee as my sovereign protector.\n\nVouchsafe, O my God, to conduct me by Thy wisdom, to restrain me by Thy justice, to comfort me by Thy mercy, to defend me by Thy power.\n\nTo Thee I desire to consecrate all my thoughts, words, actions, and sufferings; that henceforward I may think of Thee, speak of Thee, refer all my actions to Thy greater glory, and suffer willingly whatever Thou shalt appoint.\n\nLord, I desire that in all things Thy will may be done, because it is Thy will, and in the manner that Thou willest.\n\nI beg of Thee to enlighten my understanding, to inflame my will, to purify my body, and to sanctify my soul.\n\nGive me strength, O my God, to expiate my offences, to overcome my temptations, to subdue my passions, and to acquire the virtues proper for my state.\n\nFill my heart with tender affection for Thy goodness, hatred of my faults, love of my neighbor, and contempt of the world.\n\nLet me always remember to be submissive to my superiors, courteous to my inferiors, faithful to my friends, and charitable to my enemies.\n\nAssist me to overcome sensuality by mortification, avarice by almsdeeds, anger by meekness, and tepidity by devotion.\n\nO my God, make me prudent in my undertakings, courageous in dangers, patient in affliction, and humble in prosperity.\n\nGrant that I may be ever attentive at my prayers, temperate at my meals, diligent in my employments, and constant in my resolutions.\n\nLet my conscience be ever upright and pure, my exterior modest, my conversation edifying, and my deportment regular.\n\nAssist me, that I may continually labor to overcome nature, to correspond with Thy grace, to keep Thy commandments, and to work out my salvation.\n\nDiscover to me, O my God, the nothingness of this world, the greatness of heaven, the shortness of time, and the length of eternity.\n\nGrant that I may prepare for death; that I may fear Thy judgments, escape hell, and in the end obtain heaven; through Jesus Christ our Lord. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A comprehensive prayer of faith, hope, love and contrition, and for every virtue needed for salvation, which the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore ascribes to Pope Clement XI (1721).",
+      occasions: ["daily", "morning"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n182/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-a-deceased-pope",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n598/mode/1up"],
+    payload: {
+      slug: "prayer-for-a-deceased-pope",
+      title: "Prayer for a Deceased Pope",
+      body: "O God, by whose inscrutable appointment Thy servant N. (here express his name) was numbered among the Chief Bishops: grant, we beseech Thee, that he, who was Vicar of Thine Only-begotten Son on earth, may receive a place among Thy holy Pontiffs who have entered into everlasting blessedness.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the Roman Missal's collects for the dead, in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for a pope who has died, that he who was Christ's Vicar on earth may be numbered among the holy pontiffs in heaven. The words in brackets are the book's direction to say the name.",
+      occasions: ["all-souls", "funerals", "for-the-pope"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n598/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-a-deceased-bishop-or-priest",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n599/mode/1up"],
+    payload: {
+      slug: "prayer-for-a-deceased-bishop-or-priest",
+      title: "Prayer for a Deceased Bishop or Priest",
+      body: "O God, who didst raise Thy servant N. (here express his name) to the dignity of Bishop (or Priest) in the Apostolic Priesthood: grant, we beseech Thee, that he may be for ever united to the company of the same.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the Roman Missal's collects for the dead, in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for a bishop or priest who has died, that he may be joined for ever to the company of the apostolic priesthood he shared on earth. The words in brackets are the book's direction to say the name.",
+      occasions: ["all-souls", "funerals", "for-priests"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n599/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-a-deceased-bishop",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n599/mode/1up"],
+    payload: {
+      slug: "prayer-for-a-deceased-bishop",
+      title: "Prayer for a Deceased Bishop",
+      body: "Grant, we beseech Thee, O Lord, that the soul of Thy servant Bishop N. (here express his name), which Thou hast taken from the toilsome conflict of this world, may have fellowship among Thy Saints.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the Roman Missal's collects for the dead, in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, a second prayer for a bishop, that the soul taken from the toil of this world may have fellowship with the saints. The words in brackets are the book's direction to say the name.",
+      occasions: ["all-souls", "funerals", "for-the-church"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n599/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-a-deceased-priest",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n599/mode/1up"],
+    payload: {
+      slug: "prayer-for-a-deceased-priest",
+      title: "Prayer for a Deceased Priest",
+      body: "O Lord, we pray Thee that the soul of Thy Priest, Thy servant N. (here express his name), which, while he abode in this world, Thou didst adorn with sacred gifts, may ever rejoice in a glorious seat in heaven.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the Roman Missal's collects for the dead, in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for a priest who has died, whom God adorned with sacred gifts in this life, that he may rejoice for ever in heaven. The words in brackets are the book's direction to say the name.",
+      occasions: ["all-souls", "funerals", "for-priests"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n599/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-a-deceased-man",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n599/mode/1up"],
+    payload: {
+      slug: "prayer-for-a-deceased-man",
+      title: "Prayer for a Deceased Man",
+      body: "O Lord, incline Thine ear unto the prayers whereby we humbly call upon Thee to show mercy unto the soul of Thy servant N. (here express the name), which Thou hast commanded to depart out of this life; that it may please Thee to set him in a place of peace and light, and give him a part with Thy Saints.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the Roman Missal's collects for the dead, in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for a man who has died, that God may set him in a place of peace and light among the saints. The words in brackets are the book's direction to say the name.",
+      occasions: ["all-souls", "funerals"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n599/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-a-deceased-woman",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n600/mode/1up"],
+    payload: {
+      slug: "prayer-for-a-deceased-woman",
+      title: "Prayer for a Deceased Woman",
+      body: "Lord, we beseech Thee, in the tenderness of Thy great mercy, to have pity upon the soul of Thy handmaid N. (here express her name); cleanse her from all defilements which have stained this mortal body, and give her inheritance in everlasting salvation.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the Roman Missal's collects for the dead, in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for a woman who has died, that she may be cleansed of every stain of mortal life and given her inheritance in everlasting salvation. The words in brackets are the book's direction to say the name.",
+      occasions: ["all-souls", "funerals"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n600/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-deceased-parents",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n600/mode/1up"],
+    payload: {
+      slug: "prayer-for-deceased-parents",
+      title: "Prayer for Deceased Parents",
+      body: "O God, who hast commanded us to honor our father and mother, look in the tenderness of Thy mercy upon the souls of my father and mother, and forgive them their sins, and grant unto me the joy of seeing them again in the glorious light of everlasting life.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the Roman Missal's collects for the dead, in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, in which a son or daughter prays for a dead father and mother, honouring them as God commands and asking the joy of seeing them again in everlasting light. The book sets souls, father and mother, them and their in italics, as the words to change when praying for one parent.",
+      occasions: ["all-souls", "funerals", "november", "parents"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n600/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-a-dead-friend",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n600/mode/1up"],
+    payload: {
+      slug: "prayer-for-a-dead-friend",
+      title: "Prayer for a Dead Friend",
+      body: "Help us, O God of our salvation, and at the prayers of Mary, the most Blessed Mother of God, ever Virgin, let the soul of Thy servant have a place in the light of everlasting blessedness.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the Roman Missal's collects for the dead, in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for a friend who has died, asking through the prayers of the Blessed Virgin a place in the light of everlasting blessedness.",
+      occasions: ["all-souls", "funerals", "friends"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n600/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-departed-benefactors",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n601/mode/1up"],
+    payload: {
+      slug: "prayer-for-departed-benefactors",
+      title: "Prayer for Departed Benefactors",
+      body: "Have mercy, O Lord, we beseech Thee, upon the souls of all our departed benefactors, and in return for the benefits which they bestowed upon us on earth let them obtain an eternal reward in heaven.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the Roman Missal's collects for the dead, in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for all departed benefactors, that their kindness on earth may be repaid with an eternal reward.",
+      occasions: ["all-souls", "november", "thanksgiving"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n601/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-those-we-are-bound-to-pray-for",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n601/mode/1up"],
+    payload: {
+      slug: "prayer-for-those-we-are-bound-to-pray-for",
+      title: "Prayer for Those We Are Bound to Pray For",
+      body: "Grant, we beseech Thee, O Lord our God, that the souls of Thy servants and handmaidens, the commemoration of whom we keep with special reverence, and for whom we are bidden and are bound to pray, and the souls of all our benefactors, relations, and connections, and all the faithful, may rest in the bosom of Thy Saints; and hereafter, in the Resurrection from the dead, may please Thee in the land of the living.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the Roman Missal's collects for the dead, in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for every soul we are especially bound to remember, our benefactors, relatives and all the faithful departed, that they may rest with the saints and rise to please God in the land of the living.",
+      occasions: ["all-souls", "november"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n601/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-one-overtaken-by-sudden-death",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n601/mode/1up"],
+    payload: {
+      slug: "prayer-for-one-overtaken-by-sudden-death",
+      title: "Prayer for One Overtaken by Sudden Death",
+      body: "Almighty and merciful God, in whose hand is the lot of man, absolve the soul of Thy servant, we beseech Thee, from all sins; that although surprised by sudden death he may not lose the benefit of the repentance which he desired.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the Roman Missal's collects for the dead, in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, for someone taken by sudden death, that he may not lose the fruit of the repentance he desired.",
+      occasions: ["all-souls", "funerals", "sudden-death"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n601/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-those-who-repose-in-a-cemetery",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n601/mode/1up"],
+    payload: {
+      slug: "prayer-for-those-who-repose-in-a-cemetery",
+      title: "Prayer for Those Who Repose in a Cemetery",
+      body: "O God, in whose tender mercy the souls of the faithful are at rest, of Thy favor give unto the souls of all Thy servants and handmaidens, who here and everywhere sleep in Christ, pardon of sin; that they, being absolved from all guilt, may evermore rejoice with Thee. Through our Lord Jesus Christ, Thy Son, who liveth and reigneth with Thee, in the unity of the Holy Ghost, God, world without end. Amen.",
+      prayerType: "intercession",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "One of the Roman Missal's collects for the dead, in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, traditionally said when visiting a cemetery, for all who sleep in Christ there and everywhere.",
+      occasions: ["all-souls", "november", "cemetery-visit"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n601/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-divine-assistance-to-make-a-good-confession",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n279/mode/1up"],
+    payload: {
+      slug: "prayer-for-divine-assistance-to-make-a-good-confession",
+      title: "Prayer to Implore the Divine Assistance to Make a Good Confession",
+      body: "O Almighty and most merciful God, who hast made me out of nothing, and redeemed me by the Precious Blood of Thine Only Son; who hast with so much patience borne with me to this day, notwithstanding all my sins and ingratitude; ever calling after me to return to Thee from the ways of vanity and iniquity, in which I have been quite wearied out in the pursuit of empty toys and mere shadows; seeking in vain to satisfy my thirst in unclean waters, and my hunger with husks of swine: behold, O most gracious Lord, I now sincerely desire to leave all these my evil ways, to forsake the region of death where I have so long lost myself, and to return to Thee, the Fountain of Life. I desire, like the prodigal son, to enter seriously into myself, and with the like resolution to arise without delay, and to go home to my Father—though I am infinitely unworthy to be called His child—in hopes of meeting with the like reception from His most tender mercy. But, O my God, though I can go astray from Thee of myself, yet I cannot make one step towards returning to Thee, unless Thy divine grace move and assist me. This grace, therefore, I most humbly implore, prostrate in spirit before the throne of Thy mercy; I beg it for the sake of Jesus Christ, Thy Son, who died upon the Cross for my sins; I know that Thou desirest not the death of a sinner, but that he may be converted and live; I know Thy mercies are above all Thy works; and I most confidently hope that as in Thy mercy Thou hast spared me so long, and hast now given me this desire of returning to Thee, so Thou wilt finish the work which Thou hast begun, and bring me to a perfect reconciliation with Thee.\n\nI desire now to comply with Thy holy institution of the Sacrament of Penance; I desire to confess my sins with all sincerity to Thee and to Thy minister; and therefore I desire to know myself, and to call myself to an account by a diligent examination of my conscience. But, O my God, how miserably shall I deceive myself if Thou assist me not in this great work by Thy heavenly light. O then remove every veil that hides any of my sins from me, that I may see them all in their true colors, and may sincerely detest them. O let me no longer be imposed upon by the Enemy of souls, or by my own self-love, so as to mistake vice for virtue, to hide myself from myself, or in any way to make excuses in sins.\n\nBut, O my good God, what will it avail me to know my sins, if Thou dost not also give me a hearty sorrow and repentance for them? Without this my sins will be all upon me still, and I shall be still Thine enemy and a child of hell. Thou dost require that contrite heart, without which there can be no reconciliation with Thee; and this heart none but Thyself can give. O then, dear Lord, grant it unto me at this time. Give me a lively faith, and a steadfast hope, in the Passion of my Redeemer; teach me to fear Thee and to love Thee. Give me, for Thy mercy's sake, a hearty sorrow for having offended so good a God. Teach me to detest my evil ways; to abhor all my past ingratitude; to hate myself now with a perfect hatred for my many treasons against Thee. O give me a full and a firm resolution to lead henceforward a new life; and unite me unto Thee with an eternal band of love which nothing in life or death may ever break.\n\nGrant me also the grace to make an entire and sincere confession of all my sins, and to accept the confusion of it as a penance justly due to my transgressions. Let not the Enemy prevail upon me to pass over anything through fear or shame; rather let me die than consent to so great an evil. Let no self-love deceive me, as I fear it has done too often. O grant that this confession may be good; and for the sake of Jesus Christ, Thy Son, who died for me and for all sinners, assist me in every part of my preparation for it; that I may perform it with the same care and diligence as I should be glad to do at the hour of my death; that so, being perfectly reconciled to Thee, I may never offend Thee more. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A long prayer of preparation for the Sacrament of Penance in the spirit of the prodigal son: it asks for light to know one's sins, sorrow for them, a firm purpose of amendment and the grace of an entire and sincere confession. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["confession", "examination-of-conscience", "lent"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n279/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-before-examination-of-conscience",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n282/mode/1up"],
+    payload: {
+      slug: "prayer-before-examination-of-conscience",
+      title: "Prayer before Examination of Conscience (O Almighty God, Maker of Heaven and Earth)",
+      body: "O Almighty God, Maker of heaven and earth, King of kings, and Lord of lords, who hast made me out of nothing in Thine image and likeness, and hast redeemed me with Thine own Blood; whom I a sinner am not worthy to name, or call upon, or think of: I humbly pray Thee, I earnestly beseech Thee, to look mercifully on me, Thy wicked servant. Thou who hadst mercy on the woman of Chanaan and Mary Magdalen; Thou who didst spare the publican and the thief upon the cross, have mercy upon me. Thou art my hope and my trust; my guide and my succor; my comfort and my strength; my defence and my deliverance; my life, my health, and my resurrection; my light and my longing; my help and my protection. I pray and entreat Thee, help me and I shall be safe; direct me and defend me; strengthen me and comfort me; confirm me and gladden me; enlighten me and come unto me. Raise me from the dead; I am Thy creature, and the work of Thy hands. Despise me not, O Lord, neither regard my iniquities; but according to the multitude of Thy tender mercies have mercy upon me, the chief of sinners, and be gracious unto me. Turn Thou unto me, O Lord, and be not angry with me. I implore Thee, most compassionate Father, I pray Thee meekly of Thy great mercy, to bring me to a holy death, and to true penance, to a perfect confession, and to worthy satisfaction for all my sins. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A prayer for mercy before examining one's conscience, recalling the Canaanite woman, Mary Magdalen, the publican and the good thief, and asking for true penance, a perfect confession and worthy satisfaction. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["confession", "examination-of-conscience"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n282/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-light-before-examination-of-conscience",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n283/mode/1up"],
+    payload: {
+      slug: "prayer-for-light-before-examination-of-conscience",
+      title: "Prayer for Light before Examination of Conscience",
+      body: "O Lord God, who enlightenest every man who cometh into this world, enlighten my heart, I pray Thee, with the light of Thy grace, that I may fully know my sins, shortcomings, and negligences, and may confess them with that true sorrow and contrition of heart which I so much need. I desire to make full amends for all my sins, and to avoid them for the future to Thy honor and glory, and to the salvation of my soul, through Jesus Christ our Lord. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A short prayer to God, who enlightens every man that comes into this world (John 1:9), for light to know one's sins fully and confess them with true contrition. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["confession", "examination-of-conscience"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n283/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "aspirations-after-examination-of-conscience",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n289/mode/1up"],
+    payload: {
+      slug: "aspirations-after-examination-of-conscience",
+      title: "Aspirations after Examination of Conscience",
+      body: "O my God, I cry unto Thee with the prodigal: Father, I have sinned against heaven and before Thee; I am no longer worthy to be called Thy Son.\n\nI have gone astray like a sheep that is lost. O seek Thy servant, for I have not forgotten Thy commandments.\n\nEnter not into judgment with Thy servant, O Lord. O spare me for Thy mercy's sake.\n\nProve me, O God, and know my heart; examine me, and know my paths.\n\nThou whose property is always to have mercy and to spare, O meet me in pity, embrace me in love, and forgive me all my sin.\n\nI confess my sins unto Thee, O Christ, Healer of our souls, O Lord of Life. Heal me, heal me of my spiritual sickness, Thou who art long-suffering and of tender mercy; heal me, O Lord Christ.\n\nAccept my supplications, O Thou Holy Spirit, unto whom every heart is open, every desire known, and from whom no secret is hid, and who givest life to our souls; hear and answer, O Spirit of God.\n\nO Heavenly Father, who willest not that any sinner should perish, give me true repentance for this my sin, that I perish not!\n\nTo what misery am I come by my own fault! O merciful God, pity and forgive me for Jesus' sake.\n\nThine eyes, O God, are as a flame of fire searching my inmost heart. O pardon my sin, for it is great!\n\nThou, God, seest me in all the foulness of my sins! Blessed Jesus, speak for me, plead for me, come between my soul and my offended God, that I perish not. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "Short penitential aspirations to say once one's sins have been recalled, most of them drawn from Scripture: the prodigal son's confession, the lost sheep, and the Psalms' pleas to be searched and spared. The Manual adds that the Miserere or another penitential psalm may follow. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["confession", "examination-of-conscience", "lent"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n289/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-before-confession",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n291/mode/1up"],
+    payload: {
+      slug: "prayer-before-confession",
+      title: "Prayer before Confession (Accept My Confession, O Most Loving Lord Jesus Christ)",
+      body: "Accept my Confession, O most loving, most gracious Lord Jesus Christ, on whom alone my soul trusts for salvation. Grant me, I beseech Thee, contrition of heart, and give tears to mine eyes, that I may sorrow deeply for all my sins with humility and sincerity of heart.\n\nO good Jesus, Saviour of the world, who gavest Thyself to the death of the Cross to save sinners, look on me, a miserable sinner who calls upon Thy name. Spare me, Thou that art my Saviour, and pity my sinful soul; loose its chains, heal its sores. Lord Jesus, I desire Thee, I seek Thee, I long for Thee; show me the light of Thy countenance, and I shall be saved; send forth Thy light and Thy truth into my soul, to show me fully all the sins and shortcomings which I must still confess, and to aid and teach me to lay them bare without reserve and with a contrite heart; O Thou who livest and reignest with God the Father, in the unity of the Holy Ghost, one God, world without end. Amen.\n\nO most gracious Virgin Mary, beloved Mother of Jesus Christ, my Redeemer, intercede for me with Him. Obtain for me the full remission of my sins, and perfect amendment of life, to the salvation of my soul and the glory of His name. Amen.\n\nI implore the same grace of thee, O my Angel Guardian; of you, my holy Patrons, N. N.; of you, O blessed Peter and holy Magdalen, and of all the Saints of God. Intercede for me a sinner, repenting of my sins, firmly resolving to confess them, and to avoid them for the future. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A prayer said just before going to confession, asking Christ for contrition and tears and light to confess every sin without reserve, followed by short petitions to the Blessed Virgin, one's guardian angel and patron saints, Saint Peter and Saint Mary Magdalen. \"N. N.\" marks where one's patrons are named. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["confession"],
+      relatedSaints: ["saint-peter", "saint-mary-magdalene"],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n291/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "thanksgiving-after-confession",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n295/mode/1up"],
+    payload: {
+      slug: "thanksgiving-after-confession",
+      title: "Thanksgiving after Confession",
+      body: "O most merciful God, who according to the multitude of Thy mercies dost so put away the sins of those who truly repent that Thou rememberest them no more: look graciously upon me, Thine unworthy servant, and accept my confession for Thy mercy's sake; receive my humble thanks, most loving Father, that of Thy great goodness Thou hast given me pardon for all my sins. O may Thy love and pity supply whatsoever has been wanting in the sufficiency of my contrition, and the fulness of my confession. And do Thou, O Lord, vouchsafe to grant me the help of Thy grace, that I may diligently amend my life and persevere in Thy service unto the end, through Jesus Christ our Lord. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A prayer of thanks after receiving absolution, asking God's love to supply whatever was lacking in one's contrition and confession and to give the grace to amend and persevere. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["confession", "thanksgiving"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n295/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "saint-gertrude-prayer-before-performing-ones-penance",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n299/mode/1up"],
+    payload: {
+      slug: "saint-gertrude-prayer-before-performing-ones-penance",
+      title: "Prayer before Performing One's Sacramental Penance (Saint Gertrude)",
+      body: "And since I have so grievously insulted Thee, O most tender and loving God, by my manifold sins and negligences, I am ready now to make perfect satisfaction to Thy divine justice to the utmost of my ability. To this end I will faithfully and most reverently perform the penance appointed me by my confessor in Thy name; and would that I could perform it with so great devotion and love as to give Thee an honor and delight greater than the insult and outrage of my sins! And that this may be so, I unite and blend this my penance with all the works of satisfaction which Thy beloved Son accomplished during the three-and-thirty years of His life on earth, and in union with His fastings, His watchings, and His prayers, I offer Thee this my penance and my prayer. Look down, therefore, O most loving Father, upon me Thy most bounden debtor, now prostrate at Thy feet, desiring to make Thee adequate satisfaction and reparation for all the insults and injuries I have done Thee; and grant me strength and grace to say this prayer according to Thy most holy will. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A prayer, credited in the Manual of Prayers to Saint Gertrude, for saying before one performs the penance given in confession, uniting it with all the works of satisfaction of Christ's thirty-three years on earth. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["confession", "penance", "november-16"],
+      relatedSaints: ["saint-gertrude-the-great"],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n299/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "offering-of-confession-and-penance",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n300/mode/1up"],
+    payload: {
+      slug: "offering-of-confession-and-penance",
+      title:
+        "Offering of One's Confession and Penance (O Most Holy Father, I Offer Thee This My Confession)",
+      body: "O most holy Father, I offer Thee this my confession and my satisfaction in union with all the acts of penance which have ever been done to the glory of Thy holy name: beseeching Thee that Thou wouldst vouchsafe to accept it, and to render it availing through the merits of the Passion of Thy beloved Son, and through the intercession of the ever-blessed Virgin Mary, and of all Thy holy Apostles, Martyrs, Confessors, and Virgins. Whatever has been lacking to me in sincere and earnest preparation, in perfect contrition, in frank and clear confession, I commend to the most loving heart of Thine only-begotten Son, that Treasury of all good and of all grace, from whose overflowing abundance all debts to Thee are fully acquitted; that through it all my negligences and defects in the reception of this holy Sacrament may be fully and perfectly supplied to Thine everlasting praise and glory: through Jesus Christ our Lord, who liveth and reigneth with Thee in the unity of the Holy Ghost, one God, world without end. Amen.",
+      prayerType: "act",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The offering said after performing one's sacramental penance, commending whatever was lacking in preparation, contrition and confession to the Sacred Heart of Christ, the treasury from which all debts are paid. It follows the prayer of Saint Gertrude for before the penance. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["confession", "penance", "sacred-heart"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n300/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-the-priest-after-confession",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n300/mode/1up"],
+    payload: {
+      slug: "prayer-for-the-priest-after-confession",
+      title: "Prayer for the Priest after Confession",
+      body: "O Lord Jesus Christ, bless, I beseech Thee, Thy servant who has now ministered to me in Thy name. Help me to remember his good counsel and advice, and to perform duly what he has rightly laid upon me. And grant him the abundance of Thy grace and favor, that his own soul may be refreshed and strengthened for Thy perfect service, and that he may come at last to the joy of Thy heavenly kingdom. Who livest and reignest with the Father and the Holy Ghost, ever one God, world without end. Amen.",
+      prayerType: "intercession",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A penitent's prayer for the confessor who has just heard his confession, asking that he be blessed and strengthened and that the counsel he gave be remembered. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["confession", "for-priests"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n300/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayers-for-pardon-and-amendment",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n301/mode/1up"],
+    payload: {
+      slug: "prayers-for-pardon-and-amendment",
+      title: "Prayers for Pardon and Amendment (Sins of Thought, Word and Deed)",
+      body: "I.\n\nO most sweet Lord Jesus Christ, I, an unworthy sinner, would beg Thee to be mindful of all the holy thoughts which have been Thine from eternity until now; above all, that one by which Thou, O Eternal Word, didst will to become man.\nOur Father.\n\nO most merciful Lord, I pray Thee, from the bottom of my heart, to pardon me all the vain, foul, and evil thoughts which, up to this hour, I have entertained, or in any way have caused others to entertain, against or beside Thy will.\nOur Father.\n\nII.\n\nO most compassionate Lord Jesus Christ, I, a miserable sinner, would beg Thee to be mindful of all the good and saving words which Thou didst ever speak when on earth.\nOur Father.\n\nI humbly pray Thee, O good Jesus, to forgive me all the words which up to this hour I have uttered or caused others to utter against Thy holy will.\nOur Father.\n\nIII.\n\nO most sweet Jesus Christ, I, an unworthy sinner, yet redeemed by Thy precious Blood, would beg Thee to be mindful of all the good works which Thou wroughtest on the earth for our salvation. I beseech Thee, most compassionate Lord, pardon me whatsoever, by my ill deeds, I have at any time knowingly or ignorantly committed, or have caused others to commit, against Thy law and the glory of Thy name.\nOur Father.\n\nAnd now, O most gracious Lord, direct and order all my thoughts, words, and works according to Thy good pleasure, and to the praise of Thy name; and conform them to the perfect pattern of Thy most holy life and conversation. I am Thine, and will be Thine, O Lord, in life and in death; into Thy hands I commend myself and all that I have.\nOur Father.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "Three pairs of prayers, each followed by an Our Father, that recall the holy thoughts, saving words and good works of Christ and ask pardon for sins of thought, word and deed, ending with a commendation of oneself into his hands. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["confession", "examination-of-conscience", "lent"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n301/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-against-pride",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n302/mode/1up"],
+    payload: {
+      slug: "prayer-against-pride",
+      title: "Prayer against Pride",
+      body: "O Lord Jesus Christ, Pattern of humility, who didst empty Thyself of Thy glory, and take upon Thee the form of a servant: root out of us all pride and conceit of heart, that, owning ourselves miserable and guilty sinners, we may willingly bear contempt and reproaches for Thy sake, and, glorying in nothing but Thee, may esteem ourselves lowly in Thy sight. Not unto us, O Lord, but to Thy name be the praise, for Thy loving mercy and for Thy truth's sake. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "One of the seven prayers against the seven deadly sins in the thanksgiving after Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking Christ, who emptied himself and took the form of a servant (Philippians 2:7), to root out pride and conceit.",
+      occasions: ["humility", "examination-of-conscience", "lent"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n302/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-against-covetousness",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n303/mode/1up"],
+    payload: {
+      slug: "prayer-against-covetousness",
+      title: "Prayer against Covetousness",
+      body: "O Lord Jesus Christ, who though Thou wast rich yet for our sakes didst become poor, grant that all over-eagerness and covetousness of earthly goods may die in us, and the desire of heavenly things may live and grow in us: keep us from all idle and vain expenditures, that we may always have to give to him that needeth, and that giving not grudgingly nor of necessity, but cheerfully, we may be loved of Thee, and be made through Thy merits partakers of the riches of Thy heavenly treasure. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "One of the seven prayers against the seven deadly sins in the thanksgiving after Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking Christ, who became poor for our sakes (2 Corinthians 8:9), for detachment from earthly goods and a cheerful giving heart.",
+      occasions: ["examination-of-conscience", "lent", "almsgiving"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n303/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-against-lust",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n303/mode/1up"],
+    payload: {
+      slug: "prayer-against-lust",
+      title: "Prayer against Lust",
+      body: "O Lord Jesus Christ, Guardian of chaste souls, and lover of purity, who wast pleased to take our nature and to be born of an Immaculate Virgin: mercifully look upon my infirmity. Create in me a clean heart, O God: and renew a right spirit within me; help me to drive away all evil thoughts, to conquer every sinful desire, and so pierce my flesh with the fear of Thee that, this worst enemy being overcome, I may serve Thee with a chaste body and please Thee with a pure heart. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "One of the seven prayers against the seven deadly sins in the thanksgiving after Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking Christ, born of the Immaculate Virgin, for a clean heart in the words of Psalm 50 (51) and the grace to serve him with a chaste body.",
+      occasions: ["purity", "chastity", "temptation"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n303/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-against-anger",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n303/mode/1up"],
+    payload: {
+      slug: "prayer-against-anger",
+      title: "Prayer against Anger",
+      body: "O most meek Jesus, Prince of Peace, who, when Thou wast reviled, reviled not, and on the Cross didst pray for Thy murderers: implant in our hearts the virtues of gentleness and patience, that, restraining the fierceness of anger, impatience, and resentment, we may overcome evil with good, for Thy sake love our enemies, and as children of our heavenly Father seek Thy peace and evermore rejoice in Thy love. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "One of the seven prayers against the seven deadly sins in the thanksgiving after Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking Christ, who did not revile in return and prayed for those who crucified him, for gentleness and patience in place of anger and resentment.",
+      occasions: ["examination-of-conscience", "peace", "forgiveness"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n303/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-against-gluttony",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n304/mode/1up"],
+    payload: {
+      slug: "prayer-against-gluttony",
+      title: "Prayer against Gluttony",
+      body: "O Lord Jesus Christ, Mirror of abstinence, who, to teach us the virtue of abstinence, didst fast forty days and forty nights, grant that, serving Thee and not our own appetites, we may live soberly and piously with contentment, without greediness, gluttony, or drunkenness, that Thy will being our meat and drink, we may hunger and thirst after justice, and finally obtain from Thee that food which endureth unto life eternal. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "One of the seven prayers against the seven deadly sins in the thanksgiving after Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking Christ, who fasted forty days in the desert, for sobriety and freedom from greed and drunkenness, and for the food that endures to eternal life.",
+      occasions: ["lent", "fasting", "temperance"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n304/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-against-envy",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n304/mode/1up"],
+    payload: {
+      slug: "prayer-against-envy",
+      title: "Prayer against Envy",
+      body: "O most loving Jesus, Pattern of charity, who makest all the commandments of the law to consist in love towards God and towards man, grant to us so to love Thee with all our heart, with all our mind, and all our soul, and our neighbor for Thy sake, that the grace of charity and brotherly love may dwell in us, and all envy, harshness, and ill-will may die in us; and fill our hearts with feelings of love, kindness, and compassion, so that by constantly rejoicing in the happiness and success of others, by sympathizing with them in their sorrows, and putting away all harsh judgments and envious thoughts, we may follow Thee, who art Thyself the true and perfect love. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "One of the seven prayers against the seven deadly sins in the thanksgiving after Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking Christ, who summed up the law in love of God and neighbour, to replace envy and ill-will with joy in the happiness and success of others.",
+      occasions: ["examination-of-conscience", "act-of-love"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n304/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-against-sloth",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n304/mode/1up"],
+    payload: {
+      slug: "prayer-against-sloth",
+      title: "Prayer against Sloth",
+      body: "O Lord Jesus Christ, eternal Love, who in the garden didst pray so long and so fervently that Thy Sweat was as it were great drops of blood falling down to the ground: put away from us, we beseech Thee, all sloth and inactivity both of body and mind; kindle within us the fire of Thy love; strengthen our weakness, that whatsoever our hand is able to do we may do it earnestly, and that, striving heartily to please Thee in this life, we may have Thee hereafter as our reward exceeding great. Amen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "One of the seven prayers against the seven deadly sins in the thanksgiving after Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore, asking Christ, who prayed in Gethsemane until his sweat became as drops of blood (Luke 22:44), to take away sloth of body and mind.",
+      occasions: ["examination-of-conscience", "before-work"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n304/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "seven-thanksgivings-for-the-seven-effusions-of-the-precious-blood",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n305/mode/1up"],
+    payload: {
+      slug: "seven-thanksgivings-for-the-seven-effusions-of-the-precious-blood",
+      title: "Seven Thanksgivings for the Seven Effusions of Our Lord's Blood",
+      body: "I.\n\nO most humble Lord and Master, Jesus Christ, true God and true Man, eternal praise and thanksgiving be to Thee, because in Thy tenderest age, on the eighth day of Thy mortal life, Thou didst vouchsafe to shed Thy precious and innocent Blood for us, and as a true Son of Abraham to bear the pain of Circumcision.\n\nBy this most holy shedding of Thy Blood, I beg of Thee the grace of humility against all pride and worldly vanity.\nOur Father.\n\nO Saviour of the world, who by Thy Cross and precious Blood hast redeemed us: save us, and help us, we humbly beseech Thee, O Lord.\n\nII.\n\nO Thou whose love is like the pelican's for her young, Jesus Christ, true God and true Man, eternal praise and thanksgiving be to Thee, because in the Garden, out of the exceeding anguish of Thy Heart, Thou didst pour forth a bloody Sweat, and, wholly resigning Thyself to death, didst offer it to Thy Father.\n\nBy this most holy shedding of Thy Blood, I ask of Thee the grace of liberality against all covetousness and avarice.\nOur Father.\n\nO Saviour of the world, etc.\n\nIII.\n\nO most chaste Spouse, Jesus Christ, true God and true Man, eternal praise and thanksgiving be to Thee, because Thou didst suffer Thyself to be mercilessly bound in Pilate's judgment hall, and Thy virgin Flesh to be cruelly scourged and mangled.\n\nBy this most holy shedding of Thy Blood, I implore of Thee the grace of chastity against all sensuality and lust.\nOur Father.\n\nO Saviour of the world, etc.\n\nIV.\n\nO most meek Lamb, Jesus Christ, true God and true Man, eternal praise and thanksgiving be to Thee, because Thou didst suffer Thy Sacred Head to be crowned with piercing thorns and struck with a hard reed.\n\nBy this most holy shedding of Thy Blood, I pray Thee for the grace of meekness against all anger and desire of revenge.\nOur Father.\n\nO Saviour of the world, etc.\n\nV.\n\nO most sweet Jesus Christ, Pattern of temperance and self-denial, true God and true Man, eternal praise and thanksgiving be to Thee, because Thou didst allow Thy garments to be torn from Thy bleeding Body both before and after the carrying of Thy Cross, which opened Thy Wounds again, and caused them to bleed afresh.\n\nBy this most holy shedding of Thy Blood, I beseech of Thee the grace of temperance and abstinence against all greediness and gluttony.\nOur Father.\n\nO Saviour of the world, etc.\n\nVI.\n\nO good and faithful Samaritan, Jesus Christ, true God and true Man, eternal praise and thanksgiving be to Thee, because out of Thy burning love for us Thou didst suffer Thy sacred Hands and Feet to be pierced and nailed to the Cross for our redemption.\n\nBy this most holy shedding of Thy Blood, I beg of Thee the grace of brotherly love against all envy and jealousy.\nOur Father.\n\nO Saviour of the world, etc.\n\nVII.\n\nO most zealous High-Priest, true God and true Man, eternal praise and thanksgiving be to Thee, because Thou didst suffer Thy sacred Side to be pierced, opened, and wounded with a spear.\n\nBy this most holy shedding of Thy Blood, I earnestly pray Thee for the grace of holy zeal and fervor against all sloth and weariness in Thy service, and in every religious exercise.\nOur Father.\n\nO Saviour of the world, etc.",
+      prayerType: "general",
+      category: "devotional",
+      language: "en",
+      summary:
+        "Seven acts of thanksgiving for the seven times Christ shed his blood (the Circumcision, the Agony, the Scourging, the Crowning with Thorns, the stripping of his garments, the Crucifixion and the piercing of his side), each asking a virtue against one of the seven deadly sins and followed by an Our Father. Printed in the devotions for Confession of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["precious-blood", "july", "lent", "fridays"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n305/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-in-the-beginning-of-sickness",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n466/mode/1up"],
+    payload: {
+      slug: "prayer-in-the-beginning-of-sickness",
+      title: "Prayer in the Beginning of Sickness",
+      body: "O heavenly Father, who in Thy wisdom knowest what is best for me, glory be to Thee. Lord, if it seem good in Thy sight, remove from me this sickness which I now feel seizing upon me, that I may employ my health to Thy glory, and praise Thy name. But if Thou art pleased it should grow on me, I willingly submit to Thy afflicting hand, for Thou art wont to chasten those whom Thou dost love, and Thou hast promised not to lay on me any more than Thou wilt enable me to bear. I know, O my God, that Thou sendest this sickness on me for my good, even to humble and to prove me; O grant that it may not fail to work that saving effect in me. O Lord, create in me a true sorrow for all my past sins, a firm faith in Thee, and sincere resolutions of amendment for the time to come. Deliver me from all fretfulness and impatience, and give me an entire resignation to Thy divine will: O suffer not my sickness to take away my senses, and do Thou continually supply my thoughts with holy ejaculations. Lord, bless all the means that are used for my recovery, and restore me to my health, if it be Thy will, in Thy good time; but if Thou hast appointed otherwise for me, Thy blessed will be done. O wean my affections from all things of earth, and fill me with ardent desires after heaven: Lord, fit me for Thyself, and then call me, when Thou pleasest, to that joy unspeakable and full of glory; for the sake of Thine Only Son, Jesus Christ, my Lord and Saviour. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A prayer for the first days of an illness, asking for recovery if God wills it, and otherwise for patience, true sorrow for sin and entire resignation, and for a blessing on every means used for one's recovery. From the devotions for the sick in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["sickness", "illness", "trust"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n466/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "daily-prayer-in-sickness",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n467/mode/1up"],
+    payload: {
+      slug: "daily-prayer-in-sickness",
+      title: "Daily Prayer in Sickness",
+      body: "O Almighty God, behold I receive this sickness, with which Thou art pleased to visit me, as coming from Thy Fatherly hand. It is Thy will that it should be thus with me. Thy will be done in earth, as it is in heaven. May this sickness be to the honor of Thy holy name and for the good of my soul. For these ends I here offer myself to Thee with entire submission; to suffer what Thou pleasest, as long as Thou pleasest, and in what manner Thou pleasest: for I am Thy creature and Thy child, who have most ungratefully offended Thee. I have truly deserved Thy chastisement, and far more than Thou layest on me, but, O Lord, rebuke me not in Thine indignation, neither chasten me in Thy sore displeasure. Look upon my weakness, and be merciful unto me, for Thou knowest whereof I am made, Thou rememberest that I am but dust; deal not with me therefore after my sins, nor reward me according to mine iniquities; but according to the multitude of Thy tender mercies have compassion upon me. Assist me, I pray Thee, with Thy heavenly grace, and give me strength, that I may be able to bear with Christian patience all the pains, uneasiness, and trials of my sickness. Preserve me from all temptations so far as Thou seest fit, and be Thou my defence against all the assaults of the enemy, that I may in nowise offend Thee; and if it be Thy will that this sickness should be my last, I beg of Thee so to direct me by Thy grace that I may in no way neglect or be deprived of those Sacraments which Thou hast ordained for the good of my soul, to prepare it for its passage into eternity; so that, being cleansed from all my sins, I may put my whole trust in Thee, and love Thee above all things; and that finally, through the merits of the Passion and Death of Thy Son, I may be admitted into the company of the Blessed, there to praise Thee for ever, through the same Jesus Christ our Lord. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The Manual's daily prayer for a sick person, accepting the illness from God's fatherly hand, asking for Christian patience under its pains, and praying, if it should prove one's last, not to be deprived of the sacraments. From the devotions for the sick in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["sickness", "illness", "suffering"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n467/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "acts-of-the-necessary-virtues-for-the-sick",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n469/mode/1up"],
+    payload: {
+      slug: "acts-of-the-necessary-virtues-for-the-sick",
+      title: "Acts of the Most Necessary Virtues for the Sick",
+      body: "Act of Resignation.\nLord, I accept this sickness from Thy Fatherly hands; I entirely resign myself to Thy blessed will, whether it be for life or death. Not my will, but Thine be done; Thy will be done in earth, as it is in heaven.\n\nAct of Submission.\nLord, I submit to all the pains and uneasiness of this my illness: my sins have deserved infinitely more. Thou art just, O Lord, and Thy judgment is right.\n\nAct of Self-Oblation.\nLord, I offer up to Thee all that I now suffer, or may have to suffer, to be united to the sufferings of my Saviour, and to be sanctified by His Passion.\n\nAct of Adoration.\nI adore Thee, O my God and my All, as my First Beginning and my Last End; I desire to pay Thee the best homage that I am able, and to bow down all the powers of my soul to Thee.\n\nAct of Praise.\nLord, I desire to praise Thee for ever, in sickness as well as in health; I desire to join my heart and voice with the whole Church of heaven and earth, in blessing Thee for ever.\n\nAct of Thanksgiving.\nI give Thee thanks, O Lord, from the bottom of my heart, for all the mercies and blessings which Thou hast bestowed upon me and on Thy whole Church through Jesus Christ Thy Son; above all, because Thou hast loved me from all eternity, and hast sent Thy Son to redeem me with His precious Blood. O let not that Blood be shed for me in vain.\n\nAct of Faith.\nLord, I believe all those heavenly truths which Thou hast revealed, and which Thy Holy Catholic Church believes and teaches. Thou art the Sovereign Truth, who neither canst deceive nor be deceived. Thou hast promised Thy Spirit of Truth to guide Thy Church into all truth. In this Faith I resolve, through Thy grace, both to live and die. O Lord, strengthen and increase this my faith.\n\nAct of Hope.\nO my God, all my hope is in Thee! Through Jesus Christ, my Redeemer, through His Passion and Death, I hope for mercy, grace, and salvation from Thee. In Thee, O Lord, have I put my trust: let me never be confounded. O Sweet Jesus, receive me into Thine arms in this day of my distress; hide me in Thy Wounds, bathe my soul in Thy precious Blood.\n\nAct of Love.\nI love Thee, O my God, with my whole heart and soul, above all things: at least I desire so to love Thee. O come now and take full possession of my soul, and teach me to love Thee for ever. I desire to depart, and to be with Christ. O when will Thy kingdom come? O Lord, when wilt Thou perfectly reign in all hearts? When shall sin be no more?\n\nAct of Love of One's Neighbor.\nI desire to love my neighbor with perfect charity for the love of Thee. I forgive from my heart all who have in any way offended or injured me, and I ask pardon of all whom I have in any way offended or injured.\n\nAct of Contrition.\nHave mercy upon me, O God, according to Thy great mercy: and according to the multitude of Thy tender mercies blot out my iniquity. O who will give water to my head, and a fountain of tears to my eyes, that, day and night, I may bewail my sins? O that I had never offended so good a God! O that I had never sinned! Happy those souls that have always preserved their baptismal innocence! Lord, be merciful to me a sinner; Holy Jesus, Son of the Living God, have mercy upon me.\n\nAct of Commendation to God.\nI commend my soul to God my Maker, who created me from nothing; to Jesus Christ my Saviour, who redeemed me with His Blood; to the Holy Ghost, who sanctified me in baptism. Into Thy hands, O Lord, I commend my spirit.\n\nAct of Renunciation of Evil.\nI renounce, from this moment and for all eternity, the devil and all his works and pomps. I abhor all his suggestions and temptations. Suffer not, O Lord, this mortal enemy of my soul to have any power over me, either now or at my last hour. Let Thy holy Angels ever keep me and defend me against all the powers of darkness.\n\nO holy Mary, Mother of God, who wert present beneath the Cross at the death of thy beloved Son Jesus, obtain for me the grace of a happy death.\nHail Mary.\n\nGlorious St. Michael, Prince of the heavenly host, intercede for me at the hour of my death.\n\nO holy Guardian Angel, to whose care God, in His mercy, has committed me, stand by me at the last hour; protect me against all the powers of darkness; defend me from all my enemies, and conduct my soul to the mansions of bliss.\n\nO all ye blessed Angels and Saints of God, assist me by your intercession in the passage from time to eternity. Amen.",
+      prayerType: "act",
+      category: "act",
+      language: "en",
+      summary:
+        "A sequence of short acts for the sick and dying, of resignation, submission, self-oblation, adoration, praise, thanksgiving, faith, hope, love of God and neighbour, contrition, commendation and renunciation of evil, closing with invocations of the Blessed Virgin, Saint Michael, the guardian angel and all the saints. From the devotions for the sick in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["sickness", "deathbed", "preparation-for-death"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n469/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-for-patience-in-sickness",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n472/mode/1up"],
+    payload: {
+      slug: "prayer-for-patience-in-sickness",
+      title: "Prayer for Patience in Sickness",
+      body: "Remember, O most pitying Father, what this frail and feeble work of Thy hands can bear without fainting; nothing, indeed, of itself, but all things in Thee, if strengthened by Thy grace. Wherefore grant me strength, that I may suffer and endure; patience alone I ask. Lord, give me this, and behold my heart is ready, O God, my heart is ready to receive whatsoever shall be laid upon me; may it even be a consolation to me that, afflicting me with pain, Thou sparest not here, that Thou mayest spare hereafter. Grant, O Lord, that in my patience I may possess my soul; to that end may I often look upon the Face of Christ Thy Son, that as He hath suffered such terrible things in the flesh, I may endeavor to be armed with the same mind. Wherefore I commit my strength unto Thee, O Lord; for Thou art my Strength and my Refuge; Thou dost uphold my life. Behold, O Lord, now am I in the midst of the fire, and how long I shall be there Thou knowest. Keep me, Thou who didst preserve unhurt the Three Children in the furnace of fire, and bring me safe out of this trial when it shall please Thee, as Thou didst deliver them, that I also may bless Thee with all Thy creatures for ever. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A sick person's prayer for patience alone, recalling Christ's sufferings in the flesh and the Three Children kept unhurt in the fiery furnace (Daniel 3). From the devotions for the sick in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["sickness", "suffering", "illness"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n472/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-in-suffering",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n473/mode/1up"],
+    payload: {
+      slug: "prayer-in-suffering",
+      title: "Prayer in Suffering",
+      body: "O Lord Jesus Christ, accept my sufferings which I desire to unite with Thine. Sanctify this affliction, so that every pang I feel may purify my soul and bring it nearer to Thee, to be made more one with Thee; grant that I may welcome the sufferings which will make me more like to Thee.\n\nO my Lord, stand Thou by me with Thy supporting grace; sanctify each pang, sustain my weakness. And then order for me what Thou pleasest. Come now to my help, O Lord, and so purify my soul that I may be spared the last, the eternal suffering; let me fly to the embrace of Thy love for ever.\n\nLord Jesus, hast Thou not invited all that labor and are heavy-burdened to come to Thee for refreshment? Behold now Thy servant, afflicted and oppressed, comes to Thee for help; relieve me, I beseech Thee, Thou who art Infinite in mercy.\n\nO Thou who hast comforted the Martyrs in their torments, and refreshed them with heavenly sweetness on the rack and in the fire, renew Thy mercies to me Thine unworthy servant; defend me against all temptation, suffer not the enemy to take advantage of me, but grant me Thy heavenly strength, the fulness of Thy grace and peace. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A prayer uniting one's sufferings with Christ's, asking him to sanctify every pang, to give the rest he promised to all who labour and are burdened (Matthew 11:28), and to comfort the sufferer as he comforted the martyrs. From the devotions for the sick in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["suffering", "sickness", "illness"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n473/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "thanksgiving-for-recovery-from-sickness",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n477/mode/1up"],
+    payload: {
+      slug: "thanksgiving-for-recovery-from-sickness",
+      title: "Thanksgiving for Recovery from Sickness",
+      body: "Glory be to Thee, O heavenly Father, for the sickness Thou hast in mercy sent me. Lord, the stripes Thou didst lay on me were the stripes of love; glory be to Thee. Before I was humbled I did wickedly; but now will I keep Thy word. It is good for me that Thou hast humbled me, that I might learn Thine ordinances.\n\nGlory be to Thee, O Lord, glory be to Thee, for delivering me from the terrors of death, and restoring me to my health again; glory be to Thee. I called upon the Lord in my trouble, and the Lord heard me. I shall not die, but live and declare the works of the Lord. Bless the Lord, therefore, O my soul: as long as I have my life, which at first God gave me, and which He has now restored to me, I will sing praises unto my God.\n\nO Lord God, who hast in Thy tender mercy prolonged my days in this world, give me grace to spend this life, which Thou hast now lengthened, in Thy service. O give me grace to perform all my resolutions of new obedience, and so to live in the filial fear of Thee all the remainder of my time that I may at last die at peace with myself, at peace with the whole world, and at peace with Thee; for the sake of Thy Dearly-beloved Son, our Lord and Saviour.\n\nOur Father. Hail Mary. Glory be to the Father.\n\nThe blessing of God Almighty, the Father, the Son, and the Holy Ghost, descend upon me and all belonging to me, and dwell in my heart and be with me in my going out and coming in, now and for ever. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        'A prayer of thanks on recovering from illness, woven from the Psalms ("It is good for me that Thou hast humbled me"; "I shall not die, but live"), asking grace to spend the lengthened life in God\'s service, and ending with a blessing on oneself and one\'s household. From the devotions for the sick in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["thanksgiving", "healing", "sickness"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n477/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "anselm-proslogium-teach-my-heart-to-seek-thee",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://ccel.org/ccel/anselm/basic_works/basic_works.iii.ii.html",
+      "https://archive.org/details/stanselmeproslog00anseuoft",
+    ],
+    payload: {
+      slug: "anselm-proslogium-teach-my-heart-to-seek-thee",
+      title: "Teach My Heart Where and How to Seek Thee (Saint Anselm, Proslogium I)",
+      body: "Up now, slight man! flee, for a little while, thy occupations; hide thyself, for a time, from thy disturbing thoughts. Cast aside, now, thy burdensome cares, and put away thy toilsome business. Yield room for some little time to God; and rest for a little time in him. Enter the inner chamber of thy mind; shut out all thoughts save that of God, and such as can aid thee in seeking him; close thy door and seek him. Speak now, my whole heart! speak now to God, saying, I seek thy face; thy face, Lord, will I seek (Psalms xxvii. 8). And come thou now, O Lord my God, teach my heart where and how it may seek thee, where and how it may find thee.\n\nLord, if thou art not here, where shall I seek thee, being absent? But if thou art everywhere, why do I not see thee present? Truly thou dwellest in unapproachable light. But where is unapproachable light, or how shall I come to it? Or who shall lead me to that light and into it, that I may see thee in it? Again, by what marks, under what form, shall I seek thee? I have never seen thee, O Lord, my God; I do not know thy form. What, O most high Lord, shall this man do, an exile far from thee? What shall thy servant do, anxious in his love of thee, and cast out afar from thy face? He pants to see thee, and thy face is too far from him. He longs to come to thee, and thy dwelling-place is inaccessible. He is eager to find thee, and knows not thy place. He desires to seek thee, and does not know thy face. Lord, thou art my God, and thou art my Lord, and never have I seen thee. It is thou that hast made me, and hast made me anew, and hast bestowed upon me all the blessings I enjoy; and not yet do I know thee. Finally, I was created to see thee, and not yet have I done that for which I was made.\n\nO wretched lot of man, when he hath lost that for which he was made! O hard and terrible fate! Alas, what has he lost, and what has he found? What has departed, and what remains? He has lost the blessedness for which he was made, and has found the misery for which he was not made. That has departed without which nothing is happy, and that remains which, in itself, is only miserable. Man once did eat the bread of angels, for which he hungers now; he eateth now the bread of sorrows, of which he knew not then. Alas! for the mourning of all mankind, for the universal lamentation of the sons of Hades! He choked with satiety, we sigh with hunger. He abounded, we beg. He possessed in happiness, and miserably forsook his possession; we suffer want in unhappiness, and feel a miserable longing, and alas! we remain empty.\n\nWhy did he not keep for us, when he could so easily, that whose lack we should feel so heavily? Why did he shut us away from the light, and cover us over with darkness? With what purpose did he rob us of life, and inflict death upon us? Wretches that we are, whence have we been driven out; whither are we driven on? Whence hurled? Whither consigned to ruin? From a native country into exile, from the vision of God into our present blindness, from the joy of immortality into the bitterness and horror of death. Miserable exchange of how great a good, for how great an evil! Heavy loss, heavy grief, heavy all our fate!\n\nBut alas! wretched that I am, one of the sons of Eve, far removed from God! What have I undertaken? What have I accomplished? Whither was I striving? How far have I come? To what did I aspire? Amid what thoughts am I sighing? I sought blessings, and lo! confusion. I strove toward God, and I stumbled on myself. I sought calm in privacy, and I found tribulation and grief, in my inmost thoughts. I wished to smile in the joy of my mind, and I am compelled to frown by the sorrow of my heart. Gladness was hoped for, and lo! a source of frequent sighs!\n\nAnd thou too, O Lord, how long? How long, O Lord, dost thou forget us; how long dost thou turn thy face from us? When wilt thou look upon us, and hear us? When wilt thou enlighten our eyes, and show us thy face? When wilt thou restore thyself to us? Look upon us, Lord; hear us, enlighten us, reveal thyself to us. Restore thyself to us, that it may be well with us,—thyself, without whom it is so ill with us. Pity our toilings and strivings toward thee since we can do nothing without thee. Thou dost invite us; do thou help us. I beseech thee, O Lord, that I may not lose hope in sighs, but may breathe anew in hope. Lord, my heart is made bitter by its desolation; sweeten thou it, I beseech thee, with thy consolation. Lord, in hunger I began to seek thee; I beseech thee that I may not cease to hunger for thee. In hunger I have come to thee; let me not go unfed. I have come in poverty to the Rich, in misery to the Compassionate; let me not return empty and despised. And if, before I eat, I sigh, grant, even after sighs, that which I may eat. Lord, I am bowed down and can only look downward; raise me up that I may look upward. My iniquities have gone over my head; they overwhelm me; and, like a heavy load, they weigh me down. Free me from them; unburden me, that the pit of iniquities may not close over me.\n\nBe it mine to look up to thy light, even from afar, even from the depths. Teach me to seek thee, and reveal thyself to me, when I seek thee, for I cannot seek thee, except thou teach me, nor find thee, except thou reveal thyself. Let me seek thee in longing, let me long for thee in seeking; let me find thee in love, and love thee in finding. Lord, I acknowledge and I thank thee that thou hast created me in this thine image, in order that I may be mindful of thee, may conceive of thee, and love thee; but that image has been so consumed and wasted away by vices, and obscured by the smoke of wrong-doing, that it cannot achieve that for which it was made, except thou renew it, and create it anew. I do not endeavor, O Lord, to penetrate thy sublimity, for in no wise do I compare my understanding with that; but I long to understand in some degree thy truth, which my heart believes and loves. For I do not seek to understand that I may believe, but I believe in order to understand. For this also I believe,—that unless I believed, I should not understand.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The opening chapter of Saint Anselm's Proslogium (1077-1078), a prayer that first bids the mind withdraw from its cares into the inner chamber, then laments the exile of fallen man and begs God to teach the heart where and how to seek him. It ends with Anselm's famous principle, \"I believe in order to understand.\" Sidney Norton Deane's translation (1903); the scripture references in parentheses are the translator's.",
+      occasions: ["meditation", "april-21", "retreat"],
+      relatedSaints: ["saint-anselm"],
+      citations: [
+        "https://ccel.org/ccel/anselm/basic_works/basic_works.iii.ii.html",
+        "https://archive.org/details/stanselmeproslog00anseuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "anselm-proslogium-i-pray-o-god-to-know-thee",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://ccel.org/ccel/anselm/basic_works/basic_works.iii.xxvii.html",
+      "https://archive.org/details/stanselmeproslog00anseuoft",
+    ],
+    payload: {
+      slug: "anselm-proslogium-i-pray-o-god-to-know-thee",
+      title: "I Pray, O God, to Know Thee (Saint Anselm, Proslogium XXVI)",
+      body: "My God and my Lord, my hope and the joy of my heart, speak unto my soul and tell me whether this is the joy of which thou tellest us through thy Son: Ask and ye shall receive, that your joy may be full (John xvi. 24). For I have found a joy that is full, and more than full. For when heart, and mind, and soul, and all the man, are full of that joy, joy beyond measure will still remain. Hence, not all of that joy shall enter into those who rejoice; but they who rejoice shall wholly enter into that joy.\n\nShow me, O Lord, show thy servant in his heart whether this is the joy into which thy servants shall enter, who shall enter into the joy of their Lord. But that joy, surely, with which thy chosen ones shall rejoice, eye hath not seen nor ear heard, neither has it entered into the heart of man (Isaiah lxiv. 4; I Corinthians ii. 9). Not yet, then, have I told or conceived, O Lord, how greatly those blessed ones of thine shall rejoice. Doubtless they shall rejoice according as they shall love; and they shall love according as they shall know. How far they will know thee, Lord, then! and how much they will love thee! Truly, eye hath not seen, nor ear heard, neither has it entered into the heart of man in this life, how far they shall know thee, and how much they shall love thee in that life.\n\nI pray, O God, to know thee, to love thee, that I may rejoice in thee. And if I cannot attain to full joy in this life may I at least advance from day to day, until that joy shall come to the full. Let the knowledge of thee advance in me here, and there be made full. Let the love of thee increase, and there let it be full, that here my joy may be great in hope, and there full in truth. Lord, through thy Son thou dost command, nay, thou dost counsel us to ask; and thou dost promise that we shall receive, that our joy may be full. I ask, O Lord, as thou dost counsel through our wonderful Counsellor. I will receive what thou dost promise by virtue of thy truth, that my joy may be full. Faithful God, I ask. I will receive, that my joy may be full. Meanwhile, let my mind meditate upon it; let my tongue speak of it. Let my heart love it; let my mouth talk of it. Let my soul hunger for it; let my flesh thirst for it; let my whole being desire it, until I enter into thy joy, O Lord, who art the Three and the One God, blessed for ever and ever. Amen.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The closing chapter of Saint Anselm's Proslogium, a prayer on the joy promised to the blessed: they will rejoice as they love and love as they know, and so Anselm asks to know and love God more each day until he enters fully into the joy of the Lord. Sidney Norton Deane's translation (1903); the scripture references in parentheses are the translator's.",
+      occasions: ["meditation", "april-21", "all-saints"],
+      relatedSaints: ["saint-anselm"],
+      citations: [
+        "https://ccel.org/ccel/anselm/basic_works/basic_works.iii.xxvii.html",
+        "https://archive.org/details/stanselmeproslog00anseuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "ignatius-eternal-lord-of-all-things",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://ccel.org/ccel/i/ignatius/exercises/cache/exercises.txt",
+      "https://archive.org/details/spiritualexercis00ignauoft/page/n80/mode/1up",
+    ],
+    payload: {
+      slug: "ignatius-eternal-lord-of-all-things",
+      title: "Eternal Lord of All Things (Oblation of Saint Ignatius of Loyola)",
+      body: "Eternal Lord of all things, I make my oblation with Thy favor and help, in presence of Thy infinite Goodness and in presence of Thy glorious Mother and of all the Saints of the heavenly Court; that I want and desire, and it is my deliberate determination, if only it be Thy greater service and praise, to imitate Thee in bearing all injuries and all abuse and all poverty of spirit, and actual poverty, too, if Thy most Holy Majesty wants to choose and receive me to such life and state.",
+      prayerType: "act",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The offering that closes Saint Ignatius's contemplation of the Call of the King in the Spiritual Exercises, made by those who would signalise themselves in Christ's service: before the Blessed Virgin and all the saints they ask to imitate him in bearing injuries, abuse and poverty, if he wills to choose them for such a life. Elder Mullan's translation from the autograph (New York, 1914).",
+      occasions: ["offering", "retreat", "vocations", "july-31"],
+      relatedSaints: ["saint-ignatius-of-loyola"],
+      citations: [
+        "https://ccel.org/ccel/i/ignatius/exercises/cache/exercises.txt",
+        "https://archive.org/details/spiritualexercis00ignauoft/page/n80/mode/1up",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-o-lord-our-god-we-believe-in-thee",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://ccel.org/ccel/s/schaff/npnf103/cache/npnf103.txt",
+      "https://archive.org/details/selectlibraryofn03auguuoft",
+    ],
+    payload: {
+      slug: "augustine-o-lord-our-god-we-believe-in-thee",
+      title: "O Lord Our God, We Believe in Thee (Saint Augustine, On the Trinity XV.28)",
+      body: 'O Lord our God, we believe in Thee, the Father and the Son and the Holy Spirit. For the Truth would not say, Go, baptize all nations in the name of the Father and of the Son and of the Holy Spirit, unless Thou wast a Trinity. Nor wouldest thou, O Lord God, bid us to be baptized in the name of Him who is not the Lord God. Nor would the divine voice have said, Hear, O Israel, the Lord thy God is one God, unless Thou wert so a Trinity as to be one Lord God. And if Thou, O God, wert Thyself the Father, and wert Thyself the Son, Thy Word Jesus Christ, and the Holy Spirit your gift, we should not read in the book of truth, "God sent His Son;" nor wouldest Thou, O Only-begotten, say of the Holy Spirit, "Whom the Father will send in my name;" and, "Whom I will send to you from the Father." Directing my purpose by this rule of faith, so far as I have been able, so far as Thou hast made me to be able, I have sought Thee, and have desired to see with my understanding what I believed; and I have argued and labored much. O Lord my God, my one hope, hearken to me, lest through weariness I be unwilling to seek Thee, "but that I may always ardently seek Thy face." Do Thou give strength to seek, who hast made me find Thee, and hast given the hope of finding Thee more and more. My strength and my infirmity are in Thy sight: preserve the one, and heal the other. My knowledge and my ignorance are in Thy sight; where Thou hast opened to me, receive me as I enter; where Thou hast closed, open to me as I knock. May I remember Thee, understand Thee, love Thee. Increase these things in me, until Thou renewest me wholly. I know it is written, "In the multitude of speech, thou shalt not escape sin." But O that I might speak only in preaching Thy word, and in praising Thee! Not only should I so flee from sin, but I should earn good desert, however much I so spake. For a man blessed of Thee would not enjoin a sin upon his own true son in the faith, to whom he wrote, "Preach the word: be instant in season, out of season." Are we to say that he has not spoken much, who was not silent about Thy word, O Lord, not only in season, but out of season? But therefore it was not much, because it was only what was necessary. Set me free, O God, from that multitude of speech which I suffer inwardly in my soul, wretched as it is in Thy sight, and flying for refuge to Thy mercy; for I am not silent in thoughts, even when silent in words. And if, indeed, I thought of nothing save what pleased Thee, certainly I would not ask Thee to set me free from such multitude of speech. But many are my thoughts, such as Thou knowest, "thoughts of man, since they are vain." Grant to me not to consent to them; and if ever they delight me, nevertheless to condemn them, and not to dwell in them, as though I slumbered. Nor let them so prevail in me, as that anything in my acts should proceed from them; but at least let my opinions, let my conscience, be safe from them, under Thy protection. When the wise man spake of Thee in his book, which is now called by the special name of Ecclesiasticus, "We speak," he said, "much, and yet come short; and in sum of words, He is all." When, therefore, we shall have come to Thee, these very many things that we speak, and yet come short, will cease; and Thou, as One, wilt remain "all in all." And we shall say one thing without end, in praising Thee in One, ourselves also made one in Thee. O Lord the one God, God the Trinity, whatever I have said in these books that is of Thine, may they acknowledge who are Thine; if anything of my own, may it be pardoned both by Thee and by those who are Thine. Amen.',
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "The prayer with which Saint Augustine ends his fifteen books On the Trinity: a profession of faith in Father, Son and Holy Spirit grounded in the baptismal command, a plea for strength to keep seeking God's face, and a request that whatever he has written of God's own be acknowledged and whatever of his own be pardoned. A. W. Haddan's translation in the Nicene and Post-Nicene Fathers (vol. 3, 1887).",
+      occasions: ["trinity-sunday", "study", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: [
+        "https://ccel.org/ccel/s/schaff/npnf103/cache/npnf103.txt",
+        "https://archive.org/details/selectlibraryofn03auguuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collects-of-the-preparation-for-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n317/mode/1up"],
+    payload: {
+      slug: "collects-of-the-preparation-for-holy-communion",
+      title: "Collects of the Preparation for Holy Communion (Roman Missal)",
+      body: "O merciful Lord, incline Thine ears to our prayers, and enlighten our hearts by the grace of Thy Holy Spirit: that we may worthily receive Thy holy Mysteries, and love Thee with an everlasting love.\n\nO God, unto whom every heart is open, every desire known, and from whom no secret is hid: cleanse the thoughts of our hearts by the inspiration of Thy Holy Spirit, that we may perfectly love Thee and worthily praise Thee.\n\nInflame, O Lord, our reins and our hearts with the fire of the Holy Ghost: that we may serve Thee with a chaste body, and please Thee with a pure mind.\n\nWe pray Thee, O Lord, that the Comforter who proceedeth from Thee may illuminate our minds, and lead us, as Thy Son hath promised, into all truth.\n\nMay the power of Thy Holy Spirit, O Lord, be present with us to cleanse us from all evil and defend us from all adversities.\n\nO God, who didst teach the hearts of Thy faithful by the light of Thy Holy Spirit: grant us by the same Spirit to have a right judgment in all things, and evermore to rejoice in His holy comfort.\n\nVisit, O Lord, we beseech Thee, and cleanse our consciences, that Thy Son, our Lord Jesus Christ, when He cometh, may find in us a mansion prepared for Himself.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "The seven collects that close the Preparation for Mass in the Roman Missal, after its psalms, antiphon and versicles, which the Manual gives to lay communicants as their own preparation. They ask the Holy Spirit to enlighten, cleanse and inflame the heart so that Christ, when he comes, may find in it a dwelling prepared for himself; the sixth is the collect of Pentecost. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "before-mass", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n317/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "o-great-high-priest-prayer-before-communion-ascribed-to-saint-ambrose",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n319/mode/1up"],
+    payload: {
+      slug: "o-great-high-priest-prayer-before-communion-ascribed-to-saint-ambrose",
+      title: "O Great High-Priest (Prayer before Communion Ascribed to Saint Ambrose)",
+      body: "Sunday.\nO great High-Priest, the true Pontiff, Jesus Christ, who didst offer Thyself to God the Father a pure and spotless Victim upon the Altar of the Cross for us miserable sinners, and didst give us Thy Flesh to eat and Thy Blood to drink, and didst ordain this Mystery in the power of Thy Holy Spirit, saying, Do this for the commemoration of Me: I pray Thee, by the same Thy Blood, the great price of our salvation; I pray Thee, by that wonderful and unspeakable love wherewith Thou deignedst so to love us, miserable and unworthy, as to wash us from our sins in Thine own Blood: teach me, Thine unworthy servant, by Thy Holy Spirit, to approach so great a Mystery with that reverence and honor, that devotion and fear, which is due and fitting. Make me, through Thy grace, always so to believe and understand, to conceive and firmly to hold, to think and to speak, of that exceeding Mystery, as shall please Thee and be good for my soul.\n\nLet Thy good Spirit enter my heart, and there be heard without utterance, and without the sound of words speak all truth. For Thy Mysteries are exceeding deep, and covered with a sacred veil. For Thy great mercy's sake, grant me to approach Thy holy Mysteries with a clean heart and a pure mind. Free my heart from all defiling and unholy, from all vain and hurtful thoughts. Fence me round about with the holy and faithful guard and mighty protection of Thy blessed Angels, that the enemies of all good may go away ashamed. By the virtue of this mighty Mystery, and by the hand of Thy holy Angel, drive away from me and from all Thy servants the hard spirit of pride and vain-glory, of envy and blasphemy, of impurity and uncleanness, of doubting and mistrust. Let them be confounded that persecute us. Let them perish who are bent upon our ruin.\n\nMonday.\nKing of virgins and Lover of chastity and innocence, extinguish in my frame, by the dew of Thy heavenly blessing, the fuel of evil concupiscence, that so an equal purity of soul and body may abide in me. Mortify in my members the lusts of the flesh and all harmful emotions, and give me true and persevering chastity with Thine other gifts which please Thee in truth, so that I may with chaste body and pure heart offer unto Thee the sacrifice of praise. For with what contrition of heart and fountain of tears, with what reverence and awe, with what chastity of body and purity of soul, should that divine and heavenly Sacrifice be celebrated, wherein Thy flesh is indeed eaten, where Thy Blood is indeed drunk, wherein things lowest and highest, earthly and divine, are united, where the holy Angels are present, and where Thou art in a marvellous and unspeakable manner both Sacrifice and Priest!\n\nTuesday.\nWho can worthily be present at this Sacrifice unless Thou, O God, makest him worthy? I know, O Lord, yea, truly do I know, and this do confess to Thy loving-kindness, that I am unworthy to approach so great a Mystery, by reason of my numberless sins and negligences; but I know, and truly with my own heart do I believe, and with my mouth confess, that Thou canst make me worthy, who alone canst make that clean which proceedeth from that which is unclean, and sinners to be just and holy. By this Thine Almighty power I beseech Thee, O my God, to grant that I, a sinner, may assist at this Sacrifice with fear and trembling, with purity of heart and plenteous tears, with spiritual gladness and heavenly joy. May my mind feel the sweetness of Thy most blessed Presence, and the love of Thy holy Angels, keeping watch around me.\n\nWednesday.\nMindful then, O Lord, of Thy worshipful Passion, I approach Thine Altar, sinner though I am, to join in offering unto Thee that Sacrifice which Thou hast instituted and commanded to be offered in remembrance of Thee for our well-being. Receive it, I beseech Thee, O God most High, for Thy holy Church, and for the people whom Thou hast purchased with Thine own Blood. Let not, through my unworthiness, the price of their salvation be wasted, whose saving Victim and Redemption Thou didst Thyself vouchsafe to be. Also behold in pity, O Lord, the sorrows of Thy people, which I bring before Thee; the perils of Thy servants; the sorrowful sighing of prisoners; the miseries of widows and orphans, and all that are desolate and bereaved; the necessities of strangers and travellers; the helplessness and sadness of the weak and sickly; the depressions of the languishing; the weakness of the aged and of children; the trials and aspirations of young men; and the vows of virgins.\n\nThursday.\nFor Thou hast mercy upon all, O Lord, and hatest nothing that Thou hast made. Remember how frail our nature is, and that Thou art our Father and our God. Be not angry with us for ever, and shut not up Thy tender mercies in displeasure. For it is not for our just works that we present our prayers before Thy face, but for the multitude of Thy tender mercies. Take away from us, O Lord, our iniquities, and mercifully kindle in us the fire of Thy Holy Spirit. Take away from us the heart of stone, and give us a heart of flesh, a heart to love and adore Thee, a heart to delight in, to follow, and to enjoy Thee. And we entreat Thy mercy, O Lord, that Thou wouldst look down graciously upon Thy family, as it pays its vows to Thy most holy name; and that the desire of none may be in vain, and the petitions of none unfulfilled, do Thou inspire our prayers, that they may be such as Thou delightest to hear and answer.\n\nFriday.\nWe pray Thee also, O Lord, Holy Father, for the souls of the faithful departed: that this great Sacrament of Thy love may be to them health and salvation, joy and refreshment. O Lord, my God, grant them this day a great and abundant feast of Thee, the living Bread, who camest down from heaven and givest life unto the world; even of Thy holy and blessed Flesh, the Lamb without spot, who takest away the sins of the world; that Flesh, which was taken of the Blessed Virgin Mary, and conceived by the Holy Ghost; and of that Fountain of mercy which, by the soldier's lance, flowed from Thy most sacred Side; that they be thereby fed and satisfied, refreshed and comforted, and may rejoice in Thy praise and in Thy glory. I pray Thy loving mercy, O Lord, that on the bread and wine to be offered unto Thee may descend the fulness of Thy blessing and the sanctification of Thy Divinity. May there descend also the invisible and incomprehensible Majesty of Thy Holy Spirit, as it descended of old on the sacrifices of the Fathers, which shall make these oblations Thy Body and Blood; and may this offering be acceptable unto Thee, through Him who offered Himself a sacrifice to Thee, O Father, even Jesus Christ, Thine only Son our Lord.\n\nSaturday.\nI entreat Thee also, O Lord, by this most holy mystery of Thy Body and Blood, wherewith we are daily fed, and cleansed, and sanctified in Thy Church, and are made partakers of the one Supreme Divinity, grant unto me Thy holy virtues, that filled therewith I may draw near with a good conscience unto Thy holy Altar, so that these heavenly mysteries may be made unto me salvation and life; for Thou hast said with Thy holy and blessed mouth: The Bread which I will give is My Flesh, for the life of the world. I am the Living Bread which came down from heaven. If any man eat of this Bread, he shall live for ever. O most sweet Bread, heal the palate of my heart, that I may taste the sweetness of Thy love. Heal it of all infirmities, that I may find sweetness in nothing out of Thee. O most pure Bread, having all delight and all savor, which ever refreshest us, and never failest, let my heart feed on Thee, and may my inmost soul be filled with the sweetness of Thy savor. The Angels feed on Thee fully; let pilgrim man feed on Thee after his measure, so that, refreshed by this nourishment, he may not faint by the way. Holy Bread! Living Bread! Pure Bread! who didst come down from heaven, and who givest life to the world, enter into my heart and cleanse me from all impurity of flesh and spirit. Come into my soul; heal and cleanse me within and without; be the protection and continual health of my soul and body. Drive far from me all foes that lie in wait: let them flee afar off at the presence of Thy power; that, fortified by Thee without and within, I may by a straight way arrive at Thy kingdom, where, not as now in mysteries, but face to face, we shall behold Thee; when Thou shalt have delivered up the kingdom to God Thy Father, and shalt be God All in all. Then shalt Thou satisfy me with Thyself by a wondrous fulness, so that I shall never hunger nor thirst any more for ever. Who with the same God the Father, and the Holy Ghost, ever livest and reignest world without end. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "The long prayer Summe Sacerdos et vere Pontifex, printed in the Roman Missal's preparation for Mass under the name of Saint Ambrose and now generally credited to the eleventh-century abbot John of Fécamp. The Manual divides it into seven portions, one for each day of the week, which ask in turn for reverence before the Mystery, purity of body and soul, the worthiness that God alone can give, mercy for the Church and the afflicted, a new heart, rest for the faithful departed, and the sweetness of the living Bread. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "before-mass", "mass"],
+      relatedSaints: ["saint-ambrose"],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n319/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "ad-mensam-dulcissimi-convivii-prayer-before-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n325/mode/1up"],
+    payload: {
+      slug: "ad-mensam-dulcissimi-convivii-prayer-before-communion",
+      title: "Ad Mensam Dulcissimi Convivii (O Gracious Lord Jesus Christ, I, a Sinner)",
+      body: "O gracious Lord Jesus Christ, I, a sinner, nothing presuming on my own deserts, but trusting in Thy mercy and goodness, with fear and trembling approach to the Table of Thy most sweet Feast. For my heart and body are stained with many sins; my thoughts and lips not diligently guarded. Wherefore, O gracious God, O awful Majesty, in my extremity I turn to Thee, the Fount of Mercy; to Thee I hasten to be healed, and take refuge under Thy protection; and Thee, before whom as my Judge I cannot stand, I long for as my Saviour. To Thee, O Lord, I show my wounds, to Thee I lay bare my shame. I know my sins are many and great, for which I am afraid. My trust is in Thy mercies, of which there is no end. Look therefore upon me with the eyes of Thy mercy, O Lord Jesus Christ, God and Man, crucified for man; hearken unto me, whose trust is in Thee; have mercy upon me, who am full of sin and misery, O Thou fount of mercy, that wilt never cease to flow. Hail, saving Victim, offered for me and all mankind on the Cross of suffering and shame. Hail, noble and precious Blood, flowing from the wounds of my crucified Lord and Saviour Jesus Christ, and washing away the sins of the whole world. Be mindful, O Lord, of Thy creature, whom Thou hast redeemed with Thine own Blood. I repent that I have sinned; I desire to amend what I have done. Take therefore away from me, O most merciful Father, all my iniquities and sins: that, being cleansed both in body and soul, I may worthily taste the Holy of Holies; and grant that this holy feeding on Thy Body and Blood, of which, unworthy as I am, I purpose to partake, may be for the remission of my sins, and the perfect cleansing of all my offences, for the driving away of all evil thoughts and the renewal of all holy desires, for the healthful bringing forth of fruit well-pleasing unto Thee, and the most sure protection of my soul and body against the wiles of all my enemies. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "The prayer of the Roman Missal's preparation for Mass that begins Ad mensam dulcissimi convivii, traditionally ascribed to Saint Ambrose: the sinner approaches the table of the Lord trusting only in his mercy, shows him his wounds, greets the saving Victim and the precious Blood, and asks that the Communion bring pardon, cleansing and protection. The Manual sets it to be said daily. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "before-mass", "mass"],
+      relatedSaints: ["saint-ambrose"],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n325/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-contrition-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n326/mode/1up"],
+    payload: {
+      slug: "act-of-contrition-before-holy-communion",
+      title: "Act of Contrition before Holy Communion",
+      body: "I desire, O my Saviour, to humbly offer Thee the sacrifice of a troubled spirit and a contrite heart. I grieve from my inmost heart that I have ever offended Thee by my sins, Thee my God and my chief good, Thee who art so gracious to me, and so oft refreshest me in Thy Blessed Sacrament. I grieve especially for the sins of ..., which Thou knowest, Thou Searcher of our hearts, and which I, a miserable sinner, do confess in the bitterness of my soul. Would that I had never offended Thee! Yet a contrite and humble heart, O God, Thou wilt not despise; Thou who for love of us didst give to us Thine Only-Begotten Son, to wash us from our sins in His own Blood.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'The first of the Manual\'s acts before Communion: sorrow for having offended so gracious a Lord, with a pause after "the sins of" for the communicant to name particular sins, and trust that God will not despise a contrite and humble heart (Psalm 50). From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["before-communion", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n326/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "resolution-of-amendment-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n327/mode/1up"],
+    payload: {
+      slug: "resolution-of-amendment-before-holy-communion",
+      title: "Resolution of Amendment before Holy Communion",
+      body: "I desire, O Lord, earnestly longing for the help of Thy grace, to renew all my Baptismal Vows to Thee, to renounce all that displeaseth Thee, and to walk more perfectly in newness of life. I renounce the devil and all his works and pomps, the glory of the world with all its covetous desires, all sinful excesses in things lawful, and whatever may lead my heart from Thee or hinder my duty towards Thee; also, I renounce all the sinful lusts of the flesh, with everything in thought, word, or deed, which displeaseth Thee, especially ..., from all which let it be Thy good pleasure to deliver me, and to turn the whole stream of my affections to the love of Thee, that Thy will and Thy love may be the sole rule and guide of my life, and I may love whatever Thou lovest, and hate whatever Thou hatest.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'A renewal of the baptismal vows before Communion, renouncing the devil, the world and the flesh and resolving to walk in newness of life, with a pause after "especially" for the communicant to name a particular fault. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["before-communion", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n327/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-faith-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n327/mode/1up"],
+    payload: {
+      slug: "act-of-faith-before-holy-communion",
+      title: "Act of Faith before Holy Communion",
+      body: "Of a truth I firmly believe, O Good Jesus, and with lively faith confess, that Thou Thyself, equal to God the Father in glory and in power, true God and Man, art verily and indeed present in this Sacrament. For Thou, the very Truth itself, hast said, This is My Body, This is My Blood. I believe whatever the Son of God hath said. Nothing can be truer than this word of Him who is the Truth. I do believe, Lord; help mine unbelief, increase my faith.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'A profession of faith in the real presence of Christ, true God and Man, in the Sacrament, resting on his own words "This is My Body, This is My Blood" and closing with the cry of the father in the Gospel, "help mine unbelief" (Mark 9). From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["before-communion", "mass", "adoration"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n327/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-hope-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n327/mode/1up"],
+    payload: {
+      slug: "act-of-hope-before-holy-communion",
+      title: "Act of Hope before Holy Communion",
+      body: "O Christ Jesus, I am sinful dust and ashes, but Thou callest to Thee all who labor and are burdened, that Thou mayest refresh them. Art not Thou my Refuge? To whom else shall I go? Thou hast the words of eternal life, Thou alone canst comfort me in every trouble. Lord, I am weak and sick, but Thou art my salvation. Those who are well need not a physician, but those who are sick. Therefore I come to Thee, my Physician and my Refuge, hoping that this Communion may be to me the increase of Faith, Hope, and Charity; a firm defence against the snares of my enemies; a help to the removal of the fault and defect of ..., and to the bringing forth of works well-pleasing unto Thee, especially ..., and a pledge of future glory. This is the hope and desire which I cherish in my heart, for Thou art compassionate and of tender mercy, and in all Thy promises most faithful.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "An act of hope that comes to Christ as Physician and Refuge, recalling his call to all who labour and are burdened and Saint Peter's confession that he has the words of eternal life (John 6), and hoping that the Communion will increase faith, hope and charity; two pauses are left for the communicant's own faults and intentions. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n327/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-love-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n328/mode/1up"],
+    payload: {
+      slug: "act-of-love-before-holy-communion",
+      title: "Act of Love before Holy Communion",
+      body: "O most Sweet Saviour, Jesus Christ, how great was Thy love, which drew Thee from the bosom of the Father to this vale of tears, to take our flesh and endure infinite miseries and wrongs, yea, even the death of the Cross, and that only for us miserable sinners and for our salvation. O how great was Thy love! Thou mightest have condemned us, and Thou didst rather choose to save us: we were guilty, and Thou, the sinless One, didst endure our punishment to set us free. Out of love it was that Thou camest down to take our flesh; and when about to depart from this world to the Father, Thou didst leave to us this Sacrament as a pledge of Thy love, that after a new and wondrous manner Thou mightest abide with us for ever; Thou whose delights are to be with the children of men. O Lord, how worthy art Thou of love, who dost so much for love of us! Wherefore I will love Thee, O Lord, my Strength, my Refuge, and my Deliverer. O God, Thou art true Love! He that dwelleth in love dwelleth in Thee. I desire to receive Thee in this Sacrament, that I may be more firmly united with Thee in the bond of love. Who shall separate me from the love of Christ my Saviour? O that neither life, nor death, nor any creature may have power to do so.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "An act of love that meditates on the love which brought the Son from the bosom of the Father to the Cross and moved him to leave the Sacrament as a pledge of that love, and asks to be bound to him so that nothing may separate the soul from the love of Christ (Romans 8:35-39). From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "mass", "act-of-love"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n328/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-humility-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n329/mode/1up"],
+    payload: {
+      slug: "act-of-humility-before-holy-communion",
+      title: "Act of Humility before Holy Communion",
+      body: "How dare I venture to approach to Thee, O Lord? Art not Thou, O God, my Lord, my Creator, my Redeemer, the King of heaven and earth? And who am I? A poor worm of earth, and, what is yet more unworthy, so often a disobedient and ungrateful sinner against Thee! Of a truth, Lord, I am not worthy that Thou shouldst enter under my roof; yet remember, O Lord, that although Thou wast Lord of all, yet didst Thou take upon Thee the form of a servant, and coming unto us didst converse familiarly with publicans and sinners; and lastly didst humble Thyself and become obedient unto death. Let that Thy humility move Thee, I beseech Thee, not to despise me, vile and worthless as I am, but graciously to come unto me, and mercifully to receive me, who come to Thee.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'An act of humility before Communion that echoes the centurion\'s "Lord, I am not worthy that Thou shouldst enter under my roof" and appeals to the humility of Christ, who took the form of a servant and kept company with publicans and sinners. The book prints no full stop after the last word; one is supplied. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["before-communion", "mass", "humility"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n329/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-reparation-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n329/mode/1up"],
+    payload: {
+      slug: "act-of-reparation-before-holy-communion",
+      title: "Act of Reparation before Holy Communion",
+      body: "O Lord, my God and Saviour, who, as Thou didst endure for our salvation the outrages of those who crucified Thee, so now deignest to bear with those who by careless or unworthy Communions approach and touch Thee, not discerning Thee, and endurest all irreverences rather than withhold Thy sacred Presence from our Altars: I bewail these indignities, and most earnestly desire to prevent, to the utmost of my power, whatever thus still grieves Thee. I beseech Thee, accept this sorrow and this desire as the only offering I can make in reparation of so great dishonor. O Lord, increase our faith, and preserve us from the least profanation of this adorable Mystery, and kindle in me and in the hearts of all Thy people, especially of all who celebrate or assist in Its ministration, such reverence and devotion that Thy most holy name may more and more be honored and glorified in this Sacrament of love. Amen.",
+      prayerType: "act",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "An act of reparation for careless and unworthy Communions, offering sorrow and the desire to prevent such dishonour, and asking that all who celebrate or assist at the Sacrament may receive it with reverence and devotion. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "mass", "reparation"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n329/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "aspirations-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n330/mode/1up"],
+    payload: {
+      slug: "aspirations-before-holy-communion",
+      title: "Aspirations before Holy Communion",
+      body: "O Lord Jesus, what great things hast Thou done, and what didst Thou suffer, out of the power of Thy boundless love towards me! But what return have I made? and what return shall I make?\n\nI am sorry from the bottom of my heart that I have ever offended Thee, who hast so greatly loved me.\n\nI believe in Thee with a lively faith, O eternal Truth! because Thou art Thyself God and Man, my Lord and Saviour.\n\nI hope in Thee, O Lord, O only Hope, and true Salvation of my soul.\n\nI love Thee, O my sovereign Good! O that I may love Thee above all things with my whole heart! O may the burning power of Thy love absorb me, that nothing may ever separate me from the love of Christ Jesus, my Saviour!\n\nFor what have I in heaven but Thee? and beside Thee what do I desire upon earth?\n\nAs the hart panteth after the water-springs, so panteth my soul after Thee, O God.\n\nWhat is man, that Thou art mindful of him? or the son of man that Thou visitest him?\n\nBlessed is he who cometh in the name of the Lord.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'Short aspirations of contrition, faith, hope and love to be said in the moments before Communion, closing with verses of the Psalms and "Blessed is he who cometh in the name of the Lord". From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["before-communion", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n330/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-to-the-blessed-virgin-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n331/mode/1up"],
+    payload: {
+      slug: "prayer-to-the-blessed-virgin-before-holy-communion",
+      title:
+        "Prayer to the Blessed Virgin before Holy Communion (O Most Blessed Virgin Mary, Mother of Gentleness)",
+      body: "O most Blessed Virgin Mary, mother of gentleness and mercy, I, a miserable and unworthy sinner, fly to thy protection with every sentiment of humility and love; and I implore of thy loving-kindness that thou wouldst vouchsafe graciously to be near me, and all who throughout the whole Church are to receive the Body and Blood of thy Son this day, even as thou wert near thy sweetest Son as He hung bleeding on the Cross. That, aided by thy gracious help, we may worthily offer up a pure and acceptable sacrifice in the sight of the Holy and Undivided Trinity. Amen.",
+      prayerType: "marian",
+      category: "marian",
+      language: "en",
+      summary:
+        "The prayer to Our Lady from the Roman Missal's preparation for Mass (O Mater pietatis et misericordiae), asking her to stand by all who receive her Son's Body and Blood that day as she stood by him on the Cross. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "mass", "marian-devotion"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n331/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-to-saint-joseph-before-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n331/mode/1up"],
+    payload: {
+      slug: "prayer-to-saint-joseph-before-holy-communion",
+      title: "Prayer to Saint Joseph before Holy Communion (Happy and Blessed Art Thou, O Joseph)",
+      body: "Happy and blessed art thou, O Joseph, to whom it was given not only to see and to hear that God whom many kings desired to see, and saw not, to hear, and heard not; but also to bear Him in thine arms, to embrace Him, to clothe Him, and to guard and defend Him.\n\nV. Pray for us, O Blessed Joseph.\nR. That we may be made worthy of the promises of Christ.\n\nLet us pray.\nO God, who hast given unto us a royal Priesthood, vouchsafe, we beseech Thee, that as Blessed Joseph was found worthy to handle with his hands, and bear within his arms, Thine Only-begotten Son, born of the Virgin Mary, so may we be made fit, by cleanness of heart and innocency of works, to wait upon Thy Holy Altars; that we may worthily receive the Most Sacred Body and Blood of Thy Son, now in this present, and deserve to attain an everlasting reward in the world to come. Through the same Christ our Lord. Amen.",
+      prayerType: "intercession",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The prayer to Saint Joseph from the Roman Missal's preparation for Mass (O felicem virum), praising the saint who carried the Son of God in his arms, with its versicle and collect asking that we may receive the Body and Blood of Christ with a clean heart. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-communion", "mass", "march-19"],
+      relatedSaints: ["saint-joseph"],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n331/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "direction-of-the-intention-before-mass-and-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n332/mode/1up"],
+    payload: {
+      slug: "direction-of-the-intention-before-mass-and-holy-communion",
+      title: "Direction of the Intention before Mass and Holy Communion",
+      body: "I intend to assist at the Holy Sacrifice of the Mass, and to receive the Body and Blood of our Lord Jesus Christ, according to the Rite of the holy Roman Church, to the praise of Almighty God and of the whole Court of Heaven; for my benefit, and that of the whole Church on earth; for all those who have commended themselves unto my prayers, in general and in particular; and for the happy estate of the holy Roman Church.\n\nJoy with peace, amendment of life, space for true repentance, the grace and comfort of the Holy Ghost, perseverance in good works, a contrite and humble heart, and a happy consummation of my life, grant unto me, O Almighty and merciful Lord. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "A form for directing one's intention before hearing Mass and receiving Communion: the lay counterpart of the priest's formula of intention in the Roman Missal (Ego volo celebrare Missam), in which the priest states his intention to celebrate Mass and consecrate the Body and Blood of Christ. It is followed by the prayer Gaudium cum pace in its longer form, which asks also for a contrite and humble heart and a happy end. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["before-mass", "before-communion", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n332/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collects-of-thanksgiving-after-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n336/mode/1up"],
+    payload: {
+      slug: "collects-of-thanksgiving-after-holy-communion",
+      title: "Collects of Thanksgiving after Holy Communion (Roman Missal)",
+      body: "O God, who for the Three Children didst assuage the flames of fire: mercifully grant that the flames of sin may not consume us Thy servants.\n\nDirect, we beseech Thee, O Lord, our actions by Thy inspiration, and further them with Thy continual help; that every prayer and work of ours may always begin from Thee, and through Thee be brought to an end.\n\nVouchsafe, O Lord, to extinguish within us the flames of sin; Thou who didst grant to Blessed Lawrence grace to arise whole from his fiery torments. Through Christ our Lord. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "The three collects that close the Roman Missal's thanksgiving after Mass, said after the Canticle of the Three Children and Psalm 150: that the flames of sin may not consume us as the fire spared the three young men, that every prayer and work may begin and end in God (Actiones nostras), and that God, who brought Saint Lawrence through the fire of his martyrdom, may quench in us the flames of sin. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["after-communion", "thanksgiving", "mass"],
+      relatedSaints: ["saint-lawrence"],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n336/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-to-the-blessed-virgin-after-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n339/mode/1up"],
+    payload: {
+      slug: "prayer-to-the-blessed-virgin-after-holy-communion",
+      title: "Prayer to the Blessed Virgin after Holy Communion (O Most Holy, O Most Benign)",
+      body: "O most Holy, O most benign, O noble and glorious Virgin Mary, who wast worthy to bear in thy sacred womb the Creator of all, and at thy virginal breast to nourish Him whose true, real, and most holy Body and Blood I, an unworthy sinner, have just now dared to receive: vouchsafe, I humbly beseech thee, to intercede with Him for me a sinner; that whatsoever, by ignorance or neglect, by accident or irreverence, I have left undone, or have done amiss, in this unspeakably holy Sacrifice, may be pardoned through thy prayers to the same our Lord Jesus Christ, thy Son, who with the Father and the Holy Ghost liveth and reigneth world without end. Amen.",
+      prayerType: "marian",
+      category: "marian",
+      language: "en",
+      summary:
+        "A prayer after Communion to the Virgin who bore and nursed the Lord just received, asking her to obtain pardon for whatever was done amiss or left undone through ignorance or irreverence in the holy Sacrifice. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["after-communion", "thanksgiving", "marian-devotion"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n339/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "aspirations-after-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n339/mode/1up"],
+    payload: {
+      slug: "aspirations-after-holy-communion",
+      title: "Aspirations after Holy Communion",
+      body: "Who art Thou, O Lord, and what am I? Dost Thou come unto me, O King most High, even to the very lowest of Thy servants?\n\nBehold, O Lord, I now have Thee, who hast all things: I possess Thee, who possessest all things and canst do all things; therefore, O my God and my All, do Thou wean my heart from all other things beside Thee, for in them there is nothing but vanity and weariness of spirit; on Thee alone may my heart be fixed; in Thee be my rest, for in Thee is my treasure, in Thee are sovereign truth, true happiness, and eternal life.\n\nLet my soul, O Lord, feel the sweetness of Thy presence. May it taste how sweet Thou art, O Lord, that, drawn by love of Thee, it may seek for nothing wherein to rejoice out of Thee; for Thou art the joy of my heart, and my God, and my portion for ever.\n\nThou art the Physician of my soul, who with Thine own stripes hast healed our sickness. I am that sick soul whom Thou camest from heaven to heal; heal my soul, therefore, for I have sinned against Thee.\n\nThou art the Good Shepherd who hast laid down Thy life for Thy sheep. Behold, I am that sheep which was lost, and yet Thou dost vouchsafe to feed me with Thy Body and Blood; lay me now upon Thy shoulders. What wilt Thou refuse me, who hast given Thyself unto me? O be Thou my Shepherd, and I shall lack nothing in the green pasture wherein Thou feedest me, until I am brought to the pastures of eternal life.\n\nO Thou true Light, which enlightenest every man who cometh into the world, enlighten mine eyes, that I sleep not in death.\n\nO Fire continually burning, and never failing! behold how lukewarm and cold I am; O do Thou inflame my reins and my heart, that they may be on fire with the love of Thee. For Thou camest to send fire on the earth, and what wilt Thou but that it be kindled?\n\nO King of Heaven and earth, rich in pity! behold, I am poor and needy; Thou knowest what I most require; Thou alone art able to enrich and help me; help me, O God, and out of the treasure of Thy goodness succor Thou my needy soul.\n\nO my Lord and my God! behold, I am Thy servant: give me understanding and kindle my affections, that I may know and do Thy will.\n\nThou art the Lamb of God, the Lamb without spot, who takest away the sins of the world; take away from me whatever hurteth me and displeaseth Thee; and give me what Thou knowest to be pleasing to Thee and good for me.\n\nThou art my love and all my joy; Thou art my God and my all; Thou art the portion of my inheritance and of my cup; Thou art He that will restore my inheritance unto me.\n\nO my God and my All! may the sweet and burning power of Thy love, I beseech Thee, so absorb my soul, that I may die unto the world for the love of Thee, who for the love of me hast vouchsafed to die upon the Cross, O my God and my All.\n\nLord, if I had lived innocently, I could not have deserved to receive the crumbs that fall from Thy Table. How great is Thy mercy, who hast feasted me with the Bread of Virgins, with the Wine of Angels, with Manna from heaven!\n\nO when shall I pass from this dark glass, from this veil of Sacraments, to the vision of Thy eternal light; from eating Thy Body, to beholding Thy face in Thy eternal kingdom?\n\nLet not my sins crucify the Lord of life again; let it never be said of me, The hand of him who betrayeth Me is with Me on the table.\n\nO that I might love Thee as well as ever any creature loved Thee! Let me think nothing but Thee, desire nothing but Thee, enjoy nothing but Thee.\n\nO Jesus, be a Jesus unto me. Thou art all things unto me. Let nothing ever please me but what savors of Thee and Thy miraculous sweetness.\n\nBlessed be the mercies of our Lord, who of God is made unto me wisdom, and justice, and sanctification, and redemption. Let him who glorieth glory in the Lord. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "A chain of aspirations for the time after Communion, addressing Christ as Physician, Good Shepherd, true Light, burning Fire and Lamb of God, returning more than once to \"O my God and my All\", and ending with Saint Paul's words that Christ is made unto us wisdom, justice, sanctification and redemption (1 Corinthians 1:30-31). One aspiration is a form of the Absorbeat ascribed to Saint Francis, which is also given on its own in Paschal Robinson's translation. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["after-communion", "thanksgiving"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n339/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "o-lord-jesus-sweetest-guest-after-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n342/mode/1up"],
+    payload: {
+      slug: "o-lord-jesus-sweetest-guest-after-holy-communion",
+      title: "O Lord Jesus, Sweetest Guest (after Holy Communion)",
+      body: "O Lord Jesus, sweetest Guest, mayest Thou have come happily to me, Thy poor and humble servant. Mayest Thou have entered in blessing under this mean and lowly roof. Blessed art Thou, O Lord, in the highest, for that Thou hast come into my heart, Thou Day-spring from on high. O King of peace, drive from my heart all vain and idle thoughts, that my soul may be able to imitate and to love Thee only, the Author of peace. For what beside Thee, O Thou peace, Thou calm and sweetness of my heart, should my soul seek for or desire?",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'A short welcome to Christ received in Communion, headed "Adore and Magnify the Lord" in the book: it blesses him for entering the soul\'s lowly roof and asks the King of peace to drive out every idle thought. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["after-communion", "thanksgiving"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n342/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "what-shall-i-render-unto-thee-o-lord-jesus-after-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n343/mode/1up"],
+    payload: {
+      slug: "what-shall-i-render-unto-thee-o-lord-jesus-after-holy-communion",
+      title: "What Shall I Render unto Thee, O Lord Jesus (Thanksgiving after Holy Communion)",
+      body: "What shall I render unto Thee, O Lord Jesus, for all that Thou hast done unto me, and on this day especially? In Thy care for me Thou hast given me Thy Body for my food, and Thy Blood for my drink, and both for a pledge of future glory. Would that my lips might be opened, and my mouth filled with Thy praise, that I might sing of Thy glory and of Thy greatness all the day long, and tell of all Thy wondrous works. O my soul, magnify the Lord, from whom thou hast received blessings so many and so great; and rejoice, my spirit, in God thy Saviour: for He hath looked down on my lowliness; and the Mighty One hath done great things for me, and hath filled me, when hungry, with good things.\n\nLet my words please Thee, O Lord; my joy shall be in Thee, and I will be exercised in Thy commandments. Hold Thou me by my right hand, and guide me by Thy will, that Thou mayest afterwards receive me with Thy glory; for Thy mercy's sake. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        'A thanksgiving after Communion, headed "Give Thanks", that turns the words of Psalm 115 and the Magnificat to the gift of Christ\'s Body and Blood, and asks to be led by the hand and received at last into his glory. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.',
+      occasions: ["after-communion", "thanksgiving"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n343/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "offering-of-jesus-christ-to-the-father-after-holy-communion",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n343/mode/1up"],
+    payload: {
+      slug: "offering-of-jesus-christ-to-the-father-after-holy-communion",
+      title: "Offering of Jesus Christ to God the Father after Holy Communion",
+      body: "O most Merciful Father, who hast so loved me as to give to me Thine Only-begotten Son for my food and drink, and with Him all things, look upon the Face of Thine Anointed, in whom Thou art well pleased. This Thy Beloved Son, and with Him my heart, I offer and present to Thee for all the blessings Thou hast this day given me. Mayest Thou, O Father, be now well pleased in Him, and through Him turn away Thine indignation from me.\n\nBehold the One Mediator between God and men, a Man Christ Jesus, my Advocate and High-Priest, who intercedes for me. Him do I offer and plead before Thee, who committed no sin, but bore the sins of the world, and by whose stripes we are healed. Accept, therefore, O Holy Father, this Immaculate Victim, to the honor and glory of Thy name, in thanksgiving for all Thy benefits bestowed upon me, in remission also of my sins, and supply of all my defects and shortcomings.\n\nO Blessed Virgin, Mother of my God and Saviour, recommend my petitions to thy Son. O all ye Angels and Saints, citizens of heaven, join also your prayers with mine. Ye stand always before the Throne, and see Him face to face, whom I here receive under veils. Be ever mindful of me, and obtain from Him and through Him that with you I may bless Him and love Him for ever. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "A prayer after Communion that offers the Father his beloved Son, the one Mediator and immaculate Victim, in thanksgiving and for the remission of sins, and asks Our Lady, the angels and the saints to join their prayers to the communicant's. From the devotions for Holy Communion in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["after-communion", "thanksgiving", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n343/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-adoration-to-the-most-holy-trinity-i-most-humbly-adore-thee",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n347/mode/1up"],
+    payload: {
+      slug: "act-of-adoration-to-the-most-holy-trinity-i-most-humbly-adore-thee",
+      title:
+        "Act of Adoration to the Most Holy Trinity (I Most Humbly Adore Thee, O Uncreated Father)",
+      body: "I most humbly adore Thee, O uncreated Father, and Thee, O Only-begotten Son, and Thee, O Holy Ghost the Paraclete, one Almighty, Everlasting, and Unchangeable God, Creator of heaven and earth, and of all things visible and invisible. I acknowledge in Thee a true and ineffable Trinity of Persons, a true and indivisible Unity of Substance. I glorify Thee, O Almighty Trinity, one only Deity, my most compassionate Lord, my sweetest hope, my dearest light, my most desired repose, my joy, my life, and all my good. To Thy most merciful goodness I commend my soul and body; to Thy most sacred Majesty I wholly devote myself, and to Thy divine will I resign and yield myself eternally. All honor and glory be to Thee for ever and ever. Amen.",
+      prayerType: "act",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "The act of adoration that opens the Manual's Visit to the Blessed Sacrament: it adores the Father, the Son and the Holy Ghost as one God, confesses the Trinity of Persons and Unity of Substance, and commends soul and body to the divine will. From the Visit to the Blessed Sacrament in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["visit-to-the-blessed-sacrament", "adoration", "trinity-sunday"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n347/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "o-heavenly-father-o-most-forgiving-father",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n348/mode/1up"],
+    payload: {
+      slug: "o-heavenly-father-o-most-forgiving-father",
+      title: "O Heavenly Father, O Most Forgiving Father (Offering of Christ for the Whole World)",
+      body: "O heavenly Father, O most forgiving Father, O Lord God, have mercy upon me a wretched sinner, have mercy upon all men. In fullest reparation, expiation, and satisfaction for all my iniquities and negligences, and for the sins of the whole world, and perfectly to supply the deficiency of my works, I offer unto Thee Thy Beloved Son, Christ Jesus, in union with that sovereign charity with which Thou didst send Him to us, and didst give Him to us as our Saviour. I offer His transcendent virtues, and all that He did and suffered for us. I offer His labors, sorrows, torments, and most Precious Blood. I offer the merits of the most Blessed Virgin Mary and of all Thy Saints. Assist me, I beseech Thee, O most merciful Father, through the same Thy Son, by the power of Thy Holy Spirit. Have mercy on all unhappy sinners, and graciously call them back to the way of salvation. Grant to all the living pardon and grace, and to the faithful departed eternal light and rest. Amen.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "A prayer of offering in the Visit to the Blessed Sacrament: it presents to the Father his Son, with all that he did and suffered and the merits of Our Lady and the saints, in reparation for one's own sins and the sins of the world, and asks mercy for sinners, grace for the living and rest for the dead. From the Visit to the Blessed Sacrament in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["visit-to-the-blessed-sacrament", "reparation", "conversion", "all-souls"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n348/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "o-holy-spirit-sweetest-comforter",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n348/mode/1up"],
+    payload: {
+      slug: "o-holy-spirit-sweetest-comforter",
+      title: "O Holy Spirit, Sweetest Comforter",
+      body: "O Holy Spirit, sweetest Comforter, who proceedest from the Father and the Son in an ineffable manner, come, I beseech Thee, and enter into my heart. Purify and cleanse me from all sin, and sanctify my soul. Wash away its defilements, moisten its dryness, heal its wounds, subdue its stubbornness, melt its coldness, and correct its wanderings. Make me truly humble and resigned, that I may be pleasing unto Thee, and Thou mayest abide with me for ever. O most blessed Light, O Light worthy of all love, enlighten me. O Joy of Paradise, O fount of purest delights, O my God, give Thyself to me, and kindle in my inmost soul the fire of Thy love. O my Lord, instruct, direct, and defend me in all things. Give me strength against all undue fears and a cowardly spirit; bestow upon me a right Faith, a firm Hope, and a sincere and perfect Charity; and grant that I may ever do Thy most gracious will. Amen.",
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "A prayer to the Holy Spirit in the Visit to the Blessed Sacrament that echoes the petitions of the sequence Veni, Sancte Spiritus and asks for humility, light, courage against cowardice, and a right faith, firm hope and perfect charity. From the Visit to the Blessed Sacrament in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["pentecost", "visit-to-the-blessed-sacrament", "daily"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n348/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-reparation-to-the-sacred-heart-o-jesus-only-son-of-the-living-god",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n350/mode/1up"],
+    payload: {
+      slug: "act-of-reparation-to-the-sacred-heart-o-jesus-only-son-of-the-living-god",
+      title: "Act of Reparation to the Sacred Heart of Jesus (O Jesus, Only Son of the Living God)",
+      body: "O Jesus, Only Son of the Living God, who, by an incomprehensible effect of Thy love, wast pleased to be made Man, to be born in a stable, to live amidst labors and sufferings, to die upon a Cross, and to leave us, as a perpetual pledge of Thy tenderness, Thine own Body and Blood for the nourishment of our souls, in the ineffable Sacrament of the Eucharist: Thou beholdest at Thy feet a criminal covered with confusion, who comes, in the spirit of union with all the associates in the adoration of Thy divine Heart, humbly to confess his ingratitude, his iniquities, and those of all other men, that he may make reparation for them as far as in him lies.\n\nAlas! O loving Jesus, we have sinned against heaven and before Thee. What hath Thy most Sacred Heart not suffered on our part in the course of Thy sacred life, in Thy bitter Passion, and from the moment that Thou hast dwelt amongst us in the Sacrament of Thy Love! O with how much bitterness, opprobrium, and grief have we deluged Thy divine Heart! Pardon; mercy; O adorable Heart of Jesus! mercy for me, mercy for all men, and for our land in particular!\n\nI detest, with all the sincerity of my soul, and with the most profound and bitter grief, everything which hath ever offended Thee in myself or in others; I detest it for the love Thou deservest, and which is supremely due unto Thee. O that I could efface with my tears, and wash away with my blood, the injuries which we have done unto Thee. O that I could repay Thee, by my repentance, by my works, and by my love, all the glory, honor, and satisfaction of which Thou hast been robbed by the injuries and outrages that have been committed against Thee! Accept at least the earnest desire with which Thou inspirest me.\n\nVouchsafe, O Heart infinitely rich in mercy, to light again in my heart and that of all men the sacred fire which Thou camest to kindle upon the earth. Let it purify them, let it inflame them, let it make of them one heart with Thy Heart. Pour down, I beseech Thee, Thy most precious and abundant benedictions on Thy holy Church, and those who govern it; on this diocese, on this region, and on all those who are united with us in devotion to Thy Sacred Heart. O Heart of Jesus, live, reign in all hearts, for time and for eternity. Amen.",
+      prayerType: "act",
+      category: "devotional",
+      language: "en",
+      summary:
+        "An act of reparation to the Sacred Heart for the ingratitude and outrages Christ suffers, above all in the Sacrament of his love, made in union with all who adore his Heart, and ending with the prayer that the Heart of Jesus may live and reign in all hearts. From the Visit to the Blessed Sacrament in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["sacred-heart", "reparation", "first-friday", "visit-to-the-blessed-sacrament"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n350/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-to-the-eternal-father-offering-the-sacred-heart",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n352/mode/1up"],
+    payload: {
+      slug: "prayer-to-the-eternal-father-offering-the-sacred-heart",
+      title: "Prayer to the Eternal Father Offering the Sacred Heart of Jesus",
+      body: "O Eternal Father, let me offer up unto Thy mercy the Sacred Heart of Thy dearly-beloved Son, even as He offered Himself up a Sacrifice to Thy Justice.\n\nAccept, on my behalf, all the thoughts, sentiments, affections, motions, and all the actions of this Sacred Heart; they are mine, because It was immolated for me; they are mine, because for the future I am resolved to admit nothing into my heart but what hath place in Thine. Receive, then, O God, the merits of this Sacred Heart in satisfaction for my sins, and in thanksgiving for all the benefits conferred upon me. Receive them, O Lord, as so many motives for granting my petitions. Give me, O Lord, for their sake, all the graces I need, but especially the gift of final perseverance. Receive them as so many acts of love, adoration, and praise, which I now offer to Thy divine Majesty. This Sacred Heart, this Heart alone, can love, honor, and glorify Thee as Thou deservest. Amen.",
+      prayerType: "general",
+      category: "devotional",
+      language: "en",
+      summary:
+        "A prayer that offers the Eternal Father the Sacred Heart of his Son, and all its thoughts, affections and acts, in satisfaction for sin and thanksgiving, asking above all for final perseverance, since this Heart alone can love and glorify God as he deserves. From the Visit to the Blessed Sacrament in the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore.",
+      occasions: ["sacred-heart", "first-friday", "visit-to-the-blessed-sacrament"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n352/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-against-thee-only-have-i-sinned-the-return-we-make-thee",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-against-thee-only-have-i-sinned-the-return-we-make-thee",
+      title: "Against Thee Only Have I Sinned: The Return We Make Thee (Saint John Henry Newman)",
+      body: '1. Thou, O Lord, after living a whole eternity in ineffable bliss, because Thou art the one and sole Perfection, at length didst begin to create spirits to be with Thee and to share Thy blessedness according to their degree; and the return they made Thee was at once to rebel against Thee. First a great part of the Angels, then mankind, have risen up against Thee, and served others, not Thee. Why didst Thou create us, but to make us happy? Couldest Thou be made more happy by creating us? and how could we be happy but in obeying Thee? Yet we determined not to be happy as Thou wouldest have us happy, but to find out a happiness of our own; and so we left Thee. O my God, what a return is it that we—that I—make Thee when we sin! what dreadful unthankfulness is it! and what will be my punishment for refusing to be happy, and for preferring hell to heaven! I know what the punishment will be; Thou wilt say, "Let him have it all his own way. He wishes to perish; let him perish. He despises the graces I give him; they shall turn to a curse."\n\n2. Thou, O my God, hast a claim on me, and I am wholly Thine! Thou art the Almighty Creator, and I am Thy workmanship. I am the work of Thy Hands, and Thou art my owner. As well might the axe or the hammer exalt itself against its framer, as I against Thee. Thou owest me nothing; I have no rights in respect to Thee, I have only duties. I depend on Thee for life, and health, and every blessing every moment. I have no more power of exercising will as to my life than axe or hammer. I depend on Thee far more entirely than anything here depends on its owner and master. The son does not depend on the father for the continuance of life—the matter out of which the axe is made existed first—but I depend wholly on Thee—if Thou withdraw Thy breath from me for a moment, I die. I am wholly and entirely Thy property and Thy work, and my one duty is to serve Thee.\n\n3. O my God, I confess that before now I have utterly forgotten this, and that I am continually forgetting it! I have acted many a time as if I were my own master, and turned from Thee rebelliously. I have acted according to my own pleasure, not according to Thine. And so far have I hardened myself, as not to feel as I ought how evil this is. I do not understand how dreadful sin is—and I do not hate it, and fear it, as I ought. I have no horror of it, or loathing. I do not turn from it with indignation, as being an insult to Thee, but I trifle with it, and, even if I do not commit great sins, I have no great reluctance to do small ones. O my God, what a great and awful difference is there between what I am and what I ought to be!',
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The first of Newman's two meditations headed \"Against Thee only have I sinned\" (Psalm 50:6), which open his section on sin: God created angels and men only to make them happy, and they rebelled; the soul confesses that it is wholly God's property and work, and that it trifles with sin instead of hating it. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["lent", "examination-of-conscience", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-effects-of-sin",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#sin3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-effects-of-sin",
+      title: "The Effects of Sin (Saint John Henry Newman)",
+      body: "1. My Lord, Thou art the infinitely merciful God. Thou lovest all things that Thou hast created. Thou art the lover of souls. How then is it, O Lord, that I am in a world so miserable as this is? Can this be the world which Thou hast created, so full of pain and suffering? Who among the sons of Adam lives without suffering from his birth to his death? How many bad sicknesses and diseases are there! how many frightful accidents! how many great anxieties! how are men brought down and broken by grief, distress, the tumult of passions, and continual fear! What dreadful plagues are there ever on the earth: war, famine, and pestilence! Why is this, O my God? Why is this, O my soul? Dwell upon it, and ask thyself, Why is this? Has God changed His nature? yet how evil has the earth become!\n\n2. O my God, I know full well why all these evils are. Thou hast not changed Thy nature, but man has ruined his own. We have sinned, O Lord, and therefore is this change. All these evils which I see and in which I partake are the fruit of sin. They would not have been, had we not sinned. They are but the first instalment of the punishment of sin. They are an imperfect and dim image of what sin is. Sin is infinitely worse than famine, than war, than pestilence. Take the most hideous of diseases, under which the body wastes away and corrupts, the blood is infected; the head, the heart, the lungs, every organ disordered, the nerves unstrung and shattered; pain in every limb, thirst, restlessness, delirium—all is nothing compared with that dreadful sickness of the soul which we call sin. They all are the effects of it, they all are shadows of it, but nothing more. That cause itself is something different in kind, is of a malignity far other and greater than all these things. O my God, teach me this! Give me to understand the enormity of that evil under which I labour and know it not. Teach me what sin is.\n\n3. All these dreadful pains of body and soul are the fruits of sin, but they are nothing to its punishment in the world to come. The keenest and fiercest of bodily pains is nothing to the fire of hell; the most dire horror or anxiety is nothing to the never-dying worm of conscience; the greatest bereavement, loss of substance, desertion of friends, and forlorn desolation is nothing compared to the loss of God's countenance. Eternal punishment is the only true measure of the guilt of sin. My God, teach me this. Open my eyes and heart, I earnestly pray Thee, and make me understand how awful a body of death I bear about me. And, not only teach me about it, but in Thy mercy and by Thy grace remove it.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A meditation in prayer on why a world made by a loving God is so full of sickness, war and grief: these are the first fruits of sin, and nothing beside its punishment hereafter. It ends asking God to teach the heart what sin is and to take it away. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["lent", "examination-of-conscience", "suffering", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#sin3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-evil-of-sin",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#sin4",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-evil-of-sin",
+      title: "The Evil of Sin (Saint John Henry Newman)",
+      body: "1. My God, I know that Thou didst create the whole universe very good; and if this was true of the material world which we see, much more true is it of the world of rational beings. The innumerable stars which fill the firmament, and the very elements out of which the earth is made, all are carried through their courses and their operations in perfect concord; but much higher was the concord which reigned in heaven when the Angels were first created. At that first moment of their existence the main orders of the Angels were in the most excellent harmony, and beautiful to contemplate; and the creation of man was expected next, to continue that harmony in the instance of a different kind of being. Then it was that suddenly was discovered a flaw or a rent in one point of this most delicate and exquisite web—and it extended and unravelled the web, till a third part of it was spoilt; and then again a similar flaw was found in human kind, and it extended over the whole race. This dreadful evil, destroying so large a portion of all God's works, is sin.\n\n2. My God, such is sin in Thy judgment; what is it in the judgment of the world? A very small evil or none at all. In the judgment of the Creator it is that which has marred His spiritual work; it is a greater evil than though the stars got loose, and ran wild in heaven, and chaos came again. But man, who is the guilty one, calls it by soft names. He explains it away. The world laughs at it, and is indulgent to it; and, as to its deserving eternal punishment, it rises up indignant at the idea, and rather than admit it, would deny the God who has said it does. The world thinks sin the same sort of imperfection as an impropriety, or want of taste or infirmity. O my soul, consider carefully the great difference between the views of sin taken by Almighty God and the world! Which of the two views do you mean to believe?\n\n3. O my soul, which of the two wilt thou believe—the word of God or the word of man? Is God right or is the creature right? Is sin the greatest of all possible evils or the least? My Lord and Saviour, I have no hesitation which to believe. Thou art true, and every man a liar. I will believe Thee, above the whole world. My God, imprint on my heart the infamous deformity of sin. Teach me to abhor it as a pestilence—as a fierce flame destroying on every side; as my death. Let me take up arms against it, and devote myself to fight under Thy banner in overcoming it.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A meditation in prayer contrasting God's judgment of sin, the flaw that marred his spiritual creation, with the world's indulgent view of it, and resolving to believe God rather than man and to fight sin under Christ's banner. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["lent", "examination-of-conscience", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#sin4",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-heinousness-of-sin",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#sin5",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-heinousness-of-sin",
+      title: "The Heinousness of Sin (Saint John Henry Newman)",
+      body: '1. My Lord, I know well that Thou art all perfect, and needest nothing. Yet I know that Thou hast taken upon Thyself the nature of man, and, not only so, but in that nature didst come upon earth, and suffer all manner of evil, and didst die. This is a history which has hung the heavens with sackcloth, and taken from this earth, beautiful as it is, its light and glory. Thou didst come, O my dear Lord, and Thou didst suffer in no ordinary way, but unheard of and extreme torments! The all-blessed Lord suffered the worst and most various of pains. This is the corner truth of the Gospel: it is the one foundation, Jesus Christ and He crucified. I know it, O Lord, I believe it, and I put it steadily before me.\n\n2. Why is this strange anomaly in the face of nature? Does God do things for naught? No, my soul, it is sin; it is thy sin, which has brought the Everlasting down upon earth to suffer. Hence I learn how great an evil sin is. The death of the Infinite is its sole measure. All that slow distress of body and mind which He endured, from the time He shed blood at Gethsemani down to His death, all that pain came from sin. What sort of evil is that, which had to be so encountered by such a sacrifice, and to be reversed at such a price! Here then I understand best how horrible a thing sin is. It is horrible; because through it have come upon men all those evils whatever they are, with which the earth abounds. It is more horrible, in that it has nailed the Son of God to the accursed tree.\n\n3. My dear Lord and Saviour, how can I make light of that which has had such consequences! Henceforth I will, through Thy grace, have deeper views of sin than before. Fools make jest of sin, but I will view things in their true light. My suffering Lord, I have made Thee suffer. Thou art most beautiful in Thy eternal nature, O my Lord; Thou art most beautiful in Thy sufferings! Thy adorable attributes are not dimmed, but increased to us as we gaze on Thy humiliation. Thou art more beautiful to us than before. But still I will never forget that it was man\'s sin, my sin, which made that humiliation necessary. Amor meus crucifixus est—"my Love is crucified," but by none other than me. I have crucified Thee, my sin has crucified Thee. O my Saviour, what a dreadful thought—but I cannot undo it; all I can do is to hate that which made Thee suffer. Shall I not do that at least? Shall I not love my Lord just so much as to hate that which is so great an enemy of His, and break off all terms with it? Shall I not put off sin altogether? By Thy great love of me, teach me and enable me to do this, O Lord. Give me a deep, rooted, intense hatred of sin.',
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        'A meditation in prayer that measures the evil of sin by the Passion it cost the Son of God ("my Love is crucified," but by none other than me) and asks for a deep and rooted hatred of sin. From Newman\'s Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.',
+      occasions: ["lent", "good-friday", "examination-of-conscience", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#sin5",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-the-bondage-of-sin",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#sin6",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-the-bondage-of-sin",
+      title: "The Bondage of Sin (Saint John Henry Newman)",
+      body: '1. Thou, O my Lord and God, Thou alone art strong, Thou alone art holy! Thou art the Sanctus Deus, Sanctus fortis—"Holy God, holy and strong!" Thou art the sanctity and the strength of all things. No created nature has any stay or subsistence in itself, but crumbles and melts away, if Thou art not with it, to sustain it. My God, Thou art the strength of the Angels, of the Saints in glory—of holy men on earth. No being has any sanctity or any strength apart from Thee. My God, I wish to adore Thee as such. I wish with all my heart to understand and to confess this great truth, that not only Thou art Almighty, but that there is no might at all, or power, or strength, anywhere but in Thee.\n\n2. My God, if Thou art the strength of all spirits, O how pre-eminently art Thou my strength! O how true it is, so that nothing is more so, that I have no strength but in Thee! I feel intimately, O my God, that, whenever I am left to myself, I go wrong. As sure as a stone falls down to the earth if it be let go, so surely my heart and spirit fall down hopelessly if they are let go by Thee. Thou must uphold me by Thy right hand, or I cannot stand. How strange it is, but how true, that all my natural tendencies are towards sloth, towards excess, towards neglect of religion, towards neglect of prayer, towards love of the world, not towards love of Thee, or love of sanctity, or love of self-governance. I approve and praise what I do not do. My heart runs after vanities, and I tend to death, I tend to corruption and dissolution, apart from Thee, Deus immortalis.\n\n3. My God, I have had experience enough what a dreadful bondage sin is. If Thou art away, I find I cannot keep myself, however I wish it—and am in the hands of my own self-will, pride, sensuality, and selfishness. And they prevail with me more and more every day, till they are irresistible. In time the old Adam within me gets so strong, that I become a mere slave. I confess things to be wrong which nevertheless I do. I bitterly lament over my bondage, but I cannot undo it. O what a tyranny is sin! It is a heavy weight which cripples me—and what will be the end of it? By Thy all-precious merits, by Thy Almighty power, I intreat Thee, O my Lord, to give me life and sanctity and strength! Deus sanctus, give me holiness; Deus fortis, give me strength; Deus immortalis, give me perseverance. Sanctus Deus, Sanctus fortis, Sanctus immortalis, miserere nobis.',
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "A meditation in prayer on God as the only strength and holiness of every creature, confessing that the soul left to itself falls into the bondage of its own self-will, and ending with the Trisagion: Sanctus Deus, Sanctus fortis, Sanctus immortalis, miserere nobis. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["lent", "temptation", "examination-of-conscience", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#sin6",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-every-sin-has-its-punishment",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations10.html#sin7",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-every-sin-has-its-punishment",
+      title: "Every Sin Has Its Punishment (Saint John Henry Newman)",
+      body: '1. Thou art the all-seeing, all-knowing God. Thy eyes, O Lord, are in every place. Thou art a real spectator of everything which takes place anywhere. Thou art ever with me. Thou art present and conscious of all I think, say, or do. Tu Deus qui vidisti me—"Thou, God, who hast seen me." Every deed or act, however slight; every word, however quick and casual; every thought of my heart, however secret, however momentary, however forgotten, Thou seest, O Lord, Thou seest and Thou notest down. Thou hast a book; Thou enterest in it every day of my life. I forget; Thou dost not forget. There is stored up the history of all my past years, and so it will be till I die—the leaves will be filled and turned over—and the book at length finished. Quo ibo a Spiritu Tuo— "whither shall I go from Thy Spirit?" I am in Thy hands, O Lord, absolutely.\n\n2. My God, how often do I act wrongly, how seldom rightly! how dreary on the whole are the acts of any one day! All my sins, offences, and negligences, not of one day only, but of all days, are in Thy book. And every sin, offence, negligence, has a separate definite punishment. That list of penalties increases, silently but surely, every day. As the spendthrift is overwhelmed by a continually greater weight of debt, so am I exposed continually to a greater and greater score of punishments catalogued against me. I forget the sins of my childhood, my boyhood, my adolescence, my youth. They are all noted down in that book. There is a complete history of all my life; and it will one day be brought up against me. Nothing is lost, all is remembered. O my soul, what hast thou to go through! What an examination that will be, and what a result! I shall have put upon me the punishment of ten thousand sins—I shall for this purpose be sent to Purgatory—how long will it last? when shall I ever get out? Not till I have paid the last farthing. When will this possibly be?\n\n3. O my dear Lord, have mercy upon me! I trust Thou hast forgiven me my sins—but the punishment remains. In the midst of Thy love for me, and recognising me as Thine own, Thou wilt consign me to Purgatory. There I shall go through my sins once more, in their punishment. There I shall suffer, but here is the time for a thorough repentance. Here is the time of good works, of obtaining indulgences, of wiping out the debt in every possible way. Thy saints, though to the eyes of man without sin, really had a vast account—and they settled it by continual trials here. I have neither their merit nor their sufferings. I cannot tell whether I can make such acts of love as will gain me an indulgence of my sins. The prospect before me is dark—I can only rely on Thy infinite compassion. O my dear Lord, who hast in so many ways shown Thy mercy towards me, pity me here! Be merciful in the midst of justice.',
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The last of Newman's meditations on sin: God sees and records every thought and act, and each forgiven sin still has its punishment, to be paid in Purgatory if not by repentance and good works now. It ends with a plea for mercy in the midst of justice. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["lent", "examination-of-conscience", "all-souls", "november", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations10.html#sin7",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-our-advocate-above-thou-art-gone-to-heaven-to-take-my-part",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#ascension3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-our-advocate-above-thou-art-gone-to-heaven-to-take-my-part",
+      title:
+        "Our Advocate Above: Thou Art Gone to Heaven to Take My Part (Saint John Henry Newman)",
+      body: "1. I adore Thee, O my Lord, as is most fitting, for Thou art gone to heaven to take my part there, and defend my interests. I have one to plead for me with the Lord of all. On earth we try to put ourselves under the protection of powerful men when we have any important business on hand; we know the value of their influence, and we make much of any promise they make us. Thou art omnipotent, and Thou dost exert Thy omnipotence for me. There are millions of men in the world: thou didst die for them all; but Thou livest for Thy people, whom Thou hast chosen out of the world. And still more marvellously dost Thou live for Thy predestinate. Thou hast engraven them upon the palms of Thy hands; their names are ever before Thee. Thou countest the full roll of them; Thou knowest them by heart: Thou orderest the crown of the world for them; and, when their number shall be completed, the world shall end.\n\n2. For me, Thou hast chosen me for present grace—and thus Thou hast put me in the way for future glory. I know perfectly well that, whatever be Thy secret counsels about me, it will be simply, entirely, most really my own fault if I am not written in Thy book. I cannot understand Thee: I can understand myself enough to know and be sure of this. Thou hast put me on such especial vantage ground that the prize is almost in my hand. If I am at present in the society of Angels or Saints, it is hard if I cannot make interest with them that the fellowship begun between them and me should endure. Men of the world know how to turn such opportunities to account in their own matters. If Thou hast given me Mary for my Mother, who, O my God! is Thine, cannot I now establish, as it were, a family interest in her, so that she will not cast me off at the last? If I have the right to pray and the gift of impetration, may I not thereby secure that perseverance to the end, which I cannot merit, and which is the sign and assurance of my predestination? I have in my hands all the means of that which I have not, and may infallibly obtain, even though I cannot certainly secure it.\n\n3. O my Lord, I sink down almost in despair, in utter remorse certainly and disgust at myself, that I so utterly neglect these means which Thou hast put into my hands, content to let things take their course, as if grace would infallibly lead to glory without my own trouble in the matter. What shall I say to Thee, O my Saviour! except that I am in the chains of habit, feeble, helpless, stunted, growthless, and as if I were meant to walk through life, as the inferior creatures, with my face down to the earth, on hands and feet, or crawling on, instead of having an erect posture and a heavenward face? O give me what I need—contrition for all those infinitely numerous venial sins, negligences, slovenliness, which are the surest foreboding that I am not of Thy predestinate. Who can save me from myself but Thou?",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The first of Newman's two meditations on Christ \"our Advocate above\" in his section on the Ascension: the ascended Lord pleads for his chosen in heaven, the soul has every means of perseverance in its hands, and it asks for contrition for the small sins it neglects. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["ascension", "easter-season", "trust", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#ascension3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-our-advocate-above-thou-art-ever-listening-for-my-voice",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations11.html#ascension4",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-our-advocate-above-thou-art-ever-listening-for-my-voice",
+      title: "Our Advocate Above: Thou Art Ever Listening for My Voice (Saint John Henry Newman)",
+      body: "1. I cannot penetrate Thy secret decrees, O Lord! I know Thou didst die for all men really; but since thou hast not effectually willed the salvation of all, and since Thou mightest have done so, it is certain that Thou doest for one what Thou dost not do for another. I cannot tell what has been Thy everlasting purpose about myself, but, if I go by all the signs which Thou hast lavished upon me, I may hope that I am one of those whose names are written in Thy book. But this I know and feel most entirely, what I believe in the case of all men, but know and feel in my own case, that, if I do not attain to that crown which I see and which is within my reach, it is entirely my own fault. Thou hast surrounded me from childhood with Thy mercies; Thou hast taken as much pains with me as if I was of importance to Thee, and my loss of heaven would be Thy loss of me. Thou hast led me on by ten thousand merciful providences; Thou hast brought me near to Thee in the most intimate of ways; Thou hast brought me into Thy house and chamber; Thou hast fed me with Thyself. Dost Thou not love me? really, truly, substantially, efficaciously love me, without any limitation of the word? I know it. I have an utter conviction of it. Thou art ever waiting to do me benefits, to pour upon me blessings. Thou art ever waiting for me to ask Thee to be merciful to me.\n\n2. Yes, my Lord, Thou dost desire that I should ask Thee; Thou art ever listening for my voice. There is nothing I cannot get from Thee. Oh I confess my heinous neglect of this great privilege. I am very guilty. I have trifled with the highest of gifts, the power to move Omnipotence. How slack am I in praying to Thee for my own needs! how little have I thought of the needs of others! How little have I brought before Thee the needs of the world—of Thy Church! How little I have asked for graces in detail! and for aid in daily wants! How little have I interceded for individuals! How little have I accompanied actions and undertakings, in themselves good, with prayer for Thy guidance and blessing!\n\n3. O my Lord Jesu, I will use the time. It will be too late to pray, when life is over. There is no prayer in the grave—there is no meriting in Purgatory. Low as I am in Thy all holy sight, I am strong in Thee, strong through Thy Immaculate Mother, through Thy Saints: and thus I can do much for the Church, for the world, for all I love. O let not the blood of souls be on my head! O let me not walk my own way without thinking of Thee. Let me bring everything before Thee, asking Thy leave for everything I purpose, Thy blessing on everything I do. I will not move without Thee. I will ever lift up my heart to Thee. I will never forget that Thou art my Advocate at the Throne of the Highest. As the dial speaks of the sun, so will I be ruled by Thee above, if Thou wilt take me and rule me. Be it so, my Lord Jesus. I give myself wholly to Thee.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The second of Newman's meditations on Christ \"our Advocate above\": trusting the love that has surrounded him with mercies, he confesses how little he has used the power of prayer for himself, the Church and the world, and resolves to bring everything before his Advocate at the throne of the Highest. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["ascension", "easter-season", "for-the-church", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations11.html#ascension4",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-the-incommunicable-perfection",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine21",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-the-incommunicable-perfection",
+      title: "God the Incommunicable Perfection (Saint John Henry Newman)",
+      body: "1. Almighty God, Thou art the One Infinite Fulness. From eternity Thou art the One and only absolute and most all-sufficient seat and proper abode of all conceivable best attributes, and of all, which are many more, which cannot be conceived. I hold this as a matter of reason, though my imagination starts from it. I hold it firmly and absolutely, though it is the most difficult of all mysteries. I hold it from the actual experience of Thy blessings and mercies towards me, the evidences of Thy awful Being and attributes, brought home continually to my reason, beyond the power of doubting or disputing. I hold it from that long and intimate familiarity with it, so that it is part of my rational nature to hold it; because I am so constituted and made up upon the idea of it, as a keystone, that not to hold it would be to break my mind to pieces. I hold it from that intimate perception of it in my conscience, as a fact present to me, that I feel it as easy to deny my own personality as the personality of God, and have lost my grounds for believing that I exist myself, if I deny existence to Him. I hold it because I could not bear to be without Thee, O my Lord and Life, because I look for blessings beyond thought by being with Thee. I hold it from the terror of being left in this wild world without stay or protection. I hold it from humble love to Thee, from delight in Thy glory and exaltation, from my desire that Thou shouldst be great and the only great one. I hold it for Thy sake, and because I love to think of Thee as so glorious, perfect, and beautiful. There is one God, and none other but He.\n\n2. Since, O Eternal God, Thou art so incommunicably great, so one, so perfect in that oneness, surely one would say, Thou ever must be most distant from Thy creatures, didst Thou create any;—separated from them by Thy eternal ancientness on their beginning to be, and separated by Thy transcendency of excellence and Thy absolute contrariety to them. What couldst Thou give them out of Thyself, which would suit their nature, so different from Thine? What good of Thine could be their good, or do them good, except in some poor external way? If Thou couldst be the happiness of man, then might man in turn, or some gift from him, be the happiness of the bird of prey or the wild beast, the cattle of his pasture, or the myriads of minute creatures which we can scarcely see. Man is not so far above them, as Thou above him. For what is every creature in Thy sight, O Lord, but a vanity and a breath, a smoke which stays not, but flits by and passes away, a poor thing which only vanishes so much the sooner, because Thou lookest on it, and it is set in the illumination of Thy countenance? Is not this, O Lord, the perplexity of reason? From the Perfect comes the Perfect; yet Thou canst not make a second God, from the nature of the case; and therefore either canst not create at all, or of necessity must create what is infinitely unlike, and therefore, in a sense, unworthy of the Creator.\n\n3. What communion then can there be between Thee and me? O my God! what am I but a parcel of dead bones, a feeble, tottering, miserable being, compared with Thee. I am Thy work, and Thou didst create me pure from sin, but how canst Thou look upon me in my best estate of nature, with complacency? how canst Thou see in me any image of Thyself, the Creator? How is this, my Lord? Thou didst pronounce Thy work very good, and didst make man in Thy image. Yet there is an infinite gulf between Thee and me, O my God.",
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "A meditation in prayer that professes God as the one infinite fulness of every perfection, held by reason, experience, conscience and love, and then asks how so great a God can have any communion with his creatures; the meditation that follows it, God Communicated to Us, gives the answer. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["trinity-sunday", "adoration", "meditation"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine21",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-god-the-sole-stay-for-eternity",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine23",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-god-the-sole-stay-for-eternity",
+      title: "God the Sole Stay for Eternity (Saint John Henry Newman)",
+      body: "1. My God I believe and know and adore Thee as infinite in the multiplicity and depth of Thy attributes. I adore Thee as containing in Thee an abundance of all that can delight and satisfy the soul. I know, on the contrary, and from sad experience I am too sure, that whatever is created, whatever is earthly, pleases but for the time, and then palls and is a weariness. I believe that there is nothing at all here below, which I should not at length get sick of. I believe, that, though I had all the means of happiness which this life could give, yet in time I should tire of living, feeling everything trite and dull and unprofitable. I believe, that, were it my lot to live the long antediluvian life, and to live it without Thee, I should be utterly, inconceivably, wretched at the end of it. I think I should be tempted to destroy myself for very weariness and disgust. I think I should at last lose my reason and go mad, if my life here was prolonged long enough. I should feel it like solitary confinement, for I should find myself shut up in myself without companion, if I could not converse with Thee, my God. Thou only, O my Infinite Lord, art ever new, though Thou art the ancient of days—the last as well as the first.\n\n2. Thou, O my God, art ever new, though Thou art the most ancient—Thou alone art the food for eternity. I am to live for ever, not for a time—and I have no power over my being; I cannot destroy myself, even though I were so wicked as to wish to do so. I must live on, with intellect and consciousness for ever, in spite of myself. Without Thee eternity would be another name for eternal misery. In Thee alone have I that which can stay me up for ever: Thou alone art the food of my soul. Thou alone art inexhaustible, and ever offerest to me something new to know, something new to love. At the end of millions of years I shall know Thee so little, that I shall seem to myself only beginning. At the end of millions of years I shall find in Thee the same, or rather, greater sweetness than at first, and shall seem then only to be beginning to enjoy Thee: and so on for eternity I shall ever be a little child beginning to be taught the rudiments of Thy infinite Divine nature. For Thou art Thyself the seat and centre of all good, and the only substance in this universe of shadows, and the heaven in which blessed spirits live and rejoice.\n\n3. My God, I take Thee for my portion. From mere prudence I turn from the world to Thee; I give up the world for Thee. I renounce that which promises for Him who performs. To whom else should I go? I desire to find and feed on Thee here; I desire to feed on Thee, Jesu, my Lord, who art risen, who hast gone up on high, who yet remainest with Thy people on earth. I look up to Thee; I look for the Living Bread which is in heaven, which comes down from heaven. Give me ever of this Bread. Destroy this life, which will soon perish—even though Thou dost not destroy it, and fill me with that supernatural life, which will never die.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The last of Newman's Meditations on Christian Doctrine: every created good palls in time, but God, ever ancient and ever new, is the only food of the soul for eternity; it ends by taking God for one's portion and asking for the Living Bread that comes down from heaven. From Newman's Meditations on Christian Doctrine, in Meditations and Devotions (1893), the collection of his private prayers published after his death.",
+      occasions: ["meditation", "adoration", "after-communion"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations12.html#doctrine23",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-the-return-of-england-to-the-faith",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday3",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-the-return-of-england-to-the-faith",
+      title:
+        "Good Friday Intercession for the Return of England to the Faith (Saint John Henry Newman)",
+      body: "Let us pray for the recovery of our own country England to the faith and the Church of Christ.\n\nO Sapientia, O Wisdom who hast issued out of the mouth of the Highest, and reachest in Thy Providence from the beginning to the end of all things, and disposest all things in sweetness and in strength, it was by Thy unmerited grace, we acknowledge it, O Lord, that this country of ours was so many centuries ago brought into the true fold, and gifted with the knowledge of Thy Truth and the grace of Thy Sacraments. Alas! how things have changed since then! The people was small then and of little account; now it stands highest among the nations of the earth. Then it was obscure and poor—now it has amazing wealth and pre-eminent power; but then it was great in Thy sight, and now on the contrary it is little, for it has lost Thee. O my God, what doth it profit, though we gain the whole world and lose our own souls? or what exchange shall we give for our souls? Wilt Thou forget, O Lord, what by Thy grace we once were, before we turned from Thee? Wilt Thou not listen to all our Saints and Martyrs who are now reigning with Thee and are ever interceding for us? O, look not upon our haughtiness and pride; look not upon our contempt of truths invisible; look not upon our impurity; but look upon Thy own merits; look upon the wounds in Thy hands; look upon Thy past mercies towards us; and, in spite of our wilfulness, subdue our hearts to Thee, O Saviour of men, and renew Thy work in the midst of the years, in the midst of the years re-establish Thou it.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "Newman's prayer, addressed to Christ as the Wisdom of the O antiphon, for the return of England to the Catholic faith it once received, pleading the merits of his wounds and the intercession of England's saints and martyrs. It closes the third of Newman's Twelve Meditations and Intercessions for Good Friday, \"Jesus the Lord of Grace\", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.",
+      occasions: ["good-friday", "holy-week", "conversion", "for-the-church"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday3",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-unbelievers-and-scoffers",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday4",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-unbelievers-and-scoffers",
+      title: "Good Friday Intercession for Unbelievers and Scoffers (Saint John Henry Newman)",
+      body: 'Let us pray for all the scorners, scoffers, and unbelievers, all false teachers and opposers of the truth, who are to be found in this land.\n\nO Lord Jesus Christ, upon the Cross Thou didst say: "Father, forgive them, for they know not what they do." And this surely, O my God, is the condition of vast multitudes among us now; they know not what they might have known, or they have forgotten what once they knew. They deny that there is a God, but they know not what they are doing. They laugh at the joys of heaven and the pains of hell, but they know not what they are doing. They renounce all faith in Thee, the Saviour of man, they despise Thy Word and Sacraments, they revile and slander Thy Holy Church and her Priests, but they know not what they are doing. They mislead the wandering, they frighten the weak, they corrupt the young, but they know not what they do. Others, again, have a wish to be religious, but mistake error for truth—they go after fancies of their own, and they seduce others and keep them from Thee. They know not what they are doing, but Thou canst make them know. O Lord, we urge Thee by Thy own dear words, "Lord and Father, forgive them, for they know not what they do." Teach them now, open their eyes here, before the future comes; give them faith in what they must see hereafter, if they will not believe in it here. Give them full and saving faith here; destroy their dreadful delusions, and give them to drink of that living water, which whoso hath shall not thirst again.',
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        'A prayer for those who deny God and deride the faith, built on Christ\'s word from the Cross, "Father, forgive them, for they know not what they do," asking that their eyes be opened here and that they be given the living water. It closes the fourth of Newman\'s Twelve Meditations and Intercessions for Good Friday, "Jesus the Author and Finisher of Faith", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.',
+      occasions: ["good-friday", "holy-week", "conversion"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday4",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-the-church-militant",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday5",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-the-church-militant",
+      title: "Good Friday Intercession for the Church Militant (Saint John Henry Newman)",
+      body: "Let us pray for the whole Church Militant here upon earth.\n\nO Lion of the Tribe of Judah, the root of David, who fightest the good fight, and hast called on all men to join Thee, give Thy courage and strength to all Thy soldiers over the whole earth, who are fighting under the standard of Thy Cross. Give grace to every one in his own place to fight Thy battle well. Be with Thy missionaries in pagan lands, put right words into their mouths, prosper their labours, and sustain them under their sufferings with Thy consolations, and carry them on, even through torments and blood (if it be necessary), to their reward in heaven. Give the grace of wisdom to those in high station, that they may neither yield to fear, nor be seduced by flattery. Make them prudent as serpents, and simple as doves. Give Thy blessing to all preachers and teachers, that they may speak Thy words and persuade their hearers to love Thee. Be with all faithful servants of Thine, whether in low station or in high, who mix in the world; instruct them how to speak and how to act every hour of the day, so as to preserve their own souls from evil and to do good to their companions and associates. Teach us, one and all, to live in thy presence and to see Thee, our Great Leader and Thy Cross—and thus to fight valiantly and to overcome, that at the last we may sit down with Thee in Thy Throne, as Thou also hast overcome and art set down with Thy Father in His Throne.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        'A prayer to Christ, the Lion of the tribe of Judah, for all who fight under the standard of his Cross: missionaries, those in high station, preachers and teachers, and the faithful who live in the world. It closes the fifth of Newman\'s Twelve Meditations and Intercessions for Good Friday, "Jesus the Lord of Armies", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.',
+      occasions: ["good-friday", "holy-week", "for-the-church", "missions"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday5",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-the-pope-and-the-rulers-of-the-church",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday7",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-the-pope-and-the-rulers-of-the-church",
+      title:
+        "Good Friday Intercession for the Pope and the Rulers of the Church (Saint John Henry Newman)",
+      body: "Let us pray for our Holy Father the Pope, and all Rulers in the Church.\n\nO Emmanuel, God with us, who art the Light that enlighteneth all men, who from the time when Thou camest upon earth, hast never left it to itself, who, after teaching Thy Apostles, gave them to teach others to succeed them, and didst especially leave St. Peter and his successors, Bishops of Rome, to take Thy place towards us, and to guide and rule us in Thy stead age after age, till the end come; Thou hast sent grievous trials for many years upon the Holy See of Rome. We believe and confess, O Lord, without any hesitation at all, that Thou hast promised a continuous duration to Thy Church while the world lasts—and we confess before Thee, that we are in no doubt or trouble whatever, we have not a shadow of misgiving as to the permanence and the spiritual well-being either of Thy Church itself or of its rulers. Nor do we know what is best for Thy Church, and for the interests of the Catholic faith, and for the Pope, or the bishops throughout the world at this time. We leave the event entirely to Thee; we do so without any anxiety, knowing that everything must turn to the prosperity of Thy ransomed possession, even though things may look threatening for a season. Only we earnestly entreat that Thou wouldest give Thy own servant and representative, the Pope Leo, true wisdom and courage, and fortitude, and the consolations of Thy grace in this life, and a glorious immortal crown in the life to come.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "A prayer to Christ, Emmanuel, who left Saint Peter and his successors to guide the Church in his stead, confessing complete confidence in the Church's future amid the trials of the Holy See, and asking wisdom, courage and consolation for the Pope, Leo XIII when Newman wrote. It closes the seventh of Newman's Twelve Meditations and Intercessions for Good Friday, \"Jesus the Eternal King\", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.",
+      occasions: ["good-friday", "holy-week", "for-the-church", "for-the-pope"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday7",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-all-ranks-and-conditions-in-the-church",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday8",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-all-ranks-and-conditions-in-the-church",
+      title:
+        "Good Friday Intercession for All Ranks and Conditions in the Church (Saint John Henry Newman)",
+      body: "Let us pray for all ranks and conditions of men in Thy Holy Church.\n\nO Lord, who art called the Branch, the Orient, the Splendour of the eternal light, and the Sun of Justice, who art that Tree, of whom Thy beloved disciple speaks as the Tree of life, bearing twelve fruits, and its leaves for the healing of the nations, give Thy grace and blessing on all those various states and conditions in Thy Holy Church, which have sprung from Thee and live in Thy Life. Give to all Bishops the gifts of knowledge, discernment, prudence, and love. Give to all priests to be humble, tender, and pure; give to all pastors of Thy flock to be zealous, vigilant, and unworldly; give to all religious bodies to act up to their rule, to be simple and without guile, and to set their hearts upon invisible things and them only. Grant to fathers of families to recollect that they will have hereafter to give account of the souls of their children; grant to all husbands to be tender and true; to all wives to be obedient and patient; grant to all children to be docile; to all young people to be chaste; to all the aged to be fervent in spirit; to all who are engaged in business, to be honest and unselfish; and to all of us the necessary graces of faith, hope, charity, and contrition.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        'A prayer to Christ, the Tree of life whose leaves heal the nations, asking for each state in the Church the grace proper to it: bishops, priests, pastors and religious, fathers, husbands, wives and children, the young, the aged and those in business. It closes the eighth of Newman\'s Twelve Meditations and Intercessions for Good Friday, "Jesus the Beginning of the New Creation", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.',
+      occasions: ["good-friday", "holy-week", "for-the-church", "families"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday8",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-the-conversion-of-sinners",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday9",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-the-conversion-of-sinners",
+      title: "Good Friday Intercession for the Conversion of Sinners (Saint John Henry Newman)",
+      body: 'Let us pray for the conversion of all sinners.\n\nO Lord, "who didst give Thyself for us, that Thou mightest redeem us from all iniquity, and mightest cleanse to Thyself a people acceptable, a pursuer of good works," look upon Thy baptized, look on the multitude of those who once were Thine and have gone from Thee. Ah, for how short a time do they keep Thy grace in their hearts, how soon do they fall off from Thee, with what difficulty do they return; and even, though they repent and come to penance, yet how soon, in the words of Scripture, doth the dog return to his vomit, and the sow that was washed to her wallowing in the mire. O my God, save us all from the seven deadly sins, and rescue those who have been made captive by them. Convert all sinners—bring judgments down upon them, if there is no other way of reclaiming them. Touch the hearts of all proud men, wrathful, revengeful men; of the obstinate, of the self-relying, of the envious, of the slanderer, of the hater of goodness and truth; of the slothful and torpid; of all gluttons and drunkards; of the covetous and unmerciful; of all licentious talkers; of all who indulge in impure thoughts, words, or deeds. Make them understand that they are going straight to hell, and save them from themselves and from Satan.',
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        'A prayer for the baptized who have fallen away, asking Christ to save all from the seven deadly sins and to touch the hearts of the proud, the angry, the envious, the slothful, the intemperate, the covetous and the impure. It closes the ninth of Newman\'s Twelve Meditations and Intercessions for Good Friday, "Jesus the Lover of Souls", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.',
+      occasions: ["good-friday", "holy-week", "conversion", "lent"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday9",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-ourselves-in-thy-arms-i-am-safe",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday10",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-ourselves-in-thy-arms-i-am-safe",
+      title:
+        "Good Friday Intercession for Ourselves and All Our Needs: In Thy Arms I Am Safe (Saint John Henry Newman)",
+      body: "Let us pray for ourselves and for all our needs.\n\nO my Lord and Saviour, in Thy arms I am safe; keep me and I have nothing to fear; give me up and I have nothing to hope for. I know not what will come upon me before I die. I know nothing about the future, but I rely upon Thee. I pray Thee to give me what is good for me; I pray Thee to take from me whatever may imperil my salvation; I pray Thee not to make me rich, I pray Thee not to make me very poor; but I leave it all to Thee, because Thou knowest and I do not. If Thou bringest pain or sorrow on me, give me grace to bear it well—keep me from fretfulness and selfishness. If Thou givest me health and strength and success in this world, keep me ever on my guard lest these great gifts carry me away from Thee. O Thou who didst die on the Cross for me, even for me, sinner as I am, give me to know Thee, to believe on Thee, to love Thee, to serve Thee; ever to aim at setting forth Thy glory; to live to and for Thee; to set a good example to all around me; give me to die just at that time and in that way which is most for Thy glory, and best for my salvation.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        'Newman\'s prayer of trust, often quoted from its opening words "in Thy arms I am safe": knowing nothing of the future, he asks for what is good for him and to be spared what endangers his salvation, neither riches nor poverty, and to die at the time and in the way most for God\'s glory. It closes the tenth of Newman\'s Twelve Meditations and Intercessions for Good Friday, "Jesus our Guide and Guardian", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.',
+      occasions: ["good-friday", "trust", "daily", "preparation-for-death"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday10",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-relations-friends-and-enemies",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday11",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-relations-friends-and-enemies",
+      title:
+        "Good Friday Intercession for Relations, Friends and Enemies, Living and Dead (Saint John Henry Newman)",
+      body: 'Let us pray God for our relations, friends, well wishers, and enemies, living and dead.\n\nO Jesus, son of Mary, whom Mary followed to the Cross when Thy disciples fled, and who didst bear her tenderly in mind in the midst of Thy sufferings, even in Thy last words, who didst commit her to Thy best beloved disciple, saying to her, "Woman, behold thy son," and to him, "Behold thy Mother," we, after Thy pattern, would pray for all who are near and dear to us, and we beg Thy grace to do so continually. We beg Thee to bring them all into the light of Thy truth, or to keep them in Thy truth if they already know it, and to keep them in a state of grace, and to give them the gift of perseverance. We thus pray for our parents, for our fathers and our mothers, for our children, for every one of them, for our brothers and sisters, for every one of our brothers, for every one of our sisters, for our cousins and all our kindred, for our friends, and our father\'s friends, for all our old friends, for our dear and intimate friends, for our teachers, for our pupils, for our masters and employers, for our servants or subordinates, for our associates and work-fellows, for our neighbours, for our superiors and rulers; for those who wish us well, for those who wish us ill; for our enemies; for our rivals; for our injurers and for our slanderers. And not only for the living, but for the dead, who have died in the grace of God, that He may shorten their time of expiation, and admit them into His presence above.',
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "A prayer to Jesus, son of Mary, who remembered his Mother from the Cross, for all who are near and dear to us, named one by one from parents and children to rivals and slanderers, and for the dead who have died in God's grace. It closes the eleventh of Newman's Twelve Meditations and Intercessions for Good Friday, \"Jesus Son of Mary\", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.",
+      occasions: ["good-friday", "families", "all-souls"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday11",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "newman-good-friday-intercession-for-all-who-have-calls-upon-us",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://www.newmanreader.org/works/meditations/meditations6.html#friday12",
+      "https://archive.org/details/a600404300newmuoft",
+    ],
+    payload: {
+      slug: "newman-good-friday-intercession-for-all-who-have-calls-upon-us",
+      title: "Good Friday Intercession for All Who Have Calls upon Us (Saint John Henry Newman)",
+      body: "Let us pray for all who day by day have calls upon us.\n\nMy Lord Jesus Christ, Thou hast given me this great gift, that I am allowed, not only to pray for myself, but to intercede for others in Thy Holy Mass. Therefore, O Lord, I pray Thee to give all grace and blessing upon this town and every inhabitant of it—upon the Catholic Church in it, for our Bishop, and his clergy, and for all Catholic places of worship and their congregations. I pray Thee to bless and prosper all the good works and efforts of all priests, religious, and pious Catholics—I pray for all the sick, all the suffering, all the poor, all the oppressed—I pray for all prisoners—I pray for all evil doers. I pray for all ranks in the community—I pray for the Queen and Royal Family—for the Houses of Parliament—for the judges and magistrates—for all our soldiers—for all who defend us in ships—I pray for all who are in peril and danger. I pray for all who have benefited me, befriended me, or aided me. I pray for all who have asked my prayers—I pray for all whom I have forgotten. Bring us all after the troubles of this life into the haven of peace, and reunite us all together for ever, O my dear Lord, in Thy glorious heavenly kingdom.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "The last of Newman's Good Friday intercessions, offered in the Mass for the town and its Catholics, the clergy, the sick, the poor and prisoners, the civil authorities, benefactors and all who have asked or been forgotten in our prayers. It closes the twelfth of Newman's Twelve Meditations and Intercessions for Good Friday, \"Jesus our Daily Sacrifice\", in Meditations and Devotions (1893). The meditation that precedes it in the book is not given.",
+      occasions: ["good-friday", "mass", "for-the-church"],
+      relatedSaints: ["saint-john-henry-newman"],
+      citations: [
+        "https://www.newmanreader.org/works/meditations/meditations6.html#friday12",
+        "https://archive.org/details/a600404300newmuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-third-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n734/mode/1up"],
+    payload: {
+      slug: "collect-of-the-third-sunday-after-pentecost",
+      title: "Collect of the Third Sunday after Pentecost (Protector in te sperantium)",
+      body: "O God, the Protector of all that trust in Thee, without whom nothing is strong, nothing is holy: increase and multiply upon us Thy mercy; that, Thou being our ruler and guide, we may so pass through temporal blessings that we finally lose not those which are eternal. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Third Sunday after Pentecost in the Roman Missal (Protector in te sperantium), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, without whom nothing is strong or holy, so to guide us through the good things of time that we do not lose those of eternity. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n734/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fourth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n735/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fourth-sunday-after-pentecost",
+      title: "Collect of the Fourth Sunday after Pentecost (Da nobis, quaesumus, Domine)",
+      body: "Grant, O Lord, we beseech Thee, both that the course of this world may be peaceably ordered by Thy governance, and that Thy Church may joyfully serve Thee in tranquil devotion. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Fourth Sunday after Pentecost in the Roman Missal (Da nobis, quaesumus, Domine), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that the course of the world may be ordered in peace and the Church serve God in quiet devotion. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n735/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-sixth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n738/mode/1up"],
+    payload: {
+      slug: "collect-of-the-sixth-sunday-after-pentecost",
+      title: "Collect of the Sixth Sunday after Pentecost (Deus virtutum)",
+      body: "O God of all power and might, to whom belongeth everything that is best: implant in our hearts the love of Thy name, and increase within us true religion; that Thou mayest nourish in us those things that are good, and by the zeal of our devotion mayest preserve what Thou hast nourished. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Sixth Sunday after Pentecost in the Roman Missal (Deus virtutum), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks the God of all power to plant the love of his name in our hearts and to nourish and keep what is good in us. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n738/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-seventh-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n739/mode/1up"],
+    payload: {
+      slug: "collect-of-the-seventh-sunday-after-pentecost",
+      title: "Collect of the Seventh Sunday after Pentecost (Deus, cuius providentia)",
+      body: "O God, the ordering of whose providence never erreth: we humbly beseech Thee to put away from us all hurtful things, and to give us all those things which are profitable for us. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Seventh Sunday after Pentecost in the Roman Missal (Deus, cuius providentia), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it trusts the providence that never errs to take away whatever harms us and give whatever is profitable. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n739/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-eighth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n740/mode/1up"],
+    payload: {
+      slug: "collect-of-the-eighth-sunday-after-pentecost",
+      title: "Collect of the Eighth Sunday after Pentecost (Largire nobis, quaesumus, Domine)",
+      body: "Mercifully grant to us, O Lord, we beseech Thee, the spirit to think and do always such things as are right; that we, who cannot exist without Thee, may by Thee be enabled to live according to Thy will. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Eighth Sunday after Pentecost in the Roman Missal (Largire nobis, quaesumus, Domine), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks for the spirit to think and do always what is right, since we cannot exist without God. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n740/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-ninth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n741/mode/1up"],
+    payload: {
+      slug: "collect-of-the-ninth-sunday-after-pentecost",
+      title: "Collect of the Ninth Sunday after Pentecost (Pateant aures misericordiae tuae)",
+      body: "Let Thy merciful ears, O Lord, be open to the prayers of Thy suppliant people; and that Thou mayest grant them their desires, make them to ask such things as please Thee. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Ninth Sunday after Pentecost in the Roman Missal (Pateant aures misericordiae tuae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to open his ears to his people\'s prayers and to make them ask only what pleases him. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n741/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-tenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n743/mode/1up"],
+    payload: {
+      slug: "collect-of-the-tenth-sunday-after-pentecost",
+      title: "Collect of the Tenth Sunday after Pentecost (Deus, qui omnipotentiam tuam)",
+      body: "O God, who dost manifest Thine Almighty power chiefly in showing pardon and pity: increase and multiply upon us Thy mercy; that we, running the way towards the attainment of Thy promises, may be made partakers of Thy heavenly treasures. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Tenth Sunday after Pentecost in the Roman Missal (Deus, qui omnipotentiam tuam), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it praises the God who shows his almighty power chiefly in sparing and pitying, and asks to share in his heavenly treasures. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n743/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-eleventh-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n744/mode/1up"],
+    payload: {
+      slug: "collect-of-the-eleventh-sunday-after-pentecost",
+      title:
+        "Collect of the Eleventh Sunday after Pentecost (Omnipotens sempiterne Deus, qui abundantia pietatis tuae)",
+      body: "Almighty, Everlasting God, who, in the abundance of Thy loving-kindness, dost exceed both the merits and the desires of those who pray unto Thee: pour down upon us Thy mercy; forgiving us those things of which our conscience is afraid, and granting us those good things which our prayer does not presume to ask. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Eleventh Sunday after Pentecost in the Roman Missal (Omnipotens sempiterne Deus, qui abundantia pietatis tuae), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, whose goodness exceeds what we deserve and desire, to forgive what our conscience fears and grant what we dare not ask. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n744/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-twelfth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n745/mode/1up"],
+    payload: {
+      slug: "collect-of-the-twelfth-sunday-after-pentecost",
+      title:
+        "Collect of the Twelfth Sunday after Pentecost (Omnipotens et misericors Deus, de cuius munere)",
+      body: "Almighty and merciful God, of whose gift it cometh that Thy faithful people do Thee worthy and laudable service: grant, we beseech Thee, that we run without stumbling to the attainment of Thy promises. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Twelfth Sunday after Pentecost in the Roman Missal (Omnipotens et misericors Deus, de cuius munere), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it acknowledges that every worthy service of the faithful is God\'s gift, and asks to run without stumbling towards his promises. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n745/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-thirteenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n747/mode/1up"],
+    payload: {
+      slug: "collect-of-the-thirteenth-sunday-after-pentecost",
+      title:
+        "Collect of the Thirteenth Sunday after Pentecost (Omnipotens sempiterne Deus, da nobis fidei, spei et caritatis augmentum)",
+      body: "Almighty and Everlasting God, give unto us an increase of Faith, Hope, and Charity; and, that we may worthily obtain that which Thou dost promise, make us to love that which Thou dost command. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Thirteenth Sunday after Pentecost in the Roman Missal (Omnipotens sempiterne Deus, da nobis fidei, spei et caritatis augmentum), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks for an increase of faith, hope and charity, and to love what God commands. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n747/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fourteenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n748/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fourteenth-sunday-after-pentecost",
+      title:
+        "Collect of the Fourteenth Sunday after Pentecost (Custodi, Domine, quaesumus, Ecclesiam tuam)",
+      body: "Keep, we beseech Thee, O Lord, Thy Church with Thy perpetual favor; and, because the frailty of man without Thee cannot but fall, keep it ever by Thy help from all things hurtful, and lead it to all things profitable to salvation. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Fourteenth Sunday after Pentecost in the Roman Missal (Custodi, Domine, quaesumus, Ecclesiam tuam), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to keep his Church, which cannot but fall without him, from all harm and lead it to salvation. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n748/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fifteenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n750/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fifteenth-sunday-after-pentecost",
+      title:
+        "Collect of the Fifteenth Sunday after Pentecost (Ecclesiam tuam, Domine, miseratio continuata)",
+      body: "O Lord, let Thy continual pity cleanse and defend Thy Church: and, because it cannot continue in safety without Thee, govern it evermore by Thy help. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Fifteenth Sunday after Pentecost in the Roman Missal (Ecclesiam tuam, Domine, miseratio continuata), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God\'s unfailing pity to cleanse, defend and govern the Church. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n750/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-sixteenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n751/mode/1up"],
+    payload: {
+      slug: "collect-of-the-sixteenth-sunday-after-pentecost",
+      title: "Collect of the Sixteenth Sunday after Pentecost (Tua nos, quaesumus, Domine, gratia)",
+      body: "O Lord, we pray Thee that Thy grace may always precede and follow us, and make us continually to be given to all good works. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Sixteenth Sunday after Pentecost in the Roman Missal (Tua nos, quaesumus, Domine, gratia), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that God\'s grace may always go before and follow us and keep us busy in good works. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n751/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-seventeenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n752/mode/1up"],
+    payload: {
+      slug: "collect-of-the-seventeenth-sunday-after-pentecost",
+      title:
+        "Collect of the Seventeenth Sunday after Pentecost (Da, quaesumus, Domine, populo tuo)",
+      body: "Grant to Thy people, we beseech Thee, O Lord, to avoid the defilements of the devil; and with a pure mind to follow Thee, the only God. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Seventeenth Sunday after Pentecost in the Roman Missal (Da, quaesumus, Domine, populo tuo), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks for grace to avoid the defilements of the devil and to follow the one God with a pure mind. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n752/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-eighteenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n753/mode/1up"],
+    payload: {
+      slug: "collect-of-the-eighteenth-sunday-after-pentecost",
+      title: "Collect of the Eighteenth Sunday after Pentecost (Dirigat corda nostra)",
+      body: "Direct our hearts, we beseech Thee, O Lord, by the working of Thy mercy; because without Thee we are not able to please Thee. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Eighteenth Sunday after Pentecost in the Roman Missal (Dirigat corda nostra), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that God\'s mercy may direct our hearts, since without him we cannot please him. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n753/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-nineteenth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n754/mode/1up"],
+    payload: {
+      slug: "collect-of-the-nineteenth-sunday-after-pentecost",
+      title:
+        "Collect of the Nineteenth Sunday after Pentecost (Omnipotens et misericors Deus, universa nobis adversantia)",
+      body: "O Almighty and merciful God, graciously keep us from all things that may hurt us; that we, being freed both in mind and body, may with ready hearts accomplish those things which Thou commandest. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Nineteenth Sunday after Pentecost in the Roman Missal (Omnipotens et misericors Deus, universa nobis adversantia), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to keep from us all that may hurt us, so that we may do his will with ready hearts. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n754/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-twentieth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n756/mode/1up"],
+    payload: {
+      slug: "collect-of-the-twentieth-sunday-after-pentecost",
+      title:
+        "Collect of the Twentieth Sunday after Pentecost (Largire, quaesumus, Domine, fidelibus tuis)",
+      body: "Grant, in Thy mercy, we beseech Thee, O Lord, to Thy faithful people pardon and peace, that they may be cleansed from all their offences, and serve Thee with a quiet mind. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Twentieth Sunday after Pentecost in the Roman Missal (Largire, quaesumus, Domine, fidelibus tuis), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks pardon and peace for the faithful, that they may be cleansed and serve God with a quiet mind. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n756/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-twenty-first-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n757/mode/1up"],
+    payload: {
+      slug: "collect-of-the-twenty-first-sunday-after-pentecost",
+      title:
+        "Collect of the Twenty-first Sunday after Pentecost (Familiam tuam, quaesumus, Domine)",
+      body: "Keep, O Lord, we beseech Thee, Thy family by Thy continued goodness; that, through Thy protection, it may be free from all adversities, and devoted in good works to the glory of Thy name. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Twenty-first Sunday after Pentecost in the Roman Missal (Familiam tuam, quaesumus, Domine), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to keep his family by his continual goodness, free from adversity and devoted to good works. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n757/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-twenty-third-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n760/mode/1up"],
+    payload: {
+      slug: "collect-of-the-twenty-third-sunday-after-pentecost",
+      title: "Collect of the Twenty-third Sunday after Pentecost (Absolve, quaesumus, Domine)",
+      body: "O Lord, we beseech Thee, absolve Thy people from their offences; that through Thy bountiful goodness we may be delivered from the bonds of those sins which by our frailty we have taken upon ourselves. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Twenty-third Sunday after Pentecost in the Roman Missal (Absolve, quaesumus, Domine), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to absolve his people from the bonds of the sins they have contracted through frailty. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n760/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-twenty-fourth-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n761/mode/1up"],
+    payload: {
+      slug: "collect-of-the-twenty-fourth-sunday-after-pentecost",
+      title: "Collect of the Twenty-fourth Sunday after Pentecost (Excita, quaesumus, Domine)",
+      body: "Quicken, O Lord, we beseech Thee, the wills of Thy faithful people; that they, more earnestly seeking after the fruit of divine grace, may more abundantly receive the healing gifts of Thy mercy. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        'The collect of the Mass of the Twenty-fourth Sunday after Pentecost in the Roman Missal (Excita, quaesumus, Domine), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to stir up the wills of the faithful so that they may receive more abundantly the healing gifts of his mercy. The Mass of this Sunday is always said on the last Sunday of the Church\'s year. The book prints the conclusion in its abbreviated form ("Through our Lord Jesus Christ, etc.").',
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n761/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-first-sunday-of-advent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n672/mode/1up"],
+    payload: {
+      slug: "collect-of-the-first-sunday-of-advent",
+      title:
+        "Collect of the First Sunday of Advent (Excita, quaesumus, Domine, potentiam tuam, et veni)",
+      body: "O Lord, we pray Thee, raise up Thy power, and come; that by Thy protection we may deserve to be rescued from the threatening dangers of our sins, and to be saved by Thy deliverance. Who livest and reignest, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the First Sunday of Advent in the Roman Missal (Excita, quaesumus, Domine, potentiam tuam, et veni), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks the Lord to stir up his power and come, to rescue us from the threatening dangers of our sins and save us by his deliverance. The book prints the conclusion in its abbreviated form.",
+      occasions: ["advent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n672/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-second-sunday-of-advent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n673/mode/1up"],
+    payload: {
+      slug: "collect-of-the-second-sunday-of-advent",
+      title: "Collect of the Second Sunday of Advent (Excita, Domine, corda nostra)",
+      body: "Stir up our hearts, O Lord, to make ready the ways of Thine Only-begotten Son, that by His coming we may be worthy to serve Thee with purified minds. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Second Sunday of Advent in the Roman Missal (Excita, Domine, corda nostra), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to stir up our hearts to prepare the ways of his Son, so that we may serve him with purified minds. The book prints the conclusion in its abbreviated form.",
+      occasions: ["advent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n673/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-third-sunday-of-advent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n675/mode/1up"],
+    payload: {
+      slug: "collect-of-the-third-sunday-of-advent",
+      title: "Collect of the Third Sunday of Advent (Aurem tuam, quaesumus, Domine)",
+      body: "O Lord, we beseech Thee, mercifully incline Thine ears unto our prayers, and enlighten the darkness of our minds by the grace of Thy heavenly visitation. Who livest and reignest, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Third Sunday of Advent in the Roman Missal (Aurem tuam, quaesumus, Domine), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks the Lord to hear our prayers and lighten the darkness of our minds by the grace of his visitation. The book prints the conclusion in its abbreviated form.",
+      occasions: ["advent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n675/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fourth-sunday-of-advent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n676/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fourth-sunday-of-advent",
+      title:
+        "Collect of the Fourth Sunday of Advent (Excita, quaesumus, Domine, potentiam tuam, et veni: et magna nobis virtute succurre)",
+      body: "O Lord, we pray Thee, raise up Thy power, and come, and with great might succor us; that, by the aid of Thy grace, that which is hindered by our sins may be quickened by Thy merciful forgiveness. Who livest and reignest, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Fourth Sunday of Advent in the Roman Missal (Excita, quaesumus, Domine, potentiam tuam, et veni: et magna nobis virtute succurre), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks the Lord to come with great might and succour us, so that what our sins hinder his merciful forgiveness may hasten. The book prints the conclusion in its abbreviated form.",
+      occasions: ["advent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n676/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-first-mass-of-christmas",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n677/mode/1up"],
+    payload: {
+      slug: "collect-of-the-first-mass-of-christmas",
+      title: "Collect of the First Mass of Christmas (Deus, qui hanc sacratissimam noctem)",
+      body: "O God, who hast made this most sacred night to shine forth with the brightness of the true Light: grant, we beseech Thee, that we may enjoy His happiness in heaven, the mystery of whose light we have known upon earth. Who liveth and reigneth, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the First Mass of Christmas in the Roman Missal (Deus, qui hanc sacratissimam noctem), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls the most sacred night made bright by the true Light and asks to enjoy in heaven the happiness of him whose light we have known on earth. It is the collect of the Mass at midnight. The book prints the conclusion in its abbreviated form.",
+      occasions: ["christmas", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n677/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-second-mass-of-christmas",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n678/mode/1up"],
+    payload: {
+      slug: "collect-of-the-second-mass-of-christmas",
+      title: "Collect of the Second Mass of Christmas (Da nobis, quaesumus, omnipotens Deus)",
+      body: "Grant, we beseech Thee, Almighty God, that we, who are filled with the new light of Thy Incarnate Word, may show forth in our works that which by faith shineth in our minds. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Second Mass of Christmas in the Roman Missal (Da nobis, quaesumus, omnipotens Deus), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that we who are filled with the new light of the incarnate Word may show forth in our works what faith makes shine in our minds. It is the collect of the Mass at dawn. The book prints the conclusion in its abbreviated form.",
+      occasions: ["christmas", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n678/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-third-mass-of-christmas",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n679/mode/1up"],
+    payload: {
+      slug: "collect-of-the-third-mass-of-christmas",
+      title: "Collect of the Third Mass of Christmas (Concede, quaesumus, omnipotens Deus)",
+      body: "Grant, we beseech Thee, Almighty God, that the new birth of Thine Only-begotten Son in the flesh may deliver us who are held by the old bondage under the yoke of sin. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Third Mass of Christmas in the Roman Missal (Concede, quaesumus, omnipotens Deus), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that the new birth of the Son in the flesh may set free those held under the old yoke of sin. It is the collect of the Mass of the day. The book prints the conclusion in its abbreviated form.",
+      occasions: ["christmas", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n679/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-sunday-within-the-octave-of-christmas",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n681/mode/1up"],
+    payload: {
+      slug: "collect-of-the-sunday-within-the-octave-of-christmas",
+      title:
+        "Collect of the Sunday within the Octave of Christmas (Omnipotens sempiterne Deus, dirige actus nostros)",
+      body: "O Almighty and everlasting God, do Thou order all our actions in conformity with Thy good pleasure, that, through the name of Thy beloved Son, we may worthily abound in good works. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Sunday within the Octave of Christmas in the Roman Missal (Omnipotens sempiterne Deus, dirige actus nostros), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to order all our actions to his good pleasure, so that in the name of his Son we may abound in good works. The book prints the conclusion in its abbreviated form.",
+      occasions: ["christmas", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n681/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n683/mode/1up"],
+    payload: {
+      slug: "collect-of-the-epiphany",
+      title:
+        "Collect of the Epiphany (Deus, qui hodierna die Unigenitum tuum gentibus stella duce revelasti)",
+      body: "O God, who by the leading of a star didst on this day manifest Thine Only-begotten Son to the Gentiles: mercifully grant that we, who know Thee now by faith, may be brought to the contemplation of Thy glorious majesty. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Epiphany in the Roman Missal (Deus, qui hodierna die Unigenitum tuum gentibus stella duce revelasti), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls the star that revealed the Son to the Gentiles and asks that we who know God now by faith may come to the vision of his majesty. The book prints the conclusion in its abbreviated form.",
+      occasions: ["epiphany", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n683/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-first-sunday-after-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n684/mode/1up"],
+    payload: {
+      slug: "collect-of-the-first-sunday-after-epiphany",
+      title:
+        "Collect of the First Sunday after Epiphany (Vota, quaesumus, Domine, supplicantis populi)",
+      body: "O Lord, we beseech Thee, receive, of Thy heavenly mercy, the prayers of Thy people who call upon Thee; and grant that they may both perceive what things they ought to do, and also may have power to fulfil the same. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the First Sunday after Epiphany in the Roman Missal (Vota, quaesumus, Domine, supplicantis populi), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to receive his people's prayers, so that they may both see what they ought to do and have the strength to do it. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n684/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-feast-of-the-holy-name-of-jesus",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n686/mode/1up"],
+    payload: {
+      slug: "collect-of-the-feast-of-the-holy-name-of-jesus",
+      title:
+        "Collect of the Feast of the Holy Name of Jesus (Deus, qui Unigenitum Filium tuum constituisti humani generis Salvatorem)",
+      body: "O God, who hast appointed Thine Only-begotten Son to be the Saviour of mankind, and hast commanded that His name should be called Jesus: mercifully grant that we may enjoy in heaven the blessed Vision of Him whose holy Name we worship on earth. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Feast of the Holy Name of Jesus in the Roman Missal (Deus, qui Unigenitum Filium tuum constituisti humani generis Salvatorem), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls that God commanded his Son, the Saviour of mankind, to be called Jesus, and asks to see in heaven him whose holy Name we worship on earth. The Manual keeps the feast on the Second Sunday after Epiphany. The book prints the conclusion in its abbreviated form.",
+      occasions: ["holy-name-of-jesus", "january", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n686/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-second-sunday-after-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n686/mode/1up"],
+    payload: {
+      slug: "collect-of-the-second-sunday-after-epiphany",
+      title:
+        "Collect of the Second Sunday after Epiphany (Omnipotens sempiterne Deus, qui caelestia simul et terrena moderaris)",
+      body: "Almighty and everlasting God, who dost govern all things in heaven and earth: mercifully hear the prayers of Thy people, and grant us Thy peace in our days. Through our Lord Jesus Christ. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Second Sunday after Epiphany in the Roman Missal (Omnipotens sempiterne Deus, qui caelestia simul et terrena moderaris), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, who governs heaven and earth, to hear his people and grant us his peace in our days. The Manual gives it as the collect of the Sunday, said after that of the feast of the Holy Name kept on this day.",
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n686/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-third-sunday-after-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n687/mode/1up"],
+    payload: {
+      slug: "collect-of-the-third-sunday-after-epiphany",
+      title:
+        "Collect of the Third Sunday after Epiphany (Omnipotens sempiterne Deus, infirmitatem nostram propitius respice)",
+      body: "Almighty and Everlasting God, mercifully look upon our infirmities, and stretch forth the right hand of Thy Majesty to help and defend us. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Third Sunday after Epiphany in the Roman Missal (Omnipotens sempiterne Deus, infirmitatem nostram propitius respice), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to look upon our weakness and stretch out the right hand of his majesty to help and defend us. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n687/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fourth-sunday-after-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n689/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fourth-sunday-after-epiphany",
+      title:
+        "Collect of the Fourth Sunday after Epiphany (Deus, qui nos in tantis periculis constitutos)",
+      body: "O God, who knowest us to be set in the midst of so great dangers that, by reason of the frailty of our nature, we cannot stand: grant to us health of mind and body, that those things which we suffer for our sins we may by Thine aid overcome. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Fourth Sunday after Epiphany in the Roman Missal (Deus, qui nos in tantis periculis constitutos), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it confesses that we cannot stand among so many dangers and asks for health of mind and body to overcome what we suffer for our sins. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n689/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fifth-sunday-after-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n690/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fifth-sunday-after-epiphany",
+      title:
+        "Collect of the Fifth Sunday after Epiphany (Familiam tuam, quaesumus, Domine, continua pietate custodi)",
+      body: "Keep, O Lord, we beseech Thee, Thy family by Thy continual mercy; that they who lean only upon the hope of Thy heavenly grace may evermore be defended by Thy protection. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Fifth Sunday after Epiphany in the Roman Missal (Familiam tuam, quaesumus, Domine, continua pietate custodi), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to keep his family, which leans only on the hope of his grace, always under his protection. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n690/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-sixth-sunday-after-epiphany",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n691/mode/1up"],
+    payload: {
+      slug: "collect-of-the-sixth-sunday-after-epiphany",
+      title:
+        "Collect of the Sixth Sunday after Epiphany (Praesta, quaesumus, omnipotens Deus, ut semper rationabilia meditantes)",
+      body: "Grant us, we beseech Thee, O Almighty God, ever to think such things as are reasonable, and, in every word and work of ours, to do that which is pleasing in Thy sight. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Sixth Sunday after Epiphany in the Roman Missal (Praesta, quaesumus, omnipotens Deus, ut semper rationabilia meditantes), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that we may always think what is reasonable and in every word and work do what pleases God. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "ordinary-time", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n691/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-septuagesima-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n692/mode/1up"],
+    payload: {
+      slug: "collect-of-septuagesima-sunday",
+      title:
+        "Collect of Septuagesima Sunday (Preces populi tui, quaesumus, Domine, clementer exaudi)",
+      body: "O Lord, we beseech Thee, graciously hear the prayers of Thy people: that we, who are justly afflicted for our sins, may be mercifully delivered by Thy goodness, for the glory of Thy name. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Septuagesima Sunday in the Roman Missal (Preces populi tui, quaesumus, Domine, clementer exaudi), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that we who are justly afflicted for our sins may be mercifully delivered for the glory of God's name. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "mass", "septuagesima"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n692/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-sexagesima-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n694/mode/1up"],
+    payload: {
+      slug: "collect-of-sexagesima-sunday",
+      title:
+        "Collect of Sexagesima Sunday (Deus, qui conspicis quia ex nulla nostra actione confidimus)",
+      body: "O God, who seest that we put not our trust in anything that we do: mercifully grant that, through the protection of the Doctor of the Gentiles, we may be defended against all adversity. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Sexagesima Sunday in the Roman Missal (Deus, qui conspicis quia ex nulla nostra actione confidimus), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it confesses that we trust in nothing we do and asks for the protection of the Doctor of the Gentiles, Saint Paul, against all adversity. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "mass", "septuagesima"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n694/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-quinquagesima-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n696/mode/1up"],
+    payload: {
+      slug: "collect-of-quinquagesima-sunday",
+      title:
+        "Collect of Quinquagesima Sunday (Preces nostras, quaesumus, Domine, clementer exaudi)",
+      body: "O Lord, we beseech Thee, graciously hear our prayers; that we, being loosed from all chains of our sins, may by Thee be defended against all adversity. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Quinquagesima Sunday in the Roman Missal (Preces nostras, quaesumus, Domine, clementer exaudi), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that we may be loosed from the chains of our sins and defended against all adversity. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "mass", "septuagesima"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n696/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-ash-wednesday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n698/mode/1up"],
+    payload: {
+      slug: "collect-of-ash-wednesday",
+      title: "Collect of Ash Wednesday (Praesta, Domine, fidelibus tuis)",
+      body: "Grant, O Lord, unto Thy faithful people that they may begin the solemn service of fasting with due piety, and with tranquil devotion perform the same. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Ash Wednesday in the Roman Missal (Praesta, Domine, fidelibus tuis), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that the faithful may begin the solemn Lenten fast with due piety and keep it with quiet devotion. The book prints the conclusion in its abbreviated form.",
+      occasions: ["ash-wednesday", "lent", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n698/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-first-sunday-of-lent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n700/mode/1up"],
+    payload: {
+      slug: "collect-of-the-first-sunday-of-lent",
+      title:
+        "Collect of the First Sunday of Lent (Deus, qui Ecclesiam tuam annua quadragesimali observatione purificas)",
+      body: "O God, who dost every year purify Thy Church by the Fast of Forty Days: grant unto this Thy family that what things they strive to obtain at Thy hand by abstinence, they may turn to profit by good works. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the First Sunday of Lent in the Roman Missal (Deus, qui Ecclesiam tuam annua quadragesimali observatione purificas), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls that God purifies his Church each year by the forty days' fast and asks that what we seek by abstinence we may turn to profit by good works. The book prints the conclusion in its abbreviated form.",
+      occasions: ["lent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n700/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-second-sunday-of-lent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n701/mode/1up"],
+    payload: {
+      slug: "collect-of-the-second-sunday-of-lent",
+      title: "Collect of the Second Sunday of Lent (Deus, qui conspicis omni nos virtute destitui)",
+      body: "Almighty God, who seest that we have no power of ourselves: keep us both inwardly and outwardly; that we may be defended from all adversities which may happen to the body, and from all evil thoughts which may hurt the soul. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Second Sunday of Lent in the Roman Missal (Deus, qui conspicis omni nos virtute destitui), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it confesses that we have no power of ourselves and asks to be kept outwardly from bodily harm and inwardly from evil thoughts. The book prints the conclusion in its abbreviated form.",
+      occasions: ["lent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n701/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-third-sunday-of-lent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n703/mode/1up"],
+    payload: {
+      slug: "collect-of-the-third-sunday-of-lent",
+      title:
+        "Collect of the Third Sunday of Lent (Quaesumus, omnipotens Deus, vota humilium respice)",
+      body: "We beseech Thee, Almighty God, look upon the desires of Thy humble servants, and stretch forth the right hand of Thy Majesty, to be our defence. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Third Sunday of Lent in the Roman Missal (Quaesumus, omnipotens Deus, vota humilium respice), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to look upon the desires of his humble servants and stretch out his right hand in their defence. The book prints the conclusion in its abbreviated form.",
+      occasions: ["lent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n703/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fourth-sunday-of-lent",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n704/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fourth-sunday-of-lent",
+      title:
+        "Collect of the Fourth Sunday of Lent (Concede, quaesumus, omnipotens Deus, ut qui ex merito nostrae actionis affligimur)",
+      body: "Grant, we beseech Thee, Almighty God, that we who for our deeds are justly punished, by the comfort of Thy grace may mercifully be relieved. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Fourth Sunday of Lent in the Roman Missal (Concede, quaesumus, omnipotens Deus, ut qui ex merito nostrae actionis affligimur), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that we who are justly punished for our deeds may be relieved by the comfort of God's grace. It is the collect of Laetare Sunday. The book prints the conclusion in its abbreviated form.",
+      occasions: ["lent", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n704/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-passion-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n706/mode/1up"],
+    payload: {
+      slug: "collect-of-passion-sunday",
+      title:
+        "Collect of Passion Sunday (Quaesumus, omnipotens Deus, familiam tuam propitius respice)",
+      body: "We beseech Thee, Almighty God, to look down mercifully upon this Thy family; that by Thy great goodness they may be governed in body, and by Thy holy keeping be guarded in mind. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Passion Sunday in the Roman Missal (Quaesumus, omnipotens Deus, familiam tuam propitius respice), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God to look mercifully on his family, so that by his goodness they may be governed in body and by his keeping guarded in mind. The book prints the conclusion in its abbreviated form.",
+      occasions: ["lent", "passiontide", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n706/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-palm-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n708/mode/1up"],
+    payload: {
+      slug: "collect-of-palm-sunday",
+      title:
+        "Collect of Palm Sunday (Omnipotens sempiterne Deus, qui humano generi ad imitandum humilitatis exemplum)",
+      body: "Almighty and everlasting God, who hast caused our Saviour to take upon Him our flesh, and to suffer death upon the Cross, that all mankind should follow the example of His humility: mercifully grant that we may deserve both to keep in mind the lessons of His patience, and also to be made partakers of His resurrection. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Palm Sunday in the Roman Missal (Omnipotens sempiterne Deus, qui humano generi ad imitandum humilitatis exemplum), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it recalls that the Saviour took our flesh and suffered on the Cross as an example of humility, and asks to keep the lesson of his patience and share in his resurrection. The book prints the conclusion in its abbreviated form.",
+      occasions: ["palm-sunday", "holy-week", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n708/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-easter-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n716/mode/1up"],
+    payload: {
+      slug: "collect-of-easter-sunday",
+      title:
+        "Collect of Easter Sunday (Deus, qui hodierna die per Unigenitum tuum aeternitatis nobis aditum)",
+      body: "O God, who through Thine Only-begotten Son hast on this day overcome death, and opened unto us the gate of everlasting life: as by Thy preventing grace Thou dost prosper our good desires, so do Thou accompany them with Thy continual help. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Easter Sunday in the Roman Missal (Deus, qui hodierna die per Unigenitum tuum aeternitatis nobis aditum), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it rejoices that through the Son God has this day overcome death and opened the gate of everlasting life, and asks him to go before our good desires and help them to fulfilment. The book prints the conclusion in its abbreviated form.",
+      occasions: ["easter", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n716/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-low-sunday",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n717/mode/1up"],
+    payload: {
+      slug: "collect-of-low-sunday",
+      title:
+        "Collect of Low Sunday (Praesta, quaesumus, omnipotens Deus, ut qui paschalia festa peregimus)",
+      body: "Grant, we beseech Thee, O Almighty God, that we for whom the Feast of the Passover hath now come to an end, may, through Thy merciful bounty, always retain in our life and manners the influence of the same. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of Low Sunday in the Roman Missal (Praesta, quaesumus, omnipotens Deus, ut qui paschalia festa peregimus), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that, now that the Paschal feast has ended, we may keep its influence in our life and conduct. Low Sunday is the octave day of Easter. The book prints the conclusion in its abbreviated form.",
+      occasions: ["easter-season", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n717/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-second-sunday-after-easter",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n719/mode/1up"],
+    payload: {
+      slug: "collect-of-the-second-sunday-after-easter",
+      title:
+        "Collect of the Second Sunday after Easter (Deus, qui in Filii tui humilitate iacentem mundum erexisti)",
+      body: "O God, who in the humility of Thy Son hast raised up a fallen world: grant to Thy faithful people perpetual gladness; and as Thou hast delivered them from the perils of eternal death, make them to rejoice with everlasting joy. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Second Sunday after Easter in the Roman Missal (Deus, qui in Filii tui humilitate iacentem mundum erexisti), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it praises God for raising up a fallen world through the humility of his Son and asks perpetual gladness and everlasting joy for his faithful. The book prints the conclusion in its abbreviated form.",
+      occasions: ["easter-season", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n719/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-third-sunday-after-easter",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n720/mode/1up"],
+    payload: {
+      slug: "collect-of-the-third-sunday-after-easter",
+      title:
+        "Collect of the Third Sunday after Easter (Deus, qui errantibus, ut in viam possint redire iustitiae, veritatis tuae lumen ostendis)",
+      body: "Almighty God, who showest to those that are in error the light of Thy truth, that they may return into the way of justice: grant unto all those who are admitted into the fellowship of Christ's religion, that they may avoid those things that are contrary to that name, and follow such things as are agreeable thereto. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Third Sunday after Easter in the Roman Missal (Deus, qui errantibus, ut in viam possint redire iustitiae, veritatis tuae lumen ostendis), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, who shows the light of his truth to those in error, that all who bear the name of Christian may shun what is contrary to it and follow what befits it. The Manual gives it as the collect of the Sunday, said after that of the Patronage of Saint Joseph kept on this day. The book prints the conclusion in its abbreviated form.",
+      occasions: ["easter-season", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n720/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fourth-sunday-after-easter",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n722/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fourth-sunday-after-easter",
+      title:
+        "Collect of the Fourth Sunday after Easter (Deus, qui fidelium mentes unius efficis voluntatis)",
+      body: "O God, who makest the minds of the faithful to be of one will: grant unto Thy people to love what Thou commandest, and to desire what Thou dost promise; that amidst the various changes of the world our hearts may there be fixed where true joys abide. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Fourth Sunday after Easter in the Roman Missal (Deus, qui fidelium mentes unius efficis voluntatis), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that God's people may love what he commands and desire what he promises, so that amid the changes of the world their hearts may be fixed where true joys are found. The book prints the conclusion in its abbreviated form.",
+      occasions: ["easter-season", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n722/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-fifth-sunday-after-easter",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n723/mode/1up"],
+    payload: {
+      slug: "collect-of-the-fifth-sunday-after-easter",
+      title: "Collect of the Fifth Sunday after Easter (Deus, a quo bona cuncta procedunt)",
+      body: "O Lord, from whom all good things do proceed: grant to us Thy humble servants that by Thy holy inspiration we may think those things that are good, and by Thy guidance may perform the same. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Fifth Sunday after Easter in the Roman Missal (Deus, a quo bona cuncta procedunt), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, from whom all good things come, to inspire us to think what is right and to guide us in doing it. The book prints the conclusion in its abbreviated form.",
+      occasions: ["easter-season", "sunday", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n723/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-ascension",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n724/mode/1up"],
+    payload: {
+      slug: "collect-of-the-ascension",
+      title:
+        "Collect of the Ascension (Concede, quaesumus, omnipotens Deus, ut qui hodierna die Unigenitum tuum ... ad caelos ascendisse credimus)",
+      body: "Grant, we beseech Thee, Almighty God, that as we believe Thine Only-begotten Son our Redeemer to have this day ascended into the heavens, so we may also in heart and mind dwell amid heavenly things. Through the same our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Ascension in the Roman Missal (Concede, quaesumus, omnipotens Deus, ut qui hodierna die Unigenitum tuum ... ad caelos ascendisse credimus), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks that we who believe that the Redeemer ascended this day into heaven may ourselves dwell there in heart and mind. The book prints the conclusion in its abbreviated form.",
+      occasions: ["ascension", "mass"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n724/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-sunday-within-the-octave-of-the-ascension",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n726/mode/1up"],
+    payload: {
+      slug: "collect-of-the-sunday-within-the-octave-of-the-ascension",
+      title:
+        "Collect of the Sunday within the Octave of the Ascension (Omnipotens sempiterne Deus, fac nos tibi semper et devotam gerere voluntatem)",
+      body: "Almighty, Everlasting God, grant that we may always have a will devoted to Thee, and a sincere heart to serve Thy majesty. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the Sunday within the Octave of the Ascension in the Roman Missal (Omnipotens sempiterne Deus, fac nos tibi semper et devotam gerere voluntatem), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks for a will always devoted to God and a sincere heart to serve his majesty. The book prints the conclusion in its abbreviated form.",
+      occasions: ["ascension", "easter-season", "sunday"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n726/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "collect-of-the-first-sunday-after-pentecost",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://archive.org/details/manualofprayersf00wood/page/n729/mode/1up"],
+    payload: {
+      slug: "collect-of-the-first-sunday-after-pentecost",
+      title: "Collect of the First Sunday after Pentecost (Deus, in te sperantium fortitudo)",
+      body: "O God, the strength of those who put their trust in Thee, graciously accept our prayers; and because human infirmity without Thee can do nothing, grant us the help of Thy grace; that, in fulfilling Thy commandments, we may please Thee both in will and deed. Through our Lord Jesus Christ, etc. Amen.",
+      prayerType: "general",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The collect of the Mass of the First Sunday after Pentecost in the Roman Missal (Deus, in te sperantium fortitudo), in the English of the Manual of Prayers (1889), the prayer book prepared by order of the Third Plenary Council of Baltimore: it asks God, the strength of those who trust in him, to grant the help of his grace, since human weakness can do nothing without him, so that we may please him in will and deed. The Manual gives it at Trinity Sunday as the collect of the Sunday, said after that of the feast. The book prints the conclusion in its abbreviated form.",
+      occasions: ["sunday", "ordinary-time", "mass", "trinity-sunday"],
+      relatedSaints: [],
+      citations: ["https://archive.org/details/manualofprayersf00wood/page/n729/mode/1up"],
+    },
+  },
+];
