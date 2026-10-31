@@ -1177,4 +1177,426 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
       "He had ordained Origen a priest and built up a Christian library at Jerusalem; the Church venerates him as a martyr.",
     citation: `${W}Alexander_of_Jerusalem`,
   },
+  {
+    slug: "death-of-origen",
+    title: "Death of Origen",
+    year: 253,
+    precision: "circa",
+    era: "persecution",
+    kind: "event",
+    location: "Tyre",
+    context:
+      "Imprisoned and tortured in the Decian persecution, Origen survives his ordeal but dies a few years later, aged sixty-nine, probably at Tyre.",
+    significance:
+      "The greatest scholar of the early Church died a confessor of the faith, though some of his speculative ideas were condemned long after his death.",
+    citation: `${NA}11306b.htm`,
+  },
+  {
+    slug: "rebaptism-controversy",
+    title: "Pope Stephen I and Cyprian clash over rebaptism",
+    year: 256,
+    precision: "circa",
+    era: "persecution",
+    kind: "event",
+    tags: ["papacy"],
+    location: "Rome & Carthage",
+    context:
+      "Cyprian and the bishops of Africa require converts baptised by heretics or schismatics to be baptised again; Pope Stephen I holds such baptism valid and rejects repeating it.",
+    significance:
+      "Stephen's view eventually prevailed in the Latin Church, which holds that a valid baptism is never repeated.",
+    citation: `${W}Pope_Stephen_I`,
+    links: { popes: ["pope-saint-stephen-i"], saints: ["saint-cyprian-of-carthage"] },
+  },
+  {
+    slug: "martyrdom-of-saint-fructuosus",
+    title: "Martyrdom of St Fructuosus of Tarragona",
+    year: 259,
+    precision: "year",
+    era: "persecution",
+    kind: "martyrdom",
+    tags: ["persecution"],
+    location: "Tarragona, Hispania",
+    context:
+      "In Valerian's persecution Bishop Fructuosus of Tarragona and his deacons Augurius and Eulogius are burned at the stake in the city's amphitheatre.",
+    significance:
+      "Their Acts, the earliest from Spain and praised by Augustine, show an organised Church in Hispania by the mid-third century.",
+    citation: `${W}Fructuosus_of_Tarragona`,
+  },
+  {
+    slug: "gallienus-edict-of-toleration",
+    title: "Gallienus restores the churches",
+    year: 260,
+    precision: "circa",
+    era: "persecution",
+    kind: "document",
+    tags: ["persecution"],
+    location: "Roman Empire",
+    context:
+      "After his father Valerian is captured by the Persians, Gallienus issues the first official declaration of tolerance toward Christians, returning their places of worship and cemeteries.",
+    significance:
+      "Without making Christianity an official religion, it opens some forty years of peace in which the Church grows and builds openly.",
+    citation: `${W}Gallienus`,
+  },
+  {
+    slug: "roman-synod-of-pope-dionysius",
+    title: "Pope Dionysius's synod on the Trinity",
+    year: 260,
+    precision: "circa",
+    era: "persecution",
+    kind: "council",
+    tags: ["dogma", "papacy"],
+    location: "Rome",
+    context:
+      "Told that Dionysius of Alexandria has written loosely of the Son while combating Sabellianism, Pope Dionysius holds a synod at Rome whose letter rejects both modalism and any division of God into three separate beings.",
+    significance:
+      "The Alexandrian bishop explains himself in an Apologia; the exchange anticipates Nicaea's confession of the Son's full divinity and shows Rome watching over doctrine.",
+    citation: `${NA}05009b.htm`,
+    links: { popes: ["pope-saint-dionysius"] },
+  },
+  {
+    slug: "synod-of-antioch-deposes-paul-of-samosata",
+    title: "Synod of Antioch deposes Paul of Samosata",
+    year: 269,
+    precision: "circa",
+    era: "persecution",
+    kind: "council",
+    tags: ["heresy", "dogma"],
+    location: "Antioch",
+    context:
+      "Some seventy bishops, priests and deacons gather at Antioch and depose their bishop, Paul of Samosata, for teaching that Jesus was a mere man indwelt by the divine Word, electing Domnus in his place.",
+    significance:
+      "A major synod before Nicaea; protected by Queen Zenobia, Paul held on to the bishop's house until Aurelian's ruling in 272.",
+    citation: `${W}Paul_of_Samosata`,
+  },
+  {
+    slug: "death-of-gregory-thaumaturgus",
+    title: "Death of St Gregory the Wonderworker",
+    year: 270,
+    precision: "circa",
+    era: "persecution",
+    kind: "saint",
+    tags: ["mission"],
+    location: "Neocaesarea, Pontus",
+    context:
+      "Gregory, a pupil of Origen and bishop of his native Neocaesarea, dies after years of missionary work in Pontus that earned him the name Thaumaturgus, 'wonderworker'.",
+    significance:
+      "Tradition says he found seventeen Christians in his city and left only seventeen pagans, a sign of how fast the faith spread in Asia Minor.",
+    citation: `${W}Gregory_Thaumaturgus`,
+  },
+  {
+    slug: "aurelian-rules-on-the-church-of-antioch",
+    title: "Aurelian awards Antioch's church to the bishop in communion with Rome",
+    year: 272,
+    precision: "year",
+    era: "persecution",
+    kind: "event",
+    tags: ["papacy"],
+    location: "Antioch",
+    context:
+      "Asked whether the deposed Paul of Samosata or the Catholic bishop Domnus owns the church house, the emperor Aurelian rules that it belongs to those in communion with the bishops of Italy and Rome.",
+    significance:
+      "A pagan emperor takes communion with Rome as the test of the true Church at Antioch, though his motives were political and he was planning a persecution when he was killed in 275.",
+    citation: `${NA}02108b.htm`,
+  },
+  {
+    slug: "martyrdom-of-maximilian-of-tebessa",
+    title: "Martyrdom of Maximilian of Tebessa",
+    year: 295,
+    date: "0295-03-12",
+    precision: "day",
+    era: "persecution",
+    kind: "martyrdom",
+    location: "Theveste, Numidia",
+    context:
+      "Called up for military service, the young Maximilian tells the proconsul that as a Christian he cannot serve and is beheaded.",
+    significance:
+      "The account of his trial, written before 313, makes him the earliest recorded conscientious objector.",
+    citation: `${W}Maximilian_of_Tebessa`,
+  },
+  {
+    slug: "etchmiadzin-cathedral-founded",
+    title: "Etchmiadzin Cathedral founded",
+    year: 303,
+    precision: "circa",
+    era: "persecution",
+    kind: "event",
+    tags: ["mission"],
+    location: "Vagharshapat, Armenia",
+    context:
+      "After Armenia's conversion, Gregory the Illuminator builds the kingdom's cathedral near the royal palace at Vagharshapat on the site of a pagan temple, by tradition between 301 and 303.",
+    significance:
+      "The mother church of the Armenian Apostolic Church, it is often regarded as the oldest cathedral in the world.",
+    citation: `${W}Etchmiadzin_Cathedral`,
+  },
+  {
+    slug: "martyrdom-of-saint-agnes",
+    title: "Martyrdom of St Agnes",
+    year: 304,
+    precision: "circa",
+    era: "persecution",
+    kind: "martyrdom",
+    tags: ["persecution"],
+    location: "Rome",
+    context:
+      "Agnes, a Roman girl of twelve or thirteen, is put to death for her faith in Diocletian's persecution and buried beside the Via Nomentana.",
+    significance:
+      "Venerated at least since Ambrose's time and listed in the Roman calendar of 354, she became one of the most beloved virgin martyrs, and a church rose over her tomb.",
+    citation: `${W}Agnes_of_Rome`,
+    links: { saints: ["saint-agnes"] },
+  },
+  {
+    slug: "martyrdom-of-saint-lucy",
+    title: "Martyrdom of St Lucy at Syracuse",
+    year: 304,
+    precision: "circa",
+    era: "persecution",
+    kind: "martyrdom",
+    tags: ["persecution"],
+    location: "Syracuse, Sicily",
+    context:
+      "Denounced as a Christian, by the oldest accounts by a disappointed suitor, the young Lucy is put to death at Syracuse in Diocletian's persecution.",
+    significance:
+      "Inscriptions in the catacombs of Syracuse attest her early cult, which spread to Rome and the whole Church; she is one of the women named in the Roman Canon.",
+    citation: `${W}Saint_Lucy`,
+    links: { saints: ["saint-lucy"] },
+  },
+  {
+    slug: "martyrdom-of-saint-vincent-of-saragossa",
+    title: "Martyrdom of St Vincent of Saragossa",
+    year: 304,
+    precision: "circa",
+    era: "persecution",
+    kind: "martyrdom",
+    tags: ["persecution"],
+    location: "Valencia, Hispania",
+    context:
+      "Vincent, deacon to Bishop Valerius of Saragossa, is taken in chains to Valencia by the governor Dacian and dies after cruel torture, while his bishop is sent into exile.",
+    significance:
+      "Prudentius's hymn and Augustine's sermons spread his fame, making him one of the most widely honoured martyrs of the West.",
+    citation: `${NA}15434b.htm`,
+  },
+  {
+    slug: "death-of-pope-marcellinus",
+    title: "Death of Pope Marcellinus",
+    year: 304,
+    precision: "year",
+    era: "persecution",
+    kind: "pope",
+    tags: ["papacy", "persecution"],
+    location: "Rome",
+    context:
+      "Bishop of Rome since 296, Marcellinus dies during the Great Persecution and is buried in the Catacomb of Priscilla.",
+    significance:
+      "Donatists later accused him of handing over the Scriptures and offering incense; Augustine rejected the charge, and the Church honours him as a saint.",
+    citation: `${NA}09637d.htm`,
+    links: { popes: ["pope-saint-marcellinus"] },
+  },
+  {
+    slug: "martyrdom-of-agape-chionia-and-irene",
+    title: "Martyrdom of Agape, Chionia and Irene",
+    year: 304,
+    precision: "year",
+    era: "persecution",
+    kind: "martyrdom",
+    tags: ["persecution"],
+    location: "Thessalonica",
+    context:
+      "Three Christian sisters of Thessalonica are brought to the court of the governor Dulcitius; Agape and Chionia, who refused to eat sacrificial food, are burned, and Irene is put to death for keeping Christian books.",
+    significance:
+      "Their story shows Diocletian's edicts at work, which made possessing the Scriptures a capital offence.",
+    citation: `${W}Agape,_Chionia,_and_Irene`,
+  },
+  {
+    slug: "martyrs-of-abitinae",
+    title: "The Martyrs of Abitinae",
+    year: 304,
+    precision: "year",
+    era: "persecution",
+    kind: "martyrdom",
+    tags: ["liturgy", "persecution"],
+    location: "Abitinae & Carthage",
+    context:
+      "Forty-nine Christians of Abitinae, led by the priest Saturninus, are arrested at their Sunday Eucharist in defiance of Diocletian's ban and tried at Carthage, where one declares that they cannot live without 'the Lord's' (sine dominico).",
+    significance:
+      "Their reply became a classic witness to the Sunday Eucharist as the heart of Christian life.",
+    citation: `${W}Martyrs_of_Abitinae`,
+  },
+  {
+    slug: "lactantius-divine-institutes",
+    title: "Lactantius writes the Divine Institutes",
+    year: 305,
+    precision: "circa",
+    era: "persecution",
+    kind: "document",
+    context:
+      "Having lost his post as professor of rhetoric at Diocletian's capital when the persecution began, the convert Lactantius writes a reasoned account of the Christian faith for educated pagans.",
+    significance:
+      "Its polished Latin later earned him the humanists' title of the 'Christian Cicero'; he went on to tutor Constantine's son Crispus.",
+    citation: `${NA}08736a.htm`,
+  },
+  {
+    slug: "synod-of-elvira",
+    title: "Synod of Elvira",
+    year: 305,
+    precision: "circa",
+    era: "persecution",
+    kind: "council",
+    location: "Elvira (Granada), Hispania",
+    context:
+      "Nineteen bishops from across Spain, with twenty-six priests, issue eighty-one disciplinary canons on idolatry, marriage, consecrated virgins and dealings with pagans, Jews and heretics; the exact year is disputed.",
+    significance:
+      "Its canon 33 is the oldest surviving church law on clerical continence, and canon 36's ban on pictures in churches is still debated.",
+    citation: `${NA}05395b.htm`,
+  },
+  {
+    slug: "melitian-schism",
+    title: "Melitian schism in Egypt",
+    year: 305,
+    precision: "circa",
+    era: "persecution",
+    kind: "schism",
+    tags: ["schism"],
+    location: "Egypt",
+    context:
+      "During the persecution Bishop Melitius of Lycopolis refuses communion to repentant lapsed Christians and ordains clergy beyond his own diocese, defying Peter of Alexandria, who deposes him.",
+    significance:
+      "Nicaea tried to reconcile his followers in 325, but the Melitian church lasted into the fifth century and sided with the Arians.",
+    citation: `${W}Meletius_of_Lycopolis`,
+  },
+  {
+    slug: "constantine-proclaimed-emperor-at-york",
+    title: "Constantine proclaimed emperor at York",
+    year: 306,
+    precision: "year",
+    era: "persecution",
+    kind: "event",
+    location: "Eboracum (York)",
+    context:
+      "On the death of his father Constantius, the army at York acclaims Constantine as emperor.",
+    significance:
+      "Ruling Britain, Gaul and Spain, he ends the persecution in his lands and restores what Christians had lost — the first step of a reign that would free the Church.",
+    citation: `${W}Constantine_the_Great`,
+  },
+  {
+    slug: "pope-marcellus-and-the-lapsed",
+    title: "Pope Marcellus I and the strife over the lapsed",
+    year: 308,
+    precision: "year",
+    era: "persecution",
+    kind: "pope",
+    tags: ["papacy"],
+    location: "Rome",
+    context:
+      "Elected in 308, Marcellus reorganises the Roman church and insists that Christians who lapsed in the persecution do penance; the quarrel ends in bloodshed and Maxentius sends him into exile, where he soon dies.",
+    significance:
+      "Pope Damasus's epitaph remembers him as a truthful shepherd whom the lapsed hated for demanding penance.",
+    citation: `${NA}09640b.htm`,
+  },
+  {
+    slug: "martyrdom-of-pamphilus-of-caesarea",
+    title: "Martyrdom of Pamphilus of Caesarea",
+    year: 309,
+    precision: "year",
+    era: "persecution",
+    kind: "martyrdom",
+    tags: ["persecution"],
+    location: "Caesarea Maritima",
+    context:
+      "Arrested in 307, the scholar-priest Pamphilus goes on copying and correcting manuscripts in prison and writes, with his pupil Eusebius, a Defence of Origen before he is beheaded.",
+    significance:
+      "Eusebius edited the Defence and added to it, carrying his teacher's devotion to Origen and the Scriptures into his own work as historian of the Church.",
+    citation: `${W}Pamphilus_of_Caesarea`,
+  },
+  {
+    slug: "galerius-edict-of-toleration",
+    title: "Galerius's Edict of Toleration",
+    year: 311,
+    date: "0311-04-30",
+    precision: "day",
+    era: "persecution",
+    kind: "document",
+    tags: ["persecution"],
+    location: "Serdica & Nicomedia",
+    context:
+      "The persecuting emperor Galerius grants Christians pardon and the right to exist again and hold their assemblies, asking them to pray for the emperor and the state; it is published at Nicomedia on 30 April.",
+    significance:
+      "It officially ends the Diocletianic persecution and in effect makes Christianity a permitted religion, two years before the Edict of Milan.",
+    citation: `${W}Edict_of_Serdica`,
+  },
+  {
+    slug: "pope-miltiades-recovers-church-property",
+    title: "Pope Miltiades recovers the Roman Church's property",
+    year: 311,
+    precision: "year",
+    era: "persecution",
+    kind: "pope",
+    tags: ["papacy"],
+    location: "Rome",
+    context:
+      "Elected in July 311, Miltiades obtains from the emperor the right to reclaim, through the city prefect, the buildings and lands confiscated from the Roman church.",
+    significance:
+      "The first bishop of Rome to see the persecutions end, he later received the Lateran Palace from Constantine as the popes' residence.",
+    citation: `${NA}10318a.htm`,
+    links: { popes: ["pope-saint-miltiades"] },
+  },
+  {
+    slug: "martyrdom-of-peter-of-alexandria",
+    title: "Martyrdom of St Peter of Alexandria",
+    year: 311,
+    precision: "year",
+    era: "persecution",
+    kind: "martyrdom",
+    tags: ["persecution"],
+    location: "Alexandria",
+    context:
+      "Under the emperor Maximinus Daia, Bishop Peter of Alexandria is arrested and beheaded.",
+    significance:
+      "The Coptic Church honours him as the 'Seal of the Martyrs'; he had urged mercy for the lapsed against the rigorism of Melitius.",
+    citation: `${W}Peter_I_of_Alexandria`,
+  },
+  {
+    slug: "donatist-schism-begins",
+    title: "Donatist schism begins at Carthage",
+    year: 311,
+    precision: "year",
+    era: "persecution",
+    kind: "schism",
+    tags: ["schism"],
+    location: "Carthage",
+    context:
+      "Caecilian is consecrated bishop of Carthage by Felix of Aptungi, whom rigorists accuse of having handed over the Scriptures in the persecution; they reject Caecilian and consecrate Majorinus, soon succeeded by Donatus.",
+    significance:
+      "The dispute over whether a sacrament depends on the holiness of its minister divided African Christianity for generations and drew in Pope Miltiades and Constantine.",
+    citation: `${W}Donatism`,
+  },
+  {
+    slug: "martyrdom-of-lucian-of-antioch",
+    title: "Martyrdom of Lucian of Antioch",
+    year: 312,
+    precision: "circa",
+    era: "persecution",
+    kind: "martyrdom",
+    tags: ["persecution"],
+    location: "Nicomedia",
+    context:
+      "Lucian, a learned priest of Antioch, is arrested under Maximinus Daia, taken to Nicomedia and put to death, by tradition on 7 January 312.",
+    significance:
+      "His revision of the Greek Bible was widely used in the East; Arius and Eusebius of Nicomedia later counted themselves among his followers.",
+    citation: `${W}Lucian_of_Antioch`,
+  },
+  {
+    slug: "battle-of-the-milvian-bridge",
+    title: "Battle of the Milvian Bridge",
+    year: 312,
+    date: "0312-10-28",
+    precision: "day",
+    era: "persecution",
+    kind: "event",
+    location: "Rome",
+    context:
+      "After a vision or dream bids him mark his soldiers' shields with a sign of Christ, Constantine defeats Maxentius at the Milvian Bridge outside Rome.",
+    significance:
+      "The victory, which Christian writers credited to Christ, made Constantine master of the West and led within months to the Edict of Milan.",
+    citation: `${W}Battle_of_the_Milvian_Bridge`,
+  },
 ];
