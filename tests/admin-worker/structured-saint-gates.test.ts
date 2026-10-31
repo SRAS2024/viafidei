@@ -277,6 +277,28 @@ describe("Wikidata's stage must agree with the article", () => {
     expect(articleStageConflict("canonized", { honorific_prefix: "Saint" })).toBeNull();
     expect(articleStageConflict("canonized", {})).toBeNull();
   });
+
+  it("reads a later stage from the honorific when the article names the Catholic Church", () => {
+    // Moisés Lira Serafín: beatified 2014, still "Venerable" on Wikidata; his
+    // infobox says "Blessed" and "Catholic Church" but dates nothing.
+    const lira = { honorific_prefix: "Blessed", venerated_in: "Catholic Church" };
+    expect(articleStageConflict("venerable", lira)).toBe("beatified");
+    expect(
+      articleStageConflict("servant_of_god", {
+        honorific_prefix: "Venerable",
+        venerated: "Roman Catholic Church",
+      }),
+    ).toBe("venerable");
+    // An honorific alone, with no Catholic venerating body, proves nothing.
+    expect(articleStageConflict("venerable", { honorific_prefix: "Blessed" })).toBeNull();
+    expect(
+      articleStageConflict("venerable", {
+        honorific_prefix: "Saint",
+        venerated_in: "Eastern Orthodox Church",
+      }),
+    ).toBeNull();
+    expect(articleStageConflict("venerable", { honorific_prefix: "Venerable" })).toBeNull();
+  });
 });
 
 describe("Venerables and Servants of God have no liturgical feast", () => {

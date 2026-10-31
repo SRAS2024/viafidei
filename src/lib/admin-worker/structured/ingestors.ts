@@ -515,12 +515,16 @@ const BEATIFIED_DATE_KEYS = [
  * skipped (skip on doubt):
  *   · canonized on Wikidata, but the article dates no canonization and shows a
  *     beatification (a date, or the honorific "Blessed" alone);
- *   · any lower stage on Wikidata, but the article DATES a later one.
+ *   · any lower stage on Wikidata, but the article states a later one: a
+ *     date, or else the honorific of a person it says the Catholic Church
+ *     venerates (`statusFromInfobox`) — Moisés Lira Serafín, beatified in 2014
+ *     and still "Venerable" on Wikidata, has `honorific_prefix = Blessed` and
+ *     `venerated_in = Catholic Church` but no beatification date.
  */
 export function articleStageConflict(
   status: CanonizationStatus,
   infobox: Record<string, string>,
-): "canonized" | "beatified" | null {
+): CanonizationStatus | null {
   const dated = articleDatedStage(infobox);
   const honorific = (infobox.honorific_prefix ?? "").toLowerCase();
   const blessedOnly = /\bblessed\b/.test(honorific) && !/\bsaint\b|\bst\.?(?=\s|$)/.test(honorific);
@@ -535,7 +539,8 @@ export function articleStageConflict(
     beatified: 2,
     canonized: 3,
   };
-  if (dated && rank[dated] > rank[status]) return dated;
+  const stated = dated ?? statusFromInfobox(infobox);
+  if (stated && rank[stated] > rank[status]) return stated;
   return null;
 }
 
@@ -585,14 +590,58 @@ function firstFeastMention(f: ParsedFeast, text: string, lang: string): number {
  * an article that states no stage at all still yields null — skip on doubt.
  *
  * TWO FLOORS APPLY TO BOTH RULES, and they are checked first:
- *   · a `venerated_in` naming ANOTHER communion and no Catholic one
+ *   · a `venerated_in` (or `venerated`) naming ANOTHER communion and no Catholic one
  *     disqualifies the row outright, date or no date;
  *   · the communions whose name merely CONTAINS "Catholic" (Old Catholic,
  *     Polish National Catholic, Anglican Catholic, Liberal Catholic, Catholic
  *     Apostolic) are struck out before that question is asked.
  */
-function statusFromInfobox(infobox: Record<string, string>): CanonizationStatus | null {
-  const stated = infobox.venerated_in ?? "";
+export function statusFromInfobox(infobox: Record<string, string>): CanonizationStatus | null {
+  const { otherCommunion, catholicVenerator } = venerationBodies(infobox);
+  if (otherCommunion && !catholicVenerator) return null;
+
+  const datedStage = articleDatedStage(infobox);
+  if (datedStage) return datedStage;
+  if (!catholicVenerator) return null;
+  // The STAGE is read ONLY from `honorific_prefix` — the parameter whose whole
+  // purpose is the honorific ("Saint", "Blessed", "Venerable", "Servant of
+  // God"). `titles` / `title` hold OFFICES, and an office routinely carries a
+  // place name: measured against this rule, `titles = Bishop of St Albans`,
+  // `title = Abbot of St Gall` and `titles = Bishop of Saint-Denis` each
+  // matched /\bsaint\b|\bst\.?\b/ and published the person as `canonized`.
+  // A diocese named after a saint says nothing about its bishop's cause.
+  const honorific = (infobox.honorific_prefix ?? "").toLowerCase();
+  if (/\bservant of god\b/.test(honorific)) return "servant_of_god";
+  if (/\bvenerable\b/.test(honorific)) return "venerable";
+  if (/\bblessed\b/.test(honorific)) return "beatified";
+  if (/\bsaint\b|\bst\.?\b/.test(honorific)) return "canonized";
+  return null;
+}
+
+/**
+ * The bodies an article's infobox says venerate the person. {{Infobox saint}}
+ * documents `venerated_in`, but many articles fill the older `venerated`
+ * instead — Bellinus of Padua's reads `venerated = Roman Catholic Church` and
+ * has no `venerated_in` — so both are read.
+ */
+export function veneratedIn(infobox: Record<string, string>): string {
+  return [infobox.venerated_in, infobox.venerated]
+    .map((v) => (v ?? "").trim())
+    .filter(Boolean)
+    .join("; ");
+}
+
+/**
+ * WHO the article says venerates the person (`venerated_in` / `venerated`):
+ * does it name another communion, and does it name a Catholic body? Shared by
+ * the branch-3 status rule above and the cleanup audit, which unpublishes a
+ * row whose article names only another communion.
+ */
+export function venerationBodies(infobox: Record<string, string>): {
+  otherCommunion: boolean;
+  catholicVenerator: boolean;
+} {
+  const stated = veneratedIn(infobox);
   // Strike out the communions whose NAME contains "Catholic" but which are NOT
   // in communion with Rome, so `venerated_in` cannot read as "the Catholic
   // Church venerates this person" on the strength of a borrowed word. "Old
@@ -616,24 +665,7 @@ function statusFromInfobox(infobox: Record<string, string>): CanonizationStatus 
   // communion only disqualifies the row when NO Catholic body is named too,
   // which is also what keeps a pre-schism saint venerated by Rome and the East.
   const catholicVenerator = /\bcatholic\b/i.test(venerated);
-  if (otherCommunion && !catholicVenerator) return null;
-
-  const datedStage = articleDatedStage(infobox);
-  if (datedStage) return datedStage;
-  if (!catholicVenerator) return null;
-  // The STAGE is read ONLY from `honorific_prefix` — the parameter whose whole
-  // purpose is the honorific ("Saint", "Blessed", "Venerable", "Servant of
-  // God"). `titles` / `title` hold OFFICES, and an office routinely carries a
-  // place name: measured against this rule, `titles = Bishop of St Albans`,
-  // `title = Abbot of St Gall` and `titles = Bishop of Saint-Denis` each
-  // matched /\bsaint\b|\bst\.?\b/ and published the person as `canonized`.
-  // A diocese named after a saint says nothing about its bishop's cause.
-  const honorific = (infobox.honorific_prefix ?? "").toLowerCase();
-  if (/\bservant of god\b/.test(honorific)) return "servant_of_god";
-  if (/\bvenerable\b/.test(honorific)) return "venerable";
-  if (/\bblessed\b/.test(honorific)) return "beatified";
-  if (/\bsaint\b|\bst\.?\b/.test(honorific)) return "canonized";
-  return null;
+  return { otherCommunion, catholicVenerator };
 }
 
 /** SPARQL `VALUES` list for a set of QIDs. */

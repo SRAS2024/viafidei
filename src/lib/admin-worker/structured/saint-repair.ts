@@ -29,7 +29,8 @@ import { FEASTLESS_CANONIZATION_STATUSES } from "@/lib/checklist/schemas/saint";
 import { applyProtectedContentUpdate } from "../content-protection";
 import { fileHumanReview } from "../human-review";
 import { writeAdminWorkerLog } from "../logs";
-import { chooseCorroboratedFeast, parseFeastCandidates } from "./ingestors";
+import type { SourceReadLedger } from "./http";
+import { articleStageConflict, chooseCorroboratedFeast, parseFeastCandidates } from "./ingestors";
 import {
   SAINT_FACTS_PATTERNS,
   SAINT_FACTS_SELECT,
@@ -313,11 +314,23 @@ export async function runStructuredSaintRepair(
     if (typeof payload.wikidataQid !== "string") proposed.wikidataQid = qid;
 
     // The infobox (enwiki only) supplies the `titles` signal for virgin /
-    // confessor and disambiguates a multi-feast saint. Fail-open.
+    // confessor, disambiguates a multi-feast saint and checks the stage.
     const article = enwikiCitation(payload);
+    const reads: SourceReadLedger = { unread: [] };
     const infobox: Record<string, string> = article
-      ? await fetchArticleInfobox(article).catch(() => ({}))
+      ? await fetchArticleInfobox(article, { ledger: reads }).catch(() => ({}))
       : {};
+    // Wikidata's P411 lags the causes in both directions: Richard Henkes
+    // (beatified 2019), Teresio Olivelli and Moisés Lira are still "Venerable"
+    // there, Nikola Tavelić (canonized 1970) resolves to "Venerable" too, and
+    // Józef Cebula is a "Catholic saint" beside his 1999 beatification. When the
+    // article contradicts the stage — or could not be read to tell — neither
+    // source proves it, so the row is left alone: no re-status, and above all no
+    // feast stripped from a Blessed on the strength of a stale "Venerable".
+    if (reads.unread.length > 0 || articleStageConflict(status, infobox)) {
+      out.unresolved += 1;
+      continue;
+    }
     const provenance = payload.provenance as { biography?: string } | undefined;
     const abstract =
       provenance?.biography === "structured-facts" ? undefined : String(payload.biography ?? "");
