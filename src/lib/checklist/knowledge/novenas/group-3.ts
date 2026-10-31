@@ -1222,6 +1222,77 @@ const LINGS_PETER_NOVENA_PRAYER = [
   "Let us Pray.\nO glorious apostle, who didst receive the power of loosing and binding, pray for us, that, being free from all sin, we may live and die in the grace of God. Obtain, then, for us a perfect faith, firm hope, ardent charity, that as we draw nearer to the close of life we may daily grow in the knowledge and love of Jesus Christ. Guide us, O blessed apostle, through all the dangers of exile till fear and grief be over. O humble martyr of Christ, thou who now beholdest Him not as on Thabor, but in the full splendor of His glory, pray for us now and at the hour of death. Oh! then, come, blessed apostle, and take us to Jesus, that we too may love Him eternally. Amen.",
 ].join("\n\n");
 
+const LINGS_FEAST_OF_THE_SACRED_HEART =
+  "https://archive.org/details/ourfavoritenoven0000revd/page/63/mode/1up";
+const LINGS_INFANT_OF_PRAGUE =
+  "https://archive.org/details/ourfavoritenoven0000revd/page/46/mode/1up";
+const EWTN_INFANT_OF_PRAGUE_HISTORY =
+  "https://www.ewtn.com/catholicism/library/history-of-the-infant-jesus-of-prague-1329";
+
+/** The prayers of the novena for the feast of the Sacred Heart in Lings's Our Favorite Novenas; the brace response of the Union is written out. */
+const LINGS_FEAST_OF_THE_SACRED_HEART_NOVENA_PRAYER = [
+  "O Sacred Heart of Jesus, overflowing with all sweetness! to Thee we recommend ourselves and all our concerns, parents, and relations; our benefactors, friends, and enemies. Take under Thy protection this house and state. Extend Thy care to all such as lie under any affliction and to those who labor in the agony and pangs of death. Cast an eye of compassion on the obstinate sinner; also on the poor souls in purgatory, and on those who are engaged with us in the holy confederacy of honoring and worshipping Thee. Bless these in particular, O bountiful Heart! and bless them according to the extent of Thy goodness, mercy, and charity. Amen.",
+  "Profound adoration of the heart of Jesus, I unite with you.\nArdent love of the heart of Jesus, I unite with you.\nFervent zeal of the heart of Jesus, I unite with you.\nReparation of the heart of Jesus, I unite with you.\nThanksgiving of the heart of Jesus, I unite with you.\nConfidence of the heart of Jesus, I unite with you.\nInflamed prayers of the heart of Jesus, I unite with you.\nEloquent silence of the heart of Jesus, I unite with you.\nHumility of the heart of Jesus, I unite with you.\nObedience of the heart of Jesus, I unite with you.\nMeekness and grace of the heart of Jesus, I unite with you.\nIneffable goodness of the heart of Jesus, I unite with you.\nUniversal charity of the heart of Jesus, I unite with you.\nProfound recollection of the heart of Jesus, I unite with you.\nTender solicitude of the heart of Jesus for the conversion of sinners, I unite with you.\nIntimate union of the heart of Jesus with His heavenly Father, I unite with you.\nIntentions, desires, and will of the heart of Jesus, I unite with you.",
+  "Love of the heart of Jesus, inflame my heart.\nCharity of the heart of Jesus, flow into my heart.\nStrength of the heart of Jesus, support my heart.\nMercy of the heart of Jesus, pardon my heart.\nPatience of the heart of Jesus, grow not weary of my heart.\nKingdom of the heart of Jesus, be in my heart.\nWisdom of the heart of Jesus, teach my heart.\nWill of the heart of Jesus, dispose of my heart.\nZeal of the heart of Jesus, consume my heart.\nImmaculate Virgin, pray for us to the Sacred Heart of Jesus.",
+  "Adorable Trinity, we thank Thee for all the favors Thou hast conferred on Thy servant, Saint Margaret Mary, and through her intercession we hope to obtain the graces we ask for in this novena.",
+  "Eternal Father, permit me to offer Thee the heart of Thy well-beloved Son, Jesus Christ, as He offers Himself to Thee in sacrifice. Receive this oblation for me, together with all the desires, sentiments, affections, movements, and acts of this sacred heart. They are all mine, since He immolates Himself for me, and henceforth I wish to have no desires but His. Receive them in satisfaction for my sins, and in thanksgiving for all Thy benefits. Receive them, that through His merits Thou mayst grant me all the graces necessary for me, especially the grace of final perseverance. Receive them as so many acts of love, adoration, and praise, which I offer Thy divine majesty, since it is by the heart of Jesus Thou art worthily honored and glorified. Amen.",
+].join("\n\n");
+
+/** Each day of the Lings novena to the Infant Jesus of Prague: the day's intention, its aspiration and its prayer. */
+const INFANT_OF_PRAGUE_NOVENA_DAY_1 = [
+  "Let us venerate the holy head of the divine Infant, in order to obtain the three divine virtues of faith, hope, and charity.",
+  "What do I see? What a bright glow falls from the beautiful crown that encircles Thy head! What veneration I feel in my heart, struck by the loveliness and majesty that shine from Thy dear and precious crown!\n\nKings only wear crowns. Thou, too, art a King, dearest Jesus, the greatest and mightiest of all. Thou art a King from all eternity!\n\nI recognize and acknowledge Thee as my King, as my highest and best Lord; therefore I cast myself down at Thy feet and adore humbly Thy most holy head.",
+  "I earnestly beseech Thee that Thou wouldst increase in me the light of faith. Make me firmly believe that Thy holy image represents Thee as the eternally crowned King of heaven and earth, the Son of the heavenly Father, and of the Blessed Virgin Mary, who during Thy holy infancy nursed Thee so carefully and served Thee so zealously. Gracious and beneficent Jesus, give me a well-grounded hope, since my sins fill me with fear. I know that little children do not cherish anger and are easily persuaded. By the mystery of Thy infancy, pardon me, I beseech Thee. Grant that I may love Thee in all and above all. May nothing extinguish this flame of love! Grant me the grace to fulfil all the duties of my state faithfully, readily, and cheerfully, and to bear patiently all the trouble and bitterness of life. Amen.",
+].join("\n\n");
+
+const INFANT_OF_PRAGUE_NOVENA_DAY_2 = [
+  "Let us venerate the beautiful face of the divine Child, in order to receive the entire forgiveness of all our sins.",
+  "O most adorable face of Jesus, I prostrate myself before thee and venerate and contemplate with admiration thy exquisite, beautiful form.\n\nThou lovest to alter this Thy holy countenance according to the state of the soul that beholds Thee. Sometimes Thou seemest quite angry and stern, and sometimes kind and loving. Sinners see Thy face covered with a dark veil, so that they cannot behold Thee until they have faithfully confessed all their sins. Dost Thou wish by this alteration to point out our fickleness and to strengthen us in good?\n\nO dearest Infant Jesus, let some rays from Thy countenance pierce my dark soul, that, enlightened thereby, I may see truly all the misery of sin, wholly repent, sincerely confess, and faithfully atone for all my transgressions, that I may behold in peace Thy holy face.",
+  "Dear Infant Jesus, consider that Thy most sweet image remained seven long years in a dark room, dusty and forgotten, and nevertheless retained its ancient beauty. Cleanse the chamber of my soul from the dust and filth of sin, that it may once more be clad in the beauty it received in holy Baptism. Amen.",
+].join("\n\n");
+
+const INFANT_OF_PRAGUE_NOVENA_DAY_3 = [
+  "Let us venerate the eyes of the divine Infant, in order to obtain complete victory in the time of temptation.",
+  "O bright shining lights of heaven, most beautiful eyes of my beloved Infant Jesus! what joy it is to behold you, what happiness to be seen by you! I cannot look at you without tears in my eyes, joy in my soul, and rapture in my whole heart.\n\nThrough these beautiful eyes not only the visible humanity regards us, but the invisible Godhead. Thine eyes teach me to rejoice and to fear; they awaken love and awe. Wonderful eyes of my little Jesus! look on me graciously, and give to my eyes the rich grace of tears, that I may wash myself clean from my sins.",
+  "My dearest Jesus, I am firmly resolved, with all my heart, never more to offend Thee; but my weak and inconstant will is so well known to me that I am afraid a strong temptation may make me break my good resolution. My evil desires, with the world and the devil, never cease laying their snares for my perdition, for they are my sworn and implacable enemies.\n\nWhere shall I seek for help and find it? Where else but with Thee, Who art so weak in body, but so almighty in power? O tender Infant Jesus! Thy omnipotence delivered in a wonderful manner the cities of Prague, Brunn, and Ratisbon when they called on Thee for help against the beleaguring armies of Sweden. Thou canst also deliver me from my spiritual enemies.\n\nBe my constant shield, that I may yield to no temptation, and may be victorious always over the enemies of my salvation. Amen.",
+].join("\n\n");
+
+const INFANT_OF_PRAGUE_NOVENA_DAY_4 = [
+  "Let us venerate the mouth of the divine Infant, in order that we may love our neighbor and our enemies.",
+  'What do I hear? What a miracle! A little Infant speaks, and speaks through an image and urges men to pity. Plainly didst Thou speak: "Take pity on Me and I will take pity on you."\n\nWhat Thou didst say then to Thy faithful servant Thou repeatest daily to all sinners. Sin it is that grieves Thee, and, to speak humanly, troubles and tortures Thee. Mournfully Thou beseechest man to leave sin and never more to offend Thee. I will take pity on Thee, that I may receive mercy from Thee.',
+  'How urgently Thou commandest us to love our neighbor and our enemies! Thou hast taught us this lesson from the cross by Thine own glorious example.\n\nWhy do I so often fail in the love of my neighbor; why is it so hard for me to fulfil the precept: "Love your enemies; do good to them that persecute and calumniate you"? Place a seal on my lips, that my tongue may never consciously wound, distress, or injure my neighbor. Help me to observe, entirely and always, the most beautiful precept, the love of my neighbor.',
+].join("\n\n");
+
+const INFANT_OF_PRAGUE_NOVENA_DAY_5 = [
+  "Let us venerate the little hands of the divine Infant, in order to obtain patience in persecution, crosses, and suffering.",
+  'I venerate Thy holy little hands, of which Thy image remained deprived for seven long years. With what malice and contempt did the rude heretic soldiers strike off Thy little hands! Is this the gratitude of Thy creatures, whom Thou lovest so tenderly? Since Thou didst so piteously and wonderfully demand the restoration of Thy mutilated hands, how much it must have pained Thee to lose them! "Give back to Me My hands, and I will bestow blessings on you," so spoke Thy dear mouth. Can I hear this and not feel compassion? Now, once more Thou hast both Thy hands, and Thy right one Thou liftest to bless an ungrateful world.',
+  "Even as an infant Thou didst suffer much and patiently, in Thy circumcision and Thy flight into Egypt, and this Thy suffering is represented to us by the mutilated hands of Thy miraculous image of Prague.\n\nYet I, though so full of sin and guilt, am not willing to suffer anything; I am so easily cast down by contempt and humiliations, and fret and complain so readily in pain and sickness. Let all this be changed. Grant me patience and joy in suffering; Thou lovest a cheerful giver.\n\nGive me back my sound feet, my strong nerves, my former voice, my happy disposition, so I beg of Thee through Thy broken-off little hands; but not as I will, but as Thou wilt. If sufferings and trials are better for me, do not take them away from me: grant me only patience in an overflowing measure, that I may suffer as it pleases Thee, and as I deserve.",
+].join("\n\n");
+
+const INFANT_OF_PRAGUE_NOVENA_DAY_6 = [
+  "Let us venerate the divine heart of the Infant Jesus, in order to obtain true humility.",
+  "How full of love for the poor children of men is the divine heart of the dear Infant! Day and night it burns with love, sending forth sparks that scatter countless benefits everywhere, to all men, even to the greatest sinners. But especially loving and bounteous is the little heart when it is honored and implored in the Infant Jesus of Prague. In order to understand all the greatness of this little heart one would have to possess the love and the knowledge of the dear Mother of God or of St. Joseph, or of that most faithful servant of the Infant of Prague, venerable Father Cyrillus. Why is my heart so cold in its love, so full of temporal, earthly, and selfish motives that the heroic love of God and of my neighbor can find no place therein? What a miserable child of earth I am!\n\nSo near the hearth-fire of eternal love, and yet so icy cold! What a purgatory I will have to suffer! And the chief cause of this calculating wisdom of the world is pride, self-love, ambition—in a word, egotism.",
+  "O great and most wonderful God, represented in the form of a little infant, how deep down in my heart do I feel my shame! Thou art eternal majesty and perfect sanctity, and Thou art humble of heart; I, who am wretchedness itself, and full of the misery of sin, am filled with pride and self-esteem, and have therefore so little peace of heart.\n\nTruly, because I am so poor in virtue, Thou hast every reason to turn away from me Thy most beautiful countenance. In spite of this, however, I am always ready to exalt myself above others, and to blame and criticise them. I know my misery, and yet I would fain be praised and rewarded, and preferred to others. The least humiliation or any neglect on the part of my fellow-creatures pains me, whilst Thou art so full of meekness and of long-suffering beyond measure, and hast so much patience with the children of men.\n\nDivine Heart of my dearest Jesus, fill my heart with a sincere humility and a true knowledge of myself, that I may one day deserve to be exalted by Thee.\n\nGrant me the grace to be humble and simple as a child. To come to the Father I must be even as a little child.",
+].join("\n\n");
+
+const INFANT_OF_PRAGUE_NOVENA_DAY_7 = [
+  "Let us venerate the little body of the Infant Jesus, in order to obtain a happy death.",
+  'Thy omnipotence, O wonderful Infant Jesus, kept the body of Thine image of wax uninjured and beautiful when the heretic soldiers, full of rage and fury, threw it down in the dust. Who would believe that a figure of soft wax could be so roughly handled and remain uninjured? And yet this is what occurred. What else can this preservation signify than Thy future exaltation! "He that humbleth himself shall be exalted." So it is with this image and with Thee\n\nThis miraculous image lay prostrate in the dust, mutilated and forgotten, for seven long years. Now it stands on many altars throughout the world, and is there venerated, while thousands of likenesses of it are spread everywhere and are honored in convents and families. First trodden under foot and neglected, then venerated and showered with gifts by kings and princes, cardinals, bishops, and priests, regular and secular—all conditions of men. Is not this miraculous? What man could have brought this about? For all this I praise Thee, and I am greatly rejoiced to learn of and believe in Thy exaltation. As happened to Thy favored image, so also was Thy divine-human person treated. Thou wast an outcast among men, mocked and despised, scourged and crowned with thorns, cast into prison and a murderer preferred before Thee, made the jest of the people, and now Thou art glorious in heaven and on earth. At Thy name every knee must bend, and Thou wilt come to judge the world. What a wonderful change! How can a man who thinks of all this in his heart remain cold, unbelieving, and indifferent?',
+  "O most gracious Child Jesus! I come now to Thee to beg from Thee most earnestly the grace of a happy death. When my last hour arrives, do Thou come to me in the holy Viaticum and remain with me, and bring unto me Thy Virgin Mother and St. Joseph. Soothe my agony, diminish my anxiety, give me courage to meet all assaults, and grant me the grace to surrender willingly my earthly life in satisfaction for my sins, in order that I may so gain the indulgence for the dying, the last grace of holy mother Church. Bless me, therefore, with Thy little hand when the priest or some other merciful Samaritan blesses me.\n\nOn earth Thou didst live and suffer twelve thousand one hundred and ninety days; that makes two hundred and ninety-two thousand five hundred and sixty hours; and then Thou didst die poor and neglected and despised and mocked by the world.\n\nBy Thy agony in the Garden of Olives and on the cross, by all the blood Thou didst shed, I beseech Thee grant me a happy death. If the end is good, all will be well. St. Joseph and St. Barbara, pray that I may receive this great grace. Amen.",
+].join("\n\n");
+
+const INFANT_OF_PRAGUE_NOVENA_DAY_8 = [
+  "Let us venerate the little foot of the Infant Jesus, in order to obtain a merciful judgment.",
+  "I salute thee, blessed little foot of my Infant Jesus, that didst remain uninjured through all the seven long years. At one time forgotten, now thou art honored and venerated, to the terror of the enemies of Jesus.\n\nThy holy feet, O merciful Jesus, have made many steps to seek and find Thy wandering sheep. On this account especially I venerate Thy little feet of wax. How many hard and weary steps Thou didst take for me in Thy life of three-and-thirty years! I am grateful to Thee for each one of them. Grant that they be not in vain!",
+  "The heavenly Father has given Thee all power, and hath made Thee judge over all. O just Jesus! when my soul shall leave my frail, mortal body, it must appear before Thy all-seeing countenance, and Thou wilt judge it as God, holy and just.\n\nTo Thee are known all thoughts and desires, all words and deeds, and all omissions. Nothing will be forgotten in the particular or in the general judgment; all will be made known to the world at the last judgment. How will it be with me then? Ah, if Thou couldst then be to me not the strict Judge, but the kind little Infant Jesus! Grant me the grace to think often of the judgment and to serve Thee faithfully, that Thou mayest not condemn me. I beseech Thee, through Thy holy infancy, be not my Judge, but my Saviour.",
+].join("\n\n");
+
+const INFANT_OF_PRAGUE_NOVENA_DAY_9 = [
+  "Let us venerate through the divine Infant the immaculate heart of Mary, in order to obtain a speedy release from purgatory.",
+  'I see Thee as a little, helpless child, hiding entirely Thy divinity. Thou art true God, one substance with the Father, and the most blessed Virgin is Thy true Mother, and rightly called the "Mother of God." It rejoices Thee when we honor Thy Mother, because Thou lovest her. Even as we pray to Thy divine heart, so dost Thou permit and desire that we should venerate the immaculate heart of Mary, especially in order to obtain the deliverance of sinners. Through this pure heart, so dear to Thee, have mercy on me.',
+  "Because of my lukewarmness in doing penance, and my indifference in gaining indulgences, I fear I must suffer a long time in purgatory. There I can do nothing for myself, and shall be dependent entirely on the suffrages of others. The dead are soon forgotten. Therefore, my dearest Jesus, even at this day I beseech Thee, through the most pure heart of Thy infancy, release me quickly from the pain and abandonment of purgatory. To this end I offer Thy heavenly Father all Thy bitter passion, its scorn and mockery, its hatred and abandonment, its bitter agony of death, with all the good works of the saints, and all the holy Masses that shall be said even to the last day.\n\nLet these prayers and offerings avail even to-day. When I lament in purgatory, let Thy precious blood come to redeem me and extinguish the flames. Amen.",
+].join("\n\n");
+
 function repeatedPrayerDays(
   prayerText: string,
   subjects: Array<{ title: string; meditation: string; intentionPrompt: string }>,
@@ -5411,6 +5482,179 @@ export const novenaGroupThree: CuratedEntry[] = [
         "20 June, ending on the eve of the solemnity of Saints Peter and Paul, 29 June",
       relatedFeastSlug: "solemnity-saints-peter-and-paul",
       citations: [LINGS_PETER, CE_PETER],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-feast-of-the-sacred-heart-lings",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_FEAST_OF_THE_SACRED_HEART, CE_DEVOTION_TO_THE_SACRED_HEART],
+    payload: {
+      slug: "novena-feast-of-the-sacred-heart-lings",
+      title: "Novena for the Feast of the Sacred Heart (Our Favorite Novenas)",
+      summary:
+        "A novena for the solemnity of the Sacred Heart. Each day a prayer commends to the Heart of Jesus ourselves, our families, the dying, sinners and the holy souls; a 'Union with the Sacred Heart' joins us to its adoration, love, zeal, reparation and other dispositions; short invocations follow, a thanksgiving to the Trinity for the graces given to St. Margaret Mary, and her prayer offering the Heart of Jesus to the Father.",
+      background:
+        "Devotion to the Sacred Heart spread above all from the revelations to St. Margaret Mary Alacoque at Paray-le-Monial, in which Christ asked for a feast of reparation on the Friday after the octave of Corpus Christi; Pius IX extended the feast to the whole Church in 1856. The novena is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and its prayers are said on each of the nine days; it is a different text from the other Sacred Heart novenas in this catalogue. The day meditations are editorial, and the indulgence note is omitted.",
+      intentionTheme:
+        "union with the Heart of Jesus, for ourselves, our families, sinners and the holy souls",
+      days: repeatedPrayerDays(LINGS_FEAST_OF_THE_SACRED_HEART_NOVENA_PRAYER, [
+        {
+          title: "Overflowing with Sweetness",
+          meditation:
+            "The opening prayer commends to the Heart of Jesus ourselves and all our concerns, our families, benefactors, friends and enemies.",
+          intentionPrompt: "Whom will I commend to the Sacred Heart today?",
+        },
+        {
+          title: "Those in Affliction and Agony",
+          meditation:
+            "It asks His care for all who lie under affliction and for those in the agony of death.",
+          intentionPrompt: "Who among the suffering or dying needs my prayer?",
+        },
+        {
+          title: "Sinners and the Holy Souls",
+          meditation:
+            "The Heart of Jesus is asked to look with compassion on obstinate sinners and on the souls in purgatory.",
+          intentionPrompt: "Which sinner, or which soul, will I pray for by name?",
+        },
+        {
+          title: "Adoration and Love",
+          meditation:
+            "The Union joins us to the profound adoration and ardent love of the Heart of Jesus.",
+          intentionPrompt: "How much of my day is given to adoration?",
+        },
+        {
+          title: "Reparation and Thanksgiving",
+          meditation:
+            "We unite ourselves with the reparation and thanksgiving that the Heart of Jesus offers the Father.",
+          intentionPrompt: "What will I offer in reparation today?",
+        },
+        {
+          title: "Humility and Obedience",
+          meditation: "We unite with the humility, obedience, meekness and patience of His Heart.",
+          intentionPrompt: "Which of His dispositions do I most lack?",
+        },
+        {
+          title: "Love of the Heart of Jesus, Inflame My Heart",
+          meditation:
+            "The invocations ask the love, charity, strength, mercy and patience of His Heart to come into ours.",
+          intentionPrompt: "Which invocation will I repeat through the day?",
+        },
+        {
+          title: "St. Margaret Mary",
+          meditation:
+            "We thank the Trinity for the favours given to St. Margaret Mary and ask the graces of the novena through her intercession.",
+          intentionPrompt: "What has the devotion to the Sacred Heart given me?",
+        },
+        {
+          title: "The Offering of the Heart",
+          meditation:
+            "Her prayer offers the Father the Heart of His Son, with all its desires and acts, in satisfaction for sin and for the grace of final perseverance.",
+          intentionPrompt: "Can I make His desires mine?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      associatedDevotionSlug: "devotion-sacred-heart-of-jesus",
+      typicalStartDate:
+        "The nine days before the solemnity of the Sacred Heart, kept on the Friday after the octave of Corpus Christi",
+      relatedFeastSlug: "solemnity-sacred-heart",
+      citations: [LINGS_FEAST_OF_THE_SACRED_HEART, CE_DEVOTION_TO_THE_SACRED_HEART],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-infant-jesus-of-prague-lings",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [LINGS_INFANT_OF_PRAGUE, EWTN_INFANT_OF_PRAGUE_HISTORY],
+    payload: {
+      slug: "novena-infant-jesus-of-prague-lings",
+      title: "Novena to the Infant Jesus of Prague (Our Favorite Novenas)",
+      summary:
+        "A nine-day novena to the Infant Jesus of Prague in which each day venerates one part of the holy image, its head, face, eyes, mouth, hands, heart, body and foot, and finally the immaculate heart of Mary, to obtain a particular grace: faith, hope and charity, forgiveness, victory in temptation, love of neighbour, patience, humility, a happy death, a merciful judgment and release from purgatory. Each day has its own aspiration and prayer.",
+      background:
+        "The statue of the Child Jesus venerated at Prague was given to the Discalced Carmelites there in 1628. When Saxon and Swedish armies invaded the city the Carmelites fled and the devotion ceased, until in 1638 Father Cyril of the Mother of God found the image in the ruins of the church and, as tradition relates, heard the words, 'Give Me My hands and I will give you peace'; it was solemnly crowned in 1655. The novena's aspirations retell the story in their own way, telling how heretic soldiers threw the image down and struck off its hands. It is taken from 'Our Favorite Novenas', compiled by the Very Rev. Dean A. A. Lings (New York: Benziger Brothers, copyright 1897), and is a different text from the novena to the Infant of Prague already in this catalogue; the day meditations are editorial.",
+      intentionTheme:
+        "the graces asked of the Infant Jesus day by day, from faith to release from purgatory",
+      days: [
+        {
+          day: 1,
+          title: "The Holy Head: Faith, Hope and Charity",
+          meditation:
+            "The first day venerates the crowned head of the Child, King from all eternity, and asks for the three divine virtues.",
+          prayerText: INFANT_OF_PRAGUE_NOVENA_DAY_1,
+          intentionPrompt: "Do I treat Jesus as my King?",
+        },
+        {
+          day: 2,
+          title: "The Face: Forgiveness",
+          meditation:
+            "The second day venerates His face, which sinners cannot see until they confess, and asks for the forgiveness of all sins.",
+          prayerText: INFANT_OF_PRAGUE_NOVENA_DAY_2,
+          intentionPrompt: "What do I need to confess?",
+        },
+        {
+          day: 3,
+          title: "The Eyes: Victory in Temptation",
+          meditation:
+            "The third day venerates His eyes and asks for the grace of tears and for victory over temptation.",
+          prayerText: INFANT_OF_PRAGUE_NOVENA_DAY_3,
+          intentionPrompt: "Which temptation do I need His help against?",
+        },
+        {
+          day: 4,
+          title: "The Mouth: Love of Neighbour and of Enemies",
+          meditation:
+            "The fourth day recalls the words 'Take pity on Me and I will take pity on you', and asks for love of neighbour and of enemies.",
+          prayerText: INFANT_OF_PRAGUE_NOVENA_DAY_4,
+          intentionPrompt: "Whom have I wounded with my tongue?",
+        },
+        {
+          day: 5,
+          title: "The Hands: Patience",
+          meditation:
+            "The fifth day remembers the image's broken hands and the words 'Give back to Me My hands', and asks for patience in persecution, crosses and suffering.",
+          prayerText: INFANT_OF_PRAGUE_NOVENA_DAY_5,
+          intentionPrompt: "What suffering can I accept more patiently?",
+        },
+        {
+          day: 6,
+          title: "The Heart: Humility",
+          meditation:
+            "The sixth day venerates the loving heart of the Child, the humble King, and asks for true humility.",
+          prayerText: INFANT_OF_PRAGUE_NOVENA_DAY_6,
+          intentionPrompt: "Where am I proud?",
+        },
+        {
+          day: 7,
+          title: "The Body: A Happy Death",
+          meditation:
+            "The seventh day recalls the image thrown down in the dust and later honoured on many altars, and asks for a happy death.",
+          prayerText: INFANT_OF_PRAGUE_NOVENA_DAY_7,
+          intentionPrompt: "Am I ready to die?",
+        },
+        {
+          day: 8,
+          title: "The Foot: A Merciful Judgment",
+          meditation:
+            "The eighth day venerates the little foot that took so many steps to seek the lost sheep, and asks Jesus to be at the judgment not Judge but Saviour.",
+          prayerText: INFANT_OF_PRAGUE_NOVENA_DAY_8,
+          intentionPrompt: "How do I want to meet my Judge?",
+        },
+        {
+          day: 9,
+          title: "The Heart of Mary: Release from Purgatory",
+          meditation:
+            "The last day turns through the divine Infant to the immaculate heart of His Mother, and asks for a speedy release from purgatory.",
+          prayerText: INFANT_OF_PRAGUE_NOVENA_DAY_9,
+          intentionPrompt: "Whom among the dead will I pray for?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      associatedDevotionSlug: "infant-of-prague",
+      typicalStartDate: "Any time; the book gives no fixed dates",
+      citations: [LINGS_INFANT_OF_PRAGUE, EWTN_INFANT_OF_PRAGUE_HISTORY],
     },
   },
 ];
