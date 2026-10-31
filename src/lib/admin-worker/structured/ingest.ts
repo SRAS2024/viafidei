@@ -331,6 +331,21 @@ function entryQid(entry: CuratedEntry): string | undefined {
 }
 
 /**
+ * Maintenance floor: an ingestor that has not run for this long is picked
+ * ahead of the gap ranking (env `ADMIN_WORKER_STRUCTURED_FLOOR_MS`). Without
+ * it, a type at or over its target scores 0 and is never picked while any
+ * other ingestor has a gap (RITE, MARIAN_TITLE, SPIRITUAL_PRACTICE and DOCTOR
+ * are at or over target while SAINT's gap is in the thousands), although open
+ * types are meant to keep growing past target and a newly declared doctor or
+ * newly elected pope must still arrive. One run per floor interval per
+ * ingestor costs a handful of passes a day next to SAINT's hundreds.
+ */
+export const INGESTOR_MAINTENANCE_FLOOR_MS = envInt(
+  "ADMIN_WORKER_STRUCTURED_FLOOR_MS",
+  6 * 60 * 60 * 1000,
+);
+
+/**
  * Pick the ingestor whose content type is furthest from its goal (by gap
  * fraction), so the worker focuses where the headroom actually is — but DAMPENED
  * by recent productivity so it can never get starved. An ingestor that keeps
@@ -342,11 +357,22 @@ function entryQid(entry: CuratedEntry): string | undefined {
  * ingestors. The dampening decays as
  * soon as an ingestor produces again (its streak resets to 0). An ingestor
  * resting after a full sweep (`exhaustedUntil` in the future) is not picked.
+ *
+ * Every ingestor also has a maintenance floor: one that has not run for
+ * INGESTOR_MAINTENANCE_FLOOR_MS (its cursor row's `lastUsedAt`, stamped by every
+ * run, failed ones included) goes first, whatever its gap, so a type at its
+ * target is still swept for new entities. Overdue ingestors are ordered among
+ * themselves by the same score, and the rest by the gap ranking above.
  */
 async function pickIngestor(prisma: PrismaClient): Promise<StructuredIngestor | undefined> {
   if (STRUCTURED_INGESTORS.length <= 1) return STRUCTURED_INGESTORS[0];
   const now = Date.now();
-  const scored: Array<{ ing: StructuredIngestor; score: number; lastUsed: number }> = [];
+  const scored: Array<{
+    ing: StructuredIngestor;
+    score: number;
+    lastUsed: number;
+    overdue: boolean;
+  }> = [];
   for (const ing of STRUCTURED_INGESTORS) {
     const live = await prisma.publishedContent
       .count({ where: { isPublished: true, contentType: ing.contentType } })
@@ -371,9 +397,12 @@ async function pickIngestor(prisma: PrismaClient): Promise<StructuredIngestor | 
     // full gap score; one that has produced nothing for N passes is divided by
     // N + 1, so it can't monopolise the worker just because its goal gap is big.
     const score = gap / (1 + Math.max(0, state.zeroStreak));
-    scored.push({ ing, score, lastUsed });
+    const overdue = now - lastUsed >= INGESTOR_MAINTENANCE_FLOOR_MS;
+    scored.push({ ing, score, lastUsed, overdue });
   }
-  scored.sort((a, b) => b.score - a.score || a.lastUsed - b.lastUsed);
+  scored.sort(
+    (a, b) => Number(b.overdue) - Number(a.overdue) || b.score - a.score || a.lastUsed - b.lastUsed,
+  );
   return scored[0]?.ing;
 }
 
