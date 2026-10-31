@@ -87,7 +87,7 @@ function saintMap(r: SparqlBinding) {
 }
 
 const KOLPING = {
-  s: `${WD}Q69389`,
+  s: `${WD}Q60619`,
   label: "Adolph Kolping",
   statuses: BLESSED,
   feasts: "4 December",
@@ -243,7 +243,7 @@ describe("prose corroboration needs feast wording next to the date", () => {
 
 describe("Wikidata's stage must agree with the article", () => {
   const CEBULA = {
-    s: `${WD}Q5348390`,
+    s: `${WD}Q475873`,
     label: "Józef Cebula",
     // Wikidata carries BOTH "blessed" and "Catholic saint" → resolves to canonized.
     statuses: `${BLESSED}||${CATHOLIC_SAINT}`,
@@ -483,13 +483,14 @@ describe("no template biographies", () => {
 
 /**
  * The documented cases: the 30-saint sample of the not-yet-live corpus taken
- * on 2026-10-31, Wikidata's P841 / P411 against each article's own infobox and
- * lead as they read that day (leads abridged). Before these gates, seven of
- * them published a feast their article contradicts — Wikidata's P841 was the
- * death date, and the lead names the death date — and Józef Cebula published
- * as canonized. Live, Eugendus and Cebula already stop earlier, at
- * `description_too_short` (their REST summaries are 69 and 84 characters);
- * here they get a full lead so that the gate itself is what rejects them.
+ * on 2026-10-31, Wikidata's P841 / P411 against each article's own infobox as
+ * they read that day (the infobox values were re-checked live; the leads are
+ * paraphrased to carry the dates each case turns on). Before these gates,
+ * seven of them published a feast their article contradicts — Wikidata's
+ * P841 was the death date, and the lead names the death date — and Józef
+ * Cebula published as canonized. Eugendus's and Cebula's REST summaries are
+ * one line (69 and 84 characters); live, the whole introduction is read for
+ * them and they reach these gates too.
  */
 describe("the documented 2026-10-31 cases", () => {
   interface Case {
