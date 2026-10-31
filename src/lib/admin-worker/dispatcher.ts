@@ -2195,11 +2195,17 @@ export async function runCrossSourceVerification(
           // disagreeing value, otherwise an unreachable approved source
           // would wrongly block a field that another source confirmed.
           if (e.matchStatus === "MISSING_EVIDENCE") continue;
-          // MATCH → store the comparable string we confirmed; MISMATCH →
+          // MATCH → store the candidate's own comparable string, the one the
+          // verifier compares it against below: the source confirmed that
+          // fact (in one of its printable forms). Storing the probe's primary
+          // form instead recorded a confirmed "February 11 1858", "15 May
+          // 1891" or ISO date as a MISMATCH against "February 11, 1858" /
+          // "May 15, 1891", which compare() does not equate. MISMATCH →
           // store the differing value the source actually carried. Using
           // the derived string (not the raw array/object) lets the
           // verifier compare like-for-like rather than on array length.
-          const validationFieldValue = e.matchStatus === "MATCH" ? expectedValue : (e.found ?? "");
+          const validationFieldValue =
+            e.matchStatus === "MATCH" ? rawExpectedValue : (e.found ?? "");
           if (!validationFieldValue) continue;
           const entry = byHost.get(e.host) ?? { url: e.url, fields: {} };
           entry.fields[field] = validationFieldValue;

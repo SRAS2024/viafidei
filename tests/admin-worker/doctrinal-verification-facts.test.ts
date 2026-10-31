@@ -214,7 +214,7 @@ describe("expectedValueVariants for the dates the extractors lift", () => {
 });
 
 describe("CROSS_SOURCE_VERIFICATION promotes only when every need is confirmed", () => {
-  const artifact = {
+  const DOC = {
     id: "art-doc",
     contentType: "CHURCH_DOCUMENT",
     normalizedTitle: "Rerum Novarum",
@@ -230,7 +230,7 @@ describe("CROSS_SOURCE_VERIFICATION promotes only when every need is confirmed",
     sourceReadId: "sr-doc",
   };
 
-  function makePrisma() {
+  function makePrisma(artifact: Record<string, unknown> = DOC) {
     const rows: Array<{ fieldName: string; matchResult: string }> = [];
     const update = vi.fn(async () => ({}));
     const client = {
@@ -280,6 +280,46 @@ describe("CROSS_SOURCE_VERIFICATION promotes only when every need is confirmed",
     const { prisma, rows, update } = makePrisma();
     await runCrossSourceVerification(prisma, "p1");
     expect(rows.find((r) => r.fieldName === "dateOrEra")?.matchResult).toBe("MATCH");
+    const data = (update.mock.calls[0] as unknown as [{ data: Record<string, unknown> }])[0].data;
+    expect(data.status).toBe("VERIFICATION_READY");
+    expect(vi.mocked(filePlan)).not.toHaveBeenCalled();
+  });
+
+  // The probe matches a page against the date's printable forms and leads with
+  // "Month D, YYYY". The value stored for a confirming source used to be that
+  // form, while the candidate kept the extractor's own string, and compare()
+  // does not equate the two: a date the page confirmed was recorded as a
+  // MISMATCH, the need became "conflicted", and the artifact went round its
+  // verification rounds to NEEDS_REVIEW.
+  it.each([
+    ["CHURCH_DOCUMENT", "dateOrEra", "May 15 1891"],
+    ["CHURCH_DOCUMENT", "dateOrEra", "15 May 1891"],
+    ["CHURCH_DOCUMENT", "dateOrEra", "1891-05-15"],
+    ["APPARITION", "apparitionDate", "February 11 1858"],
+  ])("a confirmed %s %s written %j is recorded as the MATCH it is", async (type, field, date) => {
+    for (const f of ["title", "historyType", "apparitionTitle", "approvalStatus", field]) {
+      probeResults[f] = "MATCH";
+    }
+    const artifact =
+      type === "APPARITION"
+        ? {
+            ...DOC,
+            id: "art-app",
+            contentType: "APPARITION",
+            normalizedTitle: "Our Lady of Lourdes",
+            normalizedSlug: "our-lady-of-lourdes",
+            extractedFields: {
+              apparitionTitle: "Our Lady of Lourdes",
+              approvalStatus: "approved",
+              apparitionDate: date,
+            },
+            validationNeeds: ["approvalStatus", "apparitionDate"],
+          }
+        : { ...DOC, extractedFields: { ...DOC.extractedFields, dateOrEra: date } };
+    const { prisma, rows, update } = makePrisma(artifact);
+    await runCrossSourceVerification(prisma, "p1");
+    expect(rows.filter((r) => r.fieldName === field).map((r) => r.matchResult)).toEqual(["MATCH"]);
+    expect(rows.some((r) => r.matchResult === "MISMATCH")).toBe(false);
     const data = (update.mock.calls[0] as unknown as [{ data: Record<string, unknown> }])[0].data;
     expect(data.status).toBe("VERIFICATION_READY");
     expect(vi.mocked(filePlan)).not.toHaveBeenCalled();
