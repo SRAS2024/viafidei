@@ -398,9 +398,10 @@ export const OPS_LANES: LaneDef[] = [
     // locality, postal code or country: Nominatim lookups by OSM id (50 per
     // request, ≤ 10 per run, a shared 1.1 s slot, a daily budget, a 15-minute
     // cooldown on refusal). Fills blanks only (enrich-only, versioned), fixes a
-    // disagreeing tile-fallback country on evidence, and unpublishes what is
-    // not a parish. Deterministic (no brain judgement), self-throttled (~2 min)
-    // and bounded by its own 4-minute budget inside this watchdog; idle under
+    // disagreeing tile-fallback country on evidence, unpublishes what is not a
+    // parish, and restores parishes the old city-only address key unpublished.
+    // Deterministic (no brain judgement), self-throttled (~2 min) and bounded
+    // by its own 4-minute budget inside this watchdog; idle under
     // ADMIN_WORKER_SKIP_NETWORK.
     name: "research-parish-addresses",
     capacity: 1,
@@ -410,7 +411,7 @@ export const OPS_LANES: LaneDef[] = [
       const { runParishAddressResearch } = await import("./parish-address-research");
       const r = await runParishAddressResearch(prisma, { passId });
       return {
-        advanced: r.completed + r.partial,
+        advanced: r.completed + r.partial + r.restored,
         detail: r.detail,
       };
     },

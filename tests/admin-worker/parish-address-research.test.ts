@@ -26,6 +26,14 @@ vi.mock("@/lib/admin-worker/logs", () => ({
 vi.mock("@/lib/admin-worker/publish-orchestrator", () => ({
   runPublishOrchestrator: vi.fn(async () => ({ kind: "published" })),
 }));
+vi.mock("@/lib/admin-worker/parish-dedup-restore", () => ({
+  runParishDedupRestore: vi.fn(async () => ({
+    restored: 0,
+    restoredSlugs: [],
+    dedupPairs: [],
+  })),
+  scheduleOsmResweepAfterKeyFix: vi.fn(async () => ({ done: true, scheduled: 0 })),
+}));
 
 import type { PrismaClient } from "@prisma/client";
 
@@ -36,9 +44,11 @@ import {
   planAddressResearch,
   runParishAddressResearch,
 } from "@/lib/admin-worker/parish-address-research";
+import { runParishDedupRestore } from "@/lib/admin-worker/parish-dedup-restore";
 
 const mockedProtect = vi.mocked(applyProtectedContentUpdate);
 const mockedLog = vi.mocked(writeAdminWorkerLog);
+const mockedRestore = vi.mocked(runParishDedupRestore);
 
 const SAMPLE = JSON.parse(
   readFileSync(join(process.cwd(), "tests/fixtures/nominatim-lookup-sample.json"), "utf8"),
@@ -295,6 +305,7 @@ beforeEach(() => {
   mockedProtect.mockClear();
   mockedProtect.mockResolvedValue({ applied: true, kind: "enrich" } as never);
   mockedLog.mockClear();
+  mockedRestore.mockClear();
 });
 afterEach(() => {
   for (const k of KEYS) {
@@ -383,8 +394,10 @@ describe("runParishAddressResearch", () => {
       needsResearch: 0,
       countryCorrected: 0,
       excluded: 0,
+      restored: 0,
       requests: 1,
     });
+    expect(mockedRestore).toHaveBeenCalledTimes(1);
   });
 
   it("replaces a disagreeing country with allowReplace and logs one WARN sample", async () => {

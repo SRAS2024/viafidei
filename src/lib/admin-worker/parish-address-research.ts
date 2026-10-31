@@ -28,8 +28,10 @@
  *   6. records the outcome on the row (`_meta.addressResearch`: complete /
  *      partial / needs_research; retry after 7 d, 30 d, then every 90 d).
  *
- * One INFO log per run. Self-throttled and bounded by a wall-clock budget
- * under the lane watchdog; idle under ADMIN_WORKER_SKIP_NETWORK.
+ * Each run also advances the dedup restore and the one-time early re-sweep
+ * (parish-dedup-restore.ts). One INFO log per run. Self-throttled and bounded
+ * by a wall-clock budget under the lane watchdog; idle under
+ * ADMIN_WORKER_SKIP_NETWORK.
  */
 
 import type { PrismaClient } from "@prisma/client";
@@ -56,6 +58,7 @@ import {
   type AddressPrecision,
   type AddressResearchMeta,
 } from "./parish-address-status";
+import { runParishDedupRestore, scheduleOsmResweepAfterKeyFix } from "./parish-dedup-restore";
 import { designationFor, type ParishDesignation } from "./parish-discovery-runner";
 import {
   machineParishSummary,
@@ -368,6 +371,7 @@ export interface ParishAddressResearchResult {
   countryCorrected: number;
   excluded: number;
   redesignated: number;
+  restored: number;
   requests: number;
   detail: string;
 }
@@ -480,9 +484,9 @@ async function throttleOk(prisma: PrismaClient, now: number): Promise<boolean> {
 }
 
 /**
- * One research run: up to `maxRequests` lookups of 50 due parishes each,
- * stopping at the wall-clock budget. Safe to call every pass: self-throttled,
- * budgeted, fail-open.
+ * One research run: the restore and re-sweep steps, then up to `maxRequests`
+ * lookups of 50 due parishes each, stopping at the wall-clock budget. Safe to
+ * call every pass: self-throttled, budgeted, fail-open.
  */
 export async function runParishAddressResearch(
   prisma: PrismaClient,
@@ -505,6 +509,7 @@ export async function runParishAddressResearch(
     countryCorrected: 0,
     excluded: 0,
     redesignated: 0,
+    restored: 0,
     requests: 0,
     detail: "",
   };
@@ -518,6 +523,14 @@ export async function runParishAddressResearch(
   }
   out.ran = true;
   const deadline = nowFn() + envInt("ADMIN_WORKER_PARISH_RESEARCH_BUDGET_MS", 4 * 60 * 1000);
+
+  // Database-only catch-up from the old address key: re-sweep scheduling and
+  // the restore of wrongly unpublished parishes (both bounded, both resumable).
+  const resweep = await scheduleOsmResweepAfterKeyFix(prisma, { now: nowFn() }).catch(() => null);
+  const restore = await runParishDedupRestore(prisma, { passId: opts.passId, now: nowFn }).catch(
+    () => null,
+  );
+  out.restored = restore?.restored ?? 0;
 
   const maxRequests = opts.maxRequests ?? envInt("ADMIN_WORKER_PARISH_RESEARCH_REQUESTS", 10);
   const rows = await selectDueRows(prisma, maxRequests * NOMINATIM_MAX_IDS_PER_REQUEST, nowFn());
@@ -575,9 +588,10 @@ export async function runParishAddressResearch(
   out.detail =
     `address research: ${out.scanned} due, ${out.requests} lookup(s); ${out.completed} complete, ` +
     `${out.partial} partial, ${out.needsResearch} need research, ${out.countryCorrected} country fix(es), ` +
-    `${out.excluded} excluded, ${out.redesignated} chapel(s)` +
+    `${out.excluded} excluded, ${out.redesignated} chapel(s); ${out.restored} restored` +
+    (resweep && resweep.scheduled > 0 ? `; ${resweep.scheduled} tile(s) made due early` : "") +
     (stopped ? ` (stopped: ${stopped})` : "");
-  if (out.scanned === 0) return out;
+  if (out.scanned === 0 && out.restored === 0 && !(resweep && resweep.scheduled > 0)) return out;
   await writeAdminWorkerLog(prisma, {
     passId: opts.passId ?? null,
     category: "PUBLISHING",
@@ -593,8 +607,13 @@ export async function runParishAddressResearch(
       countryCorrected: out.countryCorrected,
       excluded: out.excluded,
       redesignated: out.redesignated,
+      restored: out.restored,
       requests: out.requests,
       ...(log.exclusions.length > 0 ? { exclusions: log.exclusions } : {}),
+      ...(restore && restore.restoredSlugs.length > 0
+        ? { restoredSlugs: restore.restoredSlugs }
+        : {}),
+      ...(restore && restore.dedupPairs.length > 0 ? { keptDuplicates: restore.dedupPairs } : {}),
     },
   }).catch(() => undefined);
   return out;
