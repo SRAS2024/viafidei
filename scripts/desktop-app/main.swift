@@ -795,15 +795,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             if !self.pill.isBusy { self.pill.isOn = (state == "LOCAL_ACTIVE" || runState == "running") }
 
             let failureReason = json["failureReason"] as? String
-            if let failureReason { self.stickyError = failureReason }
+            // Only a parked runtime ("failed": a lease held elsewhere, a
+            // configuration problem) needs the operator, so only its reason
+            // sticks. "crashed" is a restart in progress: the durable switch is
+            // still ON and the host restarts the worker by itself — capped
+            // backoff, never giving up — so the pill stays ON and the label
+            // says when the next attempt is, for as long as that is true. A
+            // sticky "restarting…" (or a degraded runtime's reason) would
+            // outlive the restart it describes.
+            if runState == "failed", let failureReason { self.stickyError = failureReason }
             if json["pendingDurableOff"] as? Bool == true {
                 self.stickyError = "Stopped locally — waiting for the database to record OFF."
             } else if runState == "off", self.stickyError?.hasPrefix("Stopped locally") == true {
                 self.stickyError = nil
             }
             let label = execution?["label"] as? String ?? "Admin Worker status unknown"
-            self.statusLabel.stringValue = self.stickyError ?? label
-            if runState == "failed" || runState == "crashed" { self.pill.isOn = false }
+            let transient = runState == "crashed"
+                ? (failureReason ?? self.restartingText(json["restart"] as? [String: Any]))
+                : failureReason
+            self.statusLabel.stringValue = self.stickyError ?? transient ?? label
+            if runState == "failed" { self.pill.isOn = false }
+            if runState == "crashed", !self.pill.isBusy { self.pill.isOn = true }
 
             // The worker tree's process group, for a last-resort kill on quit.
             if let child = json["child"] as? [String: Any], let pgid = child["pgid"] as? Int {
@@ -869,6 +881,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
                 format: "worker %.0f MB (%d proc) · CPU %.0f%% · %d cores · %.1f GB free · %@ · jobs %d · published %d · errors %d · restarts %d · up %.0fs",
                 rss, procs, cpu, cores, free, render, jobs, published, errors, restarts, uptime)
         }
+    }
+
+    /// "The Admin Worker stopped unexpectedly — restarting in 12 s (restart 3)…",
+    /// from the host's `restart` status (consecutive, nextAttemptAt).
+    private func restartingText(_ restart: [String: Any]?) -> String {
+        var when = "shortly"
+        if let next = restart?["nextAttemptAt"] as? String {
+            let parser = ISO8601DateFormatter()
+            parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let at = parser.date(from: next) {
+                let seconds = max(1, Int(at.timeIntervalSinceNow.rounded()))
+                when = seconds < 90 ? "in \(seconds) s" : "in \(Int((Double(seconds) / 60).rounded())) min"
+            }
+        }
+        let attempt = restart?["consecutive"] as? Int ?? 0
+        return "The Admin Worker stopped unexpectedly — restarting \(when)"
+            + (attempt > 0 ? " (restart \(attempt))" : "")
+            + ". The switch is still ON; nothing moved to the cloud."
     }
 
     // MARK: views
