@@ -2,14 +2,17 @@ import type { CuratedEntry } from "../index";
 
 const TPL = "https://www.preces-latinae.org/thesaurus/";
 const BRITT = "https://archive.org/details/hymnsofbreviarym00britrich/page/";
+const DRBO = "https://www.drbo.org/chapter/";
+const DR_1899 = "https://archive.org/details/holybibletransla00denv/page/";
 
 /**
  * Batch 11 of the curated prayer catalogue: hymns of the Roman Breviary and the
- * Liturgy of the Hours with their Latin, in public-domain English translations.
+ * Liturgy of the Hours with their Latin, in public-domain English translations,
+ * followed by the Douay-Rheims canticles and prayers of Scripture.
  *
- * Every body and every `latin` value is copied from the first cited page (the
- * Thesaurus Precum Latinarum, preces-latinae.org), which prints the Latin and
- * the English side by side. Only pages whose English that site attributes to a
+ * For the hymns, every body and every `latin` value is copied from the first
+ * cited page (the Thesaurus Precum Latinarum, preces-latinae.org), which prints
+ * the Latin and the English side by side. Only pages whose English that site attributes to a
  * translator published before 1929 were used: Edward Caswall, John Mason
  * Neale, Saint John Henry Newman, William John Copeland, John David Chambers,
  * Joseph William Chadwick, George Herbert Palmer, John Julian, William John
@@ -44,6 +47,22 @@ const BRITT = "https://archive.org/details/hymnsofbreviarym00britrich/page/";
  * Breviary as revised under Pope Urban VIII in 1632; where that matters the
  * summary says so. Summaries are editorial and make no claim to be part of the
  * hymn.
+ *
+ * The second group is the Old and New Testament canticles of the Liturgy of
+ * the Hours not already in prayers/batch-7.ts, with a few other prayers of
+ * Scripture (Solomon's prayer for wisdom, the prayers of Azarias, Daniel,
+ * Esther, Tobias and Sara, the prayer of Jeremias in Lamentations 5, and the
+ * prayer of Jesus in John 17). Their text is the Douay-Rheims (Challoner, 1899
+ * American edition), copied verse for verse from the cited drbo.org chapter
+ * with one verse to a line, as in batch-7. Each passage is given whole and
+ * continuous, so where the Liturgy of the Hours sings only some verses the
+ * summary says which. No Latin is given for these: drbo.org prints the English
+ * alone. Three slips in that online text were checked against the 1899
+ * Benziger printing on archive.org (cited third) and corrected there: Isaias
+ * 26:1 drops "in" ("be sung the land of Juda"), Isaias 42:14 repeats a word
+ * ("I have I kept silence"), and John 17:11 reads "thou has given" for "thou
+ * hast given". Its other readings, including its modern "choir" for the 1899
+ * "quire" (Lamentations 5:14), are kept as the page prints them.
  */
 export const prayerBatch11: CuratedEntry[] = [
   {
@@ -569,6 +588,577 @@ export const prayerBatch11: CuratedEntry[] = [
       occasions: ["march-19", "may-1", "lauds"],
       relatedSaints: ["saint-joseph"],
       citations: [`${TPL}Ioseph/Caelitum.html`, `${BRITT}245/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-hezekiah",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}27038.htm`],
+    payload: {
+      slug: "canticle-of-hezekiah",
+      title: "Canticle of Ezechias (Isaias 38:10-20)",
+      body: "I said: In the midst of my days I shall go to the gates of hell: I sought for the residue of my years.\nI said: I shall not see the Lord God in the land of the living. I shall behold man no more, nor the inhabitant of rest.\nMy generation is at an end, and it is rolled away from me, as a shepherd's tent. My life is cut off, as by a weaver: whilst I was yet but beginning, he cut me off: from morning even to night thou wilt make an end of me.\nI hoped till morning, as a lion so hath he broken all my bones: from morning even to night thou wilt make an end of me.\nI will cry like a young swallow, I will meditate like a dove: my eyes are weakened looking upward: Lord, I suffer violence, answer thou for me.\nWhat shall I say, or what shall he answer for me, whereas he himself hath done it? I will recount to thee all my years in the bitterness of my soul.\nO Lord, if man's life be such, and the life of my spirit be in such things as these, thou shalt correct me, and make me to live.\nBehold in peace is my bitterness most bitter: but thou hast delivered my soul that it should not perish, thou hast cast all my sins behind thy back.\nFor hell shall not confess to thee, neither shall death praise thee: nor shall they that go down into the pit, look for thy truth.\nThe living, the living, he shall give praise to thee, as I do this day: the father shall make thy truth known to the children.\nO Lord, save me, and we will sing our psalms all the days of our life in the house of the Lord.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The song King Ezechias wrote after he recovered from a mortal illness: the lament of a man who thought his life cut off like a weaver's thread, and his thanks to the God who cast all his sins behind his back. The Church sings it at Lauds in the Office of the Dead, and the Liturgy of the Hours at Morning Prayer on Tuesday of the second week. Douay-Rheims text, Isaias 38:10-20.",
+      occasions: ["lauds", "sickness", "all-souls", "funerals"],
+      relatedSaints: [],
+      citations: [`${DRBO}27038.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-moses-deuteronomy-32",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}05032.htm`],
+    payload: {
+      slug: "canticle-of-moses-deuteronomy-32",
+      title: "Canticle of Moses: Hear, O Ye Heavens (Deuteronomy 32:1-12)",
+      body: "Hear, O ye heavens, the things I speak, let the earth give ear to the words of my mouth.\nLet my doctrine gather as the rain, let my speech distil as the dew, as a shower upon the herb, and as drops upon the grass.\nBecause I will invoke the name of the Lord: give ye magnificence to our God.\nThe works of God are perfect, and all his ways are judgments: God is faithful and without any iniquity, he is just and right.\nThey have sinned against him, and are not of his children in their filth: they are a wicked and perverse generation.\nIs this the return thou makest to the Lord, O foolish and senseless people? Is not he thy father, that hath possessed thee, and made thee, and created thee?\nRemember the days of old, think upon every generation: ask thy father, and he will declare to thee: thy elders and they will tell thee.\nWhen the Most High divided the nations: when he separated the sons of Adam, he appointed the bounds of people according to the number of the children of Israel.\nBut the Lord's portion is his people: Jacob the lot of his inheritance.\nHe found him in a desert land, in a place of horror, and of vast wilderness: he led him about, and taught him: and he kept him as the apple of his eye.\nAs the eagle enticing her young to fly, and hovering over them, he spread his wings, and hath taken him and carried him on his shoulders.\nThe Lord alone was his leader: and there was no strange god with him.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The opening of the song Moses taught Israel before his death, calling heaven and earth to hear of the faithful God who found his people in a desert land and kept them as the apple of his eye, bearing them up as an eagle bears its young. The Liturgy of the Hours sings these verses at Morning Prayer on Saturday of the second week. Douay-Rheims text, Deuteronomy 32:1-12.",
+      occasions: ["lauds", "saturday", "thanksgiving"],
+      relatedSaints: [],
+      citations: [`${DRBO}05032.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-david",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}13029.htm`],
+    payload: {
+      slug: "canticle-of-david",
+      title: "Canticle of David (1 Paralipomenon [1 Chronicles] 29:10-13)",
+      body: "And he blessed the Lord before all the multitude, and he said: Blessed art thou, O Lord the God of Israel, our father from eternity to eternity.\nThine, O Lord, is magnificence, and power, and glory, and victory: and to thee is praise: for all that is in heaven, and in earth, is thine: thine is the kingdom, O Lord, and thou art above all princes.\nThine are riches, and thine is glory, thou hast dominion over all, in thy hand is power and might: in thy hand greatness, and the empire of all things.\nNow therefore our God we give thanks to thee, and we praise thy glorious name.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "King David's blessing of God before the whole assembly, after the people had given freely for the building of the Temple: magnificence, power, glory and victory are the Lord's, and from his hand come riches and honour. The Liturgy of the Hours sings it at Morning Prayer on Monday of the first week. Douay-Rheims text, 1 Paralipomenon (1 Chronicles) 29:10-13.",
+      occasions: ["lauds", "monday", "thanksgiving", "praise"],
+      relatedSaints: [],
+      citations: [`${DRBO}13029.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-judith",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}18016.htm`],
+    payload: {
+      slug: "canticle-of-judith",
+      title: "Canticle of Judith (Judith 16:1-21)",
+      body: "Then Judith sung this canticle to the Lord, saying:\nBegin ye to the Lord with timbrels, sing ye to the Lord with cymbals, tune unto him a new psalm, extol and call upon his name.\nThe Lord putteth an end to wars, the Lord is his name.\nHe hath set his camp in the midst of his people, to deliver us from the hand of all our enemies.\nThe Assyrians came out of the mountains from the north in the multitude of his strength: his multitude stopped up the torrents, and their horses covered the valleys.\nHe bragged that he would set my borders on fire, and kill my young men with the sword, to make my infants a prey, and my virgins captives.\nBut the almighty Lord hath struck him, and hath delivered him into the hands of a woman, and hath slain him.\nFor their mighty one did not fall by young men, neither did the sons of Titan strike him, nor tall giants oppose themselves to him, but Judith the daughter of Merari weakened him with the beauty of her face.\nFor she put off her the garments of widowhood, and put on her the garments of joy, to give joy to the children of Israel.\nShe anointed her face with ointment, and bound up her locks with a crown, she took a new robe to deceive him.\nHer sandals ravished his eyes, her beauty made his soul her captive, with a sword she cut off his head.\nThe Persians quaked at her constancy, and the Medes at her boldness.\nThen the camp of the Assyrians howled, when my lowly ones appeared, parched with thirst.\nThe sons of the damsels have pierced them through, and they have killed them like children fleeing away: they perished in battle before the face of the Lord my God.\nLet us sing a hymn to the Lord, let us sing a new hymn to our God.\nO Adonai, Lord, great art thou, and glorious in thy power, and no one can overcome thee.\nLet all thy creatures serve thee: because thou hast spoken, and they were made: thou didst send forth thy spirit, and they were created, and there is no one that can resist thy voice.\nThe mountains shall be moved from the foundations with the waters: the rocks shall melt as wax before thy face.\nBut they that fear thee, shall be great with thee in all things.\nWoe be to the nation that riseth up against my people: for the Lord almighty will take revenge on them, in the day of judgment he will visit them.\nFor he will give fire, and worms into their flesh, that they may burn, and may feel for ever.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "Judith's song of victory after the deliverance of Bethulia from the army of Holofernes, praising the Lord who puts an end to wars and struck down the enemy by the hand of a woman. Its closing verses, beginning Let us sing a hymn to the Lord, are the canticle at Morning Prayer on Wednesday of the first week in the Liturgy of the Hours. Douay-Rheims text, Judith 16:1-21.",
+      occasions: ["lauds", "wednesday", "thanksgiving"],
+      relatedSaints: [],
+      citations: [`${DRBO}18016.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-jeremiah-31",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}28031.htm`],
+    payload: {
+      slug: "canticle-of-jeremiah-31",
+      title: "Canticle of Jeremias: the Gathering of the Flock (Jeremias 31:10-14)",
+      body: "Hear the word of the Lord, O ye nations, and declare it in the islands that are afar off, and say: He that scattered Israel will gather him: and he will keep him as the shepherd doth his flock.\nFor the Lord hath redeemed Jacob, and delivered him out of the hand of one that was mightier than he.\nAnd they shall come, and shall give praise in mount Sion: and they shall flow together to the good things of the Lord, for the corn, and wine, and oil, and the increase of cattle and herds, and their soul shall be as a watered garden, and they shall be hungry no more.\nThen shall the virgin rejoice in the dance, the young men and old men together: and I will turn their mourning into joy, and will comfort them, and make them joyful after their sorrow.\nAnd I will fill the soul of the priests with fatness: and my people shall be filled with my good things, saith the Lord.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The promise that he who scattered Israel will gather it and keep it as a shepherd keeps his flock, turning mourning into joy and filling his people with good things. The Liturgy of the Hours sings it at Morning Prayer on Thursday of the first week. Douay-Rheims text, Jeremias 31:10-14.",
+      occasions: ["lauds", "thursday", "trust"],
+      relatedSaints: [],
+      citations: [`${DRBO}28031.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-isaiah-45",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}27045.htm`],
+    payload: {
+      slug: "canticle-of-isaiah-45",
+      title: "Canticle of Isaias: Verily Thou Art a Hidden God (Isaias 45:15-26)",
+      body: "Verily thou art a hidden God, the God of Israel the saviour.\nThey are all confounded and ashamed: the forgers of errors are gone together into confusion.\nIsrael is saved in the Lord with an eternal salvation: you shall not be confounded, and you shall not be ashamed for ever and ever.\nFor thus saith the Lord that created the heavens, God himself that formed the earth, and made it, the very maker thereof: he did not create it in vain: he formed it to be inhabited. I am the Lord, and there is no other.\nI have not spoken in secret, in a dark place of the earth: I have not said to the seed of Jacob: Seek me in vain. I am the Lord that speak justice, that declare right things.\nAssemble yourselves, and come, and draw near together, ye that are saved of the Gentiles: they have no knowledge that set up the wood of their graven work, and pray to a god that cannot save.\nTell ye, and come, and consult together: who hath declared this from the beginning, who hath foretold this from that time? Have not I the Lord, and there is no God else besides me? A just God and a saviour, there is none besides me.\nBe converted to me, and you shall be saved, all ye ends of the earth: for I am God, and there is no other.\nI have sworn by myself, the word of justice shall go out of my mouth, and shall not return:\nFor every knee shall be bowed to me, and every tongue shall swear.\nTherefore shall he say: In the Lord are my justices and empire: they shall come to him, and all that resist him shall be confounded.\nIn the Lord shall all the seed of Israel be justified and praised.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The hidden God who made the earth to be inhabited calls all the ends of the earth to turn to him and be saved, swearing that every knee shall bow to him, words Saint Paul applies to Christ (Philippians 2:10). The Liturgy of the Hours sings it at Morning Prayer on Friday of the first week. Douay-Rheims text, Isaias 45:15-26.",
+      occasions: ["lauds", "friday", "missions"],
+      relatedSaints: [],
+      citations: [`${DRBO}27045.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-sirach-36",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}26036.htm`],
+    payload: {
+      slug: "canticle-of-sirach-36",
+      title:
+        "Canticle of Ecclesiasticus: Have Mercy upon Us, O God of All (Ecclesiasticus 36:1-19)",
+      body: "Have mercy upon us, O God of all, and behold us, and shew us the light of thy mercies:\nAnd send thy fear upon the nations, that have not sought after thee: that they may know that there is no God beside thee, and that they may shew forth thy wonders.\nLift up thy hand over the strange nations, that they may see thy power.\nFor as thou hast been sanctified in us in their sight, so thou shalt be magnified among them in our presence,\nThat they may know thee, as we also have known thee, that there is no God beside thee, O Lord.\nRenew thy signs, and work new miracles.\nGlorify thy hand, and thy right arm.\nRaise up indignation, and pour out wrath.\nTake away the adversary, and crush the enemy.\nHasten the time, and remember the end, that they may declare thy wonderful works.\nLet him that escapeth be consumed by the rage of the fire: and let them perish that oppress thy people.\nCrush the head of the princes of the enemies that say: There is no other beside us.\nGather together all the tribes of Jacob: that they may know that there is no God besides thee, and may declare thy great works: and thou shalt inherit them as from the beginning.\nHave mercy on thy people, upon whom thy name is invoked: and upon Israel, whom thou hast raised up to be thy firstborn.\nHave mercy on Jerusalem, the city which thou hast sanctified, the city of thy rest.\nFill Sion with thy unspeakable words, and thy people with thy glory.\nGive testimony to them that are thy creatures from the beginning, and raise up the prophecies which the former prophets spoke in thy name.\nReward them that patiently wait for thee, that thy prophets may be found faithful: and hear the prayers of thy servants,\nAccording to the blessing of Aaron over thy people, and direct us into the way of justice, and let all know that dwell upon the earth, that thou art God the beholder of all ages.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The prayer of Jesus son of Sirach for the deliverance of God's people: have mercy on us, renew thy signs and work new miracles, gather the tribes of Jacob, so that all the earth may know that thou art God. Its opening verses are the canticle at Morning Prayer on Monday of the second week in the Liturgy of the Hours. Douay-Rheims text, Ecclesiasticus (Sirach) 36:1-19.",
+      occasions: ["lauds", "monday", "for-the-church"],
+      relatedSaints: [],
+      citations: [`${DRBO}26036.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-the-three-young-men-benedictus-es",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}32003.htm`],
+    payload: {
+      slug: "canticle-of-the-three-young-men-benedictus-es",
+      title: "Canticle of the Three Young Men: Blessed Art Thou, O Lord (Daniel 3:52-57)",
+      body: "Blessed art thou, O Lord the God of our fathers: and worthy to be praised, and glorified, and exalted above all for ever: and blessed is the holy name of thy glory: and worthy to be praised, and exalted above all in all ages.\nBlessed art thou in the holy temple of thy glory: and exceedingly to be praised, and exceeding glorious for ever.\nBlessed art thou on the throne of thy kingdom, and exceedingly to be praised, and exalted above all for ever.\nBlessed art thou, that beholdest the depths, and sittest upon the cherubims: and worthy to be praised and exalted above all for ever.\nBlessed art thou in the firmament of heaven: and worthy of praise, and glorious for ever.\nAll ye works of the Lord, bless the Lord: praise and exalt him above all for ever.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The blessing of God sung by Ananias, Azarias and Misael in the fiery furnace, which leads into the Benedicite, their summons to every creature to bless the Lord. The Liturgy of the Hours sings it at Sunday Morning Prayer in the second and fourth weeks. Douay-Rheims text, Daniel 3:52-57; this part of Daniel is preserved in the Greek and Latin Bible.",
+      occasions: ["lauds", "sunday", "praise"],
+      relatedSaints: [],
+      citations: [`${DRBO}32003.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-azariah",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}32003.htm`],
+    payload: {
+      slug: "prayer-of-azariah",
+      title: "Prayer of Azarias in the Furnace (Daniel 3:26-45)",
+      body: "Blessed art thou, O Lord, the God of our fathers, and thy name is worthy of praise, and glorious for ever:\nFor thou art just in all that thou hast done to us, and all thy works are true, and thy ways right, and all thy judgments true.\nFor thou hast executed true judgments in all the things that thou hast brought upon us, and upon Jerusalem the holy city of our fathers: for according to truth and judgment, thou hast brought all these things upon us for our sins.\nFor we have sinned, and committed iniquity, departing from thee: and we have trespassed in all things:\nAnd we have not hearkened to thy commandments, nor have we observed nor done as thou hadst commanded us, that it might go well with us.\nWherefore all that thou hast brought upon us, and every thing that thou hast done to us, thou hast done in true judgment:\nAnd thou hast delivered us into the hands of our enemies that are unjust, and most wicked, and prevaricators, and to a king unjust, and most wicked beyond all that are upon the earth.\nAnd now we cannot open our mouths: we are become a shame and reproach to thy servants, and to them that worship thee.\nDeliver us not up for ever, we beseech thee, for thy name's sake, and abolish not thy covenant.\nAnd take not away thy mercy from us for the sake of Abraham thy beloved, and Isaac thy servant, and Israel thy holy one:\nTo whom thou hast spoken, promising that thou wouldst multiply their seed as the stars of heaven, and as the sand that is on the sea shore.\nFor we, O Lord, are diminished more than any nation, and are brought low in all the earth this day for our sins.\nNeither is there at this time prince, or leader, or prophet, or holocaust, or sacrifice, or oblation, or incense, or place of firstfruits before thee,\nThat we may find thy mercy: nevertheless in a contrite heart and humble spirit let us be accepted.\nAs in holocausts of rams, and bullocks, and as in thousands of fat lambs: so let our sacrifice be made in thy sight this day, that it may please thee: for there is no confusion to them that trust in thee.\nAnd now we follow thee with all our heart, and we fear thee, and seek thy face.\nPut us not to confusion, but deal with us according to thy meekness, and according to the multitude of thy mercies.\nAnd deliver us according to thy wonderful works, and give glory to thy name, O Lord:\nAnd let all them be confounded that shew evils to thy servants, let them be confounded in all thy might, and let their strength be broken.\nAnd let them know that thou art the Lord, the only God, and glorious over all the world.",
+      prayerType: "canticle",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The prayer of Azarias, one of the three young men, standing in the midst of the flames: a confession of his people's sins and a plea that a contrite heart and humble spirit be accepted in place of holocausts, for there is no confusion to them that trust in God. Part of it is the canticle at Morning Prayer on Tuesday of the fourth week in the Liturgy of the Hours. Douay-Rheims text, Daniel 3:26-45; this part of Daniel is preserved in the Greek and Latin Bible.",
+      occasions: ["lauds", "lent", "penance"],
+      relatedSaints: [],
+      citations: [`${DRBO}32003.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-isaiah-2",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}27002.htm`],
+    payload: {
+      slug: "canticle-of-isaiah-2",
+      title: "Canticle of Isaias: the Mountain of the House of the Lord (Isaias 2:2-5)",
+      body: "And in the last days the mountain of the house of the Lord shall be prepared on the top of mountains, and it shall be exalted above the hills, and all nations shall flow unto it.\nAnd many people shall go, and say: Come and let us go up to the mountain of the Lord, and to the house of the God of Jacob, and he will teach us his ways, and we will walk in his paths: for the law shall come forth from Sion, and the word of the Lord from Jerusalem.\nAnd he shall judge the Gentiles, and rebuke many people: and they shall turn their swords into ploughshares, and their spears into sickles: nation shall not lift up sword against nation, neither shall they be exercised any more to war.\nO house of Jacob, come ye, and let us walk in the light of the Lord.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The vision of all nations streaming to the mountain of the Lord's house in the last days, when the word of the Lord goes forth from Jerusalem and swords are turned into ploughshares. The Liturgy of the Hours sings it at Morning Prayer on Monday of the third week. Douay-Rheims text, Isaias 2:2-5.",
+      occasions: ["lauds", "monday", "advent", "peace"],
+      relatedSaints: [],
+      citations: [`${DRBO}27002.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-isaiah-26",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}27026.htm`, `${DR_1899}n544/mode/1up`],
+    payload: {
+      slug: "canticle-of-isaiah-26",
+      title: "Canticle of Isaias: Sion the City of Our Strength (Isaias 26:1-12)",
+      body: "In that day shall this canticle be sung in the land of Juda. Sion the city of our strength a saviour, a wall and a bulwark shall be set therein.\nOpen ye the gates, and let the just nation, that keepeth the truth, enter in.\nThe old error is passed away: thou wilt keep peace: peace, because we have hoped in thee.\nYou have hoped in the Lord for evermore, in the Lord God mighty for ever.\nFor he shall bring down them that dwell on high, the high city he shall lay low. He shall bring it down even to the ground, he shall pull it down even to the dust.\nThe foot shall tread it down, the feet of the poor, the steps of the needy.\nThe way of the just is right, the path of the just is right to walk in.\nAnd in the way of thy judgments, O Lord, we have patiently waited for thee: thy name, and thy remembrance are the desire of the soul.\nMy soul hath desired thee in the night: yea, and with my spirit within me in the morning early I will watch to thee. When thou shalt do thy judgments on the earth, the inhabitants of the world shall learn justice.\nLet us have pity on the wicked, but he will not learn justice: in the land of the saints he hath done wicked things, and he shall not see the glory of the Lord.\nLord, let thy hand be exalted, and let them not see: let the envious people see, and be confounded: and let fire devour thy enemies.\nLord, thou wilt give us peace: for thou hast wrought all our works for us.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The song to be sung in the land of Juda on the day of salvation: open the gates to the just nation, for the Lord keeps in peace those who hope in him, and the soul desires him in the night. The Liturgy of the Hours sings verses from it at Morning Prayer on Tuesday of the third week. Douay-Rheims text, Isaias 26:1-12.",
+      occasions: ["lauds", "tuesday", "trust", "peace"],
+      relatedSaints: [],
+      citations: [`${DRBO}27026.htm`, `${DR_1899}n544/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-isaiah-33",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}27033.htm`],
+    payload: {
+      slug: "canticle-of-isaiah-33",
+      title: "Canticle of Isaias: Who Shall Dwell with Everlasting Burnings? (Isaias 33:13-16)",
+      body: "Hear, you that are far off, what I have done, and you that are near know my strength.\nThe sinners in Sion are afraid, trembling hath seized upon the hypocrites. Which of you can dwell with devouring fire? which of you shall dwell with everlasting burnings?\nHe that walketh in justices, and speaketh truth, that casteth away avarice by oppression, and shaketh his hands from all bribes, that stoppeth his ears lest he hear blood, and shutteth his eyes that he may see no evil.\nHe shall dwell on high, the fortifications of rocks shall be his highness: bread is given him, his waters are sure.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "God's question to the sinners in Sion, which of you can dwell with devouring fire, and his answer: the one who walks in justice, speaks truth, refuses bribes and shuts his eyes to evil shall dwell on high. The Liturgy of the Hours sings it at Morning Prayer on Wednesday of the third week. Douay-Rheims text, Isaias 33:13-16.",
+      occasions: ["lauds", "wednesday", "examination-of-conscience"],
+      relatedSaints: [],
+      citations: [`${DRBO}27033.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-isaiah-40",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}27040.htm`],
+    payload: {
+      slug: "canticle-of-isaiah-40",
+      title: "Canticle of Isaias: He Shall Feed His Flock (Isaias 40:10-17)",
+      body: "Behold the Lord God shall come with strength, and his arm shall rule: Behold his reward is with him and his work is before him.\nHe shall feed his flock like a shepherd: he shall gather together the lambs with his arm, and shall take them up in his bosom, and he himself shall carry them that are with young.\nWho hath measured the waters in the hollow of his hand, and weighed the heavens with his palm? who hath poised with three fingers the bulk of the earth, and weighed the mountains in scales, and the hills in a balance?\nWho hath forwarded the spirit of the Lord? or who hath been his counsellor, and hath taught him?\nWith whom hath he consulted, and who hath instructed him, and taught him the path of justice, and taught him knowledge, and shewed him the way of understanding?\nBehold the Gentiles are as a drop of a bucket, and are counted as the smallest grain of a balance: behold the islands are as a little dust.\nAnd Libanus shall not be enough to burn, nor the beasts thereof sufficient for a burnt offering.\nAll nations are before him as if they had no being at all, and are counted to him as nothing, and vanity.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The Lord God comes with strength, yet feeds his flock like a shepherd and carries the lambs in his bosom; before him who measured the waters in his hand the nations are as a drop of a bucket. The Liturgy of the Hours sings it at Morning Prayer on Thursday of the third week. Douay-Rheims text, Isaias 40:10-17.",
+      occasions: ["lauds", "thursday", "advent"],
+      relatedSaints: [],
+      citations: [`${DRBO}27040.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-jeremiah-14",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}28014.htm`],
+    payload: {
+      slug: "canticle-of-jeremiah-14",
+      title: "Canticle of Jeremias in Time of Affliction (Jeremias 14:17-22)",
+      body: "And thou shalt speak this word to them: Let my eyes shed down tears night and day, and let them not cease, because the virgin daughter of my people is afflicted with a great affliction, with an exceeding grievous evil.\nIf I go forth into the fields, behold the slain with the sword: and if I enter into the city, behold them that are consumed with famine. The prophet also and the priest are gone into a land which they knew not.\nHast thou utterly cast away Juda, or hath thy soul abhorred Sion? why then hast thou struck us, so that there is no healing for us? we have looked for peace, and there is no good: and for the time of healing, and behold trouble.\nWe acknowledge, O Lord, our wickedness, the iniquities of our fathers, because we have sinned against thee.\nGive us not to be a reproach, for thy name's sake, and do not disgrace in us the throne of thy glory: remember, break not thy covenant with us.\nAre there any among the graven things of the Gentiles that can send rain? or can the heavens give showers? art not thou the Lord our God, whom we have looked for? for thou hast made all these things.",
+      prayerType: "canticle",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The prophet's lament over his people struck by sword and famine, and the confession that follows: we acknowledge, O Lord, our wickedness; remember, break not thy covenant with us. The Liturgy of the Hours sings verses 17-21 at Morning Prayer on Friday of the third week. Douay-Rheims text, Jeremias 14:17-22.",
+      occasions: ["lauds", "friday", "lent", "penance"],
+      relatedSaints: [],
+      citations: [`${DRBO}28014.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-solomon-for-wisdom",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}25009.htm`],
+    payload: {
+      slug: "prayer-of-solomon-for-wisdom",
+      title: "Prayer of Solomon for Wisdom (Wisdom 9)",
+      body: "God of my fathers, and Lord of mercy, who hast made all things with thy word,\nAnd by thy wisdom hast appointed man, that he should have dominion over the creature that was made by thee,\nThat he should order the world according to equity and justice, and execute justice with an upright heart:\nGive me wisdom, that sitteth by thy throne, and cast me not off from among thy children:\nFor I am thy servant, and the son of thy handmaid, a weak man, and of short time, and falling short of the understanding of judgment and laws.\nFor if one be perfect among the children of men, yet if thy wisdom be not with him, he shall be nothing regarded.\nThou hast chosen me to be king of thy people, and a judge of thy sons and daughters.\nAnd hast commanded me to build a temple on thy holy mount, and an altar in the city of thy dwelling place, a resemblance of thy holy tabernacle, which thou hast prepared from the beginning:\nAnd thy wisdom with thee, which knoweth thy works, which then also was present when thou madest the world, and knew what was agreeable to thy eyes, and what was right in thy commandments.\nSend her out of thy holy heaven, and from the throne of thy majesty, that she may be with me, and may labour with me, that I may know what is acceptable with thee:\nFor she knoweth and understandeth all things, and shall lead me soberly in my works, and shall preserve me by her power.\nSo shall my works be acceptable, and I shall govern thy people justly, and shall be worthy of the throne of my father.\nFor who among men is he that can know the counsel of God? or who can think what the will of God is?\nFor the thoughts of mortal men are fearful, and our counsels uncertain.\nFor the corruptible body is a load upon the soul, and the earthly habitation presseth down the mind that museth upon many things.\nAnd hardly do we guess aright at things that are upon earth: and with labour do we find the things that are before us. But the things that are in heaven, who shall search out?\nAnd who shall know thy thought, except thou give wisdom, and send thy Holy Spirit from above:\nAnd so the ways of them that are upon earth may be corrected, and men may learn the things that please thee?\nFor by wisdom they were healed, whosoever have pleased thee, O Lord, from the beginning.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "Solomon's prayer for the wisdom that sits beside God's throne, without which no man can know the counsel of God or govern justly. Part of it is the canticle at Morning Prayer on Saturday of the third week in the Liturgy of the Hours, and it is often prayed before study or a weighty decision. Douay-Rheims text of the whole chapter, Wisdom 9:1-19.",
+      occasions: ["lauds", "saturday", "before-study", "discernment"],
+      relatedSaints: [],
+      citations: [`${DRBO}25009.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-isaiah-42",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}27042.htm`, `${DR_1899}n555/mode/1up`],
+    payload: {
+      slug: "canticle-of-isaiah-42",
+      title: "Canticle of Isaias: Sing Ye to the Lord a New Song (Isaias 42:10-16)",
+      body: "Sing ye to the Lord a new song, his praise is from the ends of the earth: you that go down to the sea, and all that are therein: ye islands, and ye inhabitants of them.\nLet the desert and the cities thereof be exalted: Cedar shall dwell in houses: ye inhabitants of Petra, give praise, they shall cry from the top of the mountains.\nThey shall give glory to the Lord, and shall declare his praise in the islands.\nThe Lord shall go forth as a mighty man, as a man of war shall he stir up zeal: he shall shout and cry: he shall prevail against his enemies.\nI have always held my peace, I have kept silence, I have been patient, I will speak now as a woman in labour: I will destroy, and swallow up at once.\nI will lay waste the mountains and hills, and will make all their grass to wither: and I will turn rivers into islands, and will dry up the standing pools.\nAnd I will lead the blind into the way which they know not: and in the paths which they were ignorant of I will make them walk: I will make darkness light before them, and crooked things straight: these things have I done to them, and have not forsaken them.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The whole earth, the sea and the islands are called to sing a new song to the Lord, who goes forth like a mighty man and leads the blind by paths they have not known, making darkness light before them. The Liturgy of the Hours sings it at Morning Prayer on Monday of the fourth week. Douay-Rheims text, Isaias 42:10-16.",
+      occasions: ["lauds", "monday", "praise"],
+      relatedSaints: [],
+      citations: [`${DRBO}27042.htm`, `${DR_1899}n555/mode/1up`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-isaiah-61",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}27061.htm`, `${DRBO}27062.htm`],
+    payload: {
+      slug: "canticle-of-isaiah-61",
+      title: "Canticle of Isaias: I Will Greatly Rejoice in the Lord (Isaias 61:10-62:5)",
+      body: "I will greatly rejoice in the Lord, and my soul shall be joyful in my God: for he hath clothed me with the garments of salvation: and with the robe of justice he hath covered me, as a bridegroom decked with a crown, and as a bride adorned with her jewels.\nFor as the earth bringeth forth her bud, and as the garden causeth her seed to shoot forth: so shall the Lord God make justice to spring forth, and praise before all the nations.\nFor Sion's sake I will not hold my peace, and for the sake of Jerusalem, I will not rest till her just one come forth as brightness, and her saviour be lighted as a lamp.\nAnd the Gentiles shall see thy just one, and all kings thy glorious one: and thou shalt be called by a new name, which the mouth of the Lord shall name.\nAnd thou shalt be a crown of glory in the hand of the Lord, and a royal diadem in the hand of thy God.\nThou shalt no more be called Forsaken: and thy land shall no more be called Desolate: but thou shalt be called My pleasure in her, and thy land inhabited. Because the Lord hath been well pleased with thee: and thy land shall be inhabited.\nFor the young man shall dwell with the virgin, and thy children shall dwell in thee. And the bridegroom shall rejoice over the bride, and thy God shall rejoice over thee.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The soul rejoices in God who has clothed it with the garments of salvation like a bride adorned with her jewels, and Sion receives a new name, for the Lord delights in her as the bridegroom in the bride. The Liturgy of the Hours sings it at Morning Prayer on Wednesday of the fourth week. Douay-Rheims text, Isaias 61:10-62:5.",
+      occasions: ["lauds", "wednesday", "advent", "thanksgiving"],
+      relatedSaints: [],
+      citations: [`${DRBO}27061.htm`, `${DRBO}27062.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-isaiah-66",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}27066.htm`],
+    payload: {
+      slug: "canticle-of-isaiah-66",
+      title: "Canticle of Isaias: Rejoice with Jerusalem (Isaias 66:10-14)",
+      body: "Rejoice with Jerusalem, and be glad with her, all you that love her: rejoice for joy with her, all you that mourn for her.\nThat you may suck, and be filled with the breasts of her consolations: that you may milk out, and flow with delights, from the abundance of her glory.\nFor thus saith the Lord: Behold I will bring upon her as it were a river of peace, and as an overflowing torrent the glory of the Gentiles, which you shall suck; you shall be carried at the breasts, and upon the knees they shall caress you.\nAs one whom the mother caresseth, so will I comfort you, and you shall be comforted in Jerusalem.\nYou shall see and your heart shall rejoice, and your bones shall flourish like an herb, and the hand of the Lord shall be known to his servants, and he shall be angry with his enemies.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "Rejoice with Jerusalem: the Lord promises to bring upon her peace like a river and to comfort his people as a mother comforts her child. The Liturgy of the Hours sings it at Morning Prayer on Thursday of the fourth week. Douay-Rheims text, Isaias 66:10-14.",
+      occasions: ["lauds", "thursday", "peace"],
+      relatedSaints: [],
+      citations: [`${DRBO}27066.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-ezekiel-36",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}31036.htm`],
+    payload: {
+      slug: "canticle-of-ezekiel-36",
+      title: "Canticle of Ezechiel: a New Heart and a New Spirit (Ezechiel 36:24-28)",
+      body: "For I will take you from among the Gentiles, and will gather you together out of all the countries, and will bring you into your own land.\nAnd I will pour upon you clean water, and you shall be cleansed from all your filthiness, and I will cleanse you from all your idols.\nAnd I will give you a new heart, and put a new spirit within you: and I will take away the stony heart out of your flesh, and will give you a heart of flesh.\nAnd I will put my spirit in the midst of you: and I will cause you to walk in my commandments, and to keep my judgments, and do them.\nAnd you shall dwell in the land which I gave to your fathers, and you shall be my people, and I will be your God.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "God's promise to gather his scattered people, pour clean water upon them, take away the stony heart and give them a new heart and his own spirit. It is read at the Easter Vigil and sung at Morning Prayer on Saturday of the fourth week in the Liturgy of the Hours. Douay-Rheims text, Ezechiel 36:24-28.",
+      occasions: ["lauds", "saturday", "easter-vigil", "baptism"],
+      relatedSaints: [],
+      citations: [`${DRBO}31036.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-ephesians-1",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}56001.htm`],
+    payload: {
+      slug: "canticle-of-ephesians-1",
+      title: "Canticle of Ephesians (Ephesians 1:3-10)",
+      body: "Blessed be the God and Father of our Lord Jesus Christ, who hath blessed us with spiritual blessings in heavenly places, in Christ:\nAs he chose us in him before the foundation of the world, that we should be holy and unspotted in his sight in charity.\nWho hath predestinated us unto the adoption of children through Jesus Christ unto himself: according to the purpose of his will:\nUnto the praise of the glory of his grace, in which he hath graced us in his beloved son.\nIn whom we have redemption through his blood, the remission of sins, according to the riches of his grace,\nWhich hath superabounded in us in all wisdom and prudence,\nThat he might make known unto us the mystery of his will, according to his good pleasure, which he hath purposed in him,\nIn the dispensation of the fulness of times, to re-establish all things in Christ, that are in heaven and on earth, in him.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "Saint Paul's blessing of the Father, who chose us in Christ before the foundation of the world, made us his adopted children, and made known the mystery of his will: to re-establish all things in Christ. The Liturgy of the Hours sings it at Evening Prayer every Monday. Douay-Rheims text, Ephesians 1:3-10.",
+      occasions: ["vespers", "monday", "thanksgiving"],
+      relatedSaints: ["saint-paul"],
+      citations: [`${DRBO}56001.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-1-peter-2",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}67002.htm`],
+    payload: {
+      slug: "canticle-of-1-peter-2",
+      title: "Canticle of First Peter: Christ Suffered for Us (1 Peter 2:21-24)",
+      body: "For unto this are you called: because Christ also suffered for us, leaving you an example that you should follow his steps.\nWho did no sin, neither was guile found in his mouth.\nWho, when he was reviled, did not revile: when he suffered, he threatened not: but delivered himself to him that judged him unjustly.\nWho his own self bore our sins in his body upon the tree: that we, being dead to sins, should live to justice: by whose stripes you were healed.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "Saint Peter's hymn of the suffering Christ, who did no sin, was reviled and did not revile, and bore our sins in his body upon the tree, so that by his stripes we are healed. The Liturgy of the Hours sings it at Sunday Evening Prayer in Lent. Douay-Rheims text, 1 Peter 2:21-24.",
+      occasions: ["vespers", "sunday", "lent", "passion"],
+      relatedSaints: ["saint-peter"],
+      citations: [`${DRBO}67002.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-moses-and-the-lamb",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}73015.htm`],
+    payload: {
+      slug: "canticle-of-moses-and-the-lamb",
+      title: "Canticle of Moses and the Lamb (Apocalypse 15:3-4)",
+      body: "And singing the canticle of Moses, the servant of God, and the canticle of the Lamb, saying: Great and wonderful are thy works, O Lord God Almighty; just and true are thy ways, O King of ages.\nWho shall not fear thee, O Lord, and magnify thy name? For thou only art holy: for all nations shall come, and shall adore in thy sight, because thy judgments are manifest.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The song of those who have conquered the beast, standing on the sea of glass with the harps of God: great and wonderful are thy works, O Lord God Almighty; all nations shall come and adore in thy sight. The Liturgy of the Hours sings it at Evening Prayer on Fridays. Douay-Rheims text, Apocalypse 15:3-4.",
+      occasions: ["vespers", "friday", "praise"],
+      relatedSaints: [],
+      citations: [`${DRBO}73015.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "canticle-of-the-marriage-of-the-lamb",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}73019.htm`],
+    payload: {
+      slug: "canticle-of-the-marriage-of-the-lamb",
+      title: "Canticle of the Marriage of the Lamb: Alleluia (Apocalypse 19:1-7)",
+      body: "After these things I heard as it were the voice of much people in heaven, saying: Alleluia. Salvation, and glory, and power is to our God.\nFor true and just are his judgments, who hath judged the great harlot which corrupted the earth with her fornication, and hath revenged the blood of his servants, at her hands.\nAnd again they said: Alleluia. And her smoke ascendeth for ever and ever.\nAnd the four and twenty ancients, and the four living creatures fell down and adored God that sitteth upon the throne, saying: Amen; Alleluia.\nAnd a voice came out from the throne, saying: Give praise to our God, all ye his servants; and you that fear him, little and great.\nAnd I heard as it were the voice of a great multitude, and as the voice of many waters, and as the voice of great thunders, saying, Alleluia: for the Lord our God the Almighty hath reigned.\nLet us be glad and rejoice, and give glory to him; for the marriage of the Lamb is come, and his wife hath prepared herself.",
+      prayerType: "canticle",
+      category: "liturgical",
+      language: "en",
+      summary:
+        "The Alleluia of the great multitude in heaven over the justice of God's judgments and the coming of the marriage of the Lamb. The Liturgy of the Hours sings verses from it, with an Alleluia refrain, at Sunday Evening Prayer outside Lent. Douay-Rheims text, Apocalypse 19:1-7.",
+      occasions: ["vespers", "sunday", "easter", "praise"],
+      relatedSaints: [],
+      citations: [`${DRBO}73019.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-jeremiah-lamentations-5",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}29005.htm`],
+    payload: {
+      slug: "prayer-of-jeremiah-lamentations-5",
+      title: "Prayer of Jeremias: Remember, O Lord (Lamentations 5)",
+      body: "Remember, O Lord, what is come upon us: consider and behold our reproach.\nOur inheritance is turned to aliens: our houses to strangers.\nWe are become orphans without a father: our mothers are as widows.\nWe have drunk our water for money: we have bought our wood.\nWe were dragged by the necks, we were weary and no rest was given us.\nWe have given our hand to Egypt, and to the Assyrians, that we might be satisfied with bread.\nOur fathers have sinned, and are not: and we have borne their iniquities.\nServants have ruled over us: there was none to redeem us out of their hand.\nWe fetched our bread at the peril of our lives, because of the sword in the desert.\nOur skin was burnt as an oven, by reason of the violence of the famine.\nThey oppressed the women in Sion, and the virgins in the cities of Juda.\nThe princes were hanged up by their hand: they did not respect the persons of the ancient.\nThey abused the young men indecently: and the children fell under the wood.\nThe ancients have ceased from the gates: the young men from the choir of the singers.\nThe joy of our heart is ceased, our dancing is turned into mourning.\nThe crown is fallen from our head: woe to us, because we have sinned.\nTherefore is our heart sorrowful, therefore are our eyes become dim,\nFor mount Sion, because it is destroyed, foxes have walked upon it.\nBut thou, O Lord, shalt remain for ever, thy throne from generation to generation.\nWhy wilt thou forget us for ever? why wilt thou forsake us for a long time?\nConvert us, O Lord, to thee, and we shall be converted: renew our days, as from the beginning.\nBut thou hast utterly rejected us, thou art exceedingly angry against us.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The last chapter of the Lamentations, headed in the Latin Bible Oratio Ieremiae prophetae: the plea of the conquered people of Jerusalem, remember, O Lord, what is come upon us ... convert us, O Lord, to thee, and we shall be converted. Its opening verses were sung at Tenebrae on Holy Saturday. Douay-Rheims text, Lamentations 5:1-22.",
+      occasions: ["holy-week", "lent", "penance"],
+      relatedSaints: [],
+      citations: [`${DRBO}29005.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-daniel-for-his-people",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}32009.htm`],
+    payload: {
+      slug: "prayer-of-daniel-for-his-people",
+      title: "Prayer of Daniel for His People (Daniel 9:4-19)",
+      body: "And I prayed to the Lord my God, and I made my confession, and said: I beseech thee, O Lord God, great and terrible, who keepest the covenant, and mercy to them that love thee, and keep thy commandments.\nWe have sinned, we have committed iniquity, we have done wickedly, and have revolted: and we have gone aside from thy commandments, and thy judgments.\nWe have not hearkened to thy servants the prophets, that have spoken in thy name to our kings, to our princes, to our fathers, and to all the people of the land.\nTo thee, O Lord, justice: but to us confusion of face, as at this day to the men of Juda, and to the inhabitants of Jerusalem, and to all Israel to them that are near, and to them that are far off in all the countries whither thou hast driven them, for their iniquities by which they have sinned against thee.\nO Lord, to us belongeth confusion of face, to our princes, and to our fathers that have sinned.\nBut to thee, the Lord our God, mercy and forgiveness, for we have departed from thee:\nAnd we have not hearkened to the voice of the Lord our God, to walk in his law, which he set before us by his servants the prophets.\nAnd all Israel have transgressed thy law, and have turned away from hearing thy voice, and the malediction, and the curse, which is written in the book of Moses the servant of God, is fallen upon us, because we have sinned against him.\nAnd he hath confirmed his words which he spoke against us, and against our princes that judged us, that he would bring in upon us a great evil, such as never was under all the heaven, according to that which hath been done in Jerusalem.\nAs it is written in the law of Moses, all this evil is come upon us: and we entreated not thy face, O Lord our God, that we might turn from our iniquities, and think on thy truth.\nAnd the Lord hath watched upon the evil, and hath brought it upon us: the Lord our God is just in all his works which he hath done: for we have not hearkened to his voice.\nAnd now, O Lord our God, who hast brought forth thy people out of the land of Egypt with a strong hand, and hast made thee a name as at this day: we have sinned, we have committed iniquity,\nO Lord, against all thy justice: let thy wrath and thy indignation be turned away, I beseech thee, from thy city Jerusalem, and from thy holy mountain. For by reason of our sins, and the iniquities of our fathers, Jerusalem, and thy people are a reproach to all that are round about us.\nNow therefore, O our God, hear the supplication of thy servant, and his prayers: and shew thy face upon thy sanctuary which is desolate, for thy own sake.\nIncline, O my God, thy ear, and hear: open thy eyes, and see our desolation, and the city upon which thy name is called: for it is not for our justifications that we present our prayers before thy face, but for the multitude of thy tender mercies.\nO Lord, hear: O Lord, be appeased: hearken and do: delay not for thy own sake, O my God: because thy name is invocated upon thy city, and upon thy people.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "Daniel's confession for his people, made with fasting, sackcloth and ashes: we have sinned, we have committed iniquity; it is not for our justifications that we present our prayers before thy face, but for the multitude of thy tender mercies. Douay-Rheims text, Daniel 9:4-19.",
+      occasions: ["lent", "penance", "for-the-church"],
+      relatedSaints: [],
+      citations: [`${DRBO}32009.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-queen-esther",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}19014.htm`],
+    payload: {
+      slug: "prayer-of-queen-esther",
+      title: "Prayer of Queen Esther (Esther 14:3-19)",
+      body: "And she prayed to the Lord the God of Israel, saying: O my Lord, who alone art our king, help me a desolate woman, and who have no other helper but thee.\nMy danger is in my hands.\nI have heard of my father that thou, O Lord, didst take Israel from among all nations, and our fathers from all their predecessors, to possess them as an everlasting inheritance, and thou hast done to them as thou hast promised.\nWe have sinned in thy sight, and therefore thou hast delivered us into the hands of our enemies:\nFor we have worshipped their gods. Thou art just, O Lord.\nAnd now they are not content to oppress us with most hard bondage, but attributing the strength of their hands to the power of their idols,\nThey design to change thy promises, and destroy thy inheritance, and shut the mouths of them that praise thee, and extinguish the glory of thy temple and altar,\nThat they may open the mouths of Gentiles, and praise the strength of idols, and magnify for ever a carnal king.\nGive not, O Lord, thy sceptre to them that are not, lest they laugh at our ruin: but turn their counsel upon themselves, and destroy him that hath begun to rage against us.\nRemember, O Lord, and shew thyself to us in the time of our tribulation, and give me boldness, O Lord, king of gods, and of all power:\nGive me a well ordered speech in my mouth in the presence of the lion, and turn his heart to the hatred of our enemy, that both he himself may perish, and the rest that consent to him.\nBut deliver us by thy hand, and help me, who have no other helper, but thee, O Lord, who hast the knowledge of all things.\nAnd thou knowest that I hate the glory of the wicked, and abhor the bed of the uncircumcised, and of every stranger.\nThou knowest my necessity, that I abominate the sign of my pride and glory, which is upon my head in the days of my public appearance, and detest it as a menstruous rag, and wear it not in the days of my silence,\nAnd that I have not eaten at Aman's table, nor hath the king's banquet pleased me, and that I have not drunk the wine of the drink offerings:\nAnd that thy handmaid hath never rejoiced, since I was brought hither unto this day, but in thee, O Lord, the God of Abraham.\nO God, who art mighty above all, hear the voice of them, that have no other hope, and deliver us from the hand of the wicked, and deliver me from my fear.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer of Esther before she went in unbidden to the king to plead for her people: O my Lord, who alone art our king, help me a desolate woman, who have no other helper but thee. This passage belongs to the parts of Esther preserved in the Greek and Latin Bible. Douay-Rheims text, Esther 14:3-19.",
+      occasions: ["times-of-trouble", "protection", "trust"],
+      relatedSaints: [],
+      citations: [`${DRBO}19014.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-tobit-in-affliction",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}17003.htm`],
+    payload: {
+      slug: "prayer-of-tobit-in-affliction",
+      title: "Prayer of Tobias in Affliction (Tobias 3:1-6)",
+      body: "Then Tobias sighed, and began to pray with tears,\nSaying: Thou art just, O Lord, and all thy judgments are just, and all thy ways mercy, and truth, and judgment:\nAnd now, O Lord, think of me, and take not revenge of my sins, neither remember my offenses, nor those of my parents.\nFor we have not obeyed thy commandments, therefore are we delivered to spoil and to captivity, and death, and are made a fable, and a reproach to all nations, amongst which thou hast scattered us.\nAnd now, O Lord, great are thy judgments, because we have not done according to thy precepts, and have not walked sincerely before thee:\nAnd now, O Lord, do with me according to thy will, and command my spirit to be received in peace: for it is better for me to die, than to live.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer of the blind and grieving Tobias, made with tears: thou art just, O Lord, and all thy ways mercy and truth; do with me according to thy will. The same day the prayer of Sara was heard, and the angel Raphael was sent to heal them both. Douay-Rheims text, Tobias (Tobit) 3:1-6.",
+      occasions: ["suffering", "trial", "sickness"],
+      relatedSaints: [],
+      citations: [`${DRBO}17003.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-sarah-daughter-of-raguel",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}17003.htm`],
+    payload: {
+      slug: "prayer-of-sarah-daughter-of-raguel",
+      title: "Prayer of Sara, Daughter of Raguel (Tobias 3:13-23)",
+      body: "She said: Blessed is thy name, O God of our fathers: who when thou hast been angry, wilt shew mercy, and in the time of tribulation forgivest the sins of them that call upon thee.\nTo thee, O Lord, I turn my face, to thee I direct my eyes.\nI beg, O Lord, that thou loose me from the bond of this reproach, or else take me away from the earth.\nThou knowest, O Lord, that I never coveted a husband, and have kept my soul clean from all lust.\nNever have I joined myself with them that play: neither have I made myself partaker with them that walk in lightness.\nBut a husband I consented to take, with thy fear, not with my lust.\nAnd either I was unworthy of them, or they perhaps were not worthy of me: because perhaps thou hast kept me for another man.\nFor thy counsel is not in man's power.\nBut this every one is sure of that worshippeth thee, that his life, if it be under trial, shall be crowned: and if it be under tribulation, it shall be delivered: and if it be under correction, it shall be allowed to come to thy mercy.\nFor thou art not delighted in our being lost: because after a storm thou makest a calm, and after tears and weeping thou pourest in joyfulness.\nBe thy name, O God of Israel, blessed for ever.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer of Sara after three days of fasting under a cruel reproach: to thee, O Lord, I turn my face; after a storm thou makest a calm, and after tears and weeping thou pourest in joyfulness. God heard her and sent the angel Raphael, and she became the wife of the younger Tobias. Douay-Rheims text, Tobias (Tobit) 3:13-23.",
+      occasions: ["trial", "marriage", "suffering"],
+      relatedSaints: [],
+      citations: [`${DRBO}17003.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-tobias-and-sara",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}17008.htm`],
+    payload: {
+      slug: "prayer-of-tobias-and-sara",
+      title: "Prayer of Tobias and Sara on Their Wedding Night (Tobias 8:4-10)",
+      body: "Then Tobias exhorted the virgin, and said to her: Sara, arise, and let us pray to God today, and tomorrow, and the next day: because for these three nights we are joined to God: and when the third night is over, we will be in our own wedlock.\nFor we are the children of saints, and we must not be joined together like heathens that know not God.\nSo they both arose, and prayed earnestly both together that health might be given them,\nAnd Tobias said: Lord God of our father, may the heavens and the earth, and the sea, and the fountains, and the rivers, and all thy creatures that are in them, bless thee.\nThou madest Adam of the slime of the earth, and gavest him Eve for a helper.\nAnd now, Lord, thou knowest, that not for fleshly lust do I take my sister to wife, but only for the love of posterity, in which thy name may be blessed for ever and ever.\nSara also said: Have mercy on us, O Lord, have mercy on us, and let us grow old both together in health.",
+      prayerType: "intercession",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer of the newly married Tobias and Sara, who rose to pray together before they came together as husband and wife: may all thy creatures bless thee; not for fleshly lust do I take my sister to wife; have mercy on us, O Lord, and let us grow old both together in health. It is among the readings offered for the celebration of marriage. Douay-Rheims text, Tobias (Tobit) 8:4-10.",
+      occasions: ["marriage", "families"],
+      relatedSaints: [],
+      citations: [`${DRBO}17008.htm`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "priestly-prayer-of-jesus-john-17",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${DRBO}50017.htm`, `${DR_1899}n843/mode/1up`],
+    payload: {
+      slug: "priestly-prayer-of-jesus-john-17",
+      title: "Prayer of Jesus for His Disciples (John 17)",
+      body: "These things Jesus spoke, and lifting up his eyes to heaven, he said: Father, the hour is come, glorify thy Son, that thy Son may glorify thee.\nAs thou hast given him power over all flesh, that he may give eternal life to all whom thou hast given him.\nNow this is eternal life: That they may know thee, the only true God, and Jesus Christ, whom thou hast sent.\nI have glorified thee on the earth; I have finished the work which thou gavest me to do.\nAnd now glorify thou me, O Father, with thyself, with the glory which I had, before the world was, with thee.\nI have manifested thy name to the men whom thou hast given me out of the world. Thine they were, and to me thou gavest them; and they have kept thy word.\nNow they have known, that all things which thou hast given me, are from thee:\nBecause the words which thou gavest me, I have given to them; and they have received them, and have known in very deed that I came out from thee, and they have believed that thou didst send me.\nI pray for them: I pray not for the world, but for them whom thou hast given me: because they are thine:\nAnd all my things are thine, and thine are mine; and I am glorified in them.\nAnd now I am not in the world, and these are in the world, and I come to thee. Holy Father, keep them in thy name whom thou hast given me; that they may be one, as we also are.\nWhile I was with them, I kept them in thy name. Those whom thou gavest me have I kept; and none of them is lost, but the son of perdition, that the scripture may be fulfilled.\nAnd now I come to thee; and these things I speak in the world, that they may have my joy filled in themselves.\nI have given them thy word, and the world hath hated them, because they are not of the world; as I also am not of the world.\nI pray not that thou shouldst take them out of the world, but that thou shouldst keep them from evil.\nThey are not of the world, as I also am not of the world.\nSanctify them in truth. Thy word is truth.\nAs thou hast sent me into the world, I also have sent them into the world.\nAnd for them do I sanctify myself, that they also may be sanctified in truth.\nAnd not for them only do I pray, but for them also who through their word shall believe in me;\nThat they all may be one, as thou, Father, in me, and I in thee; that they also may be one in us; that the world may believe that thou hast sent me.\nAnd the glory which thou hast given me, I have given to them; that they may be one, as we also are one:\nI in them, and thou in me; that they may be made perfect in one: and the world may know that thou hast sent me, and hast loved them, as thou hast also loved me.\nFather, I will that where I am, they also whom thou hast given me may be with me; that they may see my glory which thou hast given me, because thou hast loved me before the creation of the world.\nJust Father, the world hath not known thee; but I have known thee: and these have known that thou hast sent me.\nAnd I have made known thy name to them, and will make it known; that the love wherewith thou hast loved me, may be in them, and I in them.",
+      prayerType: "general",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer Jesus offered to the Father at the Last Supper before going out to his Passion: that the Father glorify the Son, that he keep the disciples from evil and sanctify them in truth, and that all who believe through their word may be one, as the Father and the Son are one. Douay-Rheims text of the whole chapter, John 17:1-26.",
+      occasions: ["holy-thursday", "for-the-church", "vocations"],
+      relatedSaints: [],
+      citations: [`${DRBO}50017.htm`, `${DR_1899}n843/mode/1up`],
     },
   },
 ];
