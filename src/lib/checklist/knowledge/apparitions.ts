@@ -1,6 +1,7 @@
 import type { CuratedEntry } from "./index";
 
 import { apparitionGroupOne } from "./apparitions/group-1";
+import { apparitionGroupTwo } from "./apparitions/group-2";
 
 const VATICAN = "https://www.vatican.va/";
 const USCCB = "https://www.usccb.org/";
@@ -205,4 +206,8 @@ const LEGACY: CuratedEntry[] = [
  * path so the bare `./apparitions` specifier keeps resolving to THIS file (see the
  * module-resolution note in `./guides.ts`).
  */
-export const apparitionKnowledge: CuratedEntry[] = [...LEGACY, ...apparitionGroupOne];
+export const apparitionKnowledge: CuratedEntry[] = [
+  ...LEGACY,
+  ...apparitionGroupOne,
+  ...apparitionGroupTwo,
+];
