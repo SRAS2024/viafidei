@@ -35,6 +35,7 @@ import { runChecklistAndCitationOrchestrator } from "./checklist-citation-orches
 import { writeAdminWorkerLog } from "./logs";
 import { filePlan } from "./repair-plans";
 import { runCrossSourceVerification, runStrictQA, runPersistAndPublish } from "./dispatcher";
+import { buildWebPublishPayload } from "./web-publish-payloads";
 
 /** The exact gate blocking an artifact from advancing. */
 export type GateKind =
@@ -72,6 +73,8 @@ export interface DrainArtifact {
   id: string;
   contentType: string;
   normalizedSlug: string;
+  /** The package title (the schema check's fallback display title). */
+  normalizedTitle?: string;
   status: string;
   missingFields: string[];
   validationNeeds: string[];
@@ -121,6 +124,22 @@ function lacksCitations(a: Pick<DrainArtifact, "extractedFields" | "fieldProvena
 }
 
 /**
+ * The schema's complaints about an artifact's fields, citations aside (the
+ * publish stage's own mapping, run without the corroborating citations).
+ * Empty when the fields map, or when the type has no web mapping to judge.
+ */
+function schemaFieldGaps(a: DrainArtifact): string[] {
+  if (!a.extractedFields || typeof a.extractedFields !== "object") return [];
+  const mapped = buildWebPublishPayload(a.contentType, {
+    fields: a.extractedFields as Record<string, unknown>,
+    title: a.normalizedTitle ?? a.normalizedSlug,
+    slug: a.normalizedSlug,
+  });
+  if (mapped.ok || mapped.code !== "SCHEMA_FIELDS_MISSING") return [];
+  return mapped.errors.filter((e) => !e.startsWith("citations"));
+}
+
+/**
  * Diagnose the single gate blocking one artifact and the outcome to route it
  * to. Pure + deterministic — the order encodes priority (terminal/repairable
  * checks before "just needs the next handler"). Exported for unit testing.
@@ -163,6 +182,22 @@ export function diagnoseArtifactGate(a: DrainArtifact, ctx: GateContext): Artifa
       outcome: "repair",
       explanation: "No citations or source URL on the payload — provenance is required to verify.",
       recommendedAction: "File a repair plan to attach an authoritative source/citation.",
+    };
+  }
+
+  // A package its content schema can never accept — a Church document with no
+  // issuing authority, a novena with no per-day meditation — would spend
+  // cross-source verification fetches and strict QA only to be refused at
+  // publish. Send it to the schema-aware EXTRACT_FAILED path now instead. A
+  // citation shortfall is not a gap here: verification adds the second witness.
+  const gaps = schemaFieldGaps(a);
+  if (gaps.length > 0) {
+    return {
+      gate: "MALFORMED",
+      outcome: "repair",
+      explanation: `SCHEMA_FIELDS_MISSING: ${gaps.slice(0, 3).join("; ")}`,
+      recommendedAction:
+        "Re-extract once; close the artifact if its fields still do not make a schema payload.",
     };
   }
 
@@ -381,6 +416,9 @@ const REPAIR_KIND_BY_GATE: Partial<
   MISSING_REQUIRED_FIELDS: "EXTRACT_FAILED",
   MISSING_CITATIONS: "EXTRACT_FAILED",
   LOW_CONFIDENCE: "EXTRACT_FAILED",
+  // Filed with origin "schema_payload": the handler heals only if the
+  // re-extracted fields map, otherwise it closes the artifact.
+  MALFORMED: "EXTRACT_FAILED",
   VERIFICATION_INCOMPLETE: "VALIDATION_EVIDENCE_MISSING",
 };
 
@@ -434,6 +472,7 @@ export async function runBuildReadyDrain(
         id: true,
         contentType: true,
         normalizedSlug: true,
+        normalizedTitle: true,
         status: true,
         missingFields: true,
         validationNeeds: true,
@@ -495,6 +534,7 @@ export async function runBuildReadyDrain(
           id: a.id,
           contentType: a.contentType,
           normalizedSlug: a.normalizedSlug,
+          normalizedTitle: a.normalizedTitle,
           status: a.status,
           missingFields: a.missingFields ?? [],
           validationNeeds: a.validationNeeds ?? [],
@@ -546,6 +586,7 @@ export async function runBuildReadyDrain(
             sourceReadId: a.sourceReadId,
             gate: diag.gate,
             contentType: a.contentType,
+            ...(diag.gate === "MALFORMED" ? { origin: "schema_payload" } : {}),
           },
         }).catch(() => undefined);
         await prisma.adminWorkerPackageArtifact
