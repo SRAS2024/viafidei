@@ -13,10 +13,12 @@
  *   - up to 50 ids per request (the endpoint's maximum), so one request
  *     researches up to 50 parishes;
  *   - every Nominatim call this process makes — these lookups AND the reverse
- *     lookups in parish-geocode.ts — waits for one shared, serialised slot
- *     spaced ≥ 1.1 s apart;
+ *     lookups in parish-geocode.ts — runs in one shared, serialised slot:
+ *     each request goes out ≥ 1.1 s after the previous one went out, and a
+ *     caller holds the slot until its request has settled;
  *   - a persisted daily request budget (`nominatim-lookup:<date>`, default
- *     2,000, `ADMIN_WORKER_NOMINATIM_DAILY_BUDGET`) charged before each request;
+ *     2,000, `ADMIN_WORKER_NOMINATIM_DAILY_BUDGET`) charged inside the slot,
+ *     to the day the request goes out, right before it is sent;
  *   - a 15 s timeout per request;
  *   - a 429 / 403 / 5xx answer stops the run and parks every caller for 15
  *     minutes (persisted `nominatim-cooldown`, so a restart honours it);
@@ -66,23 +68,30 @@ function lookupSpacingMs(): number {
 // ── One serialised, spaced slot for every Nominatim call in this process ────
 
 let lastCallInProcess = 0;
-let slotChain: Promise<void> = Promise.resolve();
+let slotChain: Promise<unknown> = Promise.resolve();
 
 /**
- * Wait for this process's next Nominatim request slot. Callers are served one
- * at a time, each at least `spacingMs` after the previous call — whether that
- * call was made in this process or (`persistedLastCallAt`) before a restart.
- * Two lanes running at once therefore never fire within the spacing.
+ * Run one Nominatim request in this process's slot. Callers are served one at
+ * a time and each holds the slot until its request has settled, so charging
+ * the budget (a read, then a write) never interleaves with another caller's
+ * and a refusal is recorded before the next caller may send. The spacing is
+ * measured from the moment a request went out — `markSent`, called right
+ * before the fetch — in this process or (`persistedLastCallAt`) before a
+ * restart, so slow pre-send work can never shrink the gap between two
+ * requests. Two lanes running at once therefore never fire within it.
  */
-export function acquireNominatimSlot(
+export function withNominatimSlot<T>(
   spacingMs: number,
-  persistedLastCallAt: number | null = null,
-): Promise<void> {
+  persistedLastCallAt: number | null,
+  request: (markSent: () => void) => Promise<T>,
+): Promise<T> {
   const turn = slotChain.then(async () => {
     const last = Math.max(lastCallInProcess, persistedLastCallAt ?? 0);
     const wait = spacingMs - (Date.now() - last);
     if (wait > 0) await sleep(Math.min(wait, spacingMs));
-    lastCallInProcess = Date.now();
+    return request(() => {
+      lastCallInProcess = Date.now();
+    });
   });
   slotChain = turn.catch(() => undefined);
   return turn;
@@ -135,6 +144,19 @@ async function readLookupBudget(prisma: PrismaClient, now: number): Promise<Look
     used: typeof v.used === "number" && v.used >= 0 ? v.used : 0,
     lastCallAt: typeof v.lastCallAt === "number" ? v.lastCallAt : null,
   };
+}
+
+/**
+ * Charge one request to the budget of the day `now` falls on — false, with
+ * nothing charged, when that day's budget is spent. Called inside the slot
+ * right before the request goes out, so the count read here is the count
+ * written here.
+ */
+async function chargeLookupBudget(prisma: PrismaClient, now: number): Promise<boolean> {
+  const budget = await readLookupBudget(prisma, now);
+  if (budget.used >= nominatimDailyBudget()) return false;
+  await writeJson(prisma, budgetKeyFor(now), { used: budget.used + 1, lastCallAt: now });
+  return true;
 }
 
 /** Lookup requests still allowed today (0 when spent). */
@@ -327,6 +349,7 @@ export async function lookupOsmPlaces(
       stop("request-cap");
       break;
     }
+    // Cheap early stops; both are checked again inside the slot.
     if (await nominatimCooldownUntil(prisma, nowFn())) {
       stop("cooldown");
       break;
@@ -339,24 +362,34 @@ export async function lookupOsmPlaces(
     // One slot shared with the reverse lookups, spaced from whichever of the
     // two persisted stamps is newer.
     const reverse = await readOsmBudget(prisma).catch(() => null);
-    await acquireNominatimSlot(
+    const answer = await withNominatimSlot(
       lookupSpacingMs(),
       Math.max(budget.lastCallAt ?? 0, reverse?.lastReverseCallAt ?? 0),
+      async (markSent): Promise<BatchAnswer | "cooldown" | "budget"> => {
+        const now = nowFn();
+        // Another caller may have been refused, or spent the budget, while
+        // this one waited for the slot.
+        if (await nominatimCooldownUntil(prisma, now)) return "cooldown";
+        // Charged BEFORE the request runs, so a crash mid-request still counts.
+        if (!(await chargeLookupBudget(prisma, now))) return "budget";
+        markSent();
+        const res = await fetchBatch(
+          fetchImpl,
+          batch.map((i) => i.id),
+        );
+        // Nominatim said stop (rate limit, block, or overload): every caller in
+        // this process — and after a restart — stays away for the cooldown,
+        // recorded before the slot passes to the next caller.
+        if (res.kind === "refused") await noteNominatimRefusal(prisma, res.status, nowFn());
+        return res;
+      },
     );
-    // Charge the request BEFORE it runs so a crash mid-request still counts.
-    budget.used += 1;
-    budget.lastCallAt = nowFn();
+    if (answer === "cooldown" || answer === "budget") {
+      stop(answer);
+      break;
+    }
     out.requests += 1;
-    await writeJson(prisma, budgetKeyFor(budget.lastCallAt), { ...budget });
-
-    const answer = await fetchBatch(
-      fetchImpl,
-      batch.map((i) => i.id),
-    );
     if (answer.kind === "refused") {
-      // Nominatim said stop (rate limit, block, or overload): every caller in
-      // this process — and after a restart — stays away for the cooldown.
-      await noteNominatimRefusal(prisma, answer.status, nowFn());
       stop("refused", `HTTP ${answer.status}`);
       break;
     }

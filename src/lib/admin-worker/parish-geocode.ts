@@ -5,7 +5,8 @@
  *
  *   - paces calls ≥ 1.1 s apart through the one serialised Nominatim slot it
  *     shares with the lookup-by-id client (nominatim-lookup.ts), and from the
- *     persisted stamp across restarts;
+ *     persisted stamp across restarts — charging the daily cap inside that
+ *     slot, to the day the request goes out, right before it is sent;
  *   - stays away while a Nominatim refusal cooldown is active, and starts one
  *     on a 429 / 403 / 5xx answer;
  *   - stops after a per-run cap and a persisted daily cap (shared with the
@@ -19,10 +20,10 @@
 import type { PrismaClient } from "@prisma/client";
 
 import {
-  acquireNominatimSlot,
   isNominatimRefusal,
   nominatimCooldownUntil,
   noteNominatimRefusal,
+  withNominatimSlot,
 } from "./nominatim-lookup";
 import { dailyReverseBudget, readOsmBudget, writeOsmBudget } from "./parish-osm-overpass";
 
@@ -71,42 +72,52 @@ export async function reverseLookupCity(
   if (budget.remaining <= 0) return none;
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return none;
 
+  // Cheap early stops; both are checked again inside the slot.
   const daily = await readOsmBudget(prisma);
   if (daily.reverseUsed >= dailyReverseBudget()) return none;
   if (await nominatimCooldownUntil(prisma)) return none;
 
-  await acquireNominatimSlot(minSpacingMs(), daily.lastReverseCallAt);
-
-  budget.remaining -= 1;
-  daily.reverseUsed += 1;
-  daily.lastReverseCallAt = Date.now();
-  await writeOsmBudget(prisma, daily);
-
   const fetchImpl = opts.fetchImpl ?? fetch;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const url = `${NOMINATIM_REVERSE}?format=jsonv2&zoom=10&lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}&accept-language=en`;
-    const res = await fetchImpl(url, {
-      method: "GET",
-      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-      signal: controller.signal,
-    });
-    if (typeof res.status === "number" && isNominatimRefusal(res.status)) {
-      await noteNominatimRefusal(prisma, res.status);
+  return withNominatimSlot(minSpacingMs(), daily.lastReverseCallAt, async (markSent) => {
+    // Read afresh for the day the request goes out: the cap read above may be
+    // yesterday's, and another caller may have been refused meanwhile.
+    const sentAt = new Date();
+    if (await nominatimCooldownUntil(prisma, sentAt.getTime())) return none;
+    const today = await readOsmBudget(prisma, sentAt);
+    if (today.reverseUsed >= dailyReverseBudget()) return none;
+    budget.remaining -= 1;
+    await writeOsmBudget(
+      prisma,
+      { ...today, reverseUsed: today.reverseUsed + 1, lastReverseCallAt: sentAt.getTime() },
+      sentAt,
+    );
+    markSent();
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const url = `${NOMINATIM_REVERSE}?format=jsonv2&zoom=10&lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}&accept-language=en`;
+      const res = await fetchImpl(url, {
+        method: "GET",
+        headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+        signal: controller.signal,
+      });
+      if (typeof res.status === "number" && isNominatimRefusal(res.status)) {
+        await noteNominatimRefusal(prisma, res.status);
+        return none;
+      }
+      if (!res.ok) return none;
+      const data = (await res.json()) as {
+        address?: Record<string, string | undefined>;
+      };
+      const a = data.address ?? {};
+      const city = (a.city ?? a.town ?? a.village ?? a.municipality ?? "").trim();
+      const cc = (a.country_code ?? "").trim().toUpperCase();
+      return { city: city || null, countryCode: /^[A-Z]{2}$/.test(cc) ? cc : null };
+    } catch {
       return none;
+    } finally {
+      clearTimeout(timer);
     }
-    if (!res.ok) return none;
-    const data = (await res.json()) as {
-      address?: Record<string, string | undefined>;
-    };
-    const a = data.address ?? {};
-    const city = (a.city ?? a.town ?? a.village ?? a.municipality ?? "").trim();
-    const cc = (a.country_code ?? "").trim().toUpperCase();
-    return { city: city || null, countryCode: /^[A-Z]{2}$/.test(cc) ? cc : null };
-  } catch {
-    return none;
-  } finally {
-    clearTimeout(timer);
-  }
+  });
 }

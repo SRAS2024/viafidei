@@ -1,6 +1,8 @@
 /**
  * The Nominatim lookup-by-OSM-id client: 50 ids per request, one shared
- * spaced slot, a persisted daily budget charged before each request, a
+ * spaced slot held until each request settles (spacing measured from the
+ * moment a request goes out), a persisted daily budget charged inside it to
+ * the day the request goes out, a
  * persisted 15-minute cooldown after a 429 / 403 / 5xx, idle under
  * skip-network — and a mapper that invents nothing (a county is not a
  * locality, a postal code must fit its country). Fixture: real answers for
@@ -14,12 +16,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "@prisma/client";
 
 import {
-  acquireNominatimSlot,
   lookupOsmPlaces,
   nominatimAddressParts,
   nominatimBudgetRemaining,
   nominatimCooldownUntil,
   osmLookupId,
+  withNominatimSlot,
   type NominatimPlace,
 } from "@/lib/admin-worker/nominatim-lookup";
 
@@ -235,20 +237,100 @@ describe("lookupOsmPlaces", () => {
     expect(res.stopReason).toBe("skip-network");
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+
+  it("never loses a charge when two lanes look up at once", async () => {
+    const { prisma, store } = makePrisma();
+    await Promise.all([
+      lookupOsmPlaces(prisma, ["osm:node/1"], { fetchImpl: fixtureFetch() as never }),
+      lookupOsmPlaces(prisma, ["osm:node/2"], { fetchImpl: fixtureFetch() as never }),
+    ]);
+    const budget = [...store.entries()].find(([k]) => k.startsWith("nominatim-lookup:"))!;
+    expect((budget[1].memoryValue as { used: number }).used).toBe(2);
+  });
+
+  it("charges the day the request goes out, not the day its budget was first read", async () => {
+    // The budget is read at 23:59:59.960 UTC; the slot then waits ~80 ms for
+    // the previous request, so the request goes out after midnight.
+    process.env.ADMIN_WORKER_NOMINATIM_SPACING_MS = "80";
+    const midnight = Date.UTC(2026, 10, 1);
+    const started = Date.now();
+    const now = () => midnight - 40 + (Date.now() - started);
+    const { prisma, store } = makePrisma();
+    store.set("nominatim-lookup:2026-10-31", {
+      memoryValue: { used: 1500, lastCallAt: Date.now() },
+      lastUsedAt: new Date(),
+    });
+
+    const res = await lookupOsmPlaces(prisma, ["osm:node/1"], {
+      fetchImpl: fixtureFetch() as never,
+      now,
+    });
+
+    expect(res.requests).toBe(1);
+    expect(store.get("nominatim-lookup:2026-11-01")!.memoryValue).toMatchObject({ used: 1 });
+    expect(store.get("nominatim-lookup:2026-10-31")!.memoryValue).toMatchObject({ used: 1500 });
+  });
+
+  it("does not send once a refusal met by another caller is on record", async () => {
+    const { prisma } = makePrisma();
+    const refused = vi.fn(async () => ({ ok: false, status: 429, json: async () => [] }));
+    const later = fixtureFetch();
+    const [first, second] = await Promise.all([
+      lookupOsmPlaces(prisma, ["osm:node/1"], { fetchImpl: refused as never }),
+      lookupOsmPlaces(prisma, ["osm:node/2"], { fetchImpl: later as never }),
+    ]);
+    expect(first.stopReason).toBe("refused");
+    expect(second.stopReason).toBe("cooldown");
+    expect(later).not.toHaveBeenCalled();
+  });
 });
 
-describe("acquireNominatimSlot", () => {
-  it("serialises callers and spaces them", async () => {
-    const stamps: number[] = [];
+describe("withNominatimSlot", () => {
+  it("serialises callers and spaces their requests", async () => {
+    const sent: number[] = [];
     await Promise.all(
-      [0, 1, 2].map(async () => {
-        await acquireNominatimSlot(40);
-        stamps.push(Date.now());
-      }),
+      [0, 1, 2].map(() =>
+        withNominatimSlot(40, null, async (markSent) => {
+          markSent();
+          sent.push(Date.now());
+        }),
+      ),
     );
-    expect(stamps).toHaveLength(3);
-    expect(stamps[1]! - stamps[0]!).toBeGreaterThanOrEqual(35);
-    expect(stamps[2]! - stamps[1]!).toBeGreaterThanOrEqual(35);
+    expect(sent).toHaveLength(3);
+    expect(sent[1]! - sent[0]!).toBeGreaterThanOrEqual(35);
+    expect(sent[2]! - sent[1]!).toBeGreaterThanOrEqual(35);
+  });
+
+  it("spaces from the moment a request went out, however slow the work before it", async () => {
+    const sent: number[] = [];
+    await Promise.all([
+      withNominatimSlot(50, null, async (markSent) => {
+        // e.g. a slow budget write on a busy connection pool
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        markSent();
+        sent.push(Date.now());
+      }),
+      withNominatimSlot(50, null, async (markSent) => {
+        markSent();
+        sent.push(Date.now());
+      }),
+    ]);
+    expect(sent[1]! - sent[0]!).toBeGreaterThanOrEqual(45);
+  });
+
+  it("holds the slot until the request has settled", async () => {
+    const events: string[] = [];
+    await Promise.all([
+      withNominatimSlot(0, null, async (markSent) => {
+        markSent();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        events.push("first settled");
+      }),
+      withNominatimSlot(0, null, async () => {
+        events.push("second started");
+      }),
+    ]);
+    expect(events).toEqual(["first settled", "second started"]);
   });
 });
 

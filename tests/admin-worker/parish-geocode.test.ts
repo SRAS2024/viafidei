@@ -80,6 +80,17 @@ describe("reverseLookupCity", () => {
     expect((store.get(budgetKey())!.memoryValue as { reverseUsed: number }).reverseUsed).toBe(1);
   });
 
+  it("charges each of two concurrent lookups inside the shared slot (no lost update)", async () => {
+    const { prisma, store } = makePrisma();
+    const budget = { remaining: 5 };
+    await Promise.all([
+      reverseLookupCity(prisma, 1, 1, budget, { fetchImpl: ok({ city: "A" }) as never }),
+      reverseLookupCity(prisma, 2, 2, budget, { fetchImpl: ok({ city: "B" }) as never }),
+    ]);
+    expect((store.get(budgetKey())!.memoryValue as { reverseUsed: number }).reverseUsed).toBe(2);
+    expect(budget.remaining).toBe(3);
+  });
+
   it("never promotes a county/state to a city", async () => {
     const fetchImpl = ok({ county: "Suffolk County", state: "Massachusetts" });
     const { prisma } = makePrisma();
