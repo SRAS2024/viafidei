@@ -32,6 +32,8 @@
     "worker:once": "tsx scripts/run-worker.ts --one-shot",
     "worker:dry-run": "tsx scripts/admin-worker-dry-run.ts",
     "readings:refresh": "tsx scripts/refresh-daily-readings.ts",
+    "translate": "tsx scripts/translate-content.ts",
+    "translate:setup": "sh scripts/translate-setup.sh",
     "lectionary:build": "tsx scripts/lectionary/build-tables.ts",
     "lectionary:check": "tsx scripts/lectionary/build-tables.ts --check",
     "lectionary:coverage": "tsx scripts/lectionary/check-coverage.ts --strict",
