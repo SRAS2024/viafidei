@@ -13,7 +13,7 @@
 import { describe, expect, it } from "vitest";
 
 import { validatePayload } from "@/lib/checklist/schemas";
-import { RosaryExtractor } from "@/lib/admin-worker/extractors";
+import { RosaryExtractor, canonizationStatusFromHonorific } from "@/lib/admin-worker/extractors";
 import {
   buildWebPublishPayload,
   hasWebSchemaMapping,
@@ -88,6 +88,59 @@ describe("SAINT", () => {
     );
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.errors.join(" ")).toMatch(/canonizationStatus/);
+  });
+
+  // A page classified SAINT whose title opens with an honorific but names no
+  // person used to publish as a beatified or canonized saint: "Blessed Virgin
+  // Mary" became canonizationStatus "beatified".
+  it.each(["Blessed Virgin Mary", "Blessed Mother", "Blessed Sacrament", "St. Patrick's Day"])(
+    "%j names no one beatified or canonized, so the payload is refused",
+    (name) => {
+      const out = buildWebPublishPayload("SAINT", base({ ...fields, saintName: name }));
+      expect(out.ok).toBe(false);
+      if (!out.ok) expect(out.errors.join(" ")).toMatch(/canonizationStatus/);
+    },
+  );
+});
+
+describe("canonizationStatusFromHonorific", () => {
+  it.each([
+    ["Saint Thérèse of Lisieux", "canonized"],
+    ["St. John of the Cross", "canonized"],
+    ["St Rose of Lima", "canonized"],
+    ["Saint Mary Magdalene", "canonized"],
+    ["Saint Patrick - Saint of the Day", "canonized"],
+    ["Blessed Miguel Pro", "beatified"],
+    ["Bl. Mary of the Divine Heart", "beatified"],
+    ["Venerable Fulton J. Sheen", "venerable"],
+    ["Servant of God Frank Duff", "servant_of_god"],
+  ])("%j → %s", (name, status) => {
+    expect(canonizationStatusFromHonorific(name)).toBe(status);
+  });
+
+  it.each([
+    "Blessed Virgin Mary",
+    "Blessed Mother",
+    "Blessed Mother of God",
+    "Blessed Mary, Mother of God",
+    "Blessed Mary Ever Virgin",
+    "Blessed Lady",
+    "Blessed Sacrament",
+    "Blessed Trinity",
+    "Blessed be God",
+    "Blessed Are the Poor in Spirit",
+    "Blessed Salt",
+    "Saint Mary",
+    "St. Patrick's Day",
+    "St. Peter's Basilica",
+    "Saint Benedict Medal",
+    "St. Michael Prayer",
+    "Saint Joseph Altar",
+    "Francis of Assisi",
+    "Saint",
+    "",
+  ])("%j yields no status", (name) => {
+    expect(canonizationStatusFromHonorific(name)).toBeUndefined();
   });
 });
 
