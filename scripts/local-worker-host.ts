@@ -91,6 +91,7 @@ import {
 import {
   computeLocalConfig,
   leaseRenewDelayMs,
+  planBootResume,
   resolvePublicBaseUrl,
   summarizeDatabaseError,
   workerQueryTimeoutEnv,
@@ -1852,6 +1853,10 @@ function installProcessGuards(shutdown: (signal: string) => void): void {
  * application is relaunched, pick the work back up where Postgres says it was.
  * Never resume against a database that is unreachable or plainly not
  * production — the switch is durable, so it stays ON and the console shows why.
+ * Which of those it is decides what happens next (planBootResume): a
+ * configuration problem parks the runtime for the operator; a database that is
+ * merely not answering yet is left to the switch poll, which starts the worker
+ * as soon as it answers.
  */
 async function resumeAtBoot(): Promise<void> {
   // The control API is already listening: an OFF pressed during boot wins.
@@ -1865,22 +1870,29 @@ async function resumeAtBoot(): Promise<void> {
     host.lastObservedSwitchChangedAt = "changedAt" in master ? master.changedAt : null;
   }
   const bootConfig = configPayload();
-  if (master.on && (bootConfig.blockingReason || !bootConfig.database.reachable)) {
+  const plan = planBootResume({
+    switchOn: master.on,
+    blockingReason: bootConfig.blockingReason,
+    databaseReachable: bootConfig.database.reachable,
+  });
+  if (plan === "stay_off" || shuttingDown) return;
+  if (plan === "park" || plan === "defer") {
     const reason =
       bootConfig.warnings.find((w) => w !== bootConfig.launcherMessage) ??
       bootConfig.launcherMessage ??
       `The database at ${bootConfig.databaseHost ?? "?"} is not answering — the Admin Worker was not started.`;
-    pushLog("host", `cannot resume: ${reason}`);
-    // A configuration problem needs the operator. A database that is merely
-    // not answering yet (the Mac just woke, Wi-Fi is still joining) does not:
-    // stay "off" and let the switch poll start the worker once it answers.
-    if (bootConfig.blockingReason) {
+    if (plan === "park") {
       host.runState = "failed";
       host.failureReason = reason;
+      pushLog("host", `cannot resume: ${reason}`);
+    } else {
+      pushLog(
+        "host",
+        `cannot resume yet: ${reason} — the switch is ON, so the worker starts as soon as the database answers`,
+      );
     }
     return;
   }
-  if (!master.on || shuttingDown) return;
   if (!autoRestart.mayStart(ticket)) return;
   const claim = await acquireExecutionLease(prisma, {
     runtimeId: RUNTIME_ID,

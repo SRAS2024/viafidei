@@ -81,12 +81,19 @@ describe("local host — ticks and boot cannot die on one database error", () =>
     );
   });
 
-  it("parks the runtime at boot only for a configuration problem, not a database still waking up", () => {
+  it("decides the boot resume with planBootResume, and parks the runtime only on its 'park'", () => {
+    // The decision itself — "unreachable" defers, configuration parks — is
+    // behaviour-tested in local-config.test.ts. The old check here matched
+    // `if (bootConfig.blockingReason) { host.runState = "failed"`, which held
+    // for every unreachable database too and so tested nothing.
     const resume = src.slice(
       src.indexOf("async function resumeAtBoot("),
       src.indexOf("async function main("),
     );
-    expect(resume).toMatch(/if \(bootConfig\.blockingReason\) \{\s*host\.runState = "failed";/);
+    expect(resume).toContain("const plan = planBootResume({");
+    expect(resume.match(/host\.runState = "failed";/g)).toHaveLength(1);
+    expect(resume).toMatch(/if \(plan === "park"\) \{\s*host\.runState = "failed";/);
+    expect(resume).not.toMatch(/if \(bootConfig\.blockingReason\)/);
   });
 
   it("lets an OFF pressed during boot win over the resume's lease claim", () => {

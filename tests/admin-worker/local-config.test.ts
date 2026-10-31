@@ -1,7 +1,8 @@
 /**
  * Pure decisions of the local execution host (src/lib/admin-worker/local-config.ts):
- * the structured blocking reason that gates switching the worker ON, the
- * PUBLIC_BASE_URL guess that must refuse non-production Railway environments,
+ * the structured blocking reason that gates switching the worker ON, what a
+ * boot does with a switch it finds ON, the PUBLIC_BASE_URL guess that must
+ * refuse non-production Railway environments,
  * lease-renewal jitter, worker exit classification and the launcher notice
  * line the Swift app parses.
  */
@@ -14,9 +15,11 @@ import {
   classifyWorkerExit,
   computeLocalConfig,
   describeDatabaseHost,
+  isConfigurationBlock,
   isLocalDatabaseHost,
   leaseRenewDelayMs,
   parseLauncherLine,
+  planBootResume,
   resolvePublicBaseUrl,
   summarizeDatabaseError,
   workerQueryTimeoutEnv,
@@ -127,6 +130,55 @@ describe("computeLocalConfig — blocking reason", () => {
     const cfg = config({ publicBaseUrl: undefined, railwayEnvironmentName: "staging" });
     expect(cfg.railwayEnvironment).toBe("staging");
     expect(cfg.warnings[0]).toMatch(/"staging" environment.*nothing is guessed/);
+  });
+});
+
+describe("planBootResume — what a boot does with a switch it finds ON", () => {
+  const plan = (cfg: ReturnType<typeof config>, switchOn = true) =>
+    planBootResume({
+      switchOn,
+      blockingReason: cfg.blockingReason,
+      databaseReachable: cfg.database.reachable,
+    });
+
+  it("defers a database that is merely not answering yet to the switch poll — never 'failed'", () => {
+    // The reported trigger: after login or wake the 15 s boot probe over a
+    // cold TLS connection loses its race, then the switch read succeeds on
+    // the connection that has since come up. computeLocalConfig calls that
+    // "unreachable" — which used to park the runtime until the operator
+    // turned the switch OFF and ON again.
+    const cold = config({ probe: unreachable });
+    expect(cold.blockingReason).toBe("unreachable");
+    expect(cold.database.reachable).toBe(false);
+    expect(plan(cold)).toBe("defer");
+    expect(isConfigurationBlock(cold.blockingReason)).toBe(false);
+  });
+
+  it("parks the runtime only for configuration only the operator can fix", () => {
+    const local = config({ databaseUrl: "postgresql://u:p@localhost:5432/viafidei" });
+    const internal = config({
+      databaseUrl: "postgresql://u:p@postgres.railway.internal:5432/railway",
+    });
+    const none = config({ databaseUrl: "" });
+    for (const cfg of [local, internal, none]) {
+      expect(isConfigurationBlock(cfg.blockingReason)).toBe(true);
+      // A failed probe on top of it changes nothing: still configuration.
+      expect(plan(cfg)).toBe("park");
+      expect(plan({ ...cfg, database: unreachable })).toBe("park");
+    }
+  });
+
+  it("claims and starts against a database that answered, and does nothing with the switch OFF", () => {
+    expect(plan(config())).toBe("claim");
+    expect(plan(config(), false)).toBe("stay_off");
+    expect(plan(config({ probe: unreachable }), false)).toBe("stay_off");
+    expect(plan(config({ databaseUrl: "" }), false)).toBe("stay_off");
+  });
+
+  it("never claims against an unanswered probe, even without a blocking reason", () => {
+    expect(planBootResume({ switchOn: true, blockingReason: null, databaseReachable: false })).toBe(
+      "defer",
+    );
   });
 });
 
