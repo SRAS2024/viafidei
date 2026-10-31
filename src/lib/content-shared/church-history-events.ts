@@ -3,8 +3,11 @@
  *
  * The events live in hand-curated parts under `church-history/`, split only
  * to keep each file reviewable: parts 1–4 are the original spine from
- * Pentecost to the present, and later parts deepen particular eras (part 5,
- * the Apostolic Age and the persecutions). Every part must be registered
+ * Pentecost to the present; parts 5–11 deepen one era each (the Apostolic Age
+ * and the persecutions; the Fathers; the early and the high Middle Ages; the
+ * Western Schism, Renaissance and Reformation; the early-modern era and the
+ * nineteenth century; 1914 to the present); part 12 fills the gaps a
+ * completeness review found across them all. Every part must be registered
  * below — the dataset test fails on a part that is not. This module merges
  * them into one chronologically sorted list and re-exports the shared types
  * and helpers, so every consumer — the /history page, the content catalog,
@@ -16,6 +19,13 @@ import { EVENTS_2 } from "./church-history/events-2";
 import { EVENTS_3 } from "./church-history/events-3";
 import { EVENTS_4 } from "./church-history/events-4";
 import { EVENTS_5 } from "./church-history/events-5";
+import { EVENTS_6 } from "./church-history/events-6";
+import { EVENTS_7 } from "./church-history/events-7";
+import { EVENTS_8 } from "./church-history/events-8";
+import { EVENTS_9 } from "./church-history/events-9";
+import { EVENTS_10 } from "./church-history/events-10";
+import { EVENTS_11 } from "./church-history/events-11";
+import { EVENTS_12 } from "./church-history/events-12";
 import { historySortKey, type ChurchHistoryEvent } from "./church-history/types";
 
 export {
@@ -64,4 +74,11 @@ export const CHURCH_HISTORY_EVENTS: ReadonlyArray<ChurchHistoryEvent> = [
   ...EVENTS_3,
   ...EVENTS_4,
   ...EVENTS_5,
+  ...EVENTS_6,
+  ...EVENTS_7,
+  ...EVENTS_8,
+  ...EVENTS_9,
+  ...EVENTS_10,
+  ...EVENTS_11,
+  ...EVENTS_12,
 ].sort(compareHistoryEvents);
