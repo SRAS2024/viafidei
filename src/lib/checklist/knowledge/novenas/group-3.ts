@@ -38,6 +38,17 @@ import type { CuratedEntry } from "../index";
  *     (London: Burns and Lambert, 1852): both transcribed from archive.org
  *     scans, the Mount Carmel novena wholly from the page images.
  *
+ *   - Bonaventure Hammer, O.F.M., "Devotion to St. Anthony of Padua: The
+ *     Novena of Nine Tuesdays and Prayers in His Honor" (Cincinnati: Young
+ *     Men's Sodality of St. Francis Church, 1889; edition of 1908): the
+ *     prayers for the nine Tuesdays, checked against the page images.
+ *
+ *   - "A Novena in Honour of the Glorious Mother St. Teresa of Jesus, with
+ *     Meditations for Each Day", translated from the French (London:
+ *     Richardson and Son, 1852): checked line by line against the page
+ *     images. The printer's "splended" on the first day is corrected to
+ *     "splendid", as the book itself spells it in the daily prayer.
+ *
  * Every `prayerText` is copied from the first cited source and nothing in it is
  * paraphrased, shortened, composed or merged across versions. Where a novena's
  * received form says the same prayers on each of the nine days, the prayers are
@@ -59,7 +70,8 @@ import type { CuratedEntry } from "../index";
  *
  * Typographic conventions of the printed books are normalised without changing
  * any word: opening words set in capitals or small capitals are given in
- * ordinary case, and curly quotation marks are straightened. Obvious scanning
+ * ordinary case, italics are not marked, and curly quotation marks are
+ * straightened. Obvious scanning
  * slips in the transcriptions have been corrected against the page images.
  */
 
@@ -102,6 +114,12 @@ const CE_LOURDES = "https://www.newadvent.org/cathen/09389b.htm";
 const CARMEL_NOVENA_1852 = "https://archive.org/details/ANovenaInHonourOfTheMostBVM";
 const CE_CARMELITE_ORDER = "https://www.newadvent.org/cathen/03354a.htm";
 const CE_SCAPULAR = "https://www.newadvent.org/cathen/13508b.htm";
+const ANTHONY_NINE_TUESDAYS_1889 =
+  "https://archive.org/details/devotiontostanth00hamm/page/22/mode/1up";
+const CE_ANTHONY_OF_PADUA = "https://www.newadvent.org/cathen/01556a.htm";
+const TERESA_NOVENA_1852 =
+  "https://archive.org/details/NovenaInHonourOfTheGloriousMotherStTeresaOfJesus/page/n12/mode/1up";
+const CE_TERESA_OF_AVILA = "https://www.newadvent.org/cathen/14515b.htm";
 
 /** Hammer's preparatory prayer, said first in each of the fourteen novenas to the Holy Helpers. */
 const HOLY_HELPER_PREPARATORY =
@@ -632,6 +650,70 @@ const MOUNT_CARMEL_DAY_9 = [
   "O Virgin of Carmel, Most Holy Mary, who even favourest Thy children the Carmelites after death, and, as a loving Mother, dost assist the souls of those who wear Thy Holy Scapular when in the flames of Purgatory, and by Thy prayers obtainest for them a speedy deliverance from their sufferings, and the enjoyment of God in eternal glory: I beseech Thee, O dear Lady, to obtain for me, from His Majesty, the grace to fulfil my obligations as a Christian, so that I also may enjoy this singular favour; and I beg of Thee to obtain for me what I ask in this Novena, through Thine intercession, saying,",
   "Hail, Holy Queen, Mother of Mercy, our life, our sweetness, and our hope; to Thee do we cry, poor banished children of Eve; to Thee do we send up our sighs, mourning and weeping in this valley of tears! Turn, then, most Gracious Advocate, thine eyes of mercy towards us, and after this our painful exile shew unto us the Blessed Fruit of Thy womb, Jesus! O clement, O pious, O sweet Virgin Mary!",
   CARMEL_LITANY_AND_CLOSING,
+].join("\n\n");
+
+/** Hammer's prayers for each of the nine Tuesdays: the preparatory prayer, the prayer to the Infant Jesus in the arms of St. Anthony, the collect, and the Responsory in the book's English verse with its versicle and prayer. */
+const ANTHONY_TUESDAY_PRAYERS = [
+  "O glorious St. Anthony, safe refuge of the afflicted and distressed, who, through a miraculous revelation, hast directed all those who seek thy aid to approach thy altar, with the promise, that whoever visits it for nine consecutive Tuesdays, and there piously invokes thee, will feel the power of thy intercession: I, a poor sinner, encouraged by this promise, come to thee today with a firm hope, and I rejoice in the great honor which our Holy Mother, the Church, has shown to thee in placing thy image on her altars. I pour forth my prayer to thee; I implore thy aid, thy protection, thy counsel and thy blessing. Obtain for me, I beseech thee, my request in this necessity [name it], provided it be not opposed to the will of God, and the welfare of my soul. Should such, however, be the case, obtain for me such other graces, as shall be conducive to my salvation. Through Christ, our Lord. Amen.",
+  "O Jesus, my Saviour! who didst vouchsafe to appear to St. Anthony in the form of an infant, I implore Thee, through the love Thou didst bear to this Saint when he dwelt on earth, and which Thou now bearest to him in heaven, graciously hear my prayer, and assist me in my necessities. Who livest and reignest, world without end. Amen.",
+  "Almighty and Eternal God! who didst glorify Thy faithful confessor, Anthony, with the perpetual gift of working miracles, graciously grant that what we confidently seek through his merits we may surely receive through his intercession. Through Christ, our Lord. Amen.",
+  "If miracles thou fain wouldst see:\nLo! error, death, calamity,\nThe leprous stain, the demon flies,\nFrom beds of pain the sick arise.\n\nThe hungry seas forego their prey,\nThe prisoner's cruel chains give way,\nWhile palsied limbs, and chattels lost,\nBoth young and old recovered boast.\n\nAnd perils perish; plenty's hoard\nIs heaped on hunger's famished board.\nLet those relate, who know it well,\nLet Padua of her Patron tell.\n\nThe hungry seas forego their prey,\nThe prisoner's cruel chains give way,\nWhile palsied limbs, and chattels lost,\nBoth young and old recovered boast.\n\nMay glory to the Father be,\nAnd to the Son eternally,\nAnd to the Spirit, in essence one,\nIn Persons three, be honor done.\n\nThe hungry seas forego their prey,\nThe prisoner's cruel chains give way,\nWhile palsied limbs, and chattels lost,\nBoth young and old recovered boast.\n\nV. Pray for us, Blessed Anthony:\nR. That we may be made worthy of the promises of Christ.\nLet us pray:\nO God! let the votive commemoration of Blessed Anthony, Thy confessor, be a source of joy to Thy Church, that she may always be fortified with spiritual assistance and may deserve to possess eternal joy. Through Christ, our Lord. Amen.",
+].join("\n\n");
+
+/** The ninth Tuesday adds Hammer's closing prayer at the end of the novena. */
+const ANTHONY_NINTH_TUESDAY_PRAYERS = [
+  ANTHONY_TUESDAY_PRAYERS,
+  "O Blessed St. Anthony, my faithful intercessor, I have now, through the grace of God and thy assistance, finished the pious exercises in thy honor. I had, indeed, the will and desire to do all in my power for thy greater honor and glory, but thou knowest my weakness and misery and want of devotion; wherefore, I beseech thee to make amends for all my failings, and to offer thy merits and good works for me, that I may find grace and hearing with God. Obtain for me, through thy merits, the blessing of a virtuous life, a true knowledge of my God and of myself, a perfect mortification of my senses, and a complete triumph over all temptations. I place myself under thy special protection, assist me to follow thy example in life and come to my aid in death: in that dread moment let me experience the might of thy help. Amen.",
+].join("\n\n");
+
+/** The prayer the 1852 St. Teresa novena directs to be said at the start of every day. */
+const TERESA_DAILY_PRAYER =
+  "Seraphic and most glorious St. Teresa, spouse of Jesus Christ, worthy to be compared to the angels, by the purity of your body and soul; to the archangels, by the wonderful things you have accomplished for the greater glory of God; to the principalities, by the eminent gift you received of conducting souls to the most sublime perfection; to the powers, by the wonderful power God has given you over the spirits of darkness; to the virtues, by the splendid miracles you performed; to the dominations, by the singular talent that heaven confided to you for forming terrestrial angels. Throne of the Most High! on whom Jesus Christ, your divine spouse has deigned to repose; luminous cherub, whose writings, full of light and fire, enlighten and inflame the world; ardent and burning seraph, who died by the violence of divine love, and who procures the same happiness for so many virgins, the spouses of Jesus Christ: my most amiable mother, I rejoice at the signal favours by which you have merited to be loved and chosen as spouse, by the most perfect and most accomplished of spouses. Giving you as a pledge a sacred nail which pierced his divine hand, he charged you, as his faithful spouse, to extend on earth His honour and glory; He discovered to you his charms, He showed himself to you in all his beauty; He honoured you with his visits, communicated to you His intimate secrets, overwhelmed you with an infinity of other graces all wonderful; and to crown these favours, He inflamed your soul with the fire of his holy love: full of confidence in your maternal bounty, I implore your beneficent charity, that you may obtain for me of your omnipotent spouse, the grace to lead a truly Christian and religious life, the happiness of dying in the arms of Jesus and Mary; that you vouchsafe yourself, then, to favour me with your regards and assistance; and to procure me at present what I ask of God in this novena, if it be for His greater glory, for your honour, and the good of my soul, in time and eternity. Amen.";
+
+const TERESA_NOVENA_DAY_1 = [
+  TERESA_DAILY_PRAYER,
+  "Glorious mother, St. Teresa of Jesus, who are, among all virgins, what the seraphim are among the angels; happy virgin, consumed by the fire of divine love, and filled with the seraphic spirit, if my prayers, my vows, and desires, tend to the greater glory of God, present them to the Divine Majesty, and conjure Jesus Christ, your divine spouse, to hear them. But, alas! if I am deceived in my petitions, I earnestly entreat of you to rectify them, to form for me new ones, and to obtain for me what will be most agreeable to God, most conducive to His glory, and most advantageous to my soul. Amen.",
+  "My most sweet Jesus, Divine Spouse of Teresa, who engraved in her soul sentiments of humility so solid, so noble, and at the same time so profound, that she never relaxed in the sublime state of sanctity to which you were pleased to raise her, and in which she knew how to maintain herself, without losing sight of her baseness and nothingness, though favoured with the most singular graces, elevated to the highest contemplation, and loaded with the applause that her heroic actions and splendid miracles drew on her. I entreat you, divine Jesus, by this profound humility of your spouse, to grant me a humility equally solid and true, which may make me know my sins, may dissipate the darkness of my soul, and may preserve me from the subtle poison of vanity; which may, in fine, dispose my heart to receive what I ask of you in this novena, if it be for the greater glory of God. Amen.",
+].join("\n\n");
+
+const TERESA_NOVENA_DAY_2 = [
+  TERESA_DAILY_PRAYER,
+  "My most sweet Jesus, divine spouse of St. Teresa, who inspired her with the most rigorous spirit of penance, who suggested to her the means of peopling the world and the deserts with illustrious penitents and holy anchorites, of filling with this same spirit the most timid souls, and of making an infinite number of females, who have become your spouses, triumphed over the natural delicacy of their sex, and who leading an angelical life, resemble those tender flowers that spring up and flourish in the midst of thorns; I entreat of you, O Divine Jesus! by this austere penance of your spouse, to grant me the grace to mortify my body, to reduce it to servitude, to lead a truly Christian life, which may make me embrace voluntarily the holy rigours of penance, in order that I may obtain the favours I ask in this novena, if it be to the greater glory of God. Amen.",
+].join("\n\n");
+
+const TERESA_NOVENA_DAY_3 = [
+  TERESA_DAILY_PRAYER,
+  "My most sweet Jesus, divine spouse of Teresa, who filled her with the spirit of fortitude, and with an heroical courage, capable of undergoing immense labours for your glory, and who gave her an invincible patience in all trials, placing all her happiness and glory only in suffering, and unceasingly repeating in her magnanimous heart, inflamed with your love, these beautiful words, either to suffer or to die; I entreat of you, my Divine Jesus, by this invincible patience of your illustrious spouse, to grant me a patience so perfect, that it may be my consolation and my glory in the pains and labours of this miserable life, that it may insure me a happy and eternal life; that it may incline me efficaciously to live in sufferings and to love them, to be crucified with you, and that it may, in fine, merit me the favours which I ask in this novena, if it is to the greater glory of God. Amen.",
+].join("\n\n");
+
+const TERESA_NOVENA_DAY_4 = [
+  TERESA_DAILY_PRAYER,
+  "My most sweet Jesus, Divine Spouse of St. Teresa, who tried the constancy and fidelity of your holy lover by many years of interior pains the most sensible; who purified her love by concealing yours; locked the bonds of her union with you by the most dolorous abandonment, and by the subtraction of your favours: raised her to the highest degree of prayer by drynesses and aridities, and was her guide and master in her way to the most sublime perfection. I conjure you, divine Jesus, by this long martyrdom of your faithful spouse, to support my weakness in the temptations and trials of this life; to animate my confidence in interior pains and perplexities; to preserve my soul from tepidity and disgust; to fix my imagination, enlighten my mind, enkindle my heart in the holy exercise of prayer; to conduct me yourself in the narrow and difficult way of salvation, and in fine, to grant me what I ask of you in this novena, if it be for the greater glory of God. Amen.",
+].join("\n\n");
+
+const TERESA_NOVENA_DAY_5 = [
+  TERESA_DAILY_PRAYER,
+  "My most sweet Jesus, divine spouse of St. Teresa, who favoured her with a degree of prayer, so high and so sublime, that she may be compared to the cherubim and seraphim, and that she has become the most enlightened and most learned mistress in this science of the saints, to teach to all souls who walk in the ways of prayer, meditation, and contemplation, the sure road they should follow in all their different degrees; I entreat you, my divine Jesus, by this high and sublime degree of prayer to which you raised your spouse—to grant me the grace to become a faithful disciple of this seraphic mistress, and to profit so in her school, as to merit to attain to a degree of prayer, attentive, fervent, and solid, which may make me observe your holy law with fruit, and may obtain for me the graces which I ask of you in this novena, if it is for the greater glory of God. Amen.",
+].join("\n\n");
+
+const TERESA_NOVENA_DAY_6 = [
+  TERESA_DAILY_PRAYER,
+  "O, my most sweet Jesus! divine spouse of Teresa, who favoured her with a faith so firm in your mysteries, that she believed them more firmly than if she had seen them with her corporal eyes, so luminous that it served her as a flambeau to walk surely in the most elevated paths of the most sublime perfection; in fine, so lively and so inflamed that its light has procured the conversion of an entire world. I entreat you, my divine Jesus, by this wonderful faith with which You deigned to enlighten your glorious spouse, to give me a lively, enlightened, firm, a submissive faith, in all that our mother the holy Church teaches me; that it may direct my ways, and merit for me the favours I ask in this novena, if it be for the greater glory of God. Amen.",
+].join("\n\n");
+
+const TERESA_NOVENA_DAY_7 = [
+  TERESA_DAILY_PRAYER,
+  "My most sweet Jesus, divine spouse of St. Teresa, inspire me with the same hope and confidence that made her undertake and execute things, in appearance, impossible. Animated with your spirit, she founded many monasteries, having no other foundation and resource than your Divine Providence; she counted on the success of her enterprises in her greatest persecutions; and whilst the world and hell made the most violent efforts to overturn her designs, she kept firm against the cunning of the infernal serpent, and the opposition of men; she ceded neither to their unjust suspicions, nor to their vain alarms; without being stopped by the too human opinions of persons even the most learned, Teresa constantly followed the sublime road laid down for her by the Holy Ghost; and near, if I may say so, sinking under the fury of the tempests which arose against her, her great soul never lost anything of the unshaken confidence she had in your divine promises. I entreat you, my Divine Jesus, by this firm hope with which your spouse was animated, to grant me a like hope of my salvation, the means necessary to operate it, and to accomplish all that will be for the glory of God, without fear or human respect ever stopping me; I also pray you to hear the petitions of this novena, if it be for your glory. Amen.",
+].join("\n\n");
+
+const TERESA_NOVENA_DAY_8 = [
+  TERESA_DAILY_PRAYER,
+  "My most sweet Jesus, divine spouse of St. Teresa, who so inflamed her with your love, that under a human form she was like a seraph; who wounded her heart with a ray so vivid of your divine charity, that this sacred fire consumed her with its celestial flames, that it broke by its impetuosity the bonds that retained her captive on the earth; and her soul, carried on the wings of the purest love, was elevated even to the foot of the throne of your divine majesty; I entreat you, divine Jesus, by the love of which your spouse was the happy victim, to inflame my heart with this same divine fire, that it may be consumed as a holocaust of agreeable odour in your holy presence; that all the instants of my life may be sacrificed to divine love, and that my last sigh may be a sigh of love. Let love raise my hands, and do you a holy violence, to obtain what I ask of you in this novena, if it is for the greater glory of God, the honour of your spouse, and the good of my soul. Amen.",
+].join("\n\n");
+
+const TERESA_NOVENA_DAY_9 = [
+  TERESA_DAILY_PRAYER,
+  "My most sweet Jesus, divine spouse of St. Teresa, whose life was one chain of favours and extraordinary graces, a continual exercise of your holy presence, an intimate union with your infinite greatness, a perfect sacrifice of love; and whose death was the master-piece of your grace—the prodigy of this ineffable union—the triumph of charity; I conjure you, Divine Jesus, by this death so precious in your eyes, to make me walk every day of my life in your holy presence; to keep me constantly united to yourself, as to my only and sovereign good; to pour into my heart some sparks of this sacred fire with which Teresa was consumed, in order that I, in the decisive moment in which time ends, and eternity commences, may have the sweet and lively confidence of enjoying your divine presence; of being inebriated with those torrents of delights of which you are the source and principle; and of burning, for ever and ever, with this sacred fire, of which that which inflamed Teresa on earth, was only the symbol, the pledge, and foretaste.\n\nMy most sweet Jesus, divine spouse of St. Teresa, who gave her, like your beloved disciple, Mary for mother, and inspired her, from her infancy, with a devotion so lively and tender towards her, that she was all her life entirely devoted to her service—constantly attached to her worship, and most zealous for her honour, that she conceived at the foot of her altars the project of her reform, executed it under her auspices, and put this great work under her protection; that she transmitted this same spirit to her children, and preserves amongst them the love of their holy state. I conjure you, divine Jesus, by this tender and filial devotion of your spouse for the most holy Virgin, to grant me the grace to have her for my mother; to consecrate myself to her service; to be zealous for her honour, and ardent to extend her worship; to multiply the number of her servants and children, that I may have her for advocate with you.\n\nYes, holy Virgin, I prostrate myself at your feet; I humbly entreat you to present my vows and prayers to your divine Son. I am unworthy of being heard; all my hope is founded on your powerful intercession, to obtain the graces which I ask at the end of this novena.—Amen.",
 ].join("\n\n");
 
 /**
@@ -2641,6 +2723,199 @@ export const novenaGroupThree: CuratedEntry[] = [
       typicalStartDate: "8 July, ending on the feast of Our Lady of Mount Carmel, 16 July",
       relatedFeastSlug: "optional-memorial-our-lady-of-mount-carmel",
       citations: [CARMEL_NOVENA_1852, CE_CARMELITE_ORDER, CE_SCAPULAR],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-nine-tuesdays-saint-anthony",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [ANTHONY_NINE_TUESDAYS_1889, CE_ANTHONY_OF_PADUA],
+    payload: {
+      slug: "novena-nine-tuesdays-saint-anthony",
+      title: "The Nine Tuesdays of St. Anthony of Padua",
+      summary:
+        "The novena of nine consecutive Tuesdays in honour of St. Anthony of Padua, as Bonaventure Hammer published it in Cincinnati in 1889. Each Tuesday the faithful visit a church, or pray before the saint's picture at home, receive the sacraments where they can, and say the preparatory prayer, the prayer to the Infant Jesus, the collect of St. Anthony and his Responsory; a closing prayer is added on the ninth Tuesday.",
+      background:
+        "St. Anthony was born at Lisbon in 1195, joined the Friars Minor after the relics of the first Franciscan martyrs were brought to Coimbra, preached across Italy and southern France, and died near Padua on 13 June 1231, aged thirty-six. Hammer's booklet, first published in German by the Sodality of the Blessed Virgin Mary at the Franciscans' St. Francis Church in Cincinnati, explains that the saint was buried on a Tuesday and that Tuesday became his day; it dates the nine-Tuesday novena to 1617 at Bologna, where, the book relates, he appeared in a dream to a woman who had asked him for a grace and told her to visit a church of his Order on nine Tuesdays, receiving the sacraments and praying before his picture. The book also sets a practice of virtue for each week, which the day meditations summarise. Its Responsory is printed in Latin (Si quaeris miracula) and in an English verse translation; the translation is reproduced here.",
+      intentionTheme:
+        "a particular necessity entrusted to St. Anthony, together with a virtuous life and his help at the hour of death",
+      days: [
+        {
+          day: 1,
+          title: "First Tuesday: Charity",
+          meditation:
+            "Hammer gives a practice of virtue for each week alongside the prayers, since devotion to a saint consists in imitating him. The first is charity, shown above all in friendliness towards those one finds disagreeable: Christ tells us to be reconciled with a brother before bringing a gift to the altar.",
+          prayerText: ANTHONY_TUESDAY_PRAYERS,
+          intentionPrompt:
+            "Who is the person I find hardest to be kind to, and what small kindness can I show them this week?",
+        },
+        {
+          day: 2,
+          title: "Second Tuesday: Accepting the Cross",
+          meditation:
+            "This week's practice is to accept every cross God sends in a spirit of penance. The book quotes St. Augustine's prayer to be punished in this world and spared in the next, and Christ's word that whoever would follow him must deny himself and take up his cross.",
+          prayerText: ANTHONY_TUESDAY_PRAYERS,
+          intentionPrompt: "What trouble have I been resenting that I could offer to God instead?",
+        },
+        {
+          day: 3,
+          title: "Third Tuesday: Guarding the Tongue",
+          meditation:
+            "The third week asks for mortification of the tongue. St. James warns that whoever thinks himself religious without bridling his tongue deceives his own heart.",
+          prayerText: ANTHONY_TUESDAY_PRAYERS,
+          intentionPrompt: "Whom have I hurt by my words, and what will I not say this week?",
+        },
+        {
+          day: 4,
+          title: "Fourth Tuesday: The Predominant Fault",
+          meditation:
+            "This week is given to knowing and amending one's predominant fault, the one from which many others spring. The kingdom of heaven suffers violence, and the violent bear it away.",
+          prayerText: ANTHONY_TUESDAY_PRAYERS,
+          intentionPrompt:
+            "What is the fault I fall into most often, and what is my plan against it?",
+        },
+        {
+          day: 5,
+          title: "Fifth Tuesday: The Holy Souls",
+          meditation:
+            "All the good works of this week are to be offered for the souls in Purgatory. It is a holy and wholesome thought, says the Book of Maccabees, to pray for the dead, that they may be loosed from their sins.",
+          prayerText: ANTHONY_TUESDAY_PRAYERS,
+          intentionPrompt: "Which of my own dead will I pray for by name this week?",
+        },
+        {
+          day: 6,
+          title: "Sixth Tuesday: The Presence of God",
+          meditation:
+            "This week's practice is to remember the presence of God in everything one does, as God said to Abraham: walk before me, and be perfect.",
+          prayerText: ANTHONY_TUESDAY_PRAYERS,
+          intentionPrompt:
+            "At what moments of my ordinary day can I remind myself that God is present?",
+        },
+        {
+          day: 7,
+          title: "Seventh Tuesday: The Hour of Death",
+          meditation:
+            "Each evening on going to bed, remember the hour of death and say to yourself that perhaps you will wake in eternity, asking the Lord's mercy. Scripture promises that whoever remembers his last end will never sin.",
+          prayerText: ANTHONY_TUESDAY_PRAYERS,
+          intentionPrompt: "If I were to die tonight, what would I want to have set right today?",
+        },
+        {
+          day: 8,
+          title: "Eighth Tuesday: The Church",
+          meditation:
+            "The prayers and good works of the eighth week are offered for the Church, the Holy Father, the bishops and priests, following St. James: pray for one another, that you may be saved.",
+          prayerText: ANTHONY_TUESDAY_PRAYERS,
+          intentionPrompt: "Which priest or bishop will I pray for by name this week?",
+        },
+        {
+          day: 9,
+          title: "Ninth Tuesday: Fasting and Alms",
+          meditation:
+            "The last week asks for some slight mortification of the appetite and, where possible, an alms towards a good work, for prayer is good with fasting and alms. On this Tuesday the closing prayer is added, asking St. Anthony to make up for the failings of the novena.",
+          prayerText: ANTHONY_NINTH_TUESDAY_PRAYERS,
+          intentionPrompt: "What will I give up, and to whom will I give, as this novena ends?",
+        },
+      ],
+      durationDays: 57,
+      structure: "nine_weeks",
+      associatedSaintSlug: "saint-anthony-of-padua",
+      typicalStartDate: "Any Tuesday, continuing on the eight Tuesdays that follow",
+      citations: [ANTHONY_NINE_TUESDAYS_1889, CE_ANTHONY_OF_PADUA],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-teresa-of-avila",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [TERESA_NOVENA_1852, CE_TERESA_OF_AVILA],
+    payload: {
+      slug: "novena-saint-teresa-of-avila",
+      title: "Novena in Honour of St. Teresa of Jesus",
+      summary:
+        "A nine-day novena to St. Teresa of Avila, translated from the French and published in London in 1852. Each day considers her spirit of prayer under one heading, from humility to her happy death; the daily prayer to the saint is followed by a prayer to Christ, her Spouse, asking for the same grace.",
+      background:
+        "Teresa was born at Avila on 28 March 1515, entered the Carmelite convent of the Incarnation there, and in 1562 founded St. Joseph's at Avila, the first convent of her reform, followed by foundations across Spain. She died at Alba de Tormes on 4 October 1582; the next day was reckoned 15 October by the reform of the calendar, and her feast is kept on that date. The 1852 booklet directs that each day begin, after the sign of the cross and an act of contrition, with the prayer 'Seraphic and most glorious St. Teresa', and continue with the day's meditation and prayer, three Our Fathers and three Hail Marys in honour of the Holy Trinity, the petition, and the anthem and prayer of the saint. It prints a preparatory prayer once, before the first day, and it is given on the first day here. The meditations are summarised in the day meditations; the prayers are reproduced in full.",
+      intentionTheme: "the spirit of prayer, through the intercession of St. Teresa of Jesus",
+      days: [
+        {
+          day: 1,
+          title: "Humility",
+          meditation:
+            "Humility means knowing ourselves well, despising ourselves sincerely, and bearing, even desiring, the contempt of others. The meditation argues that without prayer Teresa, gifted beyond most of her time, might have been vain; it was prayer that showed her God's greatness and her own misery.",
+          prayerText: TERESA_NOVENA_DAY_1,
+          intentionPrompt: "Where am I seeking esteem that I should let go of?",
+        },
+        {
+          day: 2,
+          title: "Penance",
+          meditation:
+            "Teresa did not begin the edifice of her perfection with penance but with prayer, as David first prostrated himself before God and then clothed himself in sackcloth. Prayer gives penance its meaning; the day asks that the body too be offered to God.",
+          prayerText: TERESA_NOVENA_DAY_2,
+          intentionPrompt: "What penance, small and real, will I take up today?",
+        },
+        {
+          day: 3,
+          title: "Patience",
+          meditation:
+            "Teresa was charged with restoring the ancient observance of Carmel, a harder task than founding something new, because a reformer must overcome customs and prejudices as well as passions. Her patience under opposition and interior trials was drawn from prayer.",
+          prayerText: TERESA_NOVENA_DAY_3,
+          intentionPrompt: "What opposition or delay am I being asked to bear patiently?",
+        },
+        {
+          day: 4,
+          title: "Interior Pains",
+          meditation:
+            "Temptations, drynesses and a sense of abandonment make prayer laborious, and yet then it is most necessary. With the best will we seem to have none, and the soul can only throw itself on God; Teresa knew long years of such trials.",
+          prayerText: TERESA_NOVENA_DAY_4,
+          intentionPrompt: "Do I give up praying when prayer becomes dry?",
+        },
+        {
+          day: 5,
+          title: "Prayer Itself",
+          meditation:
+            "Prayer is not like other sciences: it is learned only by praying. Everyone knows prayer engages mind and heart, but few will silence the imagination and wait on God; Teresa let the Holy Ghost lead her and became a mistress of prayer for others.",
+          prayerText: TERESA_NOVENA_DAY_5,
+          intentionPrompt: "How much time have I actually given to prayer this week?",
+        },
+        {
+          day: 6,
+          title: "Faith",
+          meditation:
+            "Whoever comes to God must believe, says the Apostle; and to believe firmly we must draw near to God. Faith led Teresa to prayer and prayer perfected her faith, while the senses draw us away from God.",
+          prayerText: TERESA_NOVENA_DAY_6,
+          intentionPrompt: "Which truth of the faith do I find hardest to hold on to?",
+        },
+        {
+          day: 7,
+          title: "Hope",
+          meditation:
+            "Christian hope has two objects, salvation and the means of salvation, and prayer, above all mental prayer, obtains both by fixing the heart in God, who turns all things to the good of those who love him. Teresa's confidence carried her through every obstacle to her foundations.",
+          prayerText: TERESA_NOVENA_DAY_7,
+          intentionPrompt: "What am I afraid to attempt for God, and why?",
+        },
+        {
+          day: 8,
+          title: "The Love of God",
+          meditation:
+            "Prayer is at once the school and the exercise of love: it is in meditation, the Psalmist says, that the fire is kindled. Love is the life of the soul and prayer is its food; what set Teresa apart from the worldly was that she nourished love by prayer.",
+          prayerText: TERESA_NOVENA_DAY_8,
+          intentionPrompt: "What would it look like to love God with my whole heart today?",
+        },
+        {
+          day: 9,
+          title: "Her Happy End",
+          meditation:
+            "The spirit of prayer stayed with Teresa to her last hour, so that, as the Church sings in her office, she died of love more than of illness. It is hardly possible to be united to God at death without the habit of prayer in life. The last prayer also turns to Our Lady, whom Teresa took for her mother.",
+          prayerText: TERESA_NOVENA_DAY_9,
+          intentionPrompt: "What habit of prayer do I want to carry to the end of my life?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      associatedSaintSlug: "saint-teresa-of-avila",
+      typicalStartDate:
+        "7 October, ending on her feast on 15 October; the book also names 8-16 July, 19-27 August and 11-19 March",
+      citations: [TERESA_NOVENA_1852, CE_TERESA_OF_AVILA],
     },
   },
 ];
