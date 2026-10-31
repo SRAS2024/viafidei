@@ -2,6 +2,7 @@ import type { CuratedEntry } from "./index";
 
 import { novenaGroupOne } from "./novenas/group-1";
 import { novenaGroupTwo } from "./novenas/group-2";
+import { novenaGroupThree } from "./novenas/group-3";
 
 /**
  * The three novenas that predate the per-group files.
@@ -335,4 +336,9 @@ const LEGACY: CuratedEntry[] = [
  * path so the bare `./novenas` specifier keeps resolving to THIS file (see the
  * module-resolution note in `./guides.ts`).
  */
-export const novenaKnowledge: CuratedEntry[] = [...LEGACY, ...novenaGroupOne, ...novenaGroupTwo];
+export const novenaKnowledge: CuratedEntry[] = [
+  ...LEGACY,
+  ...novenaGroupOne,
+  ...novenaGroupTwo,
+  ...novenaGroupThree,
+];
