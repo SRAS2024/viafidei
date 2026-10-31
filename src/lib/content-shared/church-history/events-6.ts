@@ -27,7 +27,7 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     tags: ["schism", "papacy"],
     location: "Lateran Palace, Rome",
     context:
-      "Asked by Constantine to settle the disputed see of Carthage, Pope Miltiades holds a synod of eighteen bishops from Gaul and Italy in the Lateran Palace, which upholds Caecilian as lawful bishop against the rival party of Majorinus.",
+      "Asked by Constantine to settle the disputed see of Carthage, Pope Miltiades sits in judgment at the Lateran Palace with eighteen Italian and Gallic bishops, and together they uphold Caecilian as lawful bishop against the rival party of Majorinus.",
     significance:
       "The first Roman judgment in the Donatist schism, a rigorist break that divided the African Church for generations.",
     citation: `${NA}10318a.htm`,
@@ -35,7 +35,7 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
   },
   {
     slug: "arius-and-bishop-alexander",
-    title: "Arius's quarrel with Bishop Alexander",
+    title: "The Arian dispute breaks out at Alexandria",
     year: 318,
     precision: "circa",
     era: "fathers",
@@ -43,9 +43,9 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     tags: ["dogma"],
     location: "Alexandria",
     context:
-      "The Alexandrian priest Arius teaches that the Son of God is a creature with a beginning; his bishop, Alexander, opposes him, and in 321 a synod of nearly a hundred Egyptian and Libyan bishops condemns him.",
+      "The Alexandrian priest Arius falls out with his bishop, Alexander, over whether the Son truly shares the Father's divine being; in 321 Alexander has him condemned at a synod of almost a hundred bishops from Egypt and Libya.",
     significance:
-      "The opening of the Arian crisis, which spread across the East and led Constantine to summon the Council of Nicaea.",
+      "The opening of the Arian crisis: Arius wins backers among the bishops of Syria, and the Council of Nicaea condemns his teaching in 325.",
     citation: `${NA}01718a.htm`,
   },
   {
@@ -486,7 +486,7 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     tags: ["papacy", "schism"],
     location: "Rome",
     context:
-      "After Liberius dies, rival factions elect Damasus and the deacon Ursinus; the struggle turns to street violence, with 137 people killed in a single basilica, and the city prefects banish Ursinus.",
+      "After Liberius dies, rival factions elect Damasus and the deacon Ursinus, and the struggle turns to bloodshed. The main accounts blame Damasus's partisans, who storm a basilica held by Ursinus's followers, where 137 die; the city prefects then banish Ursinus to Gaul.",
     significance:
       "A grim episode, plainly recorded; Damasus went on to have Jerome revise the Latin Bible and to honour the martyrs of the catacombs with verse inscriptions.",
     citation: `${W}Pope_Damasus_I`,
@@ -502,9 +502,9 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     tags: ["doctor"],
     location: "Caesarea, Cappadocia",
     context:
-      "Basil succeeds Eusebius in the see of Caesarea, consecrated according to tradition on 14 June 370.",
+      "Basil is raised to the see of Caesarea in 370; tradition places his consecration on 14 June.",
     significance:
-      "He stands firm against the Arianising Emperor Valens and builds the Basileiad, a great complex for the poor and the sick.",
+      "As bishop he defies Valens, an emperor who favoured the Arians, and builds the Basileiad, a great complex for the care of the poor and the sick.",
     citation: `${NA}02330b.htm`,
     links: { doctors: ["doctor-basil-the-great"] },
   },
@@ -631,7 +631,7 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     context:
       "When the senator Symmachus asks Valentinian II to restore the pagan Altar of Victory, removed from the Senate house by Gratian in 382, Ambrose persuades the young emperor to refuse.",
     significance:
-      "A sign of paganism's waning hold on the Roman state; later petitions were turned away as well.",
+      "A sign of paganism's waning hold on the Roman state; later appeals were refused too, and the altar came back only briefly under the usurper Eugenius (392–394).",
     citation: `${W}Altar_of_Victory`,
     links: { doctors: ["doctor-ambrose-of-milan"] },
   },
@@ -680,7 +680,7 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     context:
       "Pressed by the court of the Arian Empress Justina to give up one of Milan's basilicas for Arian worship, Ambrose and his people refuse to hand it over.",
     significance:
-      "The struggle asserts the bishop's independence from the court and spurs the church chant of which Ambrose laid the foundation.",
+      "The standoff upholds the bishop's independence from the court and gives a strong push to the church singing Ambrose had begun in Milan.",
     citation: `${NA}01383c.htm`,
     links: { saints: ["saint-ambrose"], doctors: ["doctor-ambrose-of-milan"] },
   },
@@ -694,9 +694,9 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     tags: ["monastic"],
     location: "Bethlehem",
     context:
-      "Having left Rome in 385, the widow Paula, her daughter Eustochium and Jerome settle at Bethlehem, where two monasteries are founded, one for men and one for women.",
+      "Having left Rome in September 385 and toured the holy places and Egypt, the widow Paula and her daughter Eustochium make their home at Bethlehem, as Jerome does; a monastery for men and a convent for women are set up there.",
     significance:
-      "Bethlehem becomes Jerome's home for the rest of his life and the workshop of his biblical translation and commentary.",
+      "Bethlehem becomes the base of Jerome's work on the Scriptures, in which Paula and Eustochium, who master Hebrew, take a growing share.",
     citation: `${NA}11582a.htm`,
     links: { saints: ["saint-jerome"], doctors: ["doctor-jerome"] },
   },
@@ -870,7 +870,7 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     context:
       "In June 411, 286 Catholic and 279 Donatist bishops meet before the emperor's representative Marcellinus; Augustine argues the Catholic case, and Marcellinus rules for the Catholics on every point.",
     significance:
-      "Augustine's defence of a Church that bears with sinners in order to convert them prevails, and Donatism dwindles away over the following decades.",
+      "Augustine's picture of a Church that bears with sinners in order to convert them prevails. The ruling is enforced with harsh imperial laws, which Augustine had come to approve though he never wanted heretics put to death, and the schism slowly withers.",
     citation: `${NA}02084a.htm`,
     links: { saints: ["saint-augustine-of-hippo"], doctors: ["doctor-augustine-of-hippo"] },
   },
@@ -1010,10 +1010,10 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     kind: "mission",
     location: "Ireland",
     context:
-      "Celestine I sends Palladius as the first bishop for the Irish who already believe in Christ.",
+      "Prosper of Aquitaine records that in 431 Palladius, ordained by Pope Celestine I, is sent as the first bishop for the Irish who already believe in Christ.",
     significance:
-      "The first recorded papal mission to Ireland; Palladius soon leaves the island and dies in Britain the following year.",
-    citation: `${NA}03477c.htm`,
+      "The first recorded papal mission to Ireland, and a sign that Christians lived there before Patrick. What became of Palladius is uncertain: later tradition has him leave the island quickly, though he seems to have worked in Leinster.",
+    citation: `${W}Palladius_(bishop_of_Ireland)`,
     links: { popes: ["pope-saint-celestine-i"] },
   },
   {
@@ -1042,9 +1042,9 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     tags: ["doctor"],
     location: "Ravenna",
     context:
-      "Peter is raised to the metropolitan see of Ravenna, where he enjoys the patronage of the Empress Galla Placidia.",
+      "Peter is raised to the metropolitan see of Ravenna and gains the support of the Empress Galla Placidia.",
     significance:
-      "His preaching wins him the name Chrysologus, the golden-worded, and a collection of 176 of his sermons survives.",
+      "His preaching earned him the name Chrysologus, golden-worded, and an eighth-century collection of 176 sermons preserves much of it, though some pieces in it are not his.",
     citation: `${NA}11762c.htm`,
     links: { doctors: ["doctor-peter-chrysologus"] },
   },
@@ -1060,7 +1060,7 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     context:
       "Honouring the Council of Ephesus's proclamation of Mary as Mother of God, Pope Sixtus III builds and consecrates the great basilica on the Esquiline, with mosaics that survive to this day.",
     significance:
-      "Rome's largest Marian church, regarded as the first Marian sanctuary and the mother of all Marian shrines.",
+      "No church of Our Lady in Rome is larger; one of the city's four major basilicas, it has long been a chief centre of Marian devotion in the West.",
     citation: `${W}Santa_Maria_Maggiore`,
   },
   {
@@ -1118,17 +1118,16 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     slug: "tome-of-leo",
     title: "Pope Leo's Tome to Flavian",
     year: 449,
-    date: "0449-06-13",
-    precision: "day",
+    precision: "year",
     era: "fathers",
     kind: "document",
     tags: ["dogma", "papacy"],
     location: "Rome → Constantinople",
     context:
-      "Approving Flavian's condemnation of Eutyches, Pope Leo sends him a dogmatic letter setting out the faith in one Christ, true God and true man, in two natures.",
+      "Taking the side of Flavian of Constantinople, who had condemned Eutyches, Pope Leo sends him a doctrinal letter setting out the faith in one Christ, true God and true man, in two natures.",
     significance:
-      "Brushed aside at the Robber Synod that summer, it is acclaimed at Chalcedon in 451 as an expression of the Catholic faith.",
-    citation: `${NA}06098c.htm`,
+      "Leo's legates carry it to the council at Ephesus later that year, which never reads it; at Chalcedon in 451 it is read aloud and the bishops acclaim it, crying that Peter has spoken through Leo.",
+    citation: `${W}Pope_Leo_I`,
     links: { popes: ["pope-saint-leo-the-great"], doctors: ["doctor-leo-the-great"] },
   },
   {
@@ -1157,7 +1156,7 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     kind: "saint",
     location: "Paris",
     context:
-      "As Attila's Huns approach, the young consecrated virgin Genevieve urges the people of Paris to pray and do penance rather than flee, and the invaders turn toward Orléans.",
+      "As Attila's Huns approach, the consecrated virgin Genevieve urges the people of Paris to pray and do penance rather than flee, and the invaders turn toward Orléans.",
     significance:
       "The beginning of her role as protector of the city; she is venerated as the patroness of Paris.",
     citation: `${NA}06413f.htm`,
@@ -1299,10 +1298,10 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     tags: ["papacy"],
     location: "Rome → Constantinople",
     context:
-      "Writing to Emperor Anastasius I, Gelasius distinguishes the sacred authority of bishops from royal power, each independent in its own sphere and meant to work in harmony.",
+      "Writing to Emperor Anastasius I, Gelasius distinguishes two ruling powers, the sacred authority of bishops and the power of kings. He ranks the bishops' charge the higher, since the souls of rulers too are in their care, while granting that in worldly affairs the clergy defer to the emperor.",
     significance:
-      "The classic statement of the two powers, which underlay Western thinking on Church and state for nearly a thousand years.",
-    citation: `${W}Duo_sunt`,
+      "Its scheme of two distinct powers, the spiritual above the temporal, framed medieval argument over the rights of popes and kings for centuries.",
+    citation: `${W}Famuli_vestrae_pietatis`,
     links: { popes: ["pope-saint-gelasius-i"] },
   },
   {
@@ -1333,7 +1332,7 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     context:
       "A Latin creed on the Trinity and the Incarnation, long attributed to Athanasius, is composed, most likely in southern Gaul in the late fifth or early sixth century.",
     significance:
-      "Recited for centuries at Sunday Prime and still used on Trinity Sunday, it became a standard Western statement of faith in the Trinity and in Christ.",
+      "A standard Western confession of the Trinity and the Incarnation, it was said for centuries at Sunday Prime and, from 1960, only on Trinity Sunday; since Vatican II the Roman liturgy has all but ceased to use it.",
     citation: `${W}Athanasian_Creed`,
   },
   {
@@ -1374,9 +1373,9 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     kind: "council",
     location: "Orléans",
     context:
-      "Summoned by Clovis, the bishops of the Frankish kingdom rule on the right of sanctuary in churches, the ordination of freemen, and the relations of monks with abbots and of abbots with bishops.",
+      "At Clovis's summons the bishops of the Frankish kingdom issue thirty-one canons, among them rules on churches as places of refuge, on ordaining a free man only with leave from the king or a judge, and on the chain of obedience from monk to abbot to bishop.",
     significance:
-      "The first settlement between the Frankish state and the Church after Clovis's baptism.",
+      "Clovis gives the canons his approval, making the council the earliest settlement of Church affairs agreed between a Frankish king and his bishops.",
     citation: `${NA}11318a.htm`,
   },
   {
@@ -1418,9 +1417,9 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     kind: "document",
     location: "Pavia",
     context:
-      "Accused of disloyalty to the Ostrogothic king Theodoric, the Roman statesman Boethius is imprisoned and condemned unheard; in prison he writes his Consolation before he is executed.",
+      "Charged with conspiring against Theodoric, the Ostrogothic king of Italy, the Roman statesman Boethius is jailed and sentenced without a hearing; in prison he writes his Consolation before he is put to death.",
     significance:
-      "A classic of Western literature; his translations of Aristotle taught the medieval schools, and Pavia honours him as St Severinus Boethius.",
+      "Few books were more read in the Middle Ages; his Latin versions of Aristotle's logic long shaped the schools, and in 1883 Rome confirmed Pavia's cult of him as St Severinus Boethius.",
     citation: `${NA}02610b.htm`,
   },
   {
@@ -1508,9 +1507,9 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     kind: "event",
     location: "Constantinople",
     context:
-      "Justinian and Patriarch Menas inaugurate the new church of Holy Wisdom, raised in under six years by the architects Anthemius of Tralles and Isidore of Miletus.",
+      "The rebuilt church of Holy Wisdom, the third on the site and finished in under six years to designs by Anthemius of Tralles and Isidore of Miletus, is inaugurated by Emperor Justinian and Patriarch Menas.",
     significance:
-      "The largest church in the world for more than five hundred years and the heart of Byzantine worship.",
+      "No church surpassed it in size for over five centuries, and as the patriarchs' cathedral it was the heart of Byzantine worship.",
     citation: `${W}Hagia_Sophia`,
   },
   {
@@ -1644,7 +1643,7 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     context:
       "Venantius Fortunatus writes the hymn for the procession that brings a relic of the True Cross, sent by Emperor Justin II at St Radegund's request, to her convent at Poitiers.",
     significance:
-      "The hymn still belongs to the Church's Passiontide office and is recalled in the Good Friday liturgy.",
+      "The hymn entered the Roman Breviary as the Vespers hymn of Passiontide and of the feasts of the Holy Cross, and the Roman Missal once had it sung on Good Friday as the Sacrament was carried back from the altar of repose.",
     citation: `${NA}15396a.htm`,
   },
   {
@@ -1706,7 +1705,7 @@ export const EVENTS_6: ChurchHistoryEvent[] = [
     context:
       "Convoked by Reccared and organised by Leander of Seville, the council hears the king renounce Arianism, and Arian bishops, clergy and Gothic nobles subscribe to the Catholic creeds.",
     significance:
-      "It orders the Creed to be recited at Mass with the Filioque, a Western addition the Christian East never accepted.",
+      "It orders the Creed to be recited at Mass with the Filioque, a Latin addition that later became a lasting point of dispute with the Eastern Orthodox churches.",
     citation: `${W}Third_Council_of_Toledo`,
   },
 ];
