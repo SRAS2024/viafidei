@@ -281,6 +281,13 @@ export interface OsmCandidate extends PlaceParish {
    * replaced — a tag is the mapper's own statement.
    */
   countrySource?: "tag" | "tile" | "nominatim";
+  /**
+   * The element's own street, house number and postcode tags, as mapped. The
+   * street line's order and the postcode's format depend on the country, so
+   * both are derived again when a lookup replaces a tile-fallback country.
+   * `street` is empty when the line is `addr:full`, which is kept as written.
+   */
+  addressTags?: { street: string; houseNumber: string; postcode: string };
   /** Set when a Nominatim lookup answered for this candidate at discovery; the
    * row then publishes with its research state (`_meta.addressResearch`). */
   addressLookup?: {
@@ -376,6 +383,11 @@ export function osmElementToParish(
     countryCode,
     countrySource: taggedCountry ? "tag" : countryCode ? "tile" : undefined,
     postcode: normalizePostalCode(tags["addr:postcode"], countryCode),
+    addressTags: {
+      street: full ? "" : street,
+      houseNumber,
+      postcode: (tags["addr:postcode"] ?? "").trim(),
+    },
     latitude: hasCoords ? lat : undefined,
     longitude: hasCoords ? lon : undefined,
     website,
@@ -392,11 +404,31 @@ export function osmElementToParish(
 }
 
 /**
+ * Derive again what depends on the country from the element's own tags, once
+ * a lookup has replaced its tile-fallback country: the street line's order (a
+ * Houston church on a Mexican tile was composed "Main Street 1505") and
+ * whether its postcode fits ("H2X 3J6" is no US ZIP but a Canadian code).
+ */
+function rederiveForCountry(candidate: OsmCandidate): void {
+  const tags = candidate.addressTags;
+  if (!tags) return;
+  if (tags.street) {
+    candidate.formattedAddress = composeStreetLine(
+      tags.street,
+      tags.houseNumber,
+      candidate.countryCode,
+    );
+  }
+  candidate.postcode = normalizePostalCode(tags.postcode, candidate.countryCode);
+}
+
+/**
  * Fill a NEW candidate's blanks from its Nominatim answer, before the address
  * dedup sees it: street line, locality, state, postal code — and the country
- * when the candidate's came from the tile fallback (or it had none). A value
- * the element's own tags supplied is never replaced. `place: null` means
- * Nominatim answered without this object. Exported for testing.
+ * when the candidate's came from the tile fallback (or it had none), with the
+ * tagged street line and postcode derived again for it. A value the element's
+ * own tags supplied is never replaced. `place: null` means Nominatim answered
+ * without this object. Exported for testing.
  */
 export function applyLookupToCandidate(
   candidate: OsmCandidate,
@@ -423,6 +455,7 @@ export function applyLookupToCandidate(
     candidate.countryCode = parts.countryCode;
     candidate.country = parts.country;
     candidate.countrySource = "nominatim";
+    rederiveForCountry(candidate);
     used = true;
   }
   const sameCountry = !candidate.countryCode || candidate.countryCode === parts.countryCode;
@@ -884,6 +917,7 @@ export async function processOsmCandidate(
       candidate.countryCode = r.countryCode;
       candidate.country = countryNameFor(r.countryCode);
       candidate.countrySource = "nominatim";
+      rederiveForCountry(candidate);
     }
   }
 

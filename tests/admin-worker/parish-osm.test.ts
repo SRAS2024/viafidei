@@ -46,6 +46,7 @@ import {
   osmElementToParish,
   osmParishSummary,
   parishExclusionFor,
+  processOsmCandidate,
   runOsmParishDiscovery,
 } from "@/lib/admin-worker/parish-osm";
 import type { NominatimPlace } from "@/lib/admin-worker/nominatim-lookup";
@@ -474,6 +475,72 @@ describe("applyLookupToCandidate", () => {
     expect(tagged.postcode).toBeUndefined();
   });
 
+  it("composes the tagged street line and checks the tagged postcode again in Nominatim's country", () => {
+    const element = (tags: Record<string, string>) => ({
+      type: "node",
+      id: 41,
+      lat: 29.7522,
+      lon: -95.3592,
+      tags: { name: "St. Joseph", denomination: "roman_catholic", ...tags },
+    });
+    const answer = (address: Record<string, string>): NominatimPlace => ({
+      ...rome,
+      osmType: "node",
+      osmId: 41,
+      sourceRef: "osm:node/41",
+      address,
+    });
+    // A Houston church on a Mexican tile was composed street-first.
+    const houston = osmElementToParish(
+      element({
+        "addr:street": "Main Street",
+        "addr:housenumber": "1505",
+        "addr:postcode": "77002",
+      }),
+      { countryCode: "MX" },
+    )!;
+    expect(houston.formattedAddress).toBe("Main Street 1505");
+    applyLookupToCandidate(
+      houston,
+      answer({ road: "Main Street", city: "Houston", state: "Texas", country_code: "us" }),
+      NOW,
+    );
+    expect(houston).toMatchObject({
+      formattedAddress: "1505 Main Street",
+      countryCode: "US",
+      country: "United States",
+      postcode: "77002",
+    });
+
+    // A Montréal church on a US tile: its own postcode fits only once the
+    // country is right (Nominatim offers none here).
+    const montreal = osmElementToParish(
+      element({
+        "addr:street": "Rue Saint-Denis",
+        "addr:housenumber": "1255",
+        "addr:postcode": "H2X 3J6",
+      }),
+      { countryCode: "US" },
+    )!;
+    expect(montreal.postcode).toBeUndefined();
+    applyLookupToCandidate(
+      montreal,
+      answer({ road: "Rue Saint-Denis", city: "Montréal", country_code: "ca" }),
+      NOW,
+    );
+    expect(montreal).toMatchObject({
+      formattedAddress: "1255 Rue Saint-Denis",
+      postcode: "H2X 3J6",
+    });
+
+    // addr:full is the mapper's own line and stays as written.
+    const full = osmElementToParish(element({ "addr:full": "Main Street 1505, Houston" }), {
+      countryCode: "MX",
+    })!;
+    applyLookupToCandidate(full, answer({ road: "Main Street", country_code: "us" }), NOW);
+    expect(full.formattedAddress).toBe("Main Street 1505, Houston");
+  });
+
   it("records an object Nominatim no longer returns", () => {
     const c = candidate({}, { countryCode: "IT" });
     applyLookupToCandidate(c, null, NOW);
@@ -689,6 +756,45 @@ describe("runOsmParishDiscovery", () => {
     // The lookup was charged to the persisted daily budget row.
     const budgetKey = [...store.keys()].find((k) => k.startsWith("osm-budget:"))!;
     expect((store.get(budgetKey)!.memoryValue as { reverseUsed: number }).reverseUsed).toBe(1);
+  });
+
+  it("composes the street line again when the reverse lookup replaces the tile country", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ address: { city: "Houston", country_code: "us" } }),
+    })) as unknown as typeof global.fetch;
+    const candidate = osmElementToParish(
+      {
+        type: "node",
+        id: 41,
+        lat: 29.7522,
+        lon: -95.3592,
+        tags: {
+          name: "St. Joseph",
+          denomination: "roman_catholic",
+          "addr:street": "Main Street",
+          "addr:housenumber": "1505",
+          "addr:postcode": "77002",
+        },
+      },
+      { countryCode: "MX" },
+    )!;
+    const { prisma } = makePrisma();
+
+    const outcome = await processOsmCandidate(prisma, candidate, {
+      brainActive: true,
+      reverse: { remaining: 1 },
+    });
+
+    expect(outcome).toBe("published");
+    expect(publishedPayload()).toMatchObject({
+      address: "1505 Main Street",
+      city: "Houston",
+      postalCode: "77002",
+      countryCode: "US",
+      country: "United States",
+    });
   });
 
   it("enriches a re-swept parish in place (sourceRef match) instead of publishing a duplicate", async () => {
