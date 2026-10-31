@@ -1,8 +1,10 @@
 /**
  * The Church-history timeline's static spine, aggregated.
  *
- * The 232 events live in four hand-curated parts under `church-history/`
- * (split only to keep each file reviewable). This module merges them into
+ * The events live in hand-curated parts under `church-history/`, split by
+ * period only to keep each file reviewable: parts 1–4 are the landmark spine
+ * from Pentecost to today, and later parts fill in a single age in detail
+ * (part 8: the High Middle Ages, 1054–1378). This module merges them into
  * one chronologically sorted list and re-exports the shared types and
  * helpers, so every consumer — the /history page, the content catalog, the
  * dataset test — reads a single ordered source and never sorts on its own.
@@ -12,6 +14,7 @@ import { EVENTS_1 } from "./church-history/events-1";
 import { EVENTS_2 } from "./church-history/events-2";
 import { EVENTS_3 } from "./church-history/events-3";
 import { EVENTS_4 } from "./church-history/events-4";
+import { EVENTS_8 } from "./church-history/events-8";
 import { historySortKey, type ChurchHistoryEvent } from "./church-history/types";
 
 export {
@@ -59,4 +62,5 @@ export const CHURCH_HISTORY_EVENTS: ReadonlyArray<ChurchHistoryEvent> = [
   ...EVENTS_2,
   ...EVENTS_3,
   ...EVENTS_4,
+  ...EVENTS_8,
 ].sort(compareHistoryEvents);
