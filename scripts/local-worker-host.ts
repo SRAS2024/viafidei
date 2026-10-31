@@ -107,10 +107,11 @@ import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
 import { MAX_FILE_BYTES } from "../src/lib/admin-worker/file-extractors";
 import { writeHeartbeat } from "../src/lib/admin-worker/state";
 import {
-  isBrokenPipe,
+  isClosedPipe,
   silenceStdio,
   watchSupervisor,
 } from "../src/lib/admin-worker/supervised-host";
+import { installProcessSafetyNet } from "../src/lib/admin-worker/worker-supervisor";
 import { appConfig } from "../src/lib/config";
 import { prisma } from "../src/lib/db/client";
 
@@ -309,7 +310,9 @@ function scheduleDeferredStart(delayMs: number, run: () => void | Promise<void>)
 }
 
 function startWorkerChild(): void {
-  if (host.child) return;
+  // Never start a worker on the way out (a boot resume or a deferred restart
+  // can still be in flight when shutdown begins).
+  if (host.child || shuttingDown) return;
   const { cmd, prefix } = tsxBinary();
   const args = [
     ...prefix,
@@ -813,53 +816,72 @@ async function refreshLivenessSignals(switchOn: boolean | null): Promise<void> {
 
 /** True while a tick is still working, so ticks can never overlap. */
 let reconcileInFlight = false;
+/** The last tick failure logged, so a failure that repeats every tick is logged once. */
+let lastReconcileFailure: string | null = null;
 
 /**
  * One reconcile tick: read the durable switch, make reality match it, refresh
  * the liveness signals. Idempotent — when the world is already correct it
  * does nothing and logs nothing, which is the normal case several times a
  * minute.
+ *
+ * Never rejects. A throw anywhere in here (a database error in the lease claim
+ * of a phone-initiated start, say) used to escape the `void ….finally(...)`
+ * scheduler as an unhandled rejection and shut the whole host down — for good,
+ * since nothing restarts it. It is logged once per distinct message instead,
+ * and the next tick tries again.
  */
 async function reconcileSwitchTick(): Promise<void> {
   if (shuttingDown || reconcileInFlight) return;
   reconcileInFlight = true;
   try {
-    // Shares the cached read with the dashboard: a status read from the last
-    // SWITCH_POLL_CACHE_MS is reused instead of a second round-trip.
-    const status = await readExecutionStatusCached(SWITCH_POLL_CACHE_MS).catch(() => null);
-    // known:false is "the database did not answer", NOT "the switch is OFF".
-    // Reading a blip as OFF would stop a healthy worker mid-pass.
-    const switchKnown = status?.switch.known === true;
-    const switchOn = switchKnown && status !== null ? status.switch.on : false;
-
-    const plan = planSwitchPoll({
-      now: Date.now(),
-      shuttingDown,
-      switchKnown,
-      switchOn,
-      previousSwitchOn: host.lastObservedSwitchOn,
-      switchChangedAt: switchKnown && status !== null ? status.switch.changedAt : null,
-      previousSwitchChangedAt: host.lastObservedSwitchChangedAt,
-      childRunning: host.child != null,
-      runState: host.runState,
-      pendingStarts: host.pendingStarts,
-      pendingDurableOff: host.pendingDurableOff,
-      startBlockedUntil: host.startBlockedUntil,
-    });
-    if (switchKnown) {
-      host.lastObservedSwitchOn = switchOn;
-      host.lastObservedSwitchChangedAt = status?.switch.changedAt ?? null;
+    await reconcileSwitchOnce();
+    lastReconcileFailure = null;
+  } catch (err) {
+    const message = errorText(err);
+    if (message !== lastReconcileFailure) {
+      lastReconcileFailure = message;
+      pushLog("host", `switch poll tick failed (${message}) — retrying on the next tick`);
     }
-
-    if (isSwitchPollActionable(plan)) {
-      if (plan.action === "start") await startFromSwitchPoll(plan);
-      else await stopFromSwitchPoll();
-    }
-
-    await refreshLivenessSignals(switchKnown ? switchOn : null);
   } finally {
     reconcileInFlight = false;
   }
+}
+
+async function reconcileSwitchOnce(): Promise<void> {
+  // Shares the cached read with the dashboard: a status read from the last
+  // SWITCH_POLL_CACHE_MS is reused instead of a second round-trip.
+  const status = await readExecutionStatusCached(SWITCH_POLL_CACHE_MS).catch(() => null);
+  // known:false is "the database did not answer", NOT "the switch is OFF".
+  // Reading a blip as OFF would stop a healthy worker mid-pass.
+  const switchKnown = status?.switch.known === true;
+  const switchOn = switchKnown && status !== null ? status.switch.on : false;
+
+  const plan = planSwitchPoll({
+    now: Date.now(),
+    shuttingDown,
+    switchKnown,
+    switchOn,
+    previousSwitchOn: host.lastObservedSwitchOn,
+    switchChangedAt: switchKnown && status !== null ? status.switch.changedAt : null,
+    previousSwitchChangedAt: host.lastObservedSwitchChangedAt,
+    childRunning: host.child != null,
+    runState: host.runState,
+    pendingStarts: host.pendingStarts,
+    pendingDurableOff: host.pendingDurableOff,
+    startBlockedUntil: host.startBlockedUntil,
+  });
+  if (switchKnown) {
+    host.lastObservedSwitchOn = switchOn;
+    host.lastObservedSwitchChangedAt = status?.switch.changedAt ?? null;
+  }
+
+  if (isSwitchPollActionable(plan)) {
+    if (plan.action === "start") await startFromSwitchPoll(plan);
+    else await stopFromSwitchPoll();
+  }
+
+  await refreshLivenessSignals(switchKnown ? switchOn : null);
 }
 
 /**
@@ -1551,6 +1573,132 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
 let shuttingDown = false;
 
+/** The two self-rescheduling ticks; module-level so shutdown can clear them whenever it runs. */
+let leaseTimer: ReturnType<typeof setTimeout> | null = null;
+let reconcileTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** One line for the host log from anything thrown, without a stack. */
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Signals, crash handlers and the app watch. Installed FIRST in main(): they
+ * used to be registered at the very end, after up to ~15 s of boot database
+ * work, so a quit or a dead app during boot met Node's defaults — and a boot
+ * that rejected never installed them at all, leaving a host that ignored the
+ * app quitting and never reconciled the switch.
+ */
+function installProcessGuards(shutdown: (signal: string) => void): void {
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  // A crash in the supervisor must not leave an orphaned worker tree holding a
+  // lease that makes every surface report "active locally".
+  // A broken log pipe means the app is gone: never log THAT error (the log
+  // is the broken pipe — that is how an orphaned host once spun at 100% CPU
+  // for 8 days), just stop quietly. Only a closed pipe counts here: an
+  // unhandled ECONNRESET from some network socket is not the app leaving.
+  process.on("uncaughtException", (err) => {
+    if (isClosedPipe(err)) {
+      silenceStdio();
+      shutdown("parent-exit (log pipe closed)");
+      return;
+    }
+    pushLog(
+      "host",
+      `uncaught exception: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`,
+    );
+    shutdown("uncaughtException");
+  });
+  // An unhandled rejection is a missing .catch on some async path, and every
+  // lifecycle path here restores its own state in a `finally`. Shutting down
+  // over one — which a single database error in the switch poll used to do —
+  // stops all content work until somebody relaunches the app, because nothing
+  // restarts this host. So: log it (one line and one ERROR row per signature
+  // per minute, via the worker's safety net) and keep supervising.
+  installProcessSafetyNet({
+    workerId: RUNTIME_ID,
+    register: (event, handler) => {
+      if (event === "unhandledRejection") process.on(event, handler);
+    },
+    errorLog: (m) => pushLog("host", m),
+    isBrokenPipe: isClosedPipe,
+    onBrokenPipe: () => {
+      silenceStdio();
+      shutdown("parent-exit (log pipe closed)");
+    },
+    onEvent: (kind, detail, folded) =>
+      writeAdminWorkerLog(prisma, {
+        category: "ERROR",
+        severity: "ERROR",
+        eventName: "local_host_unhandled_rejection",
+        message: `Local worker host: ${kind} caught; host kept running: ${detail.slice(0, 480)}`,
+        safeMetadata: { runtimeId: RUNTIME_ID, repeats: folded.repeats, overCap: folded.overCap },
+      }).then(() => undefined),
+    onAlert: () => undefined,
+  });
+
+  // When the native application supervises this host it passes --watch-parent
+  // and keeps a pipe on our stdin. The app going away — its pipe closing, our
+  // log pipe breaking, or launchd adopting us — stops the whole local
+  // workload (see supervised-host.ts). Run from a terminal without the flag
+  // and none of this applies, so `npm run worker:host` behaves normally.
+  if (process.argv.includes("--watch-parent")) {
+    watchSupervisor(shutdown);
+  }
+}
+
+/**
+ * Resume a previously-ON switch: if the operator left the worker ON and the
+ * application is relaunched, pick the work back up where Postgres says it was.
+ * Never resume against a database that is unreachable or plainly not
+ * production — the switch is durable, so it stays ON and the console shows why.
+ */
+async function resumeAtBoot(): Promise<void> {
+  const master = await readMasterSwitch(prisma).catch(() => ({ on: false, known: false }) as const);
+  // Seed the reconcile poll's edge detection with what the switch said at
+  // boot, so the first OFF→ON flip after launch is recognised as the operator
+  // deliberately re-arming rather than as an unknown-to-ON transition.
+  if (master.known) {
+    host.lastObservedSwitchOn = master.on;
+    host.lastObservedSwitchChangedAt = "changedAt" in master ? master.changedAt : null;
+  }
+  const bootConfig = configPayload();
+  if (master.on && (bootConfig.blockingReason || !bootConfig.database.reachable)) {
+    const reason =
+      bootConfig.warnings.find((w) => w !== bootConfig.launcherMessage) ??
+      bootConfig.launcherMessage ??
+      `The database at ${bootConfig.databaseHost ?? "?"} is not answering — the Admin Worker was not started.`;
+    pushLog("host", `cannot resume: ${reason}`);
+    // A configuration problem needs the operator. A database that is merely
+    // not answering yet (the Mac just woke, Wi-Fi is still joining) does not:
+    // stay "off" and let the switch poll start the worker once it answers.
+    if (bootConfig.blockingReason) {
+      host.runState = "failed";
+      host.failureReason = reason;
+    }
+    return;
+  }
+  if (!master.on || shuttingDown) return;
+  const claim = await acquireExecutionLease(prisma, {
+    runtimeId: RUNTIME_ID,
+    origin: "LOCAL_MACBOOK",
+    host: {
+      label: localHostLabel(),
+      platform: process.platform,
+      arch: process.arch,
+      cpuCount: cpus().length,
+      launchedBy: "swift-app",
+    },
+  });
+  if (claim.acquired) {
+    pushLog("host", "master switch was already ON — resuming local execution");
+    startWorkerChild();
+  } else {
+    pushLog("host", `cannot resume: ${claim.refusedBecause ?? "execution lease unavailable"}`);
+  }
+}
+
 async function main(): Promise<void> {
   const portArgIndex = process.argv.indexOf("--port");
   const port = portArgIndex >= 0 ? Number(process.argv[portArgIndex + 1] ?? 0) : 0;
@@ -1558,6 +1706,39 @@ async function main(): Promise<void> {
   const server = createServer((req, res) => {
     void handle(req, res);
   });
+
+  const shutdown = (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    // Whatever happens below (a hung database call, a stuck child), this
+    // process is gone within 20 s of being asked — it must never linger
+    // holding the lease or a CPU.
+    setTimeout(() => process.exit(1), 20_000).unref();
+    pushLog("host", `received ${signal} — shutting the local Admin Worker down`);
+    if (leaseTimer) clearTimeout(leaseTimer);
+    if (reconcileTimer) clearTimeout(reconcileTimer);
+    void (async () => {
+      // Local first (bounded by CHILD_KILL_GRACE_MS), then the database with
+      // a hard budget: the app SIGKILLs the whole group 10 s after asking, so
+      // an unreachable proxy must never keep this process (and its lease)
+      // alive past that.
+      await stopWorkerChild(`host received ${signal}`);
+      await shutdownLocalBrain();
+      // Both "this Mac is here" facts go in one budget: the lease (execution
+      // authority) and the presence row (the phone's liveness signal), so a
+      // clean quit shows as "not running" immediately instead of ageing out.
+      await withDbBudget("releasing the execution lease", () =>
+        Promise.all([
+          releaseExecutionLease(prisma, RUNTIME_ID),
+          clearHostPresence(prisma, RUNTIME_ID),
+        ]),
+      );
+      await withDbBudget("disconnecting from the database", () => prisma.$disconnect());
+      server.close();
+      process.exit(0);
+    })();
+  };
+  installProcessGuards(shutdown);
 
   // Never die silently: the parent application is watching stdout, so a listen
   // failure has to be said out loud or the operator just sees a blank console.
@@ -1623,55 +1804,28 @@ async function main(): Promise<void> {
     }
   }
 
-  // Resume a previously-ON switch: if the operator left the worker ON and the
-  // application is relaunched, pick the work back up where Postgres says it was.
-  // Never resume against a database that is unreachable or plainly not
-  // production — the switch is durable, so it stays ON and the console shows why.
-  const master = await readMasterSwitch(prisma).catch(() => ({ on: false, known: false }) as const);
-  // Seed the reconcile poll's edge detection with what the switch said at
-  // boot, so the first OFF→ON flip after launch is recognised as the operator
-  // deliberately re-arming rather than as an unknown-to-ON transition.
-  if (master.known) {
-    host.lastObservedSwitchOn = master.on;
-    host.lastObservedSwitchChangedAt = "changedAt" in master ? master.changedAt : null;
-  }
-  const bootConfig = configPayload();
-  if (master.on && (bootConfig.blockingReason || !bootConfig.database.reachable)) {
-    host.runState = "failed";
-    host.failureReason =
-      bootConfig.warnings.find((w) => w !== bootConfig.launcherMessage) ??
-      bootConfig.launcherMessage ??
-      `The database at ${bootConfig.databaseHost ?? "?"} is not answering — the Admin Worker was not started.`;
-    pushLog("host", `cannot resume: ${host.failureReason}`);
-  } else if (master.on) {
-    const claim = await acquireExecutionLease(prisma, {
-      runtimeId: RUNTIME_ID,
-      origin: "LOCAL_MACBOOK",
-      host: {
-        label: localHostLabel(),
-        platform: process.platform,
-        arch: process.arch,
-        cpuCount: cpus().length,
-        launchedBy: "swift-app",
-      },
-    });
-    if (claim.acquired) {
-      pushLog("host", "master switch was already ON — resuming local execution");
-      startWorkerChild();
-    } else {
-      pushLog("host", `cannot resume: ${claim.refusedBecause ?? "execution lease unavailable"}`);
-    }
+  // A boot resume that throws must not take the ticks below with it: they are
+  // what retries the start, renews the lease and honours the switch.
+  try {
+    await resumeAtBoot();
+  } catch (err) {
+    pushLog(
+      "host",
+      `could not resume at boot (${errorText(err)}) — the switch poll will try again`,
+    );
   }
 
   // Keep the lease warm while this host owns execution, and push live status.
   // Self-rescheduling with ±20% jitter (local-config.ts) rather than a fixed
   // interval, so renewals never line up on one congested instant of the
-  // proxy link and a retry after a blip is spread out.
-  let leaseTimer: ReturnType<typeof setTimeout> | null = null;
+  // proxy link and a retry after a blip is spread out. A tick that throws is
+  // logged and the next one is still scheduled.
   const scheduleLeaseTick = () => {
     if (shuttingDown) return;
     leaseTimer = setTimeout(() => {
-      void leaseTick().finally(scheduleLeaseTick);
+      void leaseTick()
+        .catch((err: unknown) => pushLog("host", `lease tick failed: ${errorText(err)}`))
+        .finally(scheduleLeaseTick);
     }, leaseRenewDelayMs(LEASE_RENEW_INTERVAL_MS));
     leaseTimer.unref();
   };
@@ -1734,8 +1888,8 @@ async function main(): Promise<void> {
   // set it — the app here, another computer, or the operator's iPhone, which
   // writes the row and runs nothing itself. Self-rescheduling with the same
   // ±20% jitter as the lease tick so the two never convoy, and unref'd so it
-  // can never hold the process open.
-  let reconcileTimer: ReturnType<typeof setTimeout> | null = null;
+  // can never hold the process open. reconcileSwitchTick never rejects (it
+  // logs its own failures), so one bad round-trip cannot end the poll.
   const scheduleReconcileTick = () => {
     if (shuttingDown) return;
     reconcileTimer = setTimeout(() => {
@@ -1766,75 +1920,11 @@ async function main(): Promise<void> {
   }, 3_000);
   sampleTimer.unref();
   void refreshBrowserStatus();
-
-  const shutdown = (signal: string) => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    // Whatever happens below (a hung database call, a stuck child), this
-    // process is gone within 20 s of being asked — it must never linger
-    // holding the lease or a CPU.
-    setTimeout(() => process.exit(1), 20_000).unref();
-    pushLog("host", `received ${signal} — shutting the local Admin Worker down`);
-    if (leaseTimer) clearTimeout(leaseTimer);
-    if (reconcileTimer) clearTimeout(reconcileTimer);
-    void (async () => {
-      // Local first (bounded by CHILD_KILL_GRACE_MS), then the database with
-      // a hard budget: the app SIGKILLs the whole group 10 s after asking, so
-      // an unreachable proxy must never keep this process (and its lease)
-      // alive past that.
-      await stopWorkerChild(`host received ${signal}`);
-      await shutdownLocalBrain();
-      // Both "this Mac is here" facts go in one budget: the lease (execution
-      // authority) and the presence row (the phone's liveness signal), so a
-      // clean quit shows as "not running" immediately instead of ageing out.
-      await withDbBudget("releasing the execution lease", () =>
-        Promise.all([
-          releaseExecutionLease(prisma, RUNTIME_ID),
-          clearHostPresence(prisma, RUNTIME_ID),
-        ]),
-      );
-      await withDbBudget("disconnecting from the database", () => prisma.$disconnect());
-      server.close();
-      process.exit(0);
-    })();
-  };
-  process.on("SIGINT", () => shutdown("SIGINT"));
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
-  // A crash in the supervisor must not leave an orphaned worker tree holding a
-  // lease that makes every surface report "active locally".
-  // A broken log pipe means the app is gone: never log THAT error (the log
-  // is the broken pipe — that is how an orphaned host once spun at 100% CPU
-  // for 8 days), just stop quietly.
-  process.on("uncaughtException", (err) => {
-    if (isBrokenPipe(err)) {
-      silenceStdio();
-      shutdown("parent-exit (log pipe closed)");
-      return;
-    }
-    console.error("[local-host] uncaught exception:", err);
-    shutdown("uncaughtException");
-  });
-  process.on("unhandledRejection", (reason) => {
-    if (isBrokenPipe(reason)) {
-      silenceStdio();
-      shutdown("parent-exit (log pipe closed)");
-      return;
-    }
-    console.error("[local-host] unhandled rejection:", reason);
-    shutdown("unhandledRejection");
-  });
-
-  // When the native application supervises this host it passes --watch-parent
-  // and keeps a pipe on our stdin. The app going away — its pipe closing, our
-  // log pipe breaking, or launchd adopting us — stops the whole local
-  // workload (see supervised-host.ts). Run from a terminal without the flag
-  // and none of this applies, so `npm run worker:host` behaves normally.
-  if (process.argv.includes("--watch-parent")) {
-    watchSupervisor(shutdown);
-  }
 }
 
 main().catch((err) => {
-  console.error("[local-host] fatal:", err);
+  // The guards come first and every boot step before the ticks is caught, so
+  // this is only the last word for whatever still slips through.
+  pushLog("host", `fatal error during boot: ${errorText(err)}`);
   process.exitCode = 1;
 });
