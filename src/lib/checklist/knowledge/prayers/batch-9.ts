@@ -3,10 +3,12 @@ import type { CuratedEntry } from "../index";
 /** The 1910 English Raccolta on archive.org; a printed page number follows. */
 const RACCOLTA = "https://archive.org/details/theraccoltaorcol00unknuoft/page/";
 
+/** The prayerType values of the PRAYER schema that this batch uses. */
 type PrayerType =
   | "morning"
   | "evening"
   | "litany"
+  | "marian"
   | "general"
   | "intercession"
   | "consecration"
