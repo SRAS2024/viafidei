@@ -72,6 +72,8 @@ describe("SingleFlight", () => {
 });
 
 // A fake brain that answers correctly but slowly — the shape of a busy brain.
+// Like the real one it answers one request at a time; a request may carry its
+// own delay (payload.delayMs) to play a single slow op.
 const SLOW_BRAIN = `#!/usr/bin/env python3
 import sys, json, os, time
 delay = float(os.environ.get("FAKE_BRAIN_DELAY_MS", "0")) / 1000.0
@@ -80,7 +82,8 @@ for line in sys.stdin:
     if not line:
         continue
     req = json.loads(line)
-    time.sleep(delay)
+    own = (req.get("payload") or {}).get("delayMs")
+    time.sleep(float(own) / 1000.0 if own is not None else delay)
     sys.stdout.write(json.dumps({"ok": True, "result": {"echo": req.get("op")}, "confidence": 0.9,
         "reasoning": "ok", "evidence": [], "sources_used": [], "risk_level": "low",
         "recommended_next_action": "proceed", "safe_to_auto_execute": True, "error": None,
@@ -156,6 +159,61 @@ describe("callBrain — single flight against a slow brain", () => {
     expect(__getBrainProcForTest()?.pid).toBe(pid);
     expect(brainStatus().status).toBe("up");
     expect(await callBrain("iq_metrics", { stats: {} }, { timeoutMs: 3000 })).not.toBeNull();
+    expect(brainQueueStatus()).toEqual({ inFlight: false, waiting: 0 });
+  }, 20_000);
+
+  it("one op slower than its timeout does not make the next, normal op time out — and nothing is recycled", async () => {
+    if (!pythonAvailable) return;
+    useSlowBrain(0);
+    expect(await callBrain("iq_metrics", { stats: {} }, { timeoutMs: 3000 })).not.toBeNull();
+    const pid = __getBrainProcForTest()?.pid;
+    // A takes 1.6 s against a 1 s timeout: null at 1 s, while the brain keeps
+    // working on it until 1.6 s.
+    expect(await callBrain("iq_metrics", { delayMs: 1600 }, { timeoutMs: 1000 })).toBeNull();
+    // The turn is still held for A's late answer...
+    expect(brainQueueStatus().inFlight).toBe(true);
+    // ...so B is written after it, not behind it in the pipe. Written at once
+    // (the old release), B's 400 ms ran out at 1.4 s while the brain was still
+    // on A: a second timeout in a row, and the slow-but-healthy brain was
+    // SIGKILLed.
+    const started = Date.now();
+    const b = await callBrain("iq_metrics", { stats: {} }, { timeoutMs: 400, queueWaitMs: 5000 });
+    expect(b).not.toBeNull();
+    expect(b?.ok).toBe(true);
+    // B waited for A's late answer (~0.6 s), not for the cap (a full second).
+    expect(Date.now() - started).toBeLessThan(1500);
+    expect(__getBrainProcForTest()?.pid).toBe(pid);
+    expect(brainStatus().status).toBe("up");
+    expect(brainQueueStatus()).toEqual({ inFlight: false, waiting: 0 });
+  }, 20_000);
+
+  it("a brain that never answers is still recycled after two real timeouts", async () => {
+    if (!pythonAvailable) return;
+    useSlowBrain(0);
+    expect(await callBrain("iq_metrics", { stats: {} }, { timeoutMs: 3000 })).not.toBeNull();
+    const pid = __getBrainProcForTest()?.pid;
+    // Stuck for good: no late answer, so the turn is held one more window...
+    expect(await callBrain("iq_metrics", { delayMs: 60_000 }, { timeoutMs: 300 })).toBeNull();
+    expect(brainQueueStatus().inFlight).toBe(true);
+    // ...then the next request gets its own full timeout, and that second
+    // timeout recycles the process.
+    expect(
+      await callBrain("iq_metrics", { stats: {} }, { timeoutMs: 300, queueWaitMs: 5000 }),
+    ).toBeNull();
+    expect(__getBrainProcForTest()).toBeNull();
+    expect(brainQueueStatus()).toEqual({ inFlight: false, waiting: 0 });
+    // A fresh process answers the next call.
+    expect(await callBrain("iq_metrics", { stats: {} }, { timeoutMs: 3000 })).not.toBeNull();
+    expect(__getBrainProcForTest()?.pid).not.toBe(pid);
+  }, 20_000);
+
+  it("a turn held for a late answer is freed when the brain is shut down", async () => {
+    if (!pythonAvailable) return;
+    useSlowBrain(0);
+    expect(await callBrain("iq_metrics", { stats: {} }, { timeoutMs: 3000 })).not.toBeNull();
+    expect(await callBrain("iq_metrics", { delayMs: 60_000 }, { timeoutMs: 300 })).toBeNull();
+    expect(brainQueueStatus().inFlight).toBe(true);
+    shutdownBrain();
     expect(brainQueueStatus()).toEqual({ inFlight: false, waiting: 0 });
   }, 20_000);
 

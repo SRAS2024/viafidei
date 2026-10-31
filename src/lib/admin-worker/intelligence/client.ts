@@ -90,6 +90,35 @@ let _timeoutEnvWarned = false;
 // One request in flight at a time (single-flight.ts): the brain answers
 // sequentially, so overlapping writes only made queued calls time out.
 const _flight = new SingleFlight();
+
+// Requests that timed out while the brain may still be working on them, by id.
+// The brain reads stdin one line at a time, so a request written now would sit
+// in the pipe behind that leftover work and time out in its turn — and two
+// timeouts in a row recycle a brain that is slow, not stuck. A timed-out call
+// therefore keeps the turn until its late answer arrives, the process goes
+// away, or one more timeout window passes; each entry here ends that hold.
+const _abandoned = new Map<string, () => void>();
+
+/** Keep the turn for a timed-out request until its late answer (or `capMs`). */
+function holdTurnForLateAnswer(id: string, capMs: number): void {
+  let cap: ReturnType<typeof setTimeout> | undefined;
+  let ended = false;
+  const end = () => {
+    if (ended) return;
+    ended = true;
+    if (cap) clearTimeout(cap);
+    _abandoned.delete(id);
+    _flight.release();
+  };
+  cap = setTimeout(end, capMs);
+  (cap as { unref?: () => void }).unref?.();
+  _abandoned.set(id, end);
+}
+
+/** No late answer can come (the process exited or is being shut down): free the turn. */
+function endHeldTurns(): void {
+  for (const end of [..._abandoned.values()]) end();
+}
 // "Brain busy" notices are rate-limited: one line a minute with a count.
 const BUSY_NOTICE_INTERVAL_MS = 60_000;
 let _busySkipped = 0;
@@ -230,6 +259,7 @@ export function shutdownBrain(): void {
   // Waiting calls are turned away first, or the in-flight call's release
   // would hand its turn to one of them and spawn a fresh brain on the way out.
   _flight.cancelWaiting();
+  endHeldTurns();
   failAllPending();
   if (_proc) {
     try {
@@ -338,6 +368,14 @@ function ensureProc(): ChildProcessWithoutNullStreams | null {
           _pending.delete(id);
           clearTimeout(p.timer);
           p.settle(parsed);
+          continue;
+        }
+        // The late answer to a request that already timed out: the brain is
+        // slow, not stuck — free the turn it held and forget that timeout.
+        const late = _abandoned.get(id);
+        if (late) {
+          _consecutiveTimeouts = 0;
+          late();
         }
       }
     });
@@ -365,6 +403,8 @@ function ensureProc(): ChildProcessWithoutNullStreams | null {
         );
         failAllPending();
       }
+      // A turn held for a late answer from this process would wait for nothing.
+      endHeldTurns();
     };
     child.on("exit", handleGone);
     child.on("error", (e) => {
@@ -492,7 +532,9 @@ function noteBusy(op: string, waitedMs: number): void {
  * One request is in flight at a time (single-flight.ts); a call waits its
  * turn for at most `queueWaitMs`, and its `timeoutMs` starts when its request
  * is written. Only a written request that goes unanswered counts towards a
- * recycle of the process.
+ * recycle of the process. A call that times out returns null at once but keeps
+ * the turn until the brain answers it late (or one more `timeoutMs` passes),
+ * so the next request is never queued in the pipe behind abandoned work.
  */
 export async function callBrain<T = unknown>(
   op: BrainOp,
@@ -515,6 +557,13 @@ export async function callBrain<T = unknown>(
   }
 
   let raw: unknown | null = null;
+  // Set when this call's request timed out on a process that was not recycled:
+  // the brain is presumably still working on it, so the turn stays held.
+  let unanswered = null as {
+    id: string;
+    proc: ChildProcessWithoutNullStreams;
+    holdMs: number;
+  } | null;
   try {
     // The brain may have been latched down while this call waited its turn.
     if (!availableNow(opts.force)) return null;
@@ -529,7 +578,7 @@ export async function callBrain<T = unknown>(
       const timer = setTimeout(() => {
         _pending.delete(id);
         brainLog("warn", `callBrain(${op}) timed out after ${timeoutMs}ms`);
-        noteTimeout(proc, op, timeoutMs);
+        if (!noteTimeout(proc, op, timeoutMs)) unanswered = { id, proc, holdMs: timeoutMs };
         resolve(null);
       }, timeoutMs);
       _pending.set(id, { settle: resolve, timer });
@@ -546,7 +595,14 @@ export async function callBrain<T = unknown>(
       }
     });
   } finally {
-    _flight.release();
+    // A timed-out request keeps the turn while its process can still answer
+    // it (one more timeout window at most), so the next request is not written
+    // behind leftover work. Anything else hands the turn on at once.
+    if (unanswered && _proc === unanswered.proc) {
+      holdTurnForLateAnswer(unanswered.id, unanswered.holdMs);
+    } else {
+      _flight.release();
+    }
   }
 
   if (raw == null) return null;
@@ -595,9 +651,10 @@ function defaultTimeoutMs(): number {
 
 /**
  * INTELLIGENCE_QUEUE_WAIT_MS, defaulting to two default timeouts: room for the
- * call ahead to time out in full and one more to run, before this one gives
- * up as "busy". Unset, blank or unparseable means the default; 0 means never
- * wait (fail fast whenever another call is in flight).
+ * call ahead to time out in full and one more to run (or for a timed-out call
+ * to hold the turn for its late answer), before this one gives up as "busy".
+ * Unset, blank or unparseable means the default; 0 means never wait (fail
+ * fast whenever another call is in flight).
  */
 function defaultQueueWaitMs(): number {
   const raw = (process.env.INTELLIGENCE_QUEUE_WAIT_MS ?? "").trim();
@@ -609,13 +666,17 @@ function defaultQueueWaitMs(): number {
 // the worker: a timeout only resolved null, never touched the process, so
 // every later call timed out too (verified: 4 timeouts, same pid). Recycle
 // the child after consecutive timeouts so the next call gets a fresh process;
-// a hang-LOOP then trips the existing restart throttle → down → cooldown.
+// a hang-LOOP then trips the existing restart throttle → down → cooldown. The
+// second timeout is a real one: its request was written only after the first
+// one's late answer arrived (which resets the count) or after a full extra
+// window passed without it — never straight behind a request still running.
 const TIMEOUTS_BEFORE_RECYCLE = 2;
 
-function noteTimeout(proc: ChildProcessWithoutNullStreams, op: string, timeoutMs: number): void {
-  if (_proc !== proc) return; // already replaced — nothing to recycle
+/** Count a timeout; true when the process was recycled because of it. */
+function noteTimeout(proc: ChildProcessWithoutNullStreams, op: string, timeoutMs: number): boolean {
+  if (_proc !== proc) return false; // already replaced — nothing to recycle
   _consecutiveTimeouts += 1;
-  if (_consecutiveTimeouts < TIMEOUTS_BEFORE_RECYCLE) return;
+  if (_consecutiveTimeouts < TIMEOUTS_BEFORE_RECYCLE) return false;
   _consecutiveTimeouts = 0;
   brainLog(
     "warn",
@@ -628,6 +689,7 @@ function noteTimeout(proc: ChildProcessWithoutNullStreams, op: string, timeoutMs
   } catch {
     /* already gone */
   }
+  return true;
 }
 
 /**
