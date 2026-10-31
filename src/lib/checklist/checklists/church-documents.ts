@@ -4,7 +4,8 @@ import { curatedChecklist } from "./from-curated";
 /**
  * Church documents intentionally not curated yet (the authoring backlog).
  * Lumen Fidei and Amoris Laetitia were removed: both are curated now
- * (knowledge/church-documents/group-*.ts).
+ * (knowledge/church-documents/group-*.ts). Ineffabilis Deus was removed for the
+ * same reason (group-3.ts).
  */
 export const churchDocumentsExtras: ChecklistSeed[] = [
   {
@@ -13,13 +14,6 @@ export const churchDocumentsExtras: ChecklistSeed[] = [
     priority: 30,
     authorityLevelHint: "VATICAN",
     metadata: { documentType: "apostolic_exhortation" },
-  },
-  {
-    canonicalName: "Ineffabilis Deus",
-    canonicalSlug: "ineffabilis-deus",
-    priority: 25,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "apostolic_constitution" },
   },
   {
     canonicalName: "Munificentissimus Deus",
