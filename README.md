@@ -343,8 +343,8 @@ Optional environment variables:
 | `LITURGICAL_CALENDAR_API_URL`                           | Override the Liturgical Calendar API endpoint (default: the public litcal General Roman Calendar, US adaptation). Any endpoint returning the litcal `{ litcal: [...] }` shape works                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` / `NO_PROXY` | **Outbound egress through a proxy.** The worker's code already permits fetching ANY host (open-internet on by default), but Node's `fetch` ignores these standard proxy vars on its own — so in a locked-down deployment that only allows egress via a proxy, every outbound request fails. When any of these is set, the worker installs a proxy-aware global dispatcher at startup (`outbound-network.ts`) so ALL `fetch()` (web fetcher + Wikidata/Wikipedia ingest) routes through the proxy; `NO_PROXY` is honoured. A complete no-op when unset (direct egress). This is how you let the worker "go outbound to anywhere" in a restricted environment              |
 | `NODE_EXTRA_CA_CERTS`                                   | Path to a CA bundle to trust — required only when the outbound proxy re-terminates TLS with a private CA (so the worker trusts the proxy's certificate). Set alongside `HTTPS_PROXY` in such deployments                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `ADMIN_WORKER_STRUCTURED_LIMIT`                         | Max NEW records the structured (Wikidata) ingest publishes per pass (default `15`). Raise to close a large gap faster (e.g. the 4,500 SAINT target) when the source is reachable; the per-row Wikipedia fetches run concurrently, so a bigger limit does not linearly slow the pass                                                                                                                                                                                                                                                                                                                                                                                      |
-| `ADMIN_WORKER_STRUCTURED_BATCH`                         | Rows the structured ingest fetches from the source per pass before mapping/dedup (default `50`). A wider batch considers more candidates each pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `ADMIN_WORKER_STRUCTURED_LIMIT`                         | Max NEW records the structured (Wikidata) ingest publishes per pass (default `40`). Raise to close a large gap faster (e.g. the 4,500 SAINT target) when the source is reachable. Since 2026-10-31 rows are mapped one at a time on the serial Wikimedia queue, so a bigger limit makes a pass longer, up to its `ADMIN_WORKER_STRUCTURED_BUDGET_MS` budget                                                                                                                                                                                                                                                                                                              |
+| `ADMIN_WORKER_STRUCTURED_BATCH`                         | Rows the structured ingest fetches from the source per pass before mapping/dedup (default `100`; `ADMIN_WORKER_STRUCTURED_BATCH_<TYPE>` overrides it for one type, and a SAINT page is at most 200). A wider batch considers more candidates each pass                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `ADMIN_WORKER_OSM_MAX_QUERIES`                          | Tiles the OSM parish lane queries per run (default `1`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `ADMIN_WORKER_OSM_MAX_PUBLISH`                          | Max NEW parishes published per OSM run (default `250`), checked before any per-candidate work                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `ADMIN_WORKER_OSM_OUT_CAP`                              | Max parish elements returned per tile query (default `500`). Hitting the cap marks the tile DENSE, and it is quartered rather than truncated                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -587,7 +587,7 @@ supervising host (and any wrapper) can tell them apart without parsing logs
 | `3`  | Refused at boot: switch OFF, or the lease is held elsewhere                                                        | Surfaces the reason; never restarts into a lease it cannot hold. If the host cannot read the switch either, it treats the exit as an outage and waits                                                                                      |
 | `4`  | The database could not be reached at boot — to read the master switch or, since 2026-10-31, to claim the lease     | Waits for the database instead of burning the restart budget                                                                                                                                                                               |
 | `5`  | The execution lease was lost to another runtime mid-run                                                            | Stops — the other runtime now owns execution                                                                                                                                                                                               |
-| `6`  | The supervising host is gone (closed stdout/stderr pipe, host pid gone, or re-parented to pid 1); added 2026-10-31 | A host that is still alive restarts it; an orphan simply exits                                                                                                                                                                             |
+| `6`  | The supervising host is gone (closed stdout/stderr pipe, host pid gone, or re-parented to pid 1); added 2026-10-31 | A host that is still alive restarts it under the crash backoff ([`worker-exit.ts`](src/lib/admin-worker/worker-exit.ts)); an orphan simply exits                                                                                           |
 | `1`  | Fatal, unexpected                                                                                                  | Restarts with capped exponential backoff (2 s doubling to 5 min) for as long as the switch is ON; after five consecutive restarts the runtime reports itself `degraded` and keeps retrying. Until 2026-10-31 it gave up on the sixth crash |
 
 ### Environment knobs on this path
@@ -1592,11 +1592,10 @@ code — and `PRAYER` 248 of 1,000, `NOVENA` 31 of 100, `SAINT` 3,297 of 10,000,
 **How the work was done.** Fixes were built in parallel branches, each reviewed,
 merged into the integration branch `admin-worker/parish-addresses` and released
 to `main` in stages through the day (see [Deploy path](#deploy-path)). Content
-came from a
-**booster**: the owner authorised publishing directly, outside the loop,
-provided it goes through the worker's own publish path and is logged in the
-Admin Worker, so nothing can be published twice. Curated batches were published
-through the curated publish path (`seedCuratedContent` →
+came from a **booster**: the owner authorised publishing directly, outside the
+loop, provided it is logged in the Admin Worker so that nothing is published
+twice, and it went through the worker's own publish path. Curated batches were
+published through the curated publish path (`seedCuratedContent` →
 `runPublishOrchestrator`) from the integration checkout as each branch merged;
 the parish import and the saint corrections are the
 [booster scripts](#booster-scripts). Each entry below names its commits, whose
@@ -1640,8 +1639,9 @@ down: it has an `unpublishedAt`, and no not-in-communion verdict, rollback-ledge
 row, review row, rejected checklist item, active `osm-skip`, `content_deleted` or
 not-in-communion log, or earlier `_meta.dedup` / `excluded` / `restored`. Each
 candidate is judged again under the new rule: a true duplicate stays down
-and gains `_meta.dedup` naming its keeper, a numbered Station of the Cross stays
-down with `_meta.excluded`, and everything else is republished through
+and gains `_meta.dedup` naming its keeper, a row the exclusion rule refuses by
+its name alone (a numbered Station of the Cross, a cemetery chapel, a generic
+descriptor) stays down with `_meta.excluded`, and everything else is republished through
 `runPublishOrchestrator` with `_meta.restored {at, reason}`.
 `scheduleOsmResweepAfterKeyFix` makes every non-empty tile swept before the fix
 due again, so the candidates dropped at discovery can be found again. Both run
@@ -1739,8 +1739,10 @@ job at bulk speed, through the same publish path (see
 
 - **Source.** A first run queried Overpass cell by cell and was stopped at
   1,014 published. The rest came from a QLever export of the OpenStreetMap
-  planet (`https://qlever.dev/api/osm-planet`, CSV): **282,429** named Latin and
-  Eastern Catholic places of worship, fetched in about 20 seconds.
+  planet (`https://qlever.dev/api/osm-planet`, CSV): **282,424** named Latin and
+  Eastern Catholic places of worship, fetched in about 20 seconds. (`76ef468`
+  and the operator's notes say 282,429, which counts lines: four rows hold a
+  line break inside a field. Run 2 read 282,424 rows, all distinct elements.)
 - **Filters.** Only real, attendable places of worship pass: named, of a
   denomination in communion with Rome, not ruined, disused or private, not a
   wayside cross or shrine, grotto, Station of the Cross or cemetery chapel, and
@@ -1763,12 +1765,11 @@ Results, 2026-10-31:
 | QLever CSV, run 1 (stopped for the two fixes below) |      27,069 |                    84 % |
 | QLever CSV, run 2                                   | **222,712** |                 208,332 |
 
-Measured afterwards: 271,421 `PARISH` rows published of 273,112 at 14:30 MDT;
-271,611 published, 232,399 of them with a complete address, at 14:58 MDT
-(20:58 UTC), with the research lane completing about 400 more a run; and by the
-evening about 272,000 published, more than 236,000 of them complete.
+Measured afterwards: 271,421 `PARISH` rows published of 273,112 between 14:30
+and 14:55 MDT; 271,611 published, 232,399 of them with a complete address, at
+14:58 MDT (20:58 UTC), with the research lane completing about 400 more a run.
 
-**The parish cleanup** (`f0fbfe9`). A spot-check of run 1 found local churches
+**The parish cleanup** (`f0fbfe9`). A spot-check of the import found local churches
 published as major basilicas and about 530 records named only by a descriptor
 ("Kaplica domowa", "Kaplica szpitalna", "Kapelle", "Chapelle"). The importer now
 refuses both (run 2 had the fix), and `scripts/booster/parish-cleanup.ts`
@@ -1779,8 +1780,9 @@ republishing them) and re-designated **4** non-papal "major basilicas". Exactly
 the four papal basilicas remain.
 
 The worker's own OSM lane was paused for the import (the sprint scheduler's
-`cooldownUntil`, in the `parish-sprint-state` memory row) and resumed at
-15:40 MDT, after `2c1950b` gave it the importer's rules.
+`cooldownUntil`, in the `parish-sprint-state` memory row) and resumed at about
+15:40 MDT, after `2c1950b` gave it the importer's rules; with `PARISH` above its
+target it then idles (see [Remaining limitations](#remaining-limitations)).
 
 **Deliberately not used.** The parish finders (MassTimes, CatholicMassTime, the
 USCCB finder, GCatholic, DiscoverMass, the England & Wales directory): their
@@ -1807,8 +1809,8 @@ churches.
 - **No permanent give-up** (`0892402`, `d325798`, `767dffb`, `fd6b68a`). The
   host gave up on the sixth consecutive crash, after about 30 s of trouble, and
   the switch poll never restarts a `failed` runtime while the switch is merely
-  still ON — so a database blip after the Mac woke stopped all content work
-  while every surface showed ON.
+  still ON — so any fault that outlived half a minute (a database blip after the
+  Mac wakes, say) stopped all content work while every surface showed ON.
   [`restart-backoff.ts`](src/lib/admin-worker/restart-backoff.ts) now doubles
   the wait from 2 s to 5 min for as long as the switch is ON, resets after 2 min
   of healthy uptime, and after five consecutive restarts reports the runtime
@@ -1836,8 +1838,9 @@ churches.
   gave up, or forever. `PRISMA_STATEMENT_TIMEOUT` / `PRISMA_SOCKET_TIMEOUT`
   (seconds) now become Postgres's `statement_timeout` and Prisma's
   `socket_timeout`; unset means none, so the web service is unchanged. The
-  launcher gives the host and the worker 120 s / 150 s; `VACUUM (ANALYZE)` and
-  the monthly report's month of log rows run on a separate client without them.
+  launcher gives the host 120 s / 150 s and the host gives its worker child the
+  same; `VACUUM (ANALYZE)` and the monthly report's month of log rows run on a
+  separate client without them.
 - **A database error during the lease claim** (`b7f91b3`, `5740ed9`). A database
   or proxy blip while a worker child booted parked the Mac permanently with
   "another runtime holds the execution lease": the read error became "not
@@ -1890,8 +1893,8 @@ churches.
   each type; every value is an extractor field, a deterministic restatement of
   one, an enum the title names, or a citation the pipeline holds, and a field
   the extraction did not produce stays missing. A package its schema can never
-  accept is refused at extraction instead of after three rounds of verification
-  probes. Five types are refused from every web source because their extractors
+  accept is refused at extraction instead of after up to three rounds of
+  verification probes. Five types are refused from every web source because their extractors
   never read a field the schema requires — a novena's per-day meditation, a
   Church document's issuing authority and key themes, a sacrament's theology,
   matter, form, minister, recipient and effects, and the Rosary's and a
@@ -1931,11 +1934,13 @@ churches.
   web artifact carries none, so even a vatican.va page counted zero), the proof
   ladder ranked `LITURGICAL_BOOK` at -1, and the quality score's authority
   factor switched on values that are not authority levels. Sources are now
-  counted distinctly against the authority registry (VATICAN 1.0; CATECHISM,
-  LITURGICAL_BOOK, USCCB 0.95; DIOCESAN 0.88; order, publisher, academic 0.85;
-  COMMUNITY 0.78), and an item that still has a single trusted source goes on a
-  research hold, re-checked after 7, 14, 28, 56 and 90 days, instead of writing
-  a WARN on every retry. No threshold changed.
+  counted distinctly (two pages of one site are one witness), and only those on
+  the approved authority registry above `COMMUNITY` count as trusted; the proof
+  ladder and the quality score use the real authority levels (VATICAN 1.0;
+  CATECHISM, LITURGICAL_BOOK, USCCB 0.95; DIOCESAN 0.88; order, publisher,
+  academic 0.85; COMMUNITY 0.78). An item that still has a single trusted source
+  goes on a research hold, re-checked after 7, 14, 28, 56 and 90 days, instead
+  of writing a WARN on every retry. No threshold changed.
 
 #### Growth scheduling
 
@@ -2000,9 +2005,10 @@ churches.
 - **Stricter feast and status gates** (`91799ad`, `d72d525`, `12859f4`,
   `221cdff`, `fc1d78f`). A sample of 30 not-yet-live saints showed 7 of the 18
   that would publish contradicting their own article's infobox feast (Kolping,
-  Redi, Goupil, Schelingová, Eugendus, Beltrame Quattrocchi, Montegallo), Jozef
-  Cebula about to publish as canonized though his article records only his 1999
-  beatification, Venerables carrying a feast, and 462 template biographies. Now
+  Redi, Goupil, Schelingová, Eugendus, Beltrame Quattrocchi, Montegallo), and
+  Jozef Cebula would have published as canonized though his article records only
+  his 1999 beatification; in production, Venerables carried a feast they cannot
+  liturgically have, and 462 published biographies were templates. Now
   an infobox feast's first date must be one of Wikidata's and the prose cannot
   override it; Wikidata's stage must agree with the article; a Venerable or
   Servant of God publishes without a feast; an article whose infobox names only
@@ -2017,8 +2023,8 @@ churches.
   Wikipedia leads verbatim, with no link or licence, under the site's "All
   rights reserved" footer. A detail page whose prose was quoted from an article
   now ends with one small line, "Text from Wikipedia (<article>), CC BY-SA 4.0",
-  linking the article and the licence. It is the one exception to the owner's
-  no-visible-sources rule, because the licence requires it; it covered 2,671
+  linking the article and the licence. It is an exception to the owner's
+  no-visible-sources rule because the licence requires it; it covered 2,671
   saints, 179 popes and a handful of documents, devotions, titles and rites.
   Internal fields (`feastMonth`, `feastDayOfMonth`, `wikidataQid`) no longer
   print, and the closing "A fuller biography is recorded in the … Wikipedia
@@ -2042,16 +2048,28 @@ churches.
   stage-review rows** (Wikidata and the article disagree) were left unchanged for
   a human, listed in the run's output. The full feast audit was not run.
 - **The sweep** (`78b162c`, `c4089ed`, `f16d7eb`).
-  `scripts/booster/saint-sweep.ts` walked the `SAINT` corpus (about 5,400
-  entities) through the worker's own ingest pass: a trial published 11 and the
-  full sweep 349 more, **+360** in all, taking `SAINT` to 3,692 of 4,500.
+  `scripts/booster/saint-sweep.ts` walked the whole `SAINT` corpus through the
+  worker's own ingest pass: a trial published 11 and the full sweep 349 more,
+  **+360** in all. `SAINT` stood at 3,692 of 4,500 at 17:35 MDT.
+- **Public-domain fallbacks** (`166620f`, `a4b3171`), merged that evening after
+  the fourth release. Where Wikipedia gives a saint no English lead to quote, or
+  states no feast, the 1913 Catholic Encyclopedia (its Wikisource transcription,
+  found only through the saint's Wikidata item) and the 1916 English Roman
+  Martyrology (a committed day index built from the Internet Archive's OCR by
+  `scripts/booster/build-roman-martyrology.ts`) may supply the biography or
+  corroborate Wikidata's one feast day, and only after every Wikipedia gate has
+  passed; an announcement that sends the feast to another day refuses the row.
+  Such a biography is credited in one small line beside the Wikipedia credit
+  ("Text from the Catholic Encyclopedia (1913), "St. Ita", public domain"), and
+  Wikipedia is no longer credited for prose taken from another source.
 
 #### Curated content
 
-Every text is a public-domain printing (all before 1929), transcribed from page
-images and collated against independent OCRs, checked for duplicates against
-production, the knowledge base and a claims registry the curators shared, then
-audited independently and corrected before it merged. Apparitions, devotions
+Every prayer and novena text is a public-domain printing (all printed before
+1929), transcribed from the page images or taken from an online transcription
+and checked word by word against scans of the printed book, checked for
+duplicates against production, the knowledge base and a claims registry the
+curators shared, then audited independently and corrected before it merged. Apparitions, devotions
 and Church documents are editorial summaries of their cited pages; no text that
 is not in the public domain is reproduced.
 
@@ -2066,9 +2084,10 @@ is not in the public domain is reproduced.
   Anselm and Ignatius, and the 1889 Manual of Prayers — occasional prayers, the
   dead, Confession, Communion, the sick and the Sunday collects.
 - **Novenas: 52** (`novenas/group-3.ts`), `NOVENA` 31 → 83 of 100: the fifteen
-  Holy Helper novenas, the Raccolta's novenas for Our Lady's feasts, Newman's St
-  Philip, St Alphonsus, Lourdes, Mount Carmel, the Nine Tuesdays of St Anthony,
-  St Teresa, the Ara Coeli novenas and Lings' _Our Favorite Novenas_.
+  Holy Helper novenas and Hammer's Seven Sorrows, the Raccolta's novenas for Our
+  Lady's feasts, Newman's St Philip, St Alphonsus's Sacred Heart, Lourdes, Mount
+  Carmel, the Nine Tuesdays of St Anthony, St Teresa, the Ara Coeli novenas and
+  Lings' _Our Favorite Novenas_.
 - **Apparitions: 13** (`apparitions/group-2.ts`), `APPARITION` 39 → 52 of 50:
   four nihil obstat decisions under the 2024 norms, eight cults the Church
   formally authorised without judging the apparition itself, and Vailankanni.
@@ -2081,10 +2100,10 @@ is not in the public domain is reproduced.
 - **Saint John Henry Newman as the 38th Doctor of the Church** (`ec992d0`),
   declared by Leo XIV on 1 November 2025; `DOCTOR` 37 → 38.
 
-The audits removed the duplicates they found across branches (the Lings Lourdes
-novena, the Raccolta's Novena of Grace prayer, two Office of the Dead collects,
-three Manual of Prayers entries), and every novena that shares a prayer with a
-published `PRAYER` now names it.
+The audits removed the duplicates they found, of a live row or of another
+branch's entry (the Lings Lourdes novena, the Raccolta's Novena of Grace prayer,
+two Office of the Dead collects, three Manual of Prayers entries), and every new
+novena that shares a prayer with a separate `PRAYER` entry now names it.
 
 #### History timeline
 
@@ -2104,12 +2123,13 @@ appearing twice. See [The history timeline](#the-history-timeline).
 
 - **Latin and Greek on every form of prayer** (`887e61a`, `ce45e62`, `4bf3699`,
   `cc7fcbe`). The owner found the Latin and Greek toggles gone from the Rosary,
-  the chaplets, novenas and litanies, and there were three different toggles.
-  One control now serves the prayer page, every prayer list and every prayer
-  opened in place, and machine-made Latin or Greek says it is unofficial. Why 179
-  prayers show no chip is under [Reading experience](#reading-experience).
+  the Divine Mercy Chaplet, novenas and litanies, and there were three different
+  toggles. One control now serves the prayer page, every prayer list and every
+  prayer opened in place, and machine-made Latin or Greek says it is unofficial.
+  Which prayers have no received Latin or Greek, and why, is under
+  [Reading experience](#reading-experience).
 - **Content pages trimmed** (`9733fe7`, `776bea2`, `09773f2`, `ae896c9`,
-  `1cbed89`, `9f5e14b`). Pages printed internal fields ("Feast month: 4",
+  `1cbed89`, `9f5e14b`, `2165a92`, `e8eb506`). Pages printed internal fields ("Feast month: 4",
   "Wikidata qid", "Content subtype: pope_biography"), repeated summaries and
   source footers; the owner asked for the title and what matters. A page now
   shows exactly the fields it names, never sources: a saint is the name,
@@ -2135,8 +2155,10 @@ appearing twice. See [The history timeline](#the-history-timeline).
   Published content was only ever shown in English. A self-hosted engine ported
   from The Augustine Journal (pinned OPUS-MT models on onnxruntime) now
   translates it into the nine site languages that have a model (es, fr, it, de,
-  pt, pl, tl, vi, zh); the web server only reads the cache (`ContentTranslation`,
-  migration `0062`) and the translator runs on the Mac. Its rules: Latin and
+  pt, pl, tl, vi, zh). The web server reads the cache (`ContentTranslation`,
+  migration `0062`), waiting at most 400 ms, files what a page missed as demand
+  and shows the original until the translator on the Mac has filled it. Its
+  rules: Latin and
   Greek stay as written; saints' names are never machine-translated; a parish
   name in another script is transliterated beside the original or shown as
   written, never translated — on 125 published names the models produced mostly
@@ -2154,53 +2176,54 @@ All optional, with working defaults. The host's own are under
 translator's (`TRANSLATION_*`) are in
 [docs/operations/translation.md](docs/operations/translation.md).
 
-| Variable                                             | Default                         | Purpose                                                                               |
-| ---------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------- |
-| `ADMIN_WORKER_NOMINATIM_DAILY_BUDGET`                | `2000`                          | Nominatim lookup requests per UTC day, persisted and shared by every caller           |
-| `ADMIN_WORKER_NOMINATIM_COOLDOWN_MS`                 | `900000`                        | Pause after a 429 / 403 / 5xx, persisted                                              |
-| `ADMIN_WORKER_PARISH_RESEARCH_REQUESTS`              | `10`                            | Lookups per `research-parish-addresses` run (50 parishes each)                        |
-| `ADMIN_WORKER_PARISH_RESEARCH_THROTTLE_MS`           | `120000`                        | Minimum gap between research runs                                                     |
-| `ADMIN_WORKER_PARISH_RESEARCH_BUDGET_MS`             | `240000`                        | Wall-clock budget of one research run                                                 |
-| `ADMIN_WORKER_PARISH_RESTORE_BATCH`                  | `50`                            | Unpublished rows the city-key restore judges per run                                  |
-| `ADMIN_WORKER_OSM_RESWEEP_BATCH`                     | `250`                           | Tile rows made due per run by the re-sweep after the key fix                          |
-| `ADMIN_WORKER_STRUCTURED_FLOOR_MS`                   | `21600000` (6 h)                | An ingestor unused this long runs first, whatever its gap                             |
-| `ADMIN_WORKER_STRUCTURED_BUDGET_MS`                  | `240000`                        | Wall-clock budget of one structured pass                                              |
-| `ADMIN_WORKER_STRUCTURED_BATCH_<TYPE>`               | `ADMIN_WORKER_STRUCTURED_BATCH` | Page size for one ingestor (`_SAINT`, …), at most 200                                 |
-| `ADMIN_WORKER_WIKIMEDIA_SPACING_MS`                  | `0`                             | Gap between Wikimedia request starts on the serial queue (the saint sweep sets 100)   |
-| `ADMIN_WORKER_CAMPAIGN_STRUCTURED_WEIGHT`            | `0.1`                           | Share of its gap a type counts while its structured ingestor is publishing            |
-| `ADMIN_WORKER_CAMPAIGN_MAX_SURGE_HOURS`              | `6`                             | Longest campaign SURGE on one type                                                    |
-| `ADMIN_WORKER_CAMPAIGN_COOLDOWN_HOURS`               | `6`                             | How long that type then waits before it can campaign again                            |
-| `ADMIN_WORKER_CAMPAIGN_SURGE_STREAK`                 | `2`                             | Consecutive campaign discovery picks before one goes to the normal rotation           |
-| `INTELLIGENCE_QUEUE_WAIT_MS`                         | twice `INTELLIGENCE_TIMEOUT_MS` | Longest wait for the brain's turn before a call fails fast as "busy"; `0` never waits |
-| `PRISMA_STATEMENT_TIMEOUT` / `PRISMA_SOCKET_TIMEOUT` | unset (no timeout)              | Seconds: Postgres `statement_timeout` and Prisma `socket_timeout` for the process     |
+| Variable                                             | Default                         | Purpose                                                                                                                                   |
+| ---------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `ADMIN_WORKER_NOMINATIM_DAILY_BUDGET`                | `2000`                          | Nominatim id-lookup requests per UTC day, persisted, shared by the OSM sweep and the research lane (the reverse lookup keeps its own cap) |
+| `ADMIN_WORKER_NOMINATIM_COOLDOWN_MS`                 | `900000`                        | Pause after a 429 / 403 / 5xx, persisted                                                                                                  |
+| `ADMIN_WORKER_PARISH_RESEARCH_REQUESTS`              | `10`                            | Lookups per `research-parish-addresses` run (50 parishes each)                                                                            |
+| `ADMIN_WORKER_PARISH_RESEARCH_THROTTLE_MS`           | `120000`                        | Minimum gap between research runs                                                                                                         |
+| `ADMIN_WORKER_PARISH_RESEARCH_BUDGET_MS`             | `240000`                        | Wall-clock budget of one research run                                                                                                     |
+| `ADMIN_WORKER_PARISH_RESTORE_BATCH`                  | `50`                            | Unpublished rows the city-key restore judges per run                                                                                      |
+| `ADMIN_WORKER_OSM_RESWEEP_BATCH`                     | `250`                           | Tile rows made due per run by the re-sweep after the key fix                                                                              |
+| `ADMIN_WORKER_STRUCTURED_FLOOR_MS`                   | `21600000` (6 h)                | An ingestor unused this long runs first, whatever its gap                                                                                 |
+| `ADMIN_WORKER_STRUCTURED_BUDGET_MS`                  | `240000`                        | Wall-clock budget of one structured pass                                                                                                  |
+| `ADMIN_WORKER_STRUCTURED_BATCH_<TYPE>`               | `ADMIN_WORKER_STRUCTURED_BATCH` | Page size for one ingestor (`_SAINT`, …), clamped to its page ceiling (200 for SAINT)                                                     |
+| `ADMIN_WORKER_WIKIMEDIA_SPACING_MS`                  | `0`                             | Gap between Wikimedia request starts on the serial queue (the saint sweep sets 100)                                                       |
+| `ADMIN_WORKER_CAMPAIGN_STRUCTURED_WEIGHT`            | `0.1`                           | Share of its gap a type counts while its structured ingestor is publishing                                                                |
+| `ADMIN_WORKER_CAMPAIGN_MAX_SURGE_HOURS`              | `6`                             | Longest campaign SURGE on one type                                                                                                        |
+| `ADMIN_WORKER_CAMPAIGN_COOLDOWN_HOURS`               | `6`                             | How long that type then waits before it can campaign again                                                                                |
+| `ADMIN_WORKER_CAMPAIGN_SURGE_STREAK`                 | `2`                             | Consecutive campaign discovery picks before one goes to the normal rotation                                                               |
+| `INTELLIGENCE_QUEUE_WAIT_MS`                         | twice `INTELLIGENCE_TIMEOUT_MS` | Longest wait for the brain's turn before a call fails fast as "busy"; `0` never waits                                                     |
+| `PRISMA_STATEMENT_TIMEOUT` / `PRISMA_SOCKET_TIMEOUT` | unset (no timeout)              | Seconds: Postgres `statement_timeout` and Prisma `socket_timeout` for the process                                                         |
 
 #### Remaining limitations
 
-As of the end of 2026-10-31:
+As of the evening of 2026-10-31:
 
 - **The OSM lane idles while `PARISH` is above its target.** The sprint
   scheduler stands the lane down when the `PARISH` goal has no gap
   ([`parish-sprint.ts`](src/lib/admin-worker/parish-sprint.ts): "PARISH goal met —
-  parish lane idle"), and about 272,000 published parishes are above the 200,000
-  target, so the tile sweep, and the re-sweep scheduled after the key fix,
+  parish lane idle"), and 271,611 published parishes (14:58 MDT) are above the
+  200,000 target, so the tile sweep, and the re-sweep scheduled after the key fix,
   publish nothing until the target is raised to the real supply. The research
   lane and the restore run regardless; how many of the 943 + 207 key-fix
   victims the restore republishes was not measured on the day.
 - **Goals not yet at their supply.** `SAINT` 3,692 of 4,500, `PRAYER` 972 of
-  1,000 and `NOVENA` 83 of 100 were still short, with more curation and the
-  saints' public-domain source work (the 1913 Catholic Encyclopedia through
-  Wikisource, the 1916 Roman Martyrology) still running. The saint sweep is to
-  be run again once that work merges, and those goals set to their achievable
-  totals.
+  1,000 and `NOVENA` 83 of 100 were still short, with more prayer and novena
+  curation still running. The saints' public-domain sources (the 1913 Catholic
+  Encyclopedia through Wikisource, the 1916 Roman Martyrology; see
+  [Saints](#saints)) merged that evening; the saint sweep is to be run again
+  with them, and those goals set to their achievable totals.
 - **Saints for a human.** The cleanup's 49 suspects and 14 stage-review rows;
   the full feast audit (`--only=feast-audit`, about 3,000 articles) has not been
   run; and the 462 stored template biographies keep their closing source
   sentence in the payload (only the page drops it).
 - **Prayers without Latin or Greek.** Of the roughly 250 prayers published
-  before the day's new ones went live, a review counted 179 with no received
-  Latin or Greek in the repository, so they show no chip; 38 carry a June 2026
-  machine fill, labelled unofficial. The day's 722 new prayers carry Latin only
-  where their source prints it.
+  before the day's new ones went live, 179 have no received Latin or Greek in
+  the repository (see [Reading experience](#reading-experience)): most show no
+  chip, and the rest show only a June 2026 machine fill, labelled unofficial
+  (38 published prayers carry such a fill in all). The day's 722 new prayers
+  carry Latin only where their source prints it.
 - **Web types that cannot publish.** `NOVENA`, `CHURCH_DOCUMENT`, `SACRAMENT`,
   `ROSARY` and `CONSECRATION` are refused from every web source until their
   extractors read the missing fields; `DEVOTION`, `LITURGICAL`,
@@ -2223,9 +2246,13 @@ reach. They go through the same paths the lanes use — `runPublishOrchestrator`
 `applyProtectedContentUpdate`, the structured ingest pass — so a booster's
 publish passes every gate a lane's would and can never publish a row twice, a
 correction is versioned or recorded on the row it changes, nothing is deleted,
-and every run is logged to `AdminWorkerLog`, where the command center and the
-developer report see it. None of them runs on its own: they are not lanes, and
-the loop never calls them.
+and every run that writes is logged to `AdminWorkerLog`, where the command
+center and the developer report see it (a dry run writes nothing, not even its
+log row). None of them runs on its own: they are not lanes, and the loop never
+calls them. `build-roman-martyrology.ts` (`166620f`) sits beside them but is a
+build step, not a booster: it regenerates the committed 1916 Martyrology day
+index from a downloaded OCR file (`--check` confirms the committed index still
+matches) and touches no database.
 
 **Running one against production.** `DATABASE_URL` names the database, as for
 every operator script, and the boosters that read Wikidata or Wikipedia refuse
@@ -2240,14 +2267,16 @@ railway run --service Postgres --environment production -- bash -c '
   u="$DATABASE_PUBLIC_URL"
   case "$u" in *\?*) u="$u&" ;; *) u="$u?" ;; esac
   export DATABASE_URL="${u}connection_limit=4&pool_timeout=30"
+  unset DATABASE_PUBLIC_URL PGPASSWORD PGUSER PGHOST PGPORT PGDATABASE POSTGRES_PASSWORD
   exec "$@"' _ npx tsx scripts/booster/saint-cleanup.ts --report=saint-cleanup-dry.json
 ```
 
 The parish import's first CSV run used `--concurrency=24` with
-`connection_limit=28`. The curated batches needed no script of their own:
+`connection_limit=28`. The curated batches went through
 `seedCuratedContent(prisma, { contentType, limit })`, the function behind
-`npm run seed:content`, ran once per type in the same way, and each run wrote a
-`booster_curated_publish` row.
+`npm run seed:content`, once per type and in the same way, from a small helper
+kept outside the repository that also wrote one `booster_curated_publish` row
+per run.
 
 #### `parish-bulk-import.ts` — publish the Catholic world's churches from OpenStreetMap
 
@@ -2274,15 +2303,59 @@ worker's User-Agent.
   at least 2.5 s apart, and asks only for `denomination=roman_catholic|catholic`;
   the CSV export carried the Eastern Catholic denominations too.
 - **The CSV contract.** The first column is the OSM element's IRI (ending
-  `/node/<id>`, `/way/<id>` or `/relation/<id>`), then `lat` and `lon`, then one
-  column per tag, named by the export query's variables and mapped to OSM keys
-  by `CSV_TAGS`: `name`, `d` (denomination), `nameEn`, `religion`, `street`,
-  `hn`, `place`, `full`, `city`, `town`, `village`, `hamlet`, `muni`, `pc`,
-  `cc`, `state`, `prov`, `web`, `cweb`, `url`, `phone`, `cphone`, `pow`, `bld`,
-  `hist`, `mm`, `access`, `ruins`, `disused`, `abandoned`, `dAmenity`,
-  `aAmenity`, `ctype`, `cath`. The export query itself is not in the
-  repository; the script's header points at a `scripts/booster` README for it,
-  and this section is that README.
+  `/node/<id>`, `/way/<id>` or `/relation/<id>`); every other column is found by
+  its header: `lat` and `lon`, and one column per tag, named by the export
+  query's variables and mapped to OSM keys by `CSV_TAGS`: `name`, `d`
+  (denomination), `nameEn`, `religion`, `street`, `hn`, `place`, `full`,
+  `city`, `town`, `village`, `hamlet`, `muni`, `pc`, `cc`, `state`, `prov`,
+  `web`, `cweb`, `url`, `phone`, `cphone`, `pow`, `bld`, `hist`, `mm`,
+  `access`, `ruins`, `disused`, `abandoned`, `dAmenity`, `aAmenity`, `ctype`,
+  `cath`. The script's comment points at a `scripts/booster` README for the
+  export, which does not exist; this is the query that produced the
+  2026-10-31 export, run against `https://qlever.dev/api/osm-planet` with CSV
+  output:
+
+  ```sparql
+  PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+  PREFIX geof: <http://www.opengis.net/def/function/geosparql/>
+  SELECT ?o ?name ?d (geof:latitude(geof:centroid(?wkt)) AS ?lat) (geof:longitude(geof:centroid(?wkt)) AS ?lon) ?nameEn ?religion ?street ?hn ?place ?full ?city ?town ?village ?hamlet ?muni ?pc ?cc ?state ?prov ?web ?cweb ?url ?phone ?cphone ?pow ?bld ?hist ?mm ?access ?ruins ?disused ?abandoned ?dAmenity ?aAmenity ?ctype ?cath WHERE {
+    ?o <https://www.openstreetmap.org/wiki/Key:amenity> "place_of_worship" ; <https://www.openstreetmap.org/wiki/Key:denomination> ?d ; <https://www.openstreetmap.org/wiki/Key:name> ?name ; geo:hasGeometry/geo:asWKT ?wkt .
+    FILTER (?d IN ("catholic", "roman_catholic", "ukrainian_greek_catholic", "greek_catholic", "maronite", "roman_catholic;greek_catholic", "syro-malabar_catholic", "syriac_catholic", "armenian_catholic", "chaldean_catholic", "latin_catholic", "ukrainian_catholic", "byzantine_catholic", "greek_catholic;roman_catholic", "romanian_greek_catholic", "roman_catholic;catholic", "melkite_greek_catholic", "malankara_catholic", "syro-malankara_catholic", "coptic_catholic", "romanian_catholic", "melkite", "catholic;roman_catholic", "ruthenian_catholic", "slovak_greek_catholic", "hungarian_greek_catholic", "ethiopian_catholic", "eritrean_catholic"))
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:name:en> ?nameEn }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:religion> ?religion }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:street> ?street }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:housenumber> ?hn }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:place> ?place }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:full> ?full }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:city> ?city }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:town> ?town }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:village> ?village }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:hamlet> ?hamlet }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:municipality> ?muni }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:postcode> ?pc }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:country> ?cc }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:state> ?state }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:addr:province> ?prov }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:website> ?web }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:contact:website> ?cweb }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:url> ?url }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:phone> ?phone }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:contact:phone> ?cphone }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:place_of_worship> ?pow }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:building> ?bld }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:historic> ?hist }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:man_made> ?mm }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:access> ?access }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:ruins> ?ruins }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:disused> ?disused }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:abandoned> ?abandoned }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:disused:amenity> ?dAmenity }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:abandoned:amenity> ?aAmenity }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:church:type> ?ctype }
+    OPTIONAL { ?o <https://www.openstreetmap.org/wiki/Key:cathedral> ?cath }
+  }
+  ```
+
 - **Every publish** goes through `runPublishOrchestrator` with a checklist item,
   `COMMUNITY` authority and `skipBrainScreens`, carrying
   `_meta.addressResearch` (`complete` or `partial`, the parts missing, the
@@ -2316,7 +2389,8 @@ An unpublished row keeps its payload plus `_meta.excluded {reason, at, by}`, is
 never deleted, and gets a one-year `osm-skip` on its OSM id and its slug, so no
 sweep republishes it; a designation changes through
 `applyProtectedContentUpdate` (versioned, reversible). An `--apply` run writes
-one `booster_parish_cleanup` WARN row listing everything it changed. It was
+one `booster_parish_cleanup` WARN row listing the landmark copies and basilicas
+it changed and counting the generic names (the printed JSON does the same). It was
 applied once on 2026-10-31, after a reviewed dry run: 10 landmark copies and 531
 generic names unpublished, 4 basilicas re-designated.
 
@@ -6052,8 +6126,8 @@ basilica, shrine, chapel or oratory — rendered by both the directory list
   degrading to what the record has — with a **Get directions** button beside it
   (`MapsAddressLink`, which opens Apple Maps on iPhone/iPad and Google Maps
   everywhere else) whenever the record has coordinates or a street, aimed at the
-  coordinates when there are any, because most churches have no street line but
-  every one has coordinates.
+  coordinates when there are any, because not every church has a street line
+  but every one has coordinates.
 
 The September card's **Diocese** line (its value was really the town: "Denver,
 Colorado, United States") and the **website** are gone from both the card and
@@ -6231,13 +6305,15 @@ translation, not a liturgical text." under it while it is shown, unless the
 stored text is the received text the curated registries hold for that prayer
 (`publishedPrayerVariants`; the Litany of Saint Joseph's official Latin was the
 one such case). **Why some prayers have no chip at all:** a prayer shows only the
-languages its payload carries, and no text enters a payload unless it is curated
-received text. On 2026-10-31 a review of the roughly 250 prayers then published
-(before that day's new prayers went live) counted 180 with no received Latin or
-Greek in the repository; `cc7fcbe` gave one of them (Come, Holy Ghost) the Latin
-it shares with the modern form of the prayer, leaving **179** that show no chip
-until a curator supplies their received text. The day's new prayers carry Latin
-only where their source prints it.
+languages its payload carries, and no text enters a payload now unless it is
+curated received text. On 2026-10-31 a review of the roughly 250 prayers then
+published (before that day's new prayers went live) counted 180 with no
+received Latin or Greek in the repository. Most of them have no Latin or Greek
+at all and show no chip (`243985d` counted 171 of 249); the rest show only a
+June 2026 machine fill, labelled unofficial. `cc7fcbe` gave one of them (Come,
+Holy Ghost) the Latin it shares with the modern form of the prayer, leaving
+**179** without received text until a curator supplies it. The day's new
+prayers carry Latin only where their source prints it.
 
 The worker **builds these translations itself** through a deterministic
 **liturgical translation engine**
@@ -6341,16 +6417,19 @@ line on a timeline event, no host link on a Church-document card, and no
 citation inside a devotion's indulgence note (the presenter never renders a
 `citation`, `citations`, `source`, `sources`, `sourceUrl` or `sourceUrls` key,
 at any depth). The worker's verification provenance lives in the admin surfaces
-(checklist, artifacts, audit) and every citation stays in the payload. Two
+(checklist, artifacts, audit) and every citation stays in the payload. A few
 exceptions remain. The **daily-readings page** keeps its modest "Source: …" link
 (the authoritative liturgical source for that day's readings), so a reader can
-always go to the official text; a Church document's own page keeps "Read the
-full document". And a detail page whose prose was **quoted from Wikipedia** ends
+always go to the official text, and a Church document's own page keeps "Read the
+full document". A detail page whose prose was **quoted from Wikipedia** ends
 with one small line, "Text from Wikipedia (<article>), CC BY-SA 4.0", linking the
 article and the licence, because the licence requires the credit
 ([`content-shared/wikipedia-attribution.ts`](src/lib/content-shared/wikipedia-attribution.ts));
-composed or hand-written text that
-merely cites Wikipedia is never credited this way.
+composed or hand-written text that merely cites Wikipedia is never credited this
+way. Since `166620f`, a saint biography quoted from the 1913 Catholic
+Encyclopedia or the 1916 Roman Martyrology gets the same kind of line naming
+that public-domain work (`content-shared/public-domain-attribution.ts`), and
+Wikipedia is not credited for it.
 
 **Category filters.** Content-rich tabs split their items into the Church's
 natural groupings via URL-driven filter chips (`?filter=…`, the shared
@@ -7155,8 +7234,8 @@ this sequence:
 3. **Railway deploys the web service** by itself, through the chain above, which
    applies any pending migration with `prisma migrate deploy` before the server
    starts.
-4. **Fast-forward the Mac checkout** the app launches the worker from:
-   `git pull --ff-only origin main` in that checkout. It must be clean: on
+4. **Fast-forward the Mac checkout** the app launches the worker from to the new
+   `main` (`git pull --ff-only origin main` there does it). It must be clean: on
    2026-10-31 it still held the EPIPE host fix, uncommitted since 2026-10-05,
    which was backed up and dropped because `2fe7655` commits the same logic.
 5. **Quit and relaunch Via Fidei.app**, so the host and the worker child load the
@@ -7175,8 +7254,10 @@ The first four releases:
 | `1a56858..49f24e2` | `448dee56`, succeeded                                               | 16:25                | Site polish, the saint gates and boosters, prayer batch 10, apparitions, devotions, Church documents                                       |
 | `49f24e2..8b5d1bc` | `73c6cbac`, succeeded; migration `0062_content_translation` applied | 17:24                | The translation engine, prayer batches 9 and 12, timeline part 13                                                                          |
 
-The novenas and prayer batch 11 were merged, and published, after the fourth
-release, and reached `main` with a later one. `0062_content_translation` only creates
+The novenas, prayer batch 11 and the saints' public-domain sources were merged
+after the fourth release (the novenas and the batch were published from the
+integration checkout as they merged) and reach `main` with the next one.
+`0062_content_translation` only creates
 a new table, with its own `lock_timeout`, so nothing in it can queue behind the
 worker's writes; a migration that alters a live table still wants the master
 switch OFF (see [Migration history](#migration-history)).
