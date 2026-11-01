@@ -9,10 +9,10 @@ import type { CuratedEntry } from "../index";
  *
  *   - "A Book of Novenas for the Principal Feasts of the Year" (Baltimore:
  *     Kelly, Piet and Company, copyright 1878; approved by the Archbishop of
- *     Baltimore on 8 March 1878): the novenas for the Circumcision, the
- *     Epiphany and Christ Crucified, each a single prayer said on every day.
- *     The archive.org copy is a Google scan in which some later leaves are
- *     torn; only novenas whose pages are whole are used.
+ *     Baltimore on 8 March 1878): the novenas for the Circumcision and the
+ *     Epiphany, each a single prayer said on every day. The archive.org copy
+ *     is a Google scan in which some later leaves are torn; only novenas whose
+ *     pages are whole are used.
  *
  *   - John Baptist Pagani, "The Way to Heaven: a manual of devotion" (London:
  *     James Burns, 1849): the novenas for the Nativity, Presentation,
@@ -78,24 +78,34 @@ import type { CuratedEntry } from "../index";
  * Bonaventure"), that prayer is the section's prayer and keeps the book's
  * quotation marks.
  *
- * Corrections and readings. Three printer's slips are corrected: Pagani's
+ * Corrections and readings. Four printer's slips are corrected: Pagani's
  * novena for the Purification has "ycur" for "your"; the Glories prints a
  * stray full stop after "Virgo fidelis"; and the Golden Manual's novena to the
  * Blessed Virgin prints "the crown of thy occidental glory", an evident
  * misprint for the theological term "accidental glory" (the joy of the blessed
  * that can still grow, as the prayer says it will "to the end of the world"),
- * which is so corrected. On the same page of the Golden Manual a short word at
- * the end of a line is worn away in both the 1865 and the 1902 printings and
- * is read as "so" ("with which thine was ever so inflamed"), as The Garden of
- * the Soul (New York: D. & J. Sadlier, 1871) prints the same prayer. In the
- * Mount Carmel novena the sixth day's prayer ends, as the book prints it,
- * "who with the Father and the Son liveth and reigneth"; it is kept as printed
- * and the background says so.
+ * which is so corrected. The same prayer prints "suprenatural" (divided
+ * "supre-natural") for "supernatural", which is also corrected. On the next
+ * page of the Golden Manual a short word at the end of a line is worn away in
+ * both the 1865 and the 1902 printings and is read as "so" ("with which thine
+ * was ever so inflamed"), as The Garden of the Soul (New York: D. & J.
+ * Sadlier, 1871) prints the same prayer. In the novena to the Sacred Heart the
+ * "t" of "the treasures", which has not printed, is supplied, as is the "l" of
+ * "blessed" ("O b essed") in the novena to St. John the Baptist. Other letters
+ * broken in the Golden Manual's pages, such as "hailea", "orightness" and
+ * "neart" in the novena to the Blessed Virgin, are read as the words they
+ * belong to (hailed, brightness, heart). In the Mount Carmel novena the sixth
+ * day's prayer ends, as the book prints it, "who with the Father and the Son
+ * liveth and reigneth"; it is kept as printed and the background says so.
  *
  * Shared components. The third day's prayer of the Mount Carmel novena is a
  * form of the Memorare, which the catalogue publishes on its own as the PRAYER
  * memorare; it is kept as part of the novena's received form and its
- * background names the separate entry. The Golden Manual follows its novena
+ * background names the separate entry. The two prayers at the conclusion of
+ * the same novena, the collect of the feast and the prayer to Our Lady as
+ * special protectress of all who wear her scapular, are said in another
+ * translation in novena-our-lady-of-mount-carmel, whose day prayers are
+ * different; the background says so too. The Golden Manual follows its novena
  * to St. John the Baptist with the Litany of St. John the Baptist, which the
  * catalogue publishes as litany-of-saint-john-the-baptist; the litany has its
  * own heading in the book and is not part of the novena text given here.
@@ -104,9 +114,12 @@ import type { CuratedEntry } from "../index";
  * Golden Manual and in A Book of Novenas, the Golden Manual's novena to St.
  * Charles Borromeo (its prayer is that of novena-saint-charles-borromeo), the
  * Glories' novena to the Immaculate Heart (its prayer is the Raccolta's
- * prayer-to-the-heart-of-mary-and-act-of-praise in another translation) and
- * the novena for the feast of the Five Wounds in A Book of Novenas, whose
- * prayer is a version of one of the Fifteen Prayers ascribed to St. Bridget.
+ * prayer-to-the-heart-of-mary-and-act-of-praise in another translation), the
+ * novena for the feast of the Five Wounds in A Book of Novenas, whose prayer
+ * is a version of one of the Fifteen Prayers ascribed to St. Bridget, and the
+ * novena in honor of Christ Crucified in A Book of Novenas, whose five
+ * petitions are a version of the Raccolta's Five Credos of St. Pius V
+ * (five-credos-of-saint-pius-v).
  * Where a novena shares its subject with one already in the catalogue, its
  * summary or background says that its text is a different one.
  *
@@ -124,8 +137,6 @@ const BOOK_OF_NOVENAS_CIRCUMCISION =
   "https://archive.org/details/ABookOfNovenasForThePrincipalFeastsOfTheYear/page/n11/mode/1up";
 const BOOK_OF_NOVENAS_EPIPHANY =
   "https://archive.org/details/ABookOfNovenasForThePrincipalFeastsOfTheYear/page/n13/mode/1up";
-const BOOK_OF_NOVENAS_CHRIST_CRUCIFIED =
-  "https://archive.org/details/ABookOfNovenasForThePrincipalFeastsOfTheYear/page/n19/mode/1up";
 const PAGANI_NATIVITY =
   "https://archive.org/details/TheWayToHeavenAManualOfDevotion/page/n416/mode/1up";
 const PAGANI_PRESENTATION =
@@ -163,7 +174,6 @@ const GOLDEN_MANUAL_JOHN_THE_BAPTIST = "https://archive.org/details/cihm_49896/p
 
 const CE_CIRCUMCISION = "https://www.newadvent.org/cathen/03779a.htm";
 const CE_EPIPHANY = "https://www.newadvent.org/cathen/05504c.htm";
-const CE_PASSION_OF_CHRIST = "https://www.newadvent.org/cathen/11527b.htm";
 const CE_NATIVITY_OF_MARY = "https://www.newadvent.org/cathen/10712b.htm";
 const CE_PRESENTATION_OF_MARY = "https://www.newadvent.org/cathen/12400a.htm";
 const CE_ANNUNCIATION = "https://www.newadvent.org/cathen/01542a.htm";
@@ -192,10 +202,6 @@ const BOOK_OF_NOVENAS_CIRCUMCISION_PRAYER =
 /** The prayer of the novena for the feast of the Epiphany, said on each of the nine days. */
 const BOOK_OF_NOVENAS_EPIPHANY_PRAYER =
   "I salute Thee, O divine Heart, with the three Magi who offered their homage to Thee. Regard me, I beseech Thee, with the same love and kindness with which Thou didst receive them, that I may offer with my heart, gold, frankincense and myrrh; that is to say, my intellect, my memory and my will, in complete subjection to Thee, in faith, hope, charity, in thought, word and deed. Accept my offering, accept my heart, and grant that I may live and die thanking Thee for the invaluable favor of being called to the true faith. Hence, I beg of Thee, by the joy which filled Thy heart, when Thou didst see the first of the Gentiles at Thy feet, to hear my prayer and grant the request I make in this Novena. Amen.";
-
-/** The five petitions of the novena in honour of Christ Crucified, each with its Hail Mary, said on each of the nine days. */
-const BOOK_OF_NOVENAS_CHRIST_CRUCIFIED_PRAYER =
-  "Jesus Christ Crucified, Son of the most holy Virgin Mary, incline Thy sacred Head, and listen to my petitions and sighs, as Thou didst listen to Thy eternal Father on Mount Thabor. Hail Mary, etc.\n\nJesus Christ Crucified, Son of the most holy Virgin Mary, open Thy sacred Eyes, and look upon me as Thou didst look upon Thy sacred Mother from the Cross. Hail Mary, etc.\n\nJesus Christ Crucified, Son of the most holy Virgin Mary, open thy sacred Lips, and speak to my afflicted heart, as Thou didst speak to St. John, when Thou recommendedst him to Thy dear Mother. Hail Mary, etc.\n\nJesus Christ Crucified, Son of the most holy Virgin Mary, open Thy sacred Arms, and receive me Thy poor child, as Thou didst embrace the hard wood of the Cross, for love of me and of all sinners. Hail Mary, etc.\n\nJesus Christ Crucified, Son of the most holy Virgin Mary, open Thy sacred Heart, that seat of love and mercy, and receive mine into it; make it wholly Thine. Hear my prayers, and grant my petitions. Hail Mary, etc.";
 
 /** Pagani's numbered petitions for the novena of the Nativity of Our Lady, all said on each of the nine days. */
 const PAGANI_NATIVITY_NOVENA_PRAYER =
@@ -366,7 +372,7 @@ const LASANCE_1904_SOURCE =
   "It is taken from the 'Little Book of Novenas' in the Prayer-Book for Religious compiled by the Rev. F. X. Lasance (New York: Benziger Brothers, 1904), whose compiler acknowledges a debt to Pagani and to the 'Choir Manual' of the Sisters of Mercy for many of its novenas.";
 
 const GOLDEN_MANUAL_SOURCE =
-  "It is taken from 'The Golden Manual: being a guide to Catholic devotion, public and private' (New York and Montreal: D. & J. Sadlier; American edition entered 1851, the copy cited catalogued as of 1865), whose plates P. J. Kenedy reprinted at New York in 1902. The book gives no dates for its novenas: it describes a novena as a devotion of nine days, in honour of a mystery of the Redemption, of the Blessed Virgin or of a saint, made to obtain a particular request.";
+  "It is taken from 'The Golden Manual: being a guide to Catholic devotion, public and private' (New York and Montreal: D. & J. Sadlier; American edition entered 1851, the copy cited catalogued as of 1865), whose plates P. J. Kenedy reprinted at New York in 1902. The book gives no dates for this novena: it describes a novena as a devotion of nine days, in honour of a mystery of the Redemption, of the Blessed Virgin or of a saint, made to obtain a particular request.";
 
 export const novenaGroupFour: CuratedEntry[] = [
   {
@@ -454,7 +460,7 @@ export const novenaGroupFour: CuratedEntry[] = [
       title: "Novena for the Feast of the Epiphany",
       summary:
         "A novena kept from 28 December to 5 January before the Epiphany. Its prayer greets the divine Heart with the three Magi and offers, as their gold, frankincense and myrrh, the intellect, the memory and the will in faith, hope and charity, giving thanks for the gift of the true faith.",
-      background: `The Epiphany on 6 January celebrates the manifestation of Christ, above all to the Gentiles in the coming of the Magi (Matthew 2:1-12); the Catholic Encyclopedia describes how the Nativity, the Baptism, the miracle at Cana and the visit of the Magi were all celebrated in the feast early in its history. Where it is not a holy day of obligation the solemnity is now kept on the Sunday between 2 and 8 January. The prayer, addressed to the Heart of Jesus like the whole book, reads the Magi's three gifts as the offering of the three powers of the soul. ${BOOK_OF_NOVENAS_SOURCE} The book dates this novena from 28 December to 5 January. The day meditations are editorial. It is a private devotion, not a liturgical rite.`,
+      background: `The Epiphany on 6 January celebrates the manifestation of Christ, above all to the Gentiles in the coming of the Magi (Matthew 2:1-12); the Catholic Encyclopedia describes how the Nativity, the Baptism, the miracle at Cana and the visit of the Magi were all celebrated in the feast early in its history. Where it is not a holy day of obligation the solemnity is now kept on the Sunday between 2 and 8 January. The prayer, addressed to the divine Heart of Jesus, to which the book is dedicated, reads the Magi's three gifts as the offering of the three powers of the soul. ${BOOK_OF_NOVENAS_SOURCE} The book dates this novena from 28 December to 5 January. The day meditations are editorial. It is a private devotion, not a liturgical rite.`,
       intentionTheme:
         "thanksgiving for the gift of faith and the offering of the whole soul to Christ",
       days: repeatedPrayerDays(BOOK_OF_NOVENAS_EPIPHANY_PRAYER, [
@@ -518,80 +524,6 @@ export const novenaGroupFour: CuratedEntry[] = [
       typicalStartDate: "28 December, ending on 5 January, the eve of the solemnity",
       relatedFeastSlug: "solemnity-epiphany",
       citations: [BOOK_OF_NOVENAS_EPIPHANY, CE_EPIPHANY],
-    },
-  },
-  {
-    contentType: "NOVENA",
-    slug: "novena-christ-crucified",
-    authorityLevel: "TRUSTED_PUBLISHER",
-    citations: [BOOK_OF_NOVENAS_CHRIST_CRUCIFIED, CE_PASSION_OF_CHRIST],
-    payload: {
-      slug: "novena-christ-crucified",
-      title: "Novena in Honor of Christ Crucified",
-      summary:
-        "A Lenten novena 'which can be made at any time during Lent'. Five petitions to Jesus Christ Crucified, Son of the most holy Virgin Mary, ask Him to incline His sacred head and to open His eyes, His lips, His arms and His heart to the one who prays, each followed by a Hail Mary.",
-      background: `Each petition asks for the soul what Christ once gave in the Gospel: the Father heard by the Son on Mount Thabor at the Transfiguration, the look He turned from the cross upon His Mother, the words with which He commended St. John to her (John 19:26-27), the arms stretched on the wood of the cross for love of sinners, and the Heart He is asked to open to receive the heart of the one praying. The Catholic Encyclopedia traces how meditation on the sufferings of Christ shaped Christian devotion from an early date. ${BOOK_OF_NOVENAS_SOURCE} Here the prayer is five petitions, each followed by "Hail Mary, etc.", and the book gives no dates beyond Lent. The day meditations are editorial. It is a private devotion, not a liturgical rite.`,
-      intentionTheme: "the love of Christ crucified and the gift of one's own heart to Him",
-      days: repeatedPrayerDays(BOOK_OF_NOVENAS_CHRIST_CRUCIFIED_PRAYER, [
-        {
-          title: "Before the Crucifix",
-          meditation:
-            "The novena belongs to Lent and to the crucifix. Every petition addresses the same title — Jesus Christ Crucified, Son of the most holy Virgin Mary — before it asks anything.",
-          intentionPrompt: "Where is the crucifix in my home and in my day?",
-        },
-        {
-          title: "Incline Thy Sacred Head",
-          meditation:
-            "The first petition asks the crucified Lord to bow His head toward us and hear our petitions and sighs.",
-          intentionPrompt: "What do I need to bring to Him without dressing it up?",
-        },
-        {
-          title: "As on Mount Thabor",
-          meditation:
-            "On Thabor the Father spoke and the Son listened. The prayer dares to ask to be heard as the Son heard the Father.",
-          intentionPrompt: "Do I listen to God as I want Him to listen to me?",
-        },
-        {
-          title: "Open Thy Sacred Eyes",
-          meditation:
-            "From the cross Jesus looked upon His Mother. The second petition asks for that same look upon us.",
-          intentionPrompt: "Can I bear to be seen by Christ as I am?",
-        },
-        {
-          title: "Open Thy Sacred Lips",
-          meditation:
-            "From the cross He spoke to St. John and gave him to His Mother. The third petition asks Him to speak to an afflicted heart.",
-          intentionPrompt: "What word do I need from Him today?",
-        },
-        {
-          title: "Behold Thy Mother",
-          meditation:
-            "The words to St. John made the disciple Mary's son. Each petition is answered with a Hail Mary, keeping the Mother at the foot of the cross.",
-          intentionPrompt: "Have I taken Mary into my own home, as John did?",
-        },
-        {
-          title: "Open Thy Sacred Arms",
-          meditation:
-            "The fourth petition asks to be received as a poor child, as Christ embraced the hard wood of the cross for love of us and of all sinners.",
-          intentionPrompt: "What cross of mine can I embrace for love of Him?",
-        },
-        {
-          title: "That Seat of Love and Mercy",
-          meditation:
-            "The fifth petition asks Him to open His Heart and receive the heart of the one praying into it, and to make it wholly His.",
-          intentionPrompt: "What part of my heart is not yet wholly His?",
-        },
-        {
-          title: "Hear My Prayers",
-          meditation:
-            "Only at the end, after the head, eyes, lips, arms and Heart, does the prayer ask plainly: hear my prayers and grant my petitions.",
-          intentionPrompt: "What will I give up for the rest of Lent?",
-        },
-      ]),
-      durationDays: 9,
-      structure: "nine_days",
-      typicalStartDate: "Any nine days during Lent",
-      citations: [BOOK_OF_NOVENAS_CHRIST_CRUCIFIED, CE_PASSION_OF_CHRIST],
     },
   },
   {
@@ -1154,7 +1086,7 @@ export const novenaGroupFour: CuratedEntry[] = [
       summary:
         "A novena kept from 7 to 15 July before the feast of Our Lady of Mount Carmel, 'a devotion for those who wear the brown scapular'. Each day begins with a preparatory prayer choosing Our Lady of Mount Carmel as patroness, with the Our Father and Hail Mary three times, then says a prayer proper to the day and the Litany of the Blessed Virgin; the last day adds the prayers at the conclusion of the novena.",
       background:
-        "The Brown Scapular is a small form of the habit of the Carmelite Order, worn by those enrolled in its confraternity; the Catholic Encyclopedia recounts the pious tradition that Our Lady appeared to St. Simon Stock at Cambridge on 16 July 1251 and gave him the scapular, and calls it probably the oldest of the scapulars and the model of the others. The feast of Our Lady of Mount Carmel is kept on 16 July. The novena is taken from the 1902 popular edition of St. Alphonsus Liguori's 'The Glories of Mary' (New York: Benziger Brothers), whose editors added it to the saint's chapter on the feasts of Mary; it is not St. Alphonsus's own text. Its prayers address Our Lady as patroness of the Carmelite order and of all who wear its scapular. It is distinct from the novena to Our Lady of Mount Carmel already in this catalogue (novena-our-lady-of-mount-carmel), whose text is different. The third day's prayer is a form of the Memorare, which the catalogue also publishes on its own as the PRAYER memorare. The sixth day's prayer ends, as the book prints it, 'who with the Father and the Son liveth and reigneth'. The Litany of Loreto, called for on each day, is indicated by the book's rubric. It is a private devotion, not a liturgical rite.",
+        "The Brown Scapular is a small form of the habit of the Carmelite Order, worn by those enrolled in its confraternity; the Catholic Encyclopedia recounts the pious tradition that Our Lady appeared to St. Simon Stock at Cambridge on 16 July 1251 and gave him the scapular, and calls it probably the oldest of the scapulars and the model of the others. The feast of Our Lady of Mount Carmel is kept on 16 July. The novena is taken from the 1902 popular edition of St. Alphonsus Liguori's 'The Glories of Mary' (New York: Benziger Brothers), whose editors added it to the saint's chapter on the feasts of Mary; it is not St. Alphonsus's own text. Its prayers address Our Lady as patroness of the Carmelite order and of all who wear its scapular. It is distinct from the novena to Our Lady of Mount Carmel already in this catalogue (novena-our-lady-of-mount-carmel), whose day prayers are different; the two prayers at the conclusion of this novena, the collect of the feast and the prayer to Our Lady as special protectress of all who wear her scapular, are said in that novena too, in another translation. The third day's prayer is a form of the Memorare, which the catalogue also publishes on its own as the PRAYER memorare. The sixth day's prayer ends, as the book prints it, 'who with the Father and the Son liveth and reigneth'. The Litany of Loreto, called for on each day, is indicated by the book's rubric. It is a private devotion, not a liturgical rite.",
       intentionTheme: "the protection of Our Lady of Mount Carmel in life and at the hour of death",
       days: [
         {
@@ -1399,7 +1331,7 @@ export const novenaGroupFour: CuratedEntry[] = [
       title: "Novena to St. Jane Frances de Chantal",
       summary:
         "A novena to St. Jane Frances de Chantal: a prayer asking her, as advocate, mother and guide, to obtain an ardent love of Jesus in the Blessed Sacrament, a filial confidence in His Mother and a constant remembrance of His Passion, with the particular intention of the novena, followed by a versicle and a collect.",
-      background: `Jane Frances Frémyot de Chantal (1572-1641), a widow and mother, founded with St. Francis de Sales the Order of the Visitation of Holy Mary at Annecy in 1610; its aim, the Catholic Encyclopedia says, was to open the religious life to those who had neither the physical strength nor the attraction for the corporal austerities then general in religious orders. Her feast, which the book gives on 21 August, is now kept on 12 August. ${LASANCE_1904_SOURCE} The book heads this devotion "Novena and Prayers to St. Jane Frances de Chantal" and notes that its prayers are from the "Visitation Manual". The novena prayer, with its versicle and a collect that thanks God for adorning the Church through her "with a new Religious Order", is said on each day of the novena; the shorter prayers that follow under their own headings, beginning with a "Prayer to Implore Fidelity to Divine Grace", are not part of it. The day meditations are editorial. It is a private devotion, not a liturgical rite.`,
+      background: `Jane Frances Frémyot de Chantal (1572-1641), a widow and mother, founded with St. Francis de Sales the Order of the Visitation of Holy Mary at Annecy in 1610; its aim, the Catholic Encyclopedia says, was to open the religious life to those who had neither the physical strength nor the attraction for the corporal austerities then general in religious orders. Her feast, which the book gives on 21 August, is now kept on 12 August. ${LASANCE_1904_SOURCE} The book heads this devotion "Novena and Prayers to St. Jane Frances de Chantal" and notes that its prayers are from the "Visitation Manual". The novena prayer, with its versicle and a collect that recalls how God adorned the Church through her "with a new Religious Order", is said on each day of the novena; the shorter prayers that follow under their own headings, beginning with a "Prayer to Implore Fidelity to Divine Grace", are not part of it. The day meditations are editorial. It is a private devotion, not a liturgical rite.`,
       intentionTheme: "union with God through prayer and purity of intention",
       days: repeatedPrayerDays(LASANCE_JANE_FRANCES_NOVENA_PRAYER, [
         {
@@ -1452,7 +1384,7 @@ export const novenaGroupFour: CuratedEntry[] = [
         {
           title: "Fortitude Through All the Paths of Life",
           meditation:
-            "The collect praises the fortitude God gave her through every path of life, and asks that we who know our weakness may trust in His strength.",
+            "The collect recalls the fortitude God gave her through every path of life, and asks that we who, knowing our weakness, trust in His strength may overcome all adversities.",
           intentionPrompt: "What adversity do I need strength to overcome?",
         },
       ]),
@@ -1772,7 +1704,7 @@ export const novenaGroupFour: CuratedEntry[] = [
       title: "Novena for Easter",
       summary:
         "A novena for Easter in honour of the glorious Resurrection of Our Lord. Its prayer asks the risen Jesus for grace to die to oneself and rise to a new, divine and immortal life, and asks His Mother for a share in her joy on the day of the Resurrection, that her risen Son may enter the heart and abide there.",
-      background: `Easter, as the Catholic Encyclopedia says, is the principal feast of the ecclesiastical year, which Leo the Great called the greatest feast, festum festorum. The prayer passes from the risen Christ, who clothed in glory the body that had been the victim of men's cruelty, to His Mother's joy at the Resurrection, and asks for the gifts of the risen Lord to the apostles in the upper room and to Thomas. The novena is taken from 'With God: a book of prayers and reflections' compiled by the Rev. F. X. Lasance (New York: Benziger Brothers, 1911), which heads it "Novena for Easter. In Honor of the Glorious Resurrection of Our Lord" beneath the Easter verse "This is the day which the Lord has made". The book gives no dates and a single prayer, which speaks of Easter as "this joyous feast" and is said on each day of the novena; the prayers to the glorious wounds of the risen Jesus that follow it under their own heading are not part of the novena. The day meditations are editorial. It is a private devotion, not a liturgical rite.`,
+      background: `Easter, as the Catholic Encyclopedia says, is the principal feast of the ecclesiastical year, which Leo the Great called the greatest feast, festum festorum. The prayer passes from the risen Christ, who clothed in glory the body that had been the victim of men's cruelty, to His Mother's joy at the Resurrection, and asks for the gifts of the risen Lord to the apostles in the upper room and to Thomas. The novena is taken from 'With God: a book of prayers and reflections' compiled by the Rev. F. X. Lasance (New York: Benziger Brothers, 1911), which heads it "Novena for Easter. In Honor of the Glorious Resurrection of Our Lord" and prints beneath it "Alleluia!" and the Easter verse "This is the day which the Lord has made". The book gives no dates and a single prayer, which speaks of Easter as "this joyous feast" and is said on each day of the novena; the prayers to the glorious wounds of the risen Jesus that follow it under their own heading are not part of the novena. The day meditations are editorial. It is a private devotion, not a liturgical rite.`,
       intentionTheme: "dying to self and rising with Christ to a new life",
       days: repeatedPrayerDays(LASANCE_EASTER_NOVENA_PRAYER, [
         {
@@ -1846,7 +1778,7 @@ export const novenaGroupFour: CuratedEntry[] = [
       title: "Novena to the Blessed Virgin (Golden Manual)",
       summary:
         "A novena to the Blessed Virgin in honour of the joy she received at the Incarnation and during the nine months she carried her Son. It asks her intercession for the favours of the novena, offers nine Hail Marys in honour of that joy, and closes with a prayer offering them as gems in her crown.",
-      background: `The prayer recalls the joy Mary received at the Incarnation and during the nine months in which she carried her Son, and asks the protection which, it says, she has promised to those who devoutly commemorate that joy. ${GOLDEN_MANUAL_SOURCE} It is distinct from the novena in honour of the Blessed Virgin already in this catalogue (novena-blessed-virgin-mary), whose prayer is different. The book prints "occidental glory", an evident misprint for "accidental glory", the joy of the blessed that can still increase, which is so corrected. The prayers, with the nine Hail Marys between them, are said on each day of the novena. The day meditations are editorial. It is a private devotion, not a liturgical rite.`,
+      background: `The prayer recalls the joy Mary received at the Incarnation and during the nine months in which she carried her Son, and asks the protection which, it says, she has promised to those who devoutly commemorate that joy. ${GOLDEN_MANUAL_SOURCE} It is distinct from the novena in honour of the Blessed Virgin already in this catalogue (novena-blessed-virgin-mary), whose prayer is different. The book prints "occidental glory", an evident misprint for "accidental glory", the joy of the blessed that can still increase, which is so corrected. It also prints "suprenatural" for "supernatural", which is likewise corrected, and a short word worn away at the end of a line is read as "so" ("ever so inflamed"), as The Garden of the Soul (1871) prints the same prayer. The prayers, with the nine Hail Marys between them, are said on each day of the novena. The day meditations are editorial. It is a private devotion, not a liturgical rite.`,
       intentionTheme: "confidence in Mary's intercession through the mystery of the Incarnation",
       days: repeatedPrayerDays(GOLDEN_MANUAL_BLESSED_VIRGIN_NOVENA_PRAYER, [
         {
