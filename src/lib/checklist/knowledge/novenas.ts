@@ -3,6 +3,7 @@ import type { CuratedEntry } from "./index";
 import { novenaGroupOne } from "./novenas/group-1";
 import { novenaGroupTwo } from "./novenas/group-2";
 import { novenaGroupThree } from "./novenas/group-3";
+import { novenaGroupFour } from "./novenas/group-4";
 
 /**
  * The three novenas that predate the per-group files.
@@ -341,4 +342,5 @@ export const novenaKnowledge: CuratedEntry[] = [
   ...novenaGroupOne,
   ...novenaGroupTwo,
   ...novenaGroupThree,
+  ...novenaGroupFour,
 ];
