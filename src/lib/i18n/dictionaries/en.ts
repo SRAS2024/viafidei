@@ -191,6 +191,35 @@ const search: Dict = {
   "search.group.spiritualLife": "Spiritual Life",
 };
 
+// The search bar on each content list page (/prayers, /saints, /parishes, …).
+// The page's label is both the field's accessible name and its placeholder.
+// `listSearch.results` agrees with {count}: each language defines exactly the
+// plural forms it uses (CLDR: one / few / many / other).
+const listSearch: Dict = {
+  "listSearch.submit": "Search",
+  "listSearch.clear": "Clear search",
+  "listSearch.results.one": "{count} result for “{query}”",
+  "listSearch.results.other": "{count} results for “{query}”",
+  "listSearch.none": "Nothing here matches “{query}”.",
+  "listSearch.noneHint": "Try fewer words or a different spelling.",
+  "listSearch.prayers": "Search prayers",
+  "listSearch.litanies": "Search litanies",
+  "listSearch.saints": "Search saints",
+  "listSearch.ourLady": "Search titles and apparitions",
+  "listSearch.doctors": "Search the Doctors of the Church",
+  "listSearch.popes": "Search popes",
+  "listSearch.parishes": "Search by name, city or postal code",
+  // Short enough to fit the field on a phone.
+  "listSearch.parishesPlaceholder": "Name, city or postal code",
+  "listSearch.spiritualLife": "Search spiritual practices",
+  "listSearch.guides": "Search guides",
+  "listSearch.liturgy": "Search the liturgy",
+  "listSearch.rites": "Search rites",
+  "listSearch.churchDocuments": "Search Church documents",
+  "listSearch.devotions": "Search devotions",
+  "listSearch.novenas": "Search novenas",
+};
+
 const auth: Dict = {
   "auth.signIn": "Log in",
   "auth.signInSubtitle": "Return to your Via Fidei profile.",
@@ -530,6 +559,7 @@ export const en: Dict = {
   ...liturgy,
   ...saints,
   ...search,
+  ...listSearch,
   ...auth,
   ...profile,
   ...rite,

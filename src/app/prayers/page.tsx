@@ -4,6 +4,8 @@ import { getTranslator } from "@/lib/i18n/server";
 import {
   FilterChips,
   LIST_PAGE_SIZE,
+  ListSearch,
+  ListSearchNoResults,
   PageHero,
   PaginatedGrid,
   Pagination,
@@ -11,6 +13,12 @@ import {
   parsePageParam,
 } from "@/components/ui";
 import { listPublished } from "@/lib/data/published";
+import {
+  listHref,
+  parseSearchQuery,
+  publishedSearchFields,
+  rankBySearch,
+} from "@/lib/content-shared/list-search";
 import {
   PRAYER_CATEGORIES,
   categorizePrayer,
@@ -20,11 +28,14 @@ import {
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Prayers" };
 
-type Props = { searchParams: Promise<{ filter?: string; page?: string }> };
+type Props = {
+  searchParams: Promise<{ filter?: string; page?: string; q?: string | string[] }>;
+};
 
 export default async function PrayersPage({ searchParams }: Props) {
-  const { t } = await getTranslator();
-  const { filter, page: pageParam } = await searchParams;
+  const { t, locale } = await getTranslator();
+  const { filter, page: pageParam, q: rawQuery } = await searchParams;
+  const query = parseSearchQuery(rawQuery);
   // A prayer card shows the opening lines of the prayer itself, which the
   // payload-free projection does not carry, so the library is read whole and
   // paged here. Only the current page of cards is rendered and serialised.
@@ -44,16 +55,24 @@ export default async function PrayersPage({ searchParams }: Props) {
 
   const present = new Set(annotated.map((a) => a.category));
   const selected = filter && PRAYER_CATEGORIES.some((c) => c.value === filter) ? filter : null;
+  // The chips keep the search, so a reader can narrow a search by category.
   const filterChips = [
-    { key: "__all__", label: "All", href: "/prayers" },
+    { key: "__all__", label: "All", href: listHref("/prayers", { q: query }) },
     ...PRAYER_CATEGORIES.filter((c) => present.has(c.value)).map((c) => ({
       key: c.value,
       label: c.label,
-      href: `/prayers?filter=${encodeURIComponent(c.value)}`,
+      href: listHref("/prayers", { filter: c.value, q: query }),
     })),
   ];
-  const visible = selected ? annotated.filter((a) => a.category === selected) : annotated;
+  const inCategory = selected ? annotated.filter((a) => a.category === selected) : annotated;
+  // Searched by title, the category on the card, and the prayer's own words.
+  const visible = query
+    ? rankBySearch(inCategory, query, ({ prayer, category }) =>
+        publishedSearchFields(prayer, [prayerCategoryLabel(category)]),
+      )
+    : inCategory;
   const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  const keep = { filter: selected ?? undefined };
 
   return (
     <div>
@@ -61,6 +80,16 @@ export default async function PrayersPage({ searchParams }: Props) {
         eyebrow={t("nav.prayers")}
         title={t("prayers.title")}
         subtitle={t("prayers.subtitle")}
+      />
+
+      <ListSearch
+        action="/prayers"
+        query={query}
+        label={t("listSearch.prayers")}
+        keep={keep}
+        resultCount={visible.length}
+        t={t}
+        locale={locale}
       />
 
       {prayers.length > 0 ? (
@@ -78,6 +107,8 @@ export default async function PrayersPage({ searchParams }: Props) {
           The prayer library will appear here as items are approved and published through the
           checklist-first worker.
         </div>
+      ) : query && visible.length === 0 ? (
+        <ListSearchNoResults action="/prayers" query={query} keep={keep} t={t} />
       ) : (
         <>
           <PaginatedGrid
@@ -103,7 +134,7 @@ export default async function PrayersPage({ searchParams }: Props) {
             basePath="/prayers"
             page={page.page}
             totalPages={page.pageCount}
-            searchParams={{ filter: selected ?? undefined }}
+            searchParams={{ filter: selected ?? undefined, q: query || undefined }}
           />
         </>
       )}

@@ -310,9 +310,11 @@ describe("/parishes", () => {
   });
 
   it("says so plainly when a search matches nothing", async () => {
+    translate.mockImplementation(createTranslator("en"));
     listParishPage.mockResolvedValue(page([], { total: 0 }));
     render(await ParishesPage({ searchParams: Promise.resolve({ q: "zzzz" }) }));
-    expect(screen.getByText(/No parishes match/)).toBeInTheDocument();
+    expect(screen.getByText("Nothing here matches “zzzz”.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute("href", "/parishes");
   });
 });
 
