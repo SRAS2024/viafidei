@@ -132,6 +132,25 @@ type Props = {
   ariaLabel: string;
 };
 
+/**
+ * Whether a click happened inside `element`, judged by the path the event
+ * was dispatched along rather than by where its target is now.
+ *
+ * The tap that opens the search lands on the icon button, and React replaces
+ * that button with the form before the click reaches the window listener (it
+ * re-renders in a microtask, which runs between listeners). `contains(target)`
+ * then saw a detached button, called the tap "outside", and shut the search
+ * within the same tap — pressing the icon did nothing. The dispatch path is
+ * fixed before any listener runs, so it still holds the wrapper.
+ */
+function eventIsInside(event: Event, element: Element): boolean {
+  const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+  if (path.length > 0) return path.includes(element);
+  const target = event.target;
+  // No path to read: a target React has already removed was one of ours.
+  return target instanceof Node && (element.contains(target) || !target.isConnected);
+}
+
 /** Below this length the dropdown stays shut — one letter matches everything. */
 const MIN_QUERY_LENGTH = 2;
 /**
@@ -224,7 +243,7 @@ export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
   useEffect(() => {
     function onClick(event: MouseEvent) {
       if (!wrapperRef.current) return;
-      if (!wrapperRef.current.contains(event.target as Node)) {
+      if (!eventIsInside(event, wrapperRef.current)) {
         setOpen(false);
         // Collapse back to the icon when the field is empty.
         if (!q.trim()) setExpanded(false);
