@@ -66,7 +66,7 @@ import type { CuratedEntry } from "../index";
  * indulgence notes, footnotes, feast-day notes and attributions are omitted.
  *
  * St. Alphonsus's novena on the Litany of Loreto is printed as nine
- * meditations, each taking two to four invocations of the Litany; under each
+ * meditations, each taking one to four invocations of the Litany; under each
  * invocation the book prints a consideration drawn from the saints and then,
  * as a separate paragraph, a prayer to Our Lady. Each day's `prayerText` gives
  * the invocation as the book heads it, in Latin and English, followed by that
@@ -360,7 +360,7 @@ const BOOK_OF_NOVENAS_SOURCE =
   "It is taken from 'A Book of Novenas for the Principal Feasts of the Year' (Baltimore: Kelly, Piet and Company, 1878), a small book approved by the Archbishop of Baltimore on 8 March 1878, dedicated to the Sacred Heart of Jesus in the tabernacle and sold for the benefit of an association for the relief of poor churches; for each feast it gives a single prayer, which is said on each day of the novena.";
 
 const PAGANI_SOURCE =
-  "It is taken from 'The Way to Heaven: a manual of devotion' (London: James Burns, 1849) by the Very Rev. John Baptist Pagani (1806-1860), provincial of the Institute of Charity in England, who dedicated the book to John Henry Newman. Its chapter of devotions to Our Lady gives a novena for each of her feasts as a series of numbered petitions, each closed with the Ave; the book adds no other rubric, and the petitions are all said on each day of the novena.";
+  "It is taken from 'The Way to Heaven: a manual of devotion' (London: James Burns, 1849) by the Very Rev. John Baptist Pagani (1806-1860), provincial of the Institute of Charity in England, who dedicated the book to John Henry Newman. Its chapter of devotions to Our Lady gives a novena for each of her feasts as a series of numbered petitions, each closed with the Ave, the last petition of some with the Ave and the Gloria; the book gives no dates or other directions, and the petitions are all said on each day of the novena.";
 
 const LASANCE_1904_SOURCE =
   "It is taken from the 'Little Book of Novenas' in the Prayer-Book for Religious compiled by the Rev. F. X. Lasance (New York: Benziger Brothers, 1904), whose compiler acknowledges a debt to Pagani and to the 'Choir Manual' of the Sisters of Mercy for many of its novenas.";
@@ -959,7 +959,7 @@ export const novenaGroupFour: CuratedEntry[] = [
         {
           title: "The Light of the Nations",
           meditation:
-            "Candlemas celebrates Christ as the light to enlighten the Gentiles. The novena ends on the eve of the feast by asking to carry that light into the coming year.",
+            "Simeon greeted the Child as a light to the revelation of the Gentiles (Luke 2:32), and the feast is kept with blessed candles. On its eve the petitions are said for the last time, the seventh closing with the Gloria.",
           intentionPrompt: "Who around me needs the light of Christ?",
         },
       ]),
@@ -1056,7 +1056,7 @@ export const novenaGroupFour: CuratedEntry[] = [
       slug: "novena-litany-of-loreto-saint-alphonsus",
       title: "Novena on the Litany of Loreto (Saint Alphonsus Liguori)",
       summary:
-        "St. Alphonsus Liguori's novena to the Blessed Virgin in nine meditations on the titles of the Litany of Loreto, from Holy Mary to Queen of Martyrs. Each day takes up one to four of her titles, and under each the saint places a short prayer to Our Lady: for help in temptation, for purity, for confidence, for love of God, for a holy death.",
+        "St. Alphonsus Liguori's novena to the Blessed Virgin in nine meditations on the titles of the Litany of Loreto, from Holy Mary to Queen of Martyrs. Each day takes up one to four of her titles, and under all but two of them the saint places a short prayer to Our Lady: for help in temptation, for purity, for confidence, for love of God, for a holy death.",
       background:
         "St. Alphonsus Liguori (1696-1787), founder of the Redemptorists, canonised in 1839 and declared a Doctor of the Church in 1871, wrote 'The Glories of Mary' as an explanation of the Salve Regina and of Our Lady's feasts, with practices of devotion; among them he recommends keeping the novenas, the nine days before her feasts, and gives these meditations on the Litany of Loreto for a novena to the Blessed Virgin. The Litany itself, the Catholic Encyclopedia notes, was first definitely approved by the Church in 1587. The text is that of the edition 'arranged for popular use, with the addition of prayers and devotions' (New York: Benziger Brothers, 1902), whose meditations are shorter than in the complete translations. Each meditation sets a consideration drawn from the Fathers and saints under each title and closes with a prayer; the prayers are given here under their titles, and the considerations are summarised in the day meditations. The eighth meditation has a prayer only under Refuge of Sinners. It is a private devotion, not a liturgical rite.",
       intentionTheme:
