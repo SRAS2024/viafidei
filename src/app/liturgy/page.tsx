@@ -1,6 +1,8 @@
 import {
   FilterChips,
   LIST_PAGE_SIZE,
+  ListSearch,
+  ListSearchNoResults,
   PageHero,
   Pagination,
   PublishedList,
@@ -8,6 +10,12 @@ import {
   parsePageParam,
 } from "@/components/ui";
 import { LITURGICAL_FILTERS } from "@/lib/content-shared/liturgical-categories";
+import {
+  listHref,
+  parseSearchQuery,
+  publishedSearchFields,
+  rankBySearch,
+} from "@/lib/content-shared/list-search";
 import { applyPayloadFilter, resolvePayloadFilter } from "@/lib/content-shared/payload-filter";
 import { getTranslator } from "@/lib/i18n/server";
 import { countPublishedBySubtype, listPublished } from "@/lib/data/published";
@@ -32,10 +40,11 @@ export const metadata = { title: "Liturgy" };
 export default async function LiturgyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; page?: string }>;
+  searchParams: Promise<{ filter?: string; page?: string; q?: string | string[] }>;
 }) {
-  const { t } = await getTranslator();
-  const { filter, page: pageParam } = await searchParams;
+  const { t, locale } = await getTranslator();
+  const { filter, page: pageParam, q: rawQuery } = await searchParams;
+  const query = parseSearchQuery(rawQuery);
   const selected = resolvePayloadFilter(LITURGICAL_FILTERS, filter);
   // Liturgy cards show the entry's summary from the payload, so the type is
   // read whole and paged here.
@@ -44,7 +53,9 @@ export default async function LiturgyPage({
     countPublishedBySubtype("LITURGICAL").catch(() => ({}) as Record<string, number>),
   ]);
   const items = applyPayloadFilter(LITURGICAL_FILTERS, all, selected.key);
-  const page = pageSlice(items, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  const visible = query ? rankBySearch(items, query, (i) => publishedSearchFields(i)) : items;
+  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  const keep = { filter: selected.key === "all" ? undefined : selected.key };
 
   // Only offer a category chip when at least one item falls under it — the
   // indexed `kind` counts, not a scan of every published payload.
@@ -69,20 +80,33 @@ export default async function LiturgyPage({
         title={t("liturgy.title")}
         subtitle={t("liturgy.subtitle")}
       />
+      <ListSearch
+        action="/liturgy"
+        query={query}
+        label={t("listSearch.liturgy")}
+        keep={keep}
+        resultCount={visible.length}
+        t={t}
+        locale={locale}
+      />
       <FilterChips
         ariaLabel="Filter liturgy by kind"
         activeKey={selected.key}
-        className="mt-8 mb-6"
+        className="mb-6"
         items={LITURGICAL_FILTERS.filter((f) => f.key === "all" || present.has(f.key)).map((f) => ({
           key: f.key,
           label: f.label,
-          href: f.key === "all" ? "/liturgy" : `/liturgy?filter=${f.key}`,
+          href: listHref("/liturgy", { filter: f.key === "all" ? undefined : f.key, q: query }),
         }))}
       />
       {page.items.length === 0 ? (
-        <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
-          No liturgy entries in this category yet.
-        </div>
+        query ? (
+          <ListSearchNoResults action="/liturgy" query={query} keep={keep} t={t} />
+        ) : (
+          <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
+            No liturgy entries in this category yet.
+          </div>
+        )
       ) : (
         <>
           {/* The eyebrow is the humanised kind — never `liturgical_season`. */}
@@ -95,7 +119,7 @@ export default async function LiturgyPage({
             basePath="/liturgy"
             page={page.page}
             totalPages={page.pageCount}
-            searchParams={{ filter: selected.key === "all" ? undefined : selected.key }}
+            searchParams={{ ...keep, q: query || undefined }}
           />
         </>
       )}

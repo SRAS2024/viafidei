@@ -2,13 +2,21 @@ import Link from "next/link";
 
 import {
   LIST_PAGE_SIZE,
+  ListSearch,
+  ListSearchNoResults,
   PageHero,
   PaginatedGrid,
   Pagination,
   pageSlice,
   parsePageParam,
 } from "@/components/ui";
+import {
+  parseSearchQuery,
+  publishedSearchFields,
+  rankBySearch,
+} from "@/lib/content-shared/list-search";
 import { listPublished } from "@/lib/data/published";
+import { getTranslator } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Popes" };
@@ -28,9 +36,11 @@ function reignLabel(payload: Record<string, unknown>): string {
 export default async function PopesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; q?: string | string[] }>;
 }) {
-  const { page: pageParam } = await searchParams;
+  const { t, locale } = await getTranslator();
+  const { page: pageParam, q: rawQuery } = await searchParams;
+  const query = parseSearchQuery(rawQuery);
   // A pope card shows the reign years, which live in the payload, so the list
   // (bounded by the ~266 Roman Pontiffs) is read whole and paged here: only
   // one page of cards is rendered and serialised into the response.
@@ -41,7 +51,14 @@ export default async function PopesPage({
       startYear(a.payload as Record<string, unknown>) -
       startYear(b.payload as Record<string, unknown>),
   );
-  const page = pageSlice(ordered, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  // Searched by regnal name, birth name and the years of the reign; equally
+  // good matches stay in chronological order.
+  const visible = query
+    ? rankBySearch(ordered, query, (p) =>
+        publishedSearchFields(p, [reignLabel(p.payload as Record<string, unknown>)]),
+      )
+    : ordered;
+  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
 
   return (
     <div>
@@ -51,11 +68,22 @@ export default async function PopesPage({
         subtitle="The successors of Saint Peter, in chronological order."
       />
 
+      <ListSearch
+        action="/popes"
+        query={query}
+        label={t("listSearch.popes")}
+        resultCount={visible.length}
+        t={t}
+        locale={locale}
+      />
+
       {ordered.length === 0 ? (
         <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
           The chronological list of popes will appear here as records are approved and published
           through the checklist-first worker.
         </div>
+      ) : query && visible.length === 0 ? (
+        <ListSearchNoResults action="/popes" query={query} t={t} />
       ) : (
         <>
           <PaginatedGrid
@@ -73,7 +101,12 @@ export default async function PopesPage({
               );
             })}
           />
-          <Pagination basePath="/popes" page={page.page} totalPages={page.pageCount} />
+          <Pagination
+            basePath="/popes"
+            page={page.page}
+            totalPages={page.pageCount}
+            searchParams={{ q: query || undefined }}
+          />
         </>
       )}
     </div>

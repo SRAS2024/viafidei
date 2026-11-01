@@ -9,6 +9,59 @@ export const ko: Dict = {
   "nav.saints": "성인과 성모",
   "nav.login": "로그인",
   "parishes.distanceAway": "{distance} 거리",
+  "parishes.locate.button": "내 위치 사용",
+  "parishes.locate.locating": "가까운 본당을 찾는 중…",
+  "parishes.locate.tryAgain": "다시 시도",
+  "parishes.locate.howTo": "위치를 켜는 방법",
+  "parishes.locate.blocked":
+    "브라우저가 이 사이트의 위치 접근을 차단하고 있어 요청할 수 없습니다. 위치를 허용한 뒤 다시 시도해 주세요.",
+  "parishes.locate.notShared":
+    "기기가 위치를 공유하지 않았습니다. 요청을 받지 못했다면 브라우저의 위치 서비스가 꺼져 있을 가능성이 높습니다.",
+  "parishes.locate.timeout":
+    "기기가 위치를 찾는 데 시간이 너무 오래 걸렸습니다. 위치 서비스가 켜져 있는지 확인한 뒤 다시 시도해 주세요.",
+  "parishes.locate.unavailable":
+    "기기가 지금 위치를 확인하지 못했습니다. 위치 서비스가 켜져 있는지 확인한 뒤 다시 시도해 주세요.",
+  "parishes.locate.unsupported":
+    "이 브라우저는 위치를 공유할 수 없습니다. 아래 목록은 계속 둘러보실 수 있습니다.",
+  "parishes.locate.insecure":
+    "위치 기능은 보안 연결에서만 작동합니다. 이 페이지를 https로 열고 다시 시도해 주세요.",
+  "parishes.locate.lookupFailed":
+    "가까운 본당을 불러오지 못했습니다. 아래 목록은 계속 이용하실 수 있습니다.",
+  "parishes.locate.steps.iosSafariSettings":
+    "설정 › 개인정보 보호 및 보안 › 위치 서비스를 열어 켜져 있는지 확인한 다음, 'Safari 웹 사이트'를 탭하고 '앱을 사용하는 동안'을 선택하세요.",
+  "parishes.locate.steps.iosSafariSite":
+    "Safari에서 주소 막대의 'aA'를 탭한 다음 웹 사이트 설정 › 위치에서 '묻기' 또는 '허용'을 선택하세요.",
+  "parishes.locate.steps.iosOtherSettings":
+    "설정 › 개인정보 보호 및 보안 › 위치 서비스를 열어 켜져 있는지 확인한 다음, 사용 중인 브라우저나 앱을 탭하고 '앱을 사용하는 동안'을 선택하세요.",
+  "parishes.locate.steps.androidSite":
+    "웹 주소 왼쪽의 아이콘을 탭한 다음 권한 › 위치에서 '허용'을 선택하세요.",
+  "parishes.locate.steps.androidDevice": "휴대전화의 빠른 설정에서 위치가 켜져 있는지 확인하세요.",
+  "parishes.locate.steps.macSafariSite":
+    "Safari에서 Safari › 설정 › 웹 사이트 › 위치를 열고 이 사이트에 대해 '묻기' 또는 '허용'을 선택하세요.",
+  "parishes.locate.steps.desktopSite":
+    "주소 표시줄의 위치 아이콘이나 자물쇠 아이콘을 클릭하고 이 사이트의 위치 접근을 허용하세요.",
+  "parishes.locate.steps.desktopDevice":
+    "컴퓨터의 위치 기능이 꺼져 있다면 개인정보 보호 설정에서 켜세요(Mac: 시스템 설정 › 개인정보 보호 및 보안 › 위치 서비스).",
+  "listSearch.submit": "검색",
+  "listSearch.clear": "검색 지우기",
+  "listSearch.results.other": "“{query}” 검색 결과 {count}건",
+  "listSearch.none": "“{query}”에 대한 결과가 없습니다.",
+  "listSearch.noneHint": "단어 수를 줄이거나 다른 철자로 검색해 보세요.",
+  "listSearch.prayers": "기도문 검색",
+  "listSearch.litanies": "호칭 기도 검색",
+  "listSearch.saints": "성인 검색",
+  "listSearch.ourLady": "성모 칭호와 발현 검색",
+  "listSearch.doctors": "교회 학자 검색",
+  "listSearch.popes": "교황 검색",
+  "listSearch.parishes": "이름, 도시 또는 우편번호로 검색",
+  "listSearch.parishesPlaceholder": "이름, 도시 또는 우편번호",
+  "listSearch.spiritualLife": "영성 수련 검색",
+  "listSearch.guides": "안내서 검색",
+  "listSearch.liturgy": "전례 검색",
+  "listSearch.rites": "예법 검색",
+  "listSearch.churchDocuments": "교회 문헌 검색",
+  "listSearch.devotions": "신심 행위 검색",
+  "listSearch.novenas": "9일 기도 검색",
   "admin.loading.greeting": "환영합니다!",
   "admin.login.title": "관리자 로그인",
   "admin.login.submit": "입장",

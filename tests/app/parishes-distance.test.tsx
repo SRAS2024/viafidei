@@ -85,7 +85,9 @@ describe("/parishes near-me distance line", () => {
     // No location yet: the directory claims no distance.
     expect(screen.queryByText(line)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+    // The button itself speaks the site language too.
+    const button = createTranslator(locale)("parishes.locate.button");
+    fireEvent.click(screen.getByRole("button", { name: button }));
     await waitFor(() => expect(screen.getByText(line)).toBeInTheDocument());
     const card = screen.getByRole("heading", { name: "Near Parish" }).closest("article")!;
     expect(within(card as HTMLElement).getByText(line)).toBeInTheDocument();

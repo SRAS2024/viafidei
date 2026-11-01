@@ -18,14 +18,23 @@
  * pinned below, as is the distance line under each parish name — which appears
  * only once the visitor has actually located themselves, in the site's
  * language, metric outside English and in miles only for US English.
+ *
+ * And it must ASK. The owner tapped "Use my location" and was told location
+ * was declined without ever seeing the iPhone's Allow sheet. Every tap now
+ * calls the device from inside the tap, whatever happened before; a refusal
+ * says where this platform keeps the switch and offers Try again; a slow or
+ * missing fix gets one coarser retry before anything is shown.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { ParishLocator } from "@/app/parishes/ParishLocator";
+import { parishLocatorLabels } from "@/app/parishes/locator-labels";
 import type { ParishListItem } from "@/lib/data/published";
 import type { Locale } from "@/lib/i18n/locales";
 import { createTranslator } from "@/lib/i18n/translator";
+
+const LABELS = parishLocatorLabels(createTranslator("en"));
 
 function parish(over: Partial<ParishListItem> & { id: string; title: string }): ParishListItem {
   return {
@@ -55,17 +64,92 @@ const HERE = { latitude: 41.88, longitude: -87.63 };
 const HALF_A_MILE_EAST = { latitude: 41.88, longitude: -87.62027 };
 const A_SHORT_WALK_EAST = { latitude: 41.88, longitude: -87.62713 };
 
+const UA = {
+  iphoneSafari:
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+  iphoneChrome:
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0.6723.90 Mobile/15E148 Safari/604.1",
+  android:
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
+  mac: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+  macSafari:
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+};
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
+type Props = Partial<Parameters<typeof ParishLocator>[0]>;
+
+/** The locator as /parishes renders it, with the English labels. */
+function renderLocator(props: Props = {}) {
+  return render(<ParishLocator parishes={PAGE} labels={LABELS} {...props} />);
+}
+
+const locateButton = () => screen.getByRole("button", { name: /use my location/i });
+const tapLocate = () => fireEvent.click(locateButton());
+
 function stubGeolocation(lat: number, lon: number, languages?: string[]) {
   const getCurrentPosition = vi.fn((success: PositionCallback) =>
     success({ coords: { latitude: lat, longitude: lon } } as GeolocationPosition),
   );
   vi.stubGlobal("navigator", { geolocation: { getCurrentPosition }, languages });
+  return getCurrentPosition;
+}
+
+/** A GeolocationPositionError as a browser hands it over. */
+function geoError(code: 1 | 2 | 3): GeolocationPositionError {
+  return {
+    code,
+    message: "",
+    PERMISSION_DENIED: 1,
+    POSITION_UNAVAILABLE: 2,
+    TIMEOUT: 3,
+  } as GeolocationPositionError;
+}
+
+/**
+ * A device whose answers are scripted per call: each entry is what the next
+ * `getCurrentPosition` does. "hang" never calls back, like a sheet left open.
+ */
+type Answer = 1 | 2 | 3 | "fix" | "hang";
+function stubDevice(
+  answers: Answer[],
+  opts: { userAgent?: string; permission?: "granted" | "prompt" | "denied" | "throws" } = {},
+) {
+  const pending: Array<() => void> = [];
+  const getCurrentPosition = vi.fn(
+    (success: PositionCallback, error?: PositionErrorCallback | null) => {
+      const answer = answers.shift() ?? "hang";
+      if (answer === "hang") {
+        pending.push(() =>
+          success({
+            coords: { latitude: HERE.latitude, longitude: HERE.longitude },
+          } as GeolocationPosition),
+        );
+        return;
+      }
+      if (answer === "fix") {
+        success({ coords: { ...HERE } } as GeolocationPosition);
+        return;
+      }
+      error?.(geoError(answer));
+    },
+  );
+  const query = vi.fn(async () => {
+    if (opts.permission === "throws") throw new TypeError("geolocation is not a permission name");
+    return { state: opts.permission };
+  });
+  vi.stubGlobal("navigator", {
+    geolocation: { getCurrentPosition },
+    languages: ["en-US"],
+    userAgent: opts.userAgent ?? UA.mac,
+    ...(opts.permission ? { permissions: { query } } : {}),
+  });
+  return { getCurrentPosition, query, pending };
 }
 
 /** The shape /api/parishes/near now answers with. */
@@ -87,8 +171,8 @@ async function locateWith(
     "fetch",
     nearResponse({ items, requestedRadiusMiles: 50, radiusMiles: 50, widened: false }),
   );
-  render(<ParishLocator parishes={PAGE} {...props} />);
-  fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+  renderLocator(props);
+  tapLocate();
   await waitFor(() =>
     expect(screen.getByRole("heading", { name: items[0]!.title })).toBeInTheDocument(),
   );
@@ -111,9 +195,12 @@ const cardFor = (name: string) =>
 const explanation = () =>
   screen.getByRole("button", { name: /show the full directory/i }).closest("p") as HTMLElement;
 
+const status = () => screen.getByRole("status");
+const tryAgainButton = () => screen.queryByRole("button", { name: "Try again" });
+
 describe("ParishLocator", () => {
   it("renders the server's page of parishes", () => {
-    render(<ParishLocator parishes={PAGE} total={1030} />);
+    renderLocator({ total: 1030 });
     expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
       "A Parish",
       "B Basilica",
@@ -127,8 +214,13 @@ describe("ParishLocator", () => {
   it("shows no distance at all until the visitor has located themselves", () => {
     // Even a row that somehow carries a distance must not claim one: with no
     // fix from the device there is nothing to measure from.
-    render(<ParishLocator parishes={[parish({ id: "x", title: "X", distanceMiles: 3 })]} />);
+    renderLocator({ parishes: [parish({ id: "x", title: "X", distanceMiles: 3 })] });
     expect(screen.queryByText(/away$/)).not.toBeInTheDocument();
+  });
+
+  it("speaks the site language on the button", () => {
+    renderLocator({ labels: parishLocatorLabels(createTranslator("es")) });
+    expect(screen.getByRole("button", { name: "Usar mi ubicación" })).toBeInTheDocument();
   });
 
   it("fetches /api/parishes/near after geolocation and shows those parishes with distances", async () => {
@@ -142,8 +234,8 @@ describe("ParishLocator", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<ParishLocator parishes={PAGE} total={1030} />);
-    fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+    renderLocator({ total: 1030 });
+    tapLocate();
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Near Parish" })).toBeTruthy());
     const url = String(fetchMock.mock.calls[0]![0]);
@@ -221,8 +313,8 @@ describe("ParishLocator", () => {
       }),
     );
 
-    render(<ParishLocator parishes={PAGE} />);
-    fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+    renderLocator();
+    tapLocate();
     await waitFor(() => expect(screen.getByRole("heading", { name: "Far Parish" })).toBeTruthy());
     expect(explanation()).toHaveTextContent(
       "No parishes within 50 miles yet. Here are the nearest ones, within 500 miles.",
@@ -242,8 +334,8 @@ describe("ParishLocator", () => {
       }),
     );
 
-    render(<ParishLocator parishes={PAGE} />);
-    fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+    renderLocator();
+    tapLocate();
     await waitFor(() => expect(screen.getByRole("heading", { name: "Rome Parish" })).toBeTruthy());
     expect(explanation()).toHaveTextContent(
       "No parishes within 50 miles yet. Here are the nearest ones we have.",
@@ -265,8 +357,8 @@ describe("ParishLocator", () => {
       }),
     );
 
-    render(<ParishLocator parishes={PAGE} />);
-    fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+    renderLocator();
+    tapLocate();
     await waitFor(() =>
       expect(explanation()).toHaveTextContent("We don't have any parishes in the directory yet."),
     );
@@ -274,11 +366,20 @@ describe("ParishLocator", () => {
     expect(screen.getByRole("button", { name: /show the full directory/i })).toBeInTheDocument();
   });
 
-  it("asks the device for its best fix", () => {
+  it("goes back to the directory when asked", async () => {
+    await locateWith(["en-US"]);
+    fireEvent.click(screen.getByRole("button", { name: /show the full directory/i }));
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
+      "A Parish",
+      "B Basilica",
+    ]);
+  });
+
+  it("asks the device for its best fix first", () => {
     const getCurrentPosition = vi.fn();
     vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
-    render(<ParishLocator parishes={PAGE} />);
-    fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+    renderLocator();
+    tapLocate();
 
     const options = getCurrentPosition.mock.calls[0]![2] as PositionOptions;
     expect(options.enableHighAccuracy).toBe(true);
@@ -297,22 +398,288 @@ describe("ParishLocator", () => {
       }),
     );
 
-    render(<ParishLocator parishes={PAGE} />);
-    fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+    renderLocator();
+    tapLocate();
 
-    await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
+    await waitFor(() => expect(status()).toHaveTextContent(/couldn't load parishes near you/i));
+    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(2);
+    // Another tap can fix a lookup that failed once.
+    expect(tryAgainButton()).toBeInTheDocument();
+  });
+
+  it("shows the page's empty message when this page of the directory has no parishes", () => {
+    renderLocator({ parishes: [], empty: <p>No parishes match “zzz”.</p> });
+    expect(screen.getByText("No parishes match “zzz”.")).toBeInTheDocument();
+    // …and "Use my location" is still there to tap.
+    expect(locateButton()).toBeInTheDocument();
+  });
+});
+
+describe("ParishLocator — asking the device", () => {
+  it("asks inside the tap itself, before anything is awaited", () => {
+    const { getCurrentPosition, query } = stubDevice(["hang"], { permission: "prompt" });
+    renderLocator();
+    tapLocate();
+    // Synchronously: iOS shows its Allow sheet only for a request made during
+    // the user's gesture, so no Permissions API round trip may come first.
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(query).not.toHaveBeenCalled();
+    expect(status()).toHaveTextContent("Finding parishes near you…");
+    // The button keeps its name, so focus never lands on a renamed control.
+    expect(locateButton()).toBeEnabled();
+  });
+
+  it("asks the device again on every tap, even straight after a refusal", async () => {
+    const { getCurrentPosition } = stubDevice([1, 1, "hang"], { permission: "denied" });
+    renderLocator();
+
+    tapLocate();
+    await waitFor(() => expect(status()).toHaveTextContent(/blocking location for this site/i));
+    // The button is still there and still works: nothing was remembered.
+    expect(locateButton()).toBeEnabled();
+    tapLocate();
+    await waitFor(() => expect(getCurrentPosition).toHaveBeenCalledTimes(2));
+    tapLocate();
+    expect(getCurrentPosition).toHaveBeenCalledTimes(3);
+  });
+
+  it("never consults the Permissions API before asking, even when it says denied", () => {
+    const { getCurrentPosition, query } = stubDevice(["hang"], { permission: "denied" });
+    renderLocator();
+    tapLocate();
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("says the browser has the site blocked when the Permissions API says denied", async () => {
+    const { query } = stubDevice([1], { permission: "denied", userAgent: UA.mac });
+    renderLocator();
+    tapLocate();
+
+    // "can't ask", not "couldn't": Chrome and Firefox also read "denied" right
+    // after the visitor chose Block in their own prompt, so they WERE asked.
+    await waitFor(() =>
+      expect(status()).toHaveTextContent(
+        "Your browser is blocking location for this site, so it can't ask you.",
+      ),
+    );
+    expect(query).toHaveBeenCalledWith({ name: "geolocation" });
+    expect(status()).toHaveTextContent("How to turn location on");
+    expect(status()).toHaveTextContent(/location or lock icon in the address bar/);
+    expect(tryAgainButton()).toBeInTheDocument();
+    // The directory stays on screen.
     expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(2);
   });
 
-  it("surfaces a friendly message when permission is denied, keeping the directory", () => {
-    const getCurrentPosition = vi.fn((_success: PositionCallback, error: PositionErrorCallback) =>
-      error({ code: 1, PERMISSION_DENIED: 1 } as GeolocationPositionError),
-    );
-    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
+  it.each([
+    ["prompt", "a sheet the visitor turned down"],
+    ["granted", "a browser that allows the site while the device itself is off"],
+    ["throws", "a Permissions API that refuses the query"],
+  ] as const)(
+    "says the device did not share when the Permissions API says %s (%s)",
+    async (permission) => {
+      stubDevice([1], { permission });
+      renderLocator();
+      tapLocate();
+      await waitFor(() =>
+        expect(status()).toHaveTextContent("Your device didn't share its location."),
+      );
+      expect(tryAgainButton()).toBeInTheDocument();
+    },
+  );
 
-    render(<ParishLocator parishes={PAGE} />);
-    fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
-    expect(screen.getByRole("status")).toHaveTextContent(/denied/i);
+  it("says the device did not share on a browser with no Permissions API", async () => {
+    stubDevice([1]);
+    renderLocator();
+    tapLocate();
+    await waitFor(() =>
+      expect(status()).toHaveTextContent("Your device didn't share its location."),
+    );
+  });
+
+  it.each([
+    [
+      "iPhone Safari",
+      UA.iphoneSafari,
+      [
+        "Open Settings › Privacy & Security › Location Services, make sure it's on, then tap Safari Websites and choose While Using the App.",
+        "In Safari, tap aA in the address bar › Website Settings › Location, and choose Ask or Allow.",
+      ],
+    ],
+    [
+      "iPhone Chrome",
+      UA.iphoneChrome,
+      [
+        "Open Settings › Privacy & Security › Location Services, make sure it's on, then tap the browser or app you're using and choose While Using the App.",
+      ],
+    ],
+    [
+      "Android",
+      UA.android,
+      [
+        "Tap the icon to the left of the web address › Permissions › Location, and choose Allow.",
+        "Make sure Location is turned on in your phone's quick settings.",
+      ],
+    ],
+    [
+      "a desktop browser",
+      UA.mac,
+      [
+        "Click the location or lock icon in the address bar and allow location for this site.",
+        expect.stringContaining("System Settings › Privacy & Security › Location Services"),
+      ],
+    ],
+    [
+      // Safari on a Mac has no address-bar icon for a site's permissions.
+      "Safari on a Mac",
+      UA.macSafari,
+      [
+        "In Safari, choose Safari › Settings › Websites › Location, and set this site to Ask or Allow.",
+        expect.stringContaining("System Settings › Privacy & Security › Location Services"),
+      ],
+    ],
+  ])("gives %s its own steps to turn location back on", async (_name, userAgent, steps) => {
+    stubDevice([1], { permission: "denied", userAgent });
+    renderLocator();
+    tapLocate();
+    await waitFor(() => expect(within(status()).getByRole("list")).toBeInTheDocument());
+    const items = within(within(status()).getByRole("list"))
+      .getAllByRole("listitem")
+      .map((li) => li.textContent);
+    expect(items).toEqual(steps);
+  });
+
+  it("Try again asks the device afresh and keeps keyboard focus on the locate button", async () => {
+    const { getCurrentPosition } = stubDevice([1, "hang"], { permission: "denied" });
+    renderLocator();
+    tapLocate();
+    await waitFor(() => expect(tryAgainButton()).toBeInTheDocument());
+
+    fireEvent.click(tryAgainButton()!);
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    expect(locateButton()).toHaveFocus();
+    // The refusal is gone while the device is asked again.
+    expect(status()).not.toHaveTextContent(/blocking location/);
+    expect(tryAgainButton()).not.toBeInTheDocument();
+  });
+
+  it("retries a timeout once, coarser and more patient, before saying anything", async () => {
+    const { getCurrentPosition } = stubDevice([3, "fix"]);
+    vi.stubGlobal(
+      "fetch",
+      nearResponse({
+        items: [parish({ id: "near", title: "Near Parish", ...HALF_A_MILE_EAST })],
+        requestedRadiusMiles: 50,
+        radiusMiles: 50,
+        widened: false,
+      }),
+    );
+    renderLocator();
+    tapLocate();
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Near Parish" })).toBeTruthy());
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    const first = getCurrentPosition.mock.calls[0]![2] as PositionOptions;
+    const retry = getCurrentPosition.mock.calls[1]![2] as PositionOptions;
+    expect(first.enableHighAccuracy).toBe(true);
+    expect(retry.enableHighAccuracy).toBe(false);
+    expect(retry.timeout).toBeGreaterThan(first.timeout!);
+    // No error was ever shown for the first, slow attempt.
+    expect(tryAgainButton()).not.toBeInTheDocument();
+  });
+
+  it("retries an unavailable position once the same way", async () => {
+    const { getCurrentPosition } = stubDevice([2, "fix"]);
+    vi.stubGlobal(
+      "fetch",
+      nearResponse({ items: [], requestedRadiusMiles: 50, radiusMiles: 50, widened: false }),
+    );
+    renderLocator();
+    tapLocate();
+    await waitFor(() => expect(explanation()).toBeInTheDocument());
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    expect((getCurrentPosition.mock.calls[1]![2] as PositionOptions).enableHighAccuracy).toBe(
+      false,
+    );
+  });
+
+  it("explains a second timeout and offers Try again — and retries only once", async () => {
+    const { getCurrentPosition } = stubDevice([3, 3]);
+    renderLocator();
+    tapLocate();
+    await waitFor(() =>
+      expect(status()).toHaveTextContent("Your device took too long to find your location."),
+    );
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    expect(tryAgainButton()).toBeInTheDocument();
+    // A timeout is not a refusal: no settings steps.
+    expect(within(status()).queryByRole("list")).not.toBeInTheDocument();
+  });
+
+  it("explains a position that stays unavailable", async () => {
+    stubDevice([2, 2]);
+    renderLocator();
+    tapLocate();
+    await waitFor(() =>
+      expect(status()).toHaveTextContent("Your device couldn't work out where you are right now."),
+    );
+    expect(tryAgainButton()).toBeInTheDocument();
+  });
+
+  it("treats a refusal on the retry as a refusal", async () => {
+    stubDevice([3, 1], { permission: "denied" });
+    renderLocator();
+    tapLocate();
+    await waitFor(() => expect(status()).toHaveTextContent(/blocking location for this site/));
+  });
+
+  it("survives a geolocation call that throws", async () => {
+    const getCurrentPosition = vi.fn(() => {
+      throw new Error("not allowed in this frame");
+    });
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
+    renderLocator();
+    tapLocate();
+    await waitFor(() =>
+      expect(status()).toHaveTextContent("Your device couldn't work out where you are right now."),
+    );
+    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(2);
+  });
+
+  it("drops an answer that arrives for a tap the visitor has already replaced", async () => {
+    // First tap: the sheet is left open. Second tap: a refusal. Then the first
+    // request finally answers — it must not overwrite what the visitor sees.
+    const { pending } = stubDevice(["hang", 1], { permission: "denied" });
+    const fetchMock = nearResponse({ items: [], requestedRadiusMiles: 50, radiusMiles: 50 });
+    vi.stubGlobal("fetch", fetchMock);
+    renderLocator();
+    tapLocate();
+    tapLocate();
+    await waitFor(() => expect(status()).toHaveTextContent(/blocking location/));
+
+    await act(async () => pending[0]!());
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(status()).toHaveTextContent(/blocking location/);
+  });
+
+  it("says so, without asking, on a page served over plain http", () => {
+    const { getCurrentPosition } = stubDevice(["fix"]);
+    vi.stubGlobal("isSecureContext", false);
+    renderLocator();
+    tapLocate();
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(status()).toHaveTextContent("Location only works on a secure connection.");
+    // Tapping again cannot change that, so no Try again — but the button stays.
+    expect(tryAgainButton()).not.toBeInTheDocument();
+    expect(locateButton()).toBeInTheDocument();
+  });
+
+  it("says so on a browser with no geolocation at all", () => {
+    vi.stubGlobal("navigator", { languages: ["en-US"] });
+    renderLocator();
+    tapLocate();
+    expect(status()).toHaveTextContent("This browser can't share your location.");
+    expect(tryAgainButton()).not.toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(2);
   });
 });

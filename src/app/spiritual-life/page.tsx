@@ -1,12 +1,20 @@
 import {
   FilterChips,
   LIST_PAGE_SIZE,
+  ListSearch,
+  ListSearchNoResults,
   PageHero,
   Pagination,
   PublishedList,
   pageSlice,
   parsePageParam,
 } from "@/components/ui";
+import {
+  listHref,
+  parseSearchQuery,
+  publishedSearchFields,
+  rankBySearch,
+} from "@/lib/content-shared/list-search";
 import { SPIRITUAL_FILTERS } from "@/lib/content-shared/spiritual-categories";
 import { applyPayloadFilter, resolvePayloadFilter } from "@/lib/content-shared/payload-filter";
 import { getTranslator } from "@/lib/i18n/server";
@@ -31,10 +39,11 @@ export const metadata = { title: "Spiritual Life" };
 export default async function SpiritualLifePage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; page?: string }>;
+  searchParams: Promise<{ filter?: string; page?: string; q?: string | string[] }>;
 }) {
-  const { t } = await getTranslator();
-  const { filter, page: pageParam } = await searchParams;
+  const { t, locale } = await getTranslator();
+  const { filter, page: pageParam, q: rawQuery } = await searchParams;
+  const query = parseSearchQuery(rawQuery);
   const selected = resolvePayloadFilter(SPIRITUAL_FILTERS, filter);
   // Practice cards show the practice's summary from the payload, so the type
   // (a small, closed catalogue) is read whole and paged here.
@@ -43,7 +52,11 @@ export default async function SpiritualLifePage({
     countPublishedBySubtype("SPIRITUAL_PRACTICE").catch(() => ({}) as Record<string, number>),
   ]);
   const practices = applyPayloadFilter(SPIRITUAL_FILTERS, all, selected.key);
-  const page = pageSlice(practices, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  const visible = query
+    ? rankBySearch(practices, query, (p) => publishedSearchFields(p))
+    : practices;
+  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  const keep = { filter: selected.key === "all" ? undefined : selected.key };
 
   // Only offer a category chip when at least one practice falls under it. The
   // indexed `practiceKind` counts answer that without scanning the payloads.
@@ -68,20 +81,36 @@ export default async function SpiritualLifePage({
         title={t("spiritualLife.title")}
         subtitle={t("spiritualLife.subtitle")}
       />
+      <ListSearch
+        action="/spiritual-life"
+        query={query}
+        label={t("listSearch.spiritualLife")}
+        keep={keep}
+        resultCount={visible.length}
+        t={t}
+        locale={locale}
+      />
       <FilterChips
         ariaLabel="Filter practices by kind"
         activeKey={selected.key}
-        className="mt-8 mb-6"
+        className="mb-6"
         items={SPIRITUAL_FILTERS.filter((f) => f.key === "all" || present.has(f.key)).map((f) => ({
           key: f.key,
           label: f.label,
-          href: f.key === "all" ? "/spiritual-life" : `/spiritual-life?filter=${f.key}`,
+          href: listHref("/spiritual-life", {
+            filter: f.key === "all" ? undefined : f.key,
+            q: query,
+          }),
         }))}
       />
       {page.items.length === 0 ? (
-        <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
-          No practices in this category yet.
-        </div>
+        query ? (
+          <ListSearchNoResults action="/spiritual-life" query={query} keep={keep} t={t} />
+        ) : (
+          <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
+            No practices in this category yet.
+          </div>
+        )
       ) : (
         <>
           {/* The eyebrow is the humanised practice kind — never `lectio_divina`. */}
@@ -94,7 +123,7 @@ export default async function SpiritualLifePage({
             basePath="/spiritual-life"
             page={page.page}
             totalPages={page.pageCount}
-            searchParams={{ filter: selected.key === "all" ? undefined : selected.key }}
+            searchParams={{ ...keep, q: query || undefined }}
           />
         </>
       )}

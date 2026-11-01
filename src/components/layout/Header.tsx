@@ -6,6 +6,7 @@ import { logoutAction } from "@/app/_actions/auth";
 import { HeaderBrand } from "./HeaderBrand";
 import { HeaderNav, NAV_GROUPS } from "./HeaderNav";
 import { HeaderSearch } from "./HeaderSearch";
+import { HeaderSearchSlot } from "./HeaderSearchSlot";
 import { HeaderUserMenu } from "./HeaderUserMenu";
 import { HeaderMobileMenu } from "./HeaderMobileMenu";
 
@@ -111,20 +112,25 @@ export async function Header() {
               ) : (
                 <HeaderUserMenu isAuthed={false} labels={{ login: t("nav.login") }} />
               )}
-              <div className="w-56 lg:w-64">
-                <HeaderSearch placeholder={t("search.placeholder")} ariaLabel={t("nav.search")} />
-              </div>
+              <HeaderSearchSlot>
+                <div className="w-56 lg:w-64">
+                  <HeaderSearch placeholder={t("search.placeholder")} ariaLabel={t("nav.search")} />
+                </div>
+              </HeaderSearchSlot>
             </div>
           </div>
         </div>
       </div>
 
-      {/* MOBILE — search bar pinned below the header so it remains accessible */}
-      <div className="border-t border-ink/10 sm:hidden">
-        <div className="mx-auto max-w-6xl px-4 py-2.5">
-          <HeaderSearch placeholder={t("search.placeholder")} ariaLabel={t("nav.search")} />
+      {/* MOBILE — search bar pinned below the header so it remains accessible.
+          Neither bar appears on the homepage (HeaderSearchSlot). */}
+      <HeaderSearchSlot>
+        <div className="border-t border-ink/10 sm:hidden">
+          <div className="mx-auto max-w-6xl px-4 py-2.5">
+            <HeaderSearch placeholder={t("search.placeholder")} ariaLabel={t("nav.search")} />
+          </div>
         </div>
-      </div>
+      </HeaderSearchSlot>
     </header>
   );
 }

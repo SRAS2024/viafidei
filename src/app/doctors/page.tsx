@@ -2,13 +2,21 @@ import Link from "next/link";
 
 import {
   LIST_PAGE_SIZE,
+  ListSearch,
+  ListSearchNoResults,
   PageHero,
   PaginatedGrid,
   Pagination,
   pageSlice,
   parsePageParam,
 } from "@/components/ui";
+import {
+  parseSearchQuery,
+  publishedSearchFields,
+  rankBySearch,
+} from "@/lib/content-shared/list-search";
 import { listPublished } from "@/lib/data/published";
+import { getTranslator } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Doctors of the Church" };
@@ -16,13 +24,17 @@ export const metadata = { title: "Doctors of the Church" };
 export default async function DoctorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; q?: string | string[] }>;
 }) {
-  const { page: pageParam } = await searchParams;
+  const { t, locale } = await getTranslator();
+  const { page: pageParam, q: rawQuery } = await searchParams;
+  const query = parseSearchQuery(rawQuery);
   // A closed list (37 Doctors), and each card shows the Doctor's epithet from
-  // the payload, so the type is read whole and paged here.
+  // the payload, so the type is read whole and paged here. A search reads the
+  // name and the epithet ("Angelic Doctor") first.
   const doctors = await listPublished("DOCTOR");
-  const page = pageSlice(doctors, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  const visible = query ? rankBySearch(doctors, query, (d) => publishedSearchFields(d)) : doctors;
+  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
 
   return (
     <div>
@@ -32,11 +44,22 @@ export default async function DoctorsPage({
         subtitle="A Doctor of the Church is a saint recognized by the Church for an eminent contribution to theology or doctrine through their writing, teaching, and holiness."
       />
 
+      <ListSearch
+        action="/doctors"
+        query={query}
+        label={t("listSearch.doctors")}
+        resultCount={visible.length}
+        t={t}
+        locale={locale}
+      />
+
       {doctors.length === 0 ? (
         <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
           The Doctors of the Church will appear here as records are approved and published through
           the checklist-first worker.
         </div>
+      ) : query && visible.length === 0 ? (
+        <ListSearchNoResults action="/doctors" query={query} t={t} />
       ) : (
         <>
           <PaginatedGrid
@@ -55,7 +78,12 @@ export default async function DoctorsPage({
               );
             })}
           />
-          <Pagination basePath="/doctors" page={page.page} totalPages={page.pageCount} />
+          <Pagination
+            basePath="/doctors"
+            page={page.page}
+            totalPages={page.pageCount}
+            searchParams={{ q: query || undefined }}
+          />
         </>
       )}
     </div>

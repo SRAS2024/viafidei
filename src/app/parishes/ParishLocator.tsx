@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 import { ParishCard } from "@/components/ui/ParishCard";
 import {
@@ -11,7 +11,20 @@ import {
   resolveDistanceDisplay,
   type DistanceDisplay,
 } from "@/lib/content-shared/distance";
+import {
+  COARSE_FIX,
+  GEO_PERMISSION_DENIED,
+  GEO_TIMEOUT,
+  PRECISE_FIX,
+  detectLocationPlatform,
+  isRetryableGeoError,
+  readGeolocationPermission,
+  type LocationPlatform,
+  type NavigatorLike,
+} from "@/lib/content-shared/geolocation";
 import type { ParishListItem } from "@/lib/data/published";
+
+import type { LocatorLabels } from "./locator-labels";
 
 /** What the button asks for first; the API widens from here on its own. */
 const REQUESTED_RADIUS_MILES = 50;
@@ -32,11 +45,69 @@ type Located = {
   widened: boolean;
 };
 
+/** Why the last tap did not end in a list of nearby parishes. */
+type Problem =
+  | "blocked"
+  | "notShared"
+  | "timeout"
+  | "unavailable"
+  | "unsupported"
+  | "insecure"
+  | "lookupFailed";
+
 type LocateState =
   | { kind: "idle" }
   | { kind: "locating" }
   | Located
-  | { kind: "error"; message: string };
+  | { kind: "problem"; problem: Problem; platform: LocationPlatform };
+
+/**
+ * Problems another tap can fix, so they get a Try again button. A browser with
+ * no geolocation, or a page on plain http, will refuse every time.
+ */
+const RETRYABLE: ReadonlySet<Problem> = new Set<Problem>([
+  "blocked",
+  "notShared",
+  "timeout",
+  "unavailable",
+  "lookupFailed",
+]);
+
+function problemMessage(problem: Problem, labels: LocatorLabels): string {
+  switch (problem) {
+    case "blocked":
+      return labels.blocked;
+    case "notShared":
+      return labels.notShared;
+    case "timeout":
+      return labels.timeout;
+    case "unsupported":
+      return labels.unsupported;
+    case "insecure":
+      return labels.insecure;
+    case "lookupFailed":
+      return labels.lookupFailed;
+    default:
+      return labels.unavailable;
+  }
+}
+
+/** Where location is switched back on, in the order worth checking. */
+function stepsFor(platform: LocationPlatform, labels: LocatorLabels): string[] {
+  const steps = labels.steps;
+  switch (platform) {
+    case "ios-safari":
+      return [steps.iosSafariSettings, steps.iosSafariSite];
+    case "ios-other":
+      return [steps.iosOtherSettings];
+    case "android":
+      return [steps.androidSite, steps.androidDevice];
+    case "mac-safari":
+      return [steps.macSafariSite, steps.desktopDevice];
+    default:
+      return [steps.desktopSite, steps.desktopDevice];
+  }
+}
 
 /**
  * What the visitor is told after a located search. Sparse coverage must never
@@ -68,12 +139,24 @@ function locatedMessage(s: Located): string {
  * nothing is close. The coordinate is sent to this site's own API and nowhere
  * else, is never written down, and is held in this component's state only for
  * as long as the "near me" view is on screen.
+ *
+ * Every tap of "Use my location" asks the device, from inside the tap itself:
+ * iOS shows its Allow / Don't Allow sheet only for a request made during a
+ * user gesture, and a device that already allows the site simply answers.
+ * Nothing is remembered between taps — not an earlier refusal, not a stored
+ * flag, not the Permissions API's opinion — because the visitor may have just
+ * changed the setting, and a button that answers "denied" without asking is
+ * exactly the failure this replaced. The Permissions API is read only after a
+ * refusal, to say whether the browser has the site blocked or the device
+ * simply did not share, followed by where this platform keeps the switch.
  */
 export function ParishLocator({
   parishes,
   total,
   locale,
   awayTemplate,
+  labels,
+  empty,
 }: {
   parishes: ParishListItem[];
   total?: number;
@@ -81,98 +164,180 @@ export function ParishLocator({
   locale?: string;
   /** The dictionary's `parishes.distanceAway` phrase in that language. */
   awayTemplate?: string;
+  /** The control's words in that language (`parishLocatorLabels`). */
+  labels: LocatorLabels;
+  /** Shown in place of the directory when this page of it has no parishes. */
+  empty?: ReactNode;
 }) {
   const [state, setState] = useState<LocateState>({ kind: "idle" });
+  // Each tap is a new attempt; an answer that arrives for an older one is dropped.
+  const attemptRef = useRef(0);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const located = state.kind === "located" ? state : null;
+  const problem = state.kind === "problem" ? state : null;
   const shown = located ? located.items : parishes;
 
   const locate = () => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setState({ kind: "error", message: "Location isn't available on this device." });
+    const attempt = ++attemptRef.current;
+    const isCurrent = () => attempt === attemptRef.current;
+    const nav = typeof navigator === "undefined" ? undefined : navigator;
+    const platform = detectLocationPlatform(nav as NavigatorLike | undefined);
+    const fail = (reason: Problem) => setState({ kind: "problem", problem: reason, platform });
+
+    // A page served over plain http is never given a position; say so rather
+    // than blame a setting the visitor cannot find.
+    if (typeof window !== "undefined" && window.isSecureContext === false) {
+      fail("insecure");
       return;
     }
+    const geolocation: Geolocation | undefined = nav?.geolocation;
+    if (!geolocation || typeof geolocation.getCurrentPosition !== "function") {
+      fail("unsupported");
+      return;
+    }
+    const device: Geolocation = geolocation;
     // Read once, here rather than at render: the component is server-rendered
     // too, and there is no navigator on the server to hydrate against.
-    const display = resolveDistanceDisplay(locale, navigatorLocales(navigator));
+    const display = resolveDistanceDisplay(locale, navigatorLocales(nav));
     setState({ kind: "locating" });
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        void (async () => {
-          const origin = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-          try {
-            const res = await fetch(
-              `/api/parishes/near?lat=${encodeURIComponent(origin.latitude)}&lng=${encodeURIComponent(
-                origin.longitude,
-              )}&radiusMiles=${REQUESTED_RADIUS_MILES}`,
-            );
-            if (!res.ok) throw new Error("near lookup failed");
-            const data = (await res.json()) as {
-              items?: ParishListItem[];
-              requestedRadiusMiles?: number;
-              radiusMiles?: number | null;
-              widened?: boolean;
-            };
-            setState({
-              kind: "located",
-              items: data.items ?? [],
-              origin,
-              display,
-              requestedRadiusMiles: data.requestedRadiusMiles ?? REQUESTED_RADIUS_MILES,
-              radiusMiles:
-                data.radiusMiles === undefined ? REQUESTED_RADIUS_MILES : data.radiusMiles,
-              widened: data.widened === true,
-            });
-          } catch {
-            // Fail open: the visitor keeps the directory they already have.
-            setState({
-              kind: "error",
-              message: "We couldn't load parishes near you. The directory below still works.",
-            });
-          }
-        })();
-      },
-      (err) => {
-        const message =
-          err.code === err.PERMISSION_DENIED
-            ? "Location permission was denied. You can still browse the full directory below."
-            : "We couldn't get your location. You can still browse the full directory below.";
-        setState({ kind: "error", message });
-      },
-      // A real device needs longer than ten seconds for a cold high-accuracy
-      // fix, and a half-minute-old fix is still accurate enough to label a
-      // distance — but a stale one would mislabel every card after a drive.
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 30_000 },
-    );
+
+    const showNearby = async (pos: GeolocationPosition) => {
+      const origin = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      try {
+        const res = await fetch(
+          `/api/parishes/near?lat=${encodeURIComponent(origin.latitude)}&lng=${encodeURIComponent(
+            origin.longitude,
+          )}&radiusMiles=${REQUESTED_RADIUS_MILES}`,
+        );
+        if (!res.ok) throw new Error("near lookup failed");
+        const data = (await res.json()) as {
+          items?: ParishListItem[];
+          requestedRadiusMiles?: number;
+          radiusMiles?: number | null;
+          widened?: boolean;
+        };
+        if (!isCurrent()) return;
+        setState({
+          kind: "located",
+          items: data.items ?? [],
+          origin,
+          display,
+          requestedRadiusMiles: data.requestedRadiusMiles ?? REQUESTED_RADIUS_MILES,
+          radiusMiles: data.radiusMiles === undefined ? REQUESTED_RADIUS_MILES : data.radiusMiles,
+          widened: data.widened === true,
+        });
+      } catch {
+        // Fail open: the visitor keeps the directory they already have.
+        if (isCurrent()) fail("lookupFailed");
+      }
+    };
+
+    const refused = (err: GeolocationPositionError | null, retried: boolean) => {
+      if (!isCurrent()) return;
+      const code = err?.code;
+      // No fix in time, or none at all: ask once more, coarse and patient,
+      // before telling the visitor anything.
+      if (!retried && isRetryableGeoError(code)) {
+        ask(COARSE_FIX, true);
+        return;
+      }
+      if (code === GEO_PERMISSION_DENIED) {
+        void readGeolocationPermission(nav as NavigatorLike | undefined).then((permission) => {
+          if (isCurrent()) fail(permission === "denied" ? "blocked" : "notShared");
+        });
+        return;
+      }
+      fail(code === GEO_TIMEOUT ? "timeout" : "unavailable");
+    };
+
+    function ask(options: PositionOptions, retried: boolean) {
+      try {
+        device.getCurrentPosition(
+          (pos) => {
+            if (isCurrent()) void showNearby(pos);
+          },
+          (err) => refused(err, retried),
+          options,
+        );
+      } catch {
+        refused(null, retried);
+      }
+    }
+
+    // Synchronously, inside the tap: this call is what puts the Allow sheet
+    // on an iPhone's screen.
+    ask(PRECISE_FIX, false);
   };
+
+  const tryAgain = () => {
+    // The Try again button leaves with the message; keep keyboard focus on
+    // the control that stays.
+    buttonRef.current?.focus();
+    locate();
+  };
+
+  const steps =
+    problem && (problem.problem === "blocked" || problem.problem === "notShared")
+      ? stepsFor(problem.platform, labels)
+      : [];
 
   return (
     <div>
       <div className="mb-6 flex flex-col items-center gap-2">
+        {/* Never disabled and never renamed: a tap while an earlier ask is
+            still open simply asks again, and the name a screen reader
+            announced is the name that stays focused. */}
         <button
+          ref={buttonRef}
           type="button"
           onClick={locate}
-          disabled={state.kind === "locating"}
           className="vf-btn vf-btn-primary inline-flex items-center gap-2"
         >
           <LocationIcon />
-          {state.kind === "locating" ? "Finding parishes near you…" : "Use my location"}
+          {labels.button}
         </button>
+        {/* Always in the page, so a screen reader hears each new answer. */}
+        <div role="status" aria-live="polite" className="w-full max-w-xl text-center">
+          {state.kind === "locating" ? (
+            <p className="text-xs text-ink-soft">{labels.locating}</p>
+          ) : null}
+          {problem ? (
+            <div className="rounded-sm border border-ink/20 bg-ink/5 p-4 text-left text-sm">
+              <p className="font-serif text-ink">{problemMessage(problem.problem, labels)}</p>
+              {steps.length > 0 ? (
+                <>
+                  <p className="mt-3 font-sans text-xs uppercase tracking-liturgical text-ink-faint">
+                    {labels.howTo}
+                  </p>
+                  <ol className="mt-2 list-decimal space-y-1.5 pl-5 font-serif text-ink-soft">
+                    {steps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                </>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        {problem && RETRYABLE.has(problem.problem) ? (
+          <button type="button" onClick={tryAgain} className="vf-btn vf-btn-ghost">
+            {labels.tryAgain}
+          </button>
+        ) : null}
         {located ? (
           <p className="text-xs text-ink-soft">
             {locatedMessage(located)}{" "}
             <button
               type="button"
-              onClick={() => setState({ kind: "idle" })}
+              onClick={() => {
+                attemptRef.current += 1;
+                setState({ kind: "idle" });
+              }}
               className="vf-nav-link underline-offset-2"
             >
               Show the full directory
             </button>
-          </p>
-        ) : null}
-        {state.kind === "error" ? (
-          <p className="text-xs text-liturgical-red" role="status">
-            {state.message}
           </p>
         ) : null}
         {!located && typeof total === "number" && total > parishes.length ? (
@@ -182,33 +347,37 @@ export function ParishLocator({
         ) : null}
       </div>
 
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {shown.map((p) => {
-          // Only ever shown once the visitor has located themselves — the plain
-          // directory has no origin to measure from and no distance to claim.
-          const away = located ? distanceAway(located, p, awayTemplate) : null;
-          return (
-            <li key={p.id}>
-              <ParishCard
-                name={p.title}
-                href={`/parishes/${p.slug}`}
-                designation={p.designation}
-                address={p.address}
-                postalCode={p.postalCode}
-                city={p.city}
-                state={p.state}
-                country={p.country}
-                countryCode={p.countryCode}
-                latitude={p.latitude}
-                longitude={p.longitude}
-                distanceSlot={
-                  away ? <span className="font-serif text-sm text-ink-soft">{away}</span> : null
-                }
-              />
-            </li>
-          );
-        })}
-      </ul>
+      {!located && shown.length === 0 && empty ? (
+        empty
+      ) : (
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          {shown.map((p) => {
+            // Only ever shown once the visitor has located themselves — the plain
+            // directory has no origin to measure from and no distance to claim.
+            const away = located ? distanceAway(located, p, awayTemplate) : null;
+            return (
+              <li key={p.id}>
+                <ParishCard
+                  name={p.title}
+                  href={`/parishes/${p.slug}`}
+                  designation={p.designation}
+                  address={p.address}
+                  postalCode={p.postalCode}
+                  city={p.city}
+                  state={p.state}
+                  country={p.country}
+                  countryCode={p.countryCode}
+                  latitude={p.latitude}
+                  longitude={p.longitude}
+                  distanceSlot={
+                    away ? <span className="font-serif text-sm text-ink-soft">{away}</span> : null
+                  }
+                />
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

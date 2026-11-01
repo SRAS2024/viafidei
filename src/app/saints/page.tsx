@@ -1,11 +1,14 @@
 import {
   FilterChips,
   LIST_PAGE_SIZE,
+  ListSearch,
+  ListSearchNoResults,
   PageHero,
   Pagination,
   PublishedList,
   parsePageParam,
 } from "@/components/ui";
+import { listHref, parseSearchQuery } from "@/lib/content-shared/list-search";
 import {
   SAINT_FILTERS,
   SAINT_FILTER_SUBTYPES,
@@ -27,23 +30,27 @@ export const metadata = { title: "Saints" };
 export default async function SaintsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; page?: string }>;
+  searchParams: Promise<{ filter?: string; page?: string; q?: string | string[] }>;
 }) {
-  const { t } = await getTranslator();
-  const { filter, page: pageParam } = await searchParams;
+  const { t, locale } = await getTranslator();
+  const { filter, page: pageParam, q: rawQuery } = await searchParams;
+  const query = parseSearchQuery(rawQuery);
   const selected = resolvePayloadFilter(SAINT_FILTERS, filter);
   const subtypes = selected.key === "all" ? null : (SAINT_FILTER_SUBTYPES[selected.key] ?? null);
 
   // One indexed page of saints, ordered chronologically in SQL by the stored
   // `sortYear` column. The catalogue is heading for 10,000 rows, so the page
   // must never load the whole type: `listPublishedPage` projects away the
-  // payload and takes exactly the 30 rows this page shows.
+  // payload and takes exactly the 30 rows this page shows. A search runs in
+  // SQL as well — name, patronage and the rest of the search index — best
+  // match first, inside the chosen category.
   const [result, counts] = await Promise.all([
     listPublishedPage("SAINT", {
       page: parsePageParam(pageParam),
       pageSize: LIST_PAGE_SIZE,
       subtype: subtypes,
       order: "chronological",
+      ...(query ? { q: query } : {}),
     }),
     countPublishedBySubtype("SAINT").catch(() => ({}) as Record<string, number>),
   ]);
@@ -59,6 +66,7 @@ export default async function SaintsPage({
   // indexed groupBy now, not a scan of every published saint.
   const hasContent = (key: string): boolean =>
     (SAINT_FILTER_SUBTYPES[key] ?? []).some((value) => (counts[value] ?? 0) > 0);
+  const keep = { filter: selected.key === "all" ? undefined : selected.key };
 
   return (
     <div>
@@ -67,20 +75,34 @@ export default async function SaintsPage({
         title={t("saints.title")}
         subtitle={t("saints.subtitle")}
       />
+      <ListSearch
+        action="/saints"
+        query={query}
+        label={t("listSearch.saints")}
+        keep={keep}
+        resultCount={result.total}
+        t={t}
+        locale={locale}
+      />
       <FilterChips
         ariaLabel="Filter saints by category"
         activeKey={selected.key}
-        className="mt-8 mb-6"
+        className="mb-6"
         items={SAINT_FILTERS.filter((f) => f.key === "all" || hasContent(f.key)).map((f) => ({
           key: f.key,
           label: f.label,
-          href: f.key === "all" ? "/saints" : `/saints?filter=${f.key}`,
+          // The chips keep the search, so a search can be narrowed by category.
+          href: listHref("/saints", { filter: f.key === "all" ? undefined : f.key, q: query }),
         }))}
       />
       {result.items.length === 0 ? (
-        <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
-          No saints in this category yet.
-        </div>
+        query ? (
+          <ListSearchNoResults action="/saints" query={query} keep={keep} t={t} />
+        ) : (
+          <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
+            No saints in this category yet.
+          </div>
+        )
       ) : (
         <>
           {/* Earliest saints first (Apostles → modern), each tagged with the
@@ -95,7 +117,7 @@ export default async function SaintsPage({
             basePath="/saints"
             page={result.page}
             totalPages={result.pageCount}
-            searchParams={{ filter: selected.key === "all" ? undefined : selected.key }}
+            searchParams={{ ...keep, q: query || undefined }}
           />
         </>
       )}

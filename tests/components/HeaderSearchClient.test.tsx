@@ -2,7 +2,8 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { flushSync } from "react-dom";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
 
@@ -269,5 +270,60 @@ describe("HeaderSearchClient", () => {
     );
     const results = await axe(container);
     expect(results.violations).toEqual([]);
+  });
+});
+
+describe("HeaderSearchClient — opening on a real tap", () => {
+  /**
+   * In a browser React re-renders in a microtask, and a microtask runs between
+   * one event listener and the next — so by the time the tap that opened the
+   * search reached the window's outside-click listener, the icon button it hit
+   * had already been swapped for the form and was no longer "inside". The
+   * search shut again within the same tap: on the live site, pressing the icon
+   * did nothing. jsdom dispatches synchronously and never showed it, so this
+   * flushes React's work at the point a browser would.
+   */
+  function clickLikeABrowser(element: HTMLElement) {
+    const flush = () => flushSync(() => {});
+    document.addEventListener("click", flush);
+    try {
+      fireEvent.click(element);
+    } finally {
+      document.removeEventListener("click", flush);
+    }
+  }
+
+  it("stays open after the tap that opened it", () => {
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    clickLikeABrowser(screen.getByRole("button", { name: "Search the site" }));
+    expect(screen.getByRole("combobox", { name: "Search the site" })).toBeInTheDocument();
+  });
+
+  it("still closes on a tap outside while empty", async () => {
+    render(
+      <>
+        <HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />
+        <button type="button">Elsewhere</button>
+      </>,
+    );
+    const user = userEvent.setup();
+    await openSearch(user);
+    await user.click(screen.getByRole("button", { name: "Elsewhere" }));
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search the site" })).toBeInTheDocument();
+  });
+
+  it("stays open on a tap outside once something is typed", async () => {
+    mockSuggestFetch();
+    render(
+      <>
+        <HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />
+        <button type="button">Elsewhere</button>
+      </>,
+    );
+    const user = userEvent.setup();
+    await user.type(await openSearch(user), "ros");
+    await user.click(screen.getByRole("button", { name: "Elsewhere" }));
+    expect(screen.getByRole("combobox", { name: "Search the site" })).toHaveValue("ros");
   });
 });
