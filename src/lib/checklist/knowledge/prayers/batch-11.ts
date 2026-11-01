@@ -36,13 +36,22 @@ const LITTLE_OFFICE_1915 = "https://archive.org/details/littleofficeofbl00newy/p
  * that in not Thine"), Tu, Trinitatis Unitas (a stray full stop after
  * "course"), Iesu, Rex admirabilis ("out lives" for "our lives"), Iam lucis orto
  * sidere ("the praises that is" for "the praise that is", and a stray "|"),
- * and Stabat Mater speciosa (a stray comma after the opening "By"). Purely
- * typographic matters are normalised: the opening words the site sets in red
- * capitals are given in sentence case, footnote markers are dropped, hyphens
- * standing for dashes are printed as dashes, and editorial placeholders (a "-"
- * for a stanza the translator did not render, a bracketed note in place of a
- * missing Latin stanza) are not reproduced; each summary says when the English
- * and the Latin do not answer stanza for stanza.
+ * Stabat Mater speciosa (a stray comma after the opening "By"), Summae Deus
+ * clementiae ("chastening fire" for "chastening fires") and Caelitum, Ioseph,
+ * decus ("listen to our praises" for "List to our praises", and "grant us thy
+ * blest petition" for "grant us at thy blest petition"; Britt's 1922 printing
+ * is the public-domain basis for McDougall's translation, so its wording is
+ * followed). The site's Latin doxology slips in Nox atra rerum contegit ("cum
+ * Spiritu Sancto Paraclito") and the Advent Verbum supernum prodiens ("cum
+ * Sancto Spiritu Paraclito") are corrected to the "cum Spiritu Paraclito" of
+ * the Liturgia Horarum, which the meter requires and the other cited pages of
+ * the site print. Purely typographic matters are normalised: the opening
+ * words the site sets in red capitals are given in sentence case, keeping the
+ * capital of a divine title ("O Light of light", "O great Creator"), footnote
+ * markers are dropped, hyphens standing for dashes are printed as dashes, and
+ * editorial placeholders (a "-" for a stanza the translator did not render, a
+ * bracketed note in place of a missing Latin stanza) are not reproduced; each
+ * summary says when the English and the Latin do not answer stanza for stanza.
  *
  * Most of the Latin here is the Liturgia Horarum text, which restored the
  * ancient wording, while several translations were made from the Roman
@@ -89,8 +98,11 @@ const LITTLE_OFFICE_1915 = "https://archive.org/details/littleofficeofbl00newy/p
  * special concession (Quicumque certum quaeritis, Summi Parentis Filio), or
  * that had been dropped from the latest Breviary of his day (the hymns of the
  * Seven Holy Founders other than Matris sub almae); each summary says so.
- * Britt's abbreviation of the refrain of Adeste, fideles ("O come, etc.") is
- * kept as printed. Where the Breviary sings the parts of one long hymn at
+ * Those that were never in the Breviary or Missal (Adeste, fideles, O Deus,
+ * ego amo te and the four De contemptu mundi centos) carry the
+ * TRUSTED_PUBLISHER authority level rather than LITURGICAL_BOOK. Britt's
+ * abbreviation of the refrain of Adeste, fideles ("O come, etc.") is kept as
+ * printed. Where the Breviary sings the parts of one long hymn at
  * different Hours (Saint Martina's hymn, the Paschal hymn of the Apostles,
  * Paul the Deacon's hymn for Saint John the Baptist), each part is its own
  * entry, as Britt numbers them. One more misprint in Britt's Latin is
@@ -146,7 +158,7 @@ const LITTLE_OFFICE_1915 = "https://archive.org/details/littleofficeofbl00newy/p
  * one plain misprint, "per omni saecula" at the end of the Exultet, is
  * corrected to "per omnia saecula".
  *
- * Sixteen texts of the Office of the Dead and the burial service (the
+ * Fourteen texts of the Office of the Dead and the burial service (the
  * responsories Subvenite, Libera me, Credo quod Redemptor, Qui Lazarum, Ne
  * recorderis and Peccantem me, the antiphon In paradisum, and the collects
  * for the dead) come from The Little Office of the Blessed Virgin Mary and the
@@ -155,8 +167,11 @@ const LITTLE_OFFICE_1915 = "https://archive.org/details/littleofficeofbl00newy/p
  * Both are copied as printed, accents, asterisks, "R." and "V." included;
  * where the book's English of the burial service uses the feminine and its
  * Latin the masculine form, that is kept and the summary says so. Collects
- * the catalogue already holds in another version (for deceased parents, for
- * benefactors, Fidelium Deus omnium) were left out.
+ * the catalogue already holds in another version were left out: for deceased
+ * parents, for benefactors, Fidelium Deus omnium, Inclina, Domine, aurem tuam
+ * (which the book gives in the plural, for several persons deceased; the
+ * catalogue has it for a deceased man) and Deus, qui inter apostolicos
+ * sacerdotes (for a deceased bishop or priest).
  */
 export const prayerBatch11: CuratedEntry[] = [
   {
@@ -251,7 +266,7 @@ export const prayerBatch11: CuratedEntry[] = [
     payload: {
       slug: "consors-paterni-luminis",
       title: "Consors paterni luminis (O Light of Light, O Dayspring bright)",
-      body: "O light of light,\nO Dayspring bright,\ncoequal in Thy Father's light:\nassist us, as with prayer and psalm\nThy servants break the nightly calm.\n\nAll darkness from our minds dispel,\nand turn to flight the hosts of Hell:\nbid sleepfulness our eyelids fly,\nlest overwhelmed in sloth we lie.\n\nJesu, Thy pardon, kind and free,\nbestow on us who trust in Thee:\nand as Thy praises we declare,\nO with acceptance hear our prayer.\n\nO Father, that we ask be done,\nthrough Jesus Christ, Thine only Son,\nWho, with the Holy Ghost and Thee,\ndoth live and reign eternally.",
+      body: "O Light of light,\nO Dayspring bright,\ncoequal in Thy Father's light:\nassist us, as with prayer and psalm\nThy servants break the nightly calm.\n\nAll darkness from our minds dispel,\nand turn to flight the hosts of Hell:\nbid sleepfulness our eyelids fly,\nlest overwhelmed in sloth we lie.\n\nJesu, Thy pardon, kind and free,\nbestow on us who trust in Thee:\nand as Thy praises we declare,\nO with acceptance hear our prayer.\n\nO Father, that we ask be done,\nthrough Jesus Christ, Thine only Son,\nWho, with the Holy Ghost and Thee,\ndoth live and reign eternally.",
       prayerType: "hymn",
       category: "liturgical",
       language: "en",
@@ -272,7 +287,7 @@ export const prayerBatch11: CuratedEntry[] = [
     payload: {
       slug: "immense-caeli-conditor",
       title: "Immense caeli conditor (O great Creator of the sky)",
-      body: "O great creator of the sky,\nWho wouldest not the floods on high\nwith earthly water to confound,\nbut madest the firmament their bound;\n\nThe floods above Thou didst ordain;\nthe floods below Thou didst restrain:\nthat moisture might attemper heat,\nlest the parched earth should ruin meet.\n\nUpon our souls, good Lord, bestow\nThy gift of grace in endless flow:\nlest some renewed deceit or wile\nof former sin should us beguile.\n\nLet faith discover heavenly light;\nso shall its rays direct us right:\nand let this faith each error chase,\nand never give to falsehood place.\n\nGrant this, O Father, ever One\nwith Christ, Thy sole-begotten Son,\nand Holy Ghost, whom all adore,\nreigning and blest forevermore. Amen.",
+      body: "O great Creator of the sky,\nWho wouldest not the floods on high\nwith earthly water to confound,\nbut madest the firmament their bound;\n\nThe floods above Thou didst ordain;\nthe floods below Thou didst restrain:\nthat moisture might attemper heat,\nlest the parched earth should ruin meet.\n\nUpon our souls, good Lord, bestow\nThy gift of grace in endless flow:\nlest some renewed deceit or wile\nof former sin should us beguile.\n\nLet faith discover heavenly light;\nso shall its rays direct us right:\nand let this faith each error chase,\nand never give to falsehood place.\n\nGrant this, O Father, ever One\nwith Christ, Thy sole-begotten Son,\nand Holy Ghost, whom all adore,\nreigning and blest forevermore. Amen.",
       prayerType: "hymn",
       category: "liturgical",
       language: "en",
@@ -340,9 +355,9 @@ export const prayerBatch11: CuratedEntry[] = [
       category: "penitential",
       language: "en",
       latin:
-        "Nox atra rerum contegit\nterrae colores omnium:\nnos confitentes poscimus\nte, iuste iudex cordium,\n\nUt auferas piacula\nsordesque mentis abluas,\ndonesque, Christe, gratiam\nut arceantur crimina.\n\nMens, ecce, torpet impia,\nquam culpa mordet noxia;\nobscura gestit tollere\net te, Redemptor, quaerere.\n\nRepelle tu caliginem\nintrinsecus quam maxime,\nut in beato gaudeat\nse collocari lumine.\n\nSit, Christe, rex piissime,\ntibi Patrique gloria\ncum Spiritu Sancto Paraclito,\nin sempiterna saecula. Amen.",
+        "Nox atra rerum contegit\nterrae colores omnium:\nnos confitentes poscimus\nte, iuste iudex cordium,\n\nUt auferas piacula\nsordesque mentis abluas,\ndonesque, Christe, gratiam\nut arceantur crimina.\n\nMens, ecce, torpet impia,\nquam culpa mordet noxia;\nobscura gestit tollere\net te, Redemptor, quaerere.\n\nRepelle tu caliginem\nintrinsecus quam maxime,\nut in beato gaudeat\nse collocari lumine.\n\nSit, Christe, rex piissime,\ntibi Patrique gloria\ncum Spiritu Paraclito,\nin sempiterna saecula. Amen.",
       summary:
-        "A night-office hymn attributed to Pope Saint Gregory the Great, sung at Thursday Matins in the Roman Breviary and in the Office of Readings on Thursdays in Ordinary Time: a confession of sin made in the dark, asking Christ the Redeemer to drive out the inward night. The English is the translation of Joseph William Chadwick (1841-1882).",
+        "A night-office hymn attributed to Pope Saint Gregory the Great, sung at Thursday Matins in the Roman Breviary and in the Office of Readings on Thursdays in Ordinary Time: a confession of sin made in the dark, asking Christ the Redeemer to drive out the inward night. The English is the translation of Joseph William Chadwick (1841-1882). Its last stanza renders the Breviary doxology Praesta, Pater piissime rather than the Sit, Christe printed with the Latin here.",
       occasions: ["office-of-readings", "thursday", "ordinary-time"],
       relatedSaints: ["saint-gregory-the-great"],
       citations: [`${TPL}Hymni/TempusPerAnnum/NoxAtra.html`, `${BRITT}64/mode/1up`],
@@ -384,7 +399,7 @@ export const prayerBatch11: CuratedEntry[] = [
       latin:
         "Plasmator hominis, Deus,\nqui cuncta solus ordinans,\nhumum iubes producere\nreptantis et ferae genus:\n\nQui magna rerum corpora,\ndictu iubentis vivida,\nut serviant per ordinem\nsubdens dedisti homini:\n\nRepelle a servis tuis,\nquicquid per immunditiam,\naut moribus se suggerit,\naut actibus se interserit.\n\nDa gaudiorum praemia,\nda gratiarum munera:\ndissolve litis vincula,\nastringe pacis foedera.\n\nPraesta, Pater piissime,\nPatrique compar Unice,\ncum Spiritu Paraclito\nregnans per omne saeculum.",
       summary:
-        "The Friday Vespers hymn attributed to Pope Saint Gregory the Great. It recalls the sixth day of creation, when God made the beasts of the earth and gave them into man's service (Genesis 1:24-28), and asks for purity of thought and deed, the loosing of strife and the bond of peace. In the Roman Breviary it begins Hominis superne Conditor. The English is the translation of John David Chambers (1805-1893).",
+        "The Friday Vespers hymn attributed to Pope Saint Gregory the Great. It recalls the sixth day of creation, when God made the beasts of the earth and gave them into man's service (Genesis 1:24-28), and asks for purity of thought and deed, the loosing of strife and the bond of peace. In the Roman Breviary it begins Hominis superne Conditor. The English is the translation of John David Chambers (1805-1893) as altered in The English Hymnal (1906).",
       occasions: ["vespers", "friday", "evening", "ordinary-time"],
       relatedSaints: ["saint-gregory-the-great"],
       citations: [`${TPL}Hymni/TempusPerAnnum/Plasmator.html`, `${BRITT}82/mode/1up`],
@@ -405,7 +420,7 @@ export const prayerBatch11: CuratedEntry[] = [
       latin:
         "Rerum Creator optime,\nrectorque noster, respice;\nnos a quiete noxia\nmersos sopore libera.\n\nTe, sancte Christe, poscimus;\nignosce tu criminibus,\nad confitendum surgimus\nmorasque noctis rumpimus.\n\nMentes manusque tollimus,\nPropheta sicut noctibus\nnobis gerendum praecipit\nPaulusque gestis censuit.\n\nVides malum quod gessimus;\nocculta nostra pandimus,\npreces gementes fundimus;\ndimitte quod peccavimus.\n\nSit, Christe rex piissime,\ntibi Patrique gloria\ncum Spiritu Paraclito,\nin sempiterna saecula. Amen.",
       summary:
-        "A night-office hymn attributed to Pope Saint Gregory the Great, sung at Wednesday Matins in the Roman Breviary and in the Office of Readings on Wednesdays in Ordinary Time: those who rise by night to pray, as the Prophet and Saint Paul taught, lay bare their hidden sins and ask for pardon. The English is the translation of Saint John Henry Newman (1801-1890).",
+        "A night-office hymn attributed to Pope Saint Gregory the Great, sung at Wednesday Matins in the Roman Breviary and in the Office of Readings on Wednesdays in Ordinary Time: those who rise by night to pray, as the Prophet and Saint Paul taught, lay bare their hidden sins and ask for pardon. The English is the translation of Saint John Henry Newman (1801-1890). Its last stanza renders the Breviary doxology Praesta, Pater piissime rather than the Sit, Christe printed with the Latin here.",
       occasions: ["office-of-readings", "wednesday", "ordinary-time"],
       relatedSaints: ["saint-gregory-the-great", "saint-john-henry-newman"],
       citations: [`${TPL}Hymni/TempusPerAnnum/RerumCreator.html`, `${BRITT}61/mode/1up`],
@@ -440,14 +455,14 @@ export const prayerBatch11: CuratedEntry[] = [
     payload: {
       slug: "summae-deus-clementiae",
       title: "Summae Deus clementiae (Great God of boundless mercy, hear)",
-      body: "Great God of boundless mercy hear;\nThou Ruler of this earthly sphere;\nin substance one, in Persons three,\ndread Trinity in Unity!\n\nDo Thou in love accept our lays\nof mingled penitence and praise;\nand set our hearts from error free,\nmore fully to rejoice in Thee.\n\nOur reins and hearts in pity heal,\nand with Thy chastening fire anneal;\ngird Thou our loins, each passion quell,\nand every harmful lust expel.\n\nNow as our anthems, upward borne,\nawake the silence of the morn,\nenrich us with Thy gifts of grace,\nfrom heaven, Thy blissful dwelling place!\n\nHear Thou our prayer, Almighty King;\nhear Thou our praises, while we sing,\nadoring with the heavenly host\nthe Father, Son and Holy Ghost.",
+      body: "Great God of boundless mercy hear;\nThou Ruler of this earthly sphere;\nin substance one, in Persons three,\ndread Trinity in Unity!\n\nDo Thou in love accept our lays\nof mingled penitence and praise;\nand set our hearts from error free,\nmore fully to rejoice in Thee.\n\nOur reins and hearts in pity heal,\nand with Thy chastening fires anneal;\ngird Thou our loins, each passion quell,\nand every harmful lust expel.\n\nNow as our anthems, upward borne,\nawake the silence of the morn,\nenrich us with Thy gifts of grace,\nfrom heaven, Thy blissful dwelling place!\n\nHear Thou our prayer, Almighty King;\nhear Thou our praises, while we sing,\nadoring with the heavenly host\nthe Father, Son and Holy Ghost.",
       prayerType: "hymn",
       category: "trinitarian",
       language: "en",
       latin:
         "Summae Deus clementiae\nmundique factor machinae,\nqui trinus almo numine\nunusque firmas omnia,\n\nNostros piis cum canticis\nfletus benigne suscipe,\nquo corde puro sordibus\nte perfruamur largius.\n\nLumbos adure congruis\ntu caritatis ignibus,\naccincti ut adsint perpetim\ntuisque prompti adventibus,\n\nUt, quique horas noctium\nnunc concinendo rumpimus,\ndonis beatae patriae\nditemur omnes affatim.\n\nPraesta, Pater piissime,\nPatrique compar Unice,\ncum Spiritu Paraclito\nregnans per omne saeculum. Amen.",
       summary:
-        "A seventh-century hymn of unknown authorship to the Holy Trinity, sung at Saturday Matins in the Roman Breviary, where it begins Summae Parens clementiae, and in the Office of Readings on Saturdays in Ordinary Time. It asks the triune God to accept tears and songs together and to burn away every harmful desire with the fire of charity. The English is the translation of John David Chambers (1805-1893).",
+        "A seventh-century hymn of unknown authorship to the Holy Trinity, sung at Saturday Matins in the Roman Breviary, where it begins Summae Parens clementiae, and in the Office of Readings on Saturdays in Ordinary Time. It asks the triune God to accept tears and songs together and to burn away every harmful desire with the fire of charity. The English is a cento based on the translation of John David Chambers (1805-1893), made for the Breviary text as revised in 1632.",
       occasions: ["office-of-readings", "saturday", "ordinary-time"],
       relatedSaints: [],
       citations: [`${TPL}Hymni/TempusPerAnnum/SummaeDeus.html`, `${BRITT}70/mode/1up`],
@@ -508,9 +523,9 @@ export const prayerBatch11: CuratedEntry[] = [
       category: "liturgical",
       language: "en",
       latin:
-        "Verbum supernum prodiens\na Patre lumen exiens,\nqui natus orbi subvenis\ncursu declivi temporis:\n\nIllumina nunc pectora\ntuoque amore concrema;\naudita per praeconia\nsint pulsa tandem lubrica.\n\nIudexque cum post aderis\nrimari facta pectoris,\nreddens vicem pro abditis\niustisque regnum pro bonis,\n\nNon demum artemur malis\npro qualitate criminis,\nsed cum beatis compotes\nsimus perennes caelites.\n\nSit, Christe, rex piissime,\ntibi Patrique gloria\ncum Sancto Spiritu Paraclito,\nin sempiterna saecula. Amen.",
+        "Verbum supernum prodiens\na Patre lumen exiens,\nqui natus orbi subvenis\ncursu declivi temporis:\n\nIllumina nunc pectora\ntuoque amore concrema;\naudita per praeconia\nsint pulsa tandem lubrica.\n\nIudexque cum post aderis\nrimari facta pectoris,\nreddens vicem pro abditis\niustisque regnum pro bonis,\n\nNon demum artemur malis\npro qualitate criminis,\nsed cum beatis compotes\nsimus perennes caelites.\n\nSit, Christe, rex piissime,\ntibi Patrique gloria\ncum Spiritu Paraclito,\nin sempiterna saecula. Amen.",
       summary:
-        "An Advent hymn of the sixth or seventh century, sung at Matins in Advent in the Roman Breviary and in the Office of Readings during Advent. It asks the Word who came down from the Father to enlighten and inflame hearts now, so that when he comes again as Judge we may be numbered among the blessed. It is a different hymn from Saint Thomas Aquinas's Corpus Christi hymn that opens with the same words. The English is the translation of William John Courthope (1842-1917), from Church Hymns (1903).",
+        "An Advent hymn of the sixth or seventh century, sung at Matins in Advent in the Roman Breviary and in the Office of Readings during Advent. It asks the Word who came down from the Father to enlighten and inflame hearts now, so that when he comes again as Judge we may be numbered among the blessed. It is a different hymn from Saint Thomas Aquinas's Corpus Christi hymn that opens with the same words. The English is the translation of William John Courthope (1842-1917), from Church Hymns (1903); it was made for the Breviary text as revised in 1632, which differs from the Liturgia Horarum Latin printed here from the second half of the second stanza to the doxology.",
       occasions: ["advent", "office-of-readings"],
       relatedSaints: [],
       citations: [`${TPL}Hymni/Adventus/VerbumProdiens.html`, `${BRITT}97/mode/1up`],
@@ -671,7 +686,7 @@ export const prayerBatch11: CuratedEntry[] = [
     payload: {
       slug: "caelitum-ioseph-decus",
       title: "Caelitum, Ioseph, decus (Joseph, the praise and glory of the heavens)",
-      body: "Joseph, the praise and glory of the heavens,\nsure pledge of life, and safety of the wide world,\nas in our joy we sing to thee, in kindness\nlisten to our praises.\n\nThou by the world's Creator wert appointed\nspouse of the Virgin; thee He willed to honor\nnaming thee Father of the Word and guardian\nof our salvation.\n\nThou thy Redeemer, lying in a stable,\nwhom long ago foretold the choir of Prophets,\nsawest rejoicing and thy God adoredst\nhumble in childhood.\n\nGod, King of kings, and Governor of the ages,\nHe at whose word the powers of hell do tremble,\nHe whom the adoring heavens ever worship\ncalled thee protector.\n\nPraise to the Triune Godhead ever-lasting,\nWho with such honor mightily hath blest thee;\no may He grant us thy blest petition\njoys everlasting.",
+      body: "Joseph, the praise and glory of the heavens,\nsure pledge of life, and safety of the wide world,\nas in our joy we sing to thee, in kindness\nList to our praises.\n\nThou by the world's Creator wert appointed\nspouse of the Virgin; thee He willed to honor\nnaming thee Father of the Word and guardian\nof our salvation.\n\nThou thy Redeemer, lying in a stable,\nwhom long ago foretold the choir of Prophets,\nsawest rejoicing and thy God adoredst\nhumble in childhood.\n\nGod, King of kings, and Governor of the ages,\nHe at whose word the powers of hell do tremble,\nHe whom the adoring heavens ever worship\ncalled thee protector.\n\nPraise to the Triune Godhead ever-lasting,\nWho with such honor mightily hath blest thee;\no may He grant us at thy blest petition\njoys everlasting.",
       prayerType: "hymn",
       category: "saintly",
       language: "en",
@@ -754,7 +769,7 @@ export const prayerBatch11: CuratedEntry[] = [
       category: "liturgical",
       language: "en",
       summary:
-        "Judith's song of victory after the deliverance of Bethulia from the army of Holofernes, praising the Lord who puts an end to wars and struck down the enemy by the hand of a woman. Its closing verses, beginning Let us sing a hymn to the Lord, are the canticle at Morning Prayer on Wednesday of the first week in the Liturgy of the Hours. Douay-Rheims text, Judith 16:1-21.",
+        "Judith's song of victory after the deliverance of Bethulia from the army of Holofernes, praising the Lord who puts an end to wars and struck down the enemy by the hand of a woman. Its opening verses (16:2-3) and the verses from Let us sing a hymn to the Lord (16:15-19) make up the canticle at Morning Prayer on Wednesday of the first week in the Liturgy of the Hours. Douay-Rheims text, Judith 16:1-21.",
       occasions: ["lauds", "wednesday", "thanksgiving"],
       relatedSaints: [],
       citations: [`${DRBO}18016.htm`],
@@ -812,7 +827,7 @@ export const prayerBatch11: CuratedEntry[] = [
       category: "liturgical",
       language: "en",
       summary:
-        "The prayer of Jesus son of Sirach for the deliverance of God's people: have mercy on us, renew thy signs and work new miracles, gather the tribes of Jacob, so that all the earth may know that thou art God. Its opening verses are the canticle at Morning Prayer on Monday of the second week in the Liturgy of the Hours. Douay-Rheims text, Ecclesiasticus (Sirach) 36:1-19.",
+        "The prayer of Jesus son of Sirach for the deliverance of God's people: have mercy on us, renew thy signs and work new miracles, gather the tribes of Jacob, so that all the earth may know that thou art God. Its opening verses and the petitions from Gather together all the tribes of Jacob (36:13-16) make up the canticle at Morning Prayer on Monday of the second week in the Liturgy of the Hours. Douay-Rheims text, Ecclesiasticus (Sirach) 36:1-19.",
       occasions: ["lauds", "monday", "for-the-church"],
       relatedSaints: [],
       citations: [`${DRBO}26036.htm`],
@@ -879,7 +894,7 @@ export const prayerBatch11: CuratedEntry[] = [
     contentType: "PRAYER",
     slug: "canticle-of-isaiah-26",
     authorityLevel: "TRUSTED_PUBLISHER",
-    citations: [`${DRBO}27026.htm`, `${DR_1899}n544/mode/1up`],
+    citations: [`${DRBO}27026.htm`, `${DR_1899}n545/mode/1up`],
     payload: {
       slug: "canticle-of-isaiah-26",
       title: "Canticle of Isaias: Sion the City of Our Strength (Isaias 26:1-12)",
@@ -891,7 +906,7 @@ export const prayerBatch11: CuratedEntry[] = [
         "The song to be sung in the land of Juda on the day of salvation: open the gates to the just nation, for the Lord keeps in peace those who hope in him, and the soul desires him in the night. The Liturgy of the Hours sings verses from it at Morning Prayer on Tuesday of the third week. Douay-Rheims text, Isaias 26:1-12.",
       occasions: ["lauds", "tuesday", "trust", "peace"],
       relatedSaints: [],
-      citations: [`${DRBO}27026.htm`, `${DR_1899}n544/mode/1up`],
+      citations: [`${DRBO}27026.htm`, `${DR_1899}n545/mode/1up`],
     },
   },
   {
@@ -2205,7 +2220,7 @@ export const prayerBatch11: CuratedEntry[] = [
   {
     contentType: "PRAYER",
     slug: "adeste-fideles",
-    authorityLevel: "LITURGICAL_BOOK",
+    authorityLevel: "TRUSTED_PUBLISHER",
     citations: [`${BRITT}105/mode/1up`],
     payload: {
       slug: "adeste-fideles",
@@ -2217,7 +2232,7 @@ export const prayerBatch11: CuratedEntry[] = [
       latin:
         "Adeste, fideles,\nLæti triumphantes;\nVenite, venite in Bethlehem;\nNatum videte\nRegem Angelorum:\nVenite adoremus,\nVenite adoremus,\nVenite adoremus Dominum.\n\nDeum de Deo,\nLumen de lumine,\nGestant puellæ viscera:\nDeum verum,\nGenitum, non factum:\nVenite adoremus Dominum.\n\nCantet nunc Io!\nChorus angelorum:\nCantet nunc aula cœlestium,\nGloria\nIn excelsis Deo!\nVenite adoremus Dominum.\n\nErgo qui natus\nDie hodierna,\nJesu tibi sit gloria:\nPatris æterni\nVerbum caro factum!\nVenite adoremus,\nVenite adoremus,\nVenite adoremus Dominum.",
       summary:
-        "An eighteenth-century Christmas hymn of unknown authorship, four of whose eight stanzas are commonly sung at Benediction in Christmastide; it belongs to neither the Breviary nor the Missal. The faithful are called to Bethlehem to adore the newborn King of Angels, God of God and Light of Light, born of the Virgin. The English is the translation of Canon Frederick Oakeley (1802-1880), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
+        "An eighteenth-century Christmas hymn now generally attributed to John Francis Wade (1711-1786), whose manuscripts are its earliest known sources, though Britt gives the author as unknown; four of its eight stanzas are commonly sung at Benediction in Christmastide, and it belongs to neither the Breviary nor the Missal. The faithful are called to Bethlehem to adore the newborn King of Angels, God of God and Light of Light, born of the Virgin. The English is the translation of Canon Frederick Oakeley (1802-1880), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
       occasions: ["christmas", "december-25", "benediction"],
       relatedSaints: [],
       citations: [`${BRITT}105/mode/1up`],
@@ -2394,7 +2409,7 @@ export const prayerBatch11: CuratedEntry[] = [
   {
     contentType: "PRAYER",
     slug: "o-deus-ego-amo-te",
-    authorityLevel: "LITURGICAL_BOOK",
+    authorityLevel: "TRUSTED_PUBLISHER",
     citations: [`${BRITT}172/mode/1up`, `${BRITT}173/mode/1up`],
     payload: {
       slug: "o-deus-ego-amo-te",
@@ -3476,8 +3491,8 @@ export const prayerBatch11: CuratedEntry[] = [
   {
     contentType: "PRAYER",
     slug: "hora-novissima",
-    authorityLevel: "LITURGICAL_BOOK",
-    citations: [`${BRITT}350/mode/1up`, `${BRITT}351/mode/1up`, `${BRITT}352/mode/1up`],
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${BRITT}351/mode/1up`, `${BRITT}352/mode/1up`, `${BRITT}350/mode/1up`],
     payload: {
       slug: "hora-novissima",
       title: "Hora novissima (The world is very evil)",
@@ -3491,13 +3506,13 @@ export const prayerBatch11: CuratedEntry[] = [
         "The first of four centos that Britt prints from the De contemptu mundi, a poem of about three thousand lines written around 1140 by Bernard of Morlaix, monk of Cluny; Britt notes that these hymns were never in use in the Breviary. The last hour has come and the times are evil, so watch, for the supreme Judge is at hand to end evil, crown the just and give heaven, where there is light without evening and the homeland is without thorns. The Latin is in Bernard's tailed dactylic hexameters, which the book prints in half-lines and are given here one hexameter to a line. The English is the translation of John Mason Neale (1818-1866), as printed in Matthew Britt's Hymns of the Breviary and Missal (1922).",
       occasions: ["advent", "meditation"],
       relatedSaints: [],
-      citations: [`${BRITT}350/mode/1up`, `${BRITT}351/mode/1up`, `${BRITT}352/mode/1up`],
+      citations: [`${BRITT}351/mode/1up`, `${BRITT}352/mode/1up`, `${BRITT}350/mode/1up`],
     },
   },
   {
     contentType: "PRAYER",
     slug: "hic-breve-vivitur",
-    authorityLevel: "LITURGICAL_BOOK",
+    authorityLevel: "TRUSTED_PUBLISHER",
     citations: [`${BRITT}352/mode/1up`],
     payload: {
       slug: "hic-breve-vivitur",
@@ -3518,7 +3533,7 @@ export const prayerBatch11: CuratedEntry[] = [
   {
     contentType: "PRAYER",
     slug: "o-bona-patria",
-    authorityLevel: "LITURGICAL_BOOK",
+    authorityLevel: "TRUSTED_PUBLISHER",
     citations: [`${BRITT}353/mode/1up`],
     payload: {
       slug: "o-bona-patria",
@@ -3539,7 +3554,7 @@ export const prayerBatch11: CuratedEntry[] = [
   {
     contentType: "PRAYER",
     slug: "urbs-sion-aurea",
-    authorityLevel: "LITURGICAL_BOOK",
+    authorityLevel: "TRUSTED_PUBLISHER",
     citations: [`${BRITT}353/mode/1up`, `${BRITT}354/mode/1up`],
     payload: {
       slug: "urbs-sion-aurea",
@@ -3592,7 +3607,7 @@ export const prayerBatch11: CuratedEntry[] = [
       summary:
         "Saint Paul's summary of the mystery of godliness, perhaps taken from an early Christian hymn: Christ was manifested in the flesh, justified in the spirit, seen by angels, preached to the Gentiles, believed in the world and taken up in glory. The Liturgy of the Hours sings it as the New Testament canticle of Evening Prayer on the Epiphany, the Baptism of the Lord and the Transfiguration. Douay-Rheims text, 1 Timothy 3:16.",
       occasions: ["vespers", "epiphany", "transfiguration", "christmas"],
-      relatedSaints: [],
+      relatedSaints: ["saint-paul"],
       citations: [`${DRBO}61003.htm`],
     },
   },
@@ -4189,7 +4204,7 @@ export const prayerBatch11: CuratedEntry[] = [
     payload: {
       slug: "deus-cui-proprium-est-for-the-soul-departed",
       title:
-        "Deus, cui proprium est misereri: for a Soul Departed (O God, Whose property it is always to have mercy and to spare)",
+        "Deus, cui proprium est misereri: For a Soul Departed (O God, Whose property it is always to have mercy and to spare)",
       body: "O God, Whose property it is always to have mercy and to spare, we humbly beseech Thee for the soul of Thy servant N., which to-day Thou hast taken out of this world: not to deliver it into the hands of the enemy, nor to forget it forever; but to command the holy angels to receive it, and to conduct it to the heavenly country; that since it has believed and hoped in Thee, it may not suffer the pains of hell, but possess eternal joys. Through Christ our Lord. R. Amen.",
       prayerType: "intercession",
       category: "liturgical",
@@ -4227,11 +4242,11 @@ export const prayerBatch11: CuratedEntry[] = [
   },
   {
     contentType: "PRAYER",
-    slug: "fac-quaesumus-domine-hanc-cum-famulo-tuo",
+    slug: "fac-quaesumus-domine-hanc-cum-famula-tua",
     authorityLevel: "LITURGICAL_BOOK",
     citations: [`${LITTLE_OFFICE_1915}385/mode/1up`, `${LITTLE_OFFICE_1915}386/mode/1up`],
     payload: {
-      slug: "fac-quaesumus-domine-hanc-cum-famulo-tuo",
+      slug: "fac-quaesumus-domine-hanc-cum-famula-tua",
       title:
         "Fac, quaesumus, Domine (Grant, we beseech Thee, O Lord, this mercy to Thy servant departed)",
       body: "Grant, we beseech Thee, O Lord, this mercy to Thy servant departed, that she may not receive the punishment due to her sins, who was desirous to hold fast Thy will; and as here true faith united her to the company of the faithful, so may there Thy mercy unite her to the choirs of angels. Through Christ our Lord. R. Amen.",
@@ -4280,27 +4295,6 @@ export const prayerBatch11: CuratedEntry[] = [
   },
   {
     contentType: "PRAYER",
-    slug: "inclina-domine-aurem-tuam-for-several-deceased",
-    authorityLevel: "LITURGICAL_BOOK",
-    citations: [`${LITTLE_OFFICE_1915}370/mode/1up`, `${LITTLE_OFFICE_1915}371/mode/1up`],
-    payload: {
-      slug: "inclina-domine-aurem-tuam-for-several-deceased",
-      title: "Inclina, Domine, aurem tuam (Prayer for Several Persons Deceased)",
-      body: "Incline, O Lord, Thine ear to our prayers, in which we humbly beseech Thy mercy; that Thou wouldst place the souls of Thy servants, NN., which Thou hast caused to depart from this world, in the region of peace and light; and unite them in the fellowship of Thy saints. Through Our Lord, etc.",
-      prayerType: "intercession",
-      category: "liturgical",
-      language: "en",
-      latin:
-        "Inclína, Dómine, aurem tuam ad preces nostras, quibus misericórdiam tuam súpplices deprecámur; ut ánimas famulórum tuórum, NN., quas de hoc sæculo migráre jussísti, in pacis ac lucis regióne constítuas; et sanctórum tuórum júbeas esse consórtes. Per Dóminum nostrum, etc.",
-      summary:
-        "The collect for several persons deceased in the Office of the Dead: the Lord is asked to incline his ear to the prayers of the faithful and to place the souls of his servants, whom he has called from this world, in the region of peace and light, and to make them companions of his saints. Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
-      occasions: ["all-souls", "funerals", "november"],
-      relatedSaints: [],
-      citations: [`${LITTLE_OFFICE_1915}370/mode/1up`, `${LITTLE_OFFICE_1915}371/mode/1up`],
-    },
-  },
-  {
-    contentType: "PRAYER",
     slug: "quaesumus-domine-third-seventh-thirtieth-day",
     authorityLevel: "LITURGICAL_BOOK",
     citations: [`${LITTLE_OFFICE_1915}372/mode/1up`, `${LITTLE_OFFICE_1915}373/mode/1up`],
@@ -4338,27 +4332,6 @@ export const prayerBatch11: CuratedEntry[] = [
       summary:
         "The collect of the Office and Mass of the Dead on the anniversary of a death or burial: God, the Lord of pardon, is asked to give the soul of his servant a place of refreshment, the blessedness of rest and the brightness of light, echoing the place of refreshment, light and peace for which the Roman Canon prays for all who sleep in Christ. Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
       occasions: ["all-souls", "november"],
-      relatedSaints: [],
-      citations: [`${LITTLE_OFFICE_1915}374/mode/1up`, `${LITTLE_OFFICE_1915}375/mode/1up`],
-    },
-  },
-  {
-    contentType: "PRAYER",
-    slug: "deus-qui-inter-apostolicos-sacerdotes",
-    authorityLevel: "LITURGICAL_BOOK",
-    citations: [`${LITTLE_OFFICE_1915}374/mode/1up`, `${LITTLE_OFFICE_1915}375/mode/1up`],
-    payload: {
-      slug: "deus-qui-inter-apostolicos-sacerdotes",
-      title: "Deus, qui inter apostolicos sacerdotes (Prayer for a Deceased Bishop or Priest)",
-      body: "O God, by whose favor Thy servant N. was raised to the dignity of a bishop (or priest), and honored with the apostolic functions, grant, we beseech Thee, that he may be admitted to the eternal society of Thy apostles in heaven. Through Our Lord, etc.",
-      prayerType: "intercession",
-      category: "liturgical",
-      language: "en",
-      latin:
-        "Deus, qui inter apostólicos sacerdótes fámulum tuum N. pontificále (seu sacerdotáli) fecísti dignitáte vigére; præsta, quæsumus, ut eórum quoque perpétuo aggregétur consórtio. Per Dóminum.",
-      summary:
-        "The collect of the Office and Mass of the Dead for a deceased bishop or priest: God, who made his servant flourish among the apostolic priesthood with the dignity of a bishop or priest, is asked to join him for ever to their company. The English renders it freely, as admission to the eternal society of the apostles in heaven. Latin and English are taken from The Little Office of the Blessed Virgin Mary and the Office of the Dead in Latin and English (New York: Benziger Brothers, 1915).",
-      occasions: ["all-souls", "funerals", "vocations"],
       relatedSaints: [],
       citations: [`${LITTLE_OFFICE_1915}374/mode/1up`, `${LITTLE_OFFICE_1915}375/mode/1up`],
     },
