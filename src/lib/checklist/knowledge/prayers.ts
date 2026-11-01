@@ -10,6 +10,7 @@ import { prayerBatch7 } from "./prayers/batch-7";
 import { prayerBatch8 } from "./prayers/batch-8";
 import { prayerBatch9 } from "./prayers/batch-9";
 import { prayerBatch10 } from "./prayers/batch-10";
+import { prayerBatch11 } from "./prayers/batch-11";
 import { prayerBatch12 } from "./prayers/batch-12";
 import { withCuratedTranslation } from "./prayer-translations";
 
@@ -779,5 +780,6 @@ export const prayerKnowledge: CuratedEntry[] = [
   ...prayerBatch8,
   ...prayerBatch9,
   ...prayerBatch10,
+  ...prayerBatch11,
   ...prayerBatch12,
 ].map(withCuratedTranslation);
