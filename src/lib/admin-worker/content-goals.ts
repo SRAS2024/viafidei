@@ -43,7 +43,7 @@ export const DEFAULT_GOAL_SEEDS: readonly ContentGoalSeed[] = [
   // Open — grow toward the target, then maintain + keep growing as verified
   // content becomes available. No hard maximum.
   { contentType: "PRAYER", targetGoal: 1000, canonicalMax: null, priority: 10 },
-  { contentType: "POPE", targetGoal: 267, canonicalMax: null, priority: 15 },
+  { contentType: "POPE", targetGoal: 265, canonicalMax: null, priority: 15 },
   { contentType: "SAINT", targetGoal: 3794, canonicalMax: null, priority: 20 },
   { contentType: "DOCTOR", targetGoal: 38, canonicalMax: null, priority: 25 },
   { contentType: "DEVOTION", targetGoal: 100, canonicalMax: null, priority: 30 },

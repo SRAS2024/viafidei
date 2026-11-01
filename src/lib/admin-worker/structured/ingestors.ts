@@ -228,6 +228,41 @@ export function riteCoreSlug(label: string): string {
   return slugify(core);
 }
 
+/**
+ * Entities Wikidata gives the papal position whose labels do not say they were
+ * never Roman Pontiffs, so the "antipope" label test cannot catch them. The
+ * Annuario Pontificio's line has 267 pontificates (Benedict IX counted three
+ * times), i.e. 265 men; these three made the published catalogue overshoot it.
+ */
+export const NOT_ROMAN_PONTIFFS: ReadonlyMap<string, string> = new Map([
+  ["Q243811", "Pope Joan is a medieval legend, not a historical pope"],
+  [
+    "Q383322",
+    "Stephen (752) died before his consecration; the Annuario Pontificio has not counted him since 1961",
+  ],
+  ["Q117656", "Benedict X is listed as an antipope in the Annuario Pontificio"],
+]);
+
+/**
+ * Popes whose curated page is titled by the name the Church remembers them by
+ * ("Saint Leo the Great") while Wikidata's label is the regnal one ("Leo I"),
+ * or whose Wikidata label lost its regnal number ("Pope John" for John XXIII).
+ * Their names never normalize to the same key, so without this the ingest saw
+ * a new pope and published a second page for each.
+ */
+const CURATED_POPE_SLUG_BY_QID: ReadonlyMap<string, string> = new Map([
+  ["Q42887", "pope-saint-clement-i"],
+  ["Q43954", "pope-saint-leo-the-great"],
+  ["Q42827", "pope-saint-gregory-the-great"],
+  ["Q170503", "pope-saint-nicholas-i"],
+  ["Q23873", "pope-saint-john-xxiii"],
+]);
+
+function popeSlugFor(label: string, entity: string | undefined): string {
+  const qid = entity ? qidOf(entity) : null;
+  return (qid && CURATED_POPE_SLUG_BY_QID.get(qid)) || `pope-${slugify(label)}`;
+}
+
 const popeIngestor: StructuredIngestor = {
   contentType: "POPE",
   id: "wikidata-popes",
@@ -257,9 +292,10 @@ LIMIT ${limit} OFFSET ${offset}`,
     const label = bindingValue(row, "popeLabel");
     if (!label || /^Q\d+$/.test(label)) return null;
     const title = /\bpope\b/i.test(label) ? label : `Pope ${label}`;
+    const entity = bindingValue(row, "pope");
     return {
-      qid: qidOf(bindingValue(row, "pope")) ?? undefined,
-      slug: `pope-${slugify(label)}`,
+      qid: qidOf(entity) ?? undefined,
+      slug: popeSlugFor(label, entity),
       name: title,
     };
   },
@@ -276,6 +312,8 @@ LIMIT ${limit} OFFSET ${offset}`,
     // Wikidata tags ANTIPOPES with the papal position too — exclude them so the
     // count reflects the real line of Roman Pontiffs, not disputed claimants.
     if (/\bantipope\b/i.test(label)) return reject("antipope_excluded", label);
+    const notPontiff = NOT_ROMAN_PONTIFFS.get(qidOf(entity) ?? "");
+    if (notPontiff) return reject("antipope_excluded", notPontiff);
 
     // "Pope " only when the label doesn't already carry a papal title (and never
     // double-prefixes "Pope Saint …"); antipopes are already excluded above.
@@ -298,7 +336,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       }
     }
 
-    const slug = `pope-${slugify(label)}`;
+    const slug = popeSlugFor(label, entity);
     if (!slug || slug === "pope-") return reject("slug_unresolvable", label);
 
     const payload: Record<string, unknown> = {

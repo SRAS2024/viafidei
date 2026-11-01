@@ -62,7 +62,10 @@ export const REJECTION_CODES = [
   "slug_unresolvable",
   /** A URL the schema requires did not parse as a URL. */
   "invalid_url",
-  /** Wikidata tags antipopes with the papal position; they are not Roman Pontiffs. */
+  /**
+   * Wikidata tags antipopes (and a legendary or never-consecrated claimant, see
+   * `NOT_ROMAN_PONTIFFS`) with the papal position; they are not Roman Pontiffs.
+   */
   "antipope_excluded",
 
   /* ── Narrative sourcing: no citable prose could be obtained ───────────── */
