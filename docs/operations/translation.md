@@ -105,9 +105,14 @@ but a poor fit here:
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Memory while translating | 1.9 GB RSS with a transformer-big model loaded (es/fr/it/de/pt), 1.2 GB with a base model (pl/tl/vi/zh) — on top of the web server                                              |
 | CPU                      | 4 threads saturated for the whole first pass; ~0.1 s per sentence on Apple silicon with beam 4 (`TRANSLATION_BEAMS=1` is faster, slightly lower quality)                        |
-| First full pass          | 31,350 unique units per language (2.8 M characters, measured 2026-10-31) × 9 languages ≈ 8 hours on the Mac; expect 2–3× that on shared Railway vCPUs                           |
+| First full pass          | 31,350 unique units per language (2.8 M characters, measured 2026-10-31) × 9 languages ≈ 8 hours on the Mac (derived); expect 2–3× that on shared Railway vCPUs                 |
 | Disk                     | 3.7 GB for the 9 primary models (5.2 GB with the 5 fallbacks); without a volume Railway would re-download them after every deploy                                               |
 | Image                    | onnxruntime-node 1.29: 283 MB as installed (all platforms), 43 MB of it the linux-x64 binaries — plus ~600 MB of CUDA libraries on Linux unless `onnxruntime-node-install=skip` |
+
+The first production run is slower than that estimate. Started on the Mac at
+17:26 MDT on 2026-10-31, it had about 362,000 units to translate and ran at
+about 4.2 units a second, so its first pass takes about 24 hours, with about 5
+cores busy and 2.1 GB RSS.
 
 The Mac worker host already runs around the clock, has the memory and cores,
 keeps the models on disk across restarts, and writes to the same database. The
@@ -137,10 +142,20 @@ It needs `DATABASE_URL` (the same one the worker uses). Optional:
   fallback model is loaded beside it, for one batch, when the first one got
   sentences wrong (derived peak: about 3 GB with a transformer-big model and
   its base fallback, 1.9 + 1.2 GB).
-- **Database:** about 282,000 rows when everything is cached (31,350 units ×
-  9 languages; parish names never become rows), roughly 180 MB with indexes.
-  The table is additive (migration `0062_content_translation`) and not in
-  `scripts/validate-db.js`'s required set: without it every page is English.
+- **Database:** one row per unit and language (parish names never become
+  rows): about 282,000 at 31,350 units per language, roughly 180 MB with
+  indexes. The first production run, on 2026-10-31, started with about 362,000
+  units to translate. The table is additive (migration
+  `0062_content_translation`) and not in `scripts/validate-db.js`'s required
+  set: without it every page is English.
+- **Against production, on the Mac:** `DATABASE_URL` is the production
+  database's public URL, built under `railway run` exactly as for the
+  [booster scripts](../../README.md#booster-scripts), so no credential is typed
+  or printed. On 2026-10-31 the translator was started detached at 17:26 MDT with
+  its output going to `~/Library/Logs/ViaFidei/translator.log`. Nothing restarts
+  it after a reboot or a crash, and it does nothing while the Mac sleeps: keep it
+  alive with launchd or tmux, and restart it after a release that changes
+  `src/lib/translation`.
 - **Re-translating:** bump `SEGMENT_FORMAT_VERSION` in `segments.ts` to re-key
   every unit; edited content re-keys itself (the hash is of the English text).
 - **Disk full:** the translator deletes the other downloaded models and retries.
