@@ -46,6 +46,8 @@ function facts(over: Partial<SaintFacts> = {}): SaintFacts {
     enArticle: null,
     altArticles: [],
     website: null,
+    ceIds: [],
+    ceArticles: [],
     ...over,
   };
 }

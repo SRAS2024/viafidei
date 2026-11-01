@@ -143,6 +143,12 @@ const RELIGIOUS_QIDS = [
 /** Apostles and evangelists all died in the first century. */
 const APOSTOLIC_AGE_LAST_YEAR = 150;
 
+/** "Catholic Encyclopedia" (1907–1913), the work its Wikisource articles are `published in`. */
+export const CATHOLIC_ENCYCLOPEDIA_QID = "Q302556";
+
+/** Wikisource URL prefix of the Encyclopedia's articles. */
+const CE_WIKISOURCE_PREFIX = "https://en.wikisource.org/wiki/Catholic_Encyclopedia_(1913)/";
+
 /* ── SPARQL projection shared by the ingestor and the repair sweep ─────── */
 
 /**
@@ -160,7 +166,9 @@ export const SAINT_FACTS_SELECT = `?s (SAMPLE(?sLabel) AS ?label) (SAMPLE(?sDesc
   (SAMPLE(?bishopSee) AS ?bishopSee) (SAMPLE(?founded) AS ?founded)
   (SAMPLE(?born) AS ?born) (SAMPLE(?died) AS ?died)
   (SAMPLE(?article) AS ?art) (GROUP_CONCAT(DISTINCT ?altArticle; SEPARATOR="||") AS ?altArts)
-  (SAMPLE(?website) AS ?site)`;
+  (SAMPLE(?website) AS ?site)
+  (GROUP_CONCAT(DISTINCT ?ceId; SEPARATOR="||") AS ?ceIds)
+  (GROUP_CONCAT(DISTINCT ?ceArticle; SEPARATOR="||") AS ?ceArts)`;
 
 /**
  * WHERE patterns for the saint facts (all OPTIONAL except the English label).
@@ -179,6 +187,12 @@ export const SAINT_FACTS_SELECT = `?s (SAMPLE(?sLabel) AS ?label) (SAMPLE(?sDesc
  * product and leaves the answer identical. Measured on the same page:
  * 504 after 65s → HTTP 200 in 3.1s for Q989 alone, 8.9s for the 59-entity page
  * containing him. Do NOT turn either back into an OPTIONAL join.
+ *
+ * The two Catholic Encyclopedia patterns are lists, so they are joined — but
+ * each is (almost always) single-valued: one Catholic Encyclopedia ID (P3241)
+ * and at most one Wikisource article whose `main subject` (P921) is the saint
+ * and which was `published in` (P1433) the Encyclopedia (Q302556). Both stay
+ * factors of ~1 in the product above.
  */
 export const SAINT_FACTS_PATTERNS = `?s rdfs:label ?sLabel . FILTER(LANG(?sLabel) = "en")
   BIND(EXISTS { ?s wdt:P39 ?seeItem . ?seeItem wdt:P279* wd:Q29182 } AS ?bishopSee)
@@ -194,7 +208,9 @@ export const SAINT_FACTS_PATTERNS = `?s rdfs:label ?sLabel . FILTER(LANG(?sLabel
   OPTIONAL { ?s wdt:P570 ?died . }
   OPTIONAL { ?article schema:about ?s ; schema:isPartOf <https://en.wikipedia.org/> . }
   OPTIONAL { ?altArticle schema:about ?s ; schema:isPartOf ?altWiki . VALUES ?altWiki { <https://it.wikipedia.org/> <https://es.wikipedia.org/> <https://fr.wikipedia.org/> <https://de.wikipedia.org/> <https://pl.wikipedia.org/> } }
-  OPTIONAL { ?s wdt:P856 ?website . }`;
+  OPTIONAL { ?s wdt:P856 ?website . }
+  OPTIONAL { ?s wdt:P3241 ?ceId . }
+  OPTIONAL { ?ceItem wdt:P921 ?s ; wdt:P1433 wd:${CATHOLIC_ENCYCLOPEDIA_QID} . ?ceArticle schema:about ?ceItem ; schema:isPartOf <https://en.wikisource.org/> . }`;
 
 /**
  * One SPARQL query for the full facts of an EXPLICIT set of entities.
@@ -238,6 +254,10 @@ export interface SaintFacts {
   enArticle: string | null;
   altArticles: string[];
   website: string | null;
+  /** Catholic Encyclopedia IDs (P3241, New Advent's "08201c"). */
+  ceIds: string[];
+  /** Wikisource pages of the Catholic Encyclopedia articles about the saint. */
+  ceArticles: string[];
 }
 
 /**
@@ -290,6 +310,10 @@ export function parseSaintFacts(row: SparqlBinding): SaintFacts | null {
     enArticle: bindingValue(row, "art") ?? null,
     altArticles: bindingList(row, "altArts"),
     website: bindingValue(row, "site") ?? null,
+    ceIds: bindingList(row, "ceIds")
+      .map((id) => id.toLowerCase())
+      .filter((id) => /^\d{5}[a-z]$/.test(id)),
+    ceArticles: bindingList(row, "ceArts").filter((u) => u.startsWith(CE_WIKISOURCE_PREFIX)),
   };
 }
 

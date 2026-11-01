@@ -369,6 +369,52 @@ export function feastStatedWithWording(
 const DATED_EVENT_RE = /^\s*,?\s*\d{3,4}(?!\d)/;
 
 /**
+ * Every calendar day ("MM-DD") that `text` states WITH feast wording — the
+ * days `feastStatedWithWording` would accept, found without trying all 366.
+ *
+ * Used before a public-domain source may confirm Wikidata's feast for a row
+ * whose article corroborated nothing: if the article's own prose words ANOTHER
+ * day as the feast, the article contradicts Wikidata and no third source may
+ * settle it.
+ */
+export function feastWordedDays(text: string, lang: string): string[] {
+  if (!text || !FEAST_WORDING[lang]) return [];
+  const t = text.toLowerCase();
+  const seen = new Set<string>();
+  for (let month = 1; month <= 12; month += 1) {
+    const names =
+      lang === "en"
+        ? [monthName(month).toLowerCase()]
+        : (LOCALIZED_MONTHS[lang]?.[month - 1] ?? []);
+    for (const name of names) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const res =
+        lang === "en"
+          ? [
+              new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?${escaped}\\b`, "g"),
+              new RegExp(`\\b${escaped}\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`, "g"),
+            ]
+          : [
+              new RegExp(
+                `(?<!\\d)(\\d{1,2})(?:\\.|er|º|°)?(?:\\s+de)?\\s+${escaped}(?![a-zà-ž])`,
+                "gu",
+              ),
+              new RegExp(`(?<![a-zà-ž])${escaped}\\s+(\\d{1,2})(?!\\d)`, "gu"),
+            ];
+      for (const re of res) {
+        for (const m of t.matchAll(re)) {
+          const day = Number(m[1]);
+          if (day >= 1 && day <= 31) seen.add(`${pad(month)}-${pad(day)}`);
+        }
+      }
+    }
+  }
+  return [...seen]
+    .filter((d) => feastStatedWithWording(Number(d.slice(0, 2)), Number(d.slice(3)), text, lang))
+    .sort();
+}
+
+/**
  * Does `text` name a calendar day OTHER than (month, day), outside `own` (the
  * span of the date being tested)? A dated event ("beatified on 3 May 1990")
  * is not a competing day: it happened once.

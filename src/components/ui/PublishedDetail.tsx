@@ -26,6 +26,7 @@ import {
 
 import { Disclosure } from "./Disclosure";
 import { PrayerLinkedText } from "./PrayerLinkedText";
+import { PublicDomainAttribution } from "./PublicDomainAttribution";
 import { ShareButton } from "./ShareButton";
 import { WikipediaAttribution } from "./WikipediaAttribution";
 import type { GuidePrayerData } from "./GuidePrayers";
@@ -380,6 +381,7 @@ export function PublishedDetail({
         </footer>
       ) : null}
       <WikipediaAttribution contentType={item.contentType} payload={payload} />
+      <PublicDomainAttribution payload={payload} />
     </article>
   );
 }

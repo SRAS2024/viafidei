@@ -14,6 +14,7 @@
  * the caller skips rather than guesses.
  */
 
+import { catholicEncyclopediaRefsIn, type CatholicEncyclopediaRef } from "./catholic-encyclopedia";
 import { fetchJson, noteUnreadSource, type SourceReadLedger } from "./http";
 import { parseWikipediaArticleUrl } from "./wikipedia-url";
 
@@ -401,6 +402,13 @@ export interface ArticleSource {
   /** Plain-text article body without its infoboxes ("" when unavailable). */
   prose: string;
   /**
+   * The Catholic Encyclopedia (1913) articles the article cites (`{{Catholic|
+   * wstitle=…}}`, a Wikisource link, a newadvent.org citation) — how the saint
+   * ingest finds a saint's Encyclopedia article when Wikidata only gives its
+   * Catholic Encyclopedia ID. Absent when no wikitext was read.
+   */
+  catholicEncyclopedia?: CatholicEncyclopediaRef[];
+  /**
    * False when the parse call did NOT complete (no response, timeout, 429,
    * 5xx, an API error that is not about the page, network gate closed): the
    * empty parts then say nothing about the article. True when Wikipedia
@@ -426,6 +434,7 @@ export async function fetchArticleSource(
   if (!wikitext) return { infobox: {}, prose: "", read };
   let infobox: Record<string, string> = {};
   let prose = "";
+  let catholicEncyclopedia: CatholicEncyclopediaRef[] = [];
   try {
     infobox = parseInfobox(wikitext);
   } catch {
@@ -436,5 +445,10 @@ export async function fetchArticleSource(
   } catch {
     prose = "";
   }
-  return { infobox, prose, read };
+  try {
+    catholicEncyclopedia = catholicEncyclopediaRefsIn(wikitext);
+  } catch {
+    catholicEncyclopedia = [];
+  }
+  return { infobox, prose, read, catholicEncyclopedia };
 }

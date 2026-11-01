@@ -14,9 +14,11 @@
  *   2. for rows published before provenance was recorded, the shape the
  *      structured ingest gave them: a Wikidata entity citation next to a
  *      Wikipedia article citation, on a content type whose narrative that
- *      ingest always took from the article. A saint whose biography was
- *      COMPOSED from Wikidata facts (`provenance.biography ===
- *      "structured-facts"`) quoted nothing and is not credited.
+ *      ingest always took from the article. A row whose provenance names
+ *      ANOTHER source for its prose — a biography COMPOSED from Wikidata facts
+ *      (`"structured-facts"`), or quoted from a public-domain text
+ *      (`public-domain-attribution.ts`) — quoted nothing from Wikipedia and is
+ *      not credited to it.
  *
  * Pure: no I/O, no React. Returns null rather than guess.
  */
@@ -114,8 +116,11 @@ export function wikipediaTextSource(
     if (quoted.length > 0 && typeof provenance.article === "string") {
       return parseWikipediaArticle(provenance.article);
     }
-    // A composed biography quoted nothing.
-    if (provenance.biography === "structured-facts") return null;
+    // The ingest named another source for the prose — a COMPOSED biography
+    // ("structured-facts") or a public-domain text (the Catholic Encyclopedia,
+    // the 1916 Roman Martyrology) — so none of it is Wikipedia's, even when
+    // a Wikipedia article is cited for the facts it corroborated.
+    if (QUOTED_FIELDS.some((f) => typeof provenance[f] === "string")) return null;
   }
 
   // 2. Legacy rows: the structured ingest's own shape.
