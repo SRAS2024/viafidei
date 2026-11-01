@@ -242,3 +242,21 @@ describe("iPhone app — polling and secrets", () => {
     }
   });
 });
+
+describe("iPhone app — the Live Site tab can locate the visitor", () => {
+  it("declares why it asks for location, so iOS asks instead of refusing outright", () => {
+    // The Live Site tab is a WKWebView on etviafidei.com. Without this key iOS
+    // refuses every page's geolocation request at once, so "Use my location"
+    // on /parishes answered "denied" without ever showing the Allow sheet.
+    const keys = [
+      ...PROJECT.matchAll(/INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "([^"]+)";/g),
+    ].map((m) => m[1]);
+    // Both build configurations, the same plain sentence.
+    expect(keys).toHaveLength(2);
+    expect(new Set(keys).size).toBe(1);
+    expect(keys[0]).toContain("Use my location");
+    // Only while in use: the app never asks to track in the background.
+    expect(PROJECT).not.toContain("NSLocationAlwaysAndWhenInUseUsageDescription");
+    expect(PROJECT).not.toContain("NSLocationAlwaysUsageDescription");
+  });
+});
