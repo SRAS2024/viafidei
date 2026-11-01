@@ -1,0 +1,7 @@
+<ref name="ce">{{Cite CE1913|wstitle=Pope Liberius}}</ref>
+<ref name=CEAbdication>{{Cite CE1913|wstitle=Abdication}}</ref>
+<ref name=newadvent>{{Cite web |title=CATHOLIC ENCYCLOPEDIA: Pope Liberius |url=https://www.newadvent.org/cathen/09217a.htm |access-date=16 April 2023 |website=www.newadvent.org}}</ref>
+<ref name=bihl>Bihl, Michael.[https://www.newadvent.org/cathen/09178c.htm "St. Leonard of Port Maurice"] ''The Catholic Encyclopedia''. Vol. 9. New York: Robert Appleton Company, 1910. Retrieved 27 March 2014.</ref>
+<ref>George Elphege Hind (1908). "[[wikisource:Catholic Encyclopedia (1913)/St. Ceolfrid|St. Ceolfrid]]". In ''Catholic Encyclopedia''. '''3'''. New York: Robert Appleton Company.</ref>
+<ref name="catholicencyclopedia">{{Cite book |last=Burton |first=Edwin |url=https://www.newadvent.org/cathen/15551b.htm |title=The Catholic Encyclopedia |publisher=Robert Appleton Company |year=1912 |volume=15 |location=New York |chapter=St. Margaret Ward |access-date=15 September 2023}}</ref>
+[https://www.newadvent.org/cathen/15687a.htm Catholic Encyclopedia Online: St. Wolstan]

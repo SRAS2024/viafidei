@@ -26,15 +26,23 @@ import type { SourceReadLedger } from "./http";
 import { bindingValue, qidOf, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
 import { fetchIntroForArticleUrl, fetchSummaryForArticleUrl } from "./wikipedia";
 import { fetchArticleSource } from "./wikipedia-infobox";
+import { parseWikipediaArticleUrl } from "./wikipedia-url";
 import { fetchDocumentExcerpt } from "./document-excerpt";
 import { isRejection, reject, type MapRejection, type MapResult } from "./reject";
 import {
   feastMentionIndexLocalized,
   feastStatedWithWording,
+  feastWordedDays,
   firstFeastInText,
   parseFeastValue,
   type ParsedFeast,
 } from "./corroboration";
+import { CATHOLIC_ENCYCLOPEDIA } from "./catholic-encyclopedia";
+import {
+  SaintPublicDomainSources,
+  type PublicDomainBiography,
+  type SaintTextSource,
+} from "./saint-pd-sources";
 import {
   CATHOLIC_RELIGION_QIDS,
   CATHOLIC_STATUS_QIDS,
@@ -812,33 +820,62 @@ LIMIT ${limit} OFFSET ${offset}`,
       return reject("feast_unparseable", `${facts.label}: P841 ${facts.feasts.join(" ")}`);
     }
 
-    // The biography is the English article's lead, verbatim and attributed on
-    // the page. A saint with only a non-English article has nothing to quote:
-    // the ingest no longer composes template biographies ("X was a christian
-    // martyr. The Catholic Church venerates…" — 462 of them are live) for new
-    // rows, so it stops here, before any Wikipedia request.
-    const articleUrl = facts.enArticle;
-    if (!articleUrl) {
-      const alt = preferredAltArticle(facts.altArticles);
-      return alt
-        ? reject("biography_unavailable", `${facts.label} (${alt.lang}wiki only, no English lead)`)
-        : reject("no_wikipedia_article", facts.label);
-    }
-    const lang = "en";
-    const summary = await fetchSummaryForArticleUrl(articleUrl, { ledger: ctx.reads });
-    if (!summary) return reject("wikipedia_fetch_failed", articleUrl);
-    // The REST summary is the first paragraph with its parentheses removed.
-    // When that falls under the 100-character biography floor, the article's
-    // whole introduction (one more request, on the same serial queue) usually
-    // does not: 9 of the 30 saints sampled on 2026-10-31 stopped here on a
-    // one-line summary although their articles open with a full paragraph.
-    let lead = summary.extract;
-    if (lead.length < 100) {
-      const intro = await fetchIntroForArticleUrl(articleUrl, { ledger: ctx.reads });
-      if (intro && intro.length > lead.length) lead = leadText(intro, SAINT_LEAD_MAX_CHARS);
-    }
-    if (lead.length < 100) {
-      return reject("description_too_short", `${articleUrl} (${lead.length} chars)`);
+    // The biography is QUOTED, never composed (462 template biographies — "X
+    // was a christian martyr. The Catholic Church venerates…" — are live; no
+    // new row gets one): the English article's lead, verbatim and attributed
+    // on the page — or, when there is no English article or its lead is under
+    // the floor, a public-domain text tied to the saint: the opening of its
+    // Catholic Encyclopedia (1913) article, else its announcement in the 1916
+    // Roman Martyrology (saint-pd-sources.ts). Those sources are fallbacks:
+    // every Wikipedia gate below still runs on whichever Wikipedia article
+    // exists — the English one, else the preferred it/es/fr/de/pl one, read in
+    // its own language — and keeps its veto.
+    const enArticle = facts.enArticle;
+    const alt = enArticle ? null : preferredAltArticle(facts.altArticles);
+    const articleUrl = enArticle ?? alt?.url ?? null;
+    const lang = enArticle ? "en" : (alt?.lang ?? "en");
+    const single = candidates.length === 1 ? candidates[0] : null;
+    const pd = new SaintPublicDomainSources({ facts, ledger: ctx.reads });
+    // "Could a public-domain biography exist at all?" — answered with no
+    // request (the Martyrology is a committed index; the Encyclopedia only
+    // counts when Wikidata links it), and with the least strict stage, since
+    // a branch-3 stage is only known once the infobox is read.
+    const pdBiographyPossible = (withoutEnglishArticle: boolean): boolean =>
+      (withoutEnglishArticle ? pd.hasDirectEncyclopediaLink() : pd.hasEncyclopediaLink()) ||
+      pd.martyrologyBiography(single, canonizationStatus ?? "canonized") !== null;
+
+    let lead = "";
+    let summaryUrl: string | null = null;
+    if (enArticle) {
+      const summary = await fetchSummaryForArticleUrl(enArticle, { ledger: ctx.reads });
+      if (!summary) return reject("wikipedia_fetch_failed", enArticle);
+      summaryUrl = summary.url;
+      // The REST summary is the first paragraph with its parentheses removed.
+      // When that falls under the 100-character biography floor, the article's
+      // whole introduction (one more request, on the same serial queue) usually
+      // does not: 9 of the 30 saints sampled on 2026-10-31 stopped here on a
+      // one-line summary although their articles open with a full paragraph.
+      lead = summary.extract;
+      if (lead.length < 100) {
+        const intro = await fetchIntroForArticleUrl(enArticle, { ledger: ctx.reads });
+        if (intro && intro.length > lead.length) lead = leadText(intro, SAINT_LEAD_MAX_CHARS);
+      }
+      if (lead.length < 100 && !pdBiographyPossible(false)) {
+        return reject("description_too_short", `${enArticle} (${lead.length} chars)`);
+      }
+    } else {
+      // No English lead: stop before any request unless a public-domain text
+      // can be tied to the saint without one — as before for everyone else.
+      if (!pdBiographyPossible(true)) {
+        return alt
+          ? reject(
+              "biography_unavailable",
+              `${facts.label} (${alt.lang}wiki only, no English lead)`,
+            )
+          : reject("no_wikipedia_article", facts.label);
+      }
+      // Branch 3 takes its stage from an article's infobox; with none, it has none.
+      if (!articleUrl && needsInfoboxStatus) return reject("no_wikipedia_article", facts.label);
     }
 
     // Read the article up front (one Action API call): the infobox corroborates
@@ -850,14 +887,27 @@ LIMIT ${limit} OFFSET ${offset}`,
     // the stage check through — the infobox decides, so it must have been read.
     // Such a row is retried on the next pass (`source_read_failed` is never
     // remembered), and it counts toward the pass's outage streak.
-    const source = await fetchArticleSource(articleUrl, { ledger: ctx.reads });
-    if (source.read === false) {
-      return reject("source_read_failed", `${facts.label}: article not read (${articleUrl})`);
+    let infobox: Record<string, string> = {};
+    let prose = "";
+    if (articleUrl) {
+      const source = await fetchArticleSource(articleUrl, { ledger: ctx.reads });
+      if (source.read === false) {
+        return reject("source_read_failed", `${facts.label}: article not read (${articleUrl})`);
+      }
+      infobox = source.infobox;
+      prose = source.prose;
+      // The English article's citations of the Encyclopedia are how a saint
+      // known to Wikidata only by its Catholic Encyclopedia ID finds its page.
+      if (enArticle) {
+        pd.useEnglishArticle(
+          source.catholicEncyclopedia ?? [],
+          parseWikipediaArticleUrl(enArticle)?.title ?? null,
+        );
+      }
     }
-    const infobox: Record<string, string> = source.infobox;
 
     if (needsInfoboxStatus) canonizationStatus = statusFromInfobox(infobox);
-    if (!canonizationStatus) return reject("no_canonization_date", articleUrl);
+    if (!canonizationStatus) return reject("no_canonization_date", articleUrl ?? facts.label);
 
     // Accuracy guard 2 — the stage must agree with the article's own record.
     // An article that names ONLY another communion as venerating the person
@@ -882,36 +932,129 @@ LIMIT ${limit} OFFSET ${offset}`,
     // Accuracy guard 3 — the feast day. A canonized or beatified saint's feast
     // MUST be corroborated by the article (its infobox decides; else feast
     // wording next to the date). A Venerable / Servant of God is published
-    // WITHOUT one — and only when the article itself names that stage.
+    // WITHOUT one — and only when a Wikipedia article itself names that stage
+    // (never a 1913 text, whose "Venerable" is a century old).
     let feast: ParsedFeast | null = null;
+    let feastSource: SaintTextSource | null = null;
+    let feastSourceUrl: string | null = null;
+    let needsPublicDomainFeast = false;
     if (feastlessStatus(canonizationStatus)) {
       if (!feastlessStageStated(canonizationStatus, lead, infobox)) {
         return reject("status_uncorroborated", `${facts.label}: ${canonizationStatus}`);
       }
-    } else {
+    } else if (articleUrl) {
       const chosen = chooseCorroboratedFeastDetailed({
         candidates,
         abstract: lead,
         infobox,
         lang,
-        prose: source.prose,
+        prose,
       });
-      if (!chosen.feast) {
+      const detail = `${facts.label}: P841 ${candidates.map((c) => c.feastDay).join(" ")} vs ${lang}wiki`;
+      if (chosen.feast) {
+        feast = chosen.feast;
+        feastSource = "wikipedia";
+      } else if (chosen.code !== "feast_uncorroborated") {
+        return reject(chosen.code, detail);
+      } else if (infoboxFeastValue(infobox)) {
+        // The infobox states a feast that is no calendar day (or one we cannot
+        // read): it decides, and no other source may overrule it.
+        return reject("feast_uncorroborated", detail);
+      } else {
+        // The prose words ANOTHER day as the feast: the article contradicts
+        // Wikidata, and a third source may not settle it.
+        const other = feastWordedDays(`${lead}\n${prose}`, lang).filter(
+          (d) => d !== single?.feastDay,
+        );
+        if (other.length > 0) {
+          return reject("feast_uncorroborated", `${detail} (the article words ${other.join(" ")})`);
+        }
+        needsPublicDomainFeast = true;
+      }
+    } else {
+      needsPublicDomainFeast = true;
+    }
+    // The public-domain sources can only confirm ONE Wikidata day; they can
+    // never choose between several.
+    if (needsPublicDomainFeast && !single) {
+      return reject(
+        "feast_ambiguous",
+        `${facts.label}: P841 ${candidates.map((c) => c.feastDay).join(" ")}, no article decides`,
+      );
+    }
+
+    // The biography: the English lead when it reaches the floor, else a
+    // public-domain text (the Encyclopedia's opening, else the Martyrology's
+    // announcement) — read only now that every Wikipedia veto has passed.
+    let biography = lead;
+    let biographySource: SaintTextSource = "wikipedia";
+    let pdBiography: PublicDomainBiography | null = null;
+    if (lead.length < 100) {
+      pdBiography = await pd.biography(single, canonizationStatus);
+      if (!pdBiography) {
+        if (enArticle) {
+          return reject(
+            "description_too_short",
+            `${enArticle} (${lead.length} chars; no public-domain text)`,
+          );
+        }
+        return alt
+          ? reject(
+              "biography_unavailable",
+              `${facts.label} (${alt.lang}wiki only; no public-domain text)`,
+            )
+          : reject("no_wikipedia_article", `${facts.label} (no public-domain text)`);
+      }
+      biography = pdBiography.text;
+      biographySource = pdBiography.source;
+    }
+
+    // Wikipedia stated no feast (or there is no article): the public-domain
+    // sources may confirm Wikidata's single day; either contradicting it refuses.
+    if (needsPublicDomainFeast && single) {
+      const verdict = await pd.feastVerdict(single, canonizationStatus);
+      if (verdict.kind === "refused") {
+        return reject(verdict.code, `${facts.label}: ${verdict.detail}`);
+      }
+      if (verdict.kind === "silent") {
         return reject(
-          chosen.code,
-          `${facts.label}: P841 ${candidates.map((c) => c.feastDay).join(" ")} vs ${lang}wiki`,
+          "feast_uncorroborated",
+          `${facts.label}: P841 ${single.feastDay}; ${verdict.detail}`,
         );
       }
-      feast = chosen.feast;
+      feast = single;
+      feastSource = verdict.source;
+      feastSourceUrl = verdict.url;
+    }
+    // An Encyclopedia biography beside a feast its own article contradicts
+    // would put two different days on one page.
+    if (feast && pdBiography?.source === CATHOLIC_ENCYCLOPEDIA.id) {
+      const disagreement = await pd.encyclopediaDisagreement(feast.feastDay);
+      if (disagreement) return reject(disagreement.code, `${facts.label}: ${disagreement.detail}`);
+    }
+    // The Encyclopedia was asked and did not answer: it might have vetoed, so
+    // the row waits for the next pass instead of publishing without it.
+    if (pd.encyclopediaReadFailed()) {
+      return reject("source_read_failed", `${facts.label}: Catholic Encyclopedia not read`);
     }
 
     const slug = saintSlugFor(facts.label);
     if (!slug) return reject("slug_unresolvable", facts.label);
 
-    // The published biography is the enwiki lead verbatim; `provenance` names
-    // the article so the page can credit it (CC BY-SA 4.0).
-    const biography = lead;
-    const provenance: Record<string, unknown> = { biography: "wikipedia", article: summary.url };
+    // `provenance` says where the biography was quoted from and which source
+    // corroborated the feast; the page credits the biography's source (a
+    // Wikipedia article is CC BY-SA 4.0, the 1913 and 1916 texts public domain).
+    const provenance: Record<string, unknown> = { biography: biographySource };
+    if (biographySource === "wikipedia" && summaryUrl) provenance.article = summaryUrl;
+    if (pdBiography) {
+      provenance.biographyUrl = pdBiography.url;
+      if (pdBiography.title) provenance.biographyTitle = pdBiography.title;
+      if (pdBiography.day) provenance.biographyDay = pdBiography.day;
+    }
+    if (feastSource) {
+      provenance.feast = feastSource;
+      if (feastSourceUrl) provenance.feastUrl = feastSourceUrl;
+    }
 
     // Optional enrichment, straight from the article's infobox (cited via the
     // article itself): patronage list, birth/death, canonization details.
@@ -933,7 +1076,12 @@ LIMIT ${limit} OFFSET ${offset}`,
     const canonizationDate = yearish(infobox.canonized_date);
     const canonizedBy = (infobox.canonized_by ?? "").trim() || undefined;
 
-    const citations = [wikidataEntityUrl(facts.entityUri), summary.url];
+    // Wikidata, the Wikipedia article read for the gates (English or not), and
+    // each public-domain page a field was taken from or corroborated by.
+    const citations = [wikidataEntityUrl(facts.entityUri)];
+    for (const url of [summaryUrl ?? articleUrl, pdBiography?.url, feastSourceUrl]) {
+      if (url && !citations.includes(url)) citations.push(url);
+    }
     const payload: Record<string, unknown> = {
       slug,
       // Bare name for dedup; the honorific display title is what the page shows.
@@ -950,7 +1098,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       patronages,
       biography,
       saintType: deriveSaintType(facts, {
-        abstract: lead,
+        abstract: biography,
         infoboxTitles: infobox.titles,
       }),
       canonizationStatus,

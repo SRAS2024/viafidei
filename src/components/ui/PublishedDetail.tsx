@@ -27,6 +27,7 @@ import {
 
 import { Disclosure } from "./Disclosure";
 import { PrayerLinkedText } from "./PrayerLinkedText";
+import { PublicDomainAttribution } from "./PublicDomainAttribution";
 import { ShareButton } from "./ShareButton";
 import { WikipediaAttribution } from "./WikipediaAttribution";
 import type { GuidePrayerData } from "./GuidePrayers";
@@ -407,6 +408,7 @@ export function PublishedDetail({
       ) : null}
       {/* Which article to credit is read from the stored record. */}
       <WikipediaAttribution contentType={item.contentType} payload={payload} />
+      <PublicDomainAttribution payload={payload} />
     </article>
   );
 }
