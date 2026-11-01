@@ -272,6 +272,97 @@ describe("curated-page dedupe", () => {
   });
 });
 
+describe("national celebrations and calendar copies of curated pages", () => {
+  const THANKSGIVING = {
+    name: "[ USA ] Thanksgiving",
+    date: "2026-11-26T00:00:00+00:00",
+    grade: 5,
+    grade_lcl: "Feast",
+    liturgical_season: "ORDINARY_TIME",
+    liturgical_season_lcl: "Ordinary Time",
+    event_key: "ThanksgivingDay",
+  };
+
+  it("drops the national marker from the name and names the national calendar", () => {
+    const entry = mapLiturgicalEvent(THANKSGIVING, isFixed)!;
+    expect(entry.payload.title).toBe("Thanksgiving");
+    expect(String(entry.payload.body)).toContain(
+      "of the calendar for the dioceses of the United States",
+    );
+    expect(String(entry.payload.body)).not.toContain("General Roman Calendar");
+    // The slug stays the one the record was first published under.
+    expect(entry.slug).toBe("liturgical-usa-thanksgiving");
+  });
+
+  it("titles a saint the API still calls Blessed by the canonized name", () => {
+    const entry = mapLiturgicalEvent(
+      {
+        name: "[ US ] Blessed Kateri Tekakwitha, Virgin",
+        date: "2026-07-14T00:00:00+00:00",
+        grade: 3,
+        grade_lcl: "Memorial",
+        liturgical_season: "ORDINARY_TIME",
+        event_key: "KateriTekakwitha",
+      },
+      isFixed,
+      { hasSaintPage: () => false },
+    )!;
+    expect(entry.payload.title).toBe("Saint Kateri Tekakwitha, Virgin");
+  });
+
+  it("names the curated page of Our Lady of Sorrows and of Ash Wednesday", () => {
+    for (const [event_key, slug] of [
+      ["OurLadyOfSorrows", "memorial-our-lady-of-sorrows"],
+      ["AshWednesday", "ash-wednesday"],
+    ]) {
+      expect(
+        mapLiturgicalEvent({ ...ASSUMPTION, name: "x".repeat(12), event_key }, isFixed)!
+          .curatedSlug,
+      ).toBe(slug);
+    }
+  });
+
+  it("retires a calendar copy once the curated page for the day is live", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ litcal: [ASSUMPTION] }),
+    })) as unknown as typeof global.fetch;
+    const prisma = makePrisma();
+    const updateMany = vi.fn(async () => ({ count: 1 }));
+    Object.assign(prisma.publishedContent, {
+      updateMany,
+      findMany: vi.fn(async ({ where }: { where?: { contentType?: string } }) =>
+        where?.contentType === "LITURGICAL"
+          ? [
+              {
+                slug: "solemnity-assumption",
+                title: "Solemnity of the Assumption of the Blessed Virgin Mary",
+              },
+              {
+                slug: "liturgical-the-assumption-of-the-blessed-virgin-mary",
+                title: "The Assumption of the Blessed Virgin Mary",
+              },
+            ]
+          : [],
+      ),
+    });
+
+    const out = await runLiturgicalCalendarIngest(prisma, { force: true });
+
+    expect(out.retired).toBe(1);
+    const arg = updateMany.mock.calls[0][0] as unknown as {
+      where: { slug: { in: string[] } };
+      data: { isPublished: boolean };
+    };
+    expect(arg.where.slug.in).toEqual(["liturgical-the-assumption-of-the-blessed-virgin-mary"]);
+    expect(arg.data.isPublished).toBe(false);
+    expect(mockedPublish).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ slug: "liturgical-the-assumption-of-the-blessed-virgin-mary" }),
+    );
+  });
+});
+
 describe("mapLiturgicalSeasons", () => {
   it("emits one schema-valid liturgical_season record per season with the year's boundaries", () => {
     const seasons = mapLiturgicalSeasons([ASSUMPTION, EASTER, MEMORIAL], 2024);

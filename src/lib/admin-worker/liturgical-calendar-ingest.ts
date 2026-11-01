@@ -24,6 +24,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { validatePayload } from "@/lib/checklist";
+import { applyProtectedContentUpdate } from "./content-protection";
 import { isDoctrinallySensitive } from "./content-type-profiles";
 import { runPublishOrchestrator } from "./publish-orchestrator";
 import { writeAdminWorkerLog } from "./logs";
@@ -157,7 +158,57 @@ const CURATED_SLUG_BY_EVENT_KEY: Record<string, string> = {
   Presentation: "feast-presentation-of-the-lord",
   Transfiguration: "feast-transfiguration",
   ExaltationCross: "feast-exaltation-of-the-holy-cross",
-  OurLadySorrows: "memorial-our-lady-of-sorrows",
+  OurLadyOfSorrows: "memorial-our-lady-of-sorrows",
+  // Holy Week and the Triduum
+  PalmSun: "palm-sunday-of-the-passion-of-the-lord",
+  HolyThurs: "holy-thursday-mass-of-the-lords-supper",
+  GoodFri: "good-friday-of-the-lords-passion",
+  EasterVigil: "holy-saturday-and-the-easter-vigil",
+  AshWednesday: "ash-wednesday",
+  // Feasts of the apostles and of Saint Joseph
+  StJoseph: "solemnity-saint-joseph",
+  StJamesAp: "feast-saint-james",
+  StBartholomewAp: "feast-saint-bartholomew",
+  StJohnEvangelist: "feast-saint-john-apostle-and-evangelist",
+  StSimonStJudeAp: "feast-saints-simon-and-jude",
+  // Dedications, the angels and the Holy Name
+  DedicationLateran: "feast-dedication-of-the-lateran-basilica",
+  DedicationStMaryMajor: "optional-memorial-dedication-of-the-basilica-of-saint-mary-major",
+  GuardianAngels: "memorial-holy-guardian-angels",
+  NameJesus: "optional-memorial-most-holy-name-of-jesus",
+  // Our Lady
+  NativityVirginMary: "feast-nativity-of-the-blessed-virgin-mary",
+  PresentationMary: "memorial-presentation-of-the-blessed-virgin-mary",
+  QueenshipMary: "memorial-queenship-of-the-blessed-virgin-mary",
+  ImmaculateHeart: "memorial-immaculate-heart-of-mary",
+  HolyNameMary: "optional-memorial-most-holy-name-of-mary",
+  OurLadyOfTheRosary: "memorial-our-lady-of-the-rosary",
+  OurLadyOfLourdes: "optional-memorial-our-lady-of-lourdes",
+  OurLadyOfFatima: "optional-memorial-our-lady-of-fatima",
+  OurLadyOfMountCarmel: "optional-memorial-our-lady-of-mount-carmel",
+  OurLadyOfGuadalupe: "feast-our-lady-of-guadalupe",
+};
+
+/**
+ * The API's national-calendar celebrations carry a marker in their name
+ * ("[ US ] Saint Isidore", "[ USA ] Thanksgiving"). It is not part of the
+ * name, and they belong to that country's calendar, not the General Roman one.
+ */
+const NATIONAL_PREFIX = /^\[\s*([A-Z]{2,3})\s*\]\s*/;
+const NATIONAL_CALENDAR: Record<string, string> = {
+  US: "the calendar for the dioceses of the United States",
+  USA: "the calendar for the dioceses of the United States",
+};
+
+/**
+ * Names the API still prints from before a canonization (its US proper
+ * calendar predates both), keyed by `event_key`.
+ */
+const NAME_CORRECTION_BY_EVENT_KEY: Record<string, string> = {
+  // Canonized by Benedict XVI on 21 October 2012.
+  KateriTekakwitha: "Saint Kateri Tekakwitha, Virgin",
+  // Canonized by Francis on 23 September 2015.
+  JuniperoSerra: "Saint Junípero Serra, Priest",
 };
 
 /** The curated season pages, by the API's `liturgical_season`. */
@@ -268,8 +319,16 @@ export function mapLiturgicalEvent(
   isFixed: (eventKey: string) => boolean,
   opts: { hasSaintPage?: (eventName: string) => boolean } = {},
 ): LiturgicalEntry | null {
-  const name = (event.name ?? "").trim();
+  const printed = (event.name ?? "").trim();
+  if (!printed) return null;
+  const nation = printed.match(NATIONAL_PREFIX)?.[1];
+  const name =
+    NAME_CORRECTION_BY_EVENT_KEY[(event.event_key ?? "").trim()] ??
+    printed.replace(NATIONAL_PREFIX, "").trim();
   if (!name) return null;
+  const calendar = nation
+    ? (NATIONAL_CALENDAR[nation] ?? "a national calendar")
+    : "the General Roman Calendar";
   if (typeof event.grade !== "number") return null;
   const kind = gradeToKind(event.grade);
   if (!kind) return null;
@@ -294,16 +353,18 @@ export function mapLiturgicalEvent(
     ? `, celebrated on ${monthName(md!.month)} ${md!.day}`
     : ", celebrated on a date that changes from year to year";
   const body =
-    `${name} is ${article} ${label} (${gradeLabel}) of the General Roman Calendar${dateClause}` +
+    `${name} is ${article} ${label} (${gradeLabel}) of ${calendar}${dateClause}` +
     `${seasonLabel ? `, during ${seasonLabel}` : ""}.` +
     `${colour ? ` Its liturgical colour is ${colour}.` : ""}`;
   const summary =
-    `${name} — ${article} ${label} of the General Roman Calendar` +
+    `${name} — ${article} ${label} of ${calendar}` +
     `${seasonLabel ? ` celebrated during ${seasonLabel}` : ""}.`;
 
   if (body.length < 50 || summary.length < 50) return null;
 
-  const slug = `liturgical-${slugify(name)}`;
+  // From the name as printed, so a record keeps its slug when the name is
+  // corrected or its national marker dropped.
+  const slug = `liturgical-${slugify(printed)}`;
   if (slug === "liturgical-") return null;
 
   const payload: Record<string, unknown> = {
@@ -441,6 +502,10 @@ export interface LiturgicalIngestResult {
   skipped: number;
   /** Events that are not standalone celebrations (Sundays, vigils, weekdays). */
   notCelebrations: number;
+  /** Calendar records unpublished because the curated page for the day is live. */
+  retired: number;
+  /** Live calendar records whose title was corrected to the mapped one. */
+  corrected: number;
   detail: string;
 }
 
@@ -550,6 +615,8 @@ export async function runLiturgicalCalendarIngest(
     alreadyPublished: 0,
     skipped: 0,
     notCelebrations: 0,
+    retired: 0,
+    corrected: 0,
     detail: "",
   };
   if (!out.enabled) {
@@ -604,6 +671,7 @@ export async function runLiturgicalCalendarIngest(
     })
     .catch(() => [] as Array<{ slug: string; title: string }>);
   const liveSlugs = new Set(live.map((r) => r.slug));
+  const liveTitleBySlug = new Map(live.map((r) => [r.slug, r.title ?? ""]));
   const liveTitles = new Set(live.map((r) => (r.title ?? "").trim().toLowerCase()).filter(Boolean));
   // The saints' celebrations (grade 2–4) belong to the SAINT pages when one
   // exists; only the uncovered ones become LITURGICAL records.
@@ -616,6 +684,8 @@ export async function runLiturgicalCalendarIngest(
   const hasSaintPage = saintPagePredicate(liveSaints.map((r) => r.title ?? ""));
 
   const seen = new Set<string>();
+  const retire: string[] = [];
+  const correct: LiturgicalEntry[] = [];
   const tryPublish = async (entry: LiturgicalEntry): Promise<void> => {
     if (seen.has(entry.slug)) return;
     seen.add(entry.slug);
@@ -627,10 +697,15 @@ export async function runLiturgicalCalendarIngest(
     // checks below would catch it and the site would show both.
     if (entry.curatedSlug && liveSlugs.has(entry.curatedSlug)) {
       out.alreadyPublished += 1;
+      // A calendar record published before the curated page went live (or
+      // before this map named it) is a second page for the same day.
+      if (liveSlugs.has(entry.slug)) retire.push(entry.slug);
       return;
     }
     if (liveSlugs.has(entry.slug) || (titleKey && liveTitles.has(titleKey))) {
       out.alreadyPublished += 1;
+      const liveTitle = liveTitleBySlug.get(entry.slug);
+      if (liveTitle !== undefined && liveTitle !== entry.payload.title) correct.push(entry);
       return;
     }
     if (await publishLiturgical(prisma, entry)) out.published += 1;
@@ -656,13 +731,42 @@ export async function runLiturgicalCalendarIngest(
     await tryPublish(entry);
   }
 
-  out.detail = `${out.fetched} event(s): published ${out.published}, ${out.alreadyPublished} already live, ${out.skipped} skipped, ${out.notCelebrations} not standalone celebrations.`;
-  if (out.published > 0) {
+  if (retire.length > 0) {
+    const done = await prisma.publishedContent
+      .updateMany({
+        where: { contentType: "LITURGICAL" as never, slug: { in: retire }, isPublished: true },
+        data: { isPublished: false, unpublishedAt: new Date() },
+      })
+      .catch(() => ({ count: 0 }));
+    out.retired = done.count;
+  }
+  for (const entry of correct) {
+    const row = await prisma.publishedContent
+      .findFirst({
+        where: { contentType: "LITURGICAL" as never, slug: entry.slug, isPublished: true },
+        select: { id: true },
+      })
+      .catch(() => null);
+    if (!row || !validatePayload("LITURGICAL", entry.payload).ok) continue;
+    const updated = await applyProtectedContentUpdate(prisma, {
+      contentId: row.id,
+      proposedPayload: entry.payload,
+      proposedTitle: String(entry.payload.title),
+      reason: "liturgical-calendar-ingest: the calendar record's name was corrected",
+      qualityScore: 0.92,
+      evidenceCount: entry.citations.length,
+      allowReplace: true,
+    }).catch(() => null);
+    if (updated?.applied) out.corrected += 1;
+  }
+
+  out.detail = `${out.fetched} event(s): published ${out.published}, ${out.alreadyPublished} already live, ${out.skipped} skipped, ${out.notCelebrations} not standalone celebrations, ${out.retired} calendar copies of curated pages retired, ${out.corrected} names corrected.`;
+  if (out.published > 0 || out.retired > 0 || out.corrected > 0) {
     await writeAdminWorkerLog(prisma, {
       category: "CONTENT_BUILD",
       severity: "INFO",
       eventName: "liturgical_calendar_ingest",
-      message: `Liturgical calendar ingest: published ${out.published} celebration/season record(s) from the General Roman Calendar.`,
+      message: `Liturgical calendar ingest: published ${out.published} celebration/season record(s) from the General Roman Calendar; retired ${out.retired} calendar copies of curated pages; corrected ${out.corrected} names.`,
       contentType: "LITURGICAL",
       safeMetadata: { ...out },
     }).catch(() => undefined);
