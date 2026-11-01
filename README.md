@@ -215,7 +215,9 @@ readiness, and growth surfaces all read those live tables.
 `GoalChecklistItem`, `Milestone`, `UserSavedContent` (consolidated
 saved-content table keyed on `(userId, contentType, slug)`),
 `MediaAsset`, `EntityMediaLink`, `SiteSetting`, `HomePage`,
-`HomePageBlock`, `Category`, `Tag`, `EntityTag`.
+`HomePageBlock`, `Category`, `Tag`, `EntityTag`, and (since 2026-10-31)
+`ContentTranslation`, the reader-language cache for published content (see
+[docs/operations/translation.md](docs/operations/translation.md)).
 
 **Security + admin:**
 
@@ -341,7 +343,7 @@ Optional environment variables:
 | `LITURGICAL_CALENDAR_API_URL`                           | Override the Liturgical Calendar API endpoint (default: the public litcal General Roman Calendar, US adaptation). Any endpoint returning the litcal `{ litcal: [...] }` shape works                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` / `NO_PROXY` | **Outbound egress through a proxy.** The worker's code already permits fetching ANY host (open-internet on by default), but Node's `fetch` ignores these standard proxy vars on its own — so in a locked-down deployment that only allows egress via a proxy, every outbound request fails. When any of these is set, the worker installs a proxy-aware global dispatcher at startup (`outbound-network.ts`) so ALL `fetch()` (web fetcher + Wikidata/Wikipedia ingest) routes through the proxy; `NO_PROXY` is honoured. A complete no-op when unset (direct egress). This is how you let the worker "go outbound to anywhere" in a restricted environment              |
 | `NODE_EXTRA_CA_CERTS`                                   | Path to a CA bundle to trust — required only when the outbound proxy re-terminates TLS with a private CA (so the worker trusts the proxy's certificate). Set alongside `HTTPS_PROXY` in such deployments                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `ADMIN_WORKER_STRUCTURED_LIMIT`                         | Max NEW records the structured (Wikidata) ingest publishes per pass (default `15`). Raise to close a large gap faster (e.g. the 10k SAINT target) when the source is reachable; the per-row Wikipedia fetches run concurrently, so a bigger limit does not linearly slow the pass                                                                                                                                                                                                                                                                                                                                                                                        |
+| `ADMIN_WORKER_STRUCTURED_LIMIT`                         | Max NEW records the structured (Wikidata) ingest publishes per pass (default `15`). Raise to close a large gap faster (e.g. the 4,500 SAINT target) when the source is reachable; the per-row Wikipedia fetches run concurrently, so a bigger limit does not linearly slow the pass                                                                                                                                                                                                                                                                                                                                                                                      |
 | `ADMIN_WORKER_STRUCTURED_BATCH`                         | Rows the structured ingest fetches from the source per pass before mapping/dedup (default `50`). A wider batch considers more candidates each pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `ADMIN_WORKER_OSM_MAX_QUERIES`                          | Tiles the OSM parish lane queries per run (default `1`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `ADMIN_WORKER_OSM_MAX_PUBLISH`                          | Max NEW parishes published per OSM run (default `250`), checked before any per-candidate work                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -356,7 +358,7 @@ Optional environment variables:
 | `INTERNAL_API_SECRET`                                   | Bearer token for `POST /api/internal/revalidate` (the worker's cross-process cache flush). Unset ⇒ the `SESSION_SECRET`-derived token is used; with neither configured the route refuses everything                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `SITE_MEMO_DISABLED`                                    | `1` bypasses the public site's in-process memo cache (debugging)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `WIKIDATA_SPARQL_ENDPOINTS`                             | **Fallback SPARQL endpoint(s)** for structured ingest (comma-separated). The canonical Query Service `query.wikidata.org` aggressively rate-limits / blocks datacenter IPs, so on a cloud host it is often unreachable even when `en.wikipedia.org`/`www.wikidata.org` are fine — starving structured bulk ingest. `runSparql` tries `query.wikidata.org` first, then each endpoint here, and the first REACHABLE one wins. Point this at a reachable Query Service mirror or a self-hosted/proxied endpoint to keep structured growth flowing without the canonical host. Unset ⇒ canonical only. (Alternatively set `HTTPS_PROXY` so the canonical host is reachable.) |
-| _(no AI extraction/translation env vars)_               | The Admin Worker uses **no external AI API** — no OpenAI/LLM extraction, no AI/machine translation. Extraction is deterministic (typed extractors + structured-data blocks); when a source leaves required fields missing the worker **reroutes to another approved source**, it never invents fields. Latin/Greek is filled only from the internal, keyless, network-free `prayer-translator` corpus (authentic received text); prayers it can't resolve are left as-is. There is intentionally nothing to configure here                                                                                                                                               |
+| _(no AI extraction env vars)_                           | The Admin Worker uses **no external AI API** — no OpenAI/LLM extraction, no AI/machine translation. Extraction is deterministic (typed extractors + structured-data blocks); when a source leaves required fields missing the worker **reroutes to another approved source**, it never invents fields. Latin/Greek is filled only from the internal, keyless, network-free `prayer-translator` corpus (authentic received text); prayers it can't resolve are left as-is. There is intentionally nothing to configure here. Content translation for readers (2026-10-31) is separate: [docs/operations/translation.md](docs/operations/translation.md)                   |
 | `ADMIN_WORKER_REQUIRE_HUMAN_REVIEW`                     | **Off by default — the worker is fully independent and never parks work for a human.** Every situation that would otherwise need review gets the worker's own terminal decision: publish when the evidence clears the bar, otherwise SKIP (never publish unverified, never delete on uncertainty) and revisit autonomously. The human-review UI still exists (a human _may_ act), but the worker never depends on it, so the queue never blocks growth. Set `1`/`true`/`on` to restore human-gated review (uncertain items are queued for a person)                                                                                                                      |
 | `ADMIN_WORKER_GOVERNOR_ENABLED`                         | Pipeline governor — on by default. Each pass, just before dispatch, it reads the per-stage outcome ledger over a sliding window; if the brain's chosen content stage has spun without forward progress (or growth stalled despite an open gap) it overrides the choice with the highest-priority productive downstream stage, or a terminal diagnostic when nothing downstream is making progress. Only changes which already-gated handler runs (never bypasses QA/publish); acts only in active mode and never when paused. Set `0`/`false`/`off` to disable                                                                                                           |
 | `ADMIN_WORKER_GOVERNOR_WINDOW_MIN`                      | Governor sliding-window size in minutes (default `15`) — how far back it looks when judging whether a stage is advancing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -367,33 +369,52 @@ Optional environment variables:
 
 ## Content goals &amp; the largest-gap-first scheduler
 
-Every content type has a growth **target** ([`content-goals.ts`](src/lib/admin-worker/content-goals.ts)); the worker attacks the goal with the **largest gap first** and keeps recognised, verified content flowing past a target rather than treating it as a ceiling. The dominant goal is **PARISH (200,000)**, followed (by design intent) by the **liturgical calendar's daily readings** and **SAINT**.
+Every content type has a growth **target** ([`content-goals.ts`](src/lib/admin-worker/content-goals.ts)); the worker attacks the goal with the **largest gap first** and keeps recognised, verified content flowing past a target rather than treating it as a ceiling. The largest target is **PARISH (200,000)**, followed (by design intent) by the **liturgical calendar's daily readings** and **SAINT**.
 
-The repository also ships a hand-verified **curated knowledge base** that seeds
-every one of those goals offline. `npx tsx scripts/curated-counts.ts` prints the
-live picture (measured 2026-09-07):
+**Goals follow the real quality supply.** This is the owner's policy, set on
+2026-10-31: a target is the number of items of a type that can pass every gate,
+not a wish. When the supply of a type that clears the gates runs out, its goal
+is set to that achievable total; the bar is never lowered to reach a bigger
+number. That day it moved two goals, in the seed, the console catalogue and the
+production `ContentGoal` row (each production change logged as
+`content_goal_adjusted`):
 
-| Type                 | Curated in repo |  Target | Grown by                                      |
-| -------------------- | --------------: | ------: | --------------------------------------------- |
-| `SAINT`              |             190 |  10,000 | curated + structured Wikidata ingest          |
-| `PRAYER`             |             241 |   1,000 | curated + web pipeline                        |
-| `POPE`               |              94 |     267 | curated + structured Wikidata ingest          |
-| `CHURCH_DOCUMENT`    |             137 |     200 | curated + structured (documents + councils)   |
-| `GUIDE`              |             103 |     100 | curated only (never web-extracted)            |
-| `NOVENA`             |              31 |     100 | curated + discovery-seeded approved sources   |
-| `LITURGICAL`         |              98 |     100 | curated + the keyless liturgical-calendar API |
-| `DEVOTION`           |              82 |     100 | curated + structured Wikidata ingest          |
-| `APPARITION`         |              39 |      50 | curated + discovery-seeded approved sources   |
-| `SPIRITUAL_PRACTICE` |              52 |      50 | curated + structured Wikidata ingest          |
-| `MARIAN_TITLE`       |              59 |      50 | curated + structured Wikidata ingest          |
-| `DOCTOR`             |              37 |      37 | curated (the complete set)                    |
-| `RITE`               |              35 |      24 | curated (the recognized rites + sui iuris)    |
-| `SACRAMENT`          |               7 |       7 | curated — the one **closed** type             |
-| `PARISH`             |              27 | 200,000 | the keyless OpenStreetMap tile sweep          |
+- **SAINT 10,000 → 4,500** (`5922474`). A read-only survey of Wikidata (QLever,
+  dump of 2026-08-10) found 8,174 items in the whole Catholic-veneration
+  universe; only about 4,500 of them can carry a feast day corroborated by a
+  second source and a real biography, which the SAINT schema requires.
+- **DOCTOR 37 → 38** (`ec992d0`): Pope Leo XIV declared Saint John Henry Newman a
+  Doctor of the Church on 1 November 2025.
 
-**1,232 curated entries**, and six goals (`GUIDE`, `SPIRITUAL_PRACTICE`,
-`MARIAN_TITLE`, `DOCTOR`, `RITE`, `SACRAMENT`) are already met by curated
-content alone, with no network at all. Only `SACRAMENT` carries a true
+**Status, measured 2026-10-31.** _Live_ is the published count in production as
+the operator measured it that day, with the time (MDT); a dash means the type
+was not re-measured that day. _Curated_ is this tree's hand-verified knowledge
+base, which seeds every goal offline, as `npx tsx scripts/curated-counts.ts`
+printed it on 2026-10-31. That script's own GOAL column is hard-coded and still
+prints SAINT 10,000 and DOCTOR 37; `content-goals.ts` holds the targets.
+
+| Type                 |  Target | Live, measured 2026-10-31 | Curated in repo, 2026-10-31 | Grown by                                                                          |
+| -------------------- | ------: | ------------------------: | --------------------------: | --------------------------------------------------------------------------------- |
+| `SAINT`              |   4,500 |             3,692 (17:35) |                         190 | curated + structured Wikidata ingest + the [saint sweep](#booster-scripts)        |
+| `PRAYER`             |   1,000 |               972 (18:10) |                         963 | curated + web pipeline                                                            |
+| `POPE`               |     267 |                         — |                          94 | curated + structured Wikidata ingest                                              |
+| `CHURCH_DOCUMENT`    |     200 |               268 (16:45) |                         262 | curated + structured (documents + councils)                                       |
+| `GUIDE`              |     100 |                         — |                         103 | curated only (never web-extracted)                                                |
+| `NOVENA`             |     100 |                83 (17:35) |                          83 | curated + discovery-seeded approved sources                                       |
+| `LITURGICAL`         |     100 |                         — |                          98 | curated + the keyless liturgical-calendar API                                     |
+| `DEVOTION`           |     100 |               106 (16:45) |                          98 | curated + structured Wikidata ingest                                              |
+| `APPARITION`         |      50 |                52 (16:45) |                          52 | curated + discovery-seeded approved sources                                       |
+| `SPIRITUAL_PRACTICE` |      50 |                         — |                          52 | curated + structured Wikidata ingest                                              |
+| `MARIAN_TITLE`       |      50 |                         — |                          59 | curated + structured Wikidata ingest                                              |
+| `DOCTOR`             |      38 |                38 (10:45) |                          38 | curated (the complete set; Wikidata candidates are held for a curator)            |
+| `RITE`               |      24 |                         — |                          35 | curated (the recognized rites + sui iuris)                                        |
+| `SACRAMENT`          |       7 |                         — |                           7 | curated — the one **closed** type                                                 |
+| `PARISH`             | 200,000 |           271,611 (14:58) |                          27 | the keyless OpenStreetMap tile sweep + the [bulk import](#the-bulk-parish-import) |
+
+**2,161 curated entries** (1,232 on 2026-09-07). Against the 2026-10-31
+targets, eight goals (`CHURCH_DOCUMENT`, `GUIDE`, `APPARITION`,
+`SPIRITUAL_PRACTICE`, `MARIAN_TITLE`, `DOCTOR`, `RITE`, `SACRAMENT`) are met by
+curated content alone, with no network at all. Only `SACRAMENT` carries a true
 `canonicalMax`; every other type is open and keeps growing past its target at a
 slower maintenance pace.
 
@@ -403,7 +424,7 @@ Because PARISH is so much larger than the rest, it grows on its own keyless Open
 - then **stand down for a cooldown** (`ADMIN_WORKER_PARISH_SPRINT_COOLDOWN_MS`, default 24 h — long enough to let the other types advance, short enough that a 200k goal is reachable) during which the worker drives the other content types (the web-extraction campaign surges on the next-largest **web-growable** gap — saints, church documents, …),
 - then return for the next parish sprint, and so on toward 200k.
 
-Two automatic overrides keep it sensible: if **every other goal is already met** the parish lane runs continuously (nothing else to do); if the **PARISH goal itself is met** the lane idles. The structured-knowledge campaign ([`major-goal-campaign.ts`](src/lib/admin-worker/major-goal-campaign.ts)) independently DRAIN→SURGEs the largest web-growable gap, so the non-parish types are always being worked during a parish cooldown.
+Two automatic overrides keep it sensible: if **every other goal is already met** the parish lane runs continuously (nothing else to do); if the **PARISH goal itself is met** the lane idles — which, by that rule, is where it has stood since the 2026-10-31 bulk import put PARISH above 200,000 (see [Remaining limitations](#remaining-limitations)). The structured-knowledge campaign ([`major-goal-campaign.ts`](src/lib/admin-worker/major-goal-campaign.ts)) independently DRAIN→SURGEs the largest web-growable gap, so the non-parish types are always being worked during a parish cooldown.
 
 ---
 
@@ -560,31 +581,39 @@ environment or the repository `.env` is allowed through.
 supervising host (and any wrapper) can tell them apart without parsing logs
 ([`classifyWorkerExit`](src/lib/admin-worker/local-config.ts)):
 
-| Code | Meaning                                                     | What the host does                                                |
-| ---- | ----------------------------------------------------------- | ----------------------------------------------------------------- |
-| `0`  | Clean stop — the master switch went OFF                     | Nothing; this is the intended stop                                |
-| `3`  | Refused at boot: switch OFF, or the lease is held elsewhere | Surfaces the reason; never restarts into a lease it cannot hold   |
-| `4`  | The database could not be reached to read the master switch | Waits for the database instead of burning the restart budget      |
-| `5`  | The execution lease was lost to another runtime mid-run     | Stops — the other runtime now owns execution                      |
-| `1`  | Fatal, unexpected                                           | Restarts with backoff, up to 5 consecutive restarts, then reports |
+| Code | Meaning                                                                                                            | What the host does                                                                                                                                                                                                                         |
+| ---- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `0`  | Clean stop — the master switch went OFF                                                                            | Nothing; this is the intended stop                                                                                                                                                                                                         |
+| `3`  | Refused at boot: switch OFF, or the lease is held elsewhere                                                        | Surfaces the reason; never restarts into a lease it cannot hold. If the host cannot read the switch either, it treats the exit as an outage and waits                                                                                      |
+| `4`  | The database could not be reached at boot — to read the master switch or, since 2026-10-31, to claim the lease     | Waits for the database instead of burning the restart budget                                                                                                                                                                               |
+| `5`  | The execution lease was lost to another runtime mid-run                                                            | Stops — the other runtime now owns execution                                                                                                                                                                                               |
+| `6`  | The supervising host is gone (closed stdout/stderr pipe, host pid gone, or re-parented to pid 1); added 2026-10-31 | A host that is still alive restarts it; an orphan simply exits                                                                                                                                                                             |
+| `1`  | Fatal, unexpected                                                                                                  | Restarts with capped exponential backoff (2 s doubling to 5 min) for as long as the switch is ON; after five consecutive restarts the runtime reports itself `degraded` and keeps retrying. Until 2026-10-31 it gave up on the sixth crash |
 
 ### Environment knobs on this path
 
 Every one of these has a working default; none has to be set for a normal
 install.
 
-| Variable                           | Default                                                                        | Purpose                                                                                                                                                                                       |
-| ---------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VIAFIDEI_ALLOW_LOCAL_DB`          | unset (`0`)                                                                    | `1` permits a loopback `DATABASE_URL`. Deliberate local testing only — production is not updated                                                                                              |
-| `VIAFIDEI_RAILWAY_SERVICE`         | auto-detected                                                                  | Names the Railway **web** service instead of probing for the one carrying `SESSION_SECRET` / `ADMIN_USERNAME`                                                                                 |
-| `VIAFIDEI_RAILWAY_ENVIRONMENT`     | the linked environment                                                         | Overrides the environment the resolver scopes to                                                                                                                                              |
-| `VIAFIDEI_HOST_CONNECTION_LIMIT`   | `3`                                                                            | Prisma pool for the **host** process (it only reads status, renews the lease and runs operator jobs)                                                                                          |
-| `VIAFIDEI_WORKER_CONNECTION_LIMIT` | `10`                                                                           | Prisma pool the host gives the **worker child**, which does the real work                                                                                                                     |
-| `PRISMA_CONNECTION_LIMIT`          | `10` (the launcher sets `3` for the host)                                      | `connection_limit` appended to the datasource URL. Keep it at or above `ADMIN_WORKER_LANE_CONCURRENCY` (default 8) or concurrent lanes starve the pool (`P2037`)                              |
-| `PRISMA_POOL_TIMEOUT`              | `20` (seconds)                                                                 | How long a query waits for a free pooled connection                                                                                                                                           |
-| `PRISMA_CONNECT_TIMEOUT`           | `15` (seconds)                                                                 | Connect timeout, applied to **non-local** hosts only, so an unreachable Railway proxy fails in seconds instead of hanging a pass. Those hosts also get `sslmode=require`                      |
-| `INTELLIGENCE_PYTHON`              | the launcher prefers `/opt/homebrew/opt/python@3.11/bin/python3.11` if present | The interpreter for the Python brain. An explicit value is used **verbatim** and the boot probe reports loudly if it is broken. Unset, the bridge probes a candidate list for ≥ 3.10          |
-| `VIAFIDEI_LEASE_RENEWED_BY_HOST`   | set to `1` by the host                                                         | Tells the worker **child** that the host owns lease renewal, so the child stops rewriting the same row every pass and every 20 s. A bare `npm run worker:local` has no host and renews itself |
+| Variable                              | Default                                                                        | Purpose                                                                                                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VIAFIDEI_ALLOW_LOCAL_DB`             | unset (`0`)                                                                    | `1` permits a loopback `DATABASE_URL`. Deliberate local testing only — production is not updated                                                                                              |
+| `VIAFIDEI_RAILWAY_SERVICE`            | auto-detected                                                                  | Names the Railway **web** service instead of probing for the one carrying `SESSION_SECRET` / `ADMIN_USERNAME`                                                                                 |
+| `VIAFIDEI_RAILWAY_ENVIRONMENT`        | the linked environment                                                         | Overrides the environment the resolver scopes to                                                                                                                                              |
+| `VIAFIDEI_HOST_CONNECTION_LIMIT`      | `3`                                                                            | Prisma pool for the **host** process (it only reads status, renews the lease and runs operator jobs)                                                                                          |
+| `VIAFIDEI_WORKER_CONNECTION_LIMIT`    | `10`                                                                           | Prisma pool the host gives the **worker child**, which does the real work                                                                                                                     |
+| `PRISMA_CONNECTION_LIMIT`             | `10` (the launcher sets `3` for the host)                                      | `connection_limit` appended to the datasource URL. Keep it at or above `ADMIN_WORKER_LANE_CONCURRENCY` (default 8) or concurrent lanes starve the pool (`P2037`)                              |
+| `PRISMA_POOL_TIMEOUT`                 | `20` (seconds)                                                                 | How long a query waits for a free pooled connection                                                                                                                                           |
+| `PRISMA_CONNECT_TIMEOUT`              | `15` (seconds)                                                                 | Connect timeout, applied to **non-local** hosts only, so an unreachable Railway proxy fails in seconds instead of hanging a pass. Those hosts also get `sslmode=require`                      |
+| `INTELLIGENCE_PYTHON`                 | the launcher prefers `/opt/homebrew/opt/python@3.11/bin/python3.11` if present | The interpreter for the Python brain. An explicit value is used **verbatim** and the boot probe reports loudly if it is broken. Unset, the bridge probes a candidate list for ≥ 3.10          |
+| `VIAFIDEI_LEASE_RENEWED_BY_HOST`      | set to `1` by the host                                                         | Tells the worker **child** that the host owns lease renewal, so the child stops rewriting the same row every pass and every 20 s. A bare `npm run worker:local` has no host and renews itself |
+| `VIAFIDEI_DB_STATEMENT_TIMEOUT`       | `120` (seconds)                                                                | Becomes `PRISMA_STATEMENT_TIMEOUT` (Postgres `statement_timeout`) for the host and the worker child, so a query stuck behind a lock or on a half-open connection is cancelled; `0` disables   |
+| `VIAFIDEI_DB_SOCKET_TIMEOUT`          | `150` (seconds)                                                                | Becomes `PRISMA_SOCKET_TIMEOUT` (Prisma's `socket_timeout`), so the client stops waiting on a connection that can no longer answer; `0` disables                                              |
+| `VIAFIDEI_WORKER_RESTART_BASE_MS`     | `2000`                                                                         | First wait before restarting a crashed worker; it doubles on each consecutive crash                                                                                                           |
+| `VIAFIDEI_WORKER_RESTART_MAX_MS`      | `300000`                                                                       | Longest wait between two restart attempts, however long the streak                                                                                                                            |
+| `VIAFIDEI_WORKER_HEALTHY_UPTIME_MS`   | `120000`                                                                       | Uptime after which a restarted worker counts as recovered and the crash streak starts over                                                                                                    |
+| `VIAFIDEI_WORKER_PROGRESS_TIMEOUT_MS` | `1500000` (25 min; never less than 12 min)                                     | Silence (no progress beacon, beyond an announced idle rest) after which the host stops the worker as hung and restarts it                                                                     |
+| `VIAFIDEI_HOST_LOG_FILE`              | `~/Library/Logs/ViaFidei/worker-host.log`                                      | Where the host and worker output is persisted (rotated at 10 MB, three kept, secrets redacted); `off` disables it                                                                             |
 
 ### The master switch
 
@@ -701,14 +730,18 @@ database, no process tree and no clock.
   and belongs to the lease tick. A tick still working blocks the next one
   outright (`reconcileInFlight`). The poll therefore cannot double-start a
   worker, which is the failure this design is most exposed to.
-- **A runtime that gave up needs a deliberate re-arm.** Five crashes in a row,
-  a spawn error, or a lease taken by another computer leave the runtime in the
-  `failed` state, and a switch that is _merely still ON_ does not restart it
-  (`failed_needs_operator`) — otherwise a worker that dies on every launch
-  would be relaunched every seven seconds. It takes an OFF→ON edge, which is
-  exactly what the give-up message asks the operator for and which can happen
-  at most once per operator action. Because the poll **samples** the row rather
-  than observing events, that edge is recognised two ways: the value crossing
+- **A runtime parked as `failed` needs a deliberate re-arm.** A lease taken by
+  another computer, or a database the host may not work against (a
+  configuration `blockingReason` — not a database that is merely not answering
+  yet), leaves the runtime `failed`, and a switch that is _merely still ON_ does
+  not restart it (`failed_needs_operator`). Crashes and spawn errors no longer
+  park it: until 2026-10-31 the sixth crash in a row gave up here, and since then
+  the host keeps retrying with capped exponential backoff for as long as the
+  switch is ON (see [Exit codes](#exit-codes)), so a worker that dies on every
+  launch costs one attempt every few minutes rather than a hot loop. Re-arming
+  takes an OFF→ON edge, which can happen at most once per operator action.
+  Because the poll **samples** the row rather than observing events, that edge
+  is recognised two ways: the value crossing
   from `false` to `true`, or `MasterSwitch.changedAt` moving since the previous
   read. The second one matters because a thumb can tap OFF and then ON well
   inside one 7 s interval — two writes, one observation — and nothing writes
@@ -1281,7 +1314,7 @@ exactly **one** remedy:
 | `PAUSED_LOOP_HOT_LOOP`         | A paused loop is logging every tick instead of backing off                         | `sample_noisy_event`                            |
 | `LOG_EVENT_SPAM`               | One event name is over its hourly budget                                           | `sample_noisy_event`                            |
 | `LANE_WEDGED`                  | A lane still "running" after 30 min, or `worker_stuck` / watchdog events piling up | `reset_wedged_lane`                             |
-| `CURSOR_OUT_OF_RANGE`          | A structured-ingest cursor has swept repeatedly finding nothing (it wrapped)       | `reset_cursor`                                  |
+| `CURSOR_OUT_OF_RANGE`          | A structured-ingest cursor's last page past offset 0 came back empty               | `reset_cursor`                                  |
 | `ARTIFACT_PARKED`              | An artifact stuck in a non-terminal state for over 7 days                          | `requeue_artifact`                              |
 | `ORPHANED_UNPUBLISHED_CONTENT` | Content a gate unpublished, which now passes that gate again                       | `restore_unpublished_content`                   |
 | `PUBLISH_FUTILITY`             | 200+ passes in 24 h with **zero** publishes                                        | `escalate` — nothing here can _make_ it publish |
@@ -1545,6 +1578,828 @@ The Python brain is still named accurately as the _intelligence layer_ in
 contextual notes (e.g. "intelligence layer unavailable — the Python brain
 could not be used"), because that is a true, actionable description; only
 the top-level identity was renamed.
+
+### 2026-10-31 — Admin Worker overhaul and content booster
+
+**Where the day started.** The worker had been switched off since about
+2026-09-10 and had created nothing in the thirty days before it was switched on
+again at 06:39 MDT. Measured in production at 12:55 UTC: 20,516 `PARISH` rows
+(19,573 published) against a 200,000 goal, all but 28 from OpenStreetMap — 35 %
+with a street line, 38 % with a city, 46 % with a country, none with a postal
+code — and `PRAYER` 248 of 1,000, `NOVENA` 31 of 100, `SAINT` 3,297 of 10,000,
+`CHURCH_DOCUMENT` 143 of 200, `APPARITION` 39 of 50, `DEVOTION` 90 of 100.
+
+**How the work was done.** Fixes were built in parallel branches, each reviewed,
+merged into the integration branch `admin-worker/parish-addresses` and released
+to `main` in stages through the day (see [Deploy path](#deploy-path)). Content
+came from a
+**booster**: the owner authorised publishing directly, outside the loop,
+provided it goes through the worker's own publish path and is logged in the
+Admin Worker, so nothing can be published twice. Curated batches were published
+through the curated publish path (`seedCuratedContent` →
+`runPublishOrchestrator`) from the integration checkout as each branch merged;
+the parish import and the saint corrections are the
+[booster scripts](#booster-scripts). Each entry below names its commits, whose
+messages carry the full measurements.
+
+#### Parish addresses
+
+**The city-only address key** (`0ee7dc7`, `1766e4a`, `58e1249`).
+`parishAddressKey` joined address + city + state and deleted every non-ASCII
+character, so a parish with no street keyed as its city. Measured 2026-10-31:
+the key `rome` held 127 rows with 1 published (Milan 64/1, Naples 64/1, Paris
+54/1, Warsaw 37/1, Vienna 34/1). Discovery dropped every later street-less
+church in a city as a "duplicate" of the first, recording nothing, and the
+address maintenance (`refresh-parishes`) unpublished every later row sharing a
+key: **943** parishes on 2026-09-08/09 with no reason recorded (Église
+Saint-Léon in Paris, Parrocchia del Preziosissimo Sangue di Gesù in Milan, …),
+and another **207** on 2026-10-31 before the fix reached the Mac. "Hörsteler
+Straße" keyed as `horsteler stra e`, and non-Latin streets collapsed to their
+house numbers.
+
+Now a key exists only for a street line that keeps a Latin letter after
+transliteration (ß→ss, æ→ae, œ→oe, ø→o, đ/ð→d, þ→th, ł→l, ı→i); `Straße` /
+`Str.` / `-straat` fold to one token, token order is ignored, and the postal
+code (else the locality) and the state complete it. One rule,
+`findDuplicateParish` ([`parish-address.ts`](src/lib/admin-worker/parish-address.ts)),
+decides duplicates for the OSM sweep, the Maps lane, the maintenance and the
+restore: a key match counts only when the two rows lie within 250 m (or, when
+either has no coordinates, their distinctive names match), and distance alone
+decides only when the street line carries a house number. A bare street or
+square is shared by every church on it — Nominatim's parent street had no house
+number in 50 of 50 sampled parishes — so "Pfarrkirche St. Georg" and the
+"Friedhofskapelle St. Michael" 90 m away on the same Kirchplatz also need the
+same distinctive name. The maintenance now writes
+`payload._meta.dedup {keeperId, keeperSlug, key, rule, at}` on every row it
+unpublishes.
+
+**The restore lane** (`1a10ee6`, `e8fa8a3`). `runParishDedupRestore` walks the
+unpublished `PARISH` rows once, in id order (cursor `parish-dedup-restore-v1`,
+50 rows a run). A row is a candidate only when nothing recorded why it went
+down: it has an `unpublishedAt`, and no not-in-communion verdict, rollback-ledger
+row, review row, rejected checklist item, active `osm-skip`, `content_deleted` or
+not-in-communion log, or earlier `_meta.dedup` / `excluded` / `restored`. Each
+candidate is judged again under the new rule: a true duplicate stays down
+and gains `_meta.dedup` naming its keeper, a numbered Station of the Cross stays
+down with `_meta.excluded`, and everything else is republished through
+`runPublishOrchestrator` with `_meta.restored {at, reason}`.
+`scheduleOsmResweepAfterKeyFix` makes every non-empty tile swept before the fix
+due again, so the candidates dropped at discovery can be found again. Both run
+at the start of each `research-parish-addresses` run, whose INFO log names the
+restored slugs and the duplicates kept down.
+
+**Address research on Nominatim** (`19db98e`, `780b765`, `424a347`, `80fe79d`).
+13,344 of the 20,516 rows had no street, all 11,046 rows without a country lay
+in Europe, new parishes still arrived about 45 % without a street, and nothing
+ever went back to look. The tile country fallback also stamped churches with a
+neighbouring country where region boxes overlap (Houston as Mexico, Quebec as
+the United States). A small client
+([`nominatim-lookup.ts`](src/lib/admin-worker/nominatim-lookup.ts)) looks
+parishes up by OSM id (`lookup?osm_ids=…`, 50 ids a request) under the usage
+policy: one serialised slot for every Nominatim call in the process, spaced
+1.1 s from when each request goes out, a 15 s timeout, a persisted daily budget
+of 2,000 requests charged on the day the request is sent, a persisted 15-minute
+cooldown after a 429 / 403 / 5xx, and nothing at all under
+`ADMIN_WORKER_SKIP_NETWORK`. The OSM sweep looks up each chunk of new candidates
+before deduping them; Nominatim's country replaces only a tile-fallback country
+(never an `addr:country` tag), and the street line and postal code are then
+derived again for the corrected country.
+
+The new ops lane **`research-parish-addresses`** (deterministic, not
+`activeOnly`, 6-minute watchdog, ~2-minute throttle, 4-minute run budget, at
+most 10 lookups a run) selects published OSM parishes missing a street,
+locality, postal code (where the country uses one) or country, never-researched
+first. It fills blanks only, through the content-protection gate; replaces a
+disagreeing country code with the lookup as evidence; re-designates a "parish"
+tagged as a chapel; rewrites only a machine-written summary; and unpublishes —
+never deletes — what is not a parish, with `_meta.excluded` and a one-year
+`osm-skip`. Each row records `_meta.addressResearch` (`complete` / `partial` /
+`needs_research`; retried after 7 days, 30 days, then every 90). A run reads the
+cooldown and the remaining budget first and selects nothing when no lookup is
+possible. On 2026-10-31 it completed about 400 addresses a run.
+
+**Postal codes and street order** (`a9af16b`, `84122ea`). No parish had a postal
+code: the sweep read `addr:postcode` only as a slug-collision suffix, and the
+schema had no field for it. `PARISH` gains an optional `postalCode`, validated
+against a per-country format table (a value that does not fit, such as `Roma` or
+`75001;75002`, is dropped, never reshaped).
+[`parish-address-format.ts`](src/lib/admin-worker/parish-address-format.ts)
+writes the street line street-first for Germany, Italy, Spain, Poland, Brazil,
+Mexico and the other countries that write it that way, number-first for the
+United States, Britain, France and the rest, and never stores a bare house
+number as a street line.
+
+**Chapels, oratories, and what is not a parish** (`a7433b3`, `84122ea`,
+`2c1950b`). The sweep published every named Catholic place of worship as a
+parish, and `designationFor` called anything not a basilica, cathedral or shrine
+a parish, so about 3,000 chapels read as parishes, and Stations of the Cross
+("2e Statie" … "14e Statie" in Hoofddorp, "Statie I" … "XIV" in Heiloo,
+"Kreuzwegstation V") and wayside shrines went live. `PARISH_DESIGNATIONS` gains
+`chapel` and `oratory` (OpenStreetMap lists about 53,000 Catholic chapels and
+2,400 oratories beside 214,000 churches). `parishExclusionFor` keeps out, with a
+typed reason: wayside shrines, wayside chapels, crosses and Lourdes grottoes by
+tag; whole, strictly numbered Stations of the Cross; private chapels
+(`access=private|no`); cemetery and funeral chapels and wayside markers by name;
+and records whose whole name only describes a kind of chapel ("Kaplica domowa",
+"Kapelle"). A new parish's summary is one factual sentence naming its
+designation and place.
+
+**Eastern Catholic churches** (`2c1950b`). The lane admits the OpenStreetMap
+denominations of the Eastern Catholic churches in communion with Rome
+(Ukrainian Greek Catholic, Greek Catholic, Maronite, Syro-Malabar, Syriac,
+Armenian, Chaldean, Melkite, Coptic, …) and names the particular church in the
+summary ("a Ukrainian Greek Catholic parish"). Old Catholic, Polish National,
+SSPX, Liberal Catholic and buildings shared with a Protestant or Orthodox body
+are still refused.
+
+**Major basilicas only in Rome** (`f0fbfe9`, `2c1950b`). `designationFor`
+matched a papal basilica's dedication anywhere, so local churches named "Santa
+Maria Maggiore" or "San Giovanni in Laterano" were published as major
+basilicas. Only the four papal basilicas, all in Rome / Vatican City, are major
+basilicas now; any other church is classified on its own words.
+
+**Slugs** (`ac70596`, `d2f5804`). A third same-named church in one postcode
+(barangay chapels in one Philippine municipality, Italian frazioni) found its
+suffixed slug taken and was never published; the slug now tries the postcode,
+the last four digits of the OSM id, then the whole typed OSM id. A name in a
+script `slugify` cannot spell ("천주교 성 요셉 성당") slugged as its locality
+alone (`new-york`) once a lookup filled the city; it now uses `name:en`, else
+`parish-<type>-<id>`.
+
+#### The bulk parish import
+
+The OSM lane sweeps one small tile a pass: about 800 parishes an hour, and about
+280 an hour on average under the 10,000-parish sprint and its 24-hour cooldown.
+The public Overpass mirrors were answering in 45–90 s or not at all, and the
+sweep had covered 83 of 6,991 tiles; a full sweep would have taken at least
+twelve days at its 600-request daily budget.
+`scripts/booster/parish-bulk-import.ts` (`76ef468`, `f0fbfe9`) does the lane's
+job at bulk speed, through the same publish path (see
+[Booster scripts](#booster-scripts) for its flags and the export format).
+
+- **Source.** A first run queried Overpass cell by cell and was stopped at
+  1,014 published. The rest came from a QLever export of the OpenStreetMap
+  planet (`https://qlever.dev/api/osm-planet`, CSV): **282,429** named Latin and
+  Eastern Catholic places of worship, fetched in about 20 seconds.
+- **Filters.** Only real, attendable places of worship pass: named, of a
+  denomination in communion with Rome, not ruined, disused or private, not a
+  wayside cross or shrine, grotto, Station of the Cross or cemetery chapel, and
+  not a bare generic name.
+- **Whole-catalogue dedupe.** The whole `PARISH` catalogue is loaded once. A
+  candidate is skipped when its OSM element is already a source, when the same
+  name stands within 200 m, or when a building within 30 m shares a distinctive
+  word of its name (one church mapped twice); everything queued earlier in the
+  same run counts too.
+- **Nominatim completion.** A missing country, locality, postal code or street
+  comes from `/lookup` of that exact object (50 ids a request, 1.15 s apart).
+  Nothing is invented: a part no source gives stays empty, and the record is
+  marked `partial` in `_meta.addressResearch` for the research lane.
+
+Results, 2026-10-31:
+
+| Run                                                 |   Published | With a complete address |
+| --------------------------------------------------- | ----------: | ----------------------: |
+| Overpass, cell by cell (stopped)                    |       1,014 |                     542 |
+| QLever CSV, run 1 (stopped for the two fixes below) |      27,069 |                    84 % |
+| QLever CSV, run 2                                   | **222,712** |                 208,332 |
+
+Measured afterwards: 271,421 `PARISH` rows published of 273,112 at 14:30 MDT;
+271,611 published, 232,399 of them with a complete address, at 14:58 MDT
+(20:58 UTC), with the research lane completing about 400 more a run; and by the
+evening about 272,000 published, more than 236,000 of them complete.
+
+**The parish cleanup** (`f0fbfe9`). A spot-check of run 1 found local churches
+published as major basilicas and about 530 records named only by a descriptor
+("Kaplica domowa", "Kaplica szpitalna", "Kapelle", "Chapelle"). The importer now
+refuses both (run 2 had the fix), and `scripts/booster/parish-cleanup.ts`
+corrected what was already live: it unpublished **10** OpenStreetMap copies of
+curated landmark churches and **531** generic-named records (never deleted:
+`_meta.excluded` records why, and a one-year `osm-skip` stops any sweep
+republishing them) and re-designated **4** non-papal "major basilicas". Exactly
+the four papal basilicas remain.
+
+The worker's own OSM lane was paused for the import (the sprint scheduler's
+`cooldownUntil`, in the `parish-sprint-state` memory row) and resumed at
+15:40 MDT, after `2c1950b` gave it the importer's rules.
+
+**Deliberately not used.** The parish finders (MassTimes, CatholicMassTime, the
+USCCB finder, GCatholic, DiscoverMass, the England & Wales directory): their
+copyright, terms or bot walls rule them out. Wikidata-only churches (about
+22,000, 16,000 of them Italy's BeWeb records) are a possible supplement that was
+not imported. The research put the realistic ceiling at about 270,000–290,000
+churches.
+
+#### Runtime reliability
+
+- **The EPIPE amplifier** (`2fe7655`, `e6e0870`). Measured 2026-10-05: a local
+  host whose app had gone away without closing the pipe stayed alive for 8 days
+  at 100 % CPU. Every console write failed with EPIPE, and the
+  `uncaughtException` handler logged that failure to the same dead pipe; a
+  reproduction of the handler re-entered about 117,000 times in 1.5 s. The fix
+  had run uncommitted in production since then and is now committed
+  ([`supervised-host.ts`](src/lib/admin-worker/supervised-host.ts): the host
+  shuts down on stdin EOF, a broken pipe, or two 5 s polls with no
+  `*.app/Contents/MacOS/*` ancestor). The worker child had the same amplifier (a
+  reproduction made 213,085 handler calls in 3 s from 29 log lines and never
+  exited): it now guards stdio before its first log line, watches the host's pid
+  every 5 s and exits with the new code **6** (supervisor lost), and its safety
+  net writes one row per error signature per minute, at most 20 a minute.
+- **No permanent give-up** (`0892402`, `d325798`, `767dffb`, `fd6b68a`). The
+  host gave up on the sixth consecutive crash, after about 30 s of trouble, and
+  the switch poll never restarts a `failed` runtime while the switch is merely
+  still ON — so a database blip after the Mac woke stopped all content work
+  while every surface showed ON.
+  [`restart-backoff.ts`](src/lib/admin-worker/restart-backoff.ts) now doubles
+  the wait from 2 s to 5 min for as long as the switch is ON, resets after 2 min
+  of healthy uptime, and after five consecutive restarts reports the runtime
+  `degraded` while it keeps retrying; a spawn failure takes the same path. The
+  restart timer re-reads the durable switch when it fires, and
+  [`restart-lifecycle.ts`](src/lib/admin-worker/restart-lifecycle.ts) makes an
+  OFF given in the app win over any restart decision still waiting on its switch
+  read, even while the database cannot record the OFF. The Mac app draws a crash
+  restart as "restarting in N s (restart k)", not as OFF, once it is rebuilt.
+- **The hung-pass watchdog** (`6616c8e`, `53447f3`, `3e97880`). Liveness was
+  timer-based, so a pass stuck on a half-open connection after sleep or a Wi-Fi
+  change froze the loop while every signal read healthy. The child now reports
+  progress beacons (one tagged line on stdout) at boot, loop start, pass start,
+  dispatch done, each lane settled and pass complete, and announces its idle
+  rests; the host stops a worker silent for 25 minutes (configurable, never
+  below 12) and hands it to the crash-restart path, with one WARN
+  `worker_hung_restart`. A gap
+  of more than 2 minutes between the host's own checks is read as the Mac
+  asleep, not as a hung worker. There is deliberately no in-process deadline on a
+  pass: a promise cannot be cancelled, and a restarted process is the only real
+  cancellation.
+- **Statement and socket timeouts** (`01a6755`). The database client set connect
+  and pool timeouts only, so a query on a connection that went half-open when
+  the Mac slept held its connection, and its pass, until the operating system
+  gave up, or forever. `PRISMA_STATEMENT_TIMEOUT` / `PRISMA_SOCKET_TIMEOUT`
+  (seconds) now become Postgres's `statement_timeout` and Prisma's
+  `socket_timeout`; unset means none, so the web service is unchanged. The
+  launcher gives the host and the worker 120 s / 150 s; `VACUUM (ANALYZE)` and
+  the monthly report's month of log rows run on a separate client without them.
+- **A database error during the lease claim** (`b7f91b3`, `5740ed9`). A database
+  or proxy blip while a worker child booted parked the Mac permanently with
+  "another runtime holds the execution lease": the read error became "not
+  acquired", the child exited 3, and the host reported a lease held elsewhere,
+  which the switch poll never retries. The claim now never throws and returns a
+  typed refusal (`held_elsewhere`, `claimed_concurrently`, `db_unreachable`);
+  every database failure at boot exits **4**, which the host waits out; and
+  `POST /api/switch` answers `503 database_unavailable` instead of 409. A
+  takeover whose confirming read fails is never reported as acquired.
+- **Unhandled rejections** (`befbc2f`, `ce55eb4`). The host's lifecycle ticks
+  were `try/finally` with no `catch`, so one database error (a `P2024` on its
+  3-connection pool) became an unhandled rejection, and the handler shut the
+  whole runtime down with nothing to restart it. Process guards now install
+  first in `main()`; an unhandled rejection is logged (one host line and one
+  ERROR row per signature per minute) while the host keeps supervising; and a
+  database that is only waking up at boot is left to the switch poll instead of
+  parking the runtime as `failed`.
+- **A persistent host log** (`0b93fb0`). Everything the host and the worker
+  printed reached an 800-line in-memory ring and the app's stderr, which is
+  `/dev/null` for the installed app, so crash traces were gone by the time
+  anyone looked. It now also goes to `~/Library/Logs/ViaFidei/worker-host.log`
+  (`VIAFIDEI_HOST_LOG_FILE` moves it, `off` disables it), written with
+  `writeSync` so a host whose pipe is gone still records its last lines, rotated
+  at 10 MB keeping three, mode 0600, with credentials, tokens and the value of
+  every secret-looking environment variable redacted.
+- **Brain single-flight** (`1d21507`, `1049e67`). The brain answers one request
+  at a time, but concurrent lanes wrote overlapping requests whose 8 s timeouts
+  started at their own writes; queued calls timed out, two in a row killed the
+  brain for everyone, and repeated recycles latched it down for the next pass.
+  The bridge now keeps one request in flight and queues the rest in arrival
+  order: a call that waits longer than `INTELLIGENCE_QUEUE_WAIT_MS` (default
+  twice the timeout) fails fast as "busy" without counting as a timeout, and a
+  call that times out keeps the turn until its late answer arrives, so one slow
+  operation no longer makes the next call time out and recycle a healthy brain.
+
+#### Publish path
+
+- **The dead build queue** (`b64b5b9`). `WorkerBuildJob` rows have no executor,
+  yet each pending intent gave `PACKAGE_BUILD` an urgency of up to 60 and won
+  pass slots that did nothing, and `recreateMissingSourceJobs` re-enqueued up to
+  25 `APPROVED_FOR_BUILD` items a run — the status every published curated,
+  structured, liturgical and OSM item keeps. `PACKAGE_BUILD` is never safe now,
+  and open intents for published items are cancelled. The admin approve and
+  rebuild routes still file intents; nothing schedules on them.
+- **Schema-correct web payloads** (`0be1af1`, `6d874fa`, `5853d8d`, `76f4a84`,
+  `cabef6f`, `64c4448`). The web publish stage mapped only `PRAYER` onto its
+  schema; every other type went live as raw extractor fields (a saint as
+  `{saintName, background}`) with no slug, no citations and no schema check.
+  [`web-publish-payloads.ts`](src/lib/admin-worker/web-publish-payloads.ts) maps
+  each type; every value is an extractor field, a deterministic restatement of
+  one, an enum the title names, or a citation the pipeline holds, and a field
+  the extraction did not produce stays missing. A package its schema can never
+  accept is refused at extraction instead of after three rounds of verification
+  probes. Five types are refused from every web source because their extractors
+  never read a field the schema requires — a novena's per-day meditation, a
+  Church document's issuing authority and key themes, a sacrament's theology,
+  matter, form, minister, recipient and effects, and the Rosary's and a
+  consecration's own summary and instructions — and their refusals no longer
+  push the next page of the same type to the head of the global fetch queue.
+  `DEVOTION`, `LITURGICAL`, `SPIRITUAL_PRACTICE` and `POPE` now look for an
+  independent page on another host that names the item, which becomes their
+  required second citation. A web saint's status comes from an honorific only
+  when a person's name follows it, so "Blessed Virgin Mary" and "St. Patrick's
+  Day" can never publish as saints.
+- **Stuck states** (`a986783`, `d6d5cba`). Score-failure repairs set artifacts
+  to `EXTRACTED`, which nothing re-processes; they are now closed with the
+  reason, and discovery reroutes. A strict-QA review-band score records
+  `STRICT_QA_REVIEW_BAND` instead of being re-scored to the same band every
+  week. `VERIFICATION_READY` artifacts go straight on to QA instead of having
+  their evidence wiped and re-fetched, and healed artifacts that keep their
+  checklist item are bridged to `BUILD_READY` again.
+- **Doctrinal evidence** (`5d27a7c`, `88732f4`, `46bef03`). The verifier compared
+  only each type's required facts, so an apparition's date or a Church
+  document's date or era — evidence the publish gate demands — was fetched and
+  never compared: "blocked on dateOrEra", and a verify → QA → publish → repair
+  loop. Every validation need is now compared and recorded; one rule
+  (`judgeFieldEvidence`: some source matched, none contradicted) judges a field
+  at promotion and at publish; and a confirming page stores the candidate's own
+  spelling of the date, so "15 May 1891" confirmed by "May 15, 1891" is a
+  `MATCH`, not a `MISMATCH`.
+- **Transient failures** (`c258642`). Every orchestrator block became
+  `REJECTED`, so one database blip discarded a QA-passed package for good. An
+  unreadable strict-QA row, a failed quality-score write, or a persist error
+  that is not a constraint verdict (Prisma `P2000`–`P2012`) is now retried after
+  10, 20 and 40 minutes (`TRANSIENT_PUBLISH_FAILURE`) without penalising the
+  source's host.
+- **The `LITURGICAL` proof block** (`575fef2`). Production repeated "Publish
+  blocked for LITURGICAL/<slug>: proof-based publishing: logic-rule invariants
+  failed; doctrinal_trusted_support" for the same five usccb.org, catholic.org
+  and vatican.va items. The invariant counted citation URLs in the payload (a
+  web artifact carries none, so even a vatican.va page counted zero), the proof
+  ladder ranked `LITURGICAL_BOOK` at -1, and the quality score's authority
+  factor switched on values that are not authority levels. Sources are now
+  counted distinctly against the authority registry (VATICAN 1.0; CATECHISM,
+  LITURGICAL_BOOK, USCCB 0.95; DIOCESAN 0.88; order, publisher, academic 0.85;
+  COMMUNITY 0.78), and an item that still has a single trusted source goes on a
+  research hold, re-checked after 7, 14, 28, 56 and 90 days, instead of writing
+  a WARN on every retry. No threshold changed.
+
+#### Growth scheduling
+
+- **Deterministic lanes under a degraded brain** (`491e5b7`, `b15b6b2`). Every
+  content lane but the OSM sweep was `activeOnly`, so any brain crash, 8 s stall
+  or version skew stopped 14 of the 15 content types; that morning only `SAINT`
+  and `PARISH` grew. `ingest-curated`, `ingest-structured`, `ingest-liturgical`,
+  `enrich-translations`, `enrich-reviews` and `enrich-pope-cleanup` call no
+  brain and publish only through deterministic gates, so they now run while it
+  is degraded; only `discover-structured` and `discover-web`, which feed the
+  brain-chosen web funnel, stay gated.
+- **Junk URL filter** (`0085121`, `4694d1f`, `c5b2778`). The fetch queue kept
+  handing out Cloudflare challenge URLs
+  (`https://www.vaticannews.va/cdn-cgi/content?id=…`), each unique, each
+  climbing the retry ladder. `screenCandidateUrl`
+  ([`candidate-url-hygiene.ts`](src/lib/admin-worker/candidate-url-hygiene.ts))
+  rejects typed shapes (Cloudflare challenges, CMS endpoints, account, cart and
+  search pages) and strips tracking parameters before a URL becomes the dedupe
+  key, at the one point where every discovery method persists a candidate, and
+  the queued backlog of those shapes is retired.
+- **Wikidata rejection memory** (`1055ab6`, `bed7e39`, `b5f5806`, `ca6a5a0`).
+  Each re-sweep mapped the same rejected entities again with the same Wikipedia
+  fetches (40 of 100 saints a page). A rejection is now remembered per
+  (ingestor, QID), retried after 1, 2 and 4 days and then every 7, and pruned
+  after 30 untouched days (at most 50,000 rows). A rejection reached on a read
+  that got no answer (no response, a timeout, a 429 or 5xx) is
+  `source_read_failed` and never remembered.
+- **Ingestor maintenance floor** (`d2b5f54`, `758eb78`). An ingestor whose type
+  had reached its target scored 0, so `RITE`, `MARIAN_TITLE`,
+  `SPIRITUAL_PRACTICE` and `DOCTOR` were never re-checked. One unused for 6 hours
+  now runs first. That made the `DOCTOR` and `RITE` ingestors run in production
+  for the first time, where they would have published "Pope Gregory I" beside
+  Saint Gregory the Great; a curated-set type now holds every entity that no live
+  row matches (`curated_set_unmatched`), so a newly declared Doctor reaches a
+  curator, not the site.
+- **Curated ingest efficiency** (`4517103`, `4646c36`). Every `ingest-curated`
+  run loaded the slug of every published row, the parish directory included, to
+  check about 1,200 entries, and failing entries were retried every pass with no
+  record. It now asks for the curated slugs of each type, backs a failing entry
+  off from 1 hour to 24, and names every failing entry in its WARN.
+- **Campaign weighting** (`9bbaa45`, `bc8eecf`). The major-goal campaign took
+  the largest absolute gap, which meant `SAINT` permanently, while `PRAYER` and
+  `NOVENA` — which only the web can grow — got incidental candidates. A type
+  whose structured ingestor published in the last 24 hours now counts at 0.1 of
+  its gap, one type surges for at most 6 hours and then cools down for 6, two of
+  every three targeted discovery picks go to the campaign, and the always-on web
+  discovery sweep rotates its target with the mission selector (`PRAYER`,
+  `SAINT`, `NOVENA`, …, never `PARISH`).
+
+#### Saints
+
+- **The cursor livelock** (`792904d`, `14390f2`). The `SAINT` ingest published
+  55 saints between 12:40 and 13:14 UTC and then nothing for hours. Offsets
+  1,100–1,400 of the corpus are Martyrology-only entities with no article, and
+  self-maintenance read the resulting zero streak as "past the end" and rewound
+  the cursor to 0 every 15 minutes, nine times that day, so the ingest re-walked
+  pages that were all live or rejected. A cursor is now rewound only when its
+  last page at a non-zero offset came back empty. Rows are mapped one at a time
+  on a single serial Wikimedia queue that honours `Retry-After`, a pass has a
+  4-minute budget, and a lease lets the saint sweep booster take `SAINT` while
+  the worker steps aside.
+- **Stricter feast and status gates** (`91799ad`, `d72d525`, `12859f4`,
+  `221cdff`, `fc1d78f`). A sample of 30 not-yet-live saints showed 7 of the 18
+  that would publish contradicting their own article's infobox feast (Kolping,
+  Redi, Goupil, Schelingová, Eugendus, Beltrame Quattrocchi, Montegallo), Jozef
+  Cebula about to publish as canonized though his article records only his 1999
+  beatification, Venerables carrying a feast, and 462 template biographies. Now
+  an infobox feast's first date must be one of Wikidata's and the prose cannot
+  override it; Wikidata's stage must agree with the article; a Venerable or
+  Servant of God publishes without a feast; an article whose infobox names only
+  another communion contradicts every Catholic stage; a saint whose article
+  could not be read is retried, never decided; template biographies are no
+  longer composed; and a one-line summary is replaced by the article's whole
+  introduction. On the same 30, 7 publish and every documented bad case is
+  refused. The repair lane leaves a row alone when the article contradicts
+  Wikidata's stage: Wikidata still says Venerable for Henkes, Olivelli, Lira and
+  Arnaiz, who are beatified, and for Tavelic, canonized in 1970.
+- **The Wikipedia credit line** (`ad87931`, `6d87dcb`). Saint pages quoted
+  Wikipedia leads verbatim, with no link or licence, under the site's "All
+  rights reserved" footer. A detail page whose prose was quoted from an article
+  now ends with one small line, "Text from Wikipedia (<article>), CC BY-SA 4.0",
+  linking the article and the licence. It is the one exception to the owner's
+  no-visible-sources rule, because the licence requires it; it covered 2,671
+  saints, 179 popes and a handful of documents, devotions, titles and rites.
+  Internal fields (`feastMonth`, `feastDayOfMonth`, `wikidataQid`) no longer
+  print, and the closing "A fuller biography is recorded in the … Wikipedia
+  article and on Wikidata." of a composed biography is dropped at render.
+- **The goal** (`5922474`). A read-only survey of Wikidata (QLever, dump of
+  2026-08-10) found 8,174 items in the whole Catholic-veneration universe, and
+  only about 4,500 can carry a feast day corroborated by a second source and a
+  real biography, which the `SAINT` schema requires. The goal moved from 10,000
+  to 4,500; see
+  [Content goals](#content-goals--the-largest-gap-first-scheduler).
+- **The saint cleanup** (`38d1665`, `b65be74`). The audit found what the repair
+  lane cannot fix on its own: two Orthodox-only figures live as canonized saints
+  (Severus of Antioch, Q729105; Empress Theodora, Q204843), 46 "venerable" rows
+  whose stage came from the Orthodox monastic honorific Q12774503 (several of
+  them canonized, such as Joseph Marello), Venerables and Servants of God shown
+  with a feast, and feasts that contradict the infobox.
+  `scripts/booster/saint-cleanup.ts --apply --only=orthodox,restatus,feastless`
+  **unpublished 3** (Severus, Theodora, and Gregorio Aglipay, founder of the
+  Philippine Independent Church), **re-statused 41** and **removed 43 feasts**.
+  **49 suspects** (articles naming only another communion) and **14
+  stage-review rows** (Wikidata and the article disagree) were left unchanged for
+  a human, listed in the run's output. The full feast audit was not run.
+- **The sweep** (`78b162c`, `c4089ed`, `f16d7eb`).
+  `scripts/booster/saint-sweep.ts` walked the `SAINT` corpus (about 5,400
+  entities) through the worker's own ingest pass: a trial published 11 and the
+  full sweep 349 more, **+360** in all, taking `SAINT` to 3,692 of 4,500.
+
+#### Curated content
+
+Every text is a public-domain printing (all before 1929), transcribed from page
+images and collated against independent OCRs, checked for duplicates against
+production, the knowledge base and a claims registry the curators shared, then
+audited independently and corrected before it merged. Apparitions, devotions
+and Church documents are editorial summaries of their cited pages; no text that
+is not in the public domain is reproduced.
+
+- **Prayers: 722 in four batches**, `PRAYER` 248 → 972 of 1,000. Batch 9 (140):
+  the 1910 English Raccolta of Ambrose St John and its 1857 first edition — the
+  Trinity, the Holy Ghost, Christ, the Blessed Sacrament, the Precious Blood, the
+  Sacred Heart, the holy souls, daily needs. Batch 10 (140): the Raccolta's
+  prayers to Our Lady, St Michael, St Joseph and the saints. Batch 11 (216):
+  Breviary and Missal hymns with their Latin (Britt, 1922), Douay-Rheims
+  canticles and prayers of Scripture, Holy Week chants, Tenebrae responsories and
+  the Office of the Dead. Batch 12 (226): prayers of Newman, Francis, Augustine,
+  Anselm and Ignatius, and the 1889 Manual of Prayers — occasional prayers, the
+  dead, Confession, Communion, the sick and the Sunday collects.
+- **Novenas: 52** (`novenas/group-3.ts`), `NOVENA` 31 → 83 of 100: the fifteen
+  Holy Helper novenas, the Raccolta's novenas for Our Lady's feasts, Newman's St
+  Philip, St Alphonsus, Lourdes, Mount Carmel, the Nine Tuesdays of St Anthony,
+  St Teresa, the Ara Coeli novenas and Lings' _Our Favorite Novenas_.
+- **Apparitions: 13** (`apparitions/group-2.ts`), `APPARITION` 39 → 52 of 50:
+  four nihil obstat decisions under the 2024 norms, eight cults the Church
+  formally authorised without judging the apparition itself, and Vailankanni.
+- **Devotions: 16** (`devotions/group-3.ts`), `DEVOTION` 90 → 106 of 100: the
+  pious exercises the Directory on Popular Piety names, the Three Hours' Agony,
+  Gregorian Masses and others.
+- **Church documents: 125** (`church-documents/group-3.ts`), `CHURCH_DOCUMENT`
+  143 → 268 of 200: from the Council of Florence to Leo XIV, each with its own
+  vatican.va page as `canonicalUrl`.
+- **Saint John Henry Newman as the 38th Doctor of the Church** (`ec992d0`),
+  declared by Leo XIV on 1 November 2025; `DOCTOR` 37 → 38.
+
+The audits removed the duplicates they found across branches (the Lings Lourdes
+novena, the Raccolta's Novena of Grace prayer, two Office of the Dead collects,
+three Manual of Prayers entries), and every novena that shares a prayer with a
+published `PRAYER` now names it.
+
+#### History timeline
+
+`/history` grew from 232 events to **1,427** (`1a56858`, `86b69b4`). Parts 5–11
+deepen one era each, from the Apostolic Age to 2026; part 12 fills what a
+completeness review found missing across them (every ecumenical council, defined
+dogma, Doctor, jubilee, pontificate transition since 1823 and approved
+apparition it checked), and part 13 is a second pass (religious institutes,
+unions and schisms, missions, and 26 magisterial documents that had no event).
+Each event cites one fetched page on an allow-listed host and carries a day only
+where the source attests it. Independent fact-checks corrected 146 events in
+parts 5–11 and 15 in part 13. Document events share their curated
+`CHURCH_DOCUMENT` slug, so a published document enriches its event instead of
+appearing twice. See [The history timeline](#the-history-timeline).
+
+#### The site
+
+- **Latin and Greek on every form of prayer** (`887e61a`, `ce45e62`, `4bf3699`,
+  `cc7fcbe`). The owner found the Latin and Greek toggles gone from the Rosary,
+  the chaplets, novenas and litanies, and there were three different toggles.
+  One control now serves the prayer page, every prayer list and every prayer
+  opened in place, and machine-made Latin or Greek says it is unofficial. Why 179
+  prayers show no chip is under [Reading experience](#reading-experience).
+- **Content pages trimmed** (`9733fe7`, `776bea2`, `09773f2`, `ae896c9`,
+  `1cbed89`, `9f5e14b`). Pages printed internal fields ("Feast month: 4",
+  "Wikidata qid", "Content subtype: pope_biography"), repeated summaries and
+  source footers; the owner asked for the title and what matters. A page now
+  shows exactly the fields it names, never sources: a saint is the name,
+  "Patron of …", "Feast day: …", the dates lived and the biography; a prayer is
+  its title and the prayer. Saint cards on `/saints` and `/saints/today` show the
+  name, patronage and feast day; no eyebrow repeats a prayer's category or a
+  saint's name; a devotion lists every prayer it prays, in the order its
+  instructions name them; and a saint's uncertain dates are left unsaid rather
+  than guessed (over the 2,595 dated saints in production, 50 lines changed and
+  14 more became empty). Smaller fixes the same day (`e1a87e0`, `7578124`,
+  `4033b3f`, `9656ab0`): each prayer opened in place has its own id and the
+  right heading level, the saint a prayer's title credits ("(Saint Louis de
+  Montfort)") is no longer read as another name for the prayer, a devotion's
+  prayed words are headed "Prayer", and a pope's birth name is left off when it
+  is his papal name.
+- **Church cards** (`ea56d1c`, `283ace4`, `869a452`, `52cafca`): the name, what
+  the church is (a basilica always says Minor or Major), and its full postal
+  address with directions; see
+  [The parish card](#the-parish-card-and-parishes-near-me).
+- **Distance labels** (`0cc26e9`, `2c8a9f1`): in the site's language and the
+  reader's units, decided by the reader's language, never by the coordinate.
+- **Content translation** (`7ed6bde`, `77393e3`, `cfc6c35`, `b535cdd`).
+  Published content was only ever shown in English. A self-hosted engine ported
+  from The Augustine Journal (pinned OPUS-MT models on onnxruntime) now
+  translates it into the nine site languages that have a model (es, fr, it, de,
+  pt, pl, tl, vi, zh); the web server only reads the cache (`ContentTranslation`,
+  migration `0062`) and the translator runs on the Mac. Its rules: Latin and
+  Greek stay as written; saints' names are never machine-translated; a parish
+  name in another script is transliterated beside the original or shown as
+  written, never translated — on 125 published names the models produced mostly
+  wrong and sometimes obscene English; a translation that makes Our Lady a
+  goddess or the Hail Mary weather hail is rejected; and a page keeps its English
+  layout in every language. **Korean has no working model**: the only
+  English-to-Korean OPUS-MT model answers English with unrelated Korean, so
+  Korean readers get the interface in Korean and the content as published.
+  Operations: [docs/operations/translation.md](docs/operations/translation.md).
+
+#### Settings added on 2026-10-31
+
+All optional, with working defaults. The host's own are under
+[Environment knobs on this path](#environment-knobs-on-this-path); the
+translator's (`TRANSLATION_*`) are in
+[docs/operations/translation.md](docs/operations/translation.md).
+
+| Variable                                             | Default                         | Purpose                                                                               |
+| ---------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------- |
+| `ADMIN_WORKER_NOMINATIM_DAILY_BUDGET`                | `2000`                          | Nominatim lookup requests per UTC day, persisted and shared by every caller           |
+| `ADMIN_WORKER_NOMINATIM_COOLDOWN_MS`                 | `900000`                        | Pause after a 429 / 403 / 5xx, persisted                                              |
+| `ADMIN_WORKER_PARISH_RESEARCH_REQUESTS`              | `10`                            | Lookups per `research-parish-addresses` run (50 parishes each)                        |
+| `ADMIN_WORKER_PARISH_RESEARCH_THROTTLE_MS`           | `120000`                        | Minimum gap between research runs                                                     |
+| `ADMIN_WORKER_PARISH_RESEARCH_BUDGET_MS`             | `240000`                        | Wall-clock budget of one research run                                                 |
+| `ADMIN_WORKER_PARISH_RESTORE_BATCH`                  | `50`                            | Unpublished rows the city-key restore judges per run                                  |
+| `ADMIN_WORKER_OSM_RESWEEP_BATCH`                     | `250`                           | Tile rows made due per run by the re-sweep after the key fix                          |
+| `ADMIN_WORKER_STRUCTURED_FLOOR_MS`                   | `21600000` (6 h)                | An ingestor unused this long runs first, whatever its gap                             |
+| `ADMIN_WORKER_STRUCTURED_BUDGET_MS`                  | `240000`                        | Wall-clock budget of one structured pass                                              |
+| `ADMIN_WORKER_STRUCTURED_BATCH_<TYPE>`               | `ADMIN_WORKER_STRUCTURED_BATCH` | Page size for one ingestor (`_SAINT`, …), at most 200                                 |
+| `ADMIN_WORKER_WIKIMEDIA_SPACING_MS`                  | `0`                             | Gap between Wikimedia request starts on the serial queue (the saint sweep sets 100)   |
+| `ADMIN_WORKER_CAMPAIGN_STRUCTURED_WEIGHT`            | `0.1`                           | Share of its gap a type counts while its structured ingestor is publishing            |
+| `ADMIN_WORKER_CAMPAIGN_MAX_SURGE_HOURS`              | `6`                             | Longest campaign SURGE on one type                                                    |
+| `ADMIN_WORKER_CAMPAIGN_COOLDOWN_HOURS`               | `6`                             | How long that type then waits before it can campaign again                            |
+| `ADMIN_WORKER_CAMPAIGN_SURGE_STREAK`                 | `2`                             | Consecutive campaign discovery picks before one goes to the normal rotation           |
+| `INTELLIGENCE_QUEUE_WAIT_MS`                         | twice `INTELLIGENCE_TIMEOUT_MS` | Longest wait for the brain's turn before a call fails fast as "busy"; `0` never waits |
+| `PRISMA_STATEMENT_TIMEOUT` / `PRISMA_SOCKET_TIMEOUT` | unset (no timeout)              | Seconds: Postgres `statement_timeout` and Prisma `socket_timeout` for the process     |
+
+#### Remaining limitations
+
+As of the end of 2026-10-31:
+
+- **The OSM lane idles while `PARISH` is above its target.** The sprint
+  scheduler stands the lane down when the `PARISH` goal has no gap
+  ([`parish-sprint.ts`](src/lib/admin-worker/parish-sprint.ts): "PARISH goal met —
+  parish lane idle"), and about 272,000 published parishes are above the 200,000
+  target, so the tile sweep, and the re-sweep scheduled after the key fix,
+  publish nothing until the target is raised to the real supply. The research
+  lane and the restore run regardless; how many of the 943 + 207 key-fix
+  victims the restore republishes was not measured on the day.
+- **Goals not yet at their supply.** `SAINT` 3,692 of 4,500, `PRAYER` 972 of
+  1,000 and `NOVENA` 83 of 100 were still short, with more curation and the
+  saints' public-domain source work (the 1913 Catholic Encyclopedia through
+  Wikisource, the 1916 Roman Martyrology) still running. The saint sweep is to
+  be run again once that work merges, and those goals set to their achievable
+  totals.
+- **Saints for a human.** The cleanup's 49 suspects and 14 stage-review rows;
+  the full feast audit (`--only=feast-audit`, about 3,000 articles) has not been
+  run; and the 462 stored template biographies keep their closing source
+  sentence in the payload (only the page drops it).
+- **Prayers without Latin or Greek.** Of the roughly 250 prayers published
+  before the day's new ones went live, a review counted 179 with no received
+  Latin or Greek in the repository, so they show no chip; 38 carry a June 2026
+  machine fill, labelled unofficial. The day's 722 new prayers carry Latin only
+  where their source prints it.
+- **Web types that cannot publish.** `NOVENA`, `CHURCH_DOCUMENT`, `SACRAMENT`,
+  `ROSARY` and `CONSECRATION` are refused from every web source until their
+  extractors read the missing fields; `DEVOTION`, `LITURGICAL`,
+  `SPIRITUAL_PRACTICE` and `POPE` publish from the web only once an independent
+  page names the item.
+- **Translation.** No Korean model. The translator runs only on the Mac: it was
+  started detached at 17:26 MDT, nothing restarts it after a reboot or a crash,
+  and its first pass takes about 24 hours, during which whatever is not cached
+  yet stays in English.
+- **The Mac.** Nothing keeps it awake while the switch is ON (the operator ran
+  `caffeinate -ims` through the day); the installed app shows a crash restart
+  correctly only once it is rebuilt (`bash scripts/desktop-app/install.sh`); and
+  a watchdog stop still records the abandoned pass as "stopped by operator".
+
+### Booster scripts
+
+[`scripts/booster/`](scripts/booster) holds operator tools that run the worker's
+own code against production from the operator's Mac, at a speed the loop cannot
+reach. They go through the same paths the lanes use — `runPublishOrchestrator`,
+`applyProtectedContentUpdate`, the structured ingest pass — so a booster's
+publish passes every gate a lane's would and can never publish a row twice, a
+correction is versioned or recorded on the row it changes, nothing is deleted,
+and every run is logged to `AdminWorkerLog`, where the command center and the
+developer report see it. None of them runs on its own: they are not lanes, and
+the loop never calls them.
+
+**Running one against production.** `DATABASE_URL` names the database, as for
+every operator script, and the boosters that read Wikidata or Wikipedia refuse
+to start under `ADMIN_WORKER_SKIP_NETWORK=1`. On 2026-10-31 each one ran from a
+checkout of the integration branch under `railway run` on the Postgres service,
+with `DATABASE_URL` built inside that shell from the service's
+`DATABASE_PUBLIC_URL` and a small pool, so no credential was typed or printed.
+For example, the saint cleanup's dry run:
+
+```bash
+railway run --service Postgres --environment production -- bash -c '
+  u="$DATABASE_PUBLIC_URL"
+  case "$u" in *\?*) u="$u&" ;; *) u="$u?" ;; esac
+  export DATABASE_URL="${u}connection_limit=4&pool_timeout=30"
+  exec "$@"' _ npx tsx scripts/booster/saint-cleanup.ts --report=saint-cleanup-dry.json
+```
+
+The parish import's first CSV run used `--concurrency=24` with
+`connection_limit=28`. The curated batches needed no script of their own:
+`seedCuratedContent(prisma, { contentType, limit })`, the function behind
+`npm run seed:content`, ran once per type in the same way, and each run wrote a
+`booster_curated_publish` row.
+
+#### `parish-bulk-import.ts` — publish the Catholic world's churches from OpenStreetMap
+
+Reads named Catholic places of worship, keeps only real, attendable churches,
+dedupes them against the whole `PARISH` catalogue, completes their addresses
+from Nominatim and publishes them with the OSM lane's own settings (see
+[The bulk parish import](#the-bulk-parish-import) for the rules and the
+2026-10-31 results). It sets `ADMIN_WORKER_SKIP_NETWORK=1`,
+`ADMIN_WORKER_DISABLE_LIVE_PROBE=1` and `INTELLIGENCE_BRAIN_ENABLED=0` for the
+worker modules it loads; its own Overpass and Nominatim requests carry the
+worker's User-Agent.
+
+| Flag                                           | Effect                                                                                                              |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `--csv=<path>`                                 | Read a QLever OpenStreetMap-planet CSV export instead of querying Overpass (249,781 of the day's 250,795 publishes) |
+| `--dry-run`                                    | Classify, dedupe and look up addresses, print the first five payloads and the counts; write nothing to the database |
+| `--limit=N`                                    | Stop after N publishes                                                                                              |
+| `--countries=IT,FR` / `--skip-countries=IE,BE` | Overpass mode: only, or never, these countries of the worker's `CATHOLIC_REGIONS`                                   |
+| `--cell=2`                                     | Overpass mode: grid cell size in degrees; a cell Overpass cannot answer is quartered, down to 0.25°                 |
+| `--concurrency=12`                             | Publishes in flight at once                                                                                         |
+| `--state=<path>`                               | Resume file: the cells finished (Overpass mode) and the running counts, saved every 30 s and at every flush         |
+
+- **Overpass mode** runs one query at a time on each of three public mirrors,
+  at least 2.5 s apart, and asks only for `denomination=roman_catholic|catholic`;
+  the CSV export carried the Eastern Catholic denominations too.
+- **The CSV contract.** The first column is the OSM element's IRI (ending
+  `/node/<id>`, `/way/<id>` or `/relation/<id>`), then `lat` and `lon`, then one
+  column per tag, named by the export query's variables and mapped to OSM keys
+  by `CSV_TAGS`: `name`, `d` (denomination), `nameEn`, `religion`, `street`,
+  `hn`, `place`, `full`, `city`, `town`, `village`, `hamlet`, `muni`, `pc`,
+  `cc`, `state`, `prov`, `web`, `cweb`, `url`, `phone`, `cphone`, `pow`, `bld`,
+  `hist`, `mm`, `access`, `ruins`, `disused`, `abandoned`, `dAmenity`,
+  `aAmenity`, `ctype`, `cath`. The export query itself is not in the
+  repository; the script's header points at a `scripts/booster` README for it,
+  and this section is that README.
+- **Every publish** goes through `runPublishOrchestrator` with a checklist item,
+  `COMMUNITY` authority and `skipBrainScreens`, carrying
+  `_meta.addressResearch` (`complete` or `partial`, the parts missing, the
+  sources, due again in 7 days when partial) and
+  `_meta.booster {source: "osm-bulk-import", at}`. Every 500 publishes, and at
+  the end, it refreshes the content goals, flags the search and sitemap refresh
+  and writes a `booster_parish_import` row with the running counts.
+- **Dry run.** Nothing is written to the database, but the catalogue is read
+  and Nominatim is still asked; in Overpass mode the finished cells still go to
+  `--state`, so give a dry run its own state file.
+- **Flags are parsed loosely** (the script predates
+  [`cli-args.ts`](scripts/booster/cli-args.ts)): a misspelt flag is ignored, and
+  a non-numeric `--limit` means no limit.
+- Ctrl-C finishes the publishes in flight and saves the state.
+
+#### `parish-cleanup.ts` — correct what an audit found wrong in the live directory
+
+A dry run by default; `--apply`, its only flag, writes. It prints, as JSON, what
+it would do or did:
+
+1. **OpenStreetMap copies of curated landmark churches** (St Peter's, the
+   Lateran, Guadalupe, Cologne, Milan, St Patrick's, …): the curated row is the
+   keeper, and an OSM row within 120 m whose name matches the landmark's
+   local-language pattern (`LANDMARK_KEYS`) is unpublished.
+2. **Generic descriptor names**: a record whose whole name is a kind of chapel
+   ("Kaplica domowa", "Kapelle", "Chapelle", …) is unpublished.
+3. **Major basilicas outside Rome / Vatican City** become a minor basilica when
+   the name says basilica, a shrine when it says shrine, and a parish otherwise.
+
+An unpublished row keeps its payload plus `_meta.excluded {reason, at, by}`, is
+never deleted, and gets a one-year `osm-skip` on its OSM id and its slug, so no
+sweep republishes it; a designation changes through
+`applyProtectedContentUpdate` (versioned, reversible). An `--apply` run writes
+one `booster_parish_cleanup` WARN row listing everything it changed. It was
+applied once on 2026-10-31, after a reviewed dry run: 10 landmark copies and 531
+generic names unpublished, 4 basilicas re-designated.
+
+#### `saint-cleanup.ts` — clean the published saint catalogue
+
+The rules live in
+[`structured/saint-cleanup.ts`](src/lib/admin-worker/structured/saint-cleanup.ts),
+in four parts:
+
+| `--only=` part | What it does                                                                                                                                                                                                                                    |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `orthodox`     | Unpublishes the confirmed Orthodox-only figures and any row whose Wikidata record proves the veneration is not Catholic; rows whose article alone names another communion are listed as suspects                                                |
+| `restatus`     | Re-statuses each "venerable" that came from the Orthodox monastic honorific (Q12774503) from its Catholic stage on Wikidata, else from the article's infobox; unpublishes only on positive evidence that another communion venerates the person |
+| `feastless`    | Removes the feast of a Venerable or Servant of God once that stage is confirmed; a row Wikidata or its article puts further along keeps its feast and is listed for review                                                                      |
+| `feast-audit`  | Lists, never changes, published feasts that differ from the first date of the article's infobox; reads one article per published saint, about 3,000                                                                                             |
+
+| Flag                   | Effect                                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------- |
+| `--apply`              | Write. **The default is a dry run**: everything is read and decided, nothing is written |
+| `--unpublish-suspects` | Also unpublish the suspects                                                             |
+| `--only=…`             | Run only these parts (comma-separated); all four by default                             |
+| `--audit-limit=N`      | Read at most N articles in the feast audit                                              |
+| `--report=<path>`      | Write the whole report (actions, stage review, suspects, feast contradictions) as JSON  |
+
+It reads the Wikidata Query Service (one request per 100 saints) and Wikipedia's
+Action API (one article at a time, with the worker's User-Agent), and prints
+every action (kind, part, applied or dry run, slug, QID, changes, reason), the
+stage-review rows where Wikidata and the article disagree, the suspects and the
+feast contradictions, then one summary line. With `--apply`, each row is read
+again just before it is written, and a row that changed since the decision (the
+repair lane re-statused it, someone unpublished it) is reported "left unchanged
+… rerun the dry run" instead of being overwritten. Writes go through
+`unpublishStructuredSaint` (the flag, a WARN `AdminWorkerLog` row and an
+always-queued review row) and `applyProtectedContentUpdate` plus a
+`saint_cleanup_update` row per change, then one `booster_saint_cleanup` summary
+row; the per-event INFO sampler is lifted for this process so every change
+keeps its row. An article that could not be read never leads to a change. Flags
+are parsed strictly by [`cli-args.ts`](scripts/booster/cli-args.ts): an unknown
+or repeated flag, a value on a switch (`--apply=false` used to write) or a
+non-numeric limit exits with status 2 before the database is touched.
+
+On 2026-10-31 the dry run was read first, then
+`--apply --only=orthodox,restatus,feastless` ran; the results are under
+[Saints](#saints).
+
+#### `saint-sweep.ts` — walk the whole SAINT corpus in one sitting
+
+Every page is one `runStructuredIngest` pass, so the saint mapper, its feast and
+stage gates, the live-row dedup, the rejection memory and the publish path are
+exactly the worker's; nothing publishes that the `ingest-structured` lane would
+not. The loop lives in [`structured/sweep.ts`](src/lib/admin-worker/structured/sweep.ts).
+
+| Flag                   | Default                              | Effect                                                                                                        |
+| ---------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `--batch=N`            | `200`                                | Entities per page                                                                                             |
+| `--limit=N`            | the page size                        | Publishes per page                                                                                            |
+| `--max-pages=N`        | until the corpus ends                | Stop after N pages                                                                                            |
+| `--page-budget-min=N`  | `30`                                 | Wall-clock budget of one page                                                                                 |
+| `--spacing-ms=N`       | `100`                                | Gap between Wikipedia request starts on the serial queue                                                      |
+| `--restart` / `--wake` | —                                    | Start over from offset 0 / end the rest the ingest imposes after the Query Service failed, keeping the offset |
+| `--holder=NAME`        | `wikidata-saints-sweep@<host>:<pid>` | Lease holder name                                                                                             |
+
+- **Resumable.** The sweep walks its own cursor, `wikidata-saints@booster` in
+  `AdminWorkerMemory`, so rerunning the command carries on from the last page it
+  finished; it never moves the worker's cursor. A finished sweep rests at offset
+  0 and takes `--restart` to go round again; a cursor parked mid-corpus after
+  the Query Service kept failing takes `--wake`, and the script says which.
+- **Leased.** It takes the `SAINT` ingestor's lease and renews it before every
+  page, so the worker's lane leaves `SAINT` alone meanwhile, and it warns if the
+  worker logs a `SAINT` pass anyway.
+- **No dry run**: every page publishes. To preview a page without writing,
+  `npx tsx scripts/maintenance/diagnose-structured-ingest.ts SAINT --batch 200 --offset N`.
+- **Logs** one line per page, the pass's own `structured_knowledge_ingest` row
+  per page, and a `booster_structured_sweep` row at the start and at the end.
+- **Stops** after the page in hand on Ctrl-C (a second Ctrl-C stops at once and
+  releases the lease), and by itself as `stalled` after three passes in a row
+  that held the page without moving.
+- **Exit status**: `0` done, `2` a usage error or the network disabled (before
+  the database is touched), `3` `leased_elsewhere`, `stalled` or no SAINT
+  ingestor, `1` fatal, `130` on a second Ctrl-C.
+
+On 2026-10-31 a trial page published 11 and the full sweep 349 more; it is to be
+run again once the saints' public-domain sources are merged.
 
 ### Brain as the FINAL decision brain
 
@@ -1890,8 +2745,8 @@ falling back to a TypeScript final brain. Concretely:
   REST** for structured entity facts and abstracts; the open **Liturgical
   Calendar API** for the General Roman Calendar; **OpenStreetMap Overpass** for
   parishes; **DuckDuckGo** for open web search; the **Internet Archive** Wayback
-  API for dead/walled pages; the free **Google translate endpoint** for
-  Latin/Greek; and **schema.org / OpenGraph / microdata** embedded in the pages
+  API for dead/walled pages; **Nominatim** (since 2026-10-31) for parish
+  addresses; and **schema.org / OpenGraph / microdata** embedded in the pages
   it already fetches. There is no widely-available free _Catholic-specific_ REST
   API beyond these — Vatican.va, the USCCB, and most diocesan sites expose no
   API — so the worker treats those as HTML/PDF sources (now incl. JS-rendered
@@ -1901,9 +2756,14 @@ falling back to a TypeScript final brain. Concretely:
   Catholic world.** When no `GOOGLE_PLACES_API_KEY` is configured, parish
   discovery runs on the free, public **Overpass API**
   ([`parish-osm.ts`](src/lib/admin-worker/parish-osm.ts)), asking for churches
-  tagged `amenity=place_of_worship` + `religion=christian` +
-  `denomination=roman_catholic|catholic` and publishing the named ones through
-  the strict parish schema and the real publish orchestrator.
+  tagged `amenity=place_of_worship` + `religion=christian` with a Latin or
+  (since 2026-10-31) Eastern Catholic `denomination` in communion with Rome
+  (`COMMUNION_DENOMINATIONS`), and publishing the named ones through the strict
+  parish schema and the real publish orchestrator. Wayside shrines and crosses,
+  grottoes, Stations of the Cross, private and cemetery chapels and records
+  named only by a descriptor are excluded (`parishExclusionFor`), and a chapel or
+  oratory is designated as one — see
+  [2026-10-31 — Parish addresses](#parish-addresses).
 
   The geography is a **tile grid**, not a rotation of hand-picked metros
   ([`parish-osm-tiles.ts`](src/lib/admin-worker/parish-osm-tiles.ts)). A curated
@@ -1921,12 +2781,18 @@ falling back to a TypeScript final brain. Concretely:
   tile.
 
   Nothing is invented: a candidate needs its OSM name plus **either** a locality
-  tag **or** coordinates; a missing city may be filled from `is_in` or one
-  bounded Nominatim reverse lookup, otherwise the record publishes on its
-  coordinates with an empty city. Dedup runs cheapest-first — `sourceRef`,
-  `addressKey`, same-name-within-200 m, then slug (a collision gets a stable
-  suffix, never a silent skip) — and a re-swept parish **enriches its own row in
-  place**.
+  tag **or** coordinates. Since 2026-10-31 each chunk of new candidates is first
+  looked up by OSM id on Nominatim (50 ids a request), which fills a blank
+  street, postal code, locality and state and replaces a tile-fallback country;
+  when that lookup is unavailable (budget, cooldown) a missing city may still
+  come from `is_in` or one bounded reverse lookup, otherwise the record
+  publishes on its coordinates and the `research-parish-addresses` lane
+  completes it later. Dedup runs cheapest-first — `sourceRef`, the shared
+  address rule (`findDuplicateParish`: the same key **and** within 250 m, plus
+  the same name for a street line without a house number), the same distinctive
+  name within ~200 m, then slug (a collision gets the postcode, the OSM id's last
+  four digits or the whole typed id as a suffix, never a silent skip) — and a
+  re-swept parish **enriches its own row in place**.
 
   **Politeness and budget** ([`parish-osm-overpass.ts`](src/lib/admin-worker/parish-osm-overpass.ts)):
   one query at a time, at least 5 s apart, at most 2 mirrors tried per query, a
@@ -1970,8 +2836,9 @@ falling back to a TypeScript final brain. Concretely:
     site shows are folded in (enrich-only, through the content-protection gate);
     re-checked in 180 days;
   - **unknown** (site unreadable, no signal) → **kept** on the strength of the
-    explicit OSM `roman_catholic` tag, which already excludes Old Catholic /
-    sedevacantist / Orthodox; re-checked in 90 days.
+    explicit OSM denomination tag (a Latin or Eastern Catholic value in
+    communion with Rome), which already excludes Old Catholic / sedevacantist /
+    Orthodox; re-checked in 90 days.
 
   The verifier ([`communion-verifier.ts`](src/lib/admin-worker/communion-verifier.ts))
   does **not** require an explicit "in communion with Rome" statement — a parish
@@ -1991,17 +2858,24 @@ falling back to a TypeScript final brain. Concretely:
   omitted when not found. Nothing about a missing phone or schedule ever blocks a
   publish or routes a parish to review.
 
-- **Duplicates are judged by address, not name.** Two parishes at the same
-  address are the same place however their names are spelled ("St. Mary" vs
-  "Saint Mary Catholic Church"), so every parish carries a normalized
-  `addressKey` ([`parish-address.ts`](src/lib/admin-worker/parish-address.ts):
-  lower-cased, de-accented, street-type/directional words folded to a canonical
-  form). A candidate whose `addressKey` matches an already-published parish is
-  **not published again**. A continuous, keyless maintenance sweep
+- **Duplicates are judged by address first, and never by a city alone.** Two
+  parishes at the same street address are the same place however their names
+  are spelled ("St. Mary" vs "Saint Mary Catholic Church"), so a parish with a
+  street line carries a normalized `addressKey`
+  ([`parish-address.ts`](src/lib/admin-worker/parish-address.ts): the street
+  line transliterated to Latin letters, street-type and directional words folded
+  to a canonical form, plus the postal code or locality and the state). Since
+  2026-10-31 a parish without a street line has no key at all — the old
+  city-only key unpublished 943 distinct parishes as "duplicates" (see
+  [Parish addresses](#parish-addresses)) — and a key match counts only within
+  250 m, with the same distinctive name as well when the street line has no
+  house number (`findDuplicateParish`, the one rule every path uses). A
+  continuous, keyless maintenance sweep
   ([`parish-refresh.ts`](src/lib/admin-worker/parish-refresh.ts), the
   `refresh-parishes` lane) walks the whole published catalog, back-stamping
-  `addressKey` on every row and unpublishing any duplicate — so _previously_
-  published parishes are de-duplicated too, not just new discoveries.
+  `addressKey` on every row and unpublishing a duplicate under that rule, with
+  `_meta.dedup` naming its keeper — so _previously_ published parishes are
+  de-duplicated too, not just new discoveries.
 
 - **End-of-month parish refresh — with an email report, and never a time sink.**
   During the **last 7 days of each month** the same lane re-reads every published
@@ -2454,8 +3328,8 @@ reason to publish — content still has to pass every accuracy / approval /
 source / verification / strict-QA / full-quality gate first.
 
 - **Targets** (`src/lib/admin-worker/content-goals.ts`): Sacrament 7
-  (canonicalMax 7); Parish 200,000; Prayer 1,000; Pope 267; Saint 10,000;
-  Doctor 37; Rite 24; Church Document 200; Devotion / Novena / Guide /
+  (canonicalMax 7); Parish 200,000; Prayer 1,000; Pope 267; Saint 4,500;
+  Doctor 38; Rite 24; Church Document 200; Devotion / Novena / Guide /
   Liturgical 100; Marian Title / Apparition / Spiritual Practice 50 — all
   with **no hard maximum**.
 - **Statuses**: `TARGET_REACHED` for an open type at its target (it keeps
@@ -2469,7 +3343,7 @@ source / verification / strict-QA / full-quality gate first.
   = the Church-documents timeline, tagged `view`). Each non-view row's
   `Target` / `Hard max` is **locked to `DEFAULT_GOAL_SEEDS`** — the same goal the
   growth orchestrator drives toward — by a drift-guard test, so the console can
-  never show a stale denominator (Saints reads `/10,000`, the real goal, not a
+  never show a stale denominator (Saints reads `/4,500`, the real goal, not a
   hard-coded `/1,000`). Each row shows a single legible `Have / Target` column,
   Hard max (— for open types), Gap, and status, and reserves "complete" for
   Sacraments.
@@ -2536,10 +3410,11 @@ publish writer and that every recent public row traces to an artifact.
 
 The repo ships a large, hand-verified curated knowledge base
 (`src/lib/checklist/knowledge/`, `ALL_CURATED_ENTRIES`) of ground-truth,
-schema-valid Catholic content with authority citations — **1,232 entries across
-every content type**: the Church's fixed texts and canonical lists. Depth per
-type is in the [content-goals table](#content-goals--the-largest-gap-first-scheduler)
-above; six goals are met by curated content alone, with no network at all.
+schema-valid Catholic content with authority citations — **2,161 entries across
+every content type** (2026-10-31; 1,232 on 2026-09-07): the Church's fixed texts
+and canonical lists. Depth per type is in the
+[content-goals table](#content-goals--the-largest-gap-first-scheduler) above;
+eight goals are met by curated content alone, with no network at all.
 
 **Layout.** Each content type has a **file** that exports the aggregated array,
 and — for the types that outgrew a single reviewable file — a **directory of
@@ -2548,14 +3423,14 @@ group files** beside it that the aggregator imports:
 ```
 src/lib/checklist/knowledge/
   index.ts                  ALL_CURATED_ENTRIES + findCuratedEntry
-  prayers.ts                aggregates →  prayers/batch-1.ts … batch-8.ts
+  prayers.ts                aggregates →  prayers/batch-1.ts … batch-12.ts
   guides.ts                 aggregates →  guides/rosary-chaplets.ts, sacraments-1.ts,
                                           confession-adoration.ts, seasons-ocia.ts, …
-  church-documents.ts       aggregates →  church-documents/group-1.ts, group-2.ts
-  devotions.ts              aggregates →  devotions/group-1.ts, group-2.ts
+  church-documents.ts       aggregates →  church-documents/group-1.ts … group-3.ts
+  devotions.ts              aggregates →  devotions/group-1.ts … group-3.ts
   liturgical.ts             aggregates →  liturgical/group-1.ts, group-2.ts
-  novenas.ts                aggregates →  novenas/group-1.ts, group-2.ts
-  apparitions.ts            aggregates →  apparitions/group-1.ts
+  novenas.ts                aggregates →  novenas/group-1.ts … group-3.ts
+  apparitions.ts            aggregates →  apparitions/group-1.ts, group-2.ts
   marian-titles.ts          aggregates →  marian-titles/group-1.ts
   rites.ts                  aggregates →  rites/group-1.ts
   spiritual-practices.ts    aggregates →  spiritual-practices/group-1.ts
@@ -2570,7 +3445,7 @@ can be checked on its own before it joins the registry:
 
 ```bash
 npx tsx scripts/validate-curated-file.ts src/lib/checklist/knowledge/prayers/batch-7.ts
-npx tsx scripts/validate-curated-file.ts src/lib/checklist/knowledge/*/*.ts   # all 645 group entries
+npx tsx scripts/validate-curated-file.ts src/lib/checklist/knowledge/*/*.ts   # 1,573 entries, 2026-10-31
 ```
 
 It checks payload-schema validity, slug uniqueness inside the file and against
@@ -2721,18 +3596,26 @@ trimmed and capped at 200 characters, and is **never** counted. Attribution does
 no I/O and cannot throw — recording _why_ a row was dropped must never be able to
 change _whether_ it was dropped.
 
-**The 30 codes**, grouped by where the decision is made rather than by severity
-(a correct rejection and a bug can share a code — telling them apart is the
-diagnostic script's job, below):
+**The 35 codes** (30 until 2026-10-31), grouped by where the decision is made
+rather than by severity (a correct rejection and a bug can share a code —
+telling them apart is the diagnostic script's job, below):
 
-| Group                      | Codes                                                                                                                                                                                                              |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Row shape** (5)          | `no_english_label`, `missing_required_field`, `slug_unresolvable`, `invalid_url`, `antipope_excluded`                                                                                                              |
-| **Narrative sourcing** (5) | `no_wikipedia_article`, `wikipedia_fetch_failed`, `description_too_short`, `no_source_url`, `narrative_too_short`                                                                                                  |
-| **Catholicity / kind** (3) | `not_catholic_context`, `unrecognized_type`, `owned_by_other_ingestor`                                                                                                                                             |
-| **Church documents** (3)   | `date_unparseable`, `no_key_themes`, `no_canonical_url`                                                                                                                                                            |
-| **Saints** (9)             | `saint_facts_unparseable`, `not_catholic_status`, `non_catholic_religion`, `no_catholic_religion`, `no_canonization_date`, `feast_unparseable`, `feast_uncorroborated`, `feast_ambiguous`, `biography_unavailable` |
-| **Orchestration** (5)      | `map_threw`, `duplicate_in_page`, `schema_invalid`, `publish_rejected`, `publish_threw`                                                                                                                            |
+| Group                      | Codes                                                                                                                                                                                                                                                                                    |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Row shape** (5)          | `no_english_label`, `missing_required_field`, `slug_unresolvable`, `invalid_url`, `antipope_excluded`                                                                                                                                                                                    |
+| **Narrative sourcing** (5) | `no_wikipedia_article`, `wikipedia_fetch_failed`, `description_too_short`, `no_source_url`, `narrative_too_short`                                                                                                                                                                        |
+| **Catholicity / kind** (3) | `not_catholic_context`, `unrecognized_type`, `owned_by_other_ingestor`                                                                                                                                                                                                                   |
+| **Church documents** (3)   | `date_unparseable`, `no_key_themes`, `no_canonical_url`                                                                                                                                                                                                                                  |
+| **Saints** (12)            | `saint_facts_unparseable`, `not_catholic_status`, `non_catholic_religion`, `no_catholic_religion`, `no_canonization_date`, `status_contradicted`, `status_uncorroborated`, `feast_unparseable`, `feast_uncorroborated`, `feast_contradicted`, `feast_ambiguous`, `biography_unavailable` |
+| **Orchestration** (7)      | `map_threw`, `source_read_failed`, `duplicate_in_page`, `schema_invalid`, `publish_rejected`, `publish_threw`, `curated_set_unmatched`                                                                                                                                                   |
+
+The five added on 2026-10-31: the saint gates' `status_contradicted`,
+`status_uncorroborated` and `feast_contradicted` (the article contradicts, or
+does not confirm, what Wikidata says); `source_read_failed`, a rejection reached
+on a read that got no answer (never remembered, so the row is tried again next
+pass); and `curated_set_unmatched`, a `DOCTOR` or `RITE` entity no curated row
+matches, held for a curator rather than published. See
+[2026-10-31 — Saints](#saints).
 
 The orchestration codes are recorded by `ingest.ts`, not by a mapper, and they
 close two holes the counters never showed: a mapper that **throws** is now
@@ -3179,7 +4062,7 @@ SOURCE_FETCH→EXTRACTION` → `worker_stuck: SOURCE_FETCH 10/10 passes`). It is
 | **`parish-osm-overpass.ts`**             | Overpass transport: mirror failover, request pacing, daily budget                                         |
 | **`parish-website-verification.ts`**     | Bounded communion re-check of published parish websites                                                   |
 | **`structured/saint-repair.ts`**         | Cursor-based re-derivation of published Wikidata saints (versioned, never deletes)                        |
-| **`structured/reject.ts`**               | The mapper contract: `MapResult`, the closed 30-code rejection set, the reason histogram                  |
+| **`structured/reject.ts`**               | The mapper contract: `MapResult`, the closed 35-code rejection set, the reason histogram                  |
 | `structured/reject-coverage.ts`          | Source scanner behind the "a null must report" ratchet test                                               |
 | `structured/source-page.ts`              | One page of source rows — shared by the ingest and the read-only diagnostic                               |
 | **`structured/diagnose.ts`**             | Read-only replay of one page: histogram + example entities, no publish path, no Prisma                    |
@@ -3273,7 +4156,13 @@ restart. Four layers now prevent that (`worker-supervisor.ts`,
   silent exit into a loud, survivable event — console + audit-log + a
   throttled (15-min) critical-failure email — and **keep the process alive**.
   Safe because every pass re-reads all state from Postgres, so no in-memory
-  invariant can be corrupted across passes by a single stray throw.
+  invariant can be corrupted across passes by a single stray throw. Two
+  exceptions since 2026-10-31: a closed stdout/stderr pipe
+  (`EPIPE`/`ERR_STREAM_DESTROYED`) means the supervising host is gone, so the
+  worker silences stdio and exits with code 6 instead of logging to the dead
+  pipe (the amplifier that once kept an orphaned host at 100 % CPU for 8 days);
+  and everything else is deduplicated — one row per error signature per minute,
+  at most 20 rows a minute.
 - **Supervisor restart.** In continuous mode `runLoopSupervised` re-enters
   `runAdminWorkerLoop` after a bounded exponential backoff (2s → 60s cap) if
   the loop **machinery itself** throws or returns unexpectedly, so the worker
@@ -3386,36 +4275,42 @@ service): every independent workstream is its own lane, so the worker fires a lo
 of tasks at once instead of blocking on each other (`lanes.ts` + `worker-lanes.ts`).
 Each lane is individually tracked, so you can see exactly what every one is doing.
 
-**Content lanes** run only while the Python final brain is active (`activeOnly` —
-they publish). **Ops lanes** run every pass regardless of brain mode. Both run
-only inside a pass, which runs only while the master switch is ON.
+**Content lanes** publish or grow public content; **ops lanes** run every pass
+regardless of brain mode. Until 2026-10-31 every content lane but the OSM sweep
+was `activeOnly`, so any brain outage stopped growth for 14 of the 15 content
+types. Now only `discover-structured` and `discover-web` are: their candidates
+can only advance through brain-chosen stages and brain-screened publishes. The
+other content lanes call no brain and publish only through deterministic gates
+(`skipBrainScreens`), so they keep running while the brain is degraded. Every
+lane runs only inside a pass, which runs only while the master switch is ON.
 
-| Lane                       | Kind    | Watchdog | What it does                                                                                                                                                         |
-| -------------------------- | ------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ingest-curated`           | content | 120 s    | Publishes the next batch of curated entries + the fingerprint-gated re-publish of edited ones                                                                        |
-| `ingest-structured`        | content | 6 min    | Wikidata/Wikipedia structured ingest for the type furthest from its goal                                                                                             |
-| `ingest-liturgical`        | content | 120 s    | Keyless liturgical-calendar ingest (feasts of the Lord + solemnities)                                                                                                |
-| `enrich-translations`      | content | 120 s    | Authentic Latin/Greek backfill from the internal corpus                                                                                                              |
-| `enrich-reviews`           | content | 120 s    | Review-queue auto-resolve                                                                                                                                            |
-| `enrich-pope-cleanup`      | content | 120 s    | Pope-record cleanup                                                                                                                                                  |
-| `discover-structured`      | content | 6 min    | Structured discovery seeding                                                                                                                                         |
-| `discover-parish-osm`      | content | 8 min    | The OSM tile sweep. A content lane, but deliberately **not** `activeOnly`: it is deterministic and brain-free, so it grows parishes even while the brain is degraded |
-| `discover-web`             | content | 120 s    | The 8-method web discovery orchestrator                                                                                                                              |
-| `drain`                    | ops     | 10 min   | The BUILD_READY drain (a legitimately long-running lane, hence the higher watchdog)                                                                                  |
-| `readings`                 | ops     | 120 s    | Daily-readings refresh + the rolling backfill                                                                                                                        |
-| `maint-schema`             | ops     | 120 s    | Schema-awareness (brain, under the mutex)                                                                                                                            |
-| `maint-ui`                 | ops     | 120 s    | UI-awareness (brain, under the mutex)                                                                                                                                |
-| `maint-self-model`         | ops     | 120 s    | The whole-app self-model pass (brain, under the mutex)                                                                                                               |
-| `maint-custody`            | ops     | 120 s    | Content custody / missing-information scan (brain, under the mutex)                                                                                                  |
-| `maint-hygiene`            | ops     | 120 s    | Display repairs on live rows (slug-shaped titles, stale subtitles) **and the hourly ledger prune**                                                                   |
-| `maint-self-heal`          | ops     | 6 min    | [Self-maintenance](#self-maintenance) — sense → diagnose → repair → verify                                                                                           |
-| `reporting`                | ops     | 120 s    | Reporting pass + the month-end report gate                                                                                                                           |
-| `refresh-parishes`         | ops     | 120 s    | Continuous address-dedup + the last-7-days-of-month parish refresh                                                                                                   |
-| `repair-structured-saints` | ops     | 6 min    | Re-derives published Wikidata saints against their source — deterministic, so it runs regardless of brain mode                                                       |
-| `verify-parish-websites`   | ops     | 6 min    | 30 parish sites per run, communion verdict + `nextDueAt`                                                                                                             |
-| `intelligence`             | ops     | 120 s    | Post-pass analysis + lab + skill matrix + code-version — **the single brain-calling lane**                                                                           |
-| `escalation`               | ops     | 120 s    | Self-assessment → governance → escalation                                                                                                                            |
-| `innovation`               | ops     | 120 s    | The measure-only innovation lab                                                                                                                                      |
+| Lane                        | Kind    | Watchdog | What it does                                                                                                                                                                                                  |
+| --------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ingest-curated`            | content | 120 s    | Publishes the next batch of curated entries + the fingerprint-gated re-publish of edited ones                                                                                                                 |
+| `ingest-structured`         | content | 6 min    | Wikidata/Wikipedia structured ingest for the type furthest from its goal                                                                                                                                      |
+| `ingest-liturgical`         | content | 120 s    | Keyless liturgical-calendar ingest (feasts of the Lord + solemnities)                                                                                                                                         |
+| `enrich-translations`       | content | 120 s    | Authentic Latin/Greek backfill from the internal corpus                                                                                                                                                       |
+| `enrich-reviews`            | content | 120 s    | Review-queue auto-resolve                                                                                                                                                                                     |
+| `enrich-pope-cleanup`       | content | 120 s    | Pope-record cleanup                                                                                                                                                                                           |
+| `discover-structured`       | content | 6 min    | Structured discovery seeding                                                                                                                                                                                  |
+| `discover-parish-osm`       | content | 8 min    | The OSM tile sweep. A content lane, but deliberately **not** `activeOnly`: it is deterministic and brain-free, so it grows parishes even while the brain is degraded. Idle while the `PARISH` goal has no gap |
+| `discover-web`              | content | 120 s    | The 8-method web discovery orchestrator, its target rotated with the mission selector (`activeOnly`)                                                                                                          |
+| `drain`                     | ops     | 10 min   | The BUILD_READY drain (a legitimately long-running lane, hence the higher watchdog)                                                                                                                           |
+| `readings`                  | ops     | 120 s    | Daily-readings refresh + the rolling backfill                                                                                                                                                                 |
+| `maint-schema`              | ops     | 120 s    | Schema-awareness (brain, under the mutex)                                                                                                                                                                     |
+| `maint-ui`                  | ops     | 120 s    | UI-awareness (brain, under the mutex)                                                                                                                                                                         |
+| `maint-self-model`          | ops     | 120 s    | The whole-app self-model pass (brain, under the mutex)                                                                                                                                                        |
+| `maint-custody`             | ops     | 120 s    | Content custody / missing-information scan (brain, under the mutex)                                                                                                                                           |
+| `maint-hygiene`             | ops     | 120 s    | Display repairs on live rows (slug-shaped titles, stale subtitles) **and the hourly ledger prune**                                                                                                            |
+| `maint-self-heal`           | ops     | 6 min    | [Self-maintenance](#self-maintenance) — sense → diagnose → repair → verify                                                                                                                                    |
+| `reporting`                 | ops     | 120 s    | Reporting pass + the month-end report gate                                                                                                                                                                    |
+| `refresh-parishes`          | ops     | 120 s    | Continuous address-dedup + the last-7-days-of-month parish refresh                                                                                                                                            |
+| `repair-structured-saints`  | ops     | 6 min    | Re-derives published Wikidata saints against their source — deterministic, so it runs regardless of brain mode                                                                                                |
+| `verify-parish-websites`    | ops     | 6 min    | 30 parish sites per run, communion verdict + `nextDueAt`                                                                                                                                                      |
+| `research-parish-addresses` | ops     | 6 min    | Since 2026-10-31: Nominatim lookups by OSM id for parishes missing address parts, plus the city-key restore and re-sweep — see [Parish addresses](#parish-addresses)                                          |
+| `intelligence`              | ops     | 120 s    | Post-pass analysis + lab + skill matrix + code-version — **the single brain-calling lane**                                                                                                                    |
+| `escalation`                | ops     | 120 s    | Self-assessment → governance → escalation                                                                                                                                                                     |
+| `innovation`                | ops     | 120 s    | The measure-only innovation lab                                                                                                                                                                               |
 
 **Priority: content goals first, then management + security.** While any goal has
 an open gap the growth lanes (`ingest-*`, `discover-*`, tagged `growth: true`)
@@ -3459,6 +4354,18 @@ campaign target and `nextPriorityContentType`'s mission target (and from the
 surges on the biggest goal it can actually publish while `PARISH` keeps growing on
 its OSM lane every pass.
 
+The same trap held for `SAINT` until 2026-10-31: with the largest web-type gap
+it was the campaign target permanently, although it grows mainly from the
+Wikidata lane, while `PRAYER` and `NOVENA`, which only the web can grow, got
+incidental candidates. A type whose structured ingestor published in the last
+24 hours now counts at `ADMIN_WORKER_CAMPAIGN_STRUCTURED_WEIGHT` (0.1) of its
+gap; one type surges for at most `ADMIN_WORKER_CAMPAIGN_MAX_SURGE_HOURS` (6)
+and then cools down for `ADMIN_WORKER_CAMPAIGN_COOLDOWN_HOURS` (6); and after
+`ADMIN_WORKER_CAMPAIGN_SURGE_STREAK` (2) consecutive campaign picks the next
+discovery pick goes to the normal rotation, so the campaign keeps two of every
+three. The always-on `discover-web` sweep asks the same selector for its target
+and rotates over its own last four targets.
+
 Concurrency is made **safe by construction, not by luck**:
 
 - Lanes touch **disjoint work domains** (curated vs structured vs OSM vs
@@ -3487,7 +4394,7 @@ Concurrency is made **safe by construction, not by luck**:
   `run()` never settles is timed out, recorded as errored, and the others proceed
   — a hung lane can never wedge the pass or orphan a `RUNNING` row.
 - **Brain-calling work lives in one lane.** See
-  [The Python brain bridge does not queue](#the-python-brain-bridge-does-not-queue).
+  [The Python brain bridge: one request in flight](#the-python-brain-bridge-one-request-in-flight).
 
 Each lane records its live state to `AdminWorkerLaneState` — status, current
 item/gate/strategy, capacity, concurrent tasks, last outcome/error/duration —
@@ -3495,25 +4402,37 @@ which is the practical **operational-self-awareness** surface the "Internal work
 lanes" diagnostics rating + the pipeline page show: which lanes ran, which are in
 error-backoff, and what each last did.
 
-### The Python brain bridge does not queue
+### The Python brain bridge: one request in flight
 
 Worth stating plainly, because the obvious assumption is wrong and the
 consequences were expensive.
 
-The resident brain answers **strictly one request at a time**, and the bridge
-([`intelligence/client.ts`](src/lib/admin-worker/intelligence/client.ts)) **does
-not queue**: every caller writes straight to the child process's stdin and starts
-its own timeout **the moment it writes**. Responses are multiplexed back by id
-over newline-delimited JSON, so concurrent callers are not an error — but they
-are not concurrent work either. Two lanes calling the brain at once do not run in
-parallel: the second one waits inside the Python loop while its 8 s timeout is
-already ticking, and a lane the watchdog has given up on keeps queueing calls
-into the next pass.
+The resident brain answers **strictly one request at a time**. Until 2026-10-31
+the bridge ([`intelligence/client.ts`](src/lib/admin-worker/intelligence/client.ts))
+**did not queue**: every caller wrote straight to the child process's stdin and
+started its own timeout **the moment it wrote**. Responses are multiplexed back
+by id over newline-delimited JSON, so concurrent callers were not an error — but
+they were not concurrent work either. Two lanes calling the brain at once did not
+run in parallel: the second one waited inside the Python loop while its 8 s
+timeout was already ticking, two such timeouts in a row killed the brain for
+every caller, and repeated recycles latched it down, so the next pass ran in
+safe degraded mode.
 
-So callers **serialize through a mutex**
-([`brain-mutex.ts`](src/lib/admin-worker/brain-mutex.ts)): at most one of them
-talks to the brain at a time, and each one's timeout starts only once it actually
-holds the process. It is deliberately tiny — a promise chain, no re-entrancy, no
+Since 2026-10-31 the bridge itself keeps **exactly one request in flight**
+([`single-flight.ts`](src/lib/admin-worker/intelligence/single-flight.ts)): turns
+are granted in arrival order, a call's timeout starts at its own write, and a
+call that cannot get its turn within `INTELLIGENCE_QUEUE_WAIT_MS` (default twice
+the timeout; `0` never waits) returns `null` as "brain busy" — not counted as a
+timeout, and no recycle. A call that times out keeps the turn until its late
+answer arrives (which proves the brain alive and resets the timeout count), the
+process exits, or one more timeout window passes; so one slow operation no
+longer makes the next call time out behind it, and a brain that never answers is
+still recycled after two genuine timeouts.
+
+Before the bridge queued, the answer was a **mutex**, and the lanes listed below
+still take it ([`brain-mutex.ts`](src/lib/admin-worker/brain-mutex.ts)): at most
+one of them talks to the brain at a time, and each one's timeout starts only
+once it actually holds the process. It is deliberately tiny — a promise chain, no re-entrancy, no
 priorities; a holder that throws still releases (the chain settles in `finally`),
 and every brain call carries its own timeout, so a holder can never hang the
 queue indefinitely. `brainMutexState()` exposes live occupancy for diagnostics.
@@ -3582,7 +4501,7 @@ audit trail.
 
 ### Stuck protections
 
-Five independent mechanisms, each catching a different way the worker can stop
+Six independent mechanisms, each catching a different way the worker can stop
 making progress:
 
 1. **The pass can never be left `RUNNING`.** Everything after `startPass` runs
@@ -3624,6 +4543,16 @@ making progress:
    what let the durable table grow to 207,830 unpruned rows — and
    [self-maintenance](#self-maintenance) is what escalates when the condition
    persists.
+6. **A hung pass is restarted from outside** (since 2026-10-31,
+   [`worker-progress.ts`](src/lib/admin-worker/worker-progress.ts)). The five
+   above all run inside the worker, so a pass stuck on a query over a half-open
+   connection, or on a promise that never settles, defeats every one of them
+   while the heartbeat timer keeps reading healthy. The worker reports progress
+   beacons at the boundaries a healthy loop always crosses (and announces its
+   idle rests); the host stops a worker silent for
+   `VIAFIDEI_WORKER_PROGRESS_TIMEOUT_MS` (25 min) and restarts it through the
+   crash path, ignoring time the Mac spent asleep. Restarting the process is the
+   only real cancellation: a promise cannot be cancelled.
 
 Above all of that sits the self-monitoring → governance → escalation layer
 described below, which decides how to respond to the worker's **overall** state
@@ -5102,39 +6031,47 @@ grouping by content type with a real human type label.
 
 ### The parish card, and "parishes near me"
 
-There is exactly **one** parish presentation
-([`ui/ParishCard.tsx`](src/components/ui/ParishCard.tsx)), rendered by both the
-directory list (`variant="list"`, an `h2` that links to the parish) and the
-parish's own page (`variant="detail"`, an `h1`, because there the parish _is_ the
-page). A parish shows, in this order and nothing else:
+There is exactly **one** church presentation
+([`ui/ParishCard.tsx`](src/components/ui/ParishCard.tsx)) — parish, cathedral,
+basilica, shrine, chapel or oratory — rendered by both the directory list
+(`variant="list"`, an `h2` that links to the parish) and the parish's own page
+(`variant="detail"`, an `h1`, because there the parish _is_ the page). Since
+2026-10-31 a church shows, in this order and nothing else:
 
-- the **name**, in title type;
-- an optional **distance line** directly under the name;
-- one line labelled **Diocese**, whose value is the record's city, state and
-  country joined with `", "` ("Denver, Colorado, United States");
-- the **postal address**, with a **Get directions** button beside it —
-  `MapsAddressLink` in its block variant, which opens Apple Maps on iPhone/iPad
-  and Google Maps everywhere else, using the record's exact coordinates when it
-  has them so the pin lands on the right building;
-- the **website**, when the record has one, as a domain rather than a raw URL
-  (a stored `stmarys.org` with no scheme still becomes a working `https` link).
+- the **name**, in title type (a name in a script other than the reader's is
+  transliterated beside the original where the script allows it; see
+  [docs/operations/translation.md](docs/operations/translation.md));
+- what the church **is**, in words (`parishDesignationLabel`: Parish,
+  Cathedral, Shrine, Chapel, Oratory, and a basilica always as Minor Basilica or
+  Major Basilica); a designation it does not know shows nothing rather than a
+  raw token;
+- an optional **distance line**;
+- the **postal address** in a semantic `<address>` (`parishAddressLines`): the
+  street line, then postal code, town and region in the country's own order
+  ("00184 Roma, Lazio", "Chicago, IL 60629"), then the country, each part
+  degrading to what the record has — with a **Get directions** button beside it
+  (`MapsAddressLink`, which opens Apple Maps on iPhone/iPad and Google Maps
+  everywhere else) whenever the record has coordinates or a street, aimed at the
+  coordinates when there are any, because most churches have no street line but
+  every one has coordinates.
 
-Designation, phone, Mass times, confession times, background and summary are
-**still in the schema and still in the published payload** — they simply stopped
-being displayed. The detail page no longer goes through `PublishedDetail`, which
-prints every remaining payload key, for exactly that reason.
+The September card's **Diocese** line (its value was really the town: "Denver,
+Colorado, United States") and the **website** are gone from both the card and
+the page. Phone, Mass times, confession times, website, diocese, background and
+summary are **still in the schema and still in the published payload** — they
+are simply not displayed. The detail page does not go through
+`PublishedDetail` for exactly that reason. The `/parishes` filter chips are
+Parishes, Cathedrals, Basilicas, Shrines and Chapels, and Chapels includes
+oratories.
 
-The consequence worth naming: this is a **rendering** change, so all ~9,700
-published parishes (9,731 at the time) changed presentation the moment the
-component did — **no migration, no backfill, no worker pass** over a single row.
-That is the payoff of keeping the card a pure function of the payload
-([`content-shared/parish.ts`](src/lib/content-shared/parish.ts) holds the three
-helpers it needs, and none of them reads or reshapes stored data).
-
-Honest caveat: only about a **third** of published parishes currently carry a
-city, and the OSM sweep is where the rest will come from. When city, state and
-country are **all** absent, the whole labelled line is omitted rather than
-printed empty — a "Diocese" eyebrow with nothing after it reads as a broken row.
+Both the September card and the 2026-10-31 one were **rendering** changes: every
+published parish changed presentation the moment the component did — **no
+migration, no backfill, no worker pass** over a single row. That is the payoff of
+keeping the card a pure function of the payload
+([`content-shared/parish.ts`](src/lib/content-shared/parish.ts) holds the
+helpers it needs, and none of them reads or reshapes stored data). How complete
+the addresses are is the research lane's job; see
+[Parish addresses](#parish-addresses).
 
 **"Use my location", and why it widens.** The directory page ships one page of
 thirty projected rows and does no distance work at all until it is asked to.
@@ -5165,30 +6102,32 @@ visitor's own fix (the SQL distance is only the fallback for a row whose stored
 coordinate did not come back with the projection), so the label cannot drift from
 the coordinate the device just handed over.
 
-The units come from the **device's** region — `navigator.languages`, falling back
-to `navigator.language`, resolved through `Intl.Locale` (using
-`measurementSystem` where the runtime implements the proposal, and a region
-allow-list of `US`, `LR`, `MM`, `GB` otherwise) — **not** from where the
-coordinates fall. A US-configured phone in Rome still reads miles; a German phone
-in Denver still reads kilometres. Deriving the unit from the visitor's position
-would switch a traveller's units mid-trip, which is exactly the thing people find
-disorienting. With no usable locale at all the fallback is imperial, because the
-API, the ladder and the stored distances are all already in miles.
+Since 2026-10-31 the units and the words follow the **reader** — never the
+coordinate and never the IP address, because deriving them from the visitor's
+position would switch a traveller's units mid-trip:
 
-The thresholds, as implemented:
+- every site language except English reads **metric**, wherever the visitor is:
+  a Portuguese page on a US phone says "A 800 m de distância";
+- English reads **miles** only for US English (en-US, and CLDR's other
+  US-system regions, en-LR and en-MM); British, Irish, Canadian, Australian and
+  Indian English read metric. Which English is decided from the browser's
+  **primary** language, not from the "en-US, en" that browsers append as a
+  fallback, so a German Firefox ("de, en-US, en") no longer reads miles; a
+  browser that names nothing usable reads as US English, because the API, the
+  ladder and the stored distances are already in miles;
+- the number, its separators and the unit come from `Intl.NumberFormat` in the
+  reader's regional variant of the site language ("800 ft", "2.4 km",
+  "2,4 km", "2.4公里"; Latin, which has no CLDR number data, formats as it-VA),
+  and the phrase around them from the UI dictionaries (`parishes.distanceAway`,
+  in all twelve);
+- precision shrinks with distance: short distances round to the nearest hundred
+  feet or hundred metres and never read zero ("100 m" across the street); from a
+  thousand of those the larger unit takes over with one decimal ("1.3 mi",
+  "2.4 km"); from ten, whole numbers ("14 km"). A non-finite distance renders
+  nothing at all.
 
-| System   | Below the threshold                       | Above it                                        |
-| -------- | ----------------------------------------- | ----------------------------------------------- |
-| Imperial | under **0.1 miles** → whole **feet**      | **miles**, one decimal ("3.2 miles away")       |
-| Metric   | under **1,000 metres** → whole **metres** | **kilometres**, one decimal ("12.4 kilometres") |
-
-The metric switch sits higher than the imperial one deliberately: "150 metres
-away" beats "0.2 kilometres away" for a parish you can see from where you are
-standing, and a kilometre is where mapping apps change unit too. At three digits
-the decimal is dropped (it reads like a machine, not a distance). A parish on the
-doorstep reads as at least "1 foot", never "0 feet"; a negative or non-finite
-value renders nothing at all. Search **radii** are formatted by a separate
-function, because "50 miles" is a round number we chose and "50.0 miles" would
+Search **radii** are formatted by a separate function, following the same unit
+decision, because "50 miles" is a round number we chose and "50.0 miles" would
 read like a measurement of something.
 
 Share and Save sit in the card's action slot on the detail page — they are
@@ -5241,13 +6180,19 @@ crawler that guessed a URL should not see an error.
 ### The history timeline
 
 `/history` is the one page that is not purely database-driven. Its spine is a
-**static, hand-curated dataset of 232 events**
-([`content-shared/church-history/`](src/lib/content-shared/church-history/),
-split across four files purely to stay reviewable and merged in chronological
-order by `church-history-events.ts`). Every event carries exactly **one**
-citation, and a dataset test enforces that it is an `https` page on an
-allow-listed host — so a typo or an unvetted source can never ship as a "Source"
-link.
+**static, hand-curated dataset of 1,427 events** (232 until 2026-10-31;
+[`content-shared/church-history/`](src/lib/content-shared/church-history/),
+split across thirteen `events-N.ts` parts purely to stay reviewable and merged
+in chronological order by `church-history-events.ts`). Parts 1–4 are the
+original spine, parts 5–11 deepen one era each from the Apostolic Age to 2026,
+and parts 12 and 13 are completeness passes; see
+[2026-10-31 — History timeline](#history-timeline). Every event carries exactly
+**one** citation, and a dataset test enforces that it is an `https` page on an
+allow-listed host, so a typo or an unvetted source can never reach the data.
+The test discovers the parts on disk and fails if one is unregistered, empty or
+not merged whole, and the timeline may never fall below the original 232. Since
+2026-10-31 the citation is no longer printed on the event card — the owner's
+rule is no visible sources — and stays in the data.
 
 The timeline merges that spine with the published `CHURCH_DOCUMENT` rows
 ([`church-history/timeline.ts`](src/lib/content-shared/church-history/timeline.ts)):
@@ -5258,21 +6203,41 @@ document/council event placed by its issue date. Curated councils were published
 with a `-01-01` placeholder day, so a council document dated `-01-01` is rendered
 at **year precision** rather than as a fabricated 1 January. Related links to
 popes, saints, doctors and apparitions are kept only when the referenced slug is
-actually published. This is why the timeline reads 325 → 1965 even on a database
-with no church documents in it at all.
+actually published. This is why the timeline reads from Pentecost to 2026 even on
+a database with no church documents in it at all.
 
 ### Reading experience
 
-**Liturgical languages (Latin / Greek).** Every prayer, **litany**, and guide
-carries its vernacular text plus authentic, verbatim **Latin** and **Greek**
-liturgical text (`payload.latin` / `payload.greek`). `buildPrayerVariants`
-(`content-shared/prayer-language.ts`) flattens these into the
-`PrayerLanguageToggle`. The toggle is **Latin/Greek-only**: the vernacular is
-the implicit default and gets **no chip** — only Latin and Greek are offered, and
-re-selecting the active chip (or never choosing one) falls back to the
-vernacular. The choice is session-persisted, so picking Latin once opens every
-prayer that has it in Latin. Latin/Greek are marked `translate="no"` so device or
-auto-translation never rewrites the verbatim sacred text.
+**Liturgical languages (Latin / Greek).** A prayer, **litany** or guide prayer
+carries its vernacular text plus whatever authentic, verbatim **Latin** and
+**Greek** liturgical text its payload holds (`payload.latin` / `payload.greek`);
+nothing is generated for display. `buildPrayerVariants`
+(`content-shared/prayer-language.ts`) flattens these, and since 2026-10-31 one
+control renders them everywhere a prayer appears — the prayer page, every prayer
+dropdown, and every prayer opened in place inside a Rosary, chaplet, novena,
+devotion, spiritual practice or Marian page: `PrayerLanguageChips` with
+`usePrayerLanguage`. (Until then there were three different toggles, and the
+devotion, practice and Marian pages showed none.) The chips are
+**Latin/Greek-only**: the vernacular is the implicit default and gets **no
+chip**, and re-selecting the active chip (or never choosing one) falls back to
+it. The choice is session-persisted and broadcast, so picking Latin once moves
+every prayer on the page that has it. A prayer with no other language shows no
+chip. Latin/Greek are marked `translate="no"` so device or auto-translation never
+rewrites the verbatim sacred text.
+
+A language that a prayer's `machineTranslated` marker names — the June 2026
+machine fills, 38 published prayers on 2026-10-31 — prints "Unofficial
+translation, not a liturgical text." under it while it is shown, unless the
+stored text is the received text the curated registries hold for that prayer
+(`publishedPrayerVariants`; the Litany of Saint Joseph's official Latin was the
+one such case). **Why some prayers have no chip at all:** a prayer shows only the
+languages its payload carries, and no text enters a payload unless it is curated
+received text. On 2026-10-31 a review of the roughly 250 prayers then published
+(before that day's new prayers went live) counted 180 with no received Latin or
+Greek in the repository; `cc7fcbe` gave one of them (Come, Holy Ghost) the Latin
+it shares with the modern form of the prayer, leaving **179** that show no chip
+until a curator supplies their received text. The day's new prayers carry Latin
+only where their source prints it.
 
 The worker **builds these translations itself** through a deterministic
 **liturgical translation engine**
@@ -5310,9 +6275,12 @@ The engine is wired into the worker three ways, all running autonomously:
   already populated "as if it had it".
 - The **`runPrayerTranslationBackfill`** pass runs on **every loop pass**
   (throttled ~hourly, cursor-walked across the whole catalogue so it never
-  re-does finished prayers and never gets stuck): authentic corpus first, then the
-  machine fallback (auto-filled by default, or routed to review when opted out).
-  Covers litanies (published as `PRAYER` with `prayerType:"litany"`) and both
+  re-does finished prayers and never gets stuck), from the authentic corpus only.
+  Since 2026-10-31 a language named in a prayer's `machineTranslated` marker
+  counts as missing, so when the corpus resolves it the authentic text replaces
+  the machine fill through the content-protection gate (snapshot first) and the
+  language leaves the marker; unmarked text is never overwritten. Covers
+  litanies (published as `PRAYER` with `prayerType:"litany"`) and both
   languages.
 - The **`ensure_prayer_translations`** maintenance skill backfills
   **already-published** prayers and litanies each maintenance pass (guides inherit
@@ -5320,15 +6288,22 @@ The engine is wired into the worker three ways, all running autonomously:
   (ledger + verify).
 
 Latin covers the whole canonical corpus + composites; Greek covers the authentic
-received forms first and is then completed by the configured translation
-provider — sacred texts are never guessed onto a live page without that machine
-provenance recorded for review.
+received forms. There is no machine-translation provider behind either: the
+only machine-made Latin and Greek on the site are the June 2026 fills recorded in
+`machineTranslated`, labelled unofficial on the page until the backfill replaces
+them. Curated translations are merged for every curated `PRAYER` registry (the
+batch files and the litanies included; until 2026-10-31 one keyed to a batch
+slug was silently never published).
 
-**Guide prayers.** Every guide (Rosary, Divine Mercy Chaplet, Confession, …)
-lists its applicable prayers at the bottom in the order they are prayed, each a
-**dropdown** (`GuidePrayers` + `Disclosure`) so the full text is readily
-available, with **one universal Latin/Greek toggle** that switches every prayer
-at once (defaulting to the vernacular when neither is selected).
+**Guide prayers.** Every guide (Rosary, Divine Mercy Chaplet, Confession, …),
+devotion, spiritual practice and novena lists the prayers it prays, each a
+**dropdown** (`GuidePrayers` + `Disclosure`) carrying the shared chips. Since
+2026-10-31 the list merges the stored list with the prayers the instructions (or
+a novena's days) name — those the text names first, in the order it names them —
+and adds nothing neither gives, so the customary Our Father / Hail Mary / Glory
+Be fallback is gone. It is numbered "in the order they are prayed" only when the
+text names every prayer in it, and never on a Marian title, whose prayers are
+alternatives; a prayer named in the instructions also opens in place.
 
 **Sharing.** Every content card carries a **Share** control
 ([`ui/ShareButton.tsx`](src/components/ui/ShareButton.tsx)) — a hand-drawn
@@ -5360,12 +6335,22 @@ and as the Android/PWA icon. The root layout's `icons` metadata + a
 `icon-512.png` (manifest / Android / share fallback). All are generated from the
 one logo, so there is a single source of truth for the mark.
 
-**Source attribution.** Content cards no longer print an "Approved sources" /
-"Sources" citation list at the bottom — the worker's verification provenance
-lives in the admin surfaces (checklist, artifacts, audit), not on the reader
-page. The **one exception is the daily-readings page**, which keeps its modest
-"Source: …" link (the authoritative liturgical source for that day's readings),
-so a reader can always go to the official text.
+**Source attribution.** Content pages print no source lists — the owner's rule
+is no visible sources — and since 2026-10-31 that holds everywhere: no "Source:"
+line on a timeline event, no host link on a Church-document card, and no
+citation inside a devotion's indulgence note (the presenter never renders a
+`citation`, `citations`, `source`, `sources`, `sourceUrl` or `sourceUrls` key,
+at any depth). The worker's verification provenance lives in the admin surfaces
+(checklist, artifacts, audit) and every citation stays in the payload. Two
+exceptions remain. The **daily-readings page** keeps its modest "Source: …" link
+(the authoritative liturgical source for that day's readings), so a reader can
+always go to the official text; a Church document's own page keeps "Read the
+full document". And a detail page whose prose was **quoted from Wikipedia** ends
+with one small line, "Text from Wikipedia (<article>), CC BY-SA 4.0", linking the
+article and the licence, because the licence requires the credit
+([`content-shared/wikipedia-attribution.ts`](src/lib/content-shared/wikipedia-attribution.ts));
+composed or hand-written text that
+merely cites Wikipedia is never credited this way.
 
 **Category filters.** Content-rich tabs split their items into the Church's
 natural groupings via URL-driven filter chips (`?filter=…`, the shared
@@ -5373,8 +6358,8 @@ natural groupings via URL-driven filter chips (`?filter=…`, the shared
 type, Guides by kind (**Chaplets** surfaces the Divine Mercy Chaplet), Rites by
 family (Latin / Eastern), Liturgy by kind, Spiritual Life by practice, Our Lady
 by titles/apparitions, Church Documents by category (incl. Dogmas), and
-Parishes by designation. Each tab only shows a chip when at least one published
-item falls under it.
+Parishes by designation (Chapels includes oratories). Each tab only shows a chip
+when at least one published item falls under it.
 
 The **Saints** filters are the Church's groupings that don't already have their
 own tab — Martyrs, Apostles & Evangelists, Popes, Bishops, Religious & Founders,
@@ -5609,14 +6594,15 @@ npx tsx scripts/lectionary/check-coverage.ts
 # Every curated knowledge group file: payload schema, slug uniqueness, real page
 # citations, cross-referenced slugs, no template-generated novena text.
 npx tsx scripts/validate-curated-file.ts src/lib/checklist/knowledge/*/*.ts
-#   → OK — 645 entries valid
+#   → OK — 1573 entries valid                (2026-10-31; 645 before)
 
 # One file at a time while writing it (this is the normal use):
 npx tsx scripts/validate-curated-file.ts src/lib/checklist/knowledge/prayers/batch-7.ts
 
-# The curated corpus against the live goals.
+# The curated corpus against the goals. Its GOAL column is hard-coded and
+# still prints SAINT 10000 and DOCTOR 37; content-goals.ts holds the targets.
 npx tsx scripts/curated-counts.ts
-#   → total curated entries: 1232
+#   → total curated entries: 2161            (2026-10-31; 1232 before)
 ```
 
 ### The Python brain
@@ -6150,9 +7136,63 @@ step of that chain is load-bearing:
    column or index to exist.
 4. **`exec`** the Next standalone server.
 
-The Admin Worker is not part of this path: it is deployed to the operator's Mac
-by `bash scripts/desktop-app/install.sh`, and the retained Railway worker service
-runs [a parked `sleep` loop](#the-retained-railway-worker-service).
+The Admin Worker is not part of this path: the app is installed on the
+operator's Mac by `bash scripts/desktop-app/install.sh` and runs the worker from
+the checkout it points at, and the retained Railway worker service runs
+[a parked `sleep` loop](#the-retained-railway-worker-service).
+
+### A release, as run on 2026-10-31
+
+The web service and the worker deploy separately — Railway builds the web
+service from `main`, and the worker runs whatever the Mac checkout holds — so a
+change reaches both only when both halves happen. Every release that day ran
+this sequence:
+
+1. **Verify** the integration branch: `npm run verify` (typecheck, lint,
+   format check, the unit suite) and `npm run build`. Recorded that day: 536 test
+   files / 5,395 tests before the first release, 551 / 5,633 before the third.
+2. **Push to `main`**: `git push origin admin-worker/parish-addresses:main`.
+3. **Railway deploys the web service** by itself, through the chain above, which
+   applies any pending migration with `prisma migrate deploy` before the server
+   starts.
+4. **Fast-forward the Mac checkout** the app launches the worker from:
+   `git pull --ff-only origin main` in that checkout. It must be clean: on
+   2026-10-31 it still held the EPIPE host fix, uncommitted since 2026-10-05,
+   which was backed up and dropped because `2fe7655` commits the same logic.
+5. **Quit and relaunch Via Fidei.app**, so the host and the worker child load the
+   new code. The worker logs `code_version_changed`, and with the switch ON the
+   relaunched host resumes the worker at boot. The launcher, the host and the
+   worker are all read from the checkout; only a change to the app's own code
+   (`scripts/desktop-app/main.swift`) also needs
+   `bash scripts/desktop-app/install.sh`.
+
+The first four releases:
+
+| Pushed to `main`   | Railway deploy                                                      | Mac relaunched (MDT) | What it carried                                                                                                                            |
+| ------------------ | ------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `10e550a..8810bdf` | `2d7e084b`, succeeded                                               | 14:40                | Parish addresses, runtime reliability, the publish path, growth scheduling, distance labels, the bulk importer, the SAINT and DOCTOR goals |
+| `8810bdf..1a56858` | `0c725a8d` (outcome not recorded)                                   | 15:40                | The 1,355-event timeline and the importer's rules for the OSM lane (`2c1950b`), after which the lane was resumed                           |
+| `1a56858..49f24e2` | `448dee56`, succeeded                                               | 16:25                | Site polish, the saint gates and boosters, prayer batch 10, apparitions, devotions, Church documents                                       |
+| `49f24e2..8b5d1bc` | `73c6cbac`, succeeded; migration `0062_content_translation` applied | 17:24                | The translation engine, prayer batches 9 and 12, timeline part 13                                                                          |
+
+The novenas and prayer batch 11 were merged, and published, after the fourth
+release, and reached `main` with a later one. `0062_content_translation` only creates
+a new table, with its own `lock_timeout`, so nothing in it can queue behind the
+worker's writes; a migration that alters a live table still wants the master
+switch OFF (see [Migration history](#migration-history)).
+
+**The content translator is in neither deploy.** It is a separate long-running
+process on the Mac ([docs/operations/translation.md](docs/operations/translation.md)):
+`npm run translate:setup` once (onnxruntime-node under
+`.cache/translation-runtime`), then `npm run translate` with the production
+`DATABASE_URL`, built under `railway run` as for the
+[booster scripts](#booster-scripts). On 2026-10-31 it was started detached at
+17:26 MDT with its output going to `~/Library/Logs/ViaFidei/translator.log`, and
+ran at about 4.2 units a second over about 362,000 units: a first pass of about
+24 hours, on about 5 cores and 2.1 GB of memory. Nothing restarts it after a
+reboot or a crash, so keep it alive (launchd or tmux), and restart it after a
+release that changes `src/lib/translation`, as the app is relaunched for the
+worker.
 
 ---
 
@@ -6187,6 +7227,7 @@ runs [a parked `sleep` loop](#the-retained-railway-worker-service).
 | `0056_admin_worker_log_event_index`                | `AdminWorkerLog (eventName, createdAt)` — the index the retention prune and the per-event readers walk                                                                                                                              |
 | `0060_admin_session_store`                         | `AdminSession` — the server-side admin session lifecycle (stage, both authentication timestamps, last activity, idle + absolute expiry, revocation). Keyed on an **HMAC** of the session id, never the id itself                    |
 | `0061_admin_two_factor_challenge`                  | `AdminTwoFactorChallenge` — the pending second factor. Stores a keyed HMAC of the six-digit code (never the code), and an HMAC of the pending session id                                                                            |
+| `0062_content_translation`                         | `ContentTranslation` (2026-10-31): the reader-language cache the web server reads and the translator on the Mac fills. A new table only, guarded, `lock_timeout` 5 s; without it pages are English                                  |
 
 `0057`–`0059` do not exist: concurrent security work in this tree claimed those
 numbers and did not ship. The gap is intentional and harmless — Prisma applies
