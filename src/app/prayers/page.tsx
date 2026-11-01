@@ -36,9 +36,9 @@ export default async function PrayersPage({ searchParams }: Props) {
   const { t, locale } = await getTranslator();
   const { filter, page: pageParam, q: rawQuery } = await searchParams;
   const query = parseSearchQuery(rawQuery);
-  // A prayer card shows the opening lines of the prayer itself, which the
-  // payload-free projection does not carry, so the library is read whole and
-  // paged here. Only the current page of cards is rendered and serialised.
+  // The category and the search read the prayer's own fields (its type, its
+  // words), which the payload-free projection does not carry, so the library is
+  // read whole and paged here. Only the current page of cards is rendered.
   const prayers = await listPublished("PRAYER");
 
   // Categorise each prayer (Marian / Angelic / Liturgical / …) so the filter
@@ -111,24 +111,21 @@ export default async function PrayersPage({ searchParams }: Props) {
         <ListSearchNoResults action="/prayers" query={query} keep={keep} t={t} />
       ) : (
         <>
+          {/* A card is the prayer's title and, beneath it, its type; the
+              prayer itself opens on its own page. "General" names no type. */}
           <PaginatedGrid
-            items={page.items.map(({ prayer: p, category }) => {
-              const body =
-                (p.payload.body as string | undefined) ??
-                (p.payload.prayerText as string | undefined) ??
-                "";
-              return (
-                <Link key={p.id} href={`/prayers/${p.slug}`} className="block h-full">
-                  <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30 sm:p-7">
-                    <p className="vf-eyebrow">{prayerCategoryLabel(category)}</p>
-                    <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{p.title}</h2>
-                    <p className="mt-4 line-clamp-5 font-serif leading-relaxed text-ink-soft">
-                      {body}
+            items={page.items.map(({ prayer: p, category }) => (
+              <Link key={p.id} href={`/prayers/${p.slug}`} className="block h-full">
+                <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30 sm:p-7">
+                  <h2 className="break-words font-display text-xl sm:text-2xl">{p.title}</h2>
+                  {category !== "general" && (
+                    <p className="mt-2 font-serif text-sm leading-snug text-ink-soft">
+                      {prayerCategoryLabel(category)}
                     </p>
-                  </article>
-                </Link>
-              );
-            })}
+                  )}
+                </article>
+              </Link>
+            ))}
           />
           <Pagination
             basePath="/prayers"

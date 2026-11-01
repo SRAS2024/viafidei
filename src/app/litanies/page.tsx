@@ -66,7 +66,8 @@ export default async function LitaniesPage({
           <PublishedList
             items={await localizeItems(result.items, { depth: "card" })}
             baseHref="/prayers"
-            eyebrowFor={() => "Litany"}
+            showSummary={false}
+            detailLinesFor={() => ["Litany"]}
           />
           <Pagination
             basePath="/litanies"
