@@ -50,11 +50,13 @@ interface SourcedPrayer {
  * century from the revelations of the two Benedictine nuns of Helfta. Its
  * English translation, "the only one from the Latin" in the words of its own
  * preface, was published in London by Burns and Lambert in 1861 with the
- * approval of Cardinal Wiseman; the archive.org record credits it to Thomas
- * Alder Pope (1819-1904). The Revelations of St. Bridget, a selection from
- * her revelations with an essay by William H. Neligan, was published in New
- * York by D. & J. Sadlier, entered for copyright in 1862; its last two
- * chapters are Saint Bridget's prayers. Both books are in the public domain.
+ * approval of Cardinal Wiseman, dated at Westminster in May 1861 and printed
+ * at the back of the book, before the index (leaf n286 of the scan); the
+ * archive.org record credits the translation to Thomas Alder Pope
+ * (1819-1904). The Revelations of St. Bridget, a selection from her
+ * revelations with an essay by William H. Neligan, was published in New York
+ * by D. & J. Sadlier, entered for copyright in 1862; its last two chapters
+ * are Saint Bridget's prayers. Both books are in the public domain.
  * Every citation is the archive.org scan of the book (for the Preces a Google
  * scan, for the Revelations the Graduate Theological Union's copy), opened at
  * the leaf where the prayer begins, followed by any leaf it runs on to.
@@ -103,6 +105,16 @@ interface SourcedPrayer {
  * as the book's running head ("Prayers of St. Gertrude") does; the greeting
  * for a burial-ground, which the book gives without naming any author, is
  * credited to no one.
+ *
+ * relatedSaints follows the same credit and adds the saint a prayer is
+ * addressed to or about, but it names only saints that have a curated SAINT
+ * entry, since tests/checklist/knowledge.test.ts resolves every reference
+ * (and a curated entry for a saint already published would replace the live
+ * page through the worker's curated sync). Saint Mechtilde and Saint Michael
+ * have none: the prayers the book credits to Saint Mechtilde name no saint
+ * but Saint Mary Magdalen in the thanksgiving for her tears, the Spiritual
+ * Communion credited to both saints names Saint Gertrude, and the salutation
+ * of Saint Michael names Saint Gertrude only.
  *
  * Left out on purpose: the prayer after the Elevation, a word of which is
  * illegible in the scan; the Preces' "Ten Prayers on the Passion", a shorter
@@ -168,7 +180,7 @@ const PRECES_NOTE =
 export const prayerBatch13: CuratedEntry[] = [
   // ── Preces Gertrudianae, Part I: prayers for daily use ─────────────────────
   preces({
-    slug: "gertrude-morning-salutation-of-the-sacred-heart",
+    slug: "mechtilde-morning-salutation-of-the-sacred-heart",
     title: "Morning Salutation of the Sacred Heart (Saint Mechtilde)",
     leaves: [13, 14],
     body: [
@@ -177,6 +189,7 @@ export const prayerBatch13: CuratedEntry[] = [
     prayerType: "morning",
     category: "devotional",
     occasions: ["morning", "sacred-heart", "daily"],
+    relatedSaints: [],
     summary: `The first of the book's morning prayers: a greeting of the Sacred Heart of Jesus on waking, thanks for the night, and the offering of one's own heart as a morning sacrifice, to be kindled with his love. The book introduces it with Our Lord's words to Saint Mechtilde, bidding her salute his Heart as her first act of the day. ${PRECES_NOTE}`,
   }),
   preces({
@@ -201,6 +214,7 @@ export const prayerBatch13: CuratedEntry[] = [
     prayerType: "morning",
     category: "devotional",
     occasions: ["morning", "offering", "daily"],
+    relatedSaints: [],
     summary: `A short morning aspiration asking Jesus to work all the day's works in the one who prays, to cleanse them in his Heart and to offer them with his own works to the Father. The book prefaces it with words of Our Lord to Saint Mechtilde about the sigh of longing breathed towards him on waking. ${PRECES_NOTE}`,
   }),
   preces({
@@ -242,7 +256,7 @@ export const prayerBatch13: CuratedEntry[] = [
     ],
     prayerType: "consecration",
     category: "devotional",
-    occasions: ["morning", "sunday", "offering"],
+    occasions: ["morning", "offering"],
     summary: `A covenant made with God for a week at a time, since the cares of life keep the mind from praising him constantly: looking up to heaven, opening or closing the eyes, breathing, sighing and moving hand or foot are each given a standing intention of praise, of union with the holy works of Christ and the saints, of offering his Passion, of sorrow for sin and of surrender to God's will, and the whole is sealed with the Five Wounds. It opens with words of Psalm 37 (38). ${PRECES_NOTE}`,
   }),
   preces({
@@ -453,7 +467,7 @@ export const prayerBatch13: CuratedEntry[] = [
     prayerType: "act",
     category: "eucharistic",
     occasions: ["mass", "spiritual-communion"],
-    summary: `The act of spiritual communion the book sets for those who hear Mass without receiving the Sacrament, "saying with St Gertrude and with St Mechtilde": it grieves that the soul must go away fasting from the heavenly banquet, and asks Christ to prepare it to receive him and to work in it all he has decreed. ${PRECES_NOTE}`,
+    summary: `The act of spiritual communion the book sets for those who hear Mass without receiving the Sacrament, "saying with St Gertrude and with St. Mechtilde": it grieves that the soul must go away fasting from the heavenly banquet, and asks Christ to prepare it to receive him and to work in it all he has decreed. ${PRECES_NOTE}`,
   }),
   preces({
     slug: "gertrude-prayer-at-the-postcommunion",
@@ -464,7 +478,7 @@ export const prayerBatch13: CuratedEntry[] = [
     ],
     prayerType: "general",
     category: "eucharistic",
-    occasions: ["mass", "after-mass", "all-souls"],
+    occasions: ["mass", "after-communion", "all-souls"],
     summary: `A prayer for the Postcommunion, asking the Father to receive the Victim offered by the Church as he received his Son returning from "this our far country" at the Ascension, never to let the scars of his wounds pass from his sight, and to have mercy on all sinners and on the faithful living and departed. ${PRECES_NOTE}`,
   }),
   preces({
@@ -520,6 +534,7 @@ export const prayerBatch13: CuratedEntry[] = [
     prayerType: "general",
     category: "trinitarian",
     occasions: ["trinity-sunday", "praise", "daily"],
+    relatedSaints: [],
     summary: `Three short acts glorifying the Blessed Trinity in union with the glory each divine Person gives the other two: the Father in his omnipotence, the Son in his unsearchable wisdom, the Holy Ghost in his unchangeable goodness. The book calls them "three incomparable acts of praise" taught by Our Lord to Saint Mechtilde. ${PRECES_NOTE}`,
   }),
   preces({
@@ -596,6 +611,7 @@ export const prayerBatch13: CuratedEntry[] = [
     prayerType: "act",
     category: "theological-virtue",
     occasions: ["temptation", "preparation-for-death", "trinity-sunday"],
+    relatedSaints: [],
     summary: `A threefold commendation of one's faith: to the power of the Father, that it may never waver; to the wisdom of the Son, that error may never lead it astray; and to the goodness of the Holy Ghost, that it may work by charity and be found entire at death. The book sets it after its Profession of Faith and connects it with a revelation to Saint Mechtilde about temptations against the faith. ${PRECES_NOTE}`,
   }),
   preces({
@@ -681,6 +697,7 @@ export const prayerBatch13: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["sacred-heart", "first-friday", "june"],
+    relatedSaints: [],
     summary: `A salutation of the Sacred Heart of Jesus as the instrument, treasury and fountain of the Trinity's goodness: the soul buries its sins in the depths of that Heart, blesses it for each mystery of its love from the Incarnation to the lance, and offers it to the Trinity in reparation for all its faults. The book places it under a revelation to Saint Mechtilde. ${PRECES_NOTE}`,
   }),
   preces({
@@ -693,7 +710,7 @@ export const prayerBatch13: CuratedEntry[] = [
     prayerType: "general",
     category: "devotional",
     occasions: ["passion", "good-friday", "lent", "penance"],
-    summary: `A prayer in which, as the book's own heading puts it, Our Lord hanging on the cross is offered to God the Father: the Father is asked to look on every wound of his Son, to remember who suffers and for whom, and to accept Christ's humility, meekness, love, poverty, works, abstinence, purity and obedience as satisfaction for the sins opposed to each. ${PRECES_NOTE}`,
+    summary: `A prayer in which, as the book's own heading puts it, Our Lord hanging on the cross is offered to God the Father: the Father is asked to look on every wound of his Son, to remember who suffers and for whom, and to accept Christ's humility, meekness, love, liberality, works, abstinence, purity and obedience as satisfaction for the sins opposed to each. ${PRECES_NOTE}`,
   }),
   preces({
     slug: "gertrude-shorter-offering-of-the-life-and-passion",
@@ -755,6 +772,7 @@ export const prayerBatch13: CuratedEntry[] = [
     prayerType: "marian",
     category: "marian",
     occasions: ["marian-devotion", "rosary", "daily"],
+    relatedSaints: [],
     summary: `An expanded Hail Mary in which each phrase of the angelic salutation is unfolded: Mary as the work of the Father's power, the Son's wisdom and the Holy Ghost's goodness, the Lord with her as her own Son, and her blessing that undoes the curse of Eve. The book says Our Lord himself put it in the mouth of Saint Mechtilde. ${PRECES_NOTE}`,
   }),
   preces({
@@ -767,6 +785,7 @@ export const prayerBatch13: CuratedEntry[] = [
     prayerType: "marian",
     category: "marian",
     occasions: ["marian-devotion", "annunciation", "trinity-sunday"],
+    relatedSaints: [],
     summary: `A threefold Hail Mary made in union with the Father who greeted Mary with "Ave" and kept her from every woe of sin (the "Væ" that the Ave reverses), the Son who made her a shining star, and the Holy Ghost who filled her with grace, recalling the Incarnation wrought in her by the whole Trinity. The book places it under a revelation to Saint Mechtilde. ${PRECES_NOTE}`,
   }),
   preces({
@@ -795,7 +814,7 @@ export const prayerBatch13: CuratedEntry[] = [
       "The Fourth Sword",
       "O most desolate Virgin Mary, I recall to thy mind now that sword of sorrow which pierced through thy heart, when thou didst behold thy Son raised high upon his cross, and fastened thereunto with three nails. O most sorrowful Mother, how was it that thy soul was not utterly crushed down and wrenched from thy body? How could it be that thine eyes did not fail for tears? Oh, remember now the sadness which filled thy heart when thou didst behold him blasphemed, mocked with vinegar and gall in his thirst, reputed viler and treated more ruthlessly than the very robbers. Remember thine ineffable anguish when thou didst see him fail and sink beneath his impetuous love and sorrow, his lips grow pale, his limbs quiver, his eyes glazed and dim; until at length his heart broke with a mighty pang, and with a loud cry he gave up the ghost. By these thy surpassing sorrows, O Mother most desolate, and by all thy groanings and tears, I beseech thee, be with me with the same love when I draw my last breath, when my heart shall break in the agony of death; and deign to receive my soul into thy hands as it goes forth from the body.",
       "The Fifth Sword",
-      "O Virgin Mary, O Mother of dolours, I recall to thy mind now that sword of sorrow which pierced thy heart, when thou didst receive into thy bosom thy Son, taken down from the cross, and didst bedew his sacred Body with thy tears. Oh, what didst thou feel as thou didst gaze upon that Head pierced all around with thorns, that Side riven with the lance, those Hands and Feet dug through with the cruel nails, that beauteous Face marred with blows and defiled with spittings, and all that sacred Body torn with wounds, livid with stripes, and besmeared with blood. O most sorrowful Mother, how didst thou kiss that divine Face, and wash it with thy tears, and bewail the dishonour of thy Beloved. O Mother most forlorn, I pray thee, by all the sighs and groans wrung from thy heart, by all the sorrows and the wounds of thy soul, comfort mine in the hour when it goes forth from the body, wash it with thy tears, and receive it into thy maternal arms as thou didst receive the lifeless Body of thy Son, and lead it up to the joys of heaven. Amen.",
+      "O Virgin Mary, Mother of dolours, I recall to thy mind now that sword of sorrow which pierced thy heart, when thou didst receive into thy bosom thy Son, taken down from the cross, and didst bedew his sacred Body with thy tears. Oh, what didst thou feel as thou didst gaze upon that Head pierced all around with thorns, that Side riven with the lance, those Hands and Feet dug through with the cruel nails, that beauteous Face marred with blows and defiled with spittings, and all that sacred Body torn with wounds, livid with stripes, and besmeared with blood. O most sorrowful Mother, how didst thou kiss that divine Face, and wash it with thy tears, and bewail the dishonour of thy Beloved. O Mother most forlorn, I pray thee, by all the sighs and groans wrung from thy heart, by all the sorrows and the wounds of thy soul, comfort mine in the hour when it goes forth from the body, wash it with thy tears, and receive it into thy maternal arms as thou didst receive the lifeless Body of thy Son, and lead it up to the joys of heaven. Amen.",
     ],
     prayerType: "marian",
     category: "marian",
@@ -851,8 +870,8 @@ export const prayerBatch13: CuratedEntry[] = [
     prayerType: "intercession",
     category: "saintly",
     occasions: ["july-22", "penance", "confession"],
-    relatedSaints: ["saint-mary-magdalene", "saint-gertrude-the-great"],
-    summary: `A thanksgiving to Jesus for the penitent woman's washing of his feet with her tears (Luke 7), identified here, as in the old Western tradition, with Mary Magdalen, asking through her intercession for tears of true repentance and a heart that loves nothing apart from him. The book introduces it with words of Saint Mary Magdalen to Saint Mechtilde. ${PRECES_NOTE}`,
+    relatedSaints: ["saint-mary-magdalene"],
+    summary: `A thanksgiving to Jesus for the penitent woman's washing of his feet with her tears (Luke 7), identified here, as in the old Western tradition, with Mary Magdalen, asking through her merits and intercessions for tears of true repentance and for his divine love to be poured into one's heart. The book introduces it with words of Saint Mary Magdalen to Saint Mechtilde. ${PRECES_NOTE}`,
   }),
 
   // ── Preces Gertrudianae, Part VIII: for different necessities ──────────────
@@ -1014,7 +1033,7 @@ export const prayerBatch13: CuratedEntry[] = [
     prayerType: "marian",
     category: "marian",
     occasions: ["marian-devotion", "penance", "july-23"],
-    summary: `Saint Bridget's prayer comparing the Blessed Virgin to Solomon's temple, its golden walls, roof, pavement and pictures standing for her charity, her ordered life, her steadfastness and the fire of the Holy Ghost in her, and asking the Mother of the true Solomon to take pity on a soul whose own temple is darkened by vice. The book cites it from Book III, chapter 29 of her Revelations. ${REVELATIONS_NOTE}`,
+    summary: `Saint Bridget's prayer comparing the Blessed Virgin to Solomon's temple, its roof, pavement, square walls and pictures standing for her charity, her ordered life, her steadfastness and the fire of the Holy Ghost in her, and asking the Mother of the true Solomon to take pity on a soul whose own temple is darkened by vice. The book cites it from Book III, chapter 29 of her Revelations. ${REVELATIONS_NOTE}`,
   }),
   revelations({
     slug: "saint-bridget-prayer-blessed-art-thou-o-my-god-my-creator",
@@ -1027,6 +1046,18 @@ export const prayerBatch13: CuratedEntry[] = [
     category: "general",
     occasions: ["praise", "marian-devotion", "temptation"],
     summary: `A prayer of Saint Bridget blessing Christ as Creator and Redeemer, who died once and dies no more, and then the Blessed Virgin, who showed the world its lost God as one shows a grieving friend a lost jewel, asking her help against the snares of the enemy. The book cites it from Book IV, chapter 75 of her Revelations. ${REVELATIONS_NOTE}`,
+  }),
+  revelations({
+    slug: "saint-bridget-prayer-for-a-chaste-body-and-a-humble-mind",
+    title: "Prayer of Saint Bridget for a Chaste Body and a Humble Mind",
+    leaves: [140],
+    body: [
+      "Almighty, everlasting God, who didst vouchsafe to be born for us of a most chaste virgin, make us, we beseech thee, serve thee with a chaste body, and please thee by an humble mind.",
+    ],
+    prayerType: "general",
+    category: "general",
+    occasions: ["chastity", "humility", "christmas"],
+    summary: `The first of the book's "Select Prayers of St. Bridget": a single sentence addressed to God, who vouchsafed to be born for us of a most chaste virgin, asking that we may serve him with a chaste body and please him by a humble mind. ${REVELATIONS_NOTE}`,
   }),
   revelations({
     slug: "saint-bridget-prayer-to-the-most-clement-virgin-mary",
