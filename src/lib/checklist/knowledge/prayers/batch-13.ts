@@ -67,7 +67,11 @@ interface SourcedPrayer {
  *     quotation marks are given as plain ASCII characters;
  *   - specks of ink in the scan that are not letters are ignored, and worn
  *     type is read as the letter it is: the broken final "e" of "thee" in the
- *     Morning Aspiration to Jesus.
+ *     Morning Aspiration to Jesus;
+ *   - one plain printer's slip is corrected: the Golden Salutation of the
+ *     Blessed Virgin ends "Amen," in the book, given here as "Amen.".
+ * Italic type is not reproduced, but the ligature of the Latin word "Væ"
+ * (woe) in the Golden Ave Maria is kept as printed.
  * The book's alternatives in square brackets ("[or, this prayer]",
  * "[especially N.]") and its "N." for a name are kept as printed.
  *
@@ -668,5 +672,217 @@ export const prayerBatch13: CuratedEntry[] = [
     category: "devotional",
     occasions: ["passion", "good-friday", "preparation-for-death"],
     summary: `A prayer for mercy at the hour of death, pleading each of Christ's sufferings as he hung on the cross, and the love that broke his Heart when his Soul left his Body. ${PRECES_NOTE}`,
+  }),
+
+  // ── Preces Gertrudianae, Part VI: the Blessed Virgin Mary ──────────────────
+  preces({
+    slug: "gertrude-golden-salutation-of-the-blessed-virgin",
+    title: "Golden Salutation of the Blessed Virgin (Saint Gertrude)",
+    leaves: [134],
+    body: [
+      "Hail, fair Lily of the effulgent and ever-peaceful Trinity. Hail, radiant Rose of heavenly fragrance, of whom the King of heaven willed to be born, and with thy milk to be fed; uphold and succour me, a miserable sinner, now and at the hour of my death. Amen.",
+    ],
+    prayerType: "marian",
+    category: "marian",
+    occasions: ["marian-devotion", "preparation-for-death", "daily"],
+    summary: `A short salutation of Our Lady as the lily of the Holy Trinity and the rose of whom the King of heaven willed to be born, asking her help now and at the hour of death. The book introduces it with a revelation of the Blessed Virgin to Saint Gertrude about those who greet her in these words. ${PRECES_NOTE}`,
+  }),
+  preces({
+    slug: "mechtilde-heavenly-ave-maria",
+    title: "Heavenly Ave Maria (Saint Mechtilde)",
+    leaves: [135],
+    body: [
+      "Hail, thou peerless offspring of the omnipotence of the Father, of the wisdom of the Son, and of the enrapturing goodness of the Holy Ghost, Mary, who fillest heaven and earth with thy gentle light. Thou that art full of grace, the Lord is with thee, even the only-begotten Son of the Father, and the one only Son of the love of thy virgin heart, thy sweetest Spouse and thy Beloved. Blessed art thou amongst women, for thou hast annulled the curse of Eve, and hast brought back an everlasting blessing. And blessed is the Fruit of thy womb, Jesus Christ, the Lord and Creator of all things, who doth evermore bless and sanctify, enrich and quicken all things. Amen.",
+    ],
+    prayerType: "marian",
+    category: "marian",
+    occasions: ["marian-devotion", "rosary", "daily"],
+    summary: `An expanded Hail Mary in which each phrase of the angelic salutation is unfolded: Mary as the work of the Father's power, the Son's wisdom and the Holy Ghost's goodness, the Lord with her as her own Son, and her blessing that undoes the curse of Eve. The book says Our Lord himself put it in the mouth of Saint Mechtilde. ${PRECES_NOTE}`,
+  }),
+  preces({
+    slug: "mechtilde-golden-ave-maria",
+    title: "Golden Ave Maria (Saint Mechtilde)",
+    leaves: [135, 136],
+    body: [
+      "Hail, Mary, in union with that reverence wherewith God the Father greeted thee with Ave, and by his omnipotence delivered thee from every woe and Væ of sin. Hail, Mary, in union with that love wherewith the Son of God enlightened thee with his wisdom, and made thee a softly-shining star, lighting up heaven and earth. Hail, Mary, in union with that sweet unction of the Holy Ghost, wherewith he so pervaded thee and made thee so full of grace, that every one who through thee seeketh grace doth find it. Call to mind now that unspeakable operation wherewith the whole most Blessed Trinity wrought in thee, when human flesh taken from thy substance was so united to the Divine Nature that God was made man and man became God, and thy whole soul was suffused with a sweetness and a gladness which the heart of man cannot conceive. And therefore every creature with rapturous admiration doth acknowledge and confess that thou art blessed and incomparably exalted above all creatures in heaven or on earth, and blessed the Fruit of thy womb, even Jesus, who quickens, sanctifies, and blesses all things for ever. Amen.",
+    ],
+    prayerType: "marian",
+    category: "marian",
+    occasions: ["marian-devotion", "annunciation", "trinity-sunday"],
+    summary: `A threefold Hail Mary made in union with the Father who greeted Mary with "Ave" and kept her from every woe of sin (the "Væ" that the Ave reverses), the Son who made her a shining star, and the Holy Ghost who filled her with grace, recalling the Incarnation wrought in her by the whole Trinity. The book places it under a revelation to Saint Mechtilde. ${PRECES_NOTE}`,
+  }),
+  preces({
+    slug: "gertrude-invitation-to-our-lady-at-the-hour-of-death",
+    title: "Invitation to the Blessed Virgin to Be Present at Our Death (Saint Gertrude)",
+    leaves: [144, 145],
+    body: [
+      "O most holy Virgin Mary, in union with that most faithful love wherewith thy Son commended thee from his cross to the blessed John, I commend to thee my soul and my body, my thoughts, my words and my actions, my life and my death, and more especially that one last moment of my life on which eternity hangs. And as thou didst invite thy Son to thine own blessed departure, so I invite thee now to mine; beseeching thee, by that love wherewith thou didst stand beneath the cross on which thy Son was dying, and by the bitter tears thou didst shed when thou sawest him bow in death his sacred Head, that thou be not absent from me then, but be there to succour me with a mother's tenderness; for without thee I cannot die in peace. Refuse not, O most tender Mother, this my request, which I make to thee with all the earnestness and devotion of my heart; for if I die without thee, I most justly fear lest I perish everlastingly. For how shall I, fearful and frail as I am, stand then amidst the manifold and most grievous assaults of my enemies, unless thou be near to succour me? How shall I appear in the dread day of judgment, unless thou be my companion and my advocate? How give an account of my innumerable, my enormous, my most exceeding sins, unless thou plead my cause with thy Son, and obtain for me forgiveness of them all? Incline thine ear to my supplication, O my blessed Mother; and by the love of thy Son be with me in my last moments, that by thy availing succour I may be rescued from that appalling peril, and with thee attain to everlasting gladness. Amen.",
+    ],
+    prayerType: "marian",
+    category: "marian",
+    occasions: ["preparation-for-death", "marian-devotion", "good-friday"],
+    summary: `A commendation of soul, body, life and death to the Blessed Virgin, in union with Christ's entrusting of his Mother to Saint John from the cross, inviting her to be present at one's last moment as her Son was present at hers, and pleading her help against the assaults of the enemy and at the judgment. ${PRECES_NOTE}`,
+  }),
+  preces({
+    slug: "gertrude-five-swords-of-sorrow",
+    title: "The Five Swords of Sorrow of the Blessed Virgin (Saint Gertrude)",
+    leaves: [146, 147, 148, 149, 150],
+    body: [
+      "The First Sword",
+      "O most sorrowful Virgin Mary, I recall to thy mind now that sword of sorrow which pierced thy soul, when thy Beloved, thine only one, came to bid thee farewell, and to ask thy maternal blessing, ere he went forth to death. Remember, O Mother most afflicted, how thy heart was wrung when thy most tender and only Son, thy delight, so lovingly embraced thee for the last time, and with plaintive voice and tearful eyes bade thee farewell. Remember now your sighs and tears, when the hearts so joined together by the strongest ties of love were thus torn asunder, and pierced through with the keenest wound of sorrow. By that mournful going away of thy Son, and by all the bitter tears thou didst shed, I beseech thee, O Mary, be with me at the last, when all my friends turn away from my lifeless body, and protect me with thy maternal blessing from all the snares of the enemy. Amen.",
+      "The Second Sword",
+      "O most afflicted Virgin Mary, I recall to thy mind now that keen sword of sorrow which pierced thy soul, when the blessed John came to tell thee that thy Son had been betrayed by Judas, seized by the Jews, dragged before Annas and Caiphas, and there blasphemed and mocked, spit upon, buffeted, and overwhelmed with contumely and rude reproach. Remember, O thou most afflicted one, how these mournful tidings pierced thy heart. Oh, remember now the moans and wailing plaints with which thou didst fill the house, and how thou didst cry: O Jesus, my Son Jesus, who will grant me that I might die for thee, O Jesus, my Son, my Son! By that keenest sword of sorrow I beseech thee, O Mary, in my last hour, when my heart shall quake with anguish and the dread of death, do thou deign to cheer me with thy most holy presence, lest I sink in the abyss of despair. Amen.",
+      "The Third Sword",
+      "O most sad Virgin Mary, I recall to thy mind now that sword of sorrow which pierced thy heart, when thou didst behold thy Son led forth by Pilate, his sacred Body torn and bleeding, his Head crowned with thorns, defiled with spittings, so that there was no beauty in him, nor comeliness. Remember, O Mother most sad, how thy heart was torn when thou didst hear the Jews exclaim: Away with him, away with him! crucify him! Remember that keenest wound which was dealt upon thy heart when thou didst hear the sentence of an accursed death pronounced by Pilate. Remember all the compassion and the grief which wrung thy Mother's heart when thou didst see thy Son laden with his heavy cross, and led forth with direst ignominy to the hill of Calvary. Oh, who shall count thy sighs and tears, who shall tell the sorrows of thy most afflicted heart! I compassionate thee, O Mother most desolate, and I humbly beseech thee be with me in the dread hour of judgment, when I am overwhelmed with the accusations of the devil; and drive far from me then all mine enemies. Amen.",
+      "The Fourth Sword",
+      "O most desolate Virgin Mary, I recall to thy mind now that sword of sorrow which pierced through thy heart, when thou didst behold thy Son raised high upon his cross, and fastened thereunto with three nails. O most sorrowful Mother, how was it that thy soul was not utterly crushed down and wrenched from thy body? How could it be that thine eyes did not fail for tears? Oh, remember now the sadness which filled thy heart when thou didst behold him blasphemed, mocked with vinegar and gall in his thirst, reputed viler and treated more ruthlessly than the very robbers. Remember thine ineffable anguish when thou didst see him fail and sink beneath his impetuous love and sorrow, his lips grow pale, his limbs quiver, his eyes glazed and dim; until at length his heart broke with a mighty pang, and with a loud cry he gave up the ghost. By these thy surpassing sorrows, O Mother most desolate, and by all thy groanings and tears, I beseech thee, be with me with the same love when I draw my last breath, when my heart shall break in the agony of death; and deign to receive my soul into thy hands as it goes forth from the body.",
+      "The Fifth Sword",
+      "O Virgin Mary, O Mother of dolours, I recall to thy mind now that sword of sorrow which pierced thy heart, when thou didst receive into thy bosom thy Son, taken down from the cross, and didst bedew his sacred Body with thy tears. Oh, what didst thou feel as thou didst gaze upon that Head pierced all around with thorns, that Side riven with the lance, those Hands and Feet dug through with the cruel nails, that beauteous Face marred with blows and defiled with spittings, and all that sacred Body torn with wounds, livid with stripes, and besmeared with blood. O most sorrowful Mother, how didst thou kiss that divine Face, and wash it with thy tears, and bewail the dishonour of thy Beloved. O Mother most forlorn, I pray thee, by all the sighs and groans wrung from thy heart, by all the sorrows and the wounds of thy soul, comfort mine in the hour when it goes forth from the body, wash it with thy tears, and receive it into thy maternal arms as thou didst receive the lifeless Body of thy Son, and lead it up to the joys of heaven. Amen.",
+    ],
+    prayerType: "marian",
+    category: "marian",
+    occasions: ["our-lady-of-sorrows", "good-friday", "preparation-for-death"],
+    summary: `Five prayers recalling the swords of sorrow that pierced Our Lady's heart in the Passion: Christ's farewell before he went to his death, the news of his betrayal and trial, his condemnation by Pilate and the way to Calvary, the crucifixion and his death, and the taking of his body from the cross into her arms. Each asks her help in a different moment of one's own death and judgment. ${PRECES_NOTE}`,
+  }),
+
+  // ── Preces Gertrudianae, Part VII: the angels and the saints ───────────────
+  preces({
+    slug: "gertrude-salutation-of-saint-michael-the-archangel",
+    title: "Salutation of Saint Michael the Archangel (Saint Gertrude)",
+    leaves: [157, 158],
+    body: [
+      "Hail, most glorious prince, Michael the Archangel! Hail, most noble leader of the heavenly host! Hail, honour and glory of the hierarchies of heaven! O most august prince, under what obligation dost thou lie to thy Creator, who, without any merit of thine own, hath endowed thee with such excellent might and adorned thee with such peerless virtues? O thou renowned warrior, thou ornament of Paradise, thou lustrous gem of the court of heaven, thou art the seal of likeness to God, full of wisdom and consummate in beauty. Every precious stone is thine adornment, and all the working of thy finished comeliness is of gold, in the delights of the Paradise of our God. Thou hast been appointed prince and captain to receive the souls of the elect, and to lead them into the Paradise of rejoicing. I recall to thy mind now, O most blessed prince, these and all other graces wherewith the boundless liberality of God hath enriched thee above all orders of angels; beseeching thee, by that mutual love which binds thy heart to the Divine Heart of Jesus, that thou wouldst deign to receive my soul at the moment of my departure, and to render the Judge propitious to me through thy intercession. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "angelic",
+    occasions: ["september-29", "preparation-for-death", "angels"],
+    summary: `A salutation of Saint Michael as prince of the heavenly host and the one appointed to receive the souls of the elect and lead them into Paradise, borrowing the words Ezekiel 28 uses of the "seal of likeness", and asking him to receive one's soul at death and to make the Judge propitious. ${PRECES_NOTE}`,
+  }),
+  preces({
+    slug: "gertrude-thanksgiving-to-the-guardian-angel",
+    title: "Thanksgiving to the Guardian Angel (Saint Gertrude)",
+    leaves: [158],
+    body: [
+      "O most holy angel of God, appointed by him to be my guardian, I give thee thanks for all the benefits which thou hast ever bestowed on me in body and in soul. I praise and glorify thee that thou dost condescend to assist me, miserable and worthless as I am, with such patient fidelity, and to defend me against all the assaults of my enemies. Blessed be the hour in which thou wast assigned me for my guardian, my defender, and my patron. Blessed be all thy love to me, and all thy care for me, wherewith thou dost unwearyingly further my salvation. In acknowledgment and return of all thy loving ministries to me from my youth I offer thee the infinitely precious and noble Heart of Jesus, full and overflowing with all blessedness: beseeching thee to forgive me for having so often striven against thy holy inspirations, and saddened thee my nearest, dearest friend; and firmly purposing to obey thee henceforward, and most faithfully to serve my God. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "angelic",
+    occasions: ["guardian-angels", "thanksgiving", "daily"],
+    summary: `A thanksgiving to one's guardian angel for his patient care of body and soul since childhood, offering him the Heart of Jesus in return, asking pardon for having resisted his inspirations, and promising to obey him henceforward. ${PRECES_NOTE}`,
+  }),
+  preces({
+    slug: "gertrude-prayer-to-saint-benedict-for-the-hour-of-death",
+    title: "Prayer to Saint Benedict for the Hour of Death (Saint Gertrude)",
+    leaves: [159, 160],
+    body: [
+      "O most glorious patriarch, holy father Benedict, I recall to thy mind now that great and glorious grace bestowed on thee by our Lord, of breathing out thy last breath as thou stoodst praying, on which account thy lips now exhale a fragrance which ravishes all the saints with delight; beseeching thee to be with me in the hour of my death with loving fidelity, and to place thyself between me and my enemies round about, wheresoever thou seest them rage most furiously against me; so that, protected by thy presence, I may escape all their snares, and reach the joys of heaven safe and blessed for ever. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "saintly",
+    occasions: ["march-21", "july-11", "preparation-for-death"],
+    relatedSaints: ["saint-benedict-of-nursia", "saint-gertrude-the-great"],
+    summary: `A prayer to Saint Benedict recalling the grace of his death, which he met standing in prayer, and asking him to stand between the dying soul and its enemies at the hour of death. The book introduces it with words of Saint Benedict to Saint Gertrude, a nun of his order. ${PRECES_NOTE}`,
+  }),
+  preces({
+    slug: "mechtilde-thanksgiving-for-the-tears-of-saint-mary-magdalen",
+    title: "Thanksgiving for the Tears of Saint Mary Magdalen (Saint Mechtilde)",
+    leaves: [160, 161],
+    body: [
+      "O most merciful Jesus, I give thee thanks for that work of piety which the blessed Mary Magdalen wrought on thee when she washed thy feet with her tears, and wiped them with the hair of her head, and kissed them and anointed them with fragrant ointment; whereby she obtained from thee such signal grace that thou didst pour into her heart and soul so great love of thee that she could love nothing apart from thee: beseeching thee that by her merits and intercessions thou wouldst vouchsafe to me tears of true repentance, and pour into my heart thy divine love. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "saintly",
+    occasions: ["july-22", "penance", "confession"],
+    relatedSaints: ["saint-mary-magdalene", "saint-gertrude-the-great"],
+    summary: `A thanksgiving to Jesus for the penitent woman's washing of his feet with her tears (Luke 7), identified here, as in the old Western tradition, with Mary Magdalen, asking through her intercession for tears of true repentance and a heart that loves nothing apart from him. The book introduces it with words of Saint Mary Magdalen to Saint Mechtilde. ${PRECES_NOTE}`,
+  }),
+
+  // ── Preces Gertrudianae, Part VIII: for different necessities ──────────────
+  preces({
+    slug: "gertrude-prayer-for-the-whole-church",
+    title: "Prayer for the Whole Church (Saint Gertrude)",
+    leaves: [179],
+    body: [
+      "O most compassionate Jesus, I praise, bless, and glorify thee with the love of my whole heart for the creation of all those whom thou hast deigned to form after thine own image and likeness, and I render thee thanks for all the benefits that thou hast ever bestowed, or shalt ever hereafter bestow, on them. In union with thy most exceeding sorrow I pour out now my complaint before thee, with true sorrow and repentance for every manner in which they have ever hindered or frustrated thy grace; and I most devoutly pray for all men, that each in his appointed place may be made perfect in every good work, to thy everlasting praise and glory. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["for-the-church", "daily"],
+    summary: `A prayer for all mankind, made with praise for their creation in God's image, thanks for every benefit given them, sorrow in union with Christ's for every resistance to his grace, and the petition that each may be made perfect in every good work in the place God has appointed. ${PRECES_NOTE}`,
+  }),
+  preces({
+    slug: "gertrude-prayer-for-relations-and-friends",
+    title: "Prayer for Relations and Friends (Saint Gertrude)",
+    leaves: [181, 182],
+    body: [
+      "O most kind and gentle Jesus, I commend all those who have asked my unworthy prayers to thy divine knowledge and love, under the guidance of which thou didst come down to earth from the bosom of thy Father to save man. And in union with that love wherewith thou didst commend thy Spirit to thy Father, I commend them all to thy sacred Heart, and enclose them all therein; and I offer and set it forth before thee, in union with that love wherewith thou didst take it to thyself, a human heart, for the salvation of all the human race, and hast often given it as a token of thy special friendship to thy well-beloved friends; beseeching thee from its infinite treasures to take wherewith to bless those for whom I pray, or am bound to pray. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["friends", "families", "daily"],
+    summary: `A prayer for all who have asked one's prayers, enclosing them in the Sacred Heart and asking Christ to bless them from its treasures. The book adds that Our Lord taught Saint Gertrude to pray in this way, and heads it "a very efficacious prayer for our relations and friends". ${PRECES_NOTE}`,
+  }),
+  preces({
+    slug: "gertrude-offering-of-the-passion-for-the-holy-souls",
+    title: "Offering of the Passion of Christ for the Faithful Departed (Saint Gertrude)",
+    leaves: [194, 195],
+    body: [
+      "Look down, O Father of compassion, from thy high and holy seat upon the hapless souls detained in purgatory. Look upon all the pains and torments wherewith they are so piteously chastised; regard now the piteous groans and tears which they pour forth unto thee; hear the prayers and the supplications wherewith they entreat thy mercy, and be merciful unto their sins. Remember, O most compassionate Father, all the sufferings which thy Son hath endured for them; remember his precious Blood, shed in such abundance for them; call to mind the most bitter death which he suffered for them, and have mercy on them. For all the sins they have ever committed against thee I offer thee the most holy life and conversation of thy most beloved Son; for all their negligences I offer thee his most fervent desires towards thee; for all their omissions I offer thee the great abundance of his merits; for their every insult and wrong to thee I offer thee the sweet submission with which he honoured thee. Finally, for all the chastisements which they have ever incurred I offer thee all the mortifications, fastings, watchings, the labours and afflictions, wounds and stripes, passion and death, which he endured in such spotless innocence and with such loving eagerness; beseeching thee now to suffer thy anger to be appeased towards them, and to lead them forth into everlasting joy. Amen.",
+    ],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["all-souls", "november", "funerals"],
+    summary: `A prayer for the souls in purgatory asking the Father to look on their sufferings and remember those of his Son, and offering Christ's holy life, his desires, his merits, his submission and his whole Passion in satisfaction for their sins, negligences and omissions. ${PRECES_NOTE}`,
+  }),
+  preces({
+    slug: "gertrude-prayer-to-the-faithful-departed",
+    title: "Prayer to the Faithful Departed (Saint Gertrude)",
+    leaves: [202, 203],
+    body: [
+      "O most afflicted and unrepining souls, may Jesus Christ have mercy upon you, who for you was crucified and died, and may he refresh you in your sufferings by the sprinkling of his precious Blood. I commend you to that exceeding love which drew down the Son of God from heaven, and constrained him to a most bitter death on earth, that in that amazing compassion wherewith he entered into and took upon himself all the afflictions of the afflicted, he may have compassion on you. And for your full solace and refreshment I offer you all that filial love which the same Jesus Christ felt towards the Father in his Divinity, and towards Mary in his Humanity.",
+    ],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["all-souls", "november", "cemetery-visit"],
+    summary: `A prayer spoken to the holy souls themselves, asking that Christ refresh them with the sprinkling of his Precious Blood, commending them to the love that brought him to his death, and offering them for their relief the filial love he bore the Father and his Mother. ${PRECES_NOTE}`,
+  }),
+  preces({
+    slug: "prayer-in-a-burial-ground-hail-all-ye-faithful-souls",
+    title: "Prayer in a Burial-Ground: Hail, All Ye Faithful Souls",
+    leaves: [203],
+    body: [
+      "Hail, all ye faithful souls of Christ; may he give you rest, who is himself the one true Rest. May Jesus Christ, the Son of the living God, who for our salvation and for that of all mankind was born of the Immaculate Virgin, and redeemed you with his precious Blood, bless you, release you from your pain, raise you up in the day of judgment, and place you with his holy angels.",
+    ],
+    prayerType: "intercession",
+    category: "general",
+    occasions: ["all-souls", "cemetery-visit", "november"],
+    relatedSaints: [],
+    summary: `A greeting of the faithful departed to be said on passing through a burial-ground, a form of the old prayer "Avete, omnes animae fideles": it asks Christ, who redeemed them with his Blood, to give them rest, release them from their pain, raise them at the judgment and place them among his angels. The Preces Gertrudianae prints it among its prayers for the departed, without naming an author. ${PRECES_NOTE}`,
+  }),
+
+  // ── Preces Gertrudianae, Parts IX and X: penance and Holy Communion ────────
+  preces({
+    slug: "gertrude-act-of-true-contrition",
+    title: "Act of True Contrition (Saint Gertrude)",
+    leaves: [208, 209],
+    body: [
+      "O most gracious God, I most unworthy of thy creatures have offended thy Divine goodness in such manifold ways, of my own mere malice and perversity, that thou mightest justly abhor me, and pursue me as thy stubborn and most inveterate enemy. O Christ Jesus, I confess that I have dealt wickedly and have done exceeding evil in thy sight; but I grieve for my sins with so deep and lively sorrow, that I would rather endure any ill than ever sin against thee henceforward by even one mortal sin. Nor do I grieve because of the dread and exceeding punishment I have deserved, but because I have so heinously and so unjustly offended against thee, my loving, kind, and faithful God, who hast never done me the least ill or injustice, but hast bestowed on me all manner of good things. Pardon me, O most merciful Jesus, for the sake of that love wherewith thou didst pray to thy Father for thy murderers; for I profess my readiness to make a true and condign satisfaction to thee for every insult wherewith I have provoked thee by my sins. I do not ask thee to remit to me the pains I have deserved; but I am most ready to accept them as chastisements from thy fatherly hand, when and how and where it shall seem good to thee, and the glory of thy justice shall require. Wherefore I submit myself unto thee with the most profound humility and resignation, and I embrace with all my heart thy just judgment upon me, and gladly welcome whatever adversities and evils thou shalt lay upon me in time or in eternity. Amen.",
+    ],
+    prayerType: "act",
+    category: "penitential",
+    occasions: ["confession", "examination-of-conscience", "penance"],
+    summary: `An act of perfect contrition: sorrow for sin not from fear of punishment but because it has offended a God who has never done anything but good, joined to a readiness to make satisfaction and to accept from his fatherly hand whatever chastisement his justice requires. ${PRECES_NOTE}`,
+  }),
+  preces({
+    slug: "gertrude-preparation-for-holy-communion",
+    title: "Preparation for Holy Communion (Saint Gertrude)",
+    leaves: [222, 223, 224],
+    body: [
+      "O most sweet and loving Jesus, I the most unworthy of all thy creatures propose now to receive the most holy sacrament of thy Body and Blood, as the most effectual remedy for all my miseries of body and of soul; with most certain confidence and with most steadfast faith that I shall thus not only obtain the supply of all my need, but also most perfectly please thy supreme Majesty and all the inhabitants of heaven. But, O thou supreme and ineffable Majesty, before whose face the heavens are not clean and its strong pillars tremble, how shall I, a vile worm of the earth, a very sink of all most loathsome corruption and misery, dare to receive thee, who art the Fountain and Source of all purity, into my polluted heart! How shall I presume to receive thee into a heart all set around with briers and thorns, reeking with the foul vapours of carnal and worldly lusts? Wherefore, O thou most compassionate Lover of my soul, I blush exceedingly and am confounded before thee, and I quake with fear lest I should outrage thee by receiving thee into an abode so foul, so unworthy of thy Majesty. But, O most merciful Jesus, who hast said with thy gracious lips that they that are whole need not the physician, but they that are sick, who didst invite the blind and the lame, the poor and the needy, to thy supper; behold, as one of them, yea, as the poorest and most wretched of them all, I will draw near to the most sacred feast of thy Body and Blood, not in presumption, but with lowly and pious confidence. For the love of thee I bitterly grieve for all and every one of my sins and my negligences, whereby I have ever offended and grieved thy most tender lovingkindness and polluted my soul with such loathsome defilement. Oh, would that I could change the whole sea into blood, and that I could pour its mighty flood through my head and my heart, that thus that sink of unutterable abominations might be cleansed, which thou my last End hast chosen for thine habitation! O would that my heart could be torn from my body and purified in fiercest fire from all its dross, that thus it might offer thee an abode, not, alas, worthy of thee, but at least not so utterly unworthy. But why do I disquiet my soul within me, seeing that even if a thousand years were given me I could not prepare myself to receive thee befittingly; for of myself I have nothing whatever which could in any way avail towards so august and solemn a preparation as beseems thy adorable Majesty. Wherefore, O most loving Jesus, I cast myself in the dust before thee in the humility of my heart, and I beseech thy clemency to deign so to prepare me that I may partake of this heavenly banquet to thy glory and to the profit of all the whole world. I offer and abandon to thy tender pity all my substance, all that I am and have, earnestly desiring and beseeching thee that thou wouldst thyself vouchsafe to prepare within me all that is most pleasing to thy divine goodness. I offer and abandon to thee, O thou surpassingly sweet Lover of my soul, my whole heart, beseeching thee that thou wouldst wash it in that water of mighty efficacy which flowed from thy most holy Side, and adorn it for thine indwelling with the precious Blood of thy most sacred Heart, and fit it for thyself with the fragrant incense of thy divine love. Amen.",
+    ],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["before-communion", "mass"],
+    summary: `A long preparation for receiving Holy Communion: the soul confesses its utter unworthiness to receive the all-holy God, takes courage from Christ's invitation of the sick, the poor and the lame to his supper, grieves for its sins, and abandons itself and its heart to him, asking to be washed with the water from his Side and adorned with the Blood of his Heart. ${PRECES_NOTE}`,
   }),
 ];
