@@ -7,6 +7,13 @@ import type { CuratedEntry } from "../index";
  */
 const PRECES = "https://archive.org/details/PrecesGertrudianae/page/n";
 
+/**
+ * The archive.org scan of Revelations of St. Bridget, on the Life and Passion
+ * of Our Lord, and the Life of His Blessed Mother (New York: D. & J. Sadlier,
+ * 1862), addressed by leaf: printed page P is leaf n(P + 53).
+ */
+const REVELATIONS = "https://archive.org/details/revelationsofstb0000revw/page/n";
+
 /** The prayerType values of the PRAYER schema that this batch uses. */
 type PrayerType =
   | "morning"
@@ -34,33 +41,39 @@ interface SourcedPrayer {
 }
 
 /**
- * Batch 13 of the curated prayer catalogue: the prayers of Saint Gertrude the
- * Great and Saint Mechtilde of Helfta in the English of the Preces
- * Gertrudianae of 1861.
+ * Batch 13 of the curated prayer catalogue: the prayers of the medieval women
+ * mystics Saint Gertrude the Great and Saint Mechtilde of Helfta, in the
+ * English of the Preces Gertrudianae of 1861, and the prayers of Saint Bridget
+ * of Sweden, in the English of the Revelations of St. Bridget of 1862.
  *
  * The Preces Gertrudianae is a Latin manual compiled in the seventeenth
  * century from the revelations of the two Benedictine nuns of Helfta. Its
  * English translation, "the only one from the Latin" in the words of its own
- * preface, was published in London in 1861 with the approval of Cardinal
- * Wiseman; the archive.org record credits it to Thomas Alder Pope (1819-1904).
- * The book is in the public domain. Every citation is the archive.org scan of
- * it (a Google scan of a library copy), opened at the leaf where the prayer
- * begins, followed by any leaf it runs on to.
+ * preface, was published in London by Burns and Lambert in 1861 with the
+ * approval of Cardinal Wiseman; the archive.org record credits it to Thomas
+ * Alder Pope (1819-1904). The Revelations of St. Bridget, a selection from
+ * her revelations with an essay by William H. Neligan, was published in New
+ * York by D. & J. Sadlier, entered for copyright in 1862; its last two
+ * chapters are Saint Bridget's prayers. Both books are in the public domain.
+ * Every citation is the archive.org scan of the book (for the Preces a Google
+ * scan, for the Revelations the Graduate Theological Union's copy), opened at
+ * the leaf where the prayer begins, followed by any leaf it runs on to.
  *
  * Every body is transcribed from those page images and checked word by word
  * against two independent OCRs of them: the text layer archive.org publishes
  * with the scan and a second recognition of the same images, read column by
- * column. Every place where the two disagree, or where either looks wrong,
- * was settled by reading the page image itself. Nothing is paraphrased,
- * shortened, modernised, composed or merged across versions. The changes are
- * typographical only:
+ * column where the page has two. Every place where the two disagree, or where
+ * either looks wrong, was settled by reading the page image itself, and
+ * paragraph breaks follow the indents of the printed page. Nothing is
+ * paraphrased, shortened, modernised, composed or merged across versions. The
+ * changes are typographical only:
  *   - the capitals of the opening words and the drop initials ("O MOST loving
- *     Je-sus", "HAIL, my God") are given in ordinary case;
- *   - the line-end hyphens of the narrow two-column page are closed up, while
- *     the compounds the book hyphenates elsewhere keep their hyphen
- *     (Life-giving, sweet-smelling, ever-peaceful, only-begotten); "five-fold"
- *     broken at a line end is given as "fivefold", as the book prints
- *     "twofold" and "thousandfold";
+ *     Je-sus", "HAIL, my God", "O JESUS CHRIST") are given in ordinary case;
+ *   - line-end hyphens are closed up, while the compounds the book hyphenates
+ *     elsewhere keep their hyphen (Life-giving, sweet-smelling, ever-peaceful,
+ *     only-begotten, well-beloved); words the book prints solid elsewhere are
+ *     given solid when a line end breaks them ("fivefold", as it prints
+ *     "twofold" and "thousandfold"; "cooperation");
  *   - the space the period set before ; : ! and ? is closed, a space the
  *     printer dropped between two words is restored ("tremendous Mysteries",
  *     "me, for salvation", "it may be therein cleansed"), and apostrophes and
@@ -68,19 +81,38 @@ interface SourcedPrayer {
  *   - specks of ink in the scan that are not letters are ignored, and worn
  *     type is read as the letter it is: the broken final "e" of "thee" in the
  *     Morning Aspiration to Jesus;
- *   - one plain printer's slip is corrected: the Golden Salutation of the
- *     Blessed Virgin ends "Amen," in the book, given here as "Amen.".
+ *   - two plain printer's slips are corrected: the Golden Salutation of the
+ *     Blessed Virgin ends "Amen," in the Preces, given here as "Amen."; and
+ *     the Revelations repeat "the" across a line end in Saint Bridget's prayer
+ *     to Mary as the temple of Solomon ("of him who is the / the father of
+ *     David"), given once.
  * Italic type is not reproduced, but the ligature of the Latin word "Væ"
- * (woe) in the Golden Ave Maria is kept as printed.
- * The book's alternatives in square brackets ("[or, this prayer]",
- * "[especially N.]") and its "N." for a name are kept as printed.
+ * (woe) in the Golden Ave Maria is kept as printed. The Preces' alternative in
+ * square brackets ("[or, this prayer]") and its "N." for a name are kept, and
+ * so are the rubrics the Revelations print between the Fifteen Prayers ("Our
+ * Father. Hail Mary.", "After five Our Fathers say the following prayer:"),
+ * in plain type, together with the numbers that head each prayer. The
+ * Revelations' references to the book and chapter of the Revelations
+ * ("Lib. iii., c. 29") are not part of the prayers and are left out.
  *
- * The book sets an italic note before many prayers, reporting what Our Lord
+ * The Preces sets an italic note before many prayers, reporting what Our Lord
  * said to Saint Gertrude or Saint Mechtilde about it. Those notes are not part
  * of the prayers and are not copied; a summary may say that the book connects
  * a prayer with one of the saints, but it repeats no promise. A title credits
  * the saint the book itself names for the prayer, Saint Gertrude by default,
- * as the book's running head ("Prayers of St. Gertrude") does.
+ * as the book's running head ("Prayers of St. Gertrude") does; the greeting
+ * for a burial-ground, which the book gives without naming any author, is
+ * credited to no one.
+ *
+ * Left out on purpose: the prayer after the Elevation, a word of which is
+ * illegible in the scan; the Preces' "Ten Prayers on the Passion", a shorter
+ * form of the Fifteen Prayers of Saint Bridget given here from the
+ * Revelations; its first hymn of praise, which is the Benedicite (Daniel
+ * 3:52-57); its prayer to the Holy Name, the Raccolta's "O good Jesu" already
+ * in the catalogue; its prayers before and after sacramental penance, which
+ * batch 12 gives from the Manual of Prayers; its Three Ave Marias for a good
+ * death, built on the Hail Mary; its litanies, which Cardinal Wiseman's
+ * approval excludes from public worship; and the one-line ejaculations.
  */
 function preces(input: SourcedPrayer): CuratedEntry {
   const citations = input.leaves.map((leaf) => `${PRECES}${leaf}/mode/1up`);
@@ -103,6 +135,32 @@ function preces(input: SourcedPrayer): CuratedEntry {
     },
   };
 }
+
+/** An entry from the Revelations of St. Bridget (Sadlier, 1862). */
+function revelations(input: SourcedPrayer): CuratedEntry {
+  const citations = input.leaves.map((leaf) => `${REVELATIONS}${leaf}/mode/1up`);
+  return {
+    contentType: "PRAYER",
+    slug: input.slug,
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations,
+    payload: {
+      slug: input.slug,
+      title: input.title,
+      body: input.body.join("\n\n"),
+      prayerType: input.prayerType,
+      category: input.category,
+      language: "en",
+      summary: input.summary,
+      occasions: input.occasions,
+      relatedSaints: input.relatedSaints ?? ["saint-bridget-of-sweden"],
+      citations,
+    },
+  };
+}
+
+const REVELATIONS_NOTE =
+  "From the Revelations of St. Bridget, an English selection from the revelations of Saint Bridget of Sweden (1303-1373) published in New York by D. & J. Sadlier in 1862.";
 
 const PRECES_NOTE =
   "From the Preces Gertrudianae, the seventeenth-century manual of prayers drawn from the revelations of Saint Gertrude and Saint Mechtilde of Helfta, in its English translation of 1861.";
@@ -884,5 +942,114 @@ export const prayerBatch13: CuratedEntry[] = [
     category: "eucharistic",
     occasions: ["before-communion", "mass"],
     summary: `A long preparation for receiving Holy Communion: the soul confesses its utter unworthiness to receive the all-holy God, takes courage from Christ's invitation of the sick, the poor and the lame to his supper, grieves for its sins, and abandons itself and its heart to him, asking to be washed with the water from his Side and adorned with the Blood of his Heart. ${PRECES_NOTE}`,
+  }),
+
+  // ── Revelations of St. Bridget (1862): her prayers ─────────────────────────
+  revelations({
+    slug: "fifteen-prayers-on-the-passion-ascribed-to-saint-bridget",
+    title: "The Fifteen Prayers on the Passion Ascribed to Saint Bridget (the Fifteen O's)",
+    leaves: [145, 146, 147, 148, 149, 150, 151, 152, 153, 154],
+    body: [
+      "I.",
+      "O Jesus Christ, eternal sweetness of them that hope in thee, joy exceeding all joy and all desire, salvation, and love of sinners, who hast declared it to be thy delight to be with the children of men, made man for man in the end of time; remember all thy premeditation and interior grief, which thou didst endure in thy human body, at the approach of the time of thy most saving Passion, preordained in thy divine heart. Remember the sadness and the bitterness, which as thou thyself didst testify, thou didst feel in thy soul, when at the Last Supper with thy disciples thou didst give them thy Body and Blood, didst wash their feet, and sweetly consoling them, foretell thy imminent Passion. Remember all the fear, anguish, and grief, which thou didst endure in thy delicate body before the Passion of the Cross; when, after thy thrice-repeated prayer and bloody sweat, thou wast betrayed by thy disciple Judas, taken by a chosen people, accused by false witnesses, unjustly judged by three judges, condemned innocent in the chosen city, at Paschal time, in the bloom of youth, stripped of thy own clothing and clothed in the garments of another, buffeted, thy face and eyes veiled, smitten with blows, bound to the pillar, scourged, crowned with thorns, struck with a reed on the head, and torn with numberless other acts of violence. Give me, O Lord God, I beseech thee, before I die, in memory of these thy passions before the cross, a true contrition, true confession, worthy satisfaction and remission of all my sins. Amen.",
+      "Our Father. Hail Mary.",
+      "II.",
+      "O Jesus, maker of the world, whom no measure by just bounds doth compass, who inclosest the earth in thy palm, remember the most bitter grief which thou didst endure, when the Jews first fastened thy most sacred hands to the cross with dull nails, and as thou wast not agreeable to their will, added pain to pain in thy wounds by perforating thy most delicate feet, and cruelly wrenched and distended thee the length and breadth of thy cross, so that the joints of thy limbs were loosened. I beseech thee by the memory of this most sacred and bitter pain on the cross to give me thy fear and love. Amen.",
+      "Our Father. Hail Mary.",
+      "III.",
+      'O Jesus, heavenly physician, remember the languor, livor, and pain which thou didst suffer on the lofty scaffold of the cross, torn in all thy limbs, not one of which had remained in its right state, so that no pain was found like to thy pain; for from the sole of thy foot to the top of thy head, there was no soundness in thee. And yet, regardless of all pains, thou didst piously pray to thy Father for thy enemies, saying: "Father, forgive them, they know not what they do." By this mercy and in remembrance of that pain, grant that this memory of thy most bitter Passion be a full remission of all my sins. Amen.',
+      "Our Father. Hail Mary.",
+      "IV.",
+      "O Jesus, true liberty of Angels, paradise of delights, remember the grief and horror which thou didst endure, when all thy enemies surrounded thee like fierce lions, and tortured thee by buffets, spitting upon thee, tearing and other unheard-of pains. By these pains and all the contumelious words and most severe torments, whereby, O Lord Jesus Christ, all thy enemies afflicted thee, I beseech thee to free me from all my enemies, visible and invisible, and grant me to reach the perfection of eternal salvation under the shadow of thy wings. Amen.",
+      "Our Father. Hail Mary.",
+      "V.",
+      'O Jesus, mirror of eternal brightness, remember the grief which thou didst endure, when thou didst behold in the mirror of thy most serene Majesty the predestination of the elect to be saved by the merits of thy Passion, and the reprobation of the wicked, to be damned by their own demerits; and by the abyss of thy mercy, whereby thou didst then compassionate us lost and hopeless sinners, and which thou didst show the thief on the cross, saying, "This day thou shalt be with me in paradise," I beseech thee, O merciful Jesus, show mercy to me at the hour of my death. Amen.',
+      "Our Father. Hail Mary.",
+      "VI.",
+      'O Jesus, amiable king, and most desirable friend, remember the sorrow thou hadst, when thou didst hang naked and wretched on the cross, and all thy friends and acquaintances stood over against thee, and thou didst find no comforter, except alone thy beloved Mother, most faithfully standing by thee in bitterness of soul, whom thou didst commend to thy disciple, saying, "Woman, behold thy son:" I beseech thee, merciful Jesus, by the sword of grief which then pierced thy soul, to have compassion on me in all my tribulations and afflictions, bodily and spiritual, and give me comfort in time of tribulation and at the hour of my death. Amen.',
+      "Our Father. Hail Mary.",
+      "VII.",
+      'O Jesus, fountain of inexhaustible mercy, who from intense feeling didst exclaim on the cross, "I thirst," thirsting for the salvation of the human race; inflame, we beseech thee, the desires of our hearts to every perfect work, and entirely cool and extinguish in us the thirst of carnal concupiscence and the heat of worldly delight. Amen.',
+      "Our Father. Hail Mary.",
+      "VIII.",
+      "O Jesus, sweetness of hearts and great sweetness of minds, by the bitterness of the vinegar and gall which thou didst taste for us, grant me at the hour of my death worthily to receive thy Body and Blood, for the remedy and consolation of my soul. Amen.",
+      "Our Father. Hail Mary.",
+      "IX.",
+      'O Jesus, royal virtue and mental delight, remember the anguish and pain which thou didst endure, when, from the bitterness of death and the reproaches of the Jews, thou didst exclaim in a loud voice that thou wast forsaken by thy Father, saying, "My God, my God, why hast thou forsaken me?" By this anguish, I beseech thee not to forsake me in my anguish, O Lord our God. Amen.',
+      "Our Father. Hail Mary.",
+      "X.",
+      "O Jesus, Alpha and Omega, ever virtue and life, remember that for us thou didst plunge thyself, from the top of thy head to the sole of thy feet, in the water of thy Passion. By the length and breadth of thy wounds, teach me to keep in true charity thy broad command, too much immersed in sin. Amen.",
+      "Our Father. Hail Mary.",
+      "XI.",
+      "O Jesus, most profound abyss of mercy, I beseech thee by the depth of thy wounds, which pierced the marrow of thy bones and vitals, raise me from the depth of sins in which I am plunged, and hide me in the hollow of thy wounds, from the face of thy wrath, till thy anger pass away, O Lord. Amen.",
+      "Our Father. Hail Mary.",
+      "XII.",
+      "O Jesus, mirror of truth, sign of unity, and bond of charity, remember the multitude of thy innumerable wounds wherewith thou wast wounded from the top of thy head to the sole of thy feet, and reddened with thy most sacred blood, which magnitude of pain thou didst endure on thy virginal flesh for us. O merciful Jesus, what more oughtest thou to do, and hast not done? Engrave, I beseech thee, O merciful Jesus, all thy wounds in my heart with thy most precious blood, that in them I may read thy sorrow and death, and in thanksgiving persevere duly to the end. Amen.",
+      "Our Father. Hail Mary.",
+      "XIII.",
+      'O Jesus, most valiant Lion, immortal and unconquered King, remember the pain which thou didst endure, when all the powers of thy heart and body entirely failed thee, and inclining thy head, thou didst exclaim, "It is consummated." By that anguish and pain, remember me in the last consummation of my departure, when my soul shall be in anguish and my spirit troubled. Amen.',
+      "Our Father. Hail Mary.",
+      "XIV.",
+      'O Jesus, only-begotten Son of the most high Father, splendor and figure of his substance, remember the commendation wherewith thou didst commend thy spirit to thy Father, saying, "Into thy hands, O Lord, I commend my spirit;" and then, with lacerated body and broken heart, with a loud cry, the bowels of thy mercy exposed, didst expire to redeem us. By this precious death, I beseech thee, O King of saints, comfort me to resist the devil, the world, flesh, and blood, that dead to the world, I may live to thee, and in the last hour of my departure receive thou my exiled, wandering spirit returning to thee. Amen.',
+      "Our Father. Hail Mary.",
+      "XV.",
+      "O Jesus, true and fruitful vine, remember the overflowing and abundant effusion of blood, which thou didst pour forth in torrents, like wine pressed from the grape, when on the press of the cross thou didst tread alone; and thy side having been opened with a lance, thou didst pour forth to us blood and water, so that not the least drop remained in thee; and at last thou wast suspended on high like a bundle of myrrh, and thy delicate flesh fainted, and the moisture of thy members dried up, and the marrow of thy bones faded. By this most bitter Passion and the effusion of thy precious blood, O pious Jesus, I pray thee, receive my soul in the agony of my death. Amen.",
+      "Our Father. Hail Mary.",
+      "O sweet Jesus, wound my heart, that tears of penitence and love may be my food night and day, and bring me entirely to thee; that my heart may ever be habitable for thee, and my conversation pleasing and acceptable to thee; and the end of my life so praiseworthy, that after the close of this life, I may deserve to praise thee with all thy Saints forever.",
+      "After five Our Fathers say the following prayer:",
+      "O Lord Jesus Christ, Son of the living God, receive this prayer in that most exceeding love, wherewith thou didst bear all the wounds of thy most sacred body; and remember me thy servant, and to all sinners, and all the faithful, living and dead, give mercy, grace, remission, and eternal life. Amen.",
+    ],
+    prayerType: "general",
+    category: "devotional",
+    occasions: ["passion", "lent", "good-friday", "preparation-for-death"],
+    summary: `Fifteen prayers each beginning "O Jesus", which recall in turn Christ's sufferings from the Last Supper to his death and the opening of his side, each followed by an Our Father and a Hail Mary, with two closing prayers. Known in the late Middle Ages as the "Fifteen O's", they are traditionally ascribed to Saint Bridget of Sweden, though the attribution is uncertain; this book prints them as her prayers on the Passion, without the promises that circulated with them elsewhere. ${REVELATIONS_NOTE}`,
+  }),
+  revelations({
+    slug: "saint-bridget-prayer-to-mary-temple-of-solomon",
+    title: "Prayer of Saint Bridget to Mary, the Temple of Solomon",
+    leaves: [141, 142, 143],
+    body: [
+      "Blessed art thou, Mary, mother of God, temple of Solomon, whose walls were golden, whose roof resplendent, whose pavement was laid with most precious stones; whose whole structure was splendid, its whole interior redolent and delightful to gaze upon. In every way art thou like to the temple of Solomon, in which the true Solomon walked and sat, unto which he brought in the ark of glory and the candlestick for light. So art thou, Blessed Virgin, the temple of that Solomon who made peace between God and man; who reconciled the guilty, who gave life to the dead, and delivered the poor from the executioner. For thy body and soul were made the temple of the Deity, wherein was the roof of divine charity, under which the Son of God, going forth from the Father to thee, dwelt joyfully with thee. The pavement of the temple was thy well-ordered life and assiduous exercise of virtues; for no grace was wanting in thee, for all in thee was stable, all humble, all devout, all perfect. The walls of the temple were square, for thou art troubled by no opprobrium, puffed up by no honor, disquieted by no impatience, seeking naught but God's love and honor. The pictures of thy temple were a constant fire of the Holy Ghost, whereby thy soul was so exalted, that there was no virtue not more ample and perfect in thee than in any other creature. God walked in his temple, when he infused into thy frame the sweetness of his visitation. He rested when the deity was associated to the humanity. Blessed, therefore, art thou O most blessed Virgin, in whom the mighty God became a little child; the ancient Lord became a puny infant; the everlasting God and invisible Creator became a visible creature. Therefore, because thou art most compassionate and most powerful, O Lady, I beg thee to look on me and take pity on me. For thou art the mother of Solomon; not of him who was David's son, but of him who is the father of David, and the Lord of Solomon, who built that wonderful temple, which truly prefigured thee. For the son will hearken to the mother, and to such and so great a mother. Obtain, then, that the infant Solomon who slumbered in thee, watch with me, so that no sinful delight sting me, that the contrition of my sins be permanent, love of the world be dead within me, my patience persevering, my penance fruitful. For I have no power for me, except one word, and that is: \"Mary, take pity!\" for my temple is all the contrary of thine; it is darkened with vices, soiled with luxury, eaten by the worms of cupidity, unstable by pride, tottering from the vanity of worldliness.",
+    ],
+    prayerType: "marian",
+    category: "marian",
+    occasions: ["marian-devotion", "penance", "july-23"],
+    summary: `Saint Bridget's prayer comparing the Blessed Virgin to Solomon's temple, its golden walls, roof, pavement and pictures standing for her charity, her ordered life, her steadfastness and the fire of the Holy Ghost in her, and asking the Mother of the true Solomon to take pity on a soul whose own temple is darkened by vice. The book cites it from Book III, chapter 29 of her Revelations. ${REVELATIONS_NOTE}`,
+  }),
+  revelations({
+    slug: "saint-bridget-prayer-blessed-art-thou-o-my-god-my-creator",
+    title: "Prayer of Saint Bridget: Blessed Art Thou, O My God, My Creator and Redeemer",
+    leaves: [143, 144],
+    body: [
+      "Blessed art thou, O my God, my Creator and Redeemer. Thou art the ransom by which we have been redeemed from captivity, by which we are directed to all salutary things, by which we are associated to the unity and trinity. If I blush for my own sloth, yet I rejoice, that thou who didst once die for our salvation, will die no more. For thou art truly he that was before the ages. Thou art he that has power of life and death. Thou alone art good and just. Thou alone art almighty and fearful. Blessed then be thou forever. But what shall I say of thee O blessed Mary, the whole salvation of the world? Thou art like pointing out suddenly to a friend grieving for it, a lost jewel, whereby his pain is alleviated, his joy increased, his whole mind rekindled with joy. So thou, most sweet mother, didst show to the world its God, whom men had lost, and didst bear him in time who was begotten before time, at whose birth earthly and heavenly things rejoiced. Therefore, O most sweet mother, I beg thee help me, lest the enemy rejoice over me, or prevail against me by his snares.",
+    ],
+    prayerType: "general",
+    category: "general",
+    occasions: ["praise", "marian-devotion", "temptation"],
+    summary: `A prayer of Saint Bridget blessing Christ as Creator and Redeemer, who died once and dies no more, and then the Blessed Virgin, who showed the world its lost God as one shows a grieving friend a lost jewel, asking her help against the snares of the enemy. The book cites it from Book IV, chapter 75 of her Revelations. ${REVELATIONS_NOTE}`,
+  }),
+  revelations({
+    slug: "saint-bridget-prayer-to-the-most-clement-virgin-mary",
+    title: "Prayer of Saint Bridget to the Most Clement Virgin Mary",
+    leaves: [140],
+    body: [
+      "We pray thee, O most clement Virgin Mary, queen of the world and of angels, to obtain relief for those whom the fire of purgatory tries, pardon for sinners, perseverance in good to the just, and also defend us weak brethren from menacing danger. Through, &c.",
+    ],
+    prayerType: "marian",
+    category: "marian",
+    occasions: ["all-souls", "conversion", "marian-devotion"],
+    summary: `A short prayer, among the book's "Select Prayers of St. Bridget", asking Our Lady as queen of the world and of the angels to obtain relief for the souls in purgatory, pardon for sinners and perseverance for the just, and to defend the weak from danger. It ends with the abbreviated conclusion "Through, &c." as printed. ${REVELATIONS_NOTE}`,
+  }),
+  revelations({
+    slug: "saint-bridget-prayer-for-purity-and-the-resurrection-of-the-body",
+    title: "Prayer of Saint Bridget for Purity and the Resurrection of the Body",
+    leaves: [141],
+    body: [
+      "O Lord, holy Father, who didst preserve intact in the tomb, the body which thou didst receive from the Virgin Mary for thy Son, and didst raise it incorrupt, preserve, we beseech thee, our bodies clean and immaculate in thy most holy service, and direct our way in this time, that when the great and terrible day of judgment comes, they may be raised to life among thy saints, and our souls eternally rejoice with thee, and deserve to be associated with thy elect.",
+    ],
+    prayerType: "general",
+    category: "general",
+    occasions: ["chastity", "easter", "preparation-for-death"],
+    summary: `A short prayer to the Father, who kept incorrupt in the tomb the body his Son took from the Virgin Mary and raised it, asking that our bodies be kept pure in his service and raised among the saints at the judgment. One of the book's "Select Prayers of St. Bridget". ${REVELATIONS_NOTE}`,
   }),
 ];
