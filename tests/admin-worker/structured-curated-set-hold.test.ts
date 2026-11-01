@@ -309,7 +309,7 @@ describe("DOCTOR ingestor against the real curated Doctors", () => {
     mockedSparql.mockResolvedValue(doctorRows());
     const { prisma, memory } = fakePrisma({
       liveByType: { DOCTOR: curatedLive("DOCTOR") },
-      targets: { SAINT: 4_500, DOCTOR: 38 },
+      targets: { SAINT: 3_794, DOCTOR: 38 },
     });
     // Every other ingestor ran a minute ago; DOCTOR never has (no cursor row),
     // so the floor puts it ahead of SAINT's gap.
