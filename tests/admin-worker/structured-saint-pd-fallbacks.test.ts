@@ -47,6 +47,7 @@ const WIKISOURCE_PAGES: Record<string, string> = {
   "Catholic Encyclopedia (1913)/St. Ita": "ce-st-ita.json",
   "Catholic Encyclopedia (1913)/St. Eugendus": "ce-st-eugendus.json",
   "Catholic Encyclopedia (1913)/Gregory Bæticus": "ce-gregory-baeticus.json",
+  "Catholic Encyclopedia (1913)/Martyrs of Gorkum": "ce-martyrs-of-gorkum.json",
 };
 const CE = "https://en.wikisource.org/wiki/Catholic_Encyclopedia_(1913)/";
 const RM_URL = "https://archive.org/details/romanmartyrology00cathuoft";
@@ -59,6 +60,8 @@ const SKIP = "ADMIN_WORKER_SKIP_NETWORK";
 let savedSkip: string | undefined;
 const realFetch = global.fetch;
 let wikisourceStatus = 200;
+/** Rewrites a served page's HTML (to make reading it fail in a given way). */
+let wikisourceHtml: ((html: string) => string) | null = null;
 const wikisourceRequests: string[] = [];
 
 beforeEach(() => {
@@ -66,6 +69,7 @@ beforeEach(() => {
   delete process.env[SKIP];
   resetWikimediaQueue();
   wikisourceStatus = 200;
+  wikisourceHtml = null;
   wikisourceRequests.length = 0;
   mockedSummary.mockReset();
   mockedSource.mockReset();
@@ -84,6 +88,7 @@ beforeEach(() => {
     const body = file
       ? JSON.parse(readFileSync(path.join(FIXTURES, file), "utf8"))
       : { error: { code: "missingtitle" } };
+    if (file && wikisourceHtml) body.parse.text = wikisourceHtml(body.parse.text);
     return { ok: true, status: 200, headers: { get: () => null }, json: async () => body };
   }) as unknown as typeof global.fetch;
 });
@@ -247,6 +252,35 @@ describe("an English article: the Encyclopedia stands in, never overrides", () =
     expect(payload.provenance).toMatchObject({ biography: "catholic-encyclopedia-1913" });
   });
 
+  it("never quotes an article on a group that does not name the saint as their biography", async () => {
+    // Andrew Wouters's Catholic Encyclopedia ID (06651c) is "The Martyrs of
+    // Gorkum", which opens on the year 1572 and never names him.
+    mockedSummary.mockResolvedValue({
+      extract: "Andrew Wouters was a Dutch priest, one of the Martyrs of Gorkum.",
+      url: "https://en.wikipedia.org/wiki/Andrew_Wouters",
+      lang: "en",
+    });
+    mockedSource.mockResolvedValue({
+      infobox: { feast_day: "9 July" },
+      prose: "",
+      read: true,
+      catholicEncyclopedia: [{ title: "Martyrs of Gorkum", newAdventId: "06651c" }],
+    });
+    const r = await saintMap(
+      row({
+        s: `${WD}Q107076198`,
+        label: "Andrew Wouters",
+        statuses: CATHOLIC_SAINT,
+        feasts: "9 July",
+        art: "https://en.wikipedia.org/wiki/Andrew_Wouters",
+        ceIds: "06651c",
+      }),
+    );
+    // The page WAS read (it is the ID's article), and refused as his biography.
+    expect(wikisourceRequests).toHaveLength(1);
+    expect(rejectionOf(r)?.code).toBe("description_too_short");
+  });
+
   it("keeps description_too_short, with no request, for a saint the Encyclopedia does not cover", async () => {
     mockedSummary.mockResolvedValue({ extract: SHORT_LEAD, url: ITA.art, lang: "en" });
     expect(rejectionOf(await saintMap(row(ITA)))?.code).toBe("description_too_short");
@@ -329,6 +363,39 @@ describe("an English article: the Encyclopedia stands in, never overrides", () =
     wikisourceStatus = 503;
     mockedSummary.mockResolvedValue({ extract: LONG_LEAD, url: GREGORY.art, lang: "en" });
     const mapped = await mapSourceRowDetailed(ingestorFor("SAINT")!, row(GREGORY));
+    expect(rejectionOf(mapped.result)?.code).toBe("source_read_failed");
+    expect(mapped.unreadSources).toBeGreaterThan(0);
+  });
+
+  it("holds the row, never publishes past it, when reading the Encyclopedia page throws", async () => {
+    // Eugendus: the Martyrology alone would corroborate 1 January, but the
+    // Encyclopedia keeps his feast on 2 / 4 January. A page that cannot be
+    // parsed (here an out-of-range character reference) is an unread page —
+    // never "no article" — so its veto is not lost.
+    wikisourceHtml = (html) =>
+      html.replace(
+        "Thenceforth he never left the monastery.",
+        "Thenceforth he never left the monastery.&#1114112;",
+      );
+    mockedSummary.mockResolvedValue({
+      extract:
+        "Eugendus was the fourth abbot of Condat Abbey, at Saint-Claude, Jura, in the Jura Mountains, " +
+        "who rebuilt the monastery in stone.",
+      url: "https://en.wikipedia.org/wiki/Eugendus",
+      lang: "en",
+    });
+    const mapped = await mapSourceRowDetailed(
+      ingestorFor("SAINT")!,
+      row({
+        s: `${WD}Q389249`,
+        label: "Eugendus",
+        statuses: CATHOLIC_SAINT,
+        feasts: "1 January",
+        art: "https://en.wikipedia.org/wiki/Eugendus",
+        ceArts: `${CE}St._Eugendus`,
+      }),
+    );
+    expect(wikisourceRequests).toHaveLength(1);
     expect(rejectionOf(mapped.result)?.code).toBe("source_read_failed");
     expect(mapped.unreadSources).toBeGreaterThan(0);
   });

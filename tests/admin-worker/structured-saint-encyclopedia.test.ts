@@ -3,8 +3,9 @@
  * biography and feast witness for the SAINT ingest. Pinned on real pages
  * saved from en.wikisource.org (`action=parse`, wikitext + rendered HTML):
  * St. Ita, Pope St. Agatho (text transcluded from the scans, so the wikitext
- * has none), St. Eugendus, Gregory Bæticus and Pope St. Symmachus; and on real
- * citation markup cut from English Wikipedia articles.
+ * has none), St. Eugendus, Gregory Bæticus, Pope St. Symmachus and The Martyrs
+ * of Gorkum (an article on a group); and on real citation markup cut from
+ * English Wikipedia articles.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -15,6 +16,7 @@ import {
   catholicEncyclopediaBiography,
   catholicEncyclopediaFeastDays,
   catholicEncyclopediaFeastVerdict,
+  catholicEncyclopediaNamesSubject,
   catholicEncyclopediaRefsIn,
   catholicEncyclopediaTitle,
   catholicEncyclopediaUrl,
@@ -79,6 +81,66 @@ describe("one Encyclopedia page", () => {
     expect(bio).toMatch(/^Gregory Bæticus, Bishop of Elvira/);
     expect(bio).toMatch(/\.$/);
     expect(bio).not.toMatch(/\b(?:St|b|d|cf)\.$/);
+  });
+});
+
+describe("the quoted text must be about the saint", () => {
+  it("refuses an article on a GROUP whose opening never names the saint", () => {
+    // Wikidata's Catholic Encyclopedia ID for Andrew Wouters (06651c) is "The
+    // Martyrs of Gorkum", which opens on the year 1572, not on him.
+    const gorkum = article("ce-martyrs-of-gorkum.json");
+    expect(gorkum.volume).toBe(6);
+    const text = catholicEncyclopediaBiography(gorkum)!;
+    expect(text).toMatch(/^The year 1572, Luther and Calvin had already wrested from the Church/);
+    expect(
+      catholicEncyclopediaNamesSubject({
+        article: gorkum,
+        text,
+        label: "Andrew Wouters",
+        wikipediaTitle: "Andrew_Wouters",
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts the saint's own article, under another spelling too", () => {
+    const ita = article("ce-st-ita.json");
+    const text = catholicEncyclopediaBiography(ita)!;
+    // The Wikisource header links the saint's English article…
+    expect(
+      catholicEncyclopediaNamesSubject({
+        article: ita,
+        text,
+        label: "Íte of Killeedy",
+        wikipediaTitle: "%C3%8Dte_of_Killeedy",
+      }),
+    ).toBe(true);
+    // …and without it, "Killeedy" in the text names her.
+    expect(
+      catholicEncyclopediaNamesSubject({
+        article: ita,
+        text,
+        label: "Íte of Killeedy",
+        wikipediaTitle: null,
+      }),
+    ).toBe(true);
+    const agatho = article("ce-pope-st-agatho.json");
+    expect(
+      catholicEncyclopediaNamesSubject({
+        article: agatho,
+        text: catholicEncyclopediaBiography(agatho)!,
+        label: "Pope Agatho",
+        wikipediaTitle: null,
+      }),
+    ).toBe(true);
+    // "St. Ceolfrid" (the 1913 spelling) for Ceolfrith: the first five letters agree.
+    expect(
+      catholicEncyclopediaNamesSubject({
+        article: { title: "St. Ceolfrid", wikipedia: null },
+        text: "Benedictine monk, Abbot of Wearmouth and Jarrow, b. 642, place of birth not known.",
+        label: "Ceolfrith",
+        wikipediaTitle: "Ceolfrith",
+      }),
+    ).toBe(true);
   });
 });
 
@@ -162,6 +224,13 @@ describe("finding the article from an English Wikipedia article's citations", ()
       "Pope Celestine IV",
     );
     expect(citedArticleTitle("The Catholic Encyclopedia")).toBeNull();
+    // The website's name is no article: nothing to read on Wikisource.
+    expect(citedArticleTitle("New Advent")).toBeNull();
+    expect(
+      catholicEncyclopediaRefsIn(
+        "<ref>[https://www.newadvent.org/cathen/04491b.htm New Advent]</ref>",
+      ),
+    ).toEqual([]);
   });
 
   it("maps identifiers and URLs", () => {

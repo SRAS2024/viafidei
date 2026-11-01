@@ -31,6 +31,12 @@
  * The 1916 days are the pre-1969 calendar's. The ingest asks this source only
  * when Wikipedia states no feast at all, and only accepts Wikidata's own day
  * — it can confirm P841, never supply or move a feast.
+ *
+ * AS A BIOGRAPHY the matched announcement is shown verbatim, and only when
+ * the scan can be trusted to BE the book's text: no OCR debris or known
+ * misreading, no word or name that looks misread, and no second announcement
+ * run into it (`martyrologyBiography`). Short of that it may still
+ * corroborate the feast; it is just not shown.
  */
 
 import martyrologyJson from "./data/roman-martyrology-1916.json";
@@ -371,18 +377,39 @@ const MONTH_INDEX: Record<string, number> = Object.fromEntries(
   Array.from({ length: 12 }, (_, i) => [monthName(i + 1).toLowerCase(), i + 1]),
 );
 
+/** "on the 14th of June" / "on the 30th of this month" / "on the 17th". */
+const ON_THE_DAY = String.raw`on\s+the\s+(\d{1,2})(?:st|nd|rd|d|th)\b(?:\s+of\s+(this month|[A-Za-z]+))?`;
+/**
+ * "whose festival is kept on …", "His feast is more especially celebrated
+ * on …", "ordered his festival to be kept on …", "permitted her feast to be
+ * celebrated on …".
+ */
+const FEAST_KEPT_ON_RE = new RegExp(
+  String.raw`\b(?:feast|festival|solemnity)\b[^.;]{0,60}?\b(?:(?:is|are)\s+(?:(?:now|more|especially|chiefly|principally|particularly|also)\s+)*|to\s+be\s+)(?:kept|celebrated|observed|held)\b[^.;]{0,25}?\b${ON_THE_DAY}`,
+  "i",
+);
+/** "St. Adrian is especially commemorated on the 8th of September". */
+const ESPECIALLY_ON_RE = new RegExp(
+  String.raw`\b(?:is|are)\s+(?:more\s+)?(?:especially|chiefly|principally|particularly)\s+(?:commemorated|celebrated|honou?red|venerated|kept)\b[^.;]{0,25}?\b${ON_THE_DAY}`,
+  "i",
+);
+
 /**
  * The day an announcement sends this saint's feast to, when it says so:
  * "whose festival is kept on the 14th of June", "Her feast is kept on the
- * 30th of this month". ("Who is mentioned on the 23d of October" is the
+ * 30th of this month", "His feast, by order of Pope Innocent XI., is
+ * celebrated on the 13th of October", "St. Adrian is especially commemorated
+ * on the 8th of September", "permitted her feast to be celebrated on the 17th
+ * of this month". ("Who is mentioned on the 23d of October", or "the festival
+ * of St. Jane … who is commemorated on the 13th of December", is the
  * opposite: the announcement IS the feast, and the death-day notice is
  * elsewhere.) `day` is the announcement's own "MM-DD".
  */
 export function feastSentElsewhere(entry: string, day: string): string | null {
-  const m =
-    /\b(?:feast|festival|solemnity)\b[^.;]{0,50}?\b(?:is|are)\s+(?:now\s+)?(?:kept|celebrated|observed|held)\b[^.;]{0,25}?\bon\s+the\s+(\d{1,2})(?:st|nd|rd|d|th)\b(?:\s+of\s+(this month|[A-Za-z]+))?/i.exec(
-      entry,
-    );
+  // An abbreviation's full stop ("Innocent XI.", "St.") does not end the
+  // sentence the feast is named in.
+  const text = entry.replace(/\b([IVXLC]+|Sts?|SS|Bl|Ven|Mt|Fr)\./g, "$1");
+  const m = FEAST_KEPT_ON_RE.exec(text) ?? ESPECIALLY_ON_RE.exec(text);
   if (!m) return null;
   const d = Number(m[1]);
   const monthWord = (m[2] ?? "this month").toLowerCase();
@@ -534,13 +561,19 @@ export function martyrologyFeastVerdict(input: {
  * scanner debris, no letters mixed with digits or capitals inside a word
  * ("ErmiDus"), no word broken across a line the OCR could not mend ("Alba-
  * Begale"), and none of the OCR's known misreadings — the æ ligature read as
- * "se" ("Csesarea"), R read as K, E or H ("Kome", "Eoman", "At Home"), and the
- * common misreadings of "the", "and", "his", "who", "of".
+ * "se" ("Csesarea"), R read as K, E or H ("Kome", "Eoman", "At Home"), "Ni"
+ * read as "Mc" ("Mcomedia"), Æ read as "JE" ("JEtherius"), and the common
+ * misreadings of "the", "and", "his", "who", "of". Proper nouns misread in
+ * other ways are `capitalisedMisreadings`' business.
  */
 export function announcementReadsCleanly(entry: string): boolean {
   if (!/^(?:[A-Z][a-z]+[\s,]|St\.\s)/.test(entry)) return false;
   if (/[^A-Za-zÀ-ÖØ-öø-ÿĀ-ž0-9\s.,;:'’"“”()!?-]/.test(entry)) return false;
   if (/[a-z][A-Z]/.test(entry)) return false;
+  // Two capitals opening a lower-case word: "JEtherius", "OJympiades" (Æ, l).
+  if (/\b[A-Z]{2,}[a-z]/.test(entry)) return false;
+  // "Ni" read as "Mc": "Mcomedia", "Mcaea", "Mcopolis".
+  if (/\bMc[a-z]/.test(entry)) return false;
   if (/[A-Za-z]\d|\d(?!(?:st|nd|rd|d|th)\b)[A-Za-z]/.test(entry)) return false;
   if (/[A-Za-z]- [A-Za-z]/.test(entry)) return false;
   if (
@@ -583,14 +616,107 @@ export function wordsSeenOnce(entry: string, index: MartyrologyIndex = VENDORED)
   return (entry.match(/\b[a-z]{3,}\b/g) ?? []).filter((w) => (counts.get(w) ?? 0) < 2);
 }
 
+/**
+ * A word with the glyphs the scan confuses collapsed to one form, so that a
+ * misread name meets the name it was misread from: R or N read as K, B, E, H
+ * or M at the start of a word ("Kouen", "Borne", "Eavenna", "Kicaea"), "Mc"
+ * for "Ni", Y for V ("Yalens"), u and n ("Panl", "Donatns", "Columbau"), m
+ * read as rn, in or ni ("Korne", "Koine", "Doinitian"), the æ and œ
+ * ligatures read as se, ce or te ("Csesarea", "Ctesar"), and a final c read
+ * as e ("Habacue").
+ */
+export function ocrSkeleton(word: string): string {
+  return foldName(word)
+    .replace(/^mc/, "ni")
+    .replace(/^[behkmnr]/, "r")
+    .replace(/^y/, "v")
+    .replace(/u/g, "n")
+    .replace(/rn|in|ni/g, "m")
+    .replace(/ae|oe|se|ce|te/g, "e")
+    .replace(/c$/, "e");
+}
+
+const CAPITALISED_WORD_RE = /\b[A-Z][a-z]+\b/g;
+
+interface CapitalisedVocabulary {
+  /** How often each capitalised word occurs in the whole book. */
+  counts: Map<string, number>;
+  /** Per OCR skeleton, the capitalised word the book prints most often. */
+  commonest: Map<string, { word: string; count: number }>;
+}
+
+const capitalisedCache = new WeakMap<MartyrologyIndex, CapitalisedVocabulary>();
+
+function capitalisedVocabulary(index: MartyrologyIndex): CapitalisedVocabulary {
+  let vocabulary = capitalisedCache.get(index);
+  if (vocabulary) return vocabulary;
+  const counts = new Map<string, number>();
+  for (const entries of Object.values(index.days)) {
+    for (const entry of entries) {
+      for (const w of entry.match(CAPITALISED_WORD_RE) ?? [])
+        counts.set(w, (counts.get(w) ?? 0) + 1);
+    }
+  }
+  const commonest = new Map<string, { word: string; count: number }>();
+  for (const [word, count] of counts) {
+    const key = ocrSkeleton(word);
+    const best = commonest.get(key);
+    if (!best || count > best.count) commonest.set(key, { word, count });
+  }
+  vocabulary = { counts, commonest };
+  capitalisedCache.set(index, vocabulary);
+  return vocabulary;
+}
+
+/**
+ * Capitalised words of an announcement that are probably the OCR's misreading
+ * of a name the book prints more often in another form: "At Borne" (20 times
+ * in the index, "Rome" 270), "Kogatus" (Rogatus), "Yalens" (Valens), "Kicaea"
+ * (Nicaea). Names are what `wordsSeenOnce` cannot judge — a place may well be
+ * named once — so a name is held suspect only when it is a scan-confusion of a
+ * commoner one. That also holds back a few correct spellings whose misreading
+ * happens to be commoner ("Robert" beside "Kobert"): such an announcement
+ * still corroborates a feast, it is only not shown.
+ */
+export function capitalisedMisreadings(
+  entry: string,
+  index: MartyrologyIndex = VENDORED,
+): string[] {
+  const { counts, commonest } = capitalisedVocabulary(index);
+  const out: string[] = [];
+  for (const word of entry.match(CAPITALISED_WORD_RE) ?? []) {
+    const best = commonest.get(ocrSkeleton(word));
+    if (best && best.word !== word && best.count > (counts.get(word) ?? 0)) out.push(word);
+  }
+  return out;
+}
+
+/**
+ * A sentence that opens a NEW announcement — on a place ("In Pannonia, …",
+ * "At Riez, …"), a monastery or "the same city", or "Also, …" / "The same
+ * day, …" — inside what the parser read as one: the dash between two
+ * announcements was lost in the scan, and the text after it is about other
+ * people. ("In the persecution of …", "At last …", "At the age of …" go on
+ * with the same announcement.)
+ */
+const NEXT_ANNOUNCEMENT_RE =
+  /[.!?]["')]?\s+(?:(?:At|In|Near)\s+(?:[A-Z]|the\s+(?:same\s+(?:city|place|country|town|island|province|territory|day)|monastery|diocese|territory|neighbou?rhood|province|island|city|town|village)\b)|(?:Also|The same day|On the same day)\b)/;
+
+/** Does the announcement run on into the next one (see NEXT_ANNOUNCEMENT_RE)? */
+export function runsIntoNextAnnouncement(entry: string): boolean {
+  return NEXT_ANNOUNCEMENT_RE.test(entry);
+}
+
 /** Shortest announcement shown as a biography (the SAINT schema's floor). */
 export const MARTYROLOGY_BIOGRAPHY_MIN_CHARS = 100;
 
 /**
  * The announcement as a biography, verbatim — only when it reaches the
- * biography floor, reads cleanly, and carries no word the book uses only
- * once. Null otherwise: such an announcement can still corroborate a feast,
- * but it is never shown.
+ * biography floor, reads cleanly, carries no word the book uses only once
+ * and no name that looks like a misreading of a commoner one, and is ONE
+ * announcement (not two the scan ran together). Null otherwise: such an
+ * announcement can still corroborate a feast, but it is never shown — the
+ * page credits the text to the 1916 book, so it must be the book's text.
  */
 export function martyrologyBiography(
   match: MartyrologyMatch,
@@ -600,5 +726,7 @@ export function martyrologyBiography(
   if (text.length < MARTYROLOGY_BIOGRAPHY_MIN_CHARS) return null;
   if (!announcementReadsCleanly(text)) return null;
   if (wordsSeenOnce(text, index).length > 0) return null;
+  if (capitalisedMisreadings(text, index).length > 0) return null;
+  if (runsIntoNextAnnouncement(text)) return null;
   return text;
 }

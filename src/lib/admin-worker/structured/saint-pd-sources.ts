@@ -23,6 +23,7 @@ import {
   CATHOLIC_ENCYCLOPEDIA,
   catholicEncyclopediaBiography,
   catholicEncyclopediaFeastVerdict,
+  catholicEncyclopediaNamesSubject,
   resolveCatholicEncyclopediaArticle,
   subjectNameWords,
   type CatholicEncyclopediaArticle,
@@ -37,6 +38,9 @@ import {
   type MartyrologyVerdict,
 } from "./roman-martyrology";
 import type { CanonizationStatus, SaintFacts } from "./saint-facts";
+
+/** The Encyclopedia on Wikisource, named in the ledger when a read of it threw. */
+const ENCYCLOPEDIA_HOME = "https://en.wikisource.org/wiki/Catholic_Encyclopedia_(1913)";
 
 /** Where a saint's biography text, or its feast's corroboration, came from. */
 export type SaintTextSource =
@@ -122,7 +126,12 @@ export class SaintPublicDomainSources {
         refs: this.refs,
         wikipediaTitle: this.wikipediaTitle,
         ledger: own,
-      }).catch(() => null);
+      }).catch(() => {
+        // A read that threw did not complete either: the page might have
+        // vetoed the row, so it counts as unread, never as "no article".
+        noteUnreadSource(own, this.input.facts.ceArticles[0] ?? ENCYCLOPEDIA_HOME);
+        return null;
+      });
       if (own.unread.length > 0) {
         this.encyclopediaUnread = true;
         for (const url of own.unread) noteUnreadSource(this.input.ledger, url);
@@ -164,11 +173,21 @@ export class SaintPublicDomainSources {
       : null;
   }
 
-  /** The Encyclopedia's opening paragraph(s) as a biography, when there is one. */
+  /**
+   * The Encyclopedia's opening paragraph(s) as a biography, when there is one
+   * and it is about the saint (an article on a group need not name them).
+   */
   async encyclopediaBiography(): Promise<PublicDomainBiography | null> {
     const article = await this.encyclopediaArticle();
     const text = article ? catholicEncyclopediaBiography(article) : null;
-    return article && text
+    if (!article || !text) return null;
+    const aboutTheSaint = catholicEncyclopediaNamesSubject({
+      article,
+      text,
+      label: this.input.facts.label,
+      wikipediaTitle: this.wikipediaTitle,
+    });
+    return aboutTheSaint
       ? { text, source: CATHOLIC_ENCYCLOPEDIA.id, url: article.url, title: article.title }
       : null;
   }

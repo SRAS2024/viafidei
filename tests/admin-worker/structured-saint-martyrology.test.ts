@@ -17,12 +17,16 @@ import { parseFeastValue } from "@/lib/admin-worker/structured/corroboration";
 import { parseMartyrologyOcr } from "@/lib/admin-worker/structured/roman-martyrology-parse";
 import {
   MARTYROLOGY_1916,
+  announcementReadsCleanly,
   announcementSubjects,
+  capitalisedMisreadings,
   feastSentElsewhere,
   labelName,
   martyrology1916,
   martyrologyBiography,
   martyrologyFeastVerdict,
+  ocrSkeleton,
+  runsIntoNextAnnouncement,
 } from "@/lib/admin-worker/structured/roman-martyrology";
 
 const FIXTURES = path.join(__dirname, "fixtures", "saint-pd");
@@ -158,6 +162,24 @@ describe("who an announcement is about", () => {
       ),
     ).toBeNull();
   });
+
+  it("reads every wording the book uses to send a feast elsewhere (committed index)", () => {
+    const { days } = martyrology1916();
+    const entry = (day: string, words: string) => days[day].find((e) => e.includes(words))!;
+    // "His feast, by order of Pope Innocent XI., is celebrated on the 13th of October"
+    expect(feastSentElsewhere(entry("01-05", "St. Edward, king"), "01-05")).toBe("10-13");
+    // "St. Adrian is especially commemorated on the 8th of September"
+    expect(feastSentElsewhere(entry("03-04", "holy martyr Adrian"), "03-04")).toBe("09-08");
+    // "His feast is more especially celebrated on the 18th of November"
+    expect(feastSentElsewhere(entry("03-18", "Frigdian"), "03-18")).toBe("11-18");
+    // "… and ordered his festival to be kept on the 5th of July"
+    expect(feastSentElsewhere(entry("04-10", "Michael of the Saints"), "04-10")).toBe("07-05");
+    // "… permitted her feast to be celebrated on the 17th of this month"
+    expect(feastSentElsewhere(entry("10-15", "Hedwiges"), "10-15")).toBe("10-17");
+    // "the festival of St. Jane … who is commemorated on the 13th of December":
+    // this day IS her festival; the 13th is the death-day notice.
+    expect(feastSentElsewhere(entry("08-21", "the festival of St. Jane"), "08-21")).toBeNull();
+  });
 });
 
 describe("the feast verdict (committed index)", () => {
@@ -213,6 +235,10 @@ describe("the feast verdict (committed index)", () => {
       martyrologyFeastVerdict({ label: "Martina", feast: feast("30 January"), status: "canonized" })
         .kind,
     ).toBe("corroborated");
+    // 18 March: "His feast is more especially celebrated on the 18th of November."
+    expect(
+      martyrologyFeastVerdict({ label: "Frigdian", feast: feast("18 March"), status: "canonized" }),
+    ).toMatchObject({ kind: "contradicted", detail: expect.stringContaining("11-18") });
   });
 });
 
@@ -236,5 +262,44 @@ describe("the announcement as a biography", () => {
     expect(martyrologyBiography(match("Stephen of Muret", "8 February"))).toBeNull();
     // 30 January opens under the drop capital ("A T Rome").
     expect(martyrologyBiography(match("Martina", "30 January"))).toBeNull();
+  });
+
+  it("never shows a name the scan misread — the page credits the words to the book", () => {
+    // Each still corroborates its feast; none is shown.
+    const misread: Array<[string, string, string]> = [
+      ["Neophytus", "20 January", "Kicaea"], // "At Kicaea, in Bithynia" — Nicaea
+      ["Agrippina", "23 June", "Borne"], // "Also, at Borne" — Rome
+      ["Aphraates", "7 April", "Yalens"], // "in the time of Yalens" — Valens
+      ["Epicharis", "27 September", "Koine"], // "At Koine" — Rome
+      ["Victricius", "7 August", "Kouen"], // "At Kouen" — Rouen
+    ];
+    for (const [label, day, word] of misread) {
+      const m = match(label, day);
+      expect(capitalisedMisreadings(m.entry)).toEqual([word]);
+      expect(martyrologyBiography(m)).toBeNull();
+    }
+    // "At Mcomedia" (Nicomedia) and "St. JEtherius" (Ætherius) never read cleanly.
+    expect(martyrologyBiography(match("Pancharius", "19 March"))).toBeNull();
+    expect(
+      announcementReadsCleanly(
+        "The same day, St. JEtherius, martyr, in the persecution of Diocletian. After enduring fire and other torments, he was put to death.",
+      ),
+    ).toBe(false);
+    // The skeleton merges the scan's confusions, not a name with its feminine.
+    expect(ocrSkeleton("Borne")).toBe(ocrSkeleton("Rome"));
+    expect(ocrSkeleton("Julia")).not.toBe(ocrSkeleton("Julian"));
+  });
+
+  it("never shows two announcements the scan ran together", () => {
+    // "At Brescia, St. Clateus, bishop and martyr, under the emperor Nero. In
+    // Pannonia, the holy martyrs Rutilus and his companions."
+    const clateus = match("Clateus", "4 June");
+    expect(runsIntoNextAnnouncement(clateus.entry)).toBe(true);
+    expect(martyrologyBiography(clateus)).toBeNull();
+    // "… St. Cyriaca, widow and martyr. In the persecution of Valerian, …" goes
+    // on with the same announcement.
+    const cyriaca = match("Cyriaca", "21 August");
+    expect(runsIntoNextAnnouncement(cyriaca.entry)).toBe(false);
+    expect(martyrologyBiography(cyriaca)).toMatch(/^At Rome, in the Veran field, St\. Cyriaca/);
   });
 });

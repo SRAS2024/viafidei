@@ -151,6 +151,9 @@ export function citedArticleTitle(raw: string): string | null {
     .replace(/[.,;:]+$/, "")
     .trim();
   if (!t || t.length > 120 || /^(?:the\s+)?catholic encyclopedia$/i.test(t)) return null;
+  // The website's name, not an article's ("[https://www.newadvent.org/cathen/
+  // 04491b.htm New Advent]"): there is no page of that title to read.
+  if (/^(?:www\.)?new\s*advent(?:\.org)?$/i.test(t)) return null;
   if (/https?:|[{}[\]|]/.test(t)) return null;
   return t;
 }
@@ -693,6 +696,83 @@ export function subjectNameWords(...names: readonly string[]): string[] {
     }
   }
   return [...out];
+}
+
+/** Words of a label that name nobody in particular ("Henry II, Holy Roman Emperor"). */
+const GENERIC_LABEL_WORDS = new Set([
+  "holy",
+  "roman",
+  "emperor",
+  "empress",
+  "king",
+  "queen",
+  "prince",
+  "princess",
+  "duke",
+  "duchess",
+  "count",
+  "countess",
+  "bishop",
+  "archbishop",
+  "patriarch",
+  "cardinal",
+  "abbot",
+  "abbess",
+  "priest",
+  "deacon",
+  "monk",
+  "nun",
+  "friar",
+  "hermit",
+  "martyr",
+  "martyrs",
+  "virgin",
+  "confessor",
+  "apostle",
+  "evangelist",
+  "doctor",
+  "great",
+  "elder",
+  "younger",
+  "church",
+  "catholic",
+  "companions",
+]);
+
+/**
+ * Is the text quoted from an Encyclopedia article about the saint? The page
+ * was tied to the saint by Wikidata or by the saint's own article, but an
+ * article about a GROUP opens on the group's history, not on the person: the
+ * Catholic Encyclopedia ID Wikidata gives Andrew Wouters is "The Martyrs of
+ * Gorkum", whose opening ("The year 1572, Luther and Calvin had already
+ * wrested from the Church a great part of Europe …") never names him. So the
+ * text is shown as the saint's biography only when the Wikisource header
+ * links the saint's own English article, or a name word of the label stands
+ * in the article's title or the quoted text — spelled the same, or sharing
+ * its first five letters ("Ceolfrid" for Ceolfrith, "Ansgarius" for Ansgar,
+ * "Ludmilla" for Ludmila).
+ */
+export function catholicEncyclopediaNamesSubject(input: {
+  article: Pick<CatholicEncyclopediaArticle, "title" | "wikipedia">;
+  /** The text that would be shown. */
+  text: string;
+  /** The saint's Wikidata label. */
+  label: string;
+  /** The saint's English Wikipedia article title, when there is one. */
+  wikipediaTitle: string | null;
+}): boolean {
+  const { article, wikipediaTitle } = input;
+  if (article.wikipedia && wikipediaTitle && sameArticleTitle(article.wikipedia, wikipediaTitle)) {
+    return true;
+  }
+  const names = subjectNameWords(input.label).filter(
+    (w) => !GENERIC_LABEL_WORDS.has(w) && !/^[ivxlc]+$/.test(w),
+  );
+  const words = new Set(fold(`${article.title} ${input.text}`).split(/[^a-z]+/));
+  const near = (name: string, word: string) =>
+    name === word ||
+    (name.length >= 5 && word.length >= 5 && name.slice(0, 5) === word.slice(0, 5));
+  return names.some((name) => [...words].some((word) => near(name, word)));
 }
 
 /** Does one of the subject's names stand within the window of a feast word? */
