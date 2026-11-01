@@ -62,11 +62,13 @@ export default async function PrayerDetailPage({ params }: Props) {
   return (
     <article className="mx-auto max-w-2xl px-4 py-10">
       <header className="mb-8">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="break-words font-display text-4xl text-ink">{shown.title}</h1>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 sm:flex-1">
+            <h1 className="break-words font-display text-3xl text-ink sm:text-4xl">
+              {shown.title}
+            </h1>
           </div>
-          <div className="flex shrink-0 items-center gap-2 pt-1">
+          <div className="flex shrink-0 items-center gap-2 sm:pt-1">
             <ShareButton title={shown.title} text={summary ?? shown.title} />
             <SaveContentButton contentType="PRAYER" slug={slug} />
           </div>

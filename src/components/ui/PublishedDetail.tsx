@@ -371,15 +371,17 @@ export function PublishedDetail({
   return (
     <article className="mx-auto max-w-3xl px-4 py-10">
       <header className="mb-8">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 sm:flex-1">
             {eyebrowLabel ? <p className="vf-eyebrow mb-2">{eyebrowLabel}</p> : null}
-            <h1 className="break-words font-display text-4xl text-ink">{shown.title}</h1>
+            <h1 className="break-words font-display text-3xl text-ink sm:text-4xl">
+              {shown.title}
+            </h1>
             {showSubtitle && shown.subtitle ? (
               <p className="mt-1 font-serif text-base italic text-ink-soft">{shown.subtitle}</p>
             ) : null}
           </div>
-          <div className="flex shrink-0 items-center gap-2 pt-1">
+          <div className="flex shrink-0 items-center gap-2 sm:pt-1">
             <ShareButton title={shown.title} text={shownSummary ?? shown.title} />
             {action}
           </div>

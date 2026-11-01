@@ -76,14 +76,14 @@ export default async function GuideDetailPage({ params }: Props) {
     <>
       <article className="mx-auto max-w-3xl px-4 py-10">
         <header className="mb-8">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 sm:flex-1">
               <p className="vf-eyebrow">{guideEyebrow(payload)}</p>
-              <h1 className="mt-2 break-words font-display text-4xl text-ink">
+              <h1 className="mt-2 break-words font-display text-3xl text-ink sm:text-4xl">
                 {shownGuide.title}
               </h1>
             </div>
-            <div className="flex shrink-0 items-center gap-2 pt-1">
+            <div className="flex shrink-0 items-center gap-2 sm:pt-1">
               <ShareButton title={shownGuide.title} text={summary ?? shownGuide.title} />
             </div>
           </div>
