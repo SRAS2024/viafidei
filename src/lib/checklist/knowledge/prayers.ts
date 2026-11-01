@@ -11,6 +11,7 @@ import { prayerBatch8 } from "./prayers/batch-8";
 import { prayerBatch9 } from "./prayers/batch-9";
 import { prayerBatch10 } from "./prayers/batch-10";
 import { prayerBatch12 } from "./prayers/batch-12";
+import { prayerBatch13 } from "./prayers/batch-13";
 import { withCuratedTranslation } from "./prayer-translations";
 
 const VATICAN_CCC_PRAYERS = "https://www.vatican.va/archive/ENG0015/__P9.HTM";
@@ -780,4 +781,5 @@ export const prayerKnowledge: CuratedEntry[] = [
   ...prayerBatch9,
   ...prayerBatch10,
   ...prayerBatch12,
+  ...prayerBatch13,
 ].map(withCuratedTranslation);
