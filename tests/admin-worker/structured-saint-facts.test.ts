@@ -18,10 +18,12 @@ import {
   deriveSaintType,
   isProvenNonCatholic,
   parseSaintFacts,
+  isSaintGroupLabel,
   resolveCanonizationStatus,
   saintDisplayTitle,
   type SaintFacts,
 } from "@/lib/admin-worker/structured/saint-facts";
+import { MARIAN_TITLE_SUBJECT_RE } from "@/lib/admin-worker/structured/ingestors";
 import type { SparqlBinding } from "@/lib/admin-worker/structured/wikidata";
 
 const WD = "http://www.wikidata.org/entity/";
@@ -198,6 +200,23 @@ describe("deriveSaintType (structured first, prose only for martyr / doctor)", (
   });
 });
 
+describe("MARIAN_TITLE_SUBJECT_RE", () => {
+  it("knows a Marian title from a saint who took a Marian name", () => {
+    for (const label of [
+      "Our Lady of Guadalupe",
+      "Our Lady of the Candles",
+      "Madonna of the Streets",
+      "Virgin of the Rocks",
+      "Nuestra Señora de Luján",
+    ]) {
+      expect(MARIAN_TITLE_SUBJECT_RE.test(label), label).toBe(true);
+    }
+    for (const label of ["Gabriel of Our Lady of Sorrows", "Mary of Jesus Crucified"]) {
+      expect(MARIAN_TITLE_SUBJECT_RE.test(label), label).toBe(false);
+    }
+  });
+});
+
 describe("saintDisplayTitle", () => {
   it("prefixes the honorific the status earns unless one is already there", () => {
     expect(saintDisplayTitle("Rose of Lima", "canonized")).toBe("Saint Rose of Lima");
@@ -208,6 +227,33 @@ describe("saintDisplayTitle", () => {
     expect(saintDisplayTitle("Dorothy Day", "servant_of_god")).toBe("Servant of God Dorothy Day");
     expect(saintDisplayTitle("St. Patrick", "canonized")).toBe("St. Patrick");
     expect(saintDisplayTitle("Pope Pius X", "canonized")).toBe("Pope Pius X");
+  });
+
+  it("titles a group of saints by its own name, never with a singular Saint", () => {
+    expect(saintDisplayTitle("Uganda Martyrs", "canonized")).toBe("Uganda Martyrs");
+    expect(saintDisplayTitle("103 Korean martyrs", "canonized")).toBe("103 Korean Martyrs");
+    expect(saintDisplayTitle("martyrs of Otranto", "canonized")).toBe("Martyrs of Otranto");
+    expect(saintDisplayTitle("Seven Holy Founders of the Servite Order", "canonized")).toBe(
+      "Seven Holy Founders of the Servite Order",
+    );
+    expect(saintDisplayTitle("The Seven Brothers of Lazia", "canonized")).toBe(
+      "Seven Brothers of Lazia",
+    );
+    expect(saintDisplayTitle("Twenty-six Martyrs of Japan", "canonized")).toBe(
+      "Twenty-six Martyrs of Japan",
+    );
+    expect(saintDisplayTitle("Martyrs of Laos", "beatified")).toBe("Blessed Martyrs of Laos");
+    expect(saintDisplayTitle("Ten thousand martyrs", "canonized")).toBe("Ten Thousand Martyrs");
+    expect(saintDisplayTitle("seventy disciples", "canonized")).toBe("Seventy Disciples");
+    // A leading year is not a head count.
+    expect(isSaintGroupLabel("2015 kidnapping and beheading of Copts in Libya")).toBe(false);
+    // One person, however the name starts, keeps the singular honorific.
+    expect(saintDisplayTitle("Sixtus II", "canonized")).toBe("Saint Sixtus II");
+    expect(saintDisplayTitle("Teneu", "canonized")).toBe("Saint Teneu");
+    expect(saintDisplayTitle("Justin Martyr", "canonized")).toBe("Saint Justin Martyr");
+    expect(saintDisplayTitle("Paul Miki and companions", "canonized")).toBe(
+      "Saint Paul Miki and companions",
+    );
   });
 });
 

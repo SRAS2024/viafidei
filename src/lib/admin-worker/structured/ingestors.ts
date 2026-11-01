@@ -827,6 +827,12 @@ LIMIT ${limit} OFFSET ${offset}`,
   async map(row, ctx) {
     const facts = parseSaintFacts(row);
     if (!facts) return reject("saint_facts_unparseable", bindingValue(row, "s") ?? "no entity");
+    // A Marian title or image ("Our Lady of Guadalupe", "Our Lady of the
+    // Candles") can carry a veneration status on Wikidata, but it is not a
+    // saint; the MARIAN_TITLE ingestor owns it.
+    if (MARIAN_TITLE_SUBJECT_RE.test(facts.label)) {
+      return reject("owned_by_other_ingestor", `MARIAN_TITLE owns "${facts.label}"`);
+    }
 
     // Accuracy guard 1 — status by QID. A generic/Orthodox-only record cannot
     // prove Catholic veneration; skip it (never map it to `canonized`).
@@ -1847,6 +1853,13 @@ type PracticeKind =
  * (same slug) under two content types.
  */
 export const MARIAN_TITLE_LABEL_RE = /our lady|madonna|blessed virgin|\bvirgin\b|\blitany\b/i;
+
+/**
+ * A label whose SUBJECT is Mary under one of her titles. Anchored at the start:
+ * "Saint Gabriel of Our Lady of Sorrows" is a saint who took a Marian name.
+ */
+export const MARIAN_TITLE_SUBJECT_RE =
+  /^(?:the\s+)?(?:our lady|madonna|blessed virgin|virgin of|virgen de|notre[- ]dame|nossa senhora|nuestra se[ñn]ora)\b/i;
 
 /**
  * True only when the text reads as a *Catholic* liturgical rite. The generic

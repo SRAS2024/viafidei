@@ -314,6 +314,23 @@ export interface LiturgicalEntry {
  * celebration — without the predicate they are left to the SAINT pages.
  * Exported for testing.
  */
+/** The event's name as the site shows it: no national marker, canonized names right. */
+export function calendarDisplayName(event: { name?: string; event_key?: string }): string {
+  return (
+    NAME_CORRECTION_BY_EVENT_KEY[(event.event_key ?? "").trim()] ??
+    (event.name ?? "").trim().replace(NATIONAL_PREFIX, "").trim()
+  );
+}
+
+/**
+ * The slug a calendar event is published under. From the name as printed, so
+ * a record keeps its slug when the name is corrected or its marker dropped.
+ */
+export function calendarSlugFor(event: { name?: string }): string | null {
+  const slug = `liturgical-${slugify((event.name ?? "").trim())}`;
+  return slug === "liturgical-" ? null : slug;
+}
+
 export function mapLiturgicalEvent(
   event: LitCalEvent,
   isFixed: (eventKey: string) => boolean,
@@ -322,9 +339,7 @@ export function mapLiturgicalEvent(
   const printed = (event.name ?? "").trim();
   if (!printed) return null;
   const nation = printed.match(NATIONAL_PREFIX)?.[1];
-  const name =
-    NAME_CORRECTION_BY_EVENT_KEY[(event.event_key ?? "").trim()] ??
-    printed.replace(NATIONAL_PREFIX, "").trim();
+  const name = calendarDisplayName(event);
   if (!name) return null;
   const calendar = nation
     ? (NATIONAL_CALENDAR[nation] ?? "a national calendar")
@@ -362,10 +377,8 @@ export function mapLiturgicalEvent(
 
   if (body.length < 50 || summary.length < 50) return null;
 
-  // From the name as printed, so a record keeps its slug when the name is
-  // corrected or its national marker dropped.
-  const slug = `liturgical-${slugify(printed)}`;
-  if (slug === "liturgical-") return null;
+  const slug = calendarSlugFor(event);
+  if (!slug) return null;
 
   const payload: Record<string, unknown> = {
     slug,
@@ -697,9 +710,6 @@ export async function runLiturgicalCalendarIngest(
     // checks below would catch it and the site would show both.
     if (entry.curatedSlug && liveSlugs.has(entry.curatedSlug)) {
       out.alreadyPublished += 1;
-      // A calendar record published before the curated page went live (or
-      // before this map named it) is a second page for the same day.
-      if (liveSlugs.has(entry.slug)) retire.push(entry.slug);
       return;
     }
     if (liveSlugs.has(entry.slug) || (titleKey && liveTitles.has(titleKey))) {
@@ -731,6 +741,23 @@ export async function runLiturgicalCalendarIngest(
     await tryPublish(entry);
   }
 
+  // Calendar records the site no longer needs: the curated page for the day is
+  // live (it went live after the record, or this map did not name it then), or
+  // a saint's day whose saint now has a SAINT page. Both years are read, so a
+  // celebration one year's calendar leaves out (a feast that falls on a
+  // Sunday) is still recognised.
+  for (const event of [...eventsA, ...eventsB]) {
+    const slug = calendarSlugFor(event);
+    if (!slug || !liveSlugs.has(slug) || retire.includes(slug)) continue;
+    const curated = CURATED_SLUG_BY_EVENT_KEY[(event.event_key ?? "").trim()];
+    const covered =
+      (curated !== undefined && liveSlugs.has(curated)) ||
+      (typeof event.grade === "number" &&
+        event.grade < 5 &&
+        isStandaloneCelebration(event) &&
+        hasSaintPage(calendarDisplayName(event)));
+    if (covered) retire.push(slug);
+  }
   if (retire.length > 0) {
     const done = await prisma.publishedContent
       .updateMany({

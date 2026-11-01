@@ -363,6 +363,51 @@ describe("national celebrations and calendar copies of curated pages", () => {
   });
 });
 
+describe("calendar records of saints who now have their own page", () => {
+  it("retires them, reading next year's calendar for a day this year leaves out", async () => {
+    const STJOHN = {
+      name: "Saint John, Apostle and Evangelist",
+      date: "2027-12-27T00:00:00+00:00",
+      grade: 4,
+      grade_lcl: "Feast",
+      liturgical_season: "CHRISTMAS",
+      event_key: "StJohnEvangelist",
+    };
+    let call = 0;
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      // This year's calendar has no Saint John (his day falls on a Sunday);
+      // next year's does.
+      json: async () => ({ litcal: call++ === 0 ? [MEMORIAL] : [MEMORIAL, STJOHN] }),
+    })) as unknown as typeof global.fetch;
+    const prisma = makePrisma();
+    const updateMany = vi.fn(async () => ({ count: 2 }));
+    Object.assign(prisma.publishedContent, {
+      updateMany,
+      findMany: vi.fn(async ({ where }: { where?: { contentType?: string } }) =>
+        where?.contentType === "LITURGICAL"
+          ? [
+              { slug: "liturgical-saint-rose-of-lima", title: "Saint Rose of Lima" },
+              {
+                slug: "liturgical-saint-john-apostle-and-evangelist",
+                title: "Saint John, Apostle and Evangelist",
+              },
+            ]
+          : [{ title: "Saint Rose of Lima" }, { title: "Saint John, Apostle" }],
+      ),
+    });
+
+    const out = await runLiturgicalCalendarIngest(prisma, { force: true });
+
+    expect(out.retired).toBe(2);
+    const arg = updateMany.mock.calls[0][0] as unknown as { where: { slug: { in: string[] } } };
+    expect(arg.where.slug.in.sort()).toEqual([
+      "liturgical-saint-john-apostle-and-evangelist",
+      "liturgical-saint-rose-of-lima",
+    ]);
+  });
+});
+
 describe("mapLiturgicalSeasons", () => {
   it("emits one schema-valid liturgical_season record per season with the year's boundaries", () => {
     const seasons = mapLiturgicalSeasons([ASSUMPTION, EASTER, MEMORIAL], 2024);

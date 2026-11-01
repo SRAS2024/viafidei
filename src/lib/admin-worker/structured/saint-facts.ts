@@ -467,6 +467,64 @@ const HONORIFIC_PREFIX_RE =
   /^(saint|st\.?|blessed|bl\.?|venerable|ven\.?|servant of god|pope|antipope|blessed virgin)\b/i;
 
 /**
+ * A label that names a group of saints rather than one person: "Uganda
+ * Martyrs", "103 Korean martyrs", "Seven Holy Founders of the Servite Order",
+ * "Two Ewalds". A person's name with "and Companions" keeps the singular
+ * honorific ("Saint Paul Miki and Companions"), so it is not a group label.
+ */
+const GROUP_COUNT_RE =
+  /^(?:the\s+)?(?:\d{1,3}|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)(?:-[a-z]+)?\b/i;
+
+export function isSaintGroupLabel(label: string): boolean {
+  const name = label.trim();
+  if (/\bcompanions\b/i.test(name)) return false;
+  return GROUP_COUNT_RE.test(name) || /\bmartyrs\b/i.test(name);
+}
+
+const TITLE_SMALL_WORDS = new Set([
+  "of",
+  "the",
+  "and",
+  "in",
+  "at",
+  "on",
+  "for",
+  "from",
+  "de",
+  "la",
+  "del",
+  "di",
+  "da",
+]);
+
+/**
+ * "Saint" is one person's honorific, so a canonized group is titled by its
+ * own name ("Uganda Martyrs", "Martyrs of Otranto"); "Blessed" and
+ * "Venerable" read as plurals and stay. The name is a proper noun, so each
+ * word but the small ones is capitalized ("103 Korean martyrs" → "103 Korean
+ * Martyrs"), and a leading "The" is dropped as it is for every other title.
+ */
+function groupDisplayTitle(label: string, status: CanonizationStatus): string {
+  const name = label
+    .replace(/^the\s+/i, "")
+    .split(/\s+/)
+    .map((w, i) =>
+      i > 0 && TITLE_SMALL_WORDS.has(w.toLowerCase()) ? w : w.charAt(0).toUpperCase() + w.slice(1),
+    )
+    .join(" ");
+  switch (status) {
+    case "canonized":
+      return name;
+    case "beatified":
+      return `Blessed ${name}`;
+    case "venerable":
+      return `Venerable ${name}`;
+    case "servant_of_god":
+      return `Servants of God ${name}`;
+  }
+}
+
+/**
  * The display title for a structured saint: the bare Wikidata label prefixed
  * with the honorific its canonization status earns ("Saint Rose of Lima",
  * "Blessed Anne of Saint Bartholomew"), unless the label already carries one.
@@ -476,6 +534,7 @@ const HONORIFIC_PREFIX_RE =
 export function saintDisplayTitle(label: string, status: CanonizationStatus): string {
   const name = label.trim();
   if (HONORIFIC_PREFIX_RE.test(name)) return name;
+  if (isSaintGroupLabel(name)) return groupDisplayTitle(name, status);
   switch (status) {
     case "canonized":
       return `Saint ${name}`;
