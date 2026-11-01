@@ -35,7 +35,7 @@ export const fr: Dict = {
   "parishes.locate.tryAgain": "Réessayer",
   "parishes.locate.howTo": "Comment activer la localisation",
   "parishes.locate.blocked":
-    "Votre navigateur bloque la localisation pour ce site ; il n'a donc pas pu vous la demander. Autorisez-la, puis réessayez.",
+    "Votre navigateur bloque la localisation pour ce site ; il ne peut donc pas vous la demander. Autorisez-la, puis réessayez.",
   "parishes.locate.notShared":
     "Votre appareil n'a pas partagé sa position. Si la question ne vous a pas été posée, la localisation est probablement désactivée pour votre navigateur.",
   "parishes.locate.timeout":
@@ -58,6 +58,8 @@ export const fr: Dict = {
     "Touchez l'icône à gauche de l'adresse web › Autorisations › Position, puis choisissez « Autoriser ».",
   "parishes.locate.steps.androidDevice":
     "Vérifiez que la localisation est activée dans les réglages rapides de votre téléphone.",
+  "parishes.locate.steps.macSafariSite":
+    "Dans Safari, ouvrez Safari › Réglages › Sites web › Position, puis choisissez « Demander » ou « Autoriser » pour ce site.",
   "parishes.locate.steps.desktopSite":
     "Cliquez sur l'icône de localisation ou de cadenas dans la barre d'adresse et autorisez la localisation pour ce site.",
   "parishes.locate.steps.desktopDevice":

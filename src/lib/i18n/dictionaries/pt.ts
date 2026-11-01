@@ -18,7 +18,7 @@ export const pt: Dict = {
   "parishes.locate.tryAgain": "Tentar novamente",
   "parishes.locate.howTo": "Como ativar a localização",
   "parishes.locate.blocked":
-    "Seu navegador está bloqueando a localização para este site, por isso não pôde perguntar a você. Permita a localização e tente novamente.",
+    "Seu navegador está bloqueando a localização para este site, por isso não pode perguntar a você. Permita a localização e tente novamente.",
   "parishes.locate.notShared":
     "Seu dispositivo não compartilhou a localização. Se nada foi perguntado, a localização provavelmente está desativada para o seu navegador.",
   "parishes.locate.timeout":
@@ -41,6 +41,8 @@ export const pt: Dict = {
     "Toque no ícone à esquerda do endereço web › Permissões › Localização e escolha Permitir.",
   "parishes.locate.steps.androidDevice":
     "Verifique se a Localização está ativada nas configurações rápidas do celular.",
+  "parishes.locate.steps.macSafariSite":
+    "No Safari, abra Safari › Ajustes › Sites › Localização e escolha Perguntar ou Permitir para este site.",
   "parishes.locate.steps.desktopSite":
     "Clique no ícone de localização ou de cadeado na barra de endereços e permita a localização para este site.",
   "parishes.locate.steps.desktopDevice":

@@ -19,7 +19,7 @@ export const de: Dict = {
   "parishes.locate.tryAgain": "Erneut versuchen",
   "parishes.locate.howTo": "So schalten Sie den Standort ein",
   "parishes.locate.blocked":
-    "Ihr Browser blockiert den Standort für diese Website und konnte Sie deshalb nicht fragen. Erlauben Sie ihn und versuchen Sie es dann erneut.",
+    "Ihr Browser blockiert den Standort für diese Website und kann Sie deshalb nicht fragen. Erlauben Sie ihn und versuchen Sie es dann erneut.",
   "parishes.locate.notShared":
     "Ihr Gerät hat seinen Standort nicht geteilt. Wenn Sie nicht gefragt wurden, sind die Ortungsdienste für Ihren Browser wahrscheinlich ausgeschaltet.",
   "parishes.locate.timeout":
@@ -42,6 +42,8 @@ export const de: Dict = {
     "Tippen Sie auf das Symbol links neben der Webadresse › Berechtigungen › Standort und wählen Sie „Zulassen“.",
   "parishes.locate.steps.androidDevice":
     "Achten Sie darauf, dass der Standort in den Schnelleinstellungen Ihres Telefons eingeschaltet ist.",
+  "parishes.locate.steps.macSafariSite":
+    "Öffnen Sie in Safari „Safari“ › Einstellungen › Websites › Standort und wählen Sie für diese Website „Fragen“ oder „Erlauben“.",
   "parishes.locate.steps.desktopSite":
     "Klicken Sie in der Adressleiste auf das Standort- oder Schloss-Symbol und erlauben Sie den Standort für diese Website.",
   "parishes.locate.steps.desktopDevice":

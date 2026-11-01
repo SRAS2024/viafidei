@@ -15,7 +15,7 @@ export const pl: Dict = {
   "parishes.locate.tryAgain": "Spróbuj ponownie",
   "parishes.locate.howTo": "Jak włączyć lokalizację",
   "parishes.locate.blocked":
-    "Twoja przeglądarka blokuje lokalizację dla tej strony, więc nie mogła o nią zapytać. Zezwól na nią i spróbuj ponownie.",
+    "Twoja przeglądarka blokuje lokalizację dla tej strony, więc nie może o nią zapytać. Zezwól na nią i spróbuj ponownie.",
   "parishes.locate.notShared":
     "Twoje urządzenie nie udostępniło lokalizacji. Jeśli nie pojawiło się pytanie, lokalizacja jest prawdopodobnie wyłączona dla przeglądarki.",
   "parishes.locate.timeout":
@@ -38,6 +38,8 @@ export const pl: Dict = {
     "Dotknij ikony po lewej stronie adresu › Uprawnienia › Lokalizacja i wybierz „Zezwalaj”.",
   "parishes.locate.steps.androidDevice":
     "Upewnij się, że lokalizacja jest włączona w szybkich ustawieniach telefonu.",
+  "parishes.locate.steps.macSafariSite":
+    "W Safari otwórz Safari › Ustawienia › Witryny › Lokalizacja i wybierz dla tej strony „Pytaj” lub „Pozwalaj”.",
   "parishes.locate.steps.desktopSite":
     "Kliknij ikonę lokalizacji lub kłódki na pasku adresu i zezwól tej stronie na dostęp do lokalizacji.",
   "parishes.locate.steps.desktopDevice":

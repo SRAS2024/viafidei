@@ -16,7 +16,7 @@ export const tl: Dict = {
   "parishes.locate.tryAgain": "Subukang muli",
   "parishes.locate.howTo": "Paano i-on ang lokasyon",
   "parishes.locate.blocked":
-    "Hinaharangan ng iyong browser ang lokasyon para sa site na ito, kaya hindi ka nito natanong. Payagan ito, pagkatapos ay subukang muli.",
+    "Hinaharangan ng iyong browser ang lokasyon para sa site na ito, kaya hindi ka nito matatanong. Payagan ito, pagkatapos ay subukang muli.",
   "parishes.locate.notShared":
     "Hindi ibinahagi ng iyong device ang lokasyon nito. Kung hindi ka tinanong, malamang na naka-off ang lokasyon para sa iyong browser.",
   "parishes.locate.timeout":
@@ -39,6 +39,8 @@ export const tl: Dict = {
     "I-tap ang icon sa kaliwa ng web address › Permissions › Location, at piliin ang Allow.",
   "parishes.locate.steps.androidDevice":
     "Tiyaking naka-on ang Location sa quick settings ng iyong telepono.",
+  "parishes.locate.steps.macSafariSite":
+    "Sa Safari, buksan ang Safari › Settings › Websites › Location, at piliin ang Ask o Allow para sa site na ito.",
   "parishes.locate.steps.desktopSite":
     "I-click ang icon ng lokasyon o ng kandado sa address bar at payagan ang lokasyon para sa site na ito.",
   "parishes.locate.steps.desktopDevice":

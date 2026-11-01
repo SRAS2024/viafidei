@@ -46,7 +46,7 @@ export const es: Dict = {
   "parishes.locate.tryAgain": "Intentar de nuevo",
   "parishes.locate.howTo": "Cómo activar la ubicación",
   "parishes.locate.blocked":
-    "Tu navegador está bloqueando la ubicación para este sitio, así que no pudo preguntarte. Permítela y vuelve a intentarlo.",
+    "Tu navegador está bloqueando la ubicación para este sitio, así que no puede preguntarte. Permítela y vuelve a intentarlo.",
   "parishes.locate.notShared":
     "Tu dispositivo no compartió su ubicación. Si no se te preguntó, probablemente la ubicación esté desactivada para tu navegador.",
   "parishes.locate.timeout":
@@ -69,6 +69,8 @@ export const es: Dict = {
     "Toca el icono a la izquierda de la dirección web › Permisos › Ubicación, y elige Permitir.",
   "parishes.locate.steps.androidDevice":
     "Comprueba que la Ubicación esté activada en los ajustes rápidos del teléfono.",
+  "parishes.locate.steps.macSafariSite":
+    "En Safari, ve a Safari › Ajustes › Sitios web › Ubicación y elige Preguntar o Permitir para este sitio.",
   "parishes.locate.steps.desktopSite":
     "Haz clic en el icono de ubicación o del candado en la barra de direcciones y permite la ubicación para este sitio.",
   "parishes.locate.steps.desktopDevice":

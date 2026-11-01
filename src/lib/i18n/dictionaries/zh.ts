@@ -31,6 +31,8 @@ export const zh: Dict = {
     "打开“设置”›“隐私与安全性”›“定位服务”，确认已开启，然后轻点您正在使用的浏览器或 App，选择“使用 App 期间”。",
   "parishes.locate.steps.androidSite": "轻点网址左侧的图标 ›“权限”›“位置信息”，然后选择“允许”。",
   "parishes.locate.steps.androidDevice": "请确认手机快捷设置中的“位置信息”已开启。",
+  "parishes.locate.steps.macSafariSite":
+    "在 Safari 浏览器中，打开“Safari 浏览器”›“设置”›“网站”›“位置”，然后为此网站选择“询问”或“允许”。",
   "parishes.locate.steps.desktopSite": "点击地址栏中的位置图标或锁形图标，允许此网站使用位置信息。",
   "parishes.locate.steps.desktopDevice":
     "如果电脑已关闭定位，请在隐私设置中开启（Mac：“系统设置”›“隐私与安全性”›“定位服务”）。",

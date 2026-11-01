@@ -72,6 +72,8 @@ const UA = {
   android:
     "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
   mac: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+  macSafari:
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
 };
 
 afterEach(() => {
@@ -454,9 +456,11 @@ describe("ParishLocator — asking the device", () => {
     renderLocator();
     tapLocate();
 
+    // "can't ask", not "couldn't": Chrome and Firefox also read "denied" right
+    // after the visitor chose Block in their own prompt, so they WERE asked.
     await waitFor(() =>
       expect(status()).toHaveTextContent(
-        "Your browser is blocking location for this site, so it couldn't ask you.",
+        "Your browser is blocking location for this site, so it can't ask you.",
       ),
     );
     expect(query).toHaveBeenCalledWith({ name: "geolocation" });
@@ -522,6 +526,15 @@ describe("ParishLocator — asking the device", () => {
       UA.mac,
       [
         "Click the location or lock icon in the address bar and allow location for this site.",
+        expect.stringContaining("System Settings › Privacy & Security › Location Services"),
+      ],
+    ],
+    [
+      // Safari on a Mac has no address-bar icon for a site's permissions.
+      "Safari on a Mac",
+      UA.macSafari,
+      [
+        "In Safari, choose Safari › Settings › Websites › Location, and set this site to Ask or Allow.",
         expect.stringContaining("System Settings › Privacy & Security › Location Services"),
       ],
     ],

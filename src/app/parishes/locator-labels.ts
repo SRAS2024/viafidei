@@ -27,6 +27,8 @@ export interface LocatorLabels {
     iosOtherSettings: string;
     androidSite: string;
     androidDevice: string;
+    /** Safari on a Mac: its per-site switch is in Safari's Settings window. */
+    macSafariSite: string;
     desktopSite: string;
     desktopDevice: string;
   };
@@ -51,6 +53,7 @@ export function parishLocatorLabels(t: Translator): LocatorLabels {
       iosOtherSettings: t("parishes.locate.steps.iosOtherSettings"),
       androidSite: t("parishes.locate.steps.androidSite"),
       androidDevice: t("parishes.locate.steps.androidDevice"),
+      macSafariSite: t("parishes.locate.steps.macSafariSite"),
       desktopSite: t("parishes.locate.steps.desktopSite"),
       desktopDevice: t("parishes.locate.steps.desktopDevice"),
     },

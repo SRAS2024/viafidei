@@ -11,7 +11,7 @@
  */
 
 /** Where the visitor would go to turn location back on. */
-export type LocationPlatform = "ios-safari" | "ios-other" | "android" | "desktop";
+export type LocationPlatform = "ios-safari" | "ios-other" | "android" | "mac-safari" | "desktop";
 
 /** The parts of `navigator` this module reads; all optional, as on old browsers. */
 export type NavigatorLike = {
@@ -24,11 +24,16 @@ export type NavigatorLike = {
 const IOS_NON_SAFARI =
   /CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|YaBrowser|DuckDuckGo|Instagram|FBAN|FBAV/i;
 
+/** Mac browsers that are not Safari; Chrome, Edge and Opera carry "Safari/" too. */
+const MAC_NON_SAFARI = /Chrome|Chromium|Edg\/|OPR\/|Firefox/i;
+
 /**
  * The visitor's platform, from the user agent. iPadOS reports itself as a Mac,
  * so a "Macintosh" with a touch screen is an iPad. An in-app web view on iOS
  * (no "Safari/" token) counts as "ios-other": its switch is under that app's
- * own name in Settings, not under Safari Websites.
+ * own name in Settings, not under Safari Websites. Safari on a Mac is told
+ * apart from the other desktop browsers because it has no address-bar icon
+ * for a site's permissions: its switch is in Safari's own Settings window.
  */
 export function detectLocationPlatform(nav: NavigatorLike | undefined): LocationPlatform {
   const ua = nav?.userAgent ?? "";
@@ -37,6 +42,9 @@ export function detectLocationPlatform(nav: NavigatorLike | undefined): Location
     return /Safari\//.test(ua) && !IOS_NON_SAFARI.test(ua) ? "ios-safari" : "ios-other";
   }
   if (/Android/i.test(ua)) return "android";
+  if (/Macintosh/i.test(ua) && /Version\/[\d.]+.*Safari\//.test(ua) && !MAC_NON_SAFARI.test(ua)) {
+    return "mac-safari";
+  }
   return "desktop";
 }
 

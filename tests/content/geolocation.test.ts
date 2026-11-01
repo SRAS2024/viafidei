@@ -32,6 +32,11 @@ const UA = {
     "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
   windows:
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+  macChrome:
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+  macEdge:
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
+  macFirefox: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:132.0) Gecko/20100101 Firefox/132.0",
 };
 
 describe("detectLocationPlatform", () => {
@@ -43,7 +48,12 @@ describe("detectLocationPlatform", () => {
     ["iPhone Firefox", { userAgent: UA.iphoneFirefox }, "ios-other"],
     ["the iPhone app's web view", { userAgent: UA.iphoneWebView }, "ios-other"],
     ["Android Chrome", { userAgent: UA.android }, "android"],
-    ["a Mac", { userAgent: UA.ipadAsMac, maxTouchPoints: 0 }, "desktop"],
+    // Safari on a Mac keeps a site's location switch in its own Settings
+    // window; Chrome, Edge and Firefox there have an address-bar icon for it.
+    ["Safari on a Mac", { userAgent: UA.ipadAsMac, maxTouchPoints: 0 }, "mac-safari"],
+    ["Chrome on a Mac", { userAgent: UA.macChrome, maxTouchPoints: 0 }, "desktop"],
+    ["Edge on a Mac", { userAgent: UA.macEdge, maxTouchPoints: 0 }, "desktop"],
+    ["Firefox on a Mac", { userAgent: UA.macFirefox, maxTouchPoints: 0 }, "desktop"],
     ["Windows", { userAgent: UA.windows }, "desktop"],
     ["no navigator", undefined, "desktop"],
   ] as const)("reads %s as %s", (_name, nav, expected) => {
@@ -109,7 +119,7 @@ describe("the locator's words", () => {
   const keys = Object.keys(DICTIONARIES.en).filter((k) => k.startsWith("parishes.locate."));
 
   it("has every sentence the control can say", () => {
-    expect(keys.length).toBe(18);
+    expect(keys.length).toBe(19);
   });
 
   it("is written out in every site language, not inherited from English", () => {
@@ -134,5 +144,16 @@ describe("the locator's words", () => {
       "aA in the address bar › Website Settings › Location",
     );
     expect(en["parishes.locate.steps.androidSite"]).toContain("Permissions › Location");
+    expect(en["parishes.locate.steps.macSafariSite"]).toContain(
+      "Safari › Settings › Websites › Location",
+    );
+  });
+
+  it("never says the browser could not ask when the visitor may just have said no", () => {
+    // Chrome, Edge and Firefox record a "Block" chosen in their own prompt, so
+    // the Permissions API reads "denied" straight after the visitor WAS asked.
+    // The message says the browser can't ask now, which is true either way.
+    expect(DICTIONARIES.en["parishes.locate.blocked"]).toContain("so it can't ask you");
+    expect(DICTIONARIES.en["parishes.locate.blocked"]).not.toMatch(/couldn't ask/);
   });
 });

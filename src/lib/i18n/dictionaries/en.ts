@@ -122,8 +122,10 @@ const parishes: Dict = {
   "parishes.locate.locating": "Finding parishes near you…",
   "parishes.locate.tryAgain": "Try again",
   "parishes.locate.howTo": "How to turn location on",
+  // Also shown straight after a "Block" / "Never allow" the visitor just chose
+  // in the browser's own prompt, so it must not claim no one was asked.
   "parishes.locate.blocked":
-    "Your browser is blocking location for this site, so it couldn't ask you. Allow it, then try again.",
+    "Your browser is blocking location for this site, so it can't ask you. Allow it, then try again.",
   "parishes.locate.notShared":
     "Your device didn't share its location. If you weren't asked, location is probably turned off for your browser.",
   "parishes.locate.timeout":
@@ -146,6 +148,9 @@ const parishes: Dict = {
     "Tap the icon to the left of the web address › Permissions › Location, and choose Allow.",
   "parishes.locate.steps.androidDevice":
     "Make sure Location is turned on in your phone's quick settings.",
+  // Safari on a Mac has no address-bar icon for a site's permissions.
+  "parishes.locate.steps.macSafariSite":
+    "In Safari, choose Safari › Settings › Websites › Location, and set this site to Ask or Allow.",
   "parishes.locate.steps.desktopSite":
     "Click the location or lock icon in the address bar and allow location for this site.",
   "parishes.locate.steps.desktopDevice":

@@ -22,7 +22,7 @@ export const it: Dict = {
   "parishes.locate.tryAgain": "Riprova",
   "parishes.locate.howTo": "Come attivare la posizione",
   "parishes.locate.blocked":
-    "Il tuo browser sta bloccando la posizione per questo sito, quindi non ha potuto chiedertela. Consentila e riprova.",
+    "Il tuo browser sta bloccando la posizione per questo sito, quindi non può chiedertela. Consentila e riprova.",
   "parishes.locate.notShared":
     "Il tuo dispositivo non ha condiviso la sua posizione. Se non ti è stato chiesto, probabilmente la localizzazione è disattivata per il tuo browser.",
   "parishes.locate.timeout":
@@ -45,6 +45,8 @@ export const it: Dict = {
     "Tocca l'icona a sinistra dell'indirizzo web › Autorizzazioni › Posizione e scegli «Consenti».",
   "parishes.locate.steps.androidDevice":
     "Assicurati che la Posizione sia attiva nelle impostazioni rapide del telefono.",
+  "parishes.locate.steps.macSafariSite":
+    "In Safari, apri Safari › Impostazioni › Siti web › Posizione e scegli «Chiedi» o «Consenti» per questo sito.",
   "parishes.locate.steps.desktopSite":
     "Fai clic sull'icona della posizione o del lucchetto nella barra degli indirizzi e consenti la posizione per questo sito.",
   "parishes.locate.steps.desktopDevice":

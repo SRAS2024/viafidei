@@ -37,6 +37,8 @@ export const vi: Dict = {
     "Chạm vào biểu tượng bên trái địa chỉ web › Quyền › Vị trí, rồi chọn Cho phép.",
   "parishes.locate.steps.androidDevice":
     "Đảm bảo Vị trí đang bật trong phần cài đặt nhanh của điện thoại.",
+  "parishes.locate.steps.macSafariSite":
+    "Trong Safari, mở Safari › Cài đặt › Trang web › Vị trí, rồi chọn Hỏi hoặc Cho phép cho trang này.",
   "parishes.locate.steps.desktopSite":
     "Nhấp vào biểu tượng vị trí hoặc ổ khóa trên thanh địa chỉ và cho phép trang này dùng vị trí.",
   "parishes.locate.steps.desktopDevice":

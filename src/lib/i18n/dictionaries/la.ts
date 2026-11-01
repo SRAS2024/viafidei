@@ -17,7 +17,7 @@ export const la: Dict = {
   "parishes.locate.tryAgain": "Iterum conare",
   "parishes.locate.howTo": "Quomodo locus tuus communicetur",
   "parishes.locate.blocked":
-    "Navigatrum tuum locum huic paginae negat, itaque te rogare non potuit. Id permitte, deinde iterum conare.",
+    "Navigatrum tuum locum huic paginae negat, itaque te rogare non potest. Id permitte, deinde iterum conare.",
   "parishes.locate.notShared":
     "Instrumentum tuum locum suum non communicavit. Si rogatus non es, officia loci navigatro tuo fortasse exstincta sunt.",
   "parishes.locate.timeout":
@@ -40,6 +40,8 @@ export const la: Dict = {
     "Tange iconem ad sinistram inscriptionis › Permissions › Location, et elige Allow.",
   "parishes.locate.steps.androidDevice":
     "Confirma Location in celeribus telephoni optionibus accensum esse.",
+  "parishes.locate.steps.macSafariSite":
+    "In Safari aperi Safari › Settings › Websites › Location, et huic paginae elige Ask vel Allow.",
   "parishes.locate.steps.desktopSite":
     "Preme iconem loci vel serae in linea inscriptionis et huic paginae locum permitte.",
   "parishes.locate.steps.desktopDevice":

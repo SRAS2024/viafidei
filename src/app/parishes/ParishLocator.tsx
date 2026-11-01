@@ -102,6 +102,8 @@ function stepsFor(platform: LocationPlatform, labels: LocatorLabels): string[] {
       return [steps.iosOtherSettings];
     case "android":
       return [steps.androidSite, steps.androidDevice];
+    case "mac-safari":
+      return [steps.macSafariSite, steps.desktopDevice];
     default:
       return [steps.desktopSite, steps.desktopDevice];
   }

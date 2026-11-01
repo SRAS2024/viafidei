@@ -14,7 +14,7 @@ export const ko: Dict = {
   "parishes.locate.tryAgain": "다시 시도",
   "parishes.locate.howTo": "위치를 켜는 방법",
   "parishes.locate.blocked":
-    "브라우저가 이 사이트의 위치 접근을 차단하고 있어 요청할 수 없었습니다. 위치를 허용한 뒤 다시 시도해 주세요.",
+    "브라우저가 이 사이트의 위치 접근을 차단하고 있어 요청할 수 없습니다. 위치를 허용한 뒤 다시 시도해 주세요.",
   "parishes.locate.notShared":
     "기기가 위치를 공유하지 않았습니다. 요청을 받지 못했다면 브라우저의 위치 서비스가 꺼져 있을 가능성이 높습니다.",
   "parishes.locate.timeout":
@@ -36,6 +36,8 @@ export const ko: Dict = {
   "parishes.locate.steps.androidSite":
     "웹 주소 왼쪽의 아이콘을 탭한 다음 권한 › 위치에서 '허용'을 선택하세요.",
   "parishes.locate.steps.androidDevice": "휴대전화의 빠른 설정에서 위치가 켜져 있는지 확인하세요.",
+  "parishes.locate.steps.macSafariSite":
+    "Safari에서 Safari › 설정 › 웹 사이트 › 위치를 열고 이 사이트에 대해 '묻기' 또는 '허용'을 선택하세요.",
   "parishes.locate.steps.desktopSite":
     "주소 표시줄의 위치 아이콘이나 자물쇠 아이콘을 클릭하고 이 사이트의 위치 접근을 허용하세요.",
   "parishes.locate.steps.desktopDevice":
