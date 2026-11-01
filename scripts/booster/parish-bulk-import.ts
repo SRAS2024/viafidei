@@ -61,7 +61,7 @@ const CONCURRENCY = Number(argv.get("concurrency") ?? 12);
 const ONLY = new Set((argv.get("countries") ?? "").split(",").filter(Boolean));
 const SKIP = new Set((argv.get("skip-countries") ?? "").split(",").filter(Boolean));
 const STATE_PATH = argv.get("state") ?? "";
-/** A QLever OSM-planet CSV export (see scripts/booster/README): read rows instead of querying Overpass. */
+/** A QLever OSM-planet CSV export (query in README.md, "Booster scripts"): read rows instead of querying Overpass. */
 const CSV_PATH = argv.get("csv") ?? "";
 const UA = "ViaFideiAdminWorker/1.0 (+https://etviafidei.com; parish directory)";
 const MIRRORS = [
