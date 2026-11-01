@@ -116,6 +116,40 @@ const parishes: Dict = {
   // Under each parish name once "Use my location" has sorted the list.
   // {distance} is already localised: "800 ft", "2.4 km", "2,4 km", "2.4公里".
   "parishes.distanceAway": "{distance} away",
+  // "Use my location" on /parishes. Every tap asks the device; these are the
+  // answers the visitor can get back, and where to turn location on again.
+  "parishes.locate.button": "Use my location",
+  "parishes.locate.locating": "Finding parishes near you…",
+  "parishes.locate.tryAgain": "Try again",
+  "parishes.locate.howTo": "How to turn location on",
+  "parishes.locate.blocked":
+    "Your browser is blocking location for this site, so it couldn't ask you. Allow it, then try again.",
+  "parishes.locate.notShared":
+    "Your device didn't share its location. If you weren't asked, location is probably turned off for your browser.",
+  "parishes.locate.timeout":
+    "Your device took too long to find your location. Check that location services are on, then try again.",
+  "parishes.locate.unavailable":
+    "Your device couldn't work out where you are right now. Check that location services are on, then try again.",
+  "parishes.locate.unsupported":
+    "This browser can't share your location. You can still browse the directory below.",
+  "parishes.locate.insecure":
+    "Location only works on a secure connection. Open this page over https and try again.",
+  "parishes.locate.lookupFailed":
+    "We couldn't load parishes near you. The directory below still works.",
+  "parishes.locate.steps.iosSafariSettings":
+    "Open Settings › Privacy & Security › Location Services, make sure it's on, then tap Safari Websites and choose While Using the App.",
+  "parishes.locate.steps.iosSafariSite":
+    "In Safari, tap aA in the address bar › Website Settings › Location, and choose Ask or Allow.",
+  "parishes.locate.steps.iosOtherSettings":
+    "Open Settings › Privacy & Security › Location Services, make sure it's on, then tap the browser or app you're using and choose While Using the App.",
+  "parishes.locate.steps.androidSite":
+    "Tap the icon to the left of the web address › Permissions › Location, and choose Allow.",
+  "parishes.locate.steps.androidDevice":
+    "Make sure Location is turned on in your phone's quick settings.",
+  "parishes.locate.steps.desktopSite":
+    "Click the location or lock icon in the address bar and allow location for this site.",
+  "parishes.locate.steps.desktopDevice":
+    "If your computer has location turned off, turn it on in its privacy settings (on a Mac: System Settings › Privacy & Security › Location Services).",
 };
 
 const liturgy: Dict = {

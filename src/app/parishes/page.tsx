@@ -5,6 +5,7 @@ import { PARISH_FILTERS, resolveParishFilter } from "@/lib/content-shared/parish
 import { getTranslator } from "@/lib/i18n/server";
 
 import { ParishLocator } from "./ParishLocator";
+import { parishLocatorLabels } from "./locator-labels";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Parishes" };
@@ -99,32 +100,34 @@ export default async function ParishesPage({
         }))}
       />
 
-      {result.items.length === 0 ? (
-        <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
-          {query
-            ? `No parishes match “${query}”.`
-            : active === "all"
-              ? "The parish directory will appear here as records are approved and published through the checklist-first worker."
-              : `No ${active} records are published yet.`}
-        </div>
-      ) : (
-        <>
-          <ParishLocator
-            // Names in another script transliterated and countries named in
-            // the reader's language (rule b), in memory: no cache lookup.
-            parishes={await localizeParishes(result.items, { locale })}
-            total={result.total}
-            locale={locale}
-            awayTemplate={t("parishes.distanceAway")}
-          />
-          <Pagination
-            basePath="/parishes"
-            page={result.page}
-            totalPages={result.pageCount}
-            searchParams={{ class: active === "all" ? undefined : active, q: query || undefined }}
-          />
-        </>
-      )}
+      {/* The locator renders even when this page of the directory is empty:
+          "Use my location" must stay one tap away whatever the list shows. */}
+      <ParishLocator
+        // Names in another script transliterated and countries named in
+        // the reader's language (rule b), in memory: no cache lookup.
+        parishes={await localizeParishes(result.items, { locale })}
+        total={result.total}
+        locale={locale}
+        awayTemplate={t("parishes.distanceAway")}
+        labels={parishLocatorLabels(t)}
+        empty={
+          <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
+            {query
+              ? `No parishes match “${query}”.`
+              : active === "all"
+                ? "The parish directory will appear here as records are approved and published through the checklist-first worker."
+                : `No ${active} records are published yet.`}
+          </div>
+        }
+      />
+      {result.items.length > 0 ? (
+        <Pagination
+          basePath="/parishes"
+          page={result.page}
+          totalPages={result.pageCount}
+          searchParams={{ class: active === "all" ? undefined : active, q: query || undefined }}
+        />
+      ) : null}
     </div>
   );
 }
