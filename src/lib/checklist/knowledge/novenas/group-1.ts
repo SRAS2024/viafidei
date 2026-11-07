@@ -281,7 +281,7 @@ export const novenaGroupOne: CuratedEntry[] = [
       summary:
         "The traditional nine-day novena to St. Joseph, prayed from March 10 to March 18 in preparation for his solemnity, or on nine consecutive Wednesdays. The same received prayers are said on each of the nine days; what changes is the day's subject for meditation.",
       background:
-        "This is the received form of the St. Joseph novena as printed in devotional manuals: a preparatory prayer to the Holy Spirit, the two daily prayers to St. Joseph given below, and a different subject for meditation on each of the nine days. Blessed Pius IX declared St. Joseph patron of the universal Church in 1870; Leo XIII wrote Quamquam Pluries in 1889; Pope Francis added his name to all the Eucharistic Prayers in 2013 and proclaimed a Year of St. Joseph with the apostolic letter Patris Corde in 2020. Because the daily prayer does not change, the novena is easily prayed by heart.",
+        "This is the received form of the St. Joseph novena as printed in devotional manuals: a preparatory prayer to the Holy Spirit, the two daily prayers to St. Joseph given above, and a different subject for meditation on each of the nine days. Blessed Pius IX declared St. Joseph patron of the universal Church in 1870; Leo XIII wrote Quamquam Pluries in 1889; Pope Francis added his name to all the Eucharistic Prayers in 2013 and proclaimed a Year of St. Joseph with the apostolic letter Patris Corde in 2020. Because the daily prayer does not change, the novena is easily prayed by heart.",
       intentionTheme:
         "the fatherly protection of Saint Joseph over families, work, and a happy death",
       days: [
@@ -493,7 +493,7 @@ export const novenaGroupOne: CuratedEntry[] = [
       summary:
         "The traditional novena in preparation for the Solemnity of the Immaculate Conception, prayed once a day from November 30 to December 8. The same received prayer, versicles and collect are said on each of the nine days; the subject for meditation changes.",
       background:
-        "Blessed Pius IX defined the dogma of the Immaculate Conception in the bull Ineffabilis Deus on 8 December 1854: from the first instant of her conception the Blessed Virgin Mary was preserved free from all stain of original sin, by a singular grace and in view of the merits of Jesus Christ. Four years later, at Lourdes, Our Lady told St. Bernadette, I am the Immaculate Conception. Pius XII recounted this history in the encyclical Fulgens Corona (1953). This is a devotional novena for private or parish use; the day-by-day distinction below lies in the meditation, since the received prayer is the same each day.",
+        "Blessed Pius IX defined the dogma of the Immaculate Conception in the bull Ineffabilis Deus on 8 December 1854: from the first instant of her conception the Blessed Virgin Mary was preserved free from all stain of original sin, by a singular grace and in view of the merits of Jesus Christ. Four years later, at Lourdes, Our Lady told St. Bernadette, I am the Immaculate Conception. Pius XII recounted this history in the encyclical Fulgens Corona (1953). This is a devotional novena for private or parish use; the day-by-day distinction above lies in the subject for meditation, since the received prayer is the same each day.",
       intentionTheme: "purity of heart and confidence in the intercession of Mary Immaculate",
       days: [
         {
@@ -597,7 +597,7 @@ export const novenaGroupOne: CuratedEntry[] = [
       summary:
         "The Redemptorist novena to Our Lady of Perpetual Help: an act of contrition, the received preparatory prayer said on each of the nine days, and a different meditation each day on one of the ways her help is called perpetual. It is commonly prayed from June 18 to June 26, before her feast on June 27, and at any time of need.",
       background:
-        "The icon of the Mother of Perpetual Help, painted in the Byzantine manner and venerated on Crete by the fifteenth century, was brought to Rome and later given by Blessed Pius IX to the Redemptorists in 1866 with the charge to make her known throughout the world. The perpetual novena that grew up around it became one of the most widespread Marian devotions of the twentieth century. The daily prayer does not change; the nine meditation subjects below are those of the received Redemptorist novena.",
+        "The icon of the Mother of Perpetual Help, painted in the Byzantine manner and venerated on Crete by the fifteenth century, was brought to Rome and later given by Blessed Pius IX to the Redemptorists in 1866 with the charge to make her known throughout the world. The perpetual novena that grew up around it became one of the most widespread Marian devotions of the twentieth century. The daily prayer does not change; the nine meditation subjects above are those of the received Redemptorist novena.",
       intentionTheme:
         "the unfailing maternal help of Mary in every necessity of life, death and purgatory",
       days: [
