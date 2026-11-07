@@ -19,7 +19,6 @@ const REQUIRED_LOADING_TABS = [
   "saints",
   "devotions",
   "sacraments",
-  "history",
   "liturgy",
   "spiritual-life",
   "our-lady",
@@ -33,4 +32,12 @@ describe("Public tab loading.tsx presence (spec §19)", () => {
       expect(existsSync(p), `Missing ${p}`).toBe(true);
     });
   }
+
+  // /history renders one page from the cached timeline, so there is no fetch to
+  // wait for, and a change of its filters keeps the old list on screen. A boundary
+  // here would put a placeholder in the first HTML, which is what a reader with no
+  // JavaScript was left looking at for good.
+  it("/history/loading.tsx does not exist", () => {
+    expect(existsSync(join(APP_ROOT, "history", "loading.tsx"))).toBe(false);
+  });
 });

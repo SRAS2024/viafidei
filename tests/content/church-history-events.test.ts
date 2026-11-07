@@ -26,7 +26,7 @@ import { churchHistoryKnowledge } from "@/lib/checklist/knowledge/church-history
 import { doctorKnowledge } from "@/lib/checklist/knowledge/doctors";
 import { popeKnowledge } from "@/lib/checklist/knowledge/popes";
 import { saintKnowledge } from "@/lib/checklist/knowledge/saints";
-import { matchesHistoryFilter, FILTER_LABELS } from "@/app/history/HistoryTimelineClient";
+import { matchesHistoryFilter, FILTER_LABELS } from "@/app/history/historyView";
 import { buildTimeline } from "@/lib/content-shared/church-history/timeline";
 
 const CURRENT_YEAR = new Date().getUTCFullYear();

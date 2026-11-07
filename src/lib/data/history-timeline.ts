@@ -10,8 +10,11 @@
  * (`revalidateContentType(input.contentType)` in post-publish-probe) — a new
  * document appears on the next request, not an hour later.
  *
- * Only a body-free projection is cached and shipped: the worker's document
- * excerpts (≤1,200 chars each) stay on the document page. The cache wrapper
+ * Only a body-free projection is cached: the worker's document excerpts (≤1,200
+ * chars each) stay on the document page, and the page sends the browser only the
+ * one page of events its URL asks for. The data cache refuses any item over 2 MB,
+ * and one refused item would mean reading every payload on every request, so a
+ * summary is cached only as far as the timeline shows it. The cache wrapper
  * (`withCacheTags`) degrades to a direct read wherever Next's incremental
  * cache is unavailable (tests, scripts).
  */
@@ -30,6 +33,12 @@ import {
 } from "@/lib/content-shared/church-history/timeline";
 
 export const HISTORY_TIMELINE_REVALIDATE_SECONDS = 3600;
+
+/**
+ * Comfortably past the timeline's 400-character excerpt, even after it collapses
+ * a summary's runs of whitespace.
+ */
+const CACHED_SUMMARY_CHARS = 600;
 
 const RELATED_TYPES: Record<RelatedLinkType, ChecklistContentType> = {
   popes: "POPE",
@@ -50,13 +59,16 @@ export async function readHistoryTimelineInputs(): Promise<HistoryTimelineInputs
     select: { slug: true, title: true, payload: true },
     orderBy: { slug: "asc" },
   });
-  const documents = rows.map((row) =>
-    timelineDocumentFromPayload(
+  const documents = rows.map((row) => {
+    const document = timelineDocumentFromPayload(
       row.slug,
       row.title,
       (row.payload ?? {}) as Record<string, unknown>,
-    ),
-  );
+    );
+    return document.summary
+      ? { ...document, summary: document.summary.slice(0, CACHED_SUMMARY_CHARS) }
+      : document;
+  });
   const publishedSlugs = { popes: [], saints: [], doctors: [], apparitions: [] } as Record<
     RelatedLinkType,
     string[]

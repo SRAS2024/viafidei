@@ -105,6 +105,50 @@ describe("history timeline loader", () => {
     expect(HISTORY_TIMELINE_CACHE_TAGS).toContain("tab:history");
   });
 
+  it("keeps what it caches well under the data cache's 2 MB limit for one item", async () => {
+    // Over the limit, Next stops caching and every request reads every payload.
+    findMany.mockReset();
+    findMany.mockImplementation(async ({ where }: { where: Where }) =>
+      where.contentType === "CHURCH_DOCUMENT"
+        ? Array.from({ length: 1000 }, (_, i) => ({
+            slug: `document-${i}`,
+            title: `Document ${i}`,
+            payload: {
+              documentType: "encyclical",
+              issuedDate: "1891-05-15",
+              summary: "word ".repeat(2000),
+              bodyExcerpt: "NEVER SHIPPED",
+            },
+          }))
+        : [],
+    );
+    const inputs = await readHistoryTimelineInputs();
+    expect(JSON.stringify(inputs).length).toBeLessThan(1_000_000);
+  });
+
+  it("gives a document's excerpt all the text it shows, though it caches less", async () => {
+    findMany.mockReset();
+    findMany.mockImplementation(async ({ where }: { where: Where }) =>
+      where.contentType === "CHURCH_DOCUMENT"
+        ? [
+            {
+              slug: "long-summary",
+              title: "Long Summary",
+              payload: {
+                documentType: "encyclical",
+                issuedDate: "1891-05-15",
+                summary: "word ".repeat(2000),
+              },
+            },
+          ]
+        : [],
+    );
+    const timeline = await loadHistoryTimeline();
+    const event = timeline.events.find((e) => e.slug === "long-summary");
+    expect(event?.excerpt?.length).toBe(400);
+    expect(event?.excerpt?.endsWith("…")).toBe(true);
+  });
+
   it("has the page read the cached timeline, not the full published rows", () => {
     // /history used to call listPublished("CHURCH_DOCUMENT"), which loads every
     // payload (bodyExcerpt included) on every request and hands it to a client

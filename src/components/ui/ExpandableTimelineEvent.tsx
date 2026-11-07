@@ -1,15 +1,10 @@
-"use client";
-
-import Link from "next/link";
-import { useState, useId } from "react";
-
 export type TimelineEventLink = { href: string; label: string; external?: boolean };
 
 type Props = {
   title: string;
   /** Already formatted for display ("20 May 325", "325", "c. 33"). */
   date?: string;
-  /** Kind badge ("Council", "Encyclical", "Martyrdom"…). */
+  /** What kind of event, in sentence case ("Council", "Encyclical", "Martyrdom"…). */
   eyebrow?: string;
   location?: string;
   context?: string;
@@ -19,19 +14,25 @@ type Props = {
   /** Related pages: document, official text, popes, saints, doctors, apparitions. */
   links?: TimelineEventLink[];
   initiallyOpen?: boolean;
-  /** DOM id for jump-to-era scrolling. */
+  /** The row a year or a deep link landed on. */
+  current?: boolean;
+  /** DOM id, so a link can land on this event. */
   id?: string;
 };
 
 /**
- * Expandable timeline event used in the Church history timeline.
+ * One row of the Church history timeline: a native disclosure, rendered whole
+ * on the server. The browser opens and closes it with no script at all, so a
+ * thousand years of it costs nothing to run; a screen reader hears a disclosure
+ * with the date and title; Find in Page reaches the closed text. The summary
+ * shows the formatted date, the title and the kind; the details show location,
+ * context, significance, an optional excerpt and the related links. No "Source:"
+ * line: a reader's page shows no sources (the owner's rule). Each event's
+ * citation stays in the timeline data, where the event's provenance is kept.
  *
- * Mirrors the ExpandablePrayer pattern: arrow points right when collapsed,
- * arrow points down when expanded. The trigger shows the formatted date, a
- * kind badge and the title; the body shows location, context, significance,
- * an optional excerpt and a "Related" chip row. No "Source:" line: a reader's
- * page shows no sources (the owner's rule). Each event's citation stays in the
- * timeline data, where the event's provenance is kept.
+ * The rail's marker and the chevron are drawn by the stylesheet, and the links
+ * are plain anchors the page's one click handler upgrades, which keeps the page
+ * light: this markup is sent twice per row, as HTML and again for hydration.
  */
 export function ExpandableTimelineEvent({
   title,
@@ -44,116 +45,83 @@ export function ExpandableTimelineEvent({
   body,
   links,
   initiallyOpen = false,
+  current = false,
   id,
 }: Props) {
-  const [open, setOpen] = useState(initiallyOpen);
-  const panelId = useId();
   return (
-    <div
-      id={id}
-      className="vf-timeline-event"
-      // Long lists (hundreds of rows) only lay out what is on screen.
-      style={{ contentVisibility: "auto", containIntrinsicSize: "64px" }}
-    >
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={() => setOpen((v) => !v)}
-        className="vf-timeline-trigger"
+    <details id={id} open={initiallyOpen} className="vf-timeline-event">
+      <summary
+        className={current ? "vf-timeline-summary vf-timeline-current" : "vf-timeline-summary"}
+        aria-current={current ? "true" : undefined}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-          className={`vf-expandable-arrow ${open ? "vf-expandable-arrow-open" : ""}`}
-        >
-          <polyline points="9 6 15 12 9 18" />
-        </svg>
-        <span className="vf-timeline-title">
-          {date || eyebrow ? (
-            <span className="vf-timeline-date flex flex-wrap items-center gap-x-2 gap-y-1">
-              {date ? <span>{date}</span> : null}
-              {eyebrow ? (
-                <span className="rounded-sm bg-ink/5 px-1.5 py-0.5 text-[0.6rem] tracking-[0.14em] text-ink-soft">
-                  {eyebrow}
-                </span>
-              ) : null}
-            </span>
-          ) : null}
-          <span>{title}</span>
-        </span>
-      </button>
-      {open ? (
-        <div id={panelId} className="vf-timeline-body" role="region" aria-label={title}>
-          {location ? (
-            <p className="vf-timeline-meta">
-              <span className="vf-timeline-meta-label">Location</span>
-              <span>{location}</span>
-            </p>
-          ) : null}
-          {context ? (
-            <div className="vf-timeline-section">
-              <h4 className="vf-timeline-section-title">Historical context</h4>
-              <p className="vf-timeline-section-body">{context}</p>
-            </div>
-          ) : null}
-          {issues ? (
-            <div className="vf-timeline-section">
-              <h4 className="vf-timeline-section-title">Major issues addressed</h4>
-              <p className="vf-timeline-section-body">{issues}</p>
-            </div>
-          ) : null}
-          {significance ? (
-            <div className="vf-timeline-section">
-              <h4 className="vf-timeline-section-title">Significance</h4>
-              <p className="vf-timeline-section-body">{significance}</p>
-            </div>
-          ) : null}
-          {body ? (
-            <div className="vf-timeline-section">
-              <p className="vf-timeline-section-body whitespace-pre-wrap">{body}</p>
-            </div>
-          ) : null}
-          {links && links.length > 0 ? (
-            <div className="vf-timeline-section">
-              <h4 className="vf-timeline-section-title">Related</h4>
-              <ul className="flex flex-wrap gap-2" aria-label={`Related to ${title}`}>
-                {links.map((link) => {
-                  const cls =
-                    "inline-flex items-center gap-1 rounded-sm border border-transparent bg-ink/5 px-3 py-1 text-xs font-medium uppercase tracking-liturgical text-ink-soft transition hover:bg-ink/10 hover:text-ink";
-                  return (
-                    <li key={`${link.href}:${link.label}`}>
-                      {link.external ? (
-                        <a
-                          href={link.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cls}
-                        >
-                          {link.label}
-                          <span aria-hidden="true">↗</span>
-                        </a>
-                      ) : (
-                        <Link href={link.href} className={cls}>
-                          {link.label}
-                        </Link>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+        {date ? (
+          <span className="vf-timeline-date">
+            {date}
+            <span className="sr-only">, </span>
+          </span>
+        ) : null}
+        <span className="vf-timeline-title">{title}</span>
+        {eyebrow ? (
+          <span className="vf-timeline-kind">
+            <span className="sr-only">, </span>
+            {eyebrow}
+          </span>
+        ) : null}
+      </summary>
+      <div className="vf-timeline-body">
+        {location ? (
+          <p className="vf-timeline-fact">
+            <span>Location</span>
+            {` ${location}`}
+          </p>
+        ) : null}
+        {context ? (
+          <>
+            <h4>Historical context</h4>
+            <p>{context}</p>
+          </>
+        ) : null}
+        {issues ? (
+          <>
+            <h4>Major issues addressed</h4>
+            <p>{issues}</p>
+          </>
+        ) : null}
+        {significance ? (
+          <>
+            <h4>Significance</h4>
+            <p>{significance}</p>
+          </>
+        ) : null}
+        {body ? <p className="vf-timeline-excerpt">{body}</p> : null}
+        {links && links.length > 0 ? (
+          <>
+            <h4>Related</h4>
+            <ul>
+              {links.map((link) => (
+                <li key={`${link.href}:${link.label}`}>
+                  {link.external ? (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="vf-link"
+                    >
+                      {link.label}
+                      <span aria-hidden="true"> ↗</span>
+                      <span className="sr-only"> (opens in a new tab)</span>
+                    </a>
+                  ) : (
+                    <a href={link.href} className="vf-link">
+                      {link.label}
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+      </div>
+    </details>
   );
 }
