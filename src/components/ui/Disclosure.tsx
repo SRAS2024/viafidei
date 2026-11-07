@@ -4,8 +4,10 @@ import { useId, useState, type ReactNode } from "react";
 
 /**
  * Accessible disclosure (dropdown) used for guide prayers and novena days:
- * a title row with a chevron that expands to reveal the full content. Keeps
- * guides and novenas concise while still providing every prayer in order.
+ * a title row with a chevron that expands to reveal the full content. One look
+ * everywhere: the same label, title, border and spacing, and expanded prayer
+ * text at full prayer size. Keeps guides and novenas concise while still
+ * providing every prayer in order.
  */
 export function Disclosure({
   title,
@@ -22,17 +24,17 @@ export function Disclosure({
   const panelId = useId();
 
   return (
-    <div className="vf-card overflow-hidden rounded-sm">
+    <div className="vf-disclosure">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={panelId}
-        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition hover:bg-ink/5"
+        className="vf-disclosure-trigger"
       >
         <span className="min-w-0">
-          {eyebrow ? <span className="vf-eyebrow block">{eyebrow}</span> : null}
-          <span className="font-display text-lg text-ink">{title}</span>
+          {eyebrow ? <span className="vf-disclosure-label">{eyebrow}</span> : null}
+          <span className="vf-disclosure-title">{title}</span>
         </span>
         <svg
           aria-hidden="true"
@@ -44,16 +46,13 @@ export function Disclosure({
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`shrink-0 text-ink-faint transition-transform ${open ? "rotate-180" : ""}`}
+          className="vf-disclosure-chevron"
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
       {open ? (
-        <div
-          id={panelId}
-          className="border-t border-ink/10 px-5 py-4 font-serif leading-relaxed text-ink"
-        >
+        <div id={panelId} className="vf-disclosure-body">
           {children}
         </div>
       ) : null}

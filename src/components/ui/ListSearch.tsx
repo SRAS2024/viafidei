@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { SearchIcon } from "@/components/icons/SearchIcon";
 import { MAX_QUERY_LENGTH, listHref } from "@/lib/content-shared/list-search";
@@ -42,6 +43,14 @@ type ListSearchProps = {
  * matched and offers to clear the search. A search that matches nothing is
  * shown by `ListSearchNoResults` in place of the list.
  */
+/**
+ * Holds a list page's search and filter together, on one row where they fit: the
+ * two are one control area, and the list follows at a related distance.
+ */
+export function ListControls({ children }: { children: ReactNode }) {
+  return <div className="vf-list-controls">{children}</div>;
+}
+
 export function ListSearch({
   action,
   query,
@@ -54,13 +63,13 @@ export function ListSearch({
 }: ListSearchProps) {
   const inputId = `list-search${action.replace(/[^a-z0-9]+/gi, "-").replace(/-+$/, "")}`;
   return (
-    <div className="mx-auto mb-8 w-full max-w-xl">
+    <div className="min-w-0 max-w-xl flex-1 basis-[22rem]">
       <form
         role="search"
         aria-label={label}
         method="get"
         action={action}
-        className="flex items-stretch gap-2"
+        className="flex items-stretch gap-1.5"
       >
         {Object.entries(keep).map(([name, value]) =>
           value ? <input key={name} type="hidden" name={name} value={value} /> : null,
@@ -82,23 +91,20 @@ export function ListSearch({
           maxLength={MAX_QUERY_LENGTH}
           autoComplete="off"
           enterKeyHint="search"
-          className="vf-input min-w-0 flex-1 text-base"
+          className="vf-input min-w-0 flex-1"
         />
         {/* The word shows from the small breakpoint up; on a phone the icon
             alone leaves the field room, and the word stays its name. */}
-        <button type="submit" className="vf-btn vf-btn-primary shrink-0 px-3 sm:px-5">
+        <button type="submit" className="vf-btn vf-btn-primary shrink-0 !px-3.5 sm:!px-5">
           <SearchIcon size={16} />
           <span className="sr-only sm:not-sr-only">{t("listSearch.submit")}</span>
         </button>
       </form>
       {query && typeof resultCount === "number" && resultCount > 0 ? (
-        <p className="mt-3 text-center font-serif text-sm text-ink-soft">
+        <p className="vf-fineprint mt-2 text-center">
           {tPlural(t, locale, "listSearch.results", resultCount, { query })}{" "}
           <span aria-hidden="true">·</span>{" "}
-          <Link
-            href={listHref(action, keep)}
-            className="underline underline-offset-4 transition hover:text-ink"
-          >
+          <Link href={listHref(action, keep)} className="vf-link">
             {t("listSearch.clear")}
           </Link>
         </p>
@@ -124,10 +130,10 @@ export function ListSearchNoResults({
   t: Translator;
 }) {
   return (
-    <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
-      <p className="text-ink-soft">{t("listSearch.none", { query })}</p>
-      <p className="mt-2 text-sm">{t("listSearch.noneHint")}</p>
-      <Link href={listHref(action, keep)} className="vf-btn vf-btn-ghost mt-6">
+    <div className="vf-card rounded-sm px-6 py-8 text-center font-serif text-ink-soft">
+      <p className="text-[1.1875rem]">{t("listSearch.none", { query })}</p>
+      <p className="vf-fineprint mt-1">{t("listSearch.noneHint")}</p>
+      <Link href={listHref(action, keep)} className="vf-btn vf-btn-ghost mt-4">
         {t("listSearch.clear")}
       </Link>
     </div>

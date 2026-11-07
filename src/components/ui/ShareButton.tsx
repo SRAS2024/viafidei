@@ -100,7 +100,7 @@ export function ShareButton({ title, text, url, className }: Props) {
         onClick={onShare}
         disabled={pending}
         aria-label={`Share ${title}`}
-        className="inline-flex items-center gap-1.5 rounded-full border border-ink/20 px-4 py-1.5 text-xs uppercase tracking-liturgical transition hover:bg-ink/5 disabled:opacity-50"
+        className="vf-btn vf-btn-sm vf-btn-ghost"
       >
         <ShareGlyph />
         <span>{copied ? "Link copied" : "Share"}</span>

@@ -11,13 +11,12 @@
  * The caller decides which; this component never assumes a payload is there.
  */
 
-import Link from "next/link";
-
 import { formatEnumValue } from "@/lib/content-shared/field-presenters";
 import type { PublishedItem, PublishedListItem } from "@/lib/data/published";
 import { displayItem } from "@/lib/translation/display";
 
-import { PaginatedGrid } from "./PaginatedGrid";
+import { ContentCard } from "./ContentCard";
+import { PaginatedGrid, type GridColumns } from "./PaginatedGrid";
 
 export type PublishedListEntry = PublishedItem | PublishedListItem;
 
@@ -69,6 +68,12 @@ export interface PublishedListProps {
    * so this works for projected rows that carry no payload.
    */
   detailLinesFor?: (item: PublishedListEntry) => ReadonlyArray<string> | undefined;
+  /** A thematic sentence for under the title (a novena's intention). */
+  themeFor?: (item: PublishedListEntry) => string | undefined;
+  /** The collection's grid: 3 (default) for long entries, 4 for short ones. */
+  columns?: GridColumns;
+  /** The card's quiet action on its bottom line ("Open"). */
+  action?: string;
 }
 
 export function PublishedList({
@@ -82,10 +87,13 @@ export function PublishedList({
   eyebrowFor,
   showSubtitle = false,
   detailLinesFor,
+  themeFor,
+  columns = 3,
+  action,
 }: PublishedListProps) {
   if (items.length === 0) {
     return (
-      <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
+      <div className="vf-card col-span-full rounded-sm px-6 py-8 text-center font-serif text-ink-soft">
         {emptyMessage ??
           "Items will appear here as the checklist-first worker publishes approved content."}
       </div>
@@ -123,29 +131,18 @@ export function PublishedList({
           ? shown.subtitle
           : "";
     const details = (detailLinesFor?.(item) ?? []).filter((line) => line.trim());
+    // The title leads; a brief category label and the facts follow it.
     return (
-      <Link key={item.id} href={`${baseHref}/${item.slug}`} className="block h-full">
-        <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30 sm:p-7">
-          {eyebrow && <p className="vf-eyebrow">{eyebrow}</p>}
-          <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{shown.title}</h2>
-          {details.length > 0 && (
-            <div className="mt-2 space-y-1">
-              {details.map((line, i) => (
-                <p
-                  key={i}
-                  className="line-clamp-3 break-words font-serif text-sm leading-snug text-ink-soft"
-                >
-                  {line}
-                </p>
-              ))}
-            </div>
-          )}
-          {summary && (
-            <p className="mt-4 line-clamp-5 font-serif leading-relaxed text-ink-soft">{summary}</p>
-          )}
-        </article>
-      </Link>
+      <ContentCard
+        key={item.id}
+        href={`${baseHref}/${item.slug}`}
+        title={shown.title}
+        meta={[eyebrow, ...details]}
+        theme={themeFor?.(item)}
+        summary={summary}
+        action={action}
+      />
     );
   });
-  return <PaginatedGrid items={cards} />;
+  return <PaginatedGrid items={cards} columns={columns} />;
 }

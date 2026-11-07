@@ -3,9 +3,10 @@ import Link from "next/link";
 /**
  * How many cards a public list page shows per page. One number for the whole
  * site so `?page=2` means the same thing everywhere and the SQL `skip/take`
- * matches what the links promise.
+ * matches what the links promise. Divisible by 2, 3 and 4, so a full page of a
+ * collection never strands a card on its last row.
  */
-export const LIST_PAGE_SIZE = 30;
+export const LIST_PAGE_SIZE = 36;
 
 /** `?page=` → a 1-based page number. Anything unparseable is page 1. */
 export function parsePageParam(value: string | undefined): number {
@@ -92,14 +93,17 @@ export function Pagination({
   if (totalPages <= 1) return null;
   const pages = buildPageList(page, totalPages);
   return (
-    <nav className="mt-12 flex items-center justify-center gap-2" aria-label="Pagination">
+    <nav
+      className="mt-[var(--space-related)] flex flex-wrap items-center justify-center gap-1.5"
+      aria-label="Pagination"
+    >
       {pages.map((p, idx) => {
         if (p === "…") {
           return (
             <span
               key={`gap-${idx}`}
               aria-hidden="true"
-              className="px-2 font-serif text-sm text-ink-faint"
+              className="px-1.5 font-sans text-sm text-ink-faint"
             >
               …
             </span>
@@ -107,12 +111,7 @@ export function Pagination({
         }
         const isCurrent = p === page;
         const href = buildHref(basePath, pageParam, p, searchParams);
-        const classes = [
-          "inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-sm border px-3 font-serif text-sm transition",
-          isCurrent
-            ? "border-ink/40 bg-ink/5 text-ink"
-            : "border-ink/15 text-ink-soft hover:border-ink/30 hover:text-ink",
-        ].join(" ");
+        const classes = `vf-chip min-w-[2.5rem] !px-2 tabular-nums ${isCurrent ? "vf-filter-active" : ""}`;
         return (
           <Link
             key={p}

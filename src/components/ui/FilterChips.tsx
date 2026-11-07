@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 /**
  * One filter chip. A chip with `href` navigates (URL-driven filtering on a
@@ -47,19 +47,14 @@ type Props = {
 
 // One consistent look for every filter on the site. The selected chip fills
 // with the action/Marian blue (`vf-filter-active`) so "selected = blue" is
-// uniform across the whole app; the unselected chips stay a calm grey box.
-const BASE =
-  "inline-flex items-center gap-1.5 rounded-sm border px-4 py-1.5 text-xs font-medium uppercase tracking-liturgical transition";
-const INACTIVE = "border-transparent bg-ink/5 text-ink-soft hover:bg-ink/10 hover:text-ink";
-const ACTIVE = "vf-filter-active";
+// uniform across the whole app; the unselected chips stay outlined and neutral.
+const chipClass = (active: boolean) => `vf-chip ${active ? "vf-filter-active" : ""}`.trim();
 
 function ChipInner({ item }: { item: FilterChipItem }) {
   return (
     <>
-      <span>{item.label}</span>
-      {typeof item.count === "number" ? (
-        <span className="font-semibold tabular-nums opacity-70">{item.count}</span>
-      ) : null}
+      <span className="min-w-0">{item.label}</span>
+      {typeof item.count === "number" ? <span className="vf-chip-count">{item.count}</span> : null}
     </>
   );
 }
@@ -117,11 +112,11 @@ export function FilterChips({
     <div
       role="group"
       aria-label={ariaLabel}
-      className={`flex flex-wrap justify-center gap-2 ${className ?? ""}`}
+      className={`flex flex-wrap justify-center gap-1.5 ${className ?? ""}`}
     >
       {items.map((item) => {
         const active = item.key === activeKey;
-        const cls = `${BASE} ${active ? ACTIVE : INACTIVE}`;
+        const cls = chipClass(active);
         if (onSelect) {
           return (
             <button
@@ -176,6 +171,7 @@ function CollapsedFilter({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const panelId = useId();
 
   // Close on outside pointer / Escape (mirrors the header nav dropdown).
   useEffect(() => {
@@ -207,65 +203,62 @@ function CollapsedFilter({
     item.key === activeKey && item.key !== resetKey
       ? (resetItem?.href ?? item.href ?? "#")
       : (item.href ?? "#");
+  const currentLabel = activeItem?.label ?? triggerLabel;
 
   return (
     <div className={`flex justify-center ${className ?? ""}`}>
       <div className="relative" ref={ref}>
         <button
           type="button"
-          aria-haspopup="listbox"
           aria-expanded={open}
-          aria-label={ariaLabel}
+          aria-controls={panelId}
+          aria-label={`${ariaLabel}: ${currentLabel}`}
           onClick={() => setOpen((o) => !o)}
-          className={`${BASE} ${isFiltered ? ACTIVE : INACTIVE}`}
+          className={`${chipClass(isFiltered)} min-h-[var(--control-h)]`}
         >
           <span>{isFiltered ? activeItem!.label : triggerLabel}</span>
           {isFiltered && typeof activeItem!.count === "number" ? (
-            <span className="font-semibold tabular-nums opacity-70">{activeItem!.count}</span>
+            <span className="vf-chip-count">{activeItem!.count}</span>
           ) : null}
           <Chevron open={open} />
         </button>
 
         {open ? (
-          <div
-            role="listbox"
+          <ul
+            id={panelId}
             aria-label={ariaLabel}
-            className="absolute left-1/2 top-full z-50 mt-2 max-h-72 w-56 -translate-x-1/2 overflow-auto rounded-sm border border-ink/10 bg-paper-bright p-1 shadow-paper"
+            className="vf-menu absolute left-1/2 top-full z-30 mt-1.5 max-h-[min(24rem,70dvh)] w-64 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-y-auto"
           >
             {items.map((item) => {
               const active = item.key === activeKey;
-              const cls = `${BASE} w-full justify-between ${active ? ACTIVE : INACTIVE}`;
-              if (onSelect) {
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    role="option"
-                    aria-selected={active}
-                    onClick={() => {
-                      onSelect(selectKeyFor(item));
-                      setOpen(false);
-                    }}
-                    className={cls}
-                  >
-                    <ChipInner item={item} />
-                  </button>
-                );
-              }
               return (
-                <Link
-                  key={item.key}
-                  href={hrefFor(item)}
-                  role="option"
-                  aria-selected={active}
-                  onClick={() => setOpen(false)}
-                  className={cls}
-                >
-                  <ChipInner item={item} />
-                </Link>
+                <li key={item.key}>
+                  {onSelect ? (
+                    <button
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => {
+                        onSelect(selectKeyFor(item));
+                        setOpen(false);
+                      }}
+                      className={`vf-menu-item ${active ? "vf-menu-item-active" : ""}`}
+                    >
+                      <ChipInner item={item} />
+                    </button>
+                  ) : (
+                    <Link
+                      href={hrefFor(item)}
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => setOpen(false)}
+                      className="vf-menu-item"
+                    >
+                      <ChipInner item={item} />
+                    </Link>
+                  )}
+                </li>
               );
             })}
-          </div>
+          </ul>
         ) : null}
       </div>
     </div>

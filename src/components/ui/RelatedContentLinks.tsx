@@ -56,19 +56,16 @@ export async function resolveRelatedLinks(
     .filter((l): l is RelatedLink => l != null);
 }
 
-/** A titled row of related-content links. Renders nothing when empty. */
+/** A titled list of related-content links. Renders nothing when empty. */
 export function RelatedContentLinks({ title, links }: { title: string; links: RelatedLink[] }) {
   if (links.length === 0) return null;
   return (
-    <section className="mt-6">
-      <h2 className="font-display text-xl text-ink">{title}</h2>
-      <ul className="mt-3 flex flex-wrap gap-2">
+    <section className="vf-detail-section mt-[var(--space-related)]">
+      <h2 className="vf-subhead">{title}</h2>
+      <ul className="vf-plain-list vf-reading">
         {links.map((link) => (
           <li key={`${link.typeLabel}:${link.slug}`}>
-            <Link
-              href={link.href}
-              className="inline-flex items-baseline gap-2 rounded-full border border-ink/15 px-3 py-1 font-serif text-sm text-ink transition hover:border-ink/40"
-            >
+            <Link href={link.href} className="vf-link">
               {link.title}
             </Link>
           </li>

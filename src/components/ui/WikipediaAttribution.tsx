@@ -12,8 +12,6 @@ import {
   wikipediaTextSource,
 } from "@/lib/content-shared/wikipedia-attribution";
 
-const LINK_CLASS = "underline decoration-ink/30 underline-offset-2 hover:text-ink";
-
 export function WikipediaAttribution({
   contentType,
   payload,
@@ -24,18 +22,13 @@ export function WikipediaAttribution({
   const source = wikipediaTextSource(contentType, payload);
   if (!source) return null;
   return (
-    <p className="mt-10 font-serif text-xs leading-relaxed text-ink-faint">
+    <p className="vf-fineprint">
       Text from{" "}
-      <a href={source.url} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
+      <a href={source.url} target="_blank" rel="noopener noreferrer">
         {wikipediaEditionName(source.lang)} ({source.title})
       </a>
       ,{" "}
-      <a
-        href={WIKIPEDIA_LICENSE.url}
-        target="_blank"
-        rel="noopener noreferrer license"
-        className={LINK_CLASS}
-      >
+      <a href={WIKIPEDIA_LICENSE.url} target="_blank" rel="noopener noreferrer license">
         {WIKIPEDIA_LICENSE.name}
       </a>
     </p>

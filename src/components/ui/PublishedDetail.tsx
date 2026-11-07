@@ -26,6 +26,7 @@ import {
 } from "@/lib/content-shared/field-presenters";
 
 import { Disclosure } from "./Disclosure";
+import { FactList, type FactItem } from "./FactList";
 import { PrayerLinkedText } from "./PrayerLinkedText";
 import { PublicDomainAttribution } from "./PublicDomainAttribution";
 import { ShareButton } from "./ShareButton";
@@ -81,6 +82,11 @@ export interface PublishedDetailProps {
    */
   facts?: ReadonlyArray<string | null | undefined>;
   /**
+   * Labelled facts under the title: dates, feast day, patronage. Set as one
+   * aligned list, so a biography's facts sit apart from its prose.
+   */
+  factItems?: ReadonlyArray<FactItem | null | undefined>;
+  /**
    * Show the payload's `summary` as a lede under the title (default). It is
    * left out anyway when a shown field already contains it, so a sacrament's
    * overview is not printed twice.
@@ -116,29 +122,22 @@ function renderPresented(
   if (value.kind === "list") {
     const shape =
       layout.kind === "list" && layout.items.length === value.items.length ? layout : value;
-    // Short single-line entries (patronages, "what you need") read better as
-    // chips than as a bulleted column.
+    // Short single-line entries (patronages, visionaries) read best as a neat
+    // run of plain text. They are facts, so nothing about them looks clickable.
     if (isChipList(shape)) {
       return (
-        <ul className="flex flex-wrap gap-2">
+        <ul className="vf-plain-list">
           {value.items.map((item, i) => (
-            <li
-              key={i}
-              className="rounded-full border border-ink/15 px-3 py-1 font-serif text-sm text-ink-soft"
-            >
-              {item.kind === "text" ? item.text : null}
-            </li>
+            <li key={i}>{item.kind === "text" ? item.text : null}</li>
           ))}
         </ul>
       );
     }
     const ListTag = shape.ordered ? "ol" : "ul";
     return (
-      <ListTag className={`ml-6 ${shape.ordered ? "list-decimal" : "list-disc"}`}>
+      <ListTag>
         {value.items.map((item, i) => (
-          <li key={i} className="mt-2">
-            {renderPresented(item, depth + 1, shape.items[i])}
-          </li>
+          <li key={i}>{renderPresented(item, depth + 1, shape.items[i])}</li>
         ))}
       </ListTag>
     );
@@ -146,10 +145,10 @@ function renderPresented(
   const shape =
     layout.kind === "pairs" && layout.pairs.length === value.pairs.length ? layout : value;
   return (
-    <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1">
+    <dl className="vf-pairs">
       {value.pairs.map((pair, i) => (
-        <div key={pair.label} className="contents">
-          <dt className="font-medium text-ink-soft">{pair.label}</dt>
+        <div key={pair.label}>
+          <dt>{pair.label}</dt>
           <dd>{renderPresented(pair.value, depth + 1, shape.pairs[i]?.value)}</dd>
         </div>
       ))}
@@ -225,6 +224,7 @@ export function PublishedDetail({
   eyebrow,
   showSubtitle = true,
   facts,
+  factItems,
   lede = true,
   headings,
 }: PublishedDetailProps) {
@@ -281,8 +281,8 @@ export function PublishedDetail({
   const section = (key: string, body: React.ReactNode) => {
     const heading = headingFor(key);
     return (
-      <section key={key} className="mt-6">
-        {heading ? <h2 className="font-display text-xl text-ink">{heading}</h2> : null}
+      <section key={key} className="vf-detail-section">
+        {heading ? <h2 className="vf-subhead">{heading}</h2> : null}
         {body}
       </section>
     );
@@ -308,18 +308,12 @@ export function PublishedDetail({
     if (custom) {
       const rendered = custom(value);
       if (rendered == null) return null;
-      return section(
-        key,
-        <div className="mt-2 font-serif leading-relaxed text-ink">{rendered}</div>,
-      );
+      return section(key, <div className="vf-reading">{rendered}</div>);
     }
     if (key === "issuedDate") {
       const formatted = formatIssuedDate(value, payload.documentType);
       if (formatted) {
-        return section(
-          key,
-          <div className="mt-2 font-serif leading-relaxed text-ink">{formatted}</div>,
-        );
+        return section(key, <div className="vf-reading">{formatted}</div>);
       }
     }
     // Novena days / guide prayers / rosary mysteries → expandable dropdowns
@@ -328,7 +322,7 @@ export function PublishedDetail({
     if (disclosures) {
       return section(
         key,
-        <div className="mt-3 flex flex-col gap-3">
+        <div className="vf-disclosure-list">
           {disclosures.map((d, i) => (
             <Disclosure key={`${key}-${i}`} title={d.title} eyebrow={d.eyebrow}>
               {linked ? (
@@ -357,7 +351,7 @@ export function PublishedDetail({
     const presented = value === stored ? layout : (presentValue(key, value) ?? layout);
     return section(
       key,
-      <div className="mt-2 font-serif leading-relaxed text-ink">
+      <div className="vf-reading">
         {linked && presented.kind === "text" ? (
           // Instructions name prayers in running prose ("pray the Our Father").
           <PrayerLinkedText text={presented.text} prayers={linked} headingLevel={panelLevel(key)} />
@@ -369,48 +363,42 @@ export function PublishedDetail({
   };
 
   return (
-    <article className="mx-auto max-w-3xl px-4 py-10">
-      <header className="mb-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 sm:flex-1">
-            {eyebrowLabel ? <p className="vf-eyebrow mb-2">{eyebrowLabel}</p> : null}
-            <h1 className="break-words font-display text-3xl text-ink sm:text-4xl">
-              {shown.title}
-            </h1>
-            {showSubtitle && shown.subtitle ? (
-              <p className="mt-1 font-serif text-base italic text-ink-soft">{shown.subtitle}</p>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 items-center gap-2 sm:pt-1">
-            <ShareButton title={shown.title} text={shownSummary ?? shown.title} />
-            {action}
-          </div>
-        </div>
+    <article className="vf-detail">
+      <header className="vf-detail-header">
+        {eyebrowLabel ? <p className="vf-eyebrow">{eyebrowLabel}</p> : null}
+        <h1 className="vf-detail-title text-ink">{shown.title}</h1>
+        {showSubtitle && shown.subtitle ? (
+          <p className="vf-detail-subtitle">{shown.subtitle}</p>
+        ) : null}
+        {factItems ? <FactList items={factItems} /> : null}
         {factLines.length > 0 ? (
-          <div className="mt-3 space-y-1">
+          <div className="mt-2">
             {factLines.map((line, i) => (
-              <p key={`${i}:${line}`} className="font-serif leading-snug text-ink-soft">
+              <p
+                key={`${i}:${line}`}
+                className="font-serif text-[1.1875rem] leading-snug text-ink-soft"
+              >
                 {line}
               </p>
             ))}
           </div>
         ) : null}
-        {ledeText ? (
-          <p className="mt-3 font-serif leading-relaxed text-ink-soft">{ledeText}</p>
-        ) : null}
+        {ledeText ? <p className="vf-lede">{ledeText}</p> : null}
+        <div className="vf-detail-actions">
+          <ShareButton title={shown.title} text={shownSummary ?? shown.title} />
+          {action}
+        </div>
       </header>
 
       {primary.map(renderField)}
       {secondary.map(renderField)}
 
-      {footer ? (
-        <footer className="mt-10 flex flex-wrap items-center gap-3 border-t border-[rgba(17,17,17,0.12)] pt-6">
-          {footer}
-        </footer>
-      ) : null}
+      {footer ? <footer className="vf-detail-footer">{footer}</footer> : null}
       {/* Which article to credit is read from the stored record. */}
-      <WikipediaAttribution contentType={item.contentType} payload={payload} />
-      <PublicDomainAttribution payload={payload} />
+      <div className="vf-credits">
+        <WikipediaAttribution contentType={item.contentType} payload={payload} />
+        <PublicDomainAttribution payload={payload} />
+      </div>
     </article>
   );
 }

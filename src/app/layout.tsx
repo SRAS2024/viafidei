@@ -105,7 +105,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           className={
             isAdminRoute
               ? "mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6"
-              : "mx-auto w-full max-w-6xl flex-1 px-4 pt-8 pb-8 sm:px-6 sm:pt-12"
+              : "mx-auto w-full max-w-6xl flex-1 px-4 pb-8 pt-6 sm:px-6 sm:pt-8"
           }
         >
           {children}

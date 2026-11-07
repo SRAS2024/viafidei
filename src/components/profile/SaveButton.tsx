@@ -86,11 +86,7 @@ export function SaveButton({
         onClick={toggle}
         disabled={pending}
         aria-pressed={saved}
-        className={`rounded-full border px-4 py-1.5 text-xs uppercase tracking-liturgical transition ${
-          saved
-            ? "border-liturgical-gold bg-liturgical-gold/10 text-ink"
-            : "border-ink/20 hover:bg-ink/5"
-        } disabled:opacity-50`}
+        className="vf-btn vf-btn-sm vf-btn-ghost"
       >
         {pending ? "…" : saved ? merged.saved : merged.save}
       </button>

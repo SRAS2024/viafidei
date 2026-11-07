@@ -34,13 +34,16 @@ const config: Config = {
         sans: ["var(--font-sans)", "Inter", "system-ui", "sans-serif"],
       },
       letterSpacing: {
-        liturgical: "0.14em",
+        liturgical: "0.1em",
+      },
+      borderRadius: {
+        sm: "var(--radius-control)",
       },
       boxShadow: {
         paper: "0 1px 0 rgba(20,20,20,0.04), 0 30px 60px -40px rgba(20,20,20,0.18)",
       },
       maxWidth: {
-        reading: "68ch",
+        reading: "var(--measure)",
       },
     },
   },

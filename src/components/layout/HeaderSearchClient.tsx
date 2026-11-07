@@ -130,6 +130,11 @@ function hrefFor(s: Suggestion): string {
 type Props = {
   placeholder: string;
   ariaLabel: string;
+  /**
+   * "inline" expands in place beside the account link. "panel" is the phone's:
+   * the icon stays in the bar and the field opens in a full-width row beneath it.
+   */
+  variant?: "inline" | "panel";
 };
 
 /**
@@ -184,7 +189,7 @@ function useSuggestionLimit(): number {
   return limit;
 }
 
-export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
+export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" }: Props) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -327,127 +332,145 @@ export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
     }
   }
 
+  const panelVariant = variant === "panel";
+  const toggle = (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      aria-expanded={expanded}
+      onClick={() => {
+        setExpanded((v) => !v);
+        setOpen(true);
+      }}
+      className="vf-header-search-toggle flex h-11 w-11 items-center justify-center rounded-full text-ink-soft transition hover:bg-ink/5 hover:text-ink"
+    >
+      <SearchIcon size={18} />
+    </button>
+  );
+
   return (
     <div
       ref={wrapperRef}
-      className="relative flex w-full min-w-0 items-center justify-end sm:w-auto"
+      className={
+        panelVariant ? "flex items-center" : "relative flex min-w-0 items-center justify-end"
+      }
     >
-      {!expanded ? (
-        <button
-          type="button"
-          aria-label={ariaLabel}
-          aria-expanded={false}
-          onClick={() => {
-            setExpanded(true);
-            setOpen(true);
-          }}
-          className="vf-header-search-toggle flex h-9 w-9 items-center justify-center rounded-full text-ink-faint transition hover:text-ink"
+      {panelVariant || !expanded ? toggle : null}
+      {expanded ? (
+        <div
+          className={
+            panelVariant
+              ? "absolute inset-x-0 top-full border-b border-ink/10 bg-paper-bright px-4 py-2.5 sm:px-6"
+              : "w-48 lg:w-56 xl:w-64"
+          }
         >
-          <SearchIcon size={16} />
-        </button>
-      ) : (
-        <form
-          method="get"
-          action="/search"
-          role="search"
-          className="vf-header-search relative flex w-full min-w-0 items-center gap-2 sm:w-64"
-        >
-          <SearchIcon size={14} className="shrink-0 text-ink-faint" />
-          <input
-            ref={inputRef}
-            type="search"
-            name="q"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setOpen(true);
-            }}
-            onFocus={() => setOpen(true)}
-            onKeyDown={onKeyDown}
-            placeholder={placeholder}
-            aria-label={ariaLabel}
-            role="combobox"
-            aria-autocomplete="list"
-            aria-expanded={showList}
-            aria-controls={listboxId}
-            aria-activedescendant={activeId}
-            autoComplete="off"
-            className="vf-header-search-input min-w-0 flex-1"
-          />
-          {showPanel ? (
-            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[28rem] overflow-auto rounded-md border border-ink/10 bg-paper shadow-paper sm:left-auto sm:right-0 sm:w-80">
-              {status === "loading" ? (
-                <p aria-live="polite" className="px-3 py-3 font-serif text-sm text-ink-faint">
-                  Searching…
-                </p>
-              ) : null}
-              {status === "error" ? (
-                <p aria-live="polite" className="px-3 py-3 font-serif text-sm text-ink-faint">
-                  Search is unavailable right now.
-                </p>
-              ) : null}
-              {status === "ready" && flat.length === 0 ? (
-                <p aria-live="polite" className="px-3 py-3 font-serif text-sm text-ink-faint">
-                  No matches for &ldquo;{trimmed}&rdquo;.
-                </p>
-              ) : null}
-              {showList ? (
-                <div id={listboxId} role="listbox" aria-label="Search suggestions">
-                  {grouped.map(({ group, label, items }) => (
-                    <div key={group} className="border-b border-ink/5 last:border-b-0">
-                      <p className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-liturgical text-ink-faint">
-                        {label}
-                      </p>
-                      <ul>
-                        {items.map((s) => {
-                          const flatIndex = flat.indexOf(s);
-                          const active = flatIndex === activeIndex;
-                          return (
-                            <li key={`${s.group}:${s.id}`}>
-                              <button
-                                type="button"
-                                id={`vf-suggestion-${flatIndex}`}
-                                role="option"
-                                aria-selected={active}
-                                onMouseEnter={() => setActiveIndex(flatIndex)}
-                                onClick={() => pick(s)}
-                                className={`flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm ${active ? "bg-ink/[0.07]" : "hover:bg-ink/5"}`}
-                              >
-                                <span className="w-full truncate text-ink">
-                                  <SearchHighlight text={s.label} query={trimmed} />
-                                </span>
-                                {s.subtitle ? (
-                                  <span className="w-full truncate font-serif text-xs text-ink-faint">
-                                    <SearchHighlight text={s.subtitle} query={trimmed} />
-                                  </span>
-                                ) : null}
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-              <div className="border-t border-ink/10">
-                <button
-                  type="button"
-                  onClick={goToResults}
-                  className="w-full px-3 py-2 text-left font-serif text-xs text-ink-soft hover:bg-ink/5"
-                >
-                  See all results for &ldquo;{trimmed}&rdquo;
-                </button>
-                {showList ? (
-                  <p className="px-3 pb-2 font-serif text-[11px] text-ink-faint">
-                    ↑↓ navigate &middot; ↵ open &middot; esc close
+          <form
+            method="get"
+            action="/search"
+            role="search"
+            className="vf-header-search relative flex min-w-0 items-center gap-2"
+          >
+            <SearchIcon size={16} className="shrink-0 text-ink-faint" />
+            <input
+              ref={inputRef}
+              type="search"
+              name="q"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setOpen(true);
+              }}
+              onFocus={() => setOpen(true)}
+              onKeyDown={onKeyDown}
+              placeholder={placeholder}
+              aria-label={ariaLabel}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={showList}
+              aria-controls={listboxId}
+              aria-activedescendant={activeId}
+              autoComplete="off"
+              className="vf-header-search-input min-w-0 flex-1"
+            />
+            {showPanel ? (
+              // The panel's right edge meets the field's and it never leaves the
+              // viewport; on a phone it spans the field's own full-width row.
+              <div
+                className={`vf-menu absolute right-0 top-full z-50 mt-1.5 max-h-[calc(100dvh-var(--header-h)-3.5rem)] overflow-y-auto !p-0 ${
+                  panelVariant ? "left-0" : "w-[min(28rem,calc(100vw-2rem))]"
+                }`}
+              >
+                {status === "loading" ? (
+                  <p aria-live="polite" className="vf-fineprint px-4 py-3">
+                    Searching…
                   </p>
                 ) : null}
+                {status === "error" ? (
+                  <p aria-live="polite" className="vf-fineprint px-4 py-3">
+                    Search is unavailable right now.
+                  </p>
+                ) : null}
+                {status === "ready" && flat.length === 0 ? (
+                  <p aria-live="polite" className="vf-fineprint px-4 py-3">
+                    No matches for &ldquo;{trimmed}&rdquo;.
+                  </p>
+                ) : null}
+                {showList ? (
+                  <div id={listboxId} role="listbox" aria-label="Search suggestions">
+                    {grouped.map(({ group, label, items }) => (
+                      <div key={group} className="border-b border-ink/10 py-1 last:border-b-0">
+                        <p className="vf-eyebrow px-4 pb-0.5 pt-1.5">{label}</p>
+                        <ul>
+                          {items.map((s) => {
+                            const flatIndex = flat.indexOf(s);
+                            const active = flatIndex === activeIndex;
+                            return (
+                              <li key={`${s.group}:${s.id}`}>
+                                <button
+                                  type="button"
+                                  id={`vf-suggestion-${flatIndex}`}
+                                  role="option"
+                                  aria-selected={active}
+                                  onMouseEnter={() => setActiveIndex(flatIndex)}
+                                  onClick={() => pick(s)}
+                                  className={`flex w-full flex-col items-start gap-0.5 px-4 py-2 text-left ${active ? "bg-ink/5" : ""}`}
+                                >
+                                  <span className="font-serif text-[1.1875rem] leading-snug text-ink">
+                                    <SearchHighlight text={s.label} query={trimmed} />
+                                  </span>
+                                  {s.subtitle ? (
+                                    <span className="vf-clamp font-sans text-sm leading-snug text-ink-faint [--clamp:2]">
+                                      <SearchHighlight text={s.subtitle} query={trimmed} />
+                                    </span>
+                                  ) : null}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="border-t border-ink/10">
+                  <button
+                    type="button"
+                    onClick={goToResults}
+                    className="vf-link-action w-full px-4 py-2.5 text-left hover:bg-ink/5"
+                  >
+                    See all results for &ldquo;{trimmed}&rdquo;
+                  </button>
+                  {showList ? (
+                    <p className="vf-fineprint hidden px-4 pb-2.5 min-[900px]:block">
+                      ↑↓ navigate &middot; ↵ open &middot; esc close
+                    </p>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ) : null}
-        </form>
-      )}
+            ) : null}
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }

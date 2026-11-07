@@ -107,7 +107,7 @@ export function HeaderMobileMenu({
   }, []);
 
   return (
-    <div ref={wrapperRef} className="relative sm:hidden">
+    <div ref={wrapperRef} className="relative min-[900px]:hidden">
       <button
         type="button"
         aria-label={open ? closeLabel : openLabel}
@@ -118,7 +118,7 @@ export function HeaderMobileMenu({
           setOpen((v) => !v);
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="vf-mobile-menu-toggle relative -mr-2 flex h-12 w-12 items-center justify-center rounded-sm text-ink"
+        className="vf-mobile-menu-toggle relative -mr-1.5 flex h-11 w-11 items-center justify-center rounded-sm text-ink"
       >
         {/* Visually centered icon, but a 48x48 hit target that doesn't move
             its visual position. The pointer-events catch on the button itself,
@@ -132,7 +132,7 @@ export function HeaderMobileMenu({
         <nav
           id="vf-mobile-menu"
           aria-label="Mobile navigation"
-          className="absolute right-0 top-full z-50 mt-2 w-64 rounded-sm border border-ink/10 bg-paper-bright shadow-paper"
+          className="vf-menu absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-var(--header-h)-1rem)] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto !p-0"
         >
           <ul className="flex flex-col py-2">
             {navItems.map((item) => {

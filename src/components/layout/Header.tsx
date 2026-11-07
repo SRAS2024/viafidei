@@ -70,67 +70,63 @@ export async function Header() {
     : undefined;
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-ink/10 bg-paper/85 backdrop-blur-md">
-      {/* MOBILE — single bar with brand on the left and hamburger on the right */}
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 pt-3 pb-3 sm:hidden">
+    <header className="sticky top-0 z-40 w-full border-b border-ink/10 bg-paper/90 backdrop-blur-md">
+      {/* PHONE / TABLET — one bar: brand on the left, search and menu on the right */}
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-1.5 sm:px-6 min-[900px]:hidden">
         <HeaderBrand brandName={t("brand.name")} locale={locale} />
-        <HeaderMobileMenu
-          navItems={navItems}
-          signInItem={signInItem}
-          authedActions={authedActions}
-          openLabel={t("nav.menu.open")}
-          closeLabel={t("nav.menu.close")}
-          showSettings={isAuthed}
-          settingsLabel={t("nav.settings")}
-        />
+        <div className="flex items-center gap-1">
+          <HeaderSearchSlot>
+            <HeaderSearch
+              placeholder={t("search.placeholder")}
+              ariaLabel={t("nav.search")}
+              variant="panel"
+            />
+          </HeaderSearchSlot>
+          <HeaderMobileMenu
+            navItems={navItems}
+            signInItem={signInItem}
+            authedActions={authedActions}
+            openLabel={t("nav.menu.open")}
+            closeLabel={t("nav.menu.close")}
+            showSettings={isAuthed}
+            settingsLabel={t("nav.settings")}
+          />
+        </div>
       </div>
 
-      {/* DESKTOP / TABLET — centered brand at the top */}
-      <div className="hidden sm:block">
-        <div className="mx-auto flex max-w-6xl items-center justify-center px-6 pt-6 pb-4">
+      {/* DESKTOP — centred masthead, with the account and search controls at its
+          right edge so the tabs below never move between pages. The account link
+          keeps its place on the homepage, where no search sits beside it. */}
+      <div className="hidden min-[900px]:block">
+        <div className="relative mx-auto flex max-w-6xl items-center justify-center px-6 py-1.5">
           <HeaderBrand brandName={t("brand.name")} locale={locale} centered />
+          <div className="absolute inset-y-0 right-6 flex items-center gap-4">
+            <HeaderSearchSlot>
+              <HeaderSearch placeholder={t("search.placeholder")} ariaLabel={t("nav.search")} />
+            </HeaderSearchSlot>
+            {isAuthed ? (
+              <HeaderUserMenu
+                isAuthed
+                labels={{
+                  profile: t("nav.profile"),
+                  settings: t("nav.settings"),
+                  logout: t("nav.logout"),
+                }}
+                avatarSrc={avatarSrc}
+                logoutAction={logoutAction}
+              />
+            ) : (
+              <HeaderUserMenu isAuthed={false} labels={{ login: t("nav.login") }} />
+            )}
+          </div>
         </div>
 
-        {/* Tabs row, with sign-in / profile and search on the right */}
         <div className="border-t border-ink/10">
-          <div className="mx-auto flex max-w-6xl items-center gap-4 px-6 py-3">
-            <div className="min-w-0 flex-1">
-              <HeaderNav t={t} />
-            </div>
-            <div className="flex shrink-0 items-center gap-4">
-              {isAuthed ? (
-                <HeaderUserMenu
-                  isAuthed
-                  labels={{
-                    profile: t("nav.profile"),
-                    settings: t("nav.settings"),
-                    logout: t("nav.logout"),
-                  }}
-                  avatarSrc={avatarSrc}
-                  logoutAction={logoutAction}
-                />
-              ) : (
-                <HeaderUserMenu isAuthed={false} labels={{ login: t("nav.login") }} />
-              )}
-              <HeaderSearchSlot>
-                <div className="w-56 lg:w-64">
-                  <HeaderSearch placeholder={t("search.placeholder")} ariaLabel={t("nav.search")} />
-                </div>
-              </HeaderSearchSlot>
-            </div>
+          <div className="mx-auto max-w-6xl px-6 py-2.5">
+            <HeaderNav t={t} />
           </div>
         </div>
       </div>
-
-      {/* MOBILE — search bar pinned below the header so it remains accessible.
-          Neither bar appears on the homepage (HeaderSearchSlot). */}
-      <HeaderSearchSlot>
-        <div className="border-t border-ink/10 sm:hidden">
-          <div className="mx-auto max-w-6xl px-4 py-2.5">
-            <HeaderSearch placeholder={t("search.placeholder")} ariaLabel={t("nav.search")} />
-          </div>
-        </div>
-      </HeaderSearchSlot>
     </header>
   );
 }

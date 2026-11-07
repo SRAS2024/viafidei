@@ -42,26 +42,16 @@ export function OfficialSourceLink({ url, label, caption = "Official source" }: 
   const friendly = label ?? `Read on ${hostLabel(url)}`;
   if (caption === null) {
     return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="vf-nav-link inline-block break-all"
-      >
-        {friendly} ↗
+      <a href={url} target="_blank" rel="noopener noreferrer" className="vf-btn vf-btn-ghost">
+        {friendly} <span aria-hidden="true">↗</span>
       </a>
     );
   }
   return (
-    <div className="mt-10 border-t border-ink/10 pt-6 text-center">
-      <p className="vf-eyebrow text-ink-faint">{caption}</p>
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="vf-nav-link mt-2 inline-block break-all"
-      >
-        {friendly} ↗
+    <div className="vf-credits vf-fineprint">
+      <span className="font-medium">{caption}:</span>{" "}
+      <a href={url} target="_blank" rel="noopener noreferrer" className="break-words">
+        {friendly} <span aria-hidden="true">↗</span>
       </a>
     </div>
   );

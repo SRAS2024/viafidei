@@ -66,7 +66,7 @@ export function HeaderNavClient({ entries }: Props) {
     <nav
       ref={navRef}
       aria-label="Primary"
-      className="flex w-full flex-wrap items-center justify-center gap-x-6 gap-y-3 sm:gap-x-7"
+      className="flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-1 lg:gap-x-7"
     >
       {entries.map((entry) => {
         if (entry.kind === "link") {
@@ -139,7 +139,7 @@ export function HeaderNavClient({ entries }: Props) {
                 aria-label={entry.label}
                 className="absolute left-1/2 top-full z-50 w-56 -translate-x-1/2 pt-2"
               >
-                <div className="rounded-sm border border-ink/10 bg-paper-bright p-1 shadow-paper">
+                <div className="vf-menu">
                   {menuItems.map((leaf) => {
                     const active = isActive(pathname, leaf.href);
                     return (
@@ -149,9 +149,7 @@ export function HeaderNavClient({ entries }: Props) {
                         role="menuitem"
                         onClick={() => setOpenKey(null)}
                         aria-current={active ? "page" : undefined}
-                        className={`vf-mobile-menu-link block rounded-sm px-3 py-2 text-sm ${
-                          active ? "vf-mobile-menu-link-active" : ""
-                        }`}
+                        className="vf-menu-item"
                       >
                         {leaf.label}
                       </Link>

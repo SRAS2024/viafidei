@@ -1,23 +1,42 @@
 import type { ReactNode } from "react";
 
 /**
+ * How wide a collection's cards should be. "3" is the default, for items with
+ * long titles or descriptions; "4" is for short entries that fit it comfortably;
+ * "2" is for the homepage's balanced pairs. Each names a minimum card width, not
+ * a fixed count: a phone gets one column, a tablet two, and enlarged text simply
+ * earns fewer columns.
+ */
+export type GridColumns = 2 | 3 | 4;
+
+// Written out whole: Tailwind only keeps classes it can find as literal text.
+const GRID_CLASSES: Readonly<Record<GridColumns, string>> = {
+  2: "vf-grid vf-grid--2",
+  3: "vf-grid vf-grid--3",
+  4: "vf-grid vf-grid--4",
+};
+
+/** The class of a collection grid; loading placeholders use the same one. */
+export function gridClass(columns: GridColumns = 3): string {
+  return GRID_CLASSES[columns];
+}
+
+/**
  * Responsive content grid.
  *
  * Purely presentational: it lays cards out and nothing else. Pagination is
- * done on the SERVER now — each list page asks the database for one page of
- * rows and renders crawlable `?page=` links with `<Pagination>` beneath this
- * grid. The old client-side version received every published row as props,
- * sliced them in the browser, and kept the page number in component state,
- * which meant (a) the whole table was serialised into the RSC payload, (b) a
- * crawler only ever saw page 1, and (c) the first paint showed 10 cards and
- * then re-flowed to 25 once the resize effect ran.
- *
- * Five columns on desktop, three on tablet, one on mobile — unchanged, so the
- * page looks exactly as it did.
+ * done on the SERVER — each list page asks the database for one page of rows
+ * and renders crawlable `?page=` links with `<Pagination>` beneath this grid.
  */
-export function PaginatedGrid({ items }: { items: ReactNode[] }) {
+export function PaginatedGrid({
+  items,
+  columns = 3,
+}: {
+  items: ReactNode[];
+  columns?: GridColumns;
+}) {
   return (
-    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+    <ul className={gridClass(columns)}>
       {items.map((node, i) => (
         <li key={i}>{node}</li>
       ))}

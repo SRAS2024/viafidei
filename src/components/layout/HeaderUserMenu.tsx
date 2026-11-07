@@ -82,13 +82,13 @@ export function HeaderUserMenu(props: Props) {
         <div
           role="menu"
           aria-label={labels.profile}
-          className="absolute right-0 top-full z-50 mt-2 w-44 rounded-sm border border-ink/10 bg-paper-bright p-1 shadow-paper"
+          className="vf-menu absolute right-0 top-full z-50 mt-2 w-48"
         >
           <Link
             href="/profile"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="vf-mobile-menu-link block rounded-sm px-3 py-2 text-sm"
+            className="vf-menu-item"
           >
             {labels.profile}
           </Link>
@@ -96,16 +96,12 @@ export function HeaderUserMenu(props: Props) {
             href="/profile/settings"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="vf-mobile-menu-link block rounded-sm px-3 py-2 text-sm"
+            className="vf-menu-item"
           >
             {labels.settings}
           </Link>
           <form action={props.logoutAction} className="m-0">
-            <button
-              type="submit"
-              role="menuitem"
-              className="vf-mobile-menu-link block w-full rounded-sm px-3 py-2 text-left text-sm"
-            >
+            <button type="submit" role="menuitem" className="vf-menu-item">
               {labels.logout}
             </button>
           </form>
