@@ -14,6 +14,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
 import {
+  OLD_TESTAMENT_BEFORE_YEAR,
+  OLD_TESTAMENT_SAINTS,
+  SAINT_DISPLAY_RANK,
+  SAINT_DUPLICATE_OF,
   compareSaintsChronologically,
   saintCardDetails,
   type SaintCardDetails,
@@ -322,8 +326,9 @@ export interface PublishedPage<T> {
  *   - `title`         alphabetical (the historical default)
  *   - `chronological` earliest first via the indexed `sortYear` column
  *   - `feast`         calendar order via the indexed feast columns
+ *   - `saints`        the saint list's own order (`orderSqlFor`), one record per person
  */
-export type PublishedOrder = "title" | "chronological" | "feast";
+export type PublishedOrder = "title" | "chronological" | "feast" | "saints";
 
 export const DEFAULT_PAGE_SIZE = 30;
 const MAX_PAGE_SIZE = 100;
@@ -390,6 +395,7 @@ function toListItem(row: {
 function orderByFor(order: PublishedOrder): Prisma.PublishedContentOrderByWithRelationInput[] {
   switch (order) {
     case "chronological":
+    case "saints": // Which Prisma cannot express: its rows are read in raw SQL.
       // Undated rows sort last rather than first — Postgres orders NULLs last
       // for ASC by default, but we say so explicitly so the plan is stable.
       return [{ sortYear: { sort: "asc", nulls: "last" } }, { title: "asc" }];
@@ -433,6 +439,7 @@ export async function listPublishedPage(
     opts.subtype == null ? null : Array.isArray(opts.subtype) ? [...opts.subtype] : [opts.subtype];
   const q = parseSearchQuery(opts.q);
   if (q) return searchPublishedTypePage(contentType, { page, pageSize, subtypes, order, q });
+  if (order === "saints") return saintOrderPage(contentType, { page, pageSize, subtypes });
 
   const where: Prisma.PublishedContentWhereInput = {
     contentType,
@@ -462,9 +469,110 @@ function orderSqlFor(order: PublishedOrder): Prisma.Sql {
       return Prisma.sql`"sortYear" ASC NULLS LAST, "title" ASC`;
     case "feast":
       return Prisma.sql`"feastMonth" ASC NULLS LAST, "feastDayOfMonth" ASC NULLS LAST, "title" ASC`;
+    case "saints":
+      // Those the list names, in its order; then everyone else by year, the
+      // undated last; then the Old Testament, named ones first. Needs
+      // `saintRankJoin`. The slug settles a tie, so an offset never repeats a row.
+      return Prisma.sql`
+        CASE
+          WHEN "listRank" < ${OLD_TESTAMENT_RANK} THEN 0
+          WHEN "listRank" IS NOT NULL OR "sortYear" < ${OLD_TESTAMENT_BEFORE_YEAR} THEN 2
+          ELSE 1
+        END,
+        "listRank" ASC NULLS LAST,
+        "sortYear" ASC NULLS LAST,
+        "title" ASC,
+        "slug" ASC`;
     default:
       return Prisma.sql`"title" ASC`;
   }
+}
+
+/** Where the named Old Testament saints start among the list's ranks. */
+const OLD_TESTAMENT_RANK = 1_000_000;
+
+const SAINT_RANK_SLUGS = [...SAINT_DISPLAY_RANK.keys(), ...OLD_TESTAMENT_SAINTS];
+const SAINT_RANK_VALUES = [
+  ...SAINT_DISPLAY_RANK.values(),
+  ...OLD_TESTAMENT_SAINTS.map((_, index) => OLD_TESTAMENT_RANK + index),
+];
+
+/**
+ * The join that gives each row its `listRank`. A hash join against a few hundred
+ * ranks, where `array_position` would compare every saint to every rank.
+ */
+function saintRankJoin(): Prisma.Sql {
+  return Prisma.sql`LEFT JOIN unnest(${SAINT_RANK_SLUGS}::text[], ${SAINT_RANK_VALUES}::int[])
+    AS "saintRank"("rankSlug", "listRank") ON "saintRank"."rankSlug" = "slug"`;
+}
+
+/**
+ * The records the saint list leaves out because the same person has a better one
+ * live. Only a duplicate whose canonical record is published is hidden, so a
+ * saint can never vanish from the list. Fail-open: a failed read hides nothing.
+ */
+async function hiddenDuplicateSaints(): Promise<string[]> {
+  return memo("saints:hidden-duplicates", MEMO_TTL.list, async () => {
+    try {
+      const rows = await prisma.publishedContent.findMany({
+        where: {
+          contentType: "SAINT",
+          isPublished: true,
+          slug: { in: [...new Set(Object.values(SAINT_DUPLICATE_OF))] },
+        },
+        select: { slug: true },
+      });
+      const live = new Set(rows.map((row) => row.slug));
+      return Object.keys(SAINT_DUPLICATE_OF).filter((slug) => live.has(SAINT_DUPLICATE_OF[slug]!));
+    } catch {
+      return [];
+    }
+  });
+}
+
+/** One page of rows in the saint list's order, with the true count of the filter. */
+async function saintOrderRows(
+  filters: Prisma.Sql[],
+  opts: { page: number; pageSize: number },
+): Promise<PublishedPage<PublishedListItem>> {
+  const { page, pageSize } = opts;
+  const hidden = await hiddenDuplicateSaints();
+  const where = Prisma.join([...filters, Prisma.sql`"slug" <> ALL(${hidden}::text[])`], " AND ");
+  const [countRows, rows] = await Promise.all([
+    prisma.$queryRaw<Array<{ total: bigint }>>(
+      Prisma.sql`SELECT count(*)::bigint AS total FROM "PublishedContent" WHERE ${where}`,
+    ),
+    prisma.$queryRaw<SearchRow[]>(
+      Prisma.sql`SELECT ${SEARCH_COLUMNS}
+                 FROM "PublishedContent" ${saintRankJoin()}
+                 WHERE ${where}
+                 ORDER BY ${orderSqlFor("saints")}
+                 LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
+    ),
+  ]);
+  const total = Number(countRows[0]?.total ?? 0);
+  return {
+    items: rows.map(toListItem),
+    total,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+  };
+}
+
+/** The saint list with no search: every published record of the type and filter. */
+function saintOrderPage(
+  contentType: ChecklistContentType,
+  opts: { page: number; pageSize: number; subtypes: string[] | null },
+): Promise<PublishedPage<PublishedListItem>> {
+  const filters: Prisma.Sql[] = [
+    Prisma.sql`"contentType" = ${contentType}::"ChecklistContentType"`,
+    Prisma.sql`"isPublished"`,
+  ];
+  if (opts.subtypes && opts.subtypes.length > 0) {
+    filters.push(Prisma.sql`"subtype" = ANY(${opts.subtypes})`);
+  }
+  return saintOrderRows(filters, opts);
 }
 
 /** A user's text made literal inside a LIKE pattern. */
@@ -541,18 +649,36 @@ async function searchPublishedTypePage(
         })`,
       ];
       if (subtypes && subtypes.length > 0) filters.push(Prisma.sql`"subtype" = ANY(${subtypes})`);
+      // A search of the saint list shows each person once, as the list does.
+      const saints = order === "saints";
+      if (saints) {
+        filters.push(Prisma.sql`"slug" <> ALL(${await hiddenDuplicateSaints()}::text[])`);
+      }
       const where = Prisma.join(filters, " AND ");
       const rank = Prisma.sql`(${searchRank(q, tsquery, caps)}
         + CASE WHEN "title" ILIKE ${contains} THEN 1 ELSE 0 END)`;
+      // "Mary" means Our Lady before it means Mary of Clopas, and "John" the
+      // Apostle before John I of Milan: a saint the list names, whose name has
+      // the words typed, keeps her place in the list ahead of the closest match.
+      const wordSafe = q
+        .replace(/[^\p{L}\p{N} ]+/gu, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const namedFirst =
+        saints && wordSafe
+          ? Prisma.sql`CASE WHEN "listRank" < ${OLD_TESTAMENT_RANK}
+                         AND "title" ~* ${String.raw`\y${wordSafe}\y`} THEN "listRank" END
+                       ASC NULLS LAST, `
+          : Prisma.empty;
       const [countRows, rows] = await Promise.all([
         prisma.$queryRaw<Array<{ total: bigint }>>(
           Prisma.sql`SELECT count(*)::bigint AS total FROM "PublishedContent" WHERE ${where}`,
         ),
         prisma.$queryRaw<SearchRow[]>(
           Prisma.sql`SELECT ${SEARCH_COLUMNS}, ${rank} AS "rank"
-                     FROM "PublishedContent"
+                     FROM "PublishedContent" ${saints ? saintRankJoin() : Prisma.empty}
                      WHERE ${where}
-                     ORDER BY "rank" DESC, ${orderSqlFor(order)}
+                     ORDER BY ${namedFirst}"rank" DESC, ${orderSqlFor(order)}
                      LIMIT ${pageSize} OFFSET ${offset}`,
         ),
       ]);
@@ -571,6 +697,19 @@ async function searchPublishedTypePage(
   }
 
   const words = q.match(/[\p{L}\p{N}]+/gu)?.slice(0, MAX_QUERY_WORDS) ?? [];
+  if (order === "saints") {
+    const filters: Prisma.Sql[] = [
+      Prisma.sql`"contentType" = ${contentType}::"ChecklistContentType"`,
+      Prisma.sql`"isPublished"`,
+    ];
+    if (subtypes && subtypes.length > 0) filters.push(Prisma.sql`"subtype" = ANY(${subtypes})`);
+    if (words.length === 0) filters.push(Prisma.sql`FALSE`);
+    for (const word of words) {
+      const like = `%${escapeLike(word)}%`;
+      filters.push(Prisma.sql`("title" ILIKE ${like} OR "subtitle" ILIKE ${like})`);
+    }
+    return saintOrderRows(filters, { page, pageSize });
+  }
   const where: Prisma.PublishedContentWhereInput = {
     contentType,
     isPublished: true,
@@ -692,7 +831,10 @@ export async function listSaintsForFeast(month: number, day: number): Promise<Pu
         },
       });
     }
+    // The same person on one feast is one card, as on the saint list.
+    const live = new Set(rows.map((row) => row.slug));
     return rows
+      .filter((row) => !live.has(SAINT_DUPLICATE_OF[row.slug] ?? ""))
       .map((row) => deserialize(row)!)
       .filter(Boolean)
       .sort(compareSaintsChronologically);

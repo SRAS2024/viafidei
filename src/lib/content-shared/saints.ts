@@ -2,59 +2,446 @@
  * Saint ordering and labelling (spec — "Saints chronological ordering" and
  * "Saint Titles").
  *
- * Saints are listed in the order they lived, but the foundational figures
- * come first in a fixed canonical order — Mary, Joseph, John the Baptist,
- * Peter, the remaining Apostles, Matthias, then Paul — before everyone else
- * by year. Only a strict, permitted set of title labels may appear beneath a
- * saint's name; everything else (Martyr, Virgin, Bishop, …) shows no label.
+ * The owner set the order of the saint list himself: Mary, Joseph, Peter, Paul,
+ * James and John, the rest of the Apostles, John the Baptist, Mary Magdalene,
+ * Augustine, Ignatius of Antioch, Thomas Aquinas and Mother Teresa, then the most
+ * popular saints, then everyone else in the order they lived, and finally the
+ * saints of the Old Testament. Only a strict, permitted set of title labels may
+ * appear beneath a saint's name; everything else (Martyr, Virgin, Bishop, …)
+ * shows no label.
  */
 
 import type { Translator } from "@/lib/i18n/translator";
 
 /**
- * Canonical order of the foundational figures, by slug. The Admin Worker can
- * override per-saint with an explicit `orderRank`; this is the built-in
- * fallback for the well-known slugs.
+ * The head of the saint list, by slug, most prominent first. Everyone named here
+ * leads the list in this order; every other saint follows by year.
  */
-const FOUNDATIONAL_RANK: Record<string, number> = {
-  mary: 0,
-  "blessed-virgin-mary": 0,
-  "the-blessed-virgin-mary": 0,
-  "mary-mother-of-god": 0,
-  joseph: 1,
-  "saint-joseph": 1,
-  "st-joseph": 1,
-  "john-the-baptist": 2,
-  "saint-john-the-baptist": 2,
-  "st-john-the-baptist": 2,
-  peter: 3,
-  "saint-peter": 3,
-  "st-peter": 3,
-  "peter-the-apostle": 3,
-  matthias: 50,
-  "saint-matthias": 50,
-  "st-matthias": 50,
-  "matthias-the-apostle": 50,
-  paul: 60,
-  "saint-paul": 60,
-  "st-paul": 60,
-  "paul-the-apostle": 60,
-  "paul-of-tarsus": 60,
-};
+export const SAINT_DISPLAY_ORDER: readonly string[] = [
+  "saint-blessed-virgin-mary",
+  "saint-joseph",
+
+  // Peter, Paul, James and John.
+  "saint-peter",
+  "saint-paul",
+  "saint-james-the-greater",
+  "saint-john-the-apostle",
+
+  // The rest of the Apostles.
+  "saint-andrew-the-apostle",
+  "saint-philip-the-apostle",
+  "saint-bartholomew",
+  "saint-matthew",
+  "saint-thomas-the-apostle",
+  "saint-james-the-less",
+  "saint-jude-thaddeus",
+  "saint-simon-the-zealot",
+  "saint-matthias",
+
+  "saint-john-the-baptist",
+  "saint-mary-magdalene",
+
+  "saint-augustine-of-hippo",
+  "saint-ignatius-of-antioch",
+  "saint-thomas-aquinas",
+  "saint-mother-teresa-of-calcutta",
+
+  // The most popular saints, the best known first.
+  "saint-francis-of-assisi",
+  "saint-anthony-of-padua",
+  "saint-therese-of-lisieux",
+  "saint-padre-pio",
+  "saint-michael",
+  "saint-gabriel-the-archangel",
+  "saint-raphael-the-archangel",
+  "saint-teresa-of-avila",
+  "saint-john-paul-ii",
+  "saint-patrick",
+  "saint-nicholas",
+  "saint-benedict-of-nursia",
+  "saint-ignatius-of-loyola",
+  "saint-catherine-of-siena",
+  "saint-monica",
+  "saint-rita-of-cascia",
+  "saint-peregrine-laziosi",
+  "saint-clare-of-assisi",
+  "saint-joan-of-arc",
+  "saint-bernadette-soubirous",
+  "saint-faustina-kowalska",
+  "saint-maximilian-kolbe",
+  "saint-anne",
+  "saint-joachim",
+  "saint-elizabeth-mother-of-john-the-baptist",
+  "saint-zechariah-father-of-john-the-baptist",
+  "saint-george",
+  "saint-christopher",
+  "saint-valentine",
+  "saint-cecilia",
+  "saint-lucy",
+  "saint-agnes",
+  "saint-stephen",
+  "saint-dominic",
+  "saint-francis-xavier",
+  "saint-francis-de-sales",
+  "saint-john-bosco",
+  "saint-vincent-de-paul",
+  "saint-jerome",
+  "saint-ambrose",
+  "saint-gregory-the-great",
+  "saint-luke-the-evangelist",
+  "saint-mark-the-evangelist",
+  "saint-barnabas",
+  "saint-timothy",
+  "saint-titus",
+  "saint-elizabeth-ann-seton",
+  "saint-kateri-tekakwitha",
+  "saint-juan-diego",
+  "saint-martin-de-porres",
+  "saint-rose-of-lima",
+  "saint-john-vianney",
+  "saint-dymphna",
+  "saint-john-of-the-cross",
+  "saint-josephine-bakhita",
+  "saint-maria-goretti",
+  "saint-gianna-molla",
+  "saint-teresa-benedicta-of-the-cross",
+  "saint-carlo-acutis",
+  "saint-sebastian",
+  "saint-lawrence",
+  "saint-blaise",
+  "saint-agatha",
+  "saint-martha",
+  "saint-lazarus-of-bethany",
+  "saint-mary-of-bethany",
+  "saint-dismas",
+  "saint-thomas-more",
+  "saint-margaret-clitherow",
+  "saint-thomas-becket",
+  "saint-john-henry-newman",
+  "saint-bernard-of-clairvaux",
+  "saint-hildegard-of-bingen",
+  "saint-philip-neri",
+  "saint-aloysius-gonzaga",
+  "saint-charles-borromeo",
+  "saint-gerard-majella",
+  "saint-raymond-nonnatus",
+  "saint-isidore-the-farmer",
+  "saint-helena",
+  "saint-elizabeth-of-hungary",
+  "saint-john-chrysostom",
+  "saint-athanasius",
+  "saint-basil-the-great",
+  "saint-gregory-nazianzen",
+  "saint-alphonsus-liguori",
+  "saint-bonaventure",
+  "saint-albertus-magnus",
+  "saint-anselm",
+  "saint-leo-the-great",
+  "saint-clement-of-rome",
+  "saint-polycarp",
+  "saint-justin-martyr",
+  "saint-irenaeus-of-lyon",
+  "saint-perpetua-and-felicity",
+  "saint-cyprian-of-carthage",
+  "saint-boniface",
+  "saint-bede-the-venerable",
+  "saint-cuthbert-of-lindisfarne",
+  "saint-martin-of-tours",
+  "saint-wenceslaus",
+  "saint-andrew-kim-taegon",
+  "saint-paul-miki",
+  "saint-charles-lwanga",
+  "saint-lorenzo-ruiz",
+  "saint-pedro-calungsod",
+  "saint-junipero-serra",
+  "saint-damien-of-molokai",
+  "saint-marianne-cope",
+  "saint-katharine-drexel",
+  "saint-frances-xavier-cabrini",
+  "saint-john-neumann",
+  "saint-andre-bessette",
+  "saint-rose-philippine-duchesne",
+  "saint-oscar-romero",
+  "saint-pope-john-xxiii",
+  "saint-pope-paul-vi",
+  "saint-pope-pius-x",
+  "saint-josemaria-escriva",
+  "saint-margaret-mary-alacoque",
+  "saint-catherine-laboure",
+  "saint-louis-de-montfort",
+  "saint-john-of-god",
+  "saint-camillus-de-lellis",
+  "saint-peter-claver",
+  "saint-bridget-of-sweden",
+  "saint-brigid-of-ireland",
+  "saint-columba",
+  "saint-scholastica",
+  "saint-anthony-the-abbot",
+  "saint-augustine-of-canterbury",
+  "saint-genevieve",
+  "saint-louis-ix",
+  "saint-margaret-of-scotland",
+  "saint-edward-the-confessor",
+  "saint-roch",
+  "saint-giles",
+  "saint-vitus",
+  "saint-barbara",
+  "saint-catherine-of-alexandria",
+  "saint-margaret-of-antioch",
+  "saint-ursula",
+  "saint-philomena",
+  "saint-expeditus",
+  "saint-tarcisius",
+  "saint-dominic-savio",
+  "saint-jose-sanchez-del-rio",
+  "saint-jacinta-and-francisco-marto",
+  "saint-miguel-pro",
+  "saint-pier-giorgio-frassati",
+  "saint-gemma-galgani",
+  "saint-zita",
+  "saint-casimir",
+  "saint-stanislaus",
+  "saint-stanislaus-kostka",
+  "saint-john-berchmans",
+  "saint-gabriel-of-our-lady-of-sorrows",
+  "saint-john-baptist-de-la-salle",
+  "saint-angela-merici",
+  "saint-jane-frances-de-chantal",
+  "saint-louise-de-marillac",
+  "saint-paul-of-the-cross",
+  "saint-anthony-mary-claret",
+  "saint-peter-canisius",
+  "saint-robert-bellarmine",
+  "saint-peter-damian",
+  "saint-isidore-of-seville",
+  "saint-cyril-of-alexandria",
+  "saint-saints-cyril-and-methodius",
+  "saints-cosmas-and-damian",
+  "saint-ephrem-the-syrian",
+  "saint-john-of-damascus",
+  "saint-hilary-of-poitiers",
+  "saint-lawrence-of-brindisi",
+  "saint-cornelius",
+  "saint-fabian",
+  "saint-bernardine-of-siena",
+  "saint-vincent-ferrer",
+  "saint-john-of-capistrano",
+  "saint-frances-of-rome",
+  "saint-hedwig",
+  "saint-elizabeth-of-portugal",
+  "saint-nicholas-of-tolentino",
+  "saint-joseph-of-cupertino",
+  "saint-romuald",
+  "saint-norbert",
+  "saint-bruno",
+  "saint-dorothy",
+  "saint-apollonia",
+  "saint-eligius",
+  "saint-homobonus",
+  "saint-leonard-of-noblac",
+  "saint-pancras",
+  "saint-ferdinand-iii",
+  "saint-henry-ii",
+  "saint-stephen-of-hungary",
+  "saint-olaf-ii-of-norway",
+  "saint-oliver-plunkett",
+  "saint-john-fisher",
+  "saint-edmund-campion",
+  "saint-john-ogilvie",
+  "saint-isaac-jogues",
+  "saint-jean-de-brebeuf",
+  "saint-north-american-martyrs",
+  "saint-marguerite-d-youville",
+  "saint-marguerite-bourgeoys",
+  "saint-mary-mackillop",
+  "saint-teresa-of-the-andes",
+  "saint-alberto-hurtado",
+  "saint-elizabeth-of-the-trinity",
+  "saint-louis-martin-and-azelie-marie-guerin",
+  "saint-charles-de-foucauld",
+  "saint-titus-brandsma",
+  "saint-john-of-avila",
+  "saint-simon-stock",
+  "saint-nicodemus",
+  "saint-joseph-of-arimathea",
+  "saint-penitent-thief",
+  "saint-longinus",
+  "saint-salome",
+  "saint-mary-of-clopas",
+  "saint-philemon",
+  "saint-onesimus",
+  "saint-lydia-of-thyatira",
+  "saint-phoebe",
+  "saint-dorcas",
+  "saint-rosalia",
+  "saint-notburga",
+  "saint-walpurga",
+  "saint-aidan-of-lindisfarne",
+  "saint-alban",
+  "saint-david",
+  "saint-dunstan",
+  "saint-chad-of-mercia",
+  "saint-oswald-of-northumbria",
+  "saint-josaphat",
+  "saint-charbel-makhlouf",
+  "saint-rafqa-pietra-choboq-ar-rayes",
+  "saint-maron",
+  "saint-alphonsa",
+  "saint-kuriakose-elias-chavara",
+  "saint-fiacre",
+  "saint-hyacinth-of-poland",
+  "saint-john-cantius",
+  "saint-benedict-the-moor",
+  "saint-paschal-baylon",
+  "saint-felix-of-cantalice",
+  "saint-benedict-joseph-labre",
+  "saint-peter-julian-eymard",
+  "saint-catherine-of-genoa",
+  "saint-catherine-of-bologna",
+  "saint-catherine-of-ricci",
+  "saint-jean-eudes",
+  "saint-gaspar-del-bufalo",
+  "saint-maria-mazzarello",
+  "saint-madeleine-sophie-barat",
+  "saint-julie-billiart",
+  "saint-clemens-maria-hofbauer",
+  "saint-john-of-nepomuk",
+  "saint-adalbert-of-prague",
+  "saint-ludmila-of-bohemia",
+  "saint-cunigunde-of-luxembourg",
+  "saint-pius-v",
+  "saint-gregory-vii",
+  "saint-sylvester-i",
+  "saint-mechtilde",
+  "saint-gertrude-the-great",
+  "saint-angela-of-foligno",
+  "saint-veronica-giuliani",
+  "saint-mary-of-egypt",
+  "saint-paula-of-rome",
+];
 
 /**
- * Sort rank for the foundational figures (lower = earlier). The remaining
- * Apostles cluster after Peter (10) and before Matthias/Paul. Returns null
- * for ordinary saints, who then sort purely by year.
+ * Saints of the Old Testament, who close the list in the order the Scriptures
+ * place them. A record with a date before Christ joins them by itself; these are
+ * the ones with no date (the prophets) or a date that lost its era (Eleazar
+ * stored as 167, not 167 BC). The records called only "Abraham", "Moses", "David"
+ * and "Sarah" are other people, and are not on this list: an abbot of Farshut, a
+ * fourth-century desert bishop, the bishop of Wales and Sara-la-Kâli.
+ */
+export const OLD_TESTAMENT_SAINTS: readonly string[] = [
+  "saint-abraham-the-patriarch",
+  "saint-moses-the-lawgiver",
+  "saint-david-the-king",
+  "saint-elijah",
+  "saint-elisha",
+  "saint-isaiah-the-prophet",
+  "saint-jeremiah-the-prophet",
+  "saint-ezekiel-the-prophet",
+  "saint-daniel-the-prophet",
+  "saint-joel",
+  "saint-amos",
+  "saint-obadiah",
+  "saint-jonah",
+  "saint-habakkuk",
+  "saint-eleazar",
+  "saint-woman-with-seven-sons",
+];
+
+/** A saint whose only date is earlier than this lived before the Resurrection. */
+export const OLD_TESTAMENT_BEFORE_YEAR = 30;
+
+/**
+ * The same person published twice, usually once from the curated knowledge base
+ * and once from Wikidata: duplicate → the record the list shows. The curated
+ * record wins because a reader sees it at its best, with a clean name, the
+ * patronages the Church gives the saint and the Roman feast (Jude's Wikidata
+ * record keeps the Eastern June 19). A hidden record's own page stays reachable,
+ * and it takes its canonical's place in the list if that record is ever withdrawn.
+ */
+export const SAINT_DUPLICATE_OF: Readonly<Record<string, string>> = {
+  "saint-john-the-evangelist": "saint-john-the-apostle",
+  "saint-jude-the-apostle": "saint-jude-thaddeus",
+  "saint-mother-teresa": "saint-mother-teresa-of-calcutta",
+  "saint-st-james-the-elder": "saint-james-the-greater",
+  // Philip and James the Less now have a card each.
+  "saints-philip-and-james": "saint-philip-the-apostle",
+  // In the Latin tradition, James son of Alphaeus is the James "brother of the Lord".
+  "saint-james-the-just": "saint-james-the-less",
+  "saint-santa-faustina-kowalska": "saint-faustina-kowalska",
+  "st-francis-xavier-saints-angels-catholic-online": "saint-francis-xavier",
+  "saint-jean-marie-vianney": "saint-john-vianney",
+  "saint-juan-diego-cuauhtlatoatzin": "saint-juan-diego",
+  "saint-agnes-of-rome": "saint-agnes",
+  "saint-gregory-i": "saint-gregory-the-great",
+  "saint-leo-i": "saint-leo-the-great",
+  "saint-clement-q42887": "saint-clement-of-rome",
+  "saint-gianna-beretta-molla": "saint-gianna-molla",
+  "saint-edith-stein": "saint-teresa-benedicta-of-the-cross",
+  "saint-anselm-of-canterbury": "saint-anselm",
+  "saint-alphonsus-maria-de-liguori": "saint-alphonsus-liguori",
+  "saint-bede": "saint-bede-the-venerable",
+  "saint-cyprian": "saint-cyprian-of-carthage",
+  "saint-father-damien": "saint-damien-of-molokai",
+  "saint-karoli-lwanga": "saint-charles-lwanga",
+  "saint-isidore-the-laborer": "saint-isidore-the-farmer",
+  "saint-anthony-the-great": "saint-anthony-the-abbot",
+  "saint-margaret-the-virgin": "saint-margaret-of-antioch",
+  "saint-wenceslaus-i-duke-of-bohemia": "saint-wenceslaus",
+  "saint-louis-ix-of-france": "saint-louis-ix",
+  "saint-stephen-i-of-hungary": "saint-stephen-of-hungary",
+  "saint-henry-ii-holy-roman-emperor": "saint-henry-ii",
+  "saint-ferdinand-iii-of-castille": "saint-ferdinand-iii",
+  "saint-elizabeth-of-aragon": "saint-elizabeth-of-portugal",
+  "saint-brigid-of-kildare": "saint-brigid-of-ireland",
+  "saint-dorothea-of-caesarea": "saint-dorothy",
+  "saint-stanislaus-of-szczepanow": "saint-stanislaus",
+  "saint-norbert-of-xanten": "saint-norbert",
+  "saint-bruno-of-cologne": "saint-bruno",
+  "saint-pancras-of-rome": "saint-pancras",
+  "saint-bernardino-of-siena": "saint-bernardine-of-siena",
+  "saint-louise-marillac": "saint-louise-de-marillac",
+  "saint-josaphat-kuntsevych": "saint-josaphat",
+  "saint-hedwig-of-silesia": "saint-hedwig",
+  "saint-jean-baptiste-de-la-salle": "saint-john-baptist-de-la-salle",
+  "saint-charbel-makhluf": "saint-charbel-makhlouf",
+  "saint-gerolamo-emiliani": "saint-jerome-emiliani",
+  "saint-turibius-of-mongrovejo": "saint-turibius-of-mogrovejo",
+  "saint-raymond-of-penyafort": "saint-raymond-of-penafort",
+  "saint-anthony-maria-zaccaria": "saint-anthony-mary-zaccaria",
+  // Wikidata's label for Pope John XXIII came through as "John".
+  "saint-john": "saint-pope-john-xxiii",
+  "saint-canadian-martyrs": "saint-north-american-martyrs",
+  "saint-jacinta-marto": "saint-jacinta-and-francisco-marto",
+  "saint-louis-martin": "saint-louis-martin-and-azelie-marie-guerin",
+  "saint-emmanuel-ruiz": "saint-manuel-ruiz-and-his-10-companions",
+  "saint-victoria": "saint-victoria-of-cordoba",
+  "saint-peter-lieou": "saint-peter-liu",
+  "saint-theodoric-balat": "saint-teodoryk-balat",
+  // Not the New Testament Archippus: its record describes an Athenian comic poet.
+  "saint-archippus-q276575": "saint-archippus",
+};
+
+/** Slug → place in the head of the list. A hidden duplicate holds its canonical's place. */
+export const SAINT_DISPLAY_RANK: ReadonlyMap<string, number> = (() => {
+  const ranks = new Map<string, number>(SAINT_DISPLAY_ORDER.map((slug, index) => [slug, index]));
+  for (const [duplicate, canonical] of Object.entries(SAINT_DUPLICATE_OF)) {
+    const rank = ranks.get(canonical);
+    if (rank != null) ranks.set(duplicate, rank);
+  }
+  return ranks;
+})();
+
+/**
+ * Sort rank for the saints who lead the list (lower = earlier), or null for the
+ * saints who sort purely by year. The Admin Worker can override it per saint
+ * with an explicit `orderRank`.
  */
 export function saintOrderRank(payload: Record<string, unknown>): number | null {
   if (typeof payload.orderRank === "number" && Number.isFinite(payload.orderRank)) {
     return payload.orderRank;
   }
   const slug = typeof payload.slug === "string" ? payload.slug.toLowerCase() : "";
-  if (slug in FOUNDATIONAL_RANK) return FOUNDATIONAL_RANK[slug];
-  if (payload.saintType === "apostle") return 10;
-  return null;
+  return SAINT_DISPLAY_RANK.get(slug) ?? null;
 }
 
 const MONTHS = [
@@ -72,20 +459,52 @@ const MONTHS = [
   "December",
 ];
 
+/** A month's name, whole or abbreviated, in a date someone wrote out. */
+const MONTH_WORD =
+  "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
+/** The day in "27 August" or "the 3rd of May". */
+const DAY_BEFORE_MONTH = new RegExp(
+  `\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?=${MONTH_WORD}\\b)`,
+  "gi",
+);
+/** The day in "August 27" or "August 27, 542": what follows a month and can only be a day. */
+const DAY_AFTER_MONTH = new RegExp(
+  `\\b(${MONTH_WORD})\\s+(?:[12]?\\d|3[01])(?:st|nd|rd|th)?(?=\\s*,|\\s+\\d|\\s*$)`,
+  "gi",
+);
+
 /**
  * Extracts a signed year from a free-form date string. Handles plain years,
  * full dates, circa, BC/AD/CE markers, "Nth century" (mapped to its
  * midpoint), and year ranges (the first year wins). Returns null when no
  * year can be read.
+ *
+ * A day is never a year. A digit run beside an era marker or alone in the
+ * string used to win however it came there, so "542-08-27 AD" (Caesarius of
+ * Arles, died 542) read as the year 27, "5 March 33" as the year 5 and "27
+ * August", which names no year at all, as 27.
  */
 export function parseYear(value: unknown): number | null {
   if (typeof value !== "string") return null;
   // Drop periods so "A.D."/"B.C." collapse to AD/BC, then collapse spaces.
-  const norm = value.replace(/\./g, "").replace(/\s+/g, " ").trim();
-  if (!norm) return null;
+  const collapsed = value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!collapsed) return null;
+  // A parenthesis qualifies the date: the age in "96 (aged 102)" is not a year.
+  // It is only read when it holds the only number there is.
+  const unbracketed = collapsed.replace(/\([^)]*\)/g, " ").trim();
+  const norm = /\d/.test(unbracketed) ? unbracketed : collapsed;
 
   const isBC = /\b(bc|bce)\b/i.test(norm);
   const sign = isBC ? -1 : 1;
+
+  // An ISO date, which the structured sources write with or without an era
+  // ("542-08-27 AD"). Its year comes first, whatever its length.
+  const iso = norm.match(/(?:^|\D)(\d{1,4})-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?!\d)/);
+  if (iso) return sign * Number(iso[1]);
 
   // A year range — the earliest (first) year wins, e.g. "100–44 BC" → -100.
   // For BC ranges the era marker sits beside the *later* year, so the
@@ -97,22 +516,26 @@ export function parseYear(value: unknown): number | null {
     if (range) return -Number(range[1]);
   }
 
-  // "4th century", "3rd century BC" → midpoint of that century.
-  const century = norm.match(/(\d{1,2})\s*(?:st|nd|rd|th)\s*century/i);
+  // "4th century", "3rd century BC", "6th-century", "5th c." → midpoint of that century.
+  const century = norm.match(/(\d{1,2})\s*(?:st|nd|rd|th)[\s-]*(?:century|cent\b|c\b)/i);
   if (century) return sign * ((Number(century[1]) - 1) * 100 + 50);
 
-  // A year sitting right next to an era marker: "33 AD", "100 BC", "AD 33".
-  const beforeMarker = norm.match(/(\d{1,4})\s*(?:ad|bce?|ce)\b/i);
-  if (beforeMarker) return sign * Number(beforeMarker[1]);
-  const afterMarker = norm.match(/\bad\s+(\d{1,4})/i);
-  if (afterMarker) return sign * Number(afterMarker[1]);
+  // Whatever is left of a written-out date once its day is gone: "5 March 33"
+  // is the year 33, and "27 August" has no year to read.
+  const dayless = norm.replace(DAY_BEFORE_MONTH, " ").replace(DAY_AFTER_MONTH, "$1 ");
 
-  // Otherwise prefer a 4- then 3- then 1–2-digit run (skips day-of-month).
-  const y4 = norm.match(/\d{4}/);
+  // A year sitting right next to an era marker: "AD 33", "33 AD", "100 BC".
+  const afterMarker = dayless.match(/\bad\s+(\d{1,4})/i);
+  if (afterMarker) return sign * Number(afterMarker[1]);
+  const beforeMarker = dayless.match(/(\d{1,4})\s*(?:ad|bce?|ce)\b/i);
+  if (beforeMarker) return sign * Number(beforeMarker[1]);
+
+  // Otherwise prefer a 4- then 3- then 1–2-digit run.
+  const y4 = dayless.match(/\d{4}/);
   if (y4) return sign * Number(y4[0]);
-  const y3 = norm.match(/\d{3}/);
+  const y3 = dayless.match(/\d{3}/);
   if (y3) return sign * Number(y3[0]);
-  const any = norm.match(/\d{1,2}/);
+  const any = dayless.match(/\d{1,2}/);
   if (any) return sign * Number(any[0]);
   return null;
 }
@@ -128,18 +551,19 @@ export function saintSortYear(payload: Record<string, unknown>): number | null {
 }
 
 /**
- * Comparator that orders saints. Foundational figures lead in their fixed
- * canonical order; everyone else follows from earliest to latest, with
- * undatable saints last and ties broken by title.
+ * Comparator that orders saints. Those at the head of the saint list lead in the
+ * owner's order; everyone else follows from earliest to latest, with undatable
+ * saints last and ties broken by title.
  */
 export function compareSaintsChronologically(
-  a: { title: string; payload: Record<string, unknown> },
-  b: { title: string; payload: Record<string, unknown> },
+  a: { title: string; slug?: string; payload: Record<string, unknown> },
+  b: { title: string; slug?: string; payload: Record<string, unknown> },
 ): number {
-  const ra = saintOrderRank(a.payload);
-  const rb = saintOrderRank(b.payload);
+  // A published row knows its slug; not every payload repeats it.
+  const ra = saintOrderRank(a.slug ? { ...a.payload, slug: a.slug } : a.payload);
+  const rb = saintOrderRank(b.slug ? { ...b.payload, slug: b.slug } : b.payload);
   if (ra != null && rb != null && ra !== rb) return ra - rb;
-  if (ra != null && rb == null) return -1; // foundational figures lead
+  if (ra != null && rb == null) return -1; // the head of the list leads
   if (ra == null && rb != null) return 1;
 
   const ya = saintSortYear(a.payload);
@@ -453,14 +877,39 @@ export function saintDetailEyebrow(
  * patronage ("Patron of the papacy, fishermen, Rome"), then the feast day
  * ("Feast day: June 29"). A line is left out when that fact is not recorded.
  */
+/**
+ * A saint's patronage as a phrase. The label already says "Patron of", so a stored
+ * "Patron saint of" does not repeat it, and a note that none is recorded is not a
+ * patronage. A line never breaks between "St." and the name.
+ */
+export function saintPatronage(patronages: readonly string[]): string | null {
+  const phrase = patronages
+    .join(", ")
+    .replace(/^patron(?:ess)?(?: saint)? of /i, "")
+    .replace(/^The /, "the ")
+    .replace(/\.$/, "")
+    .replace(/\bSt\. /g, "St.\u00a0");
+  return !phrase || /\bnot recorded\b/i.test(phrase) ? null : phrase;
+}
+
+/** "Against rabies" follows "Patron", not "Patron of". */
+export function patronageIsAgainst(phrase: string): boolean {
+  return /^against\b/i.test(phrase);
+}
+
 export function saintCardDetailLines(
   details: SaintCardDetails | undefined,
   t: Translator,
 ): string[] {
   if (!details) return [];
   const lines: string[] = [];
-  if (details.patronages.length > 0) {
-    lines.push(t("saints.card.patronOf", { patronages: details.patronages.join(", ") }));
+  const patronage = saintPatronage(details.patronages);
+  if (patronage) {
+    lines.push(
+      patronageIsAgainst(patronage)
+        ? `Patron ${patronage}`
+        : t("saints.card.patronOf", { patronages: patronage }),
+    );
   }
   if (details.feast) lines.push(`${t("saints.feastDay")}: ${details.feast}`);
   return lines;

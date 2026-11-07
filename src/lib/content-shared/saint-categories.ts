@@ -7,7 +7,8 @@
  * Doctors of the Church and Our Lady are intentionally NOT filters here: each
  * has its own dedicated tab (`/doctors`, `/our-lady`). Doctor-saints still
  * appear in the Saints catalogue (under "All"); Marian titles + apparitions live
- * only under Our Lady — so the Saints filters don't duplicate those sections.
+ * only under Our Lady — so the Saints filters don't duplicate those sections. The
+ * Blessed Virgin herself heads the catalogue and the Virgins filter.
  */
 import { fieldIn, type PayloadFilter } from "./payload-filter";
 
@@ -59,7 +60,7 @@ export const SAINT_FILTER_SUBTYPES: Readonly<Record<string, readonly string[]>> 
 export function saintSubtypeLabel(subtype: string | null | undefined): string | undefined {
   switch (subtype) {
     case "apostle":
-      return "Apostle and Disciple of Jesus";
+      return "Apostle";
     case "evangelist":
       return "Evangelist";
     case "doctor_of_the_church":

@@ -175,13 +175,13 @@ describe("listSaintsForFeast", () => {
     expect(findMany).not.toHaveBeenCalled();
   });
 
-  it("orders foundational saints first (the site's saint order)", async () => {
+  it("orders the saints at the head of the list first (the site's saint order)", async () => {
     findMany.mockResolvedValue([
       saintRow({ id: "b", slug: "later", title: "Later Saint", payload: { deathDate: "1900" } }),
-      saintRow({ id: "a", slug: "peter", title: "Peter", payload: { saintType: "apostle" } }),
+      saintRow({ id: "a", slug: "saint-peter", title: "Peter", payload: { saintType: "apostle" } }),
     ]);
     const saints = await listSaintsForFeast(6, 29);
-    expect(saints.map((s) => s.slug)).toEqual(["peter", "later"]);
+    expect(saints.map((s) => s.slug)).toEqual(["saint-peter", "later"]);
   });
 });
 

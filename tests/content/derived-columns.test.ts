@@ -26,6 +26,16 @@ describe("derived query columns", () => {
     expect(d.region).toBeNull();
   });
 
+  it("derives a saint's sort year, never from the day of a date", () => {
+    expect(derivedColumnsFor("SAINT", { deathDate: "542-08-27 AD" }).sortYear).toBe(542);
+    expect(derivedColumnsFor("SAINT", { deathDate: "5 March 33" }).sortYear).toBe(33);
+    expect(derivedColumnsFor("SAINT", { deathDate: "27 August", birthDate: "470" }).sortYear).toBe(
+      470,
+    );
+    expect(derivedColumnsFor("SAINT", { deathDate: "850 BC" }).sortYear).toBe(-850);
+    expect(derivedColumnsFor("SAINT", {}).sortYear).toBeNull();
+  });
+
   it("derives geography, region and provenance for a parish", () => {
     const d = derivedColumnsFor("PARISH", {
       designation: "cathedral",

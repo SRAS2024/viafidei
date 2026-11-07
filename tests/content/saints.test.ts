@@ -53,6 +53,48 @@ describe("parseYear", () => {
     expect(parseYear(undefined)).toBeNull();
     expect(parseYear("")).toBeNull();
   });
+
+  it("never reads a day as a year", () => {
+    // Caesarius of Arles sat at the head of production's list as dying in 27.
+    expect(parseYear("542-08-27 AD")).toBe(542);
+    expect(parseYear("542-08-27")).toBe(542);
+    expect(parseYear("98-01-27 CE")).toBe(98);
+    expect(parseYear("5 March 33")).toBe(33);
+    expect(parseYear("March 5, 33")).toBe(33);
+    expect(parseYear("March 5, 33 AD")).toBe(33);
+    expect(parseYear("the 3rd of May 96")).toBe(96);
+    expect(parseYear("August 27 AD 542")).toBe(542);
+    expect(parseYear("December 4, 50 (aged 25)")).toBe(50);
+    // A date with a day and no year names no year at all.
+    expect(parseYear("27 August")).toBeNull();
+    expect(parseYear("August 27")).toBeNull();
+    expect(parseYear("Sept. 3")).toBeNull();
+  });
+
+  it("does not read an age as a year", () => {
+    expect(parseYear("96 (aged 102)")).toBe(96);
+    expect(parseYear("AD 100 (aged 92)")).toBe(100);
+    expect(parseYear("(c. 1150)")).toBe(1150);
+  });
+
+  it("reads the other ways a century is written", () => {
+    expect(parseYear("6th-century")).toBe(550);
+    expect(parseYear("5th c.")).toBe(450);
+    expect(parseYear("early 3rd century")).toBe(250);
+  });
+
+  it("keeps the dates that were always read correctly", () => {
+    expect(parseYear("12 May 103")).toBe(103);
+    expect(parseYear("October 1897")).toBe(1897);
+    expect(parseYear("March 33")).toBe(33);
+    expect(parseYear("745&nbsp;BCE")).toBe(-745);
+    expect(parseYear("Approximately 910 BCE")).toBe(-910);
+    expect(parseYear("167-160 BC")).toBe(-167);
+    expect(parseYear("~AD 212")).toBe(212);
+    expect(parseYear("disputed: 209, 251 or 304")).toBe(209);
+    expect(parseYear("between 287 and 305")).toBe(287);
+    expect(parseYear("1950-11-01")).toBe(1950);
+  });
 });
 
 describe("saintSortYear", () => {
@@ -83,40 +125,49 @@ describe("compareSaintsChronologically", () => {
   });
 });
 
-describe("compareSaintsChronologically — foundational ordering", () => {
+describe("compareSaintsChronologically — the head of the saint list", () => {
   const fig = (title: string, payload: Record<string, unknown>) => ({ title, payload });
 
-  it("leads with Mary, Joseph, John the Baptist, Peter, Apostles, Matthias, Paul", () => {
+  it("leads with Mary, Joseph, Peter, Paul and the owner's order", () => {
     const list = [
-      fig("Thérèse", { deathDate: "1897" }),
-      fig("Paul", { slug: "paul" }),
-      fig("Andrew", { slug: "andrew", saintType: "apostle" }),
-      fig("Peter", { slug: "peter", saintType: "apostle" }),
-      fig("Mary", { slug: "mary" }),
-      fig("Matthias", { slug: "matthias" }),
-      fig("Joseph", { slug: "joseph" }),
-      fig("John the Baptist", { slug: "john-the-baptist" }),
-      fig("Augustine", { deathDate: "430" }),
+      fig("Thérèse of Lisieux", { slug: "saint-therese-of-lisieux", deathDate: "1897" }),
+      fig("Paul", { slug: "saint-paul" }),
+      fig("Andrew", { slug: "saint-andrew-the-apostle", saintType: "apostle" }),
+      fig("Peter", { slug: "saint-peter", saintType: "apostle" }),
+      fig("Mary", { slug: "saint-blessed-virgin-mary" }),
+      fig("Matthias", { slug: "saint-matthias" }),
+      fig("Joseph", { slug: "saint-joseph" }),
+      fig("John the Baptist", { slug: "saint-john-the-baptist" }),
+      fig("Someone of the Fifth Century", { deathDate: "430" }),
+      fig("Someone of the Tenth Century", { deathDate: "930" }),
     ];
     const ordered = [...list].sort(compareSaintsChronologically).map((s) => s.title);
     expect(ordered).toEqual([
       "Mary",
       "Joseph",
-      "John the Baptist",
       "Peter",
+      "Paul",
       "Andrew",
       "Matthias",
-      "Paul",
-      "Augustine",
-      "Thérèse",
+      "John the Baptist",
+      "Thérèse of Lisieux",
+      "Someone of the Fifth Century",
+      "Someone of the Tenth Century",
     ]);
+  });
+
+  it("gives a duplicate record the place of the saint it repeats", () => {
+    expect(saintOrderRank({ slug: "saint-john-the-evangelist" })).toBe(
+      saintOrderRank({ slug: "saint-john-the-apostle" }),
+    );
   });
 
   it("honours an explicit worker orderRank", () => {
     expect(saintOrderRank({ orderRank: 0 })).toBe(0);
-    expect(saintOrderRank({ slug: "peter" })).toBe(3);
-    expect(saintOrderRank({ saintType: "apostle" })).toBe(10);
+    expect(saintOrderRank({ slug: "saint-peter" })).toBe(2);
     expect(saintOrderRank({ deathDate: "1897" })).toBeNull();
+    // Being an apostle by type is not being on the list: many records are typed so.
+    expect(saintOrderRank({ slug: "saint-philip-of-agira", saintType: "apostle" })).toBeNull();
   });
 });
 
