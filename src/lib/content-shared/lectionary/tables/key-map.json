@@ -1329,27 +1329,7 @@
   ],
   "easter-6-thursday": [
     {
-      "cycle": "A",
-      "masses": [
-        {
-          "number": "58",
-          "variant": null
-        }
-      ],
-      "source": "dates"
-    },
-    {
-      "cycle": "B",
-      "masses": [
-        {
-          "number": "294",
-          "variant": null
-        }
-      ],
-      "source": "dates"
-    },
-    {
-      "cycle": "C",
+      "cycle": null,
       "masses": [
         {
           "number": "294",
@@ -2114,8 +2094,12 @@
       "cycle": "B",
       "masses": [
         {
-          "number": "31",
+          "number": "32",
           "variant": null
+        },
+        {
+          "number": "31",
+          "variant": "year-a"
         }
       ],
       "source": "dates"
@@ -2300,7 +2284,7 @@
       "cycle": null,
       "masses": [
         {
-          "number": "572",
+          "number": "572A",
           "variant": null
         }
       ],
@@ -5239,27 +5223,7 @@
   ],
   "ordinary-4-tuesday": [
     {
-      "cycle": "A",
-      "masses": [
-        {
-          "number": "317",
-          "variant": null
-        }
-      ],
-      "source": "dates"
-    },
-    {
-      "cycle": "B",
-      "masses": [
-        {
-          "number": "324",
-          "variant": null
-        }
-      ],
-      "source": "dates"
-    },
-    {
-      "cycle": "C",
+      "cycle": null,
       "masses": [
         {
           "number": "324",
@@ -5705,6 +5669,26 @@
   ],
   "ordinary-9-sunday": [
     {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "85",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "86",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    },
+    {
       "cycle": "C",
       "masses": [
         {
@@ -5753,30 +5737,10 @@
   ],
   "our-lady-of-guadalupe": [
     {
-      "cycle": "A",
+      "cycle": null,
       "masses": [
         {
           "number": "690A",
-          "variant": null
-        }
-      ],
-      "source": "dates"
-    },
-    {
-      "cycle": "B",
-      "masses": [
-        {
-          "number": "690A",
-          "variant": null
-        }
-      ],
-      "source": "dates"
-    },
-    {
-      "cycle": "C",
-      "masses": [
-        {
-          "number": "690",
           "variant": null
         }
       ],
@@ -5800,8 +5764,12 @@
       "cycle": null,
       "masses": [
         {
-          "number": "37",
+          "number": "38",
           "variant": null
+        },
+        {
+          "number": "37",
+          "variant": "procession"
         }
       ],
       "source": "dates"
@@ -5821,7 +5789,7 @@
   ],
   "pentecost": [
     {
-      "cycle": "A",
+      "cycle": null,
       "masses": [
         {
           "number": "63",
@@ -5830,38 +5798,10 @@
         {
           "number": "62",
           "variant": "vigil"
-        }
-      ],
-      "source": "dates"
-    },
-    {
-      "cycle": "B",
-      "masses": [
-        {
-          "number": "63",
-          "variant": "day"
         },
         {
-          "number": "62",
-          "variant": "vigil"
-        }
-      ],
-      "source": "dates"
-    },
-    {
-      "cycle": "C",
-      "masses": [
-        {
-          "number": "63",
-          "variant": "day"
-        },
-        {
-          "number": "62",
+          "number": "62-extended",
           "variant": "extended-vigil"
-        },
-        {
-          "number": "62",
-          "variant": "vigil"
         }
       ],
       "source": "dates"

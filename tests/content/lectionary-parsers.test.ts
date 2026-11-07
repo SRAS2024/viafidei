@@ -18,6 +18,7 @@ import {
   labelMonthDay,
   labelVariant,
   parseCatholicResourcesPage,
+  tidyLabel,
 } from "../../scripts/lectionary/parsers/catholic-resources";
 import { cellText, decodeEntities, extractTables } from "../../scripts/lectionary/parsers/html";
 import {
@@ -156,6 +157,25 @@ describe("citation normalisation", () => {
     ]);
   });
 
+  it("files a reading that belongs to one Sunday cycle under that cycle", () => {
+    expect(normaliseCell("Matt 14:13-21 or, in Year A, Matt 14:22-36").citations).toEqual([
+      { cycle: null, citation: "Mt 14:13-21" },
+      { cycle: "A", citation: "Mt 14:22-36" },
+    ]);
+    expect(normaliseCell("† Isa 2:1-5 ( or , in Year A, Isa 4:2-6)").citations).toEqual([
+      { cycle: null, citation: "Is 2:1-5" },
+      { cycle: "A", citation: "Is 4:2-6" },
+    ]);
+    expect(normaliseCell("John 10:1-10 or , in Yr A, John 10:11-18").citations).toEqual([
+      { cycle: null, citation: "Jn 10:1-10" },
+      { cycle: "A", citation: "Jn 10:11-18" },
+    ]);
+    expect(normaliseCell("John 8:1-11 or, in Year C, John 8:12-20").citations).toEqual([
+      { cycle: null, citation: "Jn 8:1-11" },
+      { cycle: "C", citation: "Jn 8:12-20" },
+    ]);
+  });
+
   it("skips the Easter Vigil's enumerated choice sets instead of failing on them", () => {
     const result = normaliseCell("1) Gen 1:1—2:2 or 1, 26-31a 2) Gen 22:1-18 3) Exod 14:15—15:1");
     expect(result.citations).toEqual([]);
@@ -192,6 +212,26 @@ describe("catholic-resources page parser", () => {
       citation: "Heb 1:1-6",
     });
     expect(week1?.sections.find((s) => s.kind === "GOSPEL")?.cycle).toBeNull();
+  });
+
+  it("files the psalm under the year a one-year page prints", () => {
+    const { entries } = parseCatholicResourcesPage(WEEKDAY_PAGE, "weekday", "II");
+    const week1 = entries.find((e) => e.number === "305");
+    expect(week1?.sections.find((s) => s.kind === "PSALM")?.cycle).toBe("II");
+    // The Gospel column already says it is for both years.
+    expect(week1?.sections.find((s) => s.kind === "GOSPEL")?.cycle).toBeNull();
+  });
+
+  it("drops a note about one year from a day's label, so it cannot name another day", () => {
+    expect(tidyLabel("9th Sunday in Ordinary Time - C [ 2028: Pentecost Sunday ]")).toBe(
+      "9th Sunday in Ordinary Time - C",
+    );
+    expect(tidyLabel("20th Sunday in Ordinary Time - B [Assumption BVM in 2027]")).toBe(
+      "20th Sunday in Ordinary Time - B",
+    );
+    expect(tidyLabel("Feast of the Baptism of the Lord - B [begins 1st Week]")).toBe(
+      "Feast of the Baptism of the Lord - B [begins 1st Week]",
+    );
   });
 
   it("drops the cells that only cross-reference another table", () => {
@@ -355,6 +395,25 @@ describe("USCCB calendar parser", () => {
       { kind: "FIRST_READING", citation: "Is 52:7-10" },
       { kind: "SECOND_READING", citation: "Heb 1:1-6" },
       { kind: "GOSPEL", citation: "Jn 1:1-18 or Jn 1:1-5, 9-14" },
+    ]);
+  });
+
+  it("reads Palm Sunday's one line as its Procession and its Mass", () => {
+    const { days } = parseUsccbCalendar(
+      [
+        "MARCH 2026",
+        "29 SUN PALM SUNDAY OF THE PASSION OF THE LORD red",
+        "Mt 21:1-11 (37)/Is 50:4-7/Phil 2:6-11/Mt 26:14—27:66 or 27:11-54 (38) Pss II",
+      ].join("\n"),
+    );
+    expect(days.get("2026-03-29")?.masses.map((m) => [m.number, m.variant])).toEqual([
+      ["37", "procession"],
+      ["38", null],
+    ]);
+    expect(days.get("2026-03-29")?.masses[1].sections).toEqual([
+      { kind: "FIRST_READING", citation: "Is 50:4-7" },
+      { kind: "SECOND_READING", citation: "Phil 2:6-11" },
+      { kind: "GOSPEL", citation: "Mt 26:14—27:66 or Mt 27:11-54" },
     ]);
   });
 

@@ -19,9 +19,12 @@ import { useRouter } from "next/navigation";
 export function TodayDateSync({
   renderedDate,
   enabled,
+  mass = null,
 }: {
   renderedDate: string;
   enabled: boolean;
+  /** The ?mass the visitor asked for, carried over so the Vigil stays the Vigil. */
+  mass?: string | null;
 }) {
   const router = useRouter();
   useEffect(() => {
@@ -30,7 +33,9 @@ export function TodayDateSync({
     const local = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
       now.getDate(),
     ).padStart(2, "0")}`;
-    if (local !== renderedDate) router.replace(`/liturgy/readings?date=${local}`);
-  }, [enabled, renderedDate, router]);
+    if (local === renderedDate) return;
+    const query = mass === "vigil" ? `date=${local}&mass=vigil` : `date=${local}`;
+    router.replace(`/liturgy/readings?${query}`);
+  }, [enabled, mass, renderedDate, router]);
   return null;
 }

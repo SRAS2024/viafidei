@@ -159,10 +159,10 @@
       "variant": null
     }
   ],
-  "2nd-week-of-easter-sat-2025-sts-philip-james": [
+  "2nd-week-of-easter-sat": [
     {
       "cycle": null,
-      "label": "2nd Week of Easter - Sat [2025: Sts. Philip & James]",
+      "label": "2nd Week of Easter - Sat",
       "number": "272",
       "variant": null
     }
@@ -423,10 +423,10 @@
       "variant": null
     }
   ],
-  "4th-week-of-easter-wed-2025-st-matthias": [
+  "4th-week-of-easter-wed": [
     {
       "cycle": null,
-      "label": "4th Week of Easter - Wed [2025: St. Matthias]",
+      "label": "4th Week of Easter - Wed",
       "number": "281",
       "variant": null
     }
@@ -463,10 +463,10 @@
       "variant": null
     }
   ],
-  "4th-week-of-lent-thurs-2026-st-joseph": [
+  "4th-week-of-lent-thurs": [
     {
       "cycle": null,
-      "label": "4th Week of Lent – Thurs [ 2026 : St. Joseph]",
+      "label": "4th Week of Lent – Thurs",
       "number": "247",
       "variant": null
     }
@@ -583,10 +583,10 @@
       "variant": null
     }
   ],
-  "5th-week-of-lent-wed-2026-annunciation": [
+  "5th-week-of-lent-wed": [
     {
       "cycle": null,
-      "label": "5th Week of Lent – Wed [ 2026 : Annunciation]",
+      "label": "5th Week of Lent – Wed",
       "number": "253",
       "variant": null
     }
@@ -607,10 +607,10 @@
       "variant": null
     }
   ],
-  "6th-week-of-easter-sat-2025-visitation-of-bvm": [
+  "6th-week-of-easter-sat": [
     {
       "cycle": null,
-      "label": "6th Week of Easter - Sat [2025: Visitation of BVM]",
+      "label": "6th Week of Easter - Sat",
       "number": "296",
       "variant": null
     }
@@ -847,18 +847,18 @@
       "variant": null
     }
   ],
-  "jan-4-memorial-of-st-elizabeth-ann-seton-510a": [
+  "jan-4-memorial-of-st-elizabeth-ann-seton-510a-not-in-2027": [
     {
       "cycle": null,
-      "label": "Jan. 4 (Memorial of St. Elizabeth Ann Seton, #510A)",
+      "label": "[Jan. 4] (Memorial of St. Elizabeth Ann Seton, #510A - not in 2027 )",
       "number": "207",
       "variant": null
     }
   ],
-  "jan-5-memorial-of-st-john-neumann-510b": [
+  "jan-5-memorial-of-st-john-neumann-510b-not-in-2027": [
     {
       "cycle": null,
-      "label": "Jan. 5 (Memorial of St. John Neumann, #510B)",
+      "label": "[Jan. 5] (Memorial of St. John Neumann, #510B - not in 2027 )",
       "number": "208",
       "variant": null
     }

@@ -16,6 +16,10 @@
  *   westhong-readings.json    westhong/catholic-daily-readings (MIT), USCCB-derived
  *   usccb-YYYYcal.txt         USCCB Liturgical Calendar for the Dioceses of the USA
  *
+ * Where the sources cannot settle a formulary (the Easter Vigil's nine readings,
+ * the two Masses the USCCB pages number differently from their own calendar), the
+ * reviewed answer is in ./corrections.ts, applied last. Edit that file, not the JSON.
+ *
  * The tables carry CITATIONS and labels only — never Scripture text.
  */
 
@@ -48,6 +52,7 @@ import { parseCatholicResourcesPage, type CrEntry } from "./parsers/catholic-res
 import { parseWesthong, type WesthongMass } from "./parsers/westhong";
 import { parseUsccbCalendar, type UsccbMass } from "./parsers/usccb-calendar";
 import { keyFromCatholicResourcesLabel } from "./key-labels";
+import { applyEntryCorrections, applyKeyMapCorrections } from "./corrections";
 
 const OUTPUT_DIR = path.join(process.cwd(), "src/lib/content-shared/lectionary/tables");
 const DEFAULT_SOURCE_DIR = path.join(process.cwd(), "data/lectionary/sources");
@@ -55,7 +60,8 @@ const DEFAULT_SOURCE_DIR = path.join(process.cwd(), "data/lectionary/sources");
 const FIRST_YEAR = 2023;
 const LAST_YEAR = 2028;
 
-const CR_PAGES: ReadonlyArray<readonly [string, LectionaryEntryKind]> = [
+/** [file, table of the Lectionary, weekday cycle of a page that prints one year]. */
+const CR_PAGES: ReadonlyArray<readonly [string, LectionaryEntryKind, LectionaryCycle?]> = [
   ["1998USL-Advent.htm", "sunday"],
   ["1998USL-Christmas.htm", "sunday"],
   ["1998USL-Lent.htm", "sunday"],
@@ -67,8 +73,8 @@ const CR_PAGES: ReadonlyArray<readonly [string, LectionaryEntryKind]> = [
   ["2002USL-Weekdays-AdventChristmas.htm", "weekday"],
   ["2002USL-Weekdays-Lent.htm", "weekday"],
   ["2002USL-Weekdays-Easter.htm", "weekday"],
-  ["2002USL-Weekdays-OT-I.htm", "weekday"],
-  ["2002USL-Weekdays-OT-II.htm", "weekday"],
+  ["2002USL-Weekdays-OT-I.htm", "weekday", "I"],
+  ["2002USL-Weekdays-OT-II.htm", "weekday", "II"],
   ["2002USL-Sanctoral.htm", "sanctoral"],
 ];
 
@@ -286,10 +292,10 @@ interface Sources {
 function readSources(dir: string): Sources {
   const cr: CrEntry[] = [];
   const crUnparsed: string[] = [];
-  for (const [file, kind] of CR_PAGES) {
+  for (const [file, kind, psalmCycle] of CR_PAGES) {
     const full = path.join(dir, "cr", file);
     if (!existsSync(full)) throw new Error(`missing source ${full}`);
-    const parsed = parseCatholicResourcesPage(readFileSync(full, "latin1"), kind);
+    const parsed = parseCatholicResourcesPage(readFileSync(full, "latin1"), kind, psalmCycle);
     cr.push(...parsed.entries);
     crUnparsed.push(...parsed.unparsed);
   }
@@ -427,7 +433,8 @@ function collectObservations(sources: Sources): {
     // so the sources give this date the ferial number, which belongs to the
     // temporal key rather than to the memorial. Those keys are filled from the
     // Proper of Saints instead.
-    if (day.sanctoral?.readings !== "proper-gospel") {
+    const readingsMode = day.sanctoral?.readings;
+    if (readingsMode !== "proper-gospel") {
       const weight = SOURCE_WEIGHT[usccb ? "usccb-calendar" : "usccb"];
       const list = byKey.get(day.lectionaryKey);
       if (list) list.push({ day, masses, weight });
@@ -435,12 +442,25 @@ function collectObservations(sources: Sources): {
     }
 
     for (const mass of masses) {
+      // A named formulary is found by its name first: the USCCB pages number the
+      // two Masses of John the Baptist and of Peter and Paul differently from the
+      // printed calendar, so by number alone the Vigil took the Day's readings.
       const fromWesthong =
+        (mass.variant
+          ? westhong?.find((m) => massVariant(m.mass, day.sundayCycle) === mass.variant)
+          : undefined) ??
         westhong?.find((m) => m.number === mass.number) ??
         westhong?.find((m) => massVariant(m.mass, day.sundayCycle) === mass.variant) ??
         (westhong?.length === 1 && masses.length === 1 ? westhong[0] : undefined);
-      const sections =
+      const printed =
         fromWesthong?.sections ?? usccb?.find((m) => m.number === mass.number)?.sections ?? [];
+      // On a memorial with part of its own formulary the date mixes two sources
+      // under one number. Only the part that really belongs to that number may
+      // vote, or a memorial's Gospel becomes the weekday's in every other year.
+      const sections =
+        readingsMode === "proper-gospel" || readingsMode === "proper-first"
+          ? printed.filter((s) => s.kind === "FIRST_READING" || s.kind === "PSALM")
+          : printed;
       if (sections.length === 0) continue;
       const observations = byNumber.get(mass.number) ?? [];
       observations.push({
@@ -609,9 +629,11 @@ function buildEntries(
         //  - the same verses with their sub-verse letters kept ("3-4a, 4b-5"
         //    against the daily page's "3-4, 4-5");
         //  - the same reading plus its short form ("… or 4:5-15, 19b-26, …").
+        // On a weekday the printed cycle is only a year's column, not a formulary
+        // a parish chooses, so where the two disagree the USCCB's own page wins.
         const keepPrinted =
           printed !== undefined &&
-          (printedForCycle !== undefined ||
+          ((printedForCycle !== undefined && entryKind !== "weekday") ||
             observedCitation === null ||
             equivalentCitations(printed, observedCitation) ||
             printed.startsWith(`${observedCitation} or `));
@@ -730,7 +752,13 @@ function buildKeyMap(
     const shared = summariseMasses(observations);
     const perCycle = new Map<SundayCycle, KeyMapMass[]>();
     let consistent = true;
+    // Only a Sunday or solemnity changes formulary with the Sunday cycle. A weekday
+    // that seems to has met a source slip: the USCCB page that filed 31 January 2023
+    // under #317 would otherwise send every Year A Tuesday of that week to Monday's
+    // readings of the week before.
+    const weekdayKey = shared.length > 0 && entryKindForNumber(shared[0].number) === "weekday";
     for (const cycle of ["A", "B", "C"] as const) {
+      if (weekdayKey) break;
       const forCycle = observations.filter((o) => o.day.sundayCycle === cycle);
       if (forCycle.length === 0) continue;
       const masses = summariseMasses(forCycle);
@@ -912,6 +940,7 @@ export function main(argv: string[]): number {
   report.keysFromDates = Object.keys(keyMap).length;
   fillKeyMapFromSanctoral(keyMap, crRows, identities, report);
   fillKeyMapFromLabels(keyMap, crRows, report);
+  applyKeyMapCorrections(keyMap);
   report.keys = Object.keys(keyMap).length;
 
   const keyForNumber = new Map<string, string>();
@@ -923,6 +952,7 @@ export function main(argv: string[]): number {
   }
 
   const table = buildEntries(crRows, byNumber, keyForNumber, report);
+  applyEntryCorrections(table);
   report.numbers = Object.keys(table).length;
 
   const monthDayByNumber = new Map<string, string>();
@@ -956,7 +986,7 @@ export function main(argv: string[]): number {
     console.log(
       `\ncitation disagreements (USCCB wins, listed for review): ${report.citationDisagreements.length}`,
     );
-    for (const line of report.citationDisagreements.slice(0, 40)) console.log(`  ${line}`);
+    for (const line of report.citationDisagreements) console.log(`  ${line}`);
   }
   if (report.disagreements.length > 0) {
     console.log(`\ncross-year disagreements: ${report.disagreements.length}`);

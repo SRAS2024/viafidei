@@ -48,6 +48,12 @@ export interface DouayPassage {
   text: string | null;
   /** Douay-Rheims "chapter:verse" labels of the verses in `text`, in order. */
   verses: string[];
+  /**
+   * The verses of `text`, one string each, grouped the way the citation groups
+   * them: "Ps 116:12-13, 15 and 16bc, 17-18" gives three groups, the Lectionary's
+   * three stanzas. Empty when the passage is unverified.
+   */
+  verseGroups: string[][];
   /** Modern book name(s), e.g. "Isaiah", "Psalm", "Joel and 2 Corinthians". */
   bookLabel: string;
   /** The Douay-Rheims reference, e.g. "Psalm 97:1-6 (Vulgate numbering)"; "" if unverified. */
@@ -208,6 +214,8 @@ interface ResolvedSegments {
   refs: DouayRef[];
   /** The same refs grouped by citation segment (chapter-crossing ranges join). */
   groups: DouayRef[][];
+  /** The same refs grouped by the citation's own items, for setting the text. */
+  stanzas: DouayRef[][];
   identity: boolean;
   redivided: string[];
   partial: boolean;
@@ -217,9 +225,11 @@ interface ResolvedSegments {
 function resolveSegments(
   book: BookCode,
   segments: readonly CitationSegment[],
+  joined: ReadonlySet<number>,
 ): ResolvedSegments | { fail: string } {
   const refs: DouayRef[] = [];
   const groups: DouayRef[][] = [];
+  const stanzas: DouayRef[][] = [];
   const seen = new Set<string>();
   let identity = true;
   let partial = false;
@@ -229,7 +239,8 @@ function resolveSegments(
     if (!joinNext || groups.length === 0) groups.push([]);
     const group = groups[groups.length - 1];
     joinNext = seg.verses !== "all" && seg.verses[seg.verses.length - 1]?.to === null;
-    const modernVerses: number[] = [];
+    // Each item of the citation in order, so the stanzas can follow it.
+    const items: number[][] = [];
     if (seg.verses === "all") {
       const n = modernChapterLength(book, seg.chapter);
       if (n === null) {
@@ -237,7 +248,7 @@ function resolveSegments(
           fail: `the verse count of ${chapterLabel(book, seg.chapter)} is not verified against the Douay-Rheims`,
         };
       }
-      for (let v = 1; v <= n; v++) modernVerses.push(v);
+      items.push(Array.from({ length: n }, (_, i) => i + 1));
     } else {
       for (const range of seg.verses) {
         if (range.partial) partial = true;
@@ -250,31 +261,57 @@ function resolveSegments(
             };
           }
         }
-        for (let v = range.from; v <= to; v++) modernVerses.push(v);
+        const item: number[] = [];
+        for (let v = range.from; v <= to; v++) item.push(v);
+        items.push(item);
       }
     }
     const done = new Set<number>();
-    for (const v of modernVerses) {
-      if (done.has(v)) continue;
-      done.add(v);
-      const m = mapVerse(book, seg.chapter, v);
-      if ("fail" in m) return m;
-      if (!m.identity) identity = false;
-      if (m.redivided && !redivided.includes(m.redivided)) redivided.push(m.redivided);
-      for (const ref of m.refs) {
-        const key = SINGLE_VERSE_LABEL(ref);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        refs.push(ref);
-        group.push(ref);
+    for (const item of items) {
+      // "15 and 16bc" is one stanza in the Lectionary, whatever the verse count.
+      const stanza: DouayRef[] =
+        joined.has(item[0]) && stanzas.length > 0 ? stanzas[stanzas.length - 1] : [];
+      for (const v of item) {
+        if (done.has(v)) continue;
+        done.add(v);
+        const m = mapVerse(book, seg.chapter, v);
+        if ("fail" in m) return m;
+        if (!m.identity) identity = false;
+        if (m.redivided && !redivided.includes(m.redivided)) redivided.push(m.redivided);
+        for (const ref of m.refs) {
+          const key = SINGLE_VERSE_LABEL(ref);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          refs.push(ref);
+          group.push(ref);
+          stanza.push(ref);
+        }
       }
+      if (stanza.length > 0 && stanzas[stanzas.length - 1] !== stanza) stanzas.push(stanza);
     }
   }
-  return { refs, groups, identity, redivided, partial };
+  return { refs, groups, stanzas, identity, redivided, partial };
 }
 
 function unverified(bookLabel: string, note: string): DouayPassage {
-  return { text: null, verses: [], bookLabel, douayCitation: "", alignment: "unverified", note };
+  return {
+    text: null,
+    verses: [],
+    verseGroups: [],
+    bookLabel,
+    douayCitation: "",
+    alignment: "unverified",
+    note,
+  };
+}
+
+/** The verses a citation joins to the one before ("15 and 16bc"), never "and 2 Cor". */
+function joinedVerses(citation: string): Set<number> {
+  const joined = new Set<number>();
+  for (const m of citation.matchAll(/\d[a-h]*\s*(?:\band\b|\+)\s*(\d+)(?![a-z]*\s+[A-Z])/g)) {
+    joined.add(Number(m[1]));
+  }
+  return joined;
 }
 
 /** Group an alternative's segments into consecutive runs of the same book. */
@@ -301,13 +338,15 @@ export function resolveDouayPassage(citation: string): DouayPassage {
 
   const texts: string[] = [];
   const verses: string[] = [];
+  const verseGroups: string[][] = [];
   const citationParts: string[] = [];
   const notes: string[] = [];
+  const joined = joinedVerses(citation);
   let identity = true;
   let partial = false;
 
   for (const run of runs) {
-    const resolved = resolveSegments(run.book, run.segments);
+    const resolved = resolveSegments(run.book, run.segments, joined);
     if ("fail" in resolved) {
       return unverified(bookLabel, `Text withheld: ${resolved.fail}.`);
     }
@@ -317,6 +356,9 @@ export function resolveDouayPassage(citation: string): DouayPassage {
     for (const ref of resolved.refs) {
       verses.push(SINGLE_VERSE_LABEL(ref));
       texts.push(douayText(run.book, ref[0], ref[1]) as string);
+    }
+    for (const stanza of resolved.stanzas) {
+      verseGroups.push(stanza.map((ref) => douayText(run.book, ref[0], ref[1]) as string));
     }
     let part = `${info.douayName} ${formatRefs(run.book, resolved.groups)}`;
     if (run.book === "PSA") {
@@ -357,6 +399,7 @@ export function resolveDouayPassage(citation: string): DouayPassage {
   return {
     text: texts.join(" "),
     verses,
+    verseGroups,
     bookLabel,
     douayCitation: citationParts.join(" and "),
     alignment: identity ? "exact" : "remapped",

@@ -76,12 +76,16 @@ describe("resolveReadings", () => {
     const b = resolveReadings("pentecost", { sundayCycle: "B" })!;
     const c = resolveReadings("pentecost", { sundayCycle: "C" })!;
     const second = (r: typeof a) => r.sections.find((s) => s.kind === "SECOND_READING")!.citation;
+    // 1 Corinthians belongs to every year; Years B and C also offer their own.
     expect(second(a)).toBe("1 Cor 12:3b-7, 12-13");
-    expect(second(b)).toBe("Gal 5:16-25");
-    expect(second(c)).toBe("Rom 8:8-17");
+    expect(second(b)).toBe("1 Cor 12:3b-7, 12-13 or Gal 5:16-25");
+    expect(second(c)).toBe("1 Cor 12:3b-7, 12-13 or Rom 8:8-17");
     // One section per kind — the other cycles' readings must not leak through.
     expect(a.sections.filter((s) => s.kind === "GOSPEL")).toHaveLength(1);
     expect(a.sections.find((s) => s.kind === "GOSPEL")!.citation).toBe("Jn 20:19-23");
+    expect(b.sections.find((s) => s.kind === "GOSPEL")!.citation).toBe(
+      "Jn 20:19-23 or Jn 15:26-27; 16:12-15",
+    );
   });
 
   it("honours the weekday cycle: an Ordinary-Time weekday's First Reading differs I vs II", () => {

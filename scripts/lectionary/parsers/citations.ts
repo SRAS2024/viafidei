@@ -119,6 +119,31 @@ export function splitByCycle(text: string): Array<{ cycle: "A" | "B" | "C" | nul
   ];
 }
 
+/**
+ * "Matt 14:13-21 or, in Year A, Matt 14:22-36" is not a choice. In Year A the
+ * Sunday has already read the first passage, so the weekday reads the second:
+ * the citation that applies depends on the year, and each is filed under its own.
+ */
+export function splitYearAlternative(
+  text: string,
+): Array<{ cycle: "A" | "B" | "C" | null; text: string }> {
+  const m = text.match(
+    /^(.*?)\(?\s*\bor\s*,?\s*in\s+(?:year|yr)\.?\s+([ABC])\s*,?\s*([^)]+?)\)?\s*$/i,
+  );
+  if (!m) return [{ cycle: null, text }];
+  return [
+    { cycle: null, text: m[1] },
+    { cycle: m[2].toUpperCase() as "A" | "B" | "C", text: m[3] },
+  ];
+}
+
+function splitCellByCycle(part: {
+  cycle: "A" | "B" | "C" | null;
+  text: string;
+}): Array<{ cycle: "A" | "B" | "C" | null; text: string }> {
+  return part.cycle ? [part] : splitByCycle(part.text);
+}
+
 const PREFIX_RE = /^(?:see|cf\.?)\s+/i;
 
 /**
@@ -289,7 +314,7 @@ export function normaliseCell(
   if (/(?:^|\s)\d\)\s/.test(cell)) return { citations, unparsed };
   // Split the cycles BEFORE stripping annotations: the "A) … B) … C) …" markers
   // are parentheses, which stripAnnotations removes.
-  for (const part of splitByCycle(cell.replace(/\u00a0/g, " "))) {
+  for (const part of splitYearAlternative(cell.replace(/\u00a0/g, " ")).flatMap(splitCellByCycle)) {
     const stripped = stripAnnotations(part.text);
     if (isEmptyCitationCell(stripped)) continue;
     const c = normaliseCitation(stripped, opts);

@@ -145,13 +145,19 @@ export function sectionsForCycles(
   entry: LectionaryEntry,
   cycles: LectionaryCycles = {},
 ): LectionarySection[] {
+  const applies = (section: LectionarySection) =>
+    section.cycle === null ||
+    section.cycle === cycles.sundayCycle ||
+    section.cycle === cycles.weekdayCycle;
+  // A formulary with named sections is a sequence: the Easter Vigil has a psalm
+  // after every reading, so it keeps its order and its repeats. Only a section
+  // without a name (the Vigil's Gospel of the year) still chooses by cycle.
+  if (entry.sections.some((s) => s.label)) {
+    return entry.sections.filter((s) => s.label || applies(s));
+  }
   const chosen = new Map<string, LectionarySection>();
   for (const section of entry.sections) {
-    const applies =
-      section.cycle === null ||
-      section.cycle === cycles.sundayCycle ||
-      section.cycle === cycles.weekdayCycle;
-    if (!applies) continue;
+    if (!applies(section)) continue;
     const current = chosen.get(section.kind);
     // A cycle-tagged section beats the shared one; two shared ones keep the first.
     if (!current || (current.cycle === null && section.cycle !== null)) {

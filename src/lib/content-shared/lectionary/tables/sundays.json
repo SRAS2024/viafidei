@@ -1,8 +1,8 @@
 {
-  "10th-sunday-in-ordinary-time-a-2026-body-blood-of-christ": [
+  "10th-sunday-in-ordinary-time-a": [
     {
       "cycle": "A",
-      "label": "10th Sunday in Ordinary Time - A [ 2026: Body & Blood of Christ ]",
+      "label": "10th Sunday in Ordinary Time - A",
       "number": "88",
       "variant": null
     }
@@ -15,10 +15,10 @@
       "variant": null
     }
   ],
-  "10th-sunday-in-ordinary-time-c-2025-pentecost-sunday": [
+  "10th-sunday-in-ordinary-time-c": [
     {
       "cycle": "C",
-      "label": "10th Sunday in Ordinary Time - C [ 2025: Pentecost Sunday ]",
+      "label": "10th Sunday in Ordinary Time - C",
       "number": "90",
       "variant": null
     }
@@ -39,10 +39,10 @@
       "variant": null
     }
   ],
-  "11th-sunday-in-ordinary-time-c-2025-most-holy-trinity": [
+  "11th-sunday-in-ordinary-time-c": [
     {
       "cycle": "C",
-      "label": "11th Sunday in Ordinary Time - C [ 2025: Most Holy Trinity ]",
+      "label": "11th Sunday in Ordinary Time - C",
       "number": "93",
       "variant": null
     }
@@ -63,10 +63,10 @@
       "variant": null
     }
   ],
-  "12th-sunday-in-ordinary-time-c-2025-corpus-christi-body-blood-of-christ": [
+  "12th-sunday-in-ordinary-time-c": [
     {
       "cycle": "C",
-      "label": "12th Sunday in Ordinary Time - C [ 2025: Corpus Christi / Body & Blood of Christ ]",
+      "label": "12th Sunday in Ordinary Time - C",
       "number": "96",
       "variant": null
     }
@@ -87,10 +87,10 @@
       "variant": null
     }
   ],
-  "13th-sunday-in-ordinary-time-c-2025-saints-peter-paul": [
+  "13th-sunday-in-ordinary-time-c": [
     {
       "cycle": "C",
-      "label": "13th Sunday in Ordinary Time - C [ 2025: Saints Peter & Paul ]",
+      "label": "13th Sunday in Ordinary Time - C",
       "number": "99",
       "variant": null
     }
@@ -295,10 +295,10 @@
       "variant": null
     }
   ],
-  "20th-sunday-in-ordinary-time-b-assumption-bvm-in-2027": [
+  "20th-sunday-in-ordinary-time-b": [
     {
       "cycle": "B",
-      "label": "20th Sunday in Ordinary Time - B [Assumption BVM in 2027]",
+      "label": "20th Sunday in Ordinary Time - B",
       "number": "119",
       "variant": null
     }
@@ -399,10 +399,10 @@
       "variant": null
     }
   ],
-  "24th-sunday-in-ordinary-time-c-2025-exaltation-of-the-holy-cross": [
+  "24th-sunday-in-ordinary-time-c": [
     {
       "cycle": "C",
-      "label": "24th Sunday in Ordinary Time - C [ 2025: Exaltation of the Holy Cross ]",
+      "label": "24th Sunday in Ordinary Time - C",
       "number": "132",
       "variant": null
     }
@@ -647,10 +647,10 @@
       "variant": null
     }
   ],
-  "31st-sunday-in-ordinary-time-a-2026-all-saints": [
+  "31st-sunday-in-ordinary-time-a": [
     {
       "cycle": "A",
-      "label": "31st Sunday in Ordinary Time - A [ 2026: All Saints ]",
+      "label": "31st Sunday in Ordinary Time - A",
       "number": "151",
       "variant": null
     }
@@ -663,10 +663,10 @@
       "variant": null
     }
   ],
-  "31st-sunday-in-ordinary-time-c-2025-all-faithful-departed-all-souls": [
+  "31st-sunday-in-ordinary-time-c": [
     {
       "cycle": "C",
-      "label": "31st Sunday in Ordinary Time - C [ 2025: All Faithful Departed / All Souls ]",
+      "label": "31st Sunday in Ordinary Time - C",
       "number": "153",
       "variant": null
     }
@@ -687,10 +687,10 @@
       "variant": null
     }
   ],
-  "32nd-sunday-in-ordinary-time-c-2025-dedication-of-the-lateran-basilica": [
+  "32nd-sunday-in-ordinary-time-c": [
     {
       "cycle": "C",
-      "label": "32nd Sunday in Ordinary Time - C [ 2025: Dedication of the Lateran Basilica ]",
+      "label": "32nd Sunday in Ordinary Time - C",
       "number": "156",
       "variant": null
     }
@@ -754,7 +754,7 @@
   "3rd-sunday-in-ordinary-time-b-sunday-of-the-word-of-god": [
     {
       "cycle": "B",
-      "label": "3rd Sunday in Ordinary Time - B: Sunday of the Word of God*",
+      "label": "3rd Sunday in Ordinary Time - B: Sunday of the Word of God *",
       "number": "68",
       "variant": null
     }
@@ -762,7 +762,7 @@
   "3rd-sunday-in-ordinary-time-c-sunday-of-the-word-of-god": [
     {
       "cycle": "C",
-      "label": "3rd Sunday in Ordinary Time - C: Sunday of the Word of God*",
+      "label": "3rd Sunday in Ordinary Time - C: Sunday of the Word of God *",
       "number": "69",
       "variant": null
     }
@@ -855,10 +855,10 @@
       "variant": null
     }
   ],
-  "4th-sunday-in-ordinary-time-c-2025-presentation-of-the-lord": [
+  "4th-sunday-in-ordinary-time-c": [
     {
       "cycle": "C",
-      "label": "4th Sunday in Ordinary Time - C [ 2025: Presentation of the Lord ]",
+      "label": "4th Sunday in Ordinary Time - C",
       "number": "72",
       "variant": null
     }
@@ -1015,10 +1015,10 @@
       "variant": null
     }
   ],
-  "6th-sunday-in-ordinary-time-b-omit-in-2027": [
+  "6th-sunday-in-ordinary-time-b": [
     {
       "cycle": "B",
-      "label": "6th Sunday in Ordinary Time - B [omit in 2027]",
+      "label": "6th Sunday in Ordinary Time - B",
       "number": "77",
       "variant": null
     }
@@ -1055,18 +1055,18 @@
       "variant": null
     }
   ],
-  "7th-sunday-in-ordinary-time-a-omitted-in-2026": [
+  "7th-sunday-in-ordinary-time-a": [
     {
       "cycle": "A",
-      "label": "7th Sunday in Ordinary Time - A [ omitted in 2026 ]",
+      "label": "7th Sunday in Ordinary Time - A",
       "number": "79",
       "variant": null
     }
   ],
-  "7th-sunday-in-ordinary-time-b-2024-pentecost-sunday": [
+  "7th-sunday-in-ordinary-time-b": [
     {
       "cycle": "B",
-      "label": "7th Sunday in Ordinary Time - B [2024: Pentecost Sunday ]",
+      "label": "7th Sunday in Ordinary Time - B",
       "number": "80",
       "variant": null
     }
@@ -1103,18 +1103,18 @@
       "variant": null
     }
   ],
-  "8th-sunday-in-ordinary-time-a-2026-pentecost": [
+  "8th-sunday-in-ordinary-time-a": [
     {
       "cycle": "A",
-      "label": "8th Sunday in Ordinary Time - A [ 2026: Pentecost ]",
+      "label": "8th Sunday in Ordinary Time - A",
       "number": "82",
       "variant": null
     }
   ],
-  "8th-sunday-in-ordinary-time-b-2024-most-holy-trinity": [
+  "8th-sunday-in-ordinary-time-b": [
     {
       "cycle": "B",
-      "label": "8th Sunday in Ordinary Time - B [2024: Most Holy Trinity ]",
+      "label": "8th Sunday in Ordinary Time - B",
       "number": "83",
       "variant": null
     }
@@ -1127,26 +1127,26 @@
       "variant": null
     }
   ],
-  "9th-sunday-in-ordinary-time-a-2026-most-holy-trinity": [
+  "9th-sunday-in-ordinary-time-a": [
     {
       "cycle": "A",
-      "label": "9th Sunday in Ordinary Time - A [ 2026: Most Holy Trinity ]",
+      "label": "9th Sunday in Ordinary Time - A",
       "number": "85",
       "variant": null
     }
   ],
-  "9th-sunday-in-ordinary-time-b-2024-body-blood-of-christ": [
+  "9th-sunday-in-ordinary-time-b": [
     {
       "cycle": "B",
-      "label": "9th Sunday in Ordinary Time - B [2024: Body & Blood of Christ ]",
+      "label": "9th Sunday in Ordinary Time - B",
       "number": "86",
       "variant": null
     }
   ],
-  "9th-sunday-in-ordinary-time-c-2025-omitted": [
+  "9th-sunday-in-ordinary-time-c": [
     {
       "cycle": "C",
-      "label": "9th Sunday in Ordinary Time - C [ 2025: omitted ]",
+      "label": "9th Sunday in Ordinary Time - C",
       "number": "87",
       "variant": null
     }
@@ -1199,20 +1199,12 @@
       "variant": "night"
     }
   ],
-  "easter-sunday-resurrection-of-the-lord-easter-vigil-in-the-holy-night-abc": [
+  "easter-sunday-of-the-resurrection-of-the-lord-at-the-mass-during-the-day": [
     {
       "cycle": null,
-      "label": "Easter Sunday: Resurrection of the Lord; Easter Vigil in the Holy Night – ABC",
-      "number": "41",
-      "variant": "vigil"
-    }
-  ],
-  "easter-sunday-resurrection-of-the-lord-mass-of-easter-day-abc": [
-    {
-      "cycle": null,
-      "label": "Easter Sunday: Resurrection of the Lord; Mass of Easter Day – ABC",
+      "label": "Easter Sunday of the Resurrection of the Lord: At the Mass during the Day",
       "number": "42",
-      "variant": "day"
+      "variant": null
     }
   ],
   "friday-after-the-second-sunday-after-pentecost-solemnity-of-the-most-sacred-heart-of-jesus-a": [
@@ -1226,15 +1218,23 @@
   "good-friday-of-the-lord-s-passion-abc": [
     {
       "cycle": null,
-      "label": "Good Friday of the Lord's Passion – ABC",
+      "label": "Good Friday of the Lord’s Passion – ABC",
       "number": "40",
+      "variant": null
+    }
+  ],
+  "holy-saturday-at-the-easter-vigil-in-the-holy-night-of-easter": [
+    {
+      "cycle": null,
+      "label": "Holy Saturday: At the Easter Vigil in the Holy Night of Easter",
+      "number": "41",
       "variant": null
     }
   ],
   "holy-thursday-evening-mass-of-the-lord-s-supper-years-abc": [
     {
       "cycle": null,
-      "label": "Holy Thursday: Evening Mass of the Lord's Supper – Years ABC",
+      "label": "Holy Thursday: Evening Mass of the Lord’s Supper – Years ABC",
       "number": "39",
       "variant": null
     }
@@ -1255,28 +1255,36 @@
       "variant": null
     }
   ],
-  "palm-sunday-of-the-passion-of-the-lord-at-the-procession-with-palms-abc": [
+  "palm-sunday-of-the-passion-of-the-lord-at-the-procession-with-palms": [
     {
       "cycle": null,
-      "label": "Palm Sunday of the Passion of the Lord: At the Procession with Palms – ABC",
+      "label": "Palm Sunday of the Passion of the Lord: At the Procession with Palms",
       "number": "37",
       "variant": "procession"
     }
   ],
-  "pentecost-sunday-at-the-vigil-mass-abc": [
+  "pentecost-sunday-at-the-extended-vigil": [
     {
       "cycle": null,
-      "label": "Pentecost Sunday: At the Vigil Mass – ABC",
-      "number": "62",
-      "variant": "vigil"
+      "label": "Pentecost Sunday: At the Extended Vigil",
+      "number": "62-extended",
+      "variant": "extended-vigil"
     }
   ],
-  "pentecost-sunday-mass-during-the-day-a": [
+  "pentecost-sunday-at-the-mass-during-the-day": [
     {
       "cycle": null,
-      "label": "Pentecost Sunday: Mass during the Day – A",
+      "label": "Pentecost Sunday: At the Mass during the Day",
       "number": "63",
       "variant": "day"
+    }
+  ],
+  "pentecost-sunday-at-the-vigil-mass": [
+    {
+      "cycle": null,
+      "label": "Pentecost Sunday: At the Vigil Mass",
+      "number": "62",
+      "variant": "vigil"
     }
   ],
   "sacred-heart-b": [
@@ -1322,7 +1330,7 @@
   "sunday-after-trinity-sunday-solemnity-of-the-most-holy-body-and-blood-of-christ-formerly-called-corpus-christi-a": [
     {
       "cycle": "A",
-      "label": "Sunday after Trinity Sunday : Solemnity of the Most Holy Body and Blood of Christ ( formerly called \"Corpus Christi\" ) - A",
+      "label": "Sunday after Trinity Sunday : Solemnity of the Most Holy Body and Blood of Christ ( formerly called “Corpus Christi” ) - A",
       "number": "167",
       "variant": null
     }

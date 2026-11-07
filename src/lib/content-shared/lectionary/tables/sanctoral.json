@@ -88,7 +88,7 @@
   "01-26": [
     {
       "cycle": null,
-      "label": "Sts. Timothy and Titus, bishops",
+      "label": "Saints Timothy and Titus, Bishops",
       "number": "520",
       "variant": null
     }
@@ -164,7 +164,7 @@
     },
     {
       "cycle": null,
-      "label": "St. Josephine Bakhita, virgin (also \"International Day of Prayer and Awareness Against Human Trafficking\")",
+      "label": "St. Josephine Bakhita, virgin (also “International Day of Prayer and Awareness Against Human Trafficking”)",
       "number": "529A",
       "variant": null
     }
@@ -180,7 +180,7 @@
   "02-11": [
     {
       "cycle": null,
-      "label": "Our Lady of Lourdes (also \"World Day of the Sick\")",
+      "label": "Our Lady of Lourdes (also “World Day of the Sick”)",
       "number": "531",
       "variant": null
     }
@@ -284,7 +284,7 @@
   "03-19": [
     {
       "cycle": null,
-      "label": "March 19: St. Joseph, Spouse of the Blessed Virgin Mary ( transferred to Monday 3/20 if 3/19 is a Sunday ; exception for 2008: transferred to Saturday, 3/15 /08 )",
+      "label": "March 19: St. Joseph, Spouse of the Blessed Virgin Mary ( transferred to Monday 3/20 if 3/19 is a Sunday ) ( further exceptions when 3/19 falls in Holy Week, as in 2008, 2035, and 2046 )",
       "number": "543",
       "variant": null
     }
@@ -292,7 +292,7 @@
   "03-23": [
     {
       "cycle": null,
-      "label": "St. Turibius of Mongrovejo, bishop",
+      "label": "St. Turibius of Mogrovejo, bishop",
       "number": "544",
       "variant": null
     }
@@ -300,7 +300,7 @@
   "03-25": [
     {
       "cycle": null,
-      "label": "March 25: The Annunciation of the Lord ( tranferred if 3/25 is a Sunday, or if it falls during Holy Week or Easter Week - see the table below )",
+      "label": "March 25: The Annunciation of the Lord ( transferred if 3/25 is a Sunday, or if it falls during Holy Week or Easter Week - see the table below )",
       "number": "545",
       "variant": null
     }
@@ -530,7 +530,7 @@
     },
     {
       "cycle": null,
-      "label": "St. Mary Magdalene de' Pazzi, virgin",
+      "label": "St. Mary Magdalene de’ Pazzi, virgin",
       "number": "569",
       "variant": null
     }
@@ -670,7 +670,7 @@
     },
     {
       "cycle": null,
-      "label": "June 24: The Nativity of St. John the Baptist: Day ( exceptions for 2022, 2033, and 2044: transferred to Thursday 6/23 , since Friday 6/24 is the Solemnity of the Sacred Heart of Jesus )",
+      "label": "June 24: The Nativity of St. John the Baptist: Day ( exceptions for 2022, 2033 , and 2044: transferred to Thursday 6/23 , since Friday 6/24 is the Solemnity of the Sacred Heart of Jesus )",
       "number": "587",
       "variant": "day"
     }
@@ -1103,7 +1103,7 @@
       "variant": null
     }
   ],
-  "09-02": [
+  "09-03": [
     {
       "cycle": null,
       "label": "St. Gregory the Great, pope and doctor of the Church",
@@ -1114,7 +1114,7 @@
   "09-05": [
     {
       "cycle": null,
-      "label": "St. Teresa of Calcutta, Virgin",
+      "label": "St. Teresa of Calcutta, virgin",
       "number": "635A",
       "variant": null
     }
@@ -1591,7 +1591,7 @@
       "variant": null
     }
   ],
-  "12-01": [
+  "12-03": [
     {
       "cycle": null,
       "label": "St. Francis Xavier, priest",
@@ -1727,10 +1727,10 @@
       "variant": null
     }
   ],
-  "blessed-virgin-mary-mother-of-the-church": [
+  "the-blessed-virgin-mary-mother-of-the-church": [
     {
       "cycle": null,
-      "label": "Blessed Virgin Mary, Mother of the Church",
+      "label": "The Blessed Virgin Mary, Mother of the Church",
       "number": "572A",
       "variant": null
     }

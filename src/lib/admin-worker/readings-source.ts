@@ -21,7 +21,7 @@
 
 import type { ReadingSection } from "@/lib/content-shared/daily-readings";
 import { resolveLiturgicalDay } from "@/lib/content-shared/liturgical-calendar";
-import { resolveReadings, toStoredSections } from "@/lib/content-shared/lectionary";
+import { resolveDayReadings, toStoredSections } from "@/lib/content-shared/lectionary";
 
 export interface ResolvedFromSource {
   sections: ReadingSection[];
@@ -87,10 +87,7 @@ const lectionaryTableSource: ReadingsSourceAdapter = {
   async resolve(date, opts) {
     if (opts.calendar !== "roman-ordinary" || opts.locale !== "en") return null;
     const day = resolveLiturgicalDay(date);
-    const resolved = resolveReadings(day.lectionaryKey, {
-      sundayCycle: day.sundayCycle,
-      weekdayCycle: day.weekdayCycle,
-    });
+    const resolved = resolveDayReadings(day);
     if (!resolved) return null;
     return {
       // The row stores the compact section shape; the rich fields (alternatives,

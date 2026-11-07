@@ -13,6 +13,7 @@ resolveDouayPassage("Ps 98:1-6");
 // {
 //   text: "A psalm for David himself. Sing ye to the Lord …",
 //   verses: ["97:1", "97:2", "97:3", "97:4", "97:5", "97:6"],
+//   verseGroups: [["A psalm for David himself. Sing ye to the Lord …", …]],
 //   bookLabel: "Psalm",
 //   douayCitation: "Psalm 97:1-6 (Vulgate numbering)",
 //   alignment: "remapped",

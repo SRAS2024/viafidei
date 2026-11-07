@@ -27,6 +27,7 @@
  */
 
 import { parseCitation } from "./bible/citation";
+import { type BookCode, bookByCode, findBook } from "./bible/books";
 import { type DouayAlignment, resolveDouayPassage } from "./bible/dra";
 import type { ReadingKind, ReadingSection } from "./daily-readings";
 import {
@@ -43,6 +44,8 @@ import {
 export { LECTIONARY_ATTRIBUTION };
 export type { KeyMapMass, SundayCycle, WeekdayCycle };
 
+type SanctoralReadings = "proper" | "proper-first" | "proper-gospel" | "ferial";
+
 /** Default heading for each kind; the table may override it (Easter Vigil). */
 const KIND_LABEL: Record<ReadingKind, string> = {
   FIRST_READING: "First Reading",
@@ -53,12 +56,27 @@ const KIND_LABEL: Record<ReadingKind, string> = {
   OTHER: "Reading",
 };
 
+/**
+ * How a reading's text is set. The words are always the Douay-Rheims verses,
+ * whole and in order; only the line and paragraph breaks are chosen here.
+ *  - "verse": one line per verse, in stanzas. Psalms, canticles and the poetry of
+ *    the prophets and wisdom books.
+ *  - "prose": paragraphs that break between verses.
+ */
+export type ReadingLayout =
+  | { form: "verse"; stanzas: string[][] }
+  | { form: "prose"; paragraphs: string[] };
+
 /** One reading the Lectionary offers for a section ("A or B" gives two). */
 export interface ReadingAlternative {
   /** The lectionary citation, exactly as the Lectionary prints it. */
   citation: string;
+  /** The citation with its book written out, for reading aloud: "John 1:1-18". */
+  reference: string;
   /** Douay-Rheims text, or null when the alignment is not certain. */
   body: string | null;
+  /** The same text with its verse structure; null when `body` is null. */
+  layout: ReadingLayout | null;
   /** The Douay-Rheims reference the text was taken from ("" if unresolved). */
   douayCitation: string;
   alignment: DouayAlignment;
@@ -77,8 +95,12 @@ export interface ResolvedReadingSection {
   label: string;
   /** The full lectionary citation, alternatives included. */
   citation: string;
+  /** The primary alternative's citation with its book written out. */
+  reference: string;
   /** Text of the primary alternative; null when it is citation-only. */
   body: string | null;
+  /** The primary alternative's text with its verse structure. */
+  layout: ReadingLayout | null;
   douayCitation: string;
   alignment: DouayAlignment;
   partialVerses: boolean;
@@ -147,12 +169,182 @@ function readsPartialVerses(citation: string): boolean {
   );
 }
 
-/** Resolve one citation (a single alternative) to its Douay-Rheims text. */
-export function resolveAlternative(citation: string): ReadingAlternative {
+/**
+ * "Jn 1:1-18" as "John 1:1-18", and "cf. Ps 80:4" as "See Psalm 80:4". The tables
+ * keep the Lectionary's abbreviations, which a screen reader can only spell out.
+ */
+export function citationReference(citation: string): string {
+  return citation
+    .replace(/^cf\.\s+/i, "See ")
+    .replace(/(?:[1-3]\s+)?[A-Z][a-z]+(?=\s+(?:\d|[A-F]:))/g, (token) => {
+      const book = findBook(token);
+      return book ? bookByCode(book.code).name : token;
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Setting the text
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Books the Lectionary sets as poetry, apart from their narrative chapters. */
+const POETIC_BOOKS: ReadonlySet<BookCode> = new Set<BookCode>([
+  "PSA",
+  "PRO",
+  "SNG",
+  "WIS",
+  "SIR",
+  "LAM",
+  "JOB",
+  "ISA",
+  "HOS",
+  "JOL",
+  "AMO",
+  "MIC",
+  "NAM",
+  "HAB",
+  "ZEP",
+]);
+
+const NARRATIVE_CHAPTERS: Partial<Record<BookCode, readonly number[]>> = {
+  ISA: [6, 7, 36, 37, 38, 39],
+  JOB: [1, 2, 42],
+  AMO: [7],
+  HOS: [1, 3],
+};
+
+function isPoetry(citation: string): boolean {
+  const segments = parseCitation(citation)?.alternatives[0]?.segments ?? [];
+  if (segments.length === 0) return false;
+  return segments.every(
+    (seg) =>
+      POETIC_BOOKS.has(seg.book) &&
+      !(typeof seg.chapter === "number" && NARRATIVE_CHAPTERS[seg.book]?.includes(seg.chapter)),
+  );
+}
+
+const SENTENCE_END = /[.!?]["'”’)\]]*$/;
+const CLAUSE_END = /[:;]["'”’)\]]*$/;
+
+/** A paragraph may end at a sentence once it reaches this many characters. */
+const PARAGRAPH_MIN = 400;
+/** Past this it may end at a colon or semicolon, the Douay's long sentences' joints. */
+const PARAGRAPH_SOFT_MAX = 600;
+/** Past this it ends at the next verse, whatever closes it. */
+const PARAGRAPH_HARD_MAX = 900;
+/** Where the Lectionary skips verses a new paragraph is natural, if this one has any length. */
+const PARAGRAPH_AT_GAP = 240;
+
+/**
+ * Paragraphs that break only between verses, never inside one: at a sentence's
+ * end once the paragraph is long enough to read as a paragraph.
+ */
+export function proseParagraphs(groups: readonly (readonly string[])[]): string[] {
+  const paragraphs: string[] = [];
+  let current: string[] = [];
+  let length = 0;
+  const flush = () => {
+    if (current.length > 0) paragraphs.push(current.join(" "));
+    current = [];
+    length = 0;
+  };
+  for (const group of groups) {
+    for (const verse of group) {
+      current.push(verse);
+      length += verse.length + 1;
+      if (
+        (length >= PARAGRAPH_MIN && SENTENCE_END.test(verse)) ||
+        (length >= PARAGRAPH_SOFT_MAX && CLAUSE_END.test(verse)) ||
+        length >= PARAGRAPH_HARD_MAX
+      ) {
+        flush();
+      }
+    }
+    if (length >= PARAGRAPH_AT_GAP) flush();
+  }
+  flush();
+  // A stray last line reads better with the paragraph it finishes.
+  if (paragraphs.length > 1 && paragraphs[paragraphs.length - 1].length < 120) {
+    const last = paragraphs.pop() as string;
+    paragraphs[paragraphs.length - 1] += ` ${last}`;
+  }
+  return paragraphs;
+}
+
+/** A stanza longer than this many lines may break at the end of a sentence. */
+const STANZA_MIN_LINES = 3;
+/** Past this many lines it breaks at the next verse. */
+const STANZA_MAX_LINES = 8;
+
+/**
+ * Stanzas of one verse per line. The citation's own items are the stanzas where
+ * it has them (a responsorial psalm's strophes). An unbroken run of poetry, which
+ * the Douay-Rheims does not divide, breaks at a sentence's end.
+ */
+export function verseStanzas(groups: readonly (readonly string[])[]): string[][] {
+  const stanzas: string[][] = [];
+  for (const group of groups) {
+    let current: string[] = [];
+    for (const verse of group) {
+      current.push(verse);
+      const full = current.length >= STANZA_MAX_LINES;
+      if (full || (current.length >= STANZA_MIN_LINES && SENTENCE_END.test(verse))) {
+        stanzas.push(current);
+        current = [];
+      }
+    }
+    if (current.length > 0) stanzas.push(current);
+  }
+  return stanzas;
+}
+
+function layoutPassage(
+  groups: readonly (readonly string[])[],
+  form: ReadingLayout["form"],
+): ReadingLayout | null {
+  if (groups.length === 0) return null;
+  return form === "verse"
+    ? { form, stanzas: verseStanzas(groups) }
+    : { form, paragraphs: proseParagraphs(groups) };
+}
+
+/**
+ * The layout of text that arrives as one string (a stored row), where the verse
+ * boundaries are gone. Its own line breaks are kept; without any, prose breaks at
+ * sentences by the same rule as verses, and verse text stays a single stanza.
+ */
+export function layoutFromText(body: string, form: ReadingLayout["form"]): ReadingLayout {
+  const blocks = body
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter((block) => block.length > 0);
+  if (form === "verse") {
+    return {
+      form,
+      stanzas: blocks.map((block) =>
+        block
+          .split(/\n/)
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0),
+      ),
+    };
+  }
+  if (blocks.length > 1) return { form, paragraphs: blocks };
+  const sentences = body.match(/[^.!?]+[.!?]+["'”’)\]]*\s*|[^.!?]+$/g) ?? [body];
+  return { form, paragraphs: proseParagraphs([sentences.map((s) => s.trim())]) };
+}
+
+/**
+ * Resolve one citation (a single alternative) to its Douay-Rheims text. A psalm's
+ * text is always verse; `kind` says when the citation is one.
+ */
+export function resolveAlternative(citation: string, kind?: ReadingKind): ReadingAlternative {
   const passage = resolveDouayPassage(citation);
+  const form = kind === "PSALM" || isPoetry(citation) ? "verse" : "prose";
   return {
     citation,
+    reference: citationReference(citation),
     body: passage.text && passage.text.length > 0 ? passage.text : null,
+    layout: layoutPassage(passage.verseGroups, form),
     douayCitation: passage.douayCitation,
     alignment: passage.alignment,
     partialVerses: readsPartialVerses(citation),
@@ -162,22 +354,26 @@ export function resolveAlternative(citation: string): ReadingAlternative {
 
 /** Resolve one table section (citations only) into a rendered section. */
 export function resolveLectionarySection(section: LectionarySection): ResolvedReadingSection {
-  const alternatives = splitAlternatives(section.citation).map(resolveAlternative);
+  const alternatives = splitAlternatives(section.citation).map((citation) =>
+    resolveAlternative(citation, section.kind),
+  );
   // A citation that does not split at all still has one alternative; a citation
   // that somehow yields none must not crash the day.
-  const primary = alternatives[0] ?? resolveAlternative(section.citation);
+  const primary = alternatives[0] ?? resolveAlternative(section.citation, section.kind);
   const response = responseCitation(section);
   return {
     kind: section.kind,
     label: section.label ?? KIND_LABEL[section.kind] ?? KIND_LABEL.OTHER,
     citation: section.citation,
+    reference: primary.reference,
     body: primary.body,
+    layout: primary.layout,
     douayCitation: primary.douayCitation,
     alignment: primary.alignment,
     partialVerses: primary.partialVerses,
     note: primary.note,
     alternatives: alternatives.length > 0 ? alternatives : [primary],
-    response: response ? resolveAlternative(response) : null,
+    response: response ? resolveAlternative(response, "PSALM") : null,
     source: section.source,
   };
 }
@@ -218,7 +414,8 @@ export function resolveReadings(
     const withText = sections.filter((s) => typeof s.body === "string" && s.body.length > 0).length;
     out = {
       key: lookup.key,
-      number: lookup.number,
+      // "62-extended" is a table key; the Lectionary number is still 62.
+      number: lookup.number.split("-")[0],
       label: lookup.label,
       cycle: lookup.cycle,
       variant: lookup.variant,
@@ -230,6 +427,52 @@ export function resolveReadings(
   if (memo.size >= MEMO_LIMIT) memo.clear();
   memo.set(memoKey, out);
   return out;
+}
+
+/** What `resolveDayReadings` needs to know about a liturgical day. */
+export interface DayForReadings {
+  lectionaryKey: string;
+  temporalKey: string;
+  sundayCycle: string;
+  weekdayCycle: string;
+  sanctoral?: { readings: SanctoralReadings } | null;
+}
+
+/**
+ * Resolve a whole liturgical day, memorials included. A few memorials own only
+ * part of their Mass, and the USCCB prints the two halves together: Saint Martha
+ * reads the weekday's first reading and psalm with her own Gospel ("403/607"),
+ * Saint Barnabas his own first reading and psalm with the weekday's Gospel.
+ * `resolveReadings` knows one Lectionary number at a time, so it is this function
+ * that puts them side by side.
+ */
+export function resolveDayReadings(
+  day: DayForReadings,
+  opts: { variant?: string | null } = {},
+): ResolvedReadings | null {
+  const cycles = {
+    sundayCycle: day.sundayCycle as SundayCycle,
+    weekdayCycle: day.weekdayCycle as WeekdayCycle,
+  };
+  const proper = resolveReadings(day.lectionaryKey, { ...cycles, variant: opts.variant });
+  const mode = day.sanctoral?.readings;
+  // A named formulary is that formulary, never a half of it.
+  if (opts.variant || (mode !== "proper-gospel" && mode !== "proper-first")) return proper;
+  const weekday = resolveReadings(day.temporalKey, cycles);
+  if (!proper || !weekday) return proper ?? weekday;
+
+  const [opening, closing] = mode === "proper-gospel" ? [weekday, proper] : [proper, weekday];
+  const sections = [
+    ...opening.sections.filter((s) => s.kind === "FIRST_READING" || s.kind === "PSALM"),
+    ...closing.sections.filter((s) => s.kind === "ACCLAMATION" || s.kind === "GOSPEL"),
+  ];
+  const withText = sections.filter((s) => s.body).length;
+  return {
+    ...proper,
+    number: `${opening.number}/${closing.number}`,
+    sections,
+    confidence: sections.length > 0 ? withText / sections.length : 0,
+  };
 }
 
 /**

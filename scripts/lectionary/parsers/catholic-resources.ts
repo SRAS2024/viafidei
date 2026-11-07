@@ -123,11 +123,16 @@ const ORDINAL_RE = /(\d+)\s*(?:st|nd|rd|th)\b/gi;
 
 /** "1 st Sunday of Advent - A" → "1st Sunday of Advent - A". */
 export function tidyLabel(label: string): string {
-  return label
-    .replace(/ /g, " ")
-    .replace(ORDINAL_RE, (_, n: string) => `${n}${ordinalSuffix(Number(n))}`)
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    label
+      .replace(/ /g, " ")
+      // "9th Sunday in Ordinary Time - C [ 2028: Pentecost Sunday ]": a note about one
+      // year, which the page rewrites every year and must not name the Sunday.
+      .replace(/\s*\[[^\]]*\b20\d\d\b[^\]]*\]/g, "")
+      .replace(ORDINAL_RE, (_, n: string) => `${n}${ordinalSuffix(Number(n))}`)
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 function ordinalSuffix(n: number): string {
@@ -183,8 +188,17 @@ export function labelMonthDay(text: string): string | null {
 /**
  * Parse one catholic-resources page into lectionary entries. `kind` says which
  * table of the Lectionary the page belongs to (the page itself never says).
+ *
+ * `psalmCycle` is the weekday cycle of a page that prints one year only. The
+ * Ordinary-Time pages name the year in their First Reading column but not in
+ * their Responsorial Psalm column, and without it the two years' psalms would
+ * collapse into one: the second year's dates then showed the first year's psalm.
  */
-export function parseCatholicResourcesPage(html: string, kind: LectionaryEntryKind): CrParseResult {
+export function parseCatholicResourcesPage(
+  html: string,
+  kind: LectionaryEntryKind,
+  psalmCycle: LectionaryCycle | null = null,
+): CrParseResult {
   const entries: CrEntry[] = [];
   const unparsed: string[] = [];
   for (const table of extractTables(html)) {
@@ -215,7 +229,7 @@ export function parseCatholicResourcesPage(html: string, kind: LectionaryEntryKi
           // the column header's Year I / Year II applies.
           sections.push({
             kind: column.kind,
-            cycle: citation.cycle ?? column.cycle,
+            cycle: citation.cycle ?? column.cycle ?? (column.kind === "PSALM" ? psalmCycle : null),
             citation: citation.citation,
           });
         }

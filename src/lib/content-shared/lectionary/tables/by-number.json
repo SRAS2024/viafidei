@@ -641,16 +641,16 @@
         "source": "usccb"
       },
       {
-        "citation": "Gn 15:1-6; 21:1-3",
+        "citation": "Sir 3:2-6, 12-14 or Gn 15:1-6; 21:1-3",
         "cycle": "B",
         "kind": "FIRST_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "1 Sm 1:20-22, 24-28",
+        "citation": "Sir 3:2-6, 12-14 or 1 Sm 1:20-22, 24-28",
         "cycle": "C",
         "kind": "FIRST_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Ps 128:1-2, 3, 4-5",
@@ -659,16 +659,16 @@
         "source": "usccb"
       },
       {
-        "citation": "Ps 105:1-2, 3-4, 5-6, 8-9",
+        "citation": "Ps 128:1-2, 3, 4-5 or Ps 105:1-2, 3-4, 5-6, 8-9",
         "cycle": "B",
         "kind": "PSALM",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "Ps 84:2-3, 5-6, 9-10",
+        "citation": "Ps 128:1-2, 3, 4-5 or Ps 84:2-3, 5-6, 9-10",
         "cycle": "C",
         "kind": "PSALM",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Col 3:12-21 or Col 3:12-17",
@@ -677,38 +677,38 @@
         "source": "usccb"
       },
       {
-        "citation": "Heb 11:8, 11-12, 17-19",
+        "citation": "Col 3:12-21 or Col 3:12-17 or Heb 11:8, 11-12, 17-19",
         "cycle": "B",
         "kind": "SECOND_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "1 Jn 3:1-2, 21-24",
+        "citation": "Col 3:12-21 or Col 3:12-17 or 1 Jn 3:1-2, 21-24",
         "cycle": "C",
         "kind": "SECOND_READING",
-        "source": "usccb-calendar"
+        "source": "usccb"
       },
       {
-        "citation": "Col 3:15a and 16a",
+        "citation": "Col 3:15a, 16a",
         "cycle": null,
         "kind": "ACCLAMATION",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "Heb 1:1-2",
+        "citation": "Col 3:15a, 16a or Heb 1:1-2",
         "cycle": "B",
         "kind": "ACCLAMATION",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "cf. Acts 16:14b",
+        "citation": "Col 3:15a, 16a or Acts 16:14b",
         "cycle": "C",
         "kind": "ACCLAMATION",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Mt 2:13-15, 19-23",
-        "cycle": null,
+        "cycle": "A",
         "kind": "GOSPEL",
         "source": "usccb"
       },
@@ -716,7 +716,7 @@
         "citation": "Lk 2:22-40 or Lk 2:22, 39-40",
         "cycle": "B",
         "kind": "GOSPEL",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Lk 2:41-52",
@@ -775,7 +775,7 @@
     "number": "19",
     "sections": [
       {
-        "citation": "Sir 24:1-4, 12-16",
+        "citation": "Sir 24:1-2, 8-12",
         "cycle": null,
         "kind": "FIRST_READING",
         "source": "catholic-resources"
@@ -858,85 +858,79 @@
         "citation": "Is 42:1-4, 6-7",
         "cycle": null,
         "kind": "FIRST_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "Is 55:1-11",
+        "citation": "Is 42:1-4, 6-7 or Is 55:1-11",
         "cycle": "B",
         "kind": "FIRST_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "Is 40:1-5, 9-11",
+        "citation": "Is 42:1-4, 6-7 or Is 40:1-5, 9-11",
         "cycle": "C",
         "kind": "FIRST_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "Ps 29:1-2, 3ac and 4, 3b and 9b-10",
+        "citation": "Ps 29:1-2, 3-4, 3, 9-10",
         "cycle": null,
         "kind": "PSALM",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "Is 12:2-3, 4bcd, 5-6",
+        "citation": "Ps 29:1-2, 3-4, 3, 9-10 or Is 12:2-3, 4bcd, 5-6",
         "cycle": "B",
         "kind": "PSALM",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "Ps 104:1b-2, 3-4, 24-25, 27-28, 29b-30",
+        "citation": "Ps 29:1-2, 3-4, 3, 9-10 or Ps 104:1b-2, 3-4, 24-25, 27-28, 29b-30",
         "cycle": "C",
         "kind": "PSALM",
-        "source": "catholic-resources"
-      },
-      {
-        "citation": "Ps 29:1-2, 3-4, 3b and 9b-10",
-        "cycle": "A",
-        "kind": "PSALM",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Acts 10:34-38",
         "cycle": null,
         "kind": "SECOND_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "1 Jn 5:1-9",
+        "citation": "Acts 10:34-38 or 1 Jn 5:1-9",
         "cycle": "B",
         "kind": "SECOND_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "Ti 2:11-14; 3:4-7",
+        "citation": "Acts 10:34-38 or Ti 2:11-14; 3:4-7",
         "cycle": "C",
         "kind": "SECOND_READING",
-        "source": "usccb-calendar"
+        "source": "usccb"
       },
       {
         "citation": "cf. Mk 9:7",
         "cycle": null,
         "kind": "ACCLAMATION",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "cf. Jn 1:29",
+        "citation": "cf. Mk 9:7 or Jn 1:29",
         "cycle": "B",
         "kind": "ACCLAMATION",
         "source": "usccb"
       },
       {
-        "citation": "cf. Lk 3:16",
+        "citation": "cf. Mk 9:7 or Lk 3:16",
         "cycle": "C",
         "kind": "ACCLAMATION",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Mt 3:13-17",
-        "cycle": null,
+        "cycle": "A",
         "kind": "GOSPEL",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Mk 1:7-11",
@@ -1355,7 +1349,7 @@
   },
   "32": {
     "cycle": "B",
-    "key": null,
+    "key": "lent-4-sunday",
     "kind": "sunday",
     "label": "4th Sunday of Lent – B",
     "number": "32",
@@ -1557,51 +1551,33 @@
     "cycle": null,
     "key": "palm-sunday",
     "kind": "sunday",
-    "label": "Palm Sunday of the Passion of the Lord: At the Procession with Palms – ABC",
+    "label": "Palm Sunday of the Passion of the Lord: At the Procession with Palms",
     "number": "37",
     "sections": [
-      {
-        "citation": "Is 50:4-7",
-        "cycle": null,
-        "kind": "FIRST_READING",
-        "source": "usccb"
-      },
-      {
-        "citation": "Ps 22:8-9, 17-18, 19-20, 23-24",
-        "cycle": null,
-        "kind": "PSALM",
-        "source": "usccb"
-      },
-      {
-        "citation": "Phil 2:6-11",
-        "cycle": null,
-        "kind": "SECOND_READING",
-        "source": "usccb"
-      },
       {
         "citation": "Mt 21:1-11",
         "cycle": "A",
         "kind": "GOSPEL",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Mk 11:1-10 or Jn 12:12-16",
         "cycle": "B",
         "kind": "GOSPEL",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Lk 19:28-40",
         "cycle": "C",
         "kind": "GOSPEL",
-        "source": "catholic-resources"
+        "source": "usccb"
       }
     ],
     "variant": "procession"
   },
   "38": {
     "cycle": null,
-    "key": null,
+    "key": "palm-sunday",
     "kind": "sunday",
     "label": "Palm/Passion Sunday: At the Mass – ABC",
     "number": "38",
@@ -1610,19 +1586,19 @@
         "citation": "Is 50:4-7",
         "cycle": null,
         "kind": "FIRST_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Ps 22:8-9, 17-18, 19-20, 23-24",
         "cycle": null,
         "kind": "PSALM",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Phil 2:6-11",
         "cycle": null,
         "kind": "SECOND_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Phil 2:8-9",
@@ -1655,7 +1631,7 @@
     "cycle": null,
     "key": "holy-thursday",
     "kind": "sunday",
-    "label": "Holy Thursday: Evening Mass of the Lord's Supper – Years ABC",
+    "label": "Holy Thursday: Evening Mass of the Lord’s Supper – Years ABC",
     "number": "39",
     "sections": [
       {
@@ -1695,7 +1671,7 @@
     "cycle": null,
     "key": "good-friday",
     "kind": "sunday",
-    "label": "Good Friday of the Lord's Passion – ABC",
+    "label": "Good Friday of the Lord’s Passion – ABC",
     "number": "40",
     "sections": [
       {
@@ -1735,25 +1711,119 @@
     "cycle": null,
     "key": "easter-vigil",
     "kind": "sunday",
-    "label": "Easter Sunday: Resurrection of the Lord; Easter Vigil in the Holy Night – ABC",
+    "label": "Holy Saturday: At the Easter Vigil in the Holy Night of Easter",
     "number": "41",
     "sections": [
       {
         "citation": "Gn 1:1—2:2 or Gn 1:1, 26-31a",
         "cycle": null,
         "kind": "FIRST_READING",
+        "label": "First Reading",
         "source": "usccb"
       },
       {
-        "citation": "Ps 118:1-2, 16-17, 22-23",
+        "citation": "Ps 104:1-2, 5-6, 10, 12, 13-14, 24, 35 or Ps 33:4-5, 6-7, 12-13, 20 and 22",
         "cycle": null,
         "kind": "PSALM",
+        "label": "Responsorial Psalm",
         "source": "usccb"
       },
       {
         "citation": "Gn 22:1-18 or Gn 22:1-2, 9a, 10-13, 15-18",
         "cycle": null,
         "kind": "SECOND_READING",
+        "label": "Second Reading",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 16:5, 8, 9-10, 11",
+        "cycle": null,
+        "kind": "PSALM",
+        "label": "Responsorial Psalm",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ex 14:15—15:1",
+        "cycle": null,
+        "kind": "OTHER",
+        "label": "Third Reading",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ex 15:1-2, 3-4, 5-6, 17-18",
+        "cycle": null,
+        "kind": "PSALM",
+        "label": "Responsorial Psalm",
+        "source": "usccb"
+      },
+      {
+        "citation": "Is 54:5-14",
+        "cycle": null,
+        "kind": "OTHER",
+        "label": "Fourth Reading",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 30:2, 4, 5-6, 11-12, 13",
+        "cycle": null,
+        "kind": "PSALM",
+        "label": "Responsorial Psalm",
+        "source": "usccb"
+      },
+      {
+        "citation": "Is 55:1-11",
+        "cycle": null,
+        "kind": "OTHER",
+        "label": "Fifth Reading",
+        "source": "usccb"
+      },
+      {
+        "citation": "Is 12:2-3, 4, 5-6",
+        "cycle": null,
+        "kind": "PSALM",
+        "label": "Responsorial Psalm",
+        "source": "usccb"
+      },
+      {
+        "citation": "Bar 3:9-15, 32—4:4",
+        "cycle": null,
+        "kind": "OTHER",
+        "label": "Sixth Reading",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 19:8, 9, 10, 11",
+        "cycle": null,
+        "kind": "PSALM",
+        "label": "Responsorial Psalm",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ez 36:16-17a, 18-28",
+        "cycle": null,
+        "kind": "OTHER",
+        "label": "Seventh Reading",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 42:3, 5; 43:3, 4 or Is 12:2-3, 4bcd, 5-6 or Ps 51:12-13, 14-15, 18-19",
+        "cycle": null,
+        "kind": "PSALM",
+        "label": "Responsorial Psalm",
+        "source": "usccb"
+      },
+      {
+        "citation": "Rom 6:3-11",
+        "cycle": null,
+        "kind": "OTHER",
+        "label": "Epistle",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 118:1-2, 16-17, 22-23",
+        "cycle": null,
+        "kind": "PSALM",
+        "label": "Responsorial Psalm",
         "source": "usccb"
       },
       {
@@ -1775,13 +1845,13 @@
         "source": "usccb"
       }
     ],
-    "variant": "vigil"
+    "variant": null
   },
   "42": {
     "cycle": null,
     "key": "easter-sunday",
     "kind": "sunday",
-    "label": "Easter Sunday: Resurrection of the Lord; Mass of Easter Day – ABC",
+    "label": "Easter Sunday of the Resurrection of the Lord: At the Mass during the Day",
     "number": "42",
     "sections": [
       {
@@ -1809,13 +1879,25 @@
         "source": "usccb"
       },
       {
-        "citation": "Jn 20:1-9 or Lk 24:13-35",
-        "cycle": null,
+        "citation": "Jn 20:1-9 or Mt 28:1-10 or Lk 24:13-35",
+        "cycle": "A",
         "kind": "GOSPEL",
-        "source": "catholic-resources"
+        "source": "usccb"
+      },
+      {
+        "citation": "Jn 20:1-9 or Mk 16:1-7 or Lk 24:13-35",
+        "cycle": "B",
+        "kind": "GOSPEL",
+        "source": "usccb"
+      },
+      {
+        "citation": "Jn 20:1-9 or Lk 24:1-12 or Lk 24:13-35",
+        "cycle": "C",
+        "kind": "GOSPEL",
+        "source": "usccb"
       }
     ],
-    "variant": "day"
+    "variant": null
   },
   "43": {
     "cycle": "A",
@@ -2437,16 +2519,16 @@
         "source": "usccb"
       },
       {
-        "citation": "Eph 4:1-13 or Eph 4:1-7, 11-13",
+        "citation": "Eph 1:17-23 or Eph 4:1-13 or Eph 4:1-7, 11-13",
         "cycle": "B",
         "kind": "SECOND_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "Heb 9:24-28; 10:19-23",
+        "citation": "Eph 1:17-23 or Heb 9:24-28; 10:19-23",
         "cycle": "C",
         "kind": "SECOND_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Mt 28:19a and 20b",
@@ -2599,7 +2681,7 @@
     "cycle": null,
     "key": "pentecost",
     "kind": "sunday",
-    "label": "Pentecost Sunday: At the Vigil Mass – ABC",
+    "label": "Pentecost Sunday: At the Vigil Mass",
     "number": "62",
     "sections": [
       {
@@ -2629,11 +2711,90 @@
     ],
     "variant": "vigil"
   },
+  "62-extended": {
+    "cycle": null,
+    "key": "pentecost",
+    "kind": "sunday",
+    "label": "Pentecost Sunday: At the Extended Vigil",
+    "number": "62-extended",
+    "sections": [
+      {
+        "citation": "Gn 11:1-9",
+        "cycle": null,
+        "kind": "FIRST_READING",
+        "label": "First Reading",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 33:10-11, 12-13, 14-15",
+        "cycle": null,
+        "kind": "PSALM",
+        "label": "Responsorial Psalm",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ex 19:3-8a, 16-20b",
+        "cycle": null,
+        "kind": "SECOND_READING",
+        "label": "Second Reading",
+        "source": "usccb"
+      },
+      {
+        "citation": "Dn 3:52, 53, 54, 55, 56",
+        "cycle": null,
+        "kind": "PSALM",
+        "label": "Responsorial Psalm",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ez 37:1-14",
+        "cycle": null,
+        "kind": "OTHER",
+        "label": "Third Reading",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 107:2-3, 4-5, 6-7, 8-9",
+        "cycle": null,
+        "kind": "PSALM",
+        "label": "Responsorial Psalm",
+        "source": "usccb"
+      },
+      {
+        "citation": "Jl 3:1-5",
+        "cycle": null,
+        "kind": "OTHER",
+        "label": "Fourth Reading",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 104:1-2, 24 and 35, 27-28, 29-30",
+        "cycle": null,
+        "kind": "PSALM",
+        "label": "Responsorial Psalm",
+        "source": "usccb"
+      },
+      {
+        "citation": "Rom 8:22-27",
+        "cycle": null,
+        "kind": "OTHER",
+        "label": "Epistle",
+        "source": "usccb"
+      },
+      {
+        "citation": "Jn 7:37-39",
+        "cycle": null,
+        "kind": "GOSPEL",
+        "source": "usccb"
+      }
+    ],
+    "variant": "extended-vigil"
+  },
   "63": {
     "cycle": null,
     "key": "pentecost",
     "kind": "sunday",
-    "label": "Pentecost Sunday: Mass during the Day – A",
+    "label": "Pentecost Sunday: At the Mass during the Day",
     "number": "63",
     "sections": [
       {
@@ -2643,46 +2804,46 @@
         "source": "usccb"
       },
       {
-        "citation": "Ps 104:1 and 24, 29-30, 31 and 34",
+        "citation": "Ps 104:1, 24, 29-30, 31, 34",
         "cycle": null,
         "kind": "PSALM",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "1 Cor 12:3b-7, 12-13",
-        "cycle": "A",
+        "cycle": null,
         "kind": "SECOND_READING",
         "source": "usccb"
       },
       {
-        "citation": "Gal 5:16-25",
+        "citation": "1 Cor 12:3b-7, 12-13 or Gal 5:16-25",
         "cycle": "B",
         "kind": "SECOND_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "Rom 8:8-17",
+        "citation": "1 Cor 12:3b-7, 12-13 or Rom 8:8-17",
         "cycle": "C",
         "kind": "SECOND_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Jn 20:19-23",
-        "cycle": "A",
+        "cycle": null,
         "kind": "GOSPEL",
         "source": "usccb"
       },
       {
-        "citation": "Jn 15:26-27; 16:12-15",
+        "citation": "Jn 20:19-23 or Jn 15:26-27; 16:12-15",
         "cycle": "B",
         "kind": "GOSPEL",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
-        "citation": "Jn 14:15-16, 23b-26",
+        "citation": "Jn 20:19-23 or Jn 14:15-16, 23b-26",
         "cycle": "C",
         "kind": "GOSPEL",
-        "source": "catholic-resources"
+        "source": "usccb"
       }
     ],
     "variant": "day"
@@ -2851,7 +3012,7 @@
     "cycle": "B",
     "key": "ordinary-3-sunday",
     "kind": "sunday",
-    "label": "3rd Sunday in Ordinary Time - B: Sunday of the Word of God*",
+    "label": "3rd Sunday in Ordinary Time - B: Sunday of the Word of God *",
     "number": "68",
     "sections": [
       {
@@ -2891,7 +3052,7 @@
     "cycle": "C",
     "key": "ordinary-3-sunday",
     "kind": "sunday",
-    "label": "3rd Sunday in Ordinary Time - C: Sunday of the Word of God*",
+    "label": "3rd Sunday in Ordinary Time - C: Sunday of the Word of God *",
     "number": "69",
     "sections": [
       {
@@ -3011,7 +3172,7 @@
     "cycle": "C",
     "key": "ordinary-4-sunday",
     "kind": "sunday",
-    "label": "4th Sunday in Ordinary Time - C [ 2025: Presentation of the Lord ]",
+    "label": "4th Sunday in Ordinary Time - C",
     "number": "72",
     "sections": [
       {
@@ -3211,7 +3372,7 @@
     "cycle": "B",
     "key": "ordinary-6-sunday",
     "kind": "sunday",
-    "label": "6th Sunday in Ordinary Time - B [omit in 2027]",
+    "label": "6th Sunday in Ordinary Time - B",
     "number": "77",
     "sections": [
       {
@@ -3291,7 +3452,7 @@
     "cycle": "A",
     "key": "ordinary-7-sunday",
     "kind": "sunday",
-    "label": "7th Sunday in Ordinary Time - A [ omitted in 2026 ]",
+    "label": "7th Sunday in Ordinary Time - A",
     "number": "79",
     "sections": [
       {
@@ -3331,7 +3492,7 @@
     "cycle": "B",
     "key": null,
     "kind": "sunday",
-    "label": "7th Sunday in Ordinary Time - B [2024: Pentecost Sunday ]",
+    "label": "7th Sunday in Ordinary Time - B",
     "number": "80",
     "sections": [
       {
@@ -3411,7 +3572,7 @@
     "cycle": "A",
     "key": null,
     "kind": "sunday",
-    "label": "8th Sunday in Ordinary Time - A [ 2026: Pentecost ]",
+    "label": "8th Sunday in Ordinary Time - A",
     "number": "82",
     "sections": [
       {
@@ -3451,7 +3612,7 @@
     "cycle": "B",
     "key": null,
     "kind": "sunday",
-    "label": "8th Sunday in Ordinary Time - B [2024: Most Holy Trinity ]",
+    "label": "8th Sunday in Ordinary Time - B",
     "number": "83",
     "sections": [
       {
@@ -3529,9 +3690,9 @@
   },
   "85": {
     "cycle": "A",
-    "key": null,
+    "key": "ordinary-9-sunday",
     "kind": "sunday",
-    "label": "9th Sunday in Ordinary Time - A [ 2026: Most Holy Trinity ]",
+    "label": "9th Sunday in Ordinary Time - A",
     "number": "85",
     "sections": [
       {
@@ -3569,9 +3730,9 @@
   },
   "86": {
     "cycle": "B",
-    "key": null,
+    "key": "ordinary-9-sunday",
     "kind": "sunday",
-    "label": "9th Sunday in Ordinary Time - B [2024: Body & Blood of Christ ]",
+    "label": "9th Sunday in Ordinary Time - B",
     "number": "86",
     "sections": [
       {
@@ -3605,7 +3766,7 @@
     "cycle": "C",
     "key": "ordinary-9-sunday",
     "kind": "sunday",
-    "label": "9th Sunday in Ordinary Time - C [ 2025: omitted ]",
+    "label": "9th Sunday in Ordinary Time - C",
     "number": "87",
     "sections": [
       {
@@ -3645,7 +3806,7 @@
     "cycle": "A",
     "key": null,
     "kind": "sunday",
-    "label": "10th Sunday in Ordinary Time - A [ 2026: Body & Blood of Christ ]",
+    "label": "10th Sunday in Ordinary Time - A",
     "number": "88",
     "sections": [
       {
@@ -3725,7 +3886,7 @@
     "cycle": "C",
     "key": null,
     "kind": "sunday",
-    "label": "10th Sunday in Ordinary Time - C [ 2025: Pentecost Sunday ]",
+    "label": "10th Sunday in Ordinary Time - C",
     "number": "90",
     "sections": [
       {
@@ -3839,7 +4000,7 @@
     "cycle": "C",
     "key": null,
     "kind": "sunday",
-    "label": "11th Sunday in Ordinary Time - C [ 2025: Most Holy Trinity ]",
+    "label": "11th Sunday in Ordinary Time - C",
     "number": "93",
     "sections": [
       {
@@ -3959,7 +4120,7 @@
     "cycle": "C",
     "key": "ordinary-12-sunday",
     "kind": "sunday",
-    "label": "12th Sunday in Ordinary Time - C [ 2025: Corpus Christi / Body & Blood of Christ ]",
+    "label": "12th Sunday in Ordinary Time - C",
     "number": "96",
     "sections": [
       {
@@ -4079,7 +4240,7 @@
     "cycle": "C",
     "key": null,
     "kind": "sunday",
-    "label": "13th Sunday in Ordinary Time - C [ 2025: Saints Peter & Paul ]",
+    "label": "13th Sunday in Ordinary Time - C",
     "number": "99",
     "sections": [
       {
@@ -4873,7 +5034,7 @@
     "cycle": "B",
     "key": "ordinary-20-sunday",
     "kind": "sunday",
-    "label": "20th Sunday in Ordinary Time - B [Assumption BVM in 2027]",
+    "label": "20th Sunday in Ordinary Time - B",
     "number": "119",
     "sections": [
       {
@@ -5393,7 +5554,7 @@
     "cycle": "C",
     "key": "ordinary-24-sunday",
     "kind": "sunday",
-    "label": "24th Sunday in Ordinary Time - C [ 2025: Exaltation of the Holy Cross ]",
+    "label": "24th Sunday in Ordinary Time - C",
     "number": "132",
     "sections": [
       {
@@ -6153,7 +6314,7 @@
     "cycle": "A",
     "key": "ordinary-31-sunday",
     "kind": "sunday",
-    "label": "31st Sunday in Ordinary Time - A [ 2026: All Saints ]",
+    "label": "31st Sunday in Ordinary Time - A",
     "number": "151",
     "sections": [
       {
@@ -6233,7 +6394,7 @@
     "cycle": "C",
     "key": "ordinary-31-sunday",
     "kind": "sunday",
-    "label": "31st Sunday in Ordinary Time - C [ 2025: All Faithful Departed / All Souls ]",
+    "label": "31st Sunday in Ordinary Time - C",
     "number": "153",
     "sections": [
       {
@@ -6353,7 +6514,7 @@
     "cycle": "C",
     "key": null,
     "kind": "sunday",
-    "label": "32nd Sunday in Ordinary Time - C [ 2025: Dedication of the Lateran Basilica ]",
+    "label": "32nd Sunday in Ordinary Time - C",
     "number": "156",
     "sections": [
       {
@@ -6753,7 +6914,7 @@
     "cycle": "A",
     "key": "corpus-christi",
     "kind": "sunday",
-    "label": "Sunday after Trinity Sunday : Solemnity of the Most Holy Body and Blood of Christ ( formerly called \"Corpus Christi\" ) - A",
+    "label": "Sunday after Trinity Sunday : Solemnity of the Most Holy Body and Blood of Christ ( formerly called “Corpus Christi” ) - A",
     "number": "167",
     "sections": [
       {
@@ -6999,6 +7160,12 @@
       {
         "citation": "Is 2:1-5",
         "cycle": null,
+        "kind": "FIRST_READING",
+        "source": "usccb"
+      },
+      {
+        "citation": "Is 4:2-6",
+        "cycle": "A",
         "kind": "FIRST_READING",
         "source": "usccb"
       },
@@ -7905,7 +8072,7 @@
     "cycle": null,
     "key": "christmas-0104",
     "kind": "weekday",
-    "label": "Jan. 4 (Memorial of St. Elizabeth Ann Seton, #510A)",
+    "label": "[Jan. 4] (Memorial of St. Elizabeth Ann Seton, #510A - not in 2027 )",
     "number": "207",
     "sections": [
       {
@@ -7939,7 +8106,7 @@
     "cycle": null,
     "key": "christmas-0105",
     "kind": "weekday",
-    "label": "Jan. 5 (Memorial of St. John Neumann, #510B)",
+    "label": "[Jan. 5] (Memorial of St. John Neumann, #510B - not in 2027 )",
     "number": "208",
     "sections": [
       {
@@ -9037,7 +9204,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 26:1, 7-8a, 8b-9abc, 13-14",
+        "citation": "Ps 27:1, 7-8a, 8b-9abc, 13-14",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -9163,7 +9330,7 @@
     "cycle": null,
     "key": "lent-4-thursday",
     "kind": "weekday",
-    "label": "4th Week of Lent – Thurs [ 2026 : St. Joseph]",
+    "label": "4th Week of Lent – Thurs",
     "number": "247",
     "sections": [
       {
@@ -9321,10 +9488,16 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Jn 8:1-11 or Jn 8:12-20",
+        "citation": "Jn 8:1-11",
         "cycle": null,
         "kind": "GOSPEL",
-        "source": "catholic-resources"
+        "source": "usccb"
+      },
+      {
+        "citation": "Jn 8:12-20",
+        "cycle": "C",
+        "kind": "GOSPEL",
+        "source": "usccb"
       }
     ],
     "variant": null
@@ -9361,7 +9534,7 @@
     "cycle": null,
     "key": "lent-5-wednesday",
     "kind": "weekday",
-    "label": "5th Week of Lent – Wed [ 2026 : Annunciation]",
+    "label": "5th Week of Lent – Wed",
     "number": "253",
     "sections": [
       {
@@ -9995,7 +10168,7 @@
     "cycle": null,
     "key": "easter-2-saturday",
     "kind": "weekday",
-    "label": "2nd Week of Easter - Sat [2025: Sts. Philip & James]",
+    "label": "2nd Week of Easter - Sat",
     "number": "272",
     "sections": [
       {
@@ -10249,10 +10422,16 @@
         "source": "usccb"
       },
       {
-        "citation": "Jn 10:1-10 or Jn 10:11-18",
+        "citation": "Jn 10:1-10",
         "cycle": null,
         "kind": "GOSPEL",
-        "source": "catholic-resources"
+        "source": "usccb"
+      },
+      {
+        "citation": "Jn 10:11-18",
+        "cycle": "A",
+        "kind": "GOSPEL",
+        "source": "usccb"
       }
     ],
     "variant": null
@@ -10295,7 +10474,7 @@
     "cycle": null,
     "key": "easter-4-wednesday",
     "kind": "weekday",
-    "label": "4th Week of Easter - Wed [2025: St. Matthias]",
+    "label": "4th Week of Easter - Wed",
     "number": "281",
     "sections": [
       {
@@ -10805,7 +10984,7 @@
     "cycle": null,
     "key": "easter-6-saturday",
     "kind": "weekday",
-    "label": "6th Week of Easter - Sat [2025: Visitation of BVM]",
+    "label": "6th Week of Easter - Sat",
     "number": "296",
     "sections": [
       {
@@ -11060,9 +11239,15 @@
       },
       {
         "citation": "Ps 97:1 and 2b, 6 and 7c, 9",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 116:12-13, 14-17, 18-19",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Mk 1:15",
@@ -11093,14 +11278,20 @@
         "source": "usccb"
       },
       {
-        "citation": "1 Sm 1:9-22",
+        "citation": "1 Sm 1:9-20",
         "cycle": "II",
         "kind": "FIRST_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Ps 8:2ab and 5, 6-7, 8-9",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "1 Sm 2:1, 4-5, 6-7, 8abcd",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11133,14 +11324,20 @@
         "source": "usccb"
       },
       {
-        "citation": "1 Sm 3:1-10, 19-22",
+        "citation": "1 Sm 3:1-10, 19-20",
         "cycle": "II",
         "kind": "FIRST_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Ps 105:1-2, 3-4, 6-7, 8-9",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 40:2 and 5, 7-8a, 8b-9, 10",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11180,7 +11377,13 @@
       },
       {
         "citation": "Ps 95:6-7c, 8-9, 10-11",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 44:10-11, 14-15, 24-25",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11220,7 +11423,13 @@
       },
       {
         "citation": "Ps 78:3 and 4bc, 6c-7, 8",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 89:16-17, 18-19",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11260,7 +11469,13 @@
       },
       {
         "citation": "Ps 19:8, 9, 10, 15",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 21:2-3, 4-5, 6-7",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11300,7 +11515,13 @@
       },
       {
         "citation": "Ps 110:1, 2, 3, 4",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 50:8-9, 16bc-17, 21 and 23",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11340,7 +11561,13 @@
       },
       {
         "citation": "Ps 111:1-2, 4-5, 9 and 10c",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 89:20, 21-22, 27-28",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11380,7 +11607,13 @@
       },
       {
         "citation": "Ps 110:1, 2, 3, 4",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 144:1b, 2, 9-10",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11420,7 +11653,13 @@
       },
       {
         "citation": "Ps 40:7-8a, 8b-9, 10, 17",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 56:2-3, 9-10a, 10b-11, 12-13",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11460,7 +11699,13 @@
       },
       {
         "citation": "Ps 85:8 and 10, 11-12, 13-14",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 57:2, 3-4, 6 and 11",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11500,7 +11745,13 @@
       },
       {
         "citation": "Ps 47:2-3, 6-7, 8-9",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 80:2-3, 5-7",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11540,7 +11791,13 @@
       },
       {
         "citation": "Ps 98:1, 2-3ab, 3cd-4, 5-6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 89:20, 21-22, 25-26",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11579,8 +11836,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 40:2 and 4ab, 7-8a, 10, 11",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 24:7, 8, 9, 10",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11620,7 +11883,13 @@
       },
       {
         "citation": "Ps 110:1, 2, 3, 4",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 89:4-5, 27-28, 29-30",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11654,9 +11923,15 @@
       },
       {
         "citation": "Ps 24:1-2, 3-4ab, 5-6",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 132:1-2, 3-5, 11, 12, 13-14",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Ps 119:105",
@@ -11694,9 +11969,15 @@
       },
       {
         "citation": "Ps 37:3-4, 5-6, 23-24, 39-40",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 51:3-4, 5-6a, 6bcd-7, 10-11",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Mt 11:25",
@@ -11734,7 +12015,13 @@
       },
       {
         "citation": "Lk 1:69-70, 71-72, 73-75",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 51:12-13, 14-15, 16-17",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11774,7 +12061,13 @@
       },
       {
         "citation": "Ps 31:20, 21, 22, 23, 24",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 3:2-3, 4-5, 6-7",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11814,7 +12107,13 @@
       },
       {
         "citation": "Ps 22:26b-27, 28 and 30, 31-32",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 86:1-2, 3-4, 5-6",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11854,7 +12153,13 @@
       },
       {
         "citation": "Ps 103:1-2, 13-14, 17-18a",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 32:1-2, 5, 6, 7",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11894,9 +12199,15 @@
       },
       {
         "citation": "Ps 48:2-3ab, 3cd-4, 9, 10-11",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "1 Chr 29:10bcd, 11ab, 11d-12a, 12bcd",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Mk 1:15",
@@ -11934,7 +12245,13 @@
       },
       {
         "citation": "Ps 27:1, 3, 5, 8b-9abc",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 18:31, 47 and 50, 51",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -11974,7 +12291,13 @@
       },
       {
         "citation": "Ps 23:1-3a, 3b-4, 5, 6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 119:9, 10, 11, 12, 13, 14",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12014,7 +12337,13 @@
       },
       {
         "citation": "Ps 104:1-2a, 5-6, 10 and 12, 24 and 35c",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 132:6-7, 8-10",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12054,7 +12383,13 @@
       },
       {
         "citation": "Ps 8:4-5, 6-7, 8-9",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 84:3, 4, 5 and 10, 11",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12094,7 +12429,13 @@
       },
       {
         "citation": "Ps 104:1-2a, 27-28, 29bc-30",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 37:5-6, 30-31, 39-40",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12134,7 +12475,13 @@
       },
       {
         "citation": "Ps 128:1-2, 3, 4-5",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 106:3-4, 35-36, 37 and 40",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12174,7 +12521,13 @@
       },
       {
         "citation": "Ps 32:1-2, 5, 6, 7",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 81:10-11ab, 12-13, 14-15",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12214,7 +12567,13 @@
       },
       {
         "citation": "Ps 90:2, 3-4abc, 5-6, 12-13",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 106:6-7ab, 19-20, 21-22",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12253,8 +12612,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 50:1 and 8, 16bc-17, 20-21",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 119:67, 68, 71, 72, 75, 76",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12293,8 +12658,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 29:1a and 2, 3ac-4, 3b and 9c-10",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 94:12-13a, 14-15, 18-19",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12334,9 +12705,15 @@
       },
       {
         "citation": "Ps 116:12-13, 14-15, 18-19",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 15:2-3a, 3bc-4ab, 5",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "cf. Eph 1:17-18",
@@ -12374,9 +12751,15 @@
       },
       {
         "citation": "Ps 102:16-18, 19-21, 29 and 22-23",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 34:2-3, 4-5, 6-7",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "cf. Jn 6:63c, 68c",
@@ -12414,9 +12797,15 @@
       },
       {
         "citation": "Ps 33:10-11, 12-13, 14-15",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 112:1-2, 3-4, 5-6",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Jn 15:15b",
@@ -12454,9 +12843,15 @@
       },
       {
         "citation": "Ps 145:2-3, 4-5, 10-11",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 12:2-3, 4-5, 7-8",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Mk 9:6",
@@ -12494,9 +12889,15 @@
       },
       {
         "citation": "Ps 93:1ab, 1cd-2, 5",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 19:8, 9, 10, 15",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "2 Tm 1:10",
@@ -12534,7 +12935,13 @@
       },
       {
         "citation": "Ps 37:3-4, 18-19, 27-28, 39-40",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 55:7-8, 9-10a, 10b-11a, 23",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12574,7 +12981,13 @@
       },
       {
         "citation": "Ps 119:165, 168, 171, 172, 174, 175",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 49:2-3, 6-7, 8-10, 11",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12614,7 +13027,13 @@
       },
       {
         "citation": "Ps 1:1-4, 6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 49:14-15ab, 15cd-16, 17-18, 19-20",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12654,7 +13073,13 @@
       },
       {
         "citation": "Ps 119:12, 16, 18, 27, 34, 35",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 103:1-2, 3-4, 8-9, 11-12",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12687,16 +13112,22 @@
         "source": "usccb"
       },
       {
-        "citation": "Jas 5:13-22",
+        "citation": "Jas 5:13-20",
         "cycle": "II",
         "kind": "FIRST_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Ps 103:13-14, 15-16, 17-18a",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "catholic-resources"
+      },
+      {
+        "citation": "Ps 141:1-2, 3 and 8",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "usccb"
       },
       {
         "citation": "Mt 11:25",
@@ -12734,7 +13165,13 @@
       },
       {
         "citation": "Ps 32:1-2, 5, 6, 7",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 111:1-2, 5-6, 9 and 10c",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12774,7 +13211,13 @@
       },
       {
         "citation": "Ps 50:5-6, 7-8, 14 and 23",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 98:1, 2-3ab, 3cd-4",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12813,8 +13256,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 79:8, 9, 11 and 13",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 147:12-13, 14-15, 19-20",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12854,7 +13303,13 @@
       },
       {
         "citation": "Ps 33:2-3, 4-5, 6-7, 8-9",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 100:2, 3, 4, 5",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12894,9 +13349,15 @@
       },
       {
         "citation": "Ps 149:1b-2, 3-4, 5-6a and 9b",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 96:10, 11-12, 13",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "cf. Jn 15:16",
@@ -12934,7 +13395,13 @@
       },
       {
         "citation": "Ps 19:8, 9, 10, 11",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 63:2, 3-4, 5-6",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -12974,9 +13441,15 @@
       },
       {
         "citation": "Ps 112:1b-2, 3b-4, 5-6",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 91:1-2, 14-15ab, 15c-16",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "cf. Rv 1:5ab",
@@ -13014,7 +13487,13 @@
       },
       {
         "citation": "Ps 112:1-2, 7-8, 9",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 90:2, 3-4, 10, 14 and 16",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13054,7 +13533,13 @@
       },
       {
         "citation": "Ps 25:2-3, 4-5ab, 6 and 7bc, 8-9",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 123:1b-2ab, 2cdef",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13094,7 +13579,13 @@
       },
       {
         "citation": "Ps 128:1-2, 3, 4-5",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 25:4-5ab, 8-9, 10 and 14",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13134,9 +13625,15 @@
       },
       {
         "citation": "Ps 146:1b-2, 6c-7, 8-9a, 9bc-10",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 119:157, 160, 161, 165, 166, 168",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Jn 14:23",
@@ -13173,19 +13670,25 @@
         "source": "usccb"
       },
       {
-        "citation": "Ps 71:8-9, 14-15ab, 16-17, 22",
-        "cycle": null,
+        "citation": "Tb 13:2, 6efgh, 7, 8",
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
       },
       {
-        "citation": "cf. Lk 2:19",
+        "citation": "Ps 71:8-9, 14-15ab, 16-17, 22",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Mt 5:3",
         "cycle": null,
         "kind": "ACCLAMATION",
         "source": "usccb"
       },
       {
-        "citation": "Lk 2:41-51",
+        "citation": "Mk 12:38-44",
         "cycle": null,
         "kind": "GOSPEL",
         "source": "usccb"
@@ -13213,8 +13716,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 34:2-3, 4-5, 6-7, 8-9",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 121:1bc-2, 3-4, 5-6, 7-8",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13254,9 +13763,15 @@
       },
       {
         "citation": "Ps 119:129, 130, 131, 132, 133, 135",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 4:2-3, 4-5, 7b-8",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Mt 5:16",
@@ -13293,10 +13808,16 @@
         "source": "usccb"
       },
       {
-        "citation": "Ps 16:1b-2ab, 4, 5ab and 8, 11",
-        "cycle": null,
+        "citation": "Ps 99:5, 6, 7, 8, 9",
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 16:1-2ab, 4, 5ab and 8, 11",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Ps 25:4b, 5a",
@@ -13334,7 +13855,13 @@
       },
       {
         "citation": "Ps 85:9ab and 10, 11-12, 13-14",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 65:10, 11, 12-13",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13374,7 +13901,13 @@
       },
       {
         "citation": "Ps 116:10-11, 15-16, 17-18",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 27:7-8a, 8b-9abc, 13-14",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13414,7 +13947,13 @@
       },
       {
         "citation": "Ps 103:1-2, 3-4, 9-10, 11-12",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 16:1b-2a and 5, 7-8, 9-10",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13454,7 +13993,13 @@
       },
       {
         "citation": "Ps 98:1, 2b, 3ab, 3cd-4",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 5:2-3ab, 4b-6a, 6b-7",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13494,7 +14039,13 @@
       },
       {
         "citation": "Ps 146:2, 5-6ab, 6c-7, 8-9a",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 51:3-4, 5-6ab, 11 and 16",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13534,7 +14085,13 @@
       },
       {
         "citation": "Ps 112:1bc-2, 3-4, 9",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 31:20, 21, 24",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13574,7 +14131,13 @@
       },
       {
         "citation": "Ps 111:1b-2, 3-4, 7-8",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 97:1-2, 3-4, 5-6, 7",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13614,7 +14177,13 @@
       },
       {
         "citation": "Ps 34:2-3, 4-5, 6-7",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 132:11, 12, 13-14, 17-18",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13654,7 +14223,13 @@
       },
       {
         "citation": "Ps 34:8-9, 10-11, 12-13",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 89:4-5, 29-30, 31-32, 33-34",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13694,9 +14269,15 @@
       },
       {
         "citation": "Ps 33:12-13, 18-19, 20 and 22",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 60:3, 4-5, 12-13",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Heb 4:12",
@@ -13734,7 +14315,13 @@
       },
       {
         "citation": "Ps 15:2-3a, 3bc-4ab, 5",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 48:2-3ab, 3cd-4, 10-11",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13774,7 +14361,13 @@
       },
       {
         "citation": "Ps 105:1-2, 3-4, 6-7, 8-9",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 119:33, 34, 35, 36, 37, 40",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13814,7 +14407,13 @@
       },
       {
         "citation": "Ps 106:1b-2, 3-4a, 4b-5",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 79:1b-2, 3-5, 8, 9",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13854,7 +14453,13 @@
       },
       {
         "citation": "Ps 128:1-2, 3, 4-5",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 137:1-2, 3, 4-5, 6",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13894,7 +14499,13 @@
       },
       {
         "citation": "Lk 1:46-47, 48-49, 50 and 53, 54-55",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 74:1b-2, 3-5, 6-7, 20-21",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13934,7 +14545,13 @@
       },
       {
         "citation": "Ps 103:1b-2, 3-4, 8-9, 10-11",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 50:16bc-17, 18-19, 20-21, 22-23",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -13974,7 +14591,13 @@
       },
       {
         "citation": "Ps 26:2-3, 9-10, 11-12",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 5:4b-6a, 6b-7, 8",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14014,7 +14637,13 @@
       },
       {
         "citation": "Ps 34:7-8, 10-11, 12-13",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 50:7, 8-9, 10-11, 12-13, 16bc-17",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14053,8 +14682,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 115:1-2, 3-4, 5-6, 8-9",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 19:8, 9, 10, 11",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14094,7 +14729,13 @@
       },
       {
         "citation": "Ps 106:1b-2, 3-4a, 4b-5",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 119:2, 10, 20, 30, 40, 131",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14134,7 +14775,13 @@
       },
       {
         "citation": "Ps 135:1b-2, 3-4, 5-6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 85:9ab and 10, 11-12, 13-14",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14173,8 +14820,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 91:1-2, 3-4, 14-15ab",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 145:2-3, 4-5, 6-7, 8-9",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14213,8 +14866,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 17:1b, 2-3, 6-7ab, 8b and 15",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 115:3-4, 5-6, 7ab-8, 9-10",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14253,8 +14912,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 33:2-3, 10-11, 18-19",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 105:2-3, 4-5, 6-7",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14294,7 +14959,13 @@
       },
       {
         "citation": "Ps 105:16-17, 18-19, 20-21",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 80:2ac and 3b, 15-16",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14334,7 +15005,13 @@
       },
       {
         "citation": "Ps 37:3-4, 18-19, 27-28, 39-40",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 51:3-4, 8-9, 12-13, 14 and 17",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14374,7 +15051,13 @@
       },
       {
         "citation": "Ps 105:1-2, 3-4, 6-7",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 93:1ab, 1cd-2, 5",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14414,7 +15097,13 @@
       },
       {
         "citation": "Ps 124:1b-3, 4-6, 7-8",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 50:8-9, 16bc-17, 21 and 23",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14453,8 +15142,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 69:3, 14, 30-31, 33-34",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 48:2-3a, 3b-4, 5-6, 7-8",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14494,7 +15189,13 @@
       },
       {
         "citation": "Ps 103:1b-2, 3-4, 6-7",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 94:5-6, 7-8, 9-10, 14-15",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14533,8 +15234,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 105:1 and 5, 8-9, 24-25, 26-27",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 102:13-14ab and 15, 16-18, 19-21",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14573,8 +15280,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 116:12-13, 15 and 16bc, 17-18",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Is 38:10, 11, 12abcd, 16",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14613,8 +15326,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 136:1 and 23-24, 10-12, 13-15",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 10:1-2, 3-4, 7-8, 14",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14654,9 +15373,15 @@
       },
       {
         "citation": "Ex 15:1bc-2, 3-4, 5-6",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 50:5-6, 8-9, 16bc-17, 21 and 23",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Ps 95:8",
@@ -14687,14 +15412,20 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Mi 7:14-15, 18-22",
+        "citation": "Mi 7:14-15, 18-20",
         "cycle": "II",
         "kind": "FIRST_READING",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ex 15:8-9, 10 and 12, 17",
+        "cycle": "I",
+        "kind": "PSALM",
         "source": "catholic-resources"
       },
       {
         "citation": "Ps 85:2-4, 5-6, 7-8",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14734,7 +15465,13 @@
       },
       {
         "citation": "Ps 78:18-19, 23-24, 25-26, 27-28",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 71:1-2, 3-4a, 5-6ab, 15 and 17",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14768,7 +15505,13 @@
       },
       {
         "citation": "Dn 3:52, 53, 54, 55, 56",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 36:6-7ab, 8-9, 10-11",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14807,8 +15550,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 19:8, 9, 10, 11",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Jer 31:10, 11-12abcd, 13",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14848,7 +15597,13 @@
       },
       {
         "citation": "Ps 50:1b-2, 5-6, 14-15",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 84:3, 4, 5-6a and 8a, 11",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14859,7 +15614,7 @@
         "source": "usccb"
       },
       {
-        "citation": "Jn 11:19-27 or Lk 10:38-42",
+        "citation": "Mt 13:24-30",
         "cycle": null,
         "kind": "GOSPEL",
         "source": "usccb"
@@ -14887,8 +15642,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 106:19-20, 21-22, 23",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Dt 32:18-19, 20, 21",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -14928,14 +15689,14 @@
       },
       {
         "citation": "Ps 103:6-7, 8-9, 10-11, 12-13",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
       },
       {
-        "citation": "Jn 8:12",
-        "cycle": null,
-        "kind": "ACCLAMATION",
+        "citation": "Ps 79:8, 9, 11 and 13",
+        "cycle": "II",
+        "kind": "PSALM",
         "source": "usccb"
       },
       {
@@ -14967,8 +15728,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 99:5, 6, 7, 9",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 59:2-3, 4, 10-11, 17, 18",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15007,8 +15774,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 84:3, 4, 5-6a and 8a, 11",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 146:1b-2, 3-4, 5-6ab",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15047,8 +15820,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 81:3-4, 5-6ab, 10-11ab",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "catholic-resources"
+      },
+      {
         "citation": "Ps 69:5, 8-10, 14",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15088,7 +15867,13 @@
       },
       {
         "citation": "Ps 67:2-3, 5, 7-8",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 69:15-16, 30-31, 33-34",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15127,8 +15912,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 81:12-13, 14-15, 16-17",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 119:29, 43, 79, 80, 95, 102",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15139,10 +15930,22 @@
         "source": "usccb"
       },
       {
-        "citation": "Mt 14:13-21 or Mt 14:22-36",
+        "citation": "Jn 1:49b",
+        "cycle": "A",
+        "kind": "ACCLAMATION",
+        "source": "usccb"
+      },
+      {
+        "citation": "Mt 14:13-21",
         "cycle": null,
         "kind": "GOSPEL",
-        "source": "catholic-resources"
+        "source": "usccb"
+      },
+      {
+        "citation": "Mt 14:22-36",
+        "cycle": "A",
+        "kind": "GOSPEL",
+        "source": "usccb"
       }
     ],
     "variant": null
@@ -15168,9 +15971,15 @@
       },
       {
         "citation": "Ps 51:3-4, 5-6ab, 6cd-7, 12-13",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 102:16-18, 19-21, 29 and 22-23",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Jn 1:49b",
@@ -15207,8 +16016,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 106:6-7ab, 13-14, 21-22, 23",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Jer 31:10, 11-12ab, 13",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15247,8 +16062,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 95:1-2, 6-7, 8-9",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 51:12-13, 14-15, 18-19",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15287,8 +16108,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 77:12-13, 14-15, 16 and 21",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Dt 32:35cd-36ab, 39abcd, 41",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15328,7 +16155,13 @@
       },
       {
         "citation": "Ps 18:2-3a, 3bc-4, 47 and 51",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 9:8-9, 10-11, 12-13",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15368,7 +16201,13 @@
       },
       {
         "citation": "Ps 147:12-13, 14-15, 19-20",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 148:1-2, 11-12, 13, 14",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15407,8 +16246,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Dt 32:3-4ab, 7, 8, 9 and 12",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 119:14, 24, 72, 103, 111, 131",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15447,8 +16292,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 66:1-3a, 5 and 8, 16-17",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 113:1-2, 3-4, 5-6",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15488,7 +16339,13 @@
       },
       {
         "citation": "Ps 114:1-2, 3-4, 5-6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 78:56-57, 58-59, 61-62",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15527,8 +16384,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 136:1-3, 16-18, 21-22 and 24",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Is 12:2-3, 4bcd, 5-6",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15568,7 +16431,13 @@
       },
       {
         "citation": "Ps 16:1-2a and 5, 7-8, 11",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 51:12-13, 14-15, 18-19",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15607,8 +16476,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 106:34-35, 36-37, 39-40, 43ab and 44",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Dt 32:18-19, 20, 21",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15647,8 +16522,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 85:9, 11-12, 13-14",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Dt 32:26-27ab, 27cd-28, 30, 35cd-36ab",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15688,7 +16569,13 @@
       },
       {
         "citation": "Ps 21:2-3, 4-5, 6-7",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 23:1-3a, 3b-4, 5, 6",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15727,8 +16614,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 40:5, 7-8a, 8b-9, 10",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 51:12-13, 14-15, 18-19",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15767,8 +16660,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 146:5-6ab, 6c-7, 8-9a, 9bc-10",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 107:2-3, 4-5, 6-7, 8-9",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15808,9 +16707,15 @@
       },
       {
         "citation": "Ps 128:1b-2, 3, 4, 5",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 85:9ab and 10, 11-12, 13-14",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Mt 23:9b, 10b",
@@ -15848,7 +16753,13 @@
       },
       {
         "citation": "Ps 149:1b-2, 3-4, 5-6a and 9b",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 96:1-2a, 2b-3, 4-5",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15888,7 +16799,13 @@
       },
       {
         "citation": "Ps 139:1-3, 4-6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 96:10, 11-12, 13",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15928,7 +16845,13 @@
       },
       {
         "citation": "Ps 139:7-8, 9-10, 11-12ab",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 128:1-2, 4-5",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -15968,7 +16891,13 @@
       },
       {
         "citation": "Ps 90:3-5a, 12-13, 14 and 17",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 145:2-3, 4-5, 6-7",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16008,7 +16937,13 @@
       },
       {
         "citation": "Ps 97:1 and 2b, 5-6, 10, 11-12",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 33:1-2, 4-5, 10-11",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16048,7 +16983,13 @@
       },
       {
         "citation": "Ps 98:1, 7-8, 9",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 33:12-13, 18-19, 20-21",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16088,7 +17029,13 @@
       },
       {
         "citation": "Ps 96:1 and 3, 4-5, 11-12, 13",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 119:97, 98, 99, 100, 101, 102",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16128,7 +17075,13 @@
       },
       {
         "citation": "Ps 27:1, 4, 13-14",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 145:8-9, 10-11, 12-13ab, 13cd-14",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16168,7 +17121,13 @@
       },
       {
         "citation": "Ps 52:10, 11",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 33:12-13, 14-15, 20-21",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16208,7 +17167,13 @@
       },
       {
         "citation": "Ps 98:2-3ab, 3cd-4, 5-6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 24:1bc-2, 3-4ab, 5-6",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16248,7 +17213,13 @@
       },
       {
         "citation": "Ps 100:1b-2, 3, 4, 5",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 37:3-4, 5-6, 27-28, 39-40",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16288,7 +17259,13 @@
       },
       {
         "citation": "Ps 54:3-4, 6 and 8",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 145:17-18, 19-20, 21",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16327,8 +17304,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 62:6-7, 9",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 5:5-6, 7, 12",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16368,7 +17351,13 @@
       },
       {
         "citation": "Ps 145:1b-2, 8-9, 10-11",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 149:1b-2, 3-4, 5-6a and 9b",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16408,7 +17397,13 @@
       },
       {
         "citation": "Ps 145:2-3, 10-11, 12-13ab",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 45:11-12, 14-15, 16-17",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16447,8 +17442,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 150:1b-2, 3-4, 5-6",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 139:1b-3, 13-14ab, 23-24",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16488,7 +17489,13 @@
       },
       {
         "citation": "Ps 16:1b-2a and 5, 7-8, 11",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 84:3, 4, 5-6, 12",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16528,7 +17535,13 @@
       },
       {
         "citation": "Ps 113:1b-2, 3-4, 5a and 6-7",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "catholic-resources"
+      },
+      {
+        "citation": "Ps 116:12-13, 17-18",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "catholic-resources"
       },
@@ -16568,7 +17581,13 @@
       },
       {
         "citation": "Ps 28:2, 7, 8-9",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 40:7-8a, 8b-9, 10, 17",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16608,7 +17627,13 @@
       },
       {
         "citation": "Ps 101:1b-2ab, 2cd-3ab, 5, 6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 100:1b-2, 3, 4, 5",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16648,7 +17673,13 @@
       },
       {
         "citation": "Ps 111:1-2, 3-4, 5-6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 33:2-3, 4-5, 12 and 22",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16688,7 +17719,13 @@
       },
       {
         "citation": "Ps 111:7-8, 9, 10",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 118:1b-2, 16ab-17, 28",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16721,14 +17758,20 @@
         "source": "usccb"
       },
       {
-        "citation": "1 Cor 15:12-22",
+        "citation": "1 Cor 15:12-20",
         "cycle": "II",
         "kind": "FIRST_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Ps 49:6-7, 8-10, 17-18, 19-20",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 17:1bcd, 6-7, 8b and 15",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16768,9 +17811,15 @@
       },
       {
         "citation": "Ps 100:1b-2, 3, 4, 5",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 56:10c-12, 13-14",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "cf. Lk 8:15",
@@ -16808,7 +17857,13 @@
       },
       {
         "citation": "Ps 126:1b-2ab, 2cd-3, 4-5, 6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 15:2-3a, 3bc-4ab, 5",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16847,8 +17902,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 122:1-2, 3-4ab, 4cd-5",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 119:1, 27, 30, 34, 35, 44",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16887,8 +17948,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Tb 13:2, 3-4a, 6, 7, 10",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "catholic-resources"
+      },
+      {
         "citation": "Ps 119:29, 72, 89, 101, 104, 163",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16928,7 +17995,13 @@
       },
       {
         "citation": "Ps 149:1b-2, 3-4, 5-6a and 9b",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 90:3-4, 5-6, 12-13, 14 and 17bc",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -16967,8 +18040,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 43:1, 2, 3, 4",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 144:1b and 2abc, 3-4",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17008,7 +18087,13 @@
       },
       {
         "citation": "Jer 31:10, 11-12ab, 13",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 90:3-4, 5-6, 12-13, 14 and 17",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17047,8 +18132,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 102:16-18, 19-21, 29 and 22-23",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 17:1bcd, 2-3, 6-7",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17088,7 +18179,13 @@
       },
       {
         "citation": "Ps 87:1b-3, 4-5, 6-7",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 88:2-3, 4-5, 6, 7-8",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17128,7 +18225,13 @@
       },
       {
         "citation": "Ps 137:1-2, 3, 4-5, 6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 88:10bc-11, 12-13, 14-15",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17168,7 +18271,13 @@
       },
       {
         "citation": "Ps 19:8, 9, 10, 11",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 27:7-8a, 8b-9abc, 13-14",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17207,8 +18316,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 79:1b-2, 3-5, 8, 9",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 139:1-3, 7-8, 9-10, 13-14ab",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17247,8 +18362,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 69:33-35, 36-37",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 119:66, 71, 75, 91, 125, 130",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17288,7 +18409,13 @@
       },
       {
         "citation": "Jon 2:3, 4, 5, 8",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 111:1b-2, 7-8, 9 and 10c",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17328,7 +18455,13 @@
       },
       {
         "citation": "Ps 130:1b-2, 3-4ab, 7-8",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 139:1b-3, 13-14ab, 14c-15",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17367,8 +18500,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 86:3-4, 5-6, 9-10",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 117:1bc, 2",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17407,8 +18546,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 1:1-2, 3, 4 and 6",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Lk 1:69-70, 71-72, 73-75",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17447,8 +18592,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 9:2-3, 6 and 16, 8-9",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 111:1b-2, 3-4, 5-6",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17487,8 +18638,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 97:1-2, 5-6, 11-12",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 105:2-3, 4-5, 6-7",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17528,7 +18685,13 @@
       },
       {
         "citation": "Ps 98:1bcde, 2-3ab, 3cd-4",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 113:1b-2, 3-4, 5a and 6-7",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17567,8 +18730,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 19:2-3, 4-5",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 119:41, 43, 44, 45, 47, 48",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17607,8 +18776,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 62:2-3, 6-7, 9",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 1:1-2, 3, 4 and 6",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17648,7 +18823,13 @@
       },
       {
         "citation": "Ps 130:1b-2, 3-4, 5-6ab",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 98:1, 2-3ab, 3cd-4, 5-6",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17688,7 +18869,13 @@
       },
       {
         "citation": "Ps 32:1b-2, 5, 11",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 33:1-2, 4-5, 12-13",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17727,8 +18914,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 105:6-7, 8-9, 42-43",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 8:2-3ab, 4-5, 6-7",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17768,7 +18961,13 @@
       },
       {
         "citation": "Lk 1:69-70, 71-72, 73-75",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 100:1b-2, 3, 4ab, 4c-5",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17808,7 +19007,13 @@
       },
       {
         "citation": "Ps 40:7-8a, 8b-9, 10, 17",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 85:9ab-10, 11-12, 13-14",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17847,8 +19052,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 124:1b-3, 4-6, 7-8",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Is 12:2-3, 4bcd, 5-6",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17888,7 +19099,13 @@
       },
       {
         "citation": "Ps 1:1-2, 3, 4 and 6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 33:1-2, 4-5, 11-12, 18-19",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17928,7 +19145,13 @@
       },
       {
         "citation": "Ps 119:66, 68, 76, 77, 93, 94",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 24:1-2, 3-4ab, 5-6",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -17967,8 +19190,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 24:1b-2, 3-4ab, 5-6",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 122:1-2, 3-4ab, 4cd-5",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18008,9 +19237,15 @@
       },
       {
         "citation": "Ps 68:2 and 4, 6-7ab, 20-21",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 1:1-2, 3, 4 and 6",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "Jn 17:17b, 17a",
@@ -18047,8 +19282,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 126:1b-2ab, 2cd-3, 4-5, 6",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 128:1-2, 3, 4-5",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18088,7 +19329,13 @@
       },
       {
         "citation": "Ps 13:4-5, 6",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 145:10-11, 12-13ab, 13cd-14",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18121,14 +19368,20 @@
         "source": "usccb"
       },
       {
-        "citation": "Eph 6:10-22",
+        "citation": "Eph 6:10-20",
         "cycle": "II",
         "kind": "FIRST_READING",
-        "source": "catholic-resources"
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 109:21-22, 26-27, 30-31",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
       },
       {
         "citation": "Ps 144:1b, 2, 9-10",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18168,7 +19421,13 @@
       },
       {
         "citation": "Ps 147:12-13, 14-15, 19-20",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 111:1-2, 3-4, 5-6",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18208,7 +19467,13 @@
       },
       {
         "citation": "Ps 94:12-13a, 14-15, 17-18",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 42:2, 3, 5cdef",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18248,7 +19513,13 @@
       },
       {
         "citation": "Ps 69:30-31, 33-34, 36",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 131:1bcde, 2, 3",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18288,7 +19559,13 @@
       },
       {
         "citation": "Ps 131:1bcde, 2, 3",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 22:26b-27, 28-30ab, 30e, 31-32",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18328,7 +19605,13 @@
       },
       {
         "citation": "Ps 112:1b-2, 4-5, 9",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 27:1, 4, 13-14",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18367,8 +19650,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 27:1bcde, 4, 13-14",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 105:2-3, 4-5, 6-7",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18407,8 +19696,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 98:1, 2-3ab, 3cd-4",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 122:1-2, 3-4ab, 4cd-5",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18448,9 +19743,15 @@
       },
       {
         "citation": "Ps 145:2-3, 4-5, 10-11",
-        "cycle": null,
+        "cycle": "I",
         "kind": "PSALM",
         "source": "usccb"
+      },
+      {
+        "citation": "Ps 112:1b-2, 5-6, 8a and 9",
+        "cycle": "II",
+        "kind": "PSALM",
+        "source": "catholic-resources"
       },
       {
         "citation": "2 Cor 8:9",
@@ -18488,7 +19789,13 @@
       },
       {
         "citation": "Ps 139:1b-3, 4-6, 7-8, 9-10",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 24:1b-2, 3-4ab, 5-6",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18528,7 +19835,13 @@
       },
       {
         "citation": "Ps 34:2-3, 16-17, 18-19",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 37:3-4, 18 and 23, 27 and 29",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18567,8 +19880,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 82:3-4, 6-7",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 23:1b-3a, 3bc-4, 5, 6",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18601,14 +19920,20 @@
         "source": "usccb"
       },
       {
-        "citation": "Phlm 7-22",
+        "citation": "Phlm 7-20",
         "cycle": "II",
         "kind": "FIRST_READING",
-        "source": "catholic-resources"
+        "source": "usccb-calendar"
       },
       {
         "citation": "Ps 119:89, 90, 91, 130, 135, 175",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 146:7, 8-9a, 9bc-10",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18648,7 +19973,13 @@
       },
       {
         "citation": "Ps 19:2-3, 4-5ab",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 119:1, 2, 10, 11, 17, 18",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18688,7 +20019,13 @@
       },
       {
         "citation": "Ps 105:2-3, 36-37, 42-43",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 112:1-2, 3-4, 5-6",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18728,7 +20065,13 @@
       },
       {
         "citation": "Ps 119:53, 61, 134, 150, 155, 158",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 1:1-2, 3, 4 and 6",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18767,8 +20110,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 3:2-3, 4-5, 6-7",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 15:2-3a, 3bc-4ab, 5",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18807,8 +20156,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 17:1bcd, 5-6, 8b and 15",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 150:1b-2, 3-4, 5-6",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18847,8 +20202,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 50:1b-2, 5-6, 14-15",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 149:1b-2, 3-4, 5-6a and 9b",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18888,7 +20249,13 @@
       },
       {
         "citation": "1 Chr 29:10bcd, 11abc, 11d-12a, 12bcd",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 119:14, 24, 72, 103, 111, 131",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18927,8 +20294,14 @@
         "source": "usccb"
       },
       {
+        "citation": "Ps 9:2-3, 4 and 6, 16 and 19",
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
         "citation": "Ps 144:1, 2, 9-10",
-        "cycle": null,
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -18968,7 +20341,13 @@
       },
       {
         "citation": "Dn 3:52, 53, 54, 55, 56",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 24:1bc-2, 3-4ab, 5-6",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -19008,7 +20387,13 @@
       },
       {
         "citation": "Dn 3:57, 58, 59, 60, 61",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 96:10, 11-12, 13",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -19048,7 +20433,13 @@
       },
       {
         "citation": "Dn 3:62, 63, 64, 65, 66, 67",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 98:1, 2-3ab, 7-8, 9",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -19088,7 +20479,13 @@
       },
       {
         "citation": "Dn 3:68, 69, 70, 71, 72, 73, 74",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "catholic-resources"
+      },
+      {
+        "citation": "Ps 100:1b-2, 3, 4, 5",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "catholic-resources"
       },
@@ -19128,7 +20525,13 @@
       },
       {
         "citation": "Dn 3:75, 76, 77, 78, 79, 80, 81",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 84:3, 4, 5-6a and 8a",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -19168,7 +20571,13 @@
       },
       {
         "citation": "Dn 3:82, 83, 84, 85, 86, 87",
-        "cycle": null,
+        "cycle": "I",
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 95:1-2, 3-5, 6-7ab",
+        "cycle": "II",
         "kind": "PSALM",
         "source": "usccb"
       },
@@ -19565,7 +20974,7 @@
     "cycle": null,
     "key": "sts-timothy-and-titus",
     "kind": "sanctoral",
-    "label": "Sts. Timothy and Titus, bishops",
+    "label": "Saints Timothy and Titus, Bishops",
     "number": "520",
     "sections": [
       {
@@ -19581,16 +20990,16 @@
         "source": "usccb"
       },
       {
-        "citation": "cf. Mt 11:25",
+        "citation": "Lk 4:18",
         "cycle": null,
         "kind": "ACCLAMATION",
-        "source": "usccb"
+        "source": "catholic-resources"
       },
       {
-        "citation": "Mk 4:21-25",
+        "citation": "Lk 10:1-9",
         "cycle": null,
         "kind": "GOSPEL",
-        "source": "usccb"
+        "source": "catholic-resources"
       }
     ],
     "variant": null
@@ -19677,7 +21086,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 103:1bc-2, 3-4, 8-9, 13-14, 17-18",
+        "citation": "Ps 103:1bc-2, 3-4, 8-9, 13-14, 17-18a",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -19785,7 +21194,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 96:1-2a, 2b-3, 7-8, 10",
+        "citation": "Ps 96:1-2a, 2b-3, 7-8a, 10",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -19911,7 +21320,7 @@
     "cycle": null,
     "key": null,
     "kind": "sanctoral",
-    "label": "St. Josephine Bakhita, virgin (also \"International Day of Prayer and Awareness Against Human Trafficking\")",
+    "label": "St. Josephine Bakhita, virgin (also “International Day of Prayer and Awareness Against Human Trafficking”)",
     "number": "529A",
     "sections": [
       {
@@ -19973,7 +21382,7 @@
     "cycle": null,
     "key": null,
     "kind": "sanctoral",
-    "label": "Our Lady of Lourdes (also \"World Day of the Sick\")",
+    "label": "Our Lady of Lourdes (also “World Day of the Sick”)",
     "number": "531",
     "sections": [
       {
@@ -20085,7 +21494,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 16:1-2 and 5, 7-8, 11",
+        "citation": "Ps 16:1-2a and 5, 7-8, 11",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -20187,7 +21596,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Jn 6:63c and 68c",
+        "citation": "Jn 6:63c, 68c",
         "cycle": null,
         "kind": "ACCLAMATION",
         "source": "catholic-resources"
@@ -20351,7 +21760,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 96:1-2a, 2b-3, 7-8b, 10",
+        "citation": "Ps 96:1-2a, 2b-3, 7-8a, 10",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -20409,7 +21818,7 @@
     "cycle": null,
     "key": "st-joseph",
     "kind": "sanctoral",
-    "label": "March 19: St. Joseph, Spouse of the Blessed Virgin Mary ( transferred to Monday 3/20 if 3/19 is a Sunday ; exception for 2008: transferred to Saturday, 3/15 /08 )",
+    "label": "March 19: St. Joseph, Spouse of the Blessed Virgin Mary ( transferred to Monday 3/20 if 3/19 is a Sunday ) ( further exceptions when 3/19 falls in Holy Week, as in 2008, 2035, and 2046 )",
     "number": "543",
     "sections": [
       {
@@ -20449,7 +21858,7 @@
     "cycle": null,
     "key": null,
     "kind": "sanctoral",
-    "label": "St. Turibius of Mongrovejo, bishop",
+    "label": "St. Turibius of Mogrovejo, bishop",
     "number": "544",
     "sections": [
       {
@@ -20459,7 +21868,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 96:1-2a, 2b-3, 7-8c, 10",
+        "citation": "Ps 96:1-2a, 2b-3, 7-8a, 10",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -20483,7 +21892,7 @@
     "cycle": null,
     "key": "annunciation",
     "kind": "sanctoral",
-    "label": "March 25: The Annunciation of the Lord ( tranferred if 3/25 is a Sunday, or if it falls during Holy Week or Easter Week - see the table below )",
+    "label": "March 25: The Annunciation of the Lord ( transferred if 3/25 is a Sunday, or if it falls during Holy Week or Easter Week - see the table below )",
     "number": "545",
     "sections": [
       {
@@ -20703,7 +22112,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 126:1bc-2, 2-3, 4-5, 6",
+        "citation": "Ps 126:1bc-2ab, 2cd-3, 4-5, 6",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -20737,7 +22146,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Jn 6:63 and 68c",
+        "citation": "Jn 6:63c, 68c",
         "cycle": null,
         "kind": "ACCLAMATION",
         "source": "catholic-resources"
@@ -20765,7 +22174,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 126:1bc-2, 2-3, 4-5, 6",
+        "citation": "Ps 126:1bc-2ab, 2cd-3, 4-5, 6",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -20969,7 +22378,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 103:1-2, 3-4, 8-9, 13-14, 17-18",
+        "citation": "Ps 103:1bc-2, 3-4, 8-9, 13-14, 17-18a",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -21207,7 +22616,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 103:1-2, 3-4, 8-9, 13-14, 17-18",
+        "citation": "Ps 103:1bc-2, 3-4, 8-9, 13-14, 17-18a",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -21445,7 +22854,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Jn 6:63, 68c",
+        "citation": "Jn 6:63c, 68c",
         "cycle": null,
         "kind": "ACCLAMATION",
         "source": "catholic-resources"
@@ -21497,7 +22906,7 @@
     "cycle": null,
     "key": null,
     "kind": "sanctoral",
-    "label": "St. Mary Magdalene de' Pazzi, virgin",
+    "label": "St. Mary Magdalene de’ Pazzi, virgin",
     "number": "569",
     "sections": [
       {
@@ -21507,7 +22916,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 148:1-2, 11-13, 13-14",
+        "citation": "Ps 148:1bc-2, 11-13a, 13c-14",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -21631,13 +23040,13 @@
   },
   "572": {
     "cycle": null,
-    "key": "mary-mother-of-the-church",
+    "key": "visitation",
     "kind": "sanctoral",
     "label": "The Visitation of the Blessed Virgin Mary",
     "number": "572",
     "sections": [
       {
-        "citation": "Gn 3:9-15, 20",
+        "citation": "Zep 3:14-18a or Rom 12:9-16",
         "cycle": null,
         "kind": "FIRST_READING",
         "source": "usccb"
@@ -21665,9 +23074,9 @@
   },
   "572A": {
     "cycle": null,
-    "key": null,
+    "key": "mary-mother-of-the-church",
     "kind": "sanctoral",
-    "label": "Blessed Virgin Mary, Mother of the Church",
+    "label": "The Blessed Virgin Mary, Mother of the Church",
     "number": "572A",
     "sections": [
       {
@@ -21699,13 +23108,13 @@
     "number": "573",
     "sections": [
       {
-        "citation": "2 Cor 5:14-21",
+        "citation": "Is 61:9-11",
         "cycle": null,
         "kind": "FIRST_READING",
         "source": "usccb"
       },
       {
-        "citation": "Ps 103:1-2, 3-4, 9-10, 11-12",
+        "citation": "1 Sm 2:1, 4-5, 6-7, 8abcd",
         "cycle": null,
         "kind": "PSALM",
         "source": "usccb"
@@ -21773,7 +23182,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 124:2-3, 4-5, 7b-8",
+        "citation": "Ps 124:2-3, 4-5, 7cd-8",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -21807,7 +23216,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 124:2-3, 4-5, 7b-8",
+        "citation": "Ps 124:2-3, 4-5, 7cd-8",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -21949,16 +23358,16 @@
         "source": "usccb"
       },
       {
-        "citation": "Jn 13:34",
+        "citation": "Mt 28:19a and 20b",
         "cycle": null,
         "kind": "ACCLAMATION",
-        "source": "usccb"
+        "source": "catholic-resources"
       },
       {
-        "citation": "Mt 5:13-16",
+        "citation": "Mt 10:7-13",
         "cycle": null,
         "kind": "GOSPEL",
-        "source": "usccb"
+        "source": "catholic-resources"
       }
     ],
     "variant": null
@@ -21971,7 +23380,7 @@
     "number": "581",
     "sections": [
       {
-        "citation": "Is 61:1-3d",
+        "citation": "Is 61:1-3abcd",
         "cycle": null,
         "kind": "FIRST_READING",
         "source": "catholic-resources"
@@ -22141,6 +23550,46 @@
     "number": "586",
     "sections": [
       {
+        "citation": "Jer 1:4-10",
+        "cycle": null,
+        "kind": "FIRST_READING",
+        "source": "usccb"
+      },
+      {
+        "citation": "Ps 71:1-2, 3-4a, 5-6ab, 15ab and 17",
+        "cycle": null,
+        "kind": "PSALM",
+        "source": "usccb"
+      },
+      {
+        "citation": "1 Pt 1:8-12",
+        "cycle": null,
+        "kind": "SECOND_READING",
+        "source": "usccb"
+      },
+      {
+        "citation": "cf. Jn 1:7; Lk 1:17",
+        "cycle": null,
+        "kind": "ACCLAMATION",
+        "source": "usccb"
+      },
+      {
+        "citation": "Lk 1:5-17",
+        "cycle": null,
+        "kind": "GOSPEL",
+        "source": "usccb"
+      }
+    ],
+    "variant": "vigil"
+  },
+  "587": {
+    "cycle": null,
+    "key": "nativity-of-john-the-baptist",
+    "kind": "sanctoral",
+    "label": "June 24: The Nativity of St. John the Baptist: Day ( exceptions for 2022, 2033 , and 2044: transferred to Thursday 6/23 , since Friday 6/24 is the Solemnity of the Sacred Heart of Jesus )",
+    "number": "587",
+    "sections": [
+      {
         "citation": "Is 49:1-6",
         "cycle": null,
         "kind": "FIRST_READING",
@@ -22153,53 +23602,13 @@
         "source": "usccb"
       },
       {
-        "citation": "1 Pt 1:8-12",
-        "cycle": null,
-        "kind": "SECOND_READING",
-        "source": "usccb-calendar"
-      },
-      {
-        "citation": "cf. Lk 1:76",
-        "cycle": null,
-        "kind": "ACCLAMATION",
-        "source": "usccb"
-      },
-      {
-        "citation": "Lk 1:5-17",
-        "cycle": null,
-        "kind": "GOSPEL",
-        "source": "usccb-calendar"
-      }
-    ],
-    "variant": "vigil"
-  },
-  "587": {
-    "cycle": null,
-    "key": "nativity-of-john-the-baptist",
-    "kind": "sanctoral",
-    "label": "June 24: The Nativity of St. John the Baptist: Day ( exceptions for 2022, 2033, and 2044: transferred to Thursday 6/23 , since Friday 6/24 is the Solemnity of the Sacred Heart of Jesus )",
-    "number": "587",
-    "sections": [
-      {
-        "citation": "Is 49:1-6",
-        "cycle": null,
-        "kind": "FIRST_READING",
-        "source": "usccb"
-      },
-      {
-        "citation": "Ps 139:1-3, 13-14, 14-15",
-        "cycle": null,
-        "kind": "PSALM",
-        "source": "catholic-resources"
-      },
-      {
         "citation": "Acts 13:22-26",
         "cycle": null,
         "kind": "SECOND_READING",
         "source": "usccb"
       },
       {
-        "citation": "cf. Jn 1:7; Lk 1:17",
+        "citation": "cf. Lk 1:76",
         "cycle": null,
         "kind": "ACCLAMATION",
         "source": "usccb"
@@ -22289,25 +23698,25 @@
     "number": "590",
     "sections": [
       {
-        "citation": "Acts 12:1-11",
+        "citation": "Acts 3:1-10",
         "cycle": null,
         "kind": "FIRST_READING",
         "source": "usccb"
       },
       {
-        "citation": "Ps 34:2-3, 4-5, 6-7, 8-9",
+        "citation": "Ps 19:2-3, 4-5",
         "cycle": null,
         "kind": "PSALM",
         "source": "usccb"
       },
       {
-        "citation": "2 Tm 4:6-8, 17-18",
+        "citation": "Gal 1:11-20",
         "cycle": null,
         "kind": "SECOND_READING",
         "source": "usccb"
       },
       {
-        "citation": "Mt 16:18",
+        "citation": "Jn 21:17",
         "cycle": null,
         "kind": "ACCLAMATION",
         "source": "usccb"
@@ -22316,7 +23725,7 @@
         "citation": "Jn 21:15-19",
         "cycle": null,
         "kind": "GOSPEL",
-        "source": "usccb-calendar"
+        "source": "usccb"
       }
     ],
     "variant": "vigil"
@@ -22375,7 +23784,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 124:2-3, 4-5, 7b-8",
+        "citation": "Ps 124:2-3, 4-5, 7cd-8",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -22567,7 +23976,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 126:1-2ab, 2cd-3, 4-5, 6",
+        "citation": "Ps 126:1bc-2ab, 2cd-3, 4-5, 6",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -23519,7 +24928,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 124:2-3, 4-5, 7b-8",
+        "citation": "Ps 124:2-3, 4-5, 7cd-8",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -24097,7 +25506,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 96:1-2a, 2b-3, 7-8, 10",
+        "citation": "Ps 96:1-2a, 2b-3, 7-8a, 10",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -24121,7 +25530,7 @@
     "cycle": null,
     "key": null,
     "kind": "sanctoral",
-    "label": "St. Teresa of Calcutta, Virgin",
+    "label": "St. Teresa of Calcutta, virgin",
     "number": "635A",
     "sections": [
       {
@@ -24617,7 +26026,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 112:1bc-2, 3-4, 5-7, 7-8, 9",
+        "citation": "Ps 112:1bc-2, 3-4, 5-7a, 7b-8, 9",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -24685,7 +26094,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 126:1-2ab, 2cd-3, 4-5, 6",
+        "citation": "Ps 126:1bc-2ab, 2cd-3, 4-5, 6",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -25025,7 +26434,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Ps 96:1-2, 2-3, 7-8, 10",
+        "citation": "Ps 96:1-2a, 2b-3, 7-8a, 10",
         "cycle": null,
         "kind": "PSALM",
         "source": "catholic-resources"
@@ -25087,7 +26496,7 @@
     "number": "655B",
     "sections": [
       {
-        "citation": "Sir 39:6-11",
+        "citation": "Sir 39:6-10",
         "cycle": null,
         "kind": "FIRST_READING",
         "source": "catholic-resources"
@@ -25575,7 +26984,7 @@
         "source": "catholic-resources"
       },
       {
-        "citation": "Rom 6:3-9",
+        "citation": "Rom 5:5-11 or Rom 6:3-9",
         "cycle": null,
         "kind": "SECOND_READING",
         "source": "usccb"
@@ -26413,7 +27822,7 @@
     "number": "689B",
     "sections": [
       {
-        "citation": "Is 7:10-14; 8:10",
+        "citation": "Is 7:10-14; 8:10c",
         "cycle": null,
         "kind": "FIRST_READING",
         "source": "catholic-resources"
@@ -26441,31 +27850,25 @@
   },
   "690": {
     "cycle": null,
-    "key": "our-lady-of-guadalupe",
+    "key": null,
     "kind": "sanctoral",
     "label": "St. Damasus I, pope",
     "number": "690",
     "sections": [
       {
-        "citation": "Zec 2:14-17",
+        "citation": "Acts 20:17-18a, 28-32, 36",
         "cycle": null,
         "kind": "FIRST_READING",
         "source": "usccb"
       },
       {
-        "citation": "Jdt 13:18bcde, 19",
+        "citation": "Ps 110:1, 2, 3, 4",
         "cycle": null,
         "kind": "PSALM",
         "source": "usccb"
       },
       {
-        "citation": "Jn 15:15b",
-        "cycle": null,
-        "kind": "ACCLAMATION",
-        "source": "catholic-resources"
-      },
-      {
-        "citation": "Lk 1:26-38",
+        "citation": "Jn 15:9-17",
         "cycle": null,
         "kind": "GOSPEL",
         "source": "usccb"
@@ -26645,10 +28048,10 @@
         "source": "usccb"
       },
       {
-        "citation": "Ps 31:3cd-4, 6ab and 8a, 16bc and 17",
+        "citation": "Ps 31:3cd-4, 6 and 8ab, 16bc and 17",
         "cycle": null,
         "kind": "PSALM",
-        "source": "catholic-resources"
+        "source": "usccb"
       },
       {
         "citation": "Ps 118:26a and 27a",

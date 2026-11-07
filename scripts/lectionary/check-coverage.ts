@@ -60,7 +60,7 @@ export interface CoverageResult {
   resolved: number;
   missingKeys: string[];
   missingCombinations: string[];
-  /** Sections the Lectionary prints for the resolved days, by kind. */
+  /** How many of the resolved days have a section of each kind. */
   sectionCounts: Record<string, number>;
   /** Days whose formulary has no Gospel — always a table defect. */
   withoutGospel: string[];
@@ -94,8 +94,9 @@ export function checkCoverage(from: number, to: number): CoverageResult {
     }
     resolved += 1;
     usedKeys.add(combination.key);
-    for (const section of lookup.sections) sectionCounts[section.kind] += 1;
+    // By day, not by section: the Easter Vigil's eight psalms are one day with a psalm.
     const kinds = new Set(lookup.sections.map((s) => s.kind));
+    for (const kind of kinds) sectionCounts[kind] = (sectionCounts[kind] ?? 0) + 1;
     if (!kinds.has("GOSPEL")) withoutGospel.push(`${combination.key} → #${lookup.number}`);
     if (!kinds.has("GOSPEL") && !kinds.has("FIRST_READING")) {
       withoutAnyReading.push(`${combination.key} → #${lookup.number}`);

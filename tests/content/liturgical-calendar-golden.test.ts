@@ -183,7 +183,7 @@ describe("CAL-4 / CAL-5 — the sanctoral table and the Table of Liturgical Days
     const timothy = at("2026-01-26");
     expect(timothy.lectionaryKey).toBe("sts-timothy-and-titus");
     expect(timothy.temporalKey).toBe("ordinary-3-monday");
-    expect(timothy.sanctoral?.readings).toBe("proper");
+    expect(timothy.sanctoral?.readings).toBe("proper-first");
 
     const martha = at("2025-07-29");
     expect(martha.lectionaryKey).toBe("sts-martha-mary-and-lazarus");

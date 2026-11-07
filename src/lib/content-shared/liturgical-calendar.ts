@@ -222,19 +222,22 @@ export type LiturgicalRank =
 export type SanctoralRank = "SOLEMNITY" | "FEAST" | "MEMORIAL" | "COMMEMORATION";
 
 /**
- * How a sanctoral celebration's readings relate to the weekday readings.
- *  - "proper": the Proper of Saints supplies the readings (solemnities, feasts,
- *    and the few memorials whose proper reading must be used, e.g. Timothy &
- *    Titus); look the readings up under the sanctoral `key`. Memorials marked
- *    "proper" only override the reading(s) the Lectionary assigns them; the
- *    lectionary layer fills the rest from `temporalKey`.
- *  - "proper-gospel": only the Gospel is proper (Martha, Passion of John the
- *    Baptist, Our Lady of Sorrows, Guardian Angels, Immaculate Heart); the
- *    first reading and psalm are the weekday's (`temporalKey`).
+ * How a sanctoral celebration's readings relate to the weekday readings, as the
+ * USCCB calendar and daily pages print them.
+ *  - "proper": the Proper of Saints supplies the whole formulary (solemnities,
+ *    feasts, and the memorial of Mary, Mother of the Church); look the readings
+ *    up under the sanctoral `key`.
+ *  - "proper-first": the first reading and psalm are proper, the acclamation and
+ *    Gospel are the weekday's (Timothy and Titus, Barnabas).
+ *  - "proper-gospel": the acclamation and Gospel are proper, the first reading
+ *    and psalm are the weekday's (Martha, Passion of John the Baptist, Our Lady
+ *    of Sorrows, Guardian Angels, Immaculate Heart).
  *  - "ferial": the weekday readings are used (`lectionaryKey === temporalKey`);
  *    the memorial only changes the celebration heading and colour.
+ *
+ * `resolveDayReadings` in lectionary.ts is what puts the two halves together.
  */
-export type SanctoralReadings = "proper" | "proper-gospel" | "ferial";
+export type SanctoralReadings = "proper" | "proper-first" | "proper-gospel" | "ferial";
 
 export interface SanctoralEntry {
   month: number;
@@ -262,6 +265,12 @@ export interface SanctoralOverlay {
 
 export interface LiturgicalDayDetail extends LiturgicalDay {
   calendar: LiturgicalCalendarId;
+  /**
+   * Every colour the calendar allows for the day, `color` first. One entry on
+   * most days; several where the USCCB prints a choice ("violet or rose" on the
+   * 3rd Sunday of Advent and 4th of Lent, three on All Souls).
+   */
+  colorOptions: readonly string[];
   /** 0 = Sunday … 6 = Saturday (UTC). */
   dayOfWeek: number;
   isSunday: boolean;
@@ -540,11 +549,12 @@ function temporalCelebration(date: Date, ctx: YearContext): Temporal {
   if (season === "advent") {
     const w = seasonWeek(date, ctx.advent1);
     if (dow === 0) {
+      // Gaudete Sunday: rose where it is the practice, otherwise violet.
       return temporal(
         `advent-${w}-sunday`,
         `${ordinal(w)} Sunday of Advent`,
         "SUNDAY",
-        "Violet",
+        w === 3 ? "Rose" : "Violet",
         2,
         w,
       );
@@ -653,7 +663,15 @@ function temporalCelebration(date: Date, ctx: YearContext): Temporal {
     }
     const w = seasonWeek(date, addDays(ctx.easter, -42));
     if (dow === 0) {
-      return temporal(`lent-${w}-sunday`, `${ordinal(w)} Sunday of Lent`, "SUNDAY", "Violet", 2, w);
+      // Laetare Sunday: rose where it is the practice, otherwise violet.
+      return temporal(
+        `lent-${w}-sunday`,
+        `${ordinal(w)} Sunday of Lent`,
+        "SUNDAY",
+        w === 4 ? "Rose" : "Violet",
+        2,
+        w,
+      );
     }
     return temporal(
       `lent-${w}-${dowName}`,
@@ -775,7 +793,7 @@ export const SANCTORAL: readonly SanctoralEntry[] = [
     "White",
   ),
   feast(1, 25, "conversion-of-st-paul", "The Conversion of Saint Paul the Apostle", "White"),
-  mem(1, 26, "sts-timothy-and-titus", "Saints Timothy and Titus, Bishops", "White", "proper"),
+  mem(1, 26, "sts-timothy-and-titus", "Saints Timothy and Titus, Bishops", "White", "proper-first"),
   mem(1, 28, "st-thomas-aquinas", "Saint Thomas Aquinas, Priest and Doctor of the Church", "White"),
   mem(1, 31, "st-john-bosco", "Saint John Bosco, Priest", "White"),
   // ── February ──
@@ -817,7 +835,7 @@ export const SANCTORAL: readonly SanctoralEntry[] = [
     "Red",
   ),
   mem(6, 5, "st-boniface", "Saint Boniface, Bishop and Martyr", "Red"),
-  mem(6, 11, "st-barnabas", "Saint Barnabas, Apostle", "Red", "proper"),
+  mem(6, 11, "st-barnabas", "Saint Barnabas, Apostle", "Red", "proper-first"),
   mem(
     6,
     13,
@@ -827,7 +845,7 @@ export const SANCTORAL: readonly SanctoralEntry[] = [
   ),
   mem(6, 21, "st-aloysius-gonzaga", "Saint Aloysius Gonzaga, Religious", "White"),
   sol(6, 24, "nativity-of-john-the-baptist", "The Nativity of Saint John the Baptist"),
-  mem(6, 28, "st-irenaeus", "Saint Irenaeus, Bishop and Martyr", "Red"),
+  mem(6, 28, "st-irenaeus", "Saint Irenaeus, Bishop, Martyr, and Doctor of the Church", "Red"),
   sol(6, 29, "sts-peter-and-paul", "Saints Peter and Paul, Apostles", "Red"),
   // ── July ──
   feast(7, 3, "st-thomas-apostle", "Saint Thomas, Apostle", "Red"),
@@ -847,7 +865,7 @@ export const SANCTORAL: readonly SanctoralEntry[] = [
     7,
     29,
     "sts-martha-mary-and-lazarus",
-    "Saints Martha, Mary and Lazarus",
+    "Saints Martha, Mary, and Lazarus",
     "White",
     "proper-gospel",
   ),
@@ -1028,7 +1046,7 @@ const US_DAY_OF_PRAYER: SanctoralEntry = {
   key: "day-of-prayer-for-the-unborn",
   celebration: "Day of Prayer for the Legal Protection of Unborn Children",
   rank: "MEMORIAL",
-  color: "Violet",
+  color: "White",
   readings: "ferial",
   calendars: US,
   proper: true,
@@ -1171,6 +1189,18 @@ function holyDayOfObligation(date: Date, key: string, calendar: LiturgicalCalend
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Colours with a choice
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Where the USCCB calendar prints more than one colour for the celebration itself. */
+const COLOR_CHOICES: Readonly<Record<string, readonly string[]>> = {
+  "advent-3-sunday": ["Rose", "Violet"],
+  "lent-4-sunday": ["Rose", "Violet"],
+  "all-souls": ["Violet", "White", "Black"],
+  "day-of-prayer-for-the-unborn": ["White", "Violet"],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Public resolvers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1226,10 +1256,12 @@ export function resolveLiturgicalDay(
   const dow = date.getUTCDay();
   const s = ctx.sanctoral.get(iso(date));
 
+  const color = s?.color ?? t.color;
   const base = {
     date: iso(date),
     season,
     seasonLabel: SEASON_LABELS[season],
+    colorOptions: COLOR_CHOICES[s?.key ?? t.key] ?? [color],
     sundayCycle: sundayCycle(date),
     weekdayCycle: weekdayCycle(date),
     isJubileeYear: isJubileeYear(date.getUTCFullYear()),
@@ -1268,4 +1300,177 @@ export function resolveLiturgicalDay(
     lectionaryKey: t.key,
     isHolyDayOfObligation: holyDayOfObligation(date, t.key, options.calendar),
   };
+}
+
+/** "Violet", "Rose or violet", "Violet, white or black": the colours as a phrase. */
+export function liturgicalColorLabel(day: Pick<LiturgicalDayDetail, "colorOptions">): string {
+  const [first, ...rest] = day.colorOptions;
+  if (rest.length === 0) return first;
+  const lower = rest.map((c) => c.toLowerCase());
+  const last = lower.pop() as string;
+  return `${[first, ...lower].join(", ")} or ${last}`;
+}
+
+const RANK_LABELS: Record<LiturgicalRank, string> = {
+  SOLEMNITY: "Solemnity",
+  FEAST: "Feast",
+  MEMORIAL: "Memorial",
+  COMMEMORATION: "Commemoration",
+  SUNDAY: "Sunday",
+  WEEKDAY: "Weekday",
+};
+
+/**
+ * The rank as a reader should see it. The engine files the Triduum and the Day
+ * of Prayer under the nearest rank so that the precedence rules work, but neither
+ * is printed with that rank: the Triduum stands above every rank, and the Day of
+ * Prayer is a day of prayer, not a memorial.
+ */
+export function liturgicalRankLabel(
+  day: Pick<LiturgicalDayDetail, "rank" | "season" | "sanctoral">,
+): string {
+  if (day.season === "triduum") return "Paschal Triduum";
+  if (day.sanctoral?.key === US_DAY_OF_PRAYER.key) return "Day of prayer";
+  return RANK_LABELS[day.rank];
+}
+
+/**
+ * The holy-day note the USCCB prints beside a rank: "Holy day of obligation", or
+ * "Not a holy day of obligation this year" when a Saturday or Monday lifts it.
+ */
+export function liturgicalObligationLabel(
+  day: Pick<
+    LiturgicalDayDetail,
+    "calendar" | "isSunday" | "isHolyDayOfObligation" | "lectionaryKey"
+  >,
+): string | null {
+  if (day.isHolyDayOfObligation) return "Holy day of obligation";
+  const lifted =
+    day.calendar === "roman-us" && !day.isSunday && US_ABROGABLE_HOLY_DAYS.has(day.lectionaryKey);
+  return lifted ? "Not a holy day of obligation this year" : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The evening Mass: the Vigil
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The celebrations whose evening-before Mass has readings of its own in the
+ * Lectionary. Epiphany and the Ascension have a Vigil Mass in the Missal too, but
+ * the Lectionary gives them one formulary, so they read the Mass of the day.
+ */
+const OWN_VIGIL_READINGS = new Set([
+  "nativity",
+  "pentecost",
+  "nativity-of-john-the-baptist",
+  "sts-peter-and-paul",
+  "assumption",
+]);
+
+/**
+ * The US holy days. A day on this list keeps its evening Mass in a year when the
+ * obligation is lifted for falling on a Saturday or Monday: the solemnity has not
+ * moved, and parishes still anticipate it.
+ */
+const US_ANTICIPATED_DAYS = new Set([...US_ABROGABLE_HOLY_DAYS, ...US_FIXED_HOLY_DAYS]);
+
+/** What the two-way choice calls the next day's celebration. */
+const VIGIL_SHORT_NAMES: Readonly<Record<string, string>> = {
+  "all-saints": "All Saints",
+  "all-souls": "All Souls",
+  ascension: "Ascension",
+  assumption: "Assumption",
+  "baptism-of-the-lord": "Baptism of the Lord",
+  "christ-the-king": "Christ the King",
+  "corpus-christi": "Corpus Christi",
+  epiphany: "Epiphany",
+  "holy-family": "Holy Family",
+  "immaculate-conception": "Immaculate Conception",
+  "mary-mother-of-god": "Mary, Mother of God",
+  nativity: "Christmas",
+  "nativity-of-john-the-baptist": "Saint John the Baptist",
+  "palm-sunday": "Palm Sunday",
+  pentecost: "Pentecost",
+  "st-joseph": "Saint Joseph",
+  "sts-peter-and-paul": "Saints Peter and Paul",
+  "trinity-sunday": "Trinity Sunday",
+};
+
+function vigilTitle(celebration: string): string {
+  if (celebration.startsWith("The ")) return `Vigil of the ${celebration.slice(4)}`;
+  if (/^(\d|Second )/.test(celebration)) return `Vigil of the ${celebration}`;
+  return `Vigil of ${celebration}`;
+}
+
+export interface EveningMass {
+  /** The day this evening anticipates. */
+  next: LiturgicalDayDetail;
+  /** True when the Lectionary gives this evening readings of its own. */
+  ownReadings: boolean;
+  /** "Vigil of the 32nd Sunday in Ordinary Time". */
+  title: string;
+  /** The choice as a reader sees it: "Sunday Vigil (Saturday evening)". */
+  label: string;
+  /** The choice it stands beside: "Saturday Mass". */
+  dayLabel: string;
+}
+
+/**
+ * The anticipated evening Mass a civil date offers, or null when it has none.
+ *
+ * A Saturday evening is Sunday's, whatever the Saturday itself is: the daytime
+ * Mass may be a solemnity or a feast, but a Saturday evening Mass in the United
+ * States is the Mass of Sunday, and it satisfies the Sunday obligation (can. 1248
+ * §1). A solemnity that falls on the Sunday replaces it, so its Mass is what the
+ * evening anticipates.
+ *
+ * Any other day's evening anticipates only a holy day or a solemnity with its own
+ * Vigil readings, and only when the Table of Liturgical Days lets the next day's
+ * First Vespers displace this day's Second (UNLY 61): the Second Sunday of Advent
+ * keeps its evening when the Immaculate Conception is on the Monday, and the Sacred
+ * Heart keeps its own when John the Baptist is on the Saturday, since a tie goes to
+ * the current day. Christmas Eve is the exception: its Vigil is celebrated on the
+ * evening of 24 December even when that is the Fourth Sunday of Advent.
+ *
+ * Holy Saturday returns null: the Easter Vigil is already its only Mass, so there
+ * are not two Masses to choose between.
+ */
+export function eveningMass(input: Date, opts?: LiturgicalCalendarOptions): EveningMass | null {
+  const options = normaliseOptions(opts);
+  const date = startOfUtcDay(input);
+  const today = resolveLiturgicalDay(date, options);
+  if (today.temporalKey === "easter-vigil") return null;
+
+  const tomorrow = addDays(date, 1);
+  const next = resolveLiturgicalDay(tomorrow, options);
+  const key = next.sanctoral?.key ?? next.temporalKey;
+  const ownReadings = OWN_VIGIL_READINGS.has(key);
+  if (!next.isSunday) {
+    const anticipated =
+      ownReadings ||
+      (options.calendar === "roman-general" ? GENERAL_HOLY_DAYS : US_ANTICIPATED_DAYS).has(key);
+    if (!anticipated) return null;
+    if (
+      key !== "nativity" &&
+      observedPrecedence(tomorrow, options) >= observedPrecedence(date, options)
+    ) {
+      return null;
+    }
+  }
+
+  const weekday = WEEKDAY_LABELS[today.dayOfWeek];
+  return {
+    next,
+    ownReadings,
+    title: vigilTitle(next.celebration),
+    label: `${VIGIL_SHORT_NAMES[key] ?? "Sunday"} Vigil (${weekday} evening)`,
+    dayLabel: `${weekday} Mass`,
+  };
+}
+
+/** The Table of Liturgical Days class of what a date actually celebrates. */
+function observedPrecedence(date: Date, options: Required<LiturgicalCalendarOptions>): Precedence {
+  const ctx = yearContext(date.getUTCFullYear(), options);
+  const s = ctx.sanctoral.get(iso(date));
+  return s ? sanctoralPrecedence(s) : temporalCelebration(date, ctx).precedence;
 }

@@ -238,6 +238,29 @@ export function parseUsccbCalendar(text: string): UsccbCalendarParseResult {
     const number = line.match(NUMBER_RE)?.[1];
     if (!number) continue;
     blockMasses += 1;
+    // Palm Sunday prints the Procession's Gospel and the Mass on one line:
+    // "Mt 21:1-11 (37)/Is 50:4-7/Phil 2:6-11/Mt 26:14—27:66 or 27:11-54 (38)".
+    // Read as one Mass, the Procession's number would own the Passion.
+    const pair = /PALM SUNDAY/.test(blockCelebration)
+      ? line.match(/^(.*?\(\d+[A-Z]?\))\/(.*\((\d+[A-Z]?)\).*)$/)
+      : null;
+    if (pair) {
+      current.masses.push({
+        number,
+        variant: "procession",
+        celebration: blockCelebration,
+        sections: [
+          { kind: "GOSPEL", citation: normaliseCitation(stripAnnotations(pair[1])) ?? "" },
+        ].filter((s): s is { kind: ReadingKind; citation: string } => s.citation.length > 0),
+      });
+      current.masses.push({
+        number: pair[3],
+        variant: null,
+        celebration: blockCelebration,
+        sections: parseCitationLine(pair[2]),
+      });
+      continue;
+    }
     current.masses.push({
       number,
       variant: lineVariant(line),

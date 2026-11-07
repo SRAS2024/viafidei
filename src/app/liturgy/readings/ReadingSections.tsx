@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import type { ReadingLayout } from "@/lib/content-shared/lectionary";
+
 import type { ReadingsViewSection } from "./readings-view";
 
 /**
@@ -13,75 +15,157 @@ import type { ReadingsViewSection } from "./readings-view";
  *     dropped;
  *   - where the citation reads only part of a verse the Douay-Rheims verse is
  *     shown whole, and the page says so.
- * A section whose text cannot be verified is rendered as one compact citation
- * line ("Gospel Acclamation — Mt 11:25"), not as a paragraph-shaped placeholder.
+ * A section whose text cannot be verified is rendered as its heading and citation,
+ * not as a paragraph-shaped placeholder.
  */
-export function ReadingSections({ sections }: { sections: ReadingsViewSection[] }) {
+export function ReadingSections({
+  sections,
+  sourceUrl,
+  sourceName,
+}: {
+  sections: ReadingsViewSection[];
+  sourceUrl?: string;
+  sourceName?: string;
+}) {
   if (sections.length === 0) return null;
   return (
-    <div className="space-y-8">
+    <div className="vf-readings">
       {sections.map((section, i) => (
-        <ReadingSectionView key={`${section.kind}-${i}`} section={section} />
+        <ReadingSectionView
+          // The citation is part of the key: moving to another Mass starts over on the
+          // new reading's first choice, not on whichever was chosen in the last one.
+          key={`${section.kind}-${i}-${section.citation}`}
+          section={section}
+          sourceUrl={sourceUrl}
+          sourceName={sourceName}
+        />
       ))}
     </div>
   );
 }
 
-function ReadingSectionView({ section }: { section: ReadingsViewSection }) {
-  const [index, setIndex] = useState(0);
-  const alternatives = section.alternatives.length > 0 ? section.alternatives : [];
-  const chosen = alternatives[index] ?? alternatives[0] ?? null;
-  const body = chosen?.body ?? section.body;
+/** A response line ("R. Blessed be the Lord") in a stored psalm, set the same every time. */
+const RESPONSE_LINE = /^R\.\s*/;
 
-  // Citation-only: one compact line, no rule and no placeholder paragraph.
-  if (!body) {
+function PsalmResponse({ text }: { text: string }) {
+  return (
+    <span className="vf-prayer-line vf-prayer-response">
+      <abbr title="Response">R.</abbr> {text}
+    </span>
+  );
+}
+
+/** The text of a reading: stanzas of verse or paragraphs of prose, same words either way. */
+function ReadingText({ layout, body }: { layout: ReadingLayout | null; body: string }) {
+  if (layout?.form === "verse") {
     return (
-      <section>
-        <p className="font-serif text-sm text-ink-soft">
-          <span className="font-display text-ink">{section.label}</span>
-          {section.citation ? <span className="text-ink-faint"> — {section.citation}</span> : null}
-        </p>
-      </section>
+      <div className="vf-prayer">
+        {layout.stanzas.map((stanza, s) => (
+          <p key={s} className="vf-prayer-stanza">
+            {stanza.map((line, l) =>
+              RESPONSE_LINE.test(line) ? (
+                <PsalmResponse key={l} text={line.replace(RESPONSE_LINE, "")} />
+              ) : (
+                <span key={l} className="vf-prayer-line">
+                  {line}
+                </span>
+              ),
+            )}
+          </p>
+        ))}
+      </div>
     );
   }
+  const paragraphs = layout?.form === "prose" ? layout.paragraphs : [body];
+  return (
+    <div className="vf-reading">
+      {paragraphs.map((paragraph, p) => (
+        <p key={p}>{paragraph}</p>
+      ))}
+    </div>
+  );
+}
+
+function ReadingSectionView({
+  section,
+  sourceUrl,
+  sourceName,
+}: {
+  section: ReadingsViewSection;
+  sourceUrl?: string;
+  sourceName?: string;
+}) {
+  const [index, setIndex] = useState(0);
+  const alternatives = section.alternatives;
+  const chosen = alternatives[index] ?? alternatives[0] ?? null;
+  const body = chosen ? chosen.body : section.body;
+  const reference = chosen?.reference ?? section.reference;
+  // An acclamation is a line, so without its text it is nothing but its citation.
+  // A reading missing its text is a gap the page owes an explanation for.
+  const missesReading = !body && section.kind !== "ACCLAMATION";
+  const hasChoice = alternatives.length > 1;
 
   return (
-    <section>
-      <h2 className="font-display text-lg text-ink">{section.label}</h2>
-      <p className="mt-0.5 font-serif text-sm italic text-ink-soft">
-        {chosen?.citation ?? section.citation}
+    <section className="vf-detail-section vf-reading-section">
+      <h2 className={`${body || hasChoice ? "vf-subhead" : "vf-subhead-sm"} text-ink`}>
+        {section.label}
+      </h2>
+      {/* Choosing another reading changes this line, so a screen reader says which. */}
+      <p className="vf-reading-ref" aria-live={hasChoice ? "polite" : undefined}>
+        {reference}
       </p>
-      {alternatives.length > 1 ? (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="vf-eyebrow text-ink-faint">Either</span>
-          {alternatives.map((alt, i) => (
-            <button
-              key={alt.citation}
-              type="button"
-              onClick={() => setIndex(i)}
-              aria-pressed={i === index}
-              className={`rounded-sm border px-2 py-0.5 font-serif text-xs ${
-                i === index
-                  ? "border-ink/40 bg-ink/5 text-ink"
-                  : "border-ink/15 text-ink-soft hover:border-ink/30"
-              }`}
-            >
-              {alt.citation}
-            </button>
-          ))}
+
+      {hasChoice ? (
+        <div
+          className="vf-choice vf-reading-either"
+          role="group"
+          aria-label={`Choose the ${section.label}`}
+        >
+          <p className="vf-choice-label" aria-hidden="true">
+            Either
+          </p>
+          {/* Without markers Safari drops a list's role, so it is said out loud. */}
+          <ul className="vf-choice-options" role="list">
+            {alternatives.map((alt, i) => (
+              <li key={alt.citation}>
+                <button
+                  type="button"
+                  onClick={() => setIndex(i)}
+                  aria-pressed={i === index}
+                  className={`vf-chip ${i === index ? "vf-filter-active" : ""}`.trim()}
+                >
+                  {alt.reference}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
+
       {section.response?.body ? (
-        <p className="mt-2 font-serif text-sm text-ink-soft">
-          <span className="italic">R.</span> {section.response.body}
+        <p className="vf-prayer vf-reading-response">
+          <PsalmResponse text={section.response.body} />
         </p>
       ) : null}
-      <div className="vf-rule my-3" />
-      <p className="whitespace-pre-line font-serif text-[1.05rem] leading-relaxed text-ink">
-        {body}
-      </p>
-      {chosen?.note ? (
-        <p className="mt-2 font-serif text-xs text-ink-faint">{chosen.note}</p>
+
+      {body ? <ReadingText layout={chosen ? chosen.layout : section.layout} body={body} /> : null}
+
+      {missesReading ? (
+        <p className="vf-fineprint vf-reading-note">
+          The Douay-Rheims numbers this passage differently from the Lectionary, so its text is not
+          shown here.
+          {sourceUrl ? (
+            <>
+              {" "}
+              <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
+                Read it at {sourceName ?? "the source"}
+              </a>
+              .
+            </>
+          ) : null}
+        </p>
+      ) : chosen?.note ? (
+        <p className="vf-fineprint vf-reading-note">{chosen.note}</p>
       ) : null}
     </section>
   );

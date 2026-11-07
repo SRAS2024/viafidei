@@ -31,6 +31,7 @@ import {
   READING_ORDER,
   type LectionaryEntry,
 } from "@/lib/content-shared/lectionary/index";
+import { temporalLectionaryNumbers } from "../../scripts/lectionary/calendar-check-lib";
 import { checkCoverage } from "../../scripts/lectionary/check-coverage";
 
 const TABLE_DIR = path.join(process.cwd(), "src/lib/content-shared/lectionary/tables");
@@ -79,6 +80,8 @@ describe("lectionary tables", () => {
 
   it("keeps sections in proclamation order and one per kind per cycle", () => {
     for (const entry of entries) {
+      // Named sections are a sequence of their own (the Easter Vigil's nine readings).
+      if (entry.sections.some((s) => s.label)) continue;
       const seen = new Set<string>();
       let rank = -1;
       for (const section of entry.sections) {
@@ -90,6 +93,63 @@ describe("lectionary tables", () => {
         rank = next;
       }
     }
+  });
+});
+
+describe("formularies that do not fit one reading per kind", () => {
+  const vigilOf = (sundayCycle: "A" | "B" | "C") =>
+    lookupLectionary("easter-vigil", { sundayCycle })?.sections ?? [];
+
+  it("gives the Easter Vigil seven readings, the Epistle, their psalms and the year's Gospel", () => {
+    const sections = vigilOf("B");
+    expect(sections.filter((s) => s.kind !== "PSALM").map((s) => s.label ?? s.kind)).toEqual([
+      "First Reading",
+      "Second Reading",
+      "Third Reading",
+      "Fourth Reading",
+      "Fifth Reading",
+      "Sixth Reading",
+      "Seventh Reading",
+      "Epistle",
+      "GOSPEL",
+    ]);
+    expect(sections.filter((s) => s.kind === "PSALM")).toHaveLength(8);
+    // In the order it is proclaimed, with a psalm after each reading.
+    expect(sections.map((s) => s.kind).slice(0, 4)).toEqual([
+      "FIRST_READING",
+      "PSALM",
+      "SECOND_READING",
+      "PSALM",
+    ]);
+    expect(sections.at(-1)?.citation).toBe("Mk 16:1-7");
+    expect(vigilOf("A").at(-1)?.citation).toBe("Mt 28:1-10");
+    expect(vigilOf("C").at(-1)?.citation).toBe("Lk 24:1-12");
+  });
+
+  it("splits Palm Sunday's Procession from its Mass", () => {
+    const mass = lookupLectionary("palm-sunday", { sundayCycle: "A" });
+    expect(mass?.number).toBe("38");
+    expect(mass?.sections.find((s) => s.kind === "GOSPEL")?.citation).toBe(
+      "Mt 26:14—27:66 or Mt 27:11-54",
+    );
+    const procession = lookupLectionary("palm-sunday", { sundayCycle: "A", variant: "procession" });
+    expect(procession?.number).toBe("37");
+    expect(procession?.sections.map((s) => [s.kind, s.citation])).toEqual([
+      ["GOSPEL", "Mt 21:1-11"],
+    ]);
+  });
+
+  it("offers Pentecost's Vigil and Extended Vigil in every year", () => {
+    for (const sundayCycle of ["A", "B", "C"] as const) {
+      expect(lookupLectionary("pentecost", { sundayCycle })?.masses.map((m) => m.variant)).toEqual([
+        "day",
+        "vigil",
+        "extended-vigil",
+      ]);
+    }
+    const extended = lookupLectionary("pentecost", { variant: "extended-vigil" });
+    expect(extended?.sections.filter((s) => s.kind === "PSALM")).toHaveLength(4);
+    expect(extended?.sections.at(-1)?.citation).toBe("Jn 7:37-39");
   });
 });
 
@@ -150,6 +210,55 @@ describe("key map", () => {
 
   it("returns null for a key it does not know, rather than guessing", () => {
     expect(lookupLectionary("not-a-liturgical-day")).toBeNull();
+  });
+
+  it("files every Proper-of-Time weekday under the number its week and day give it", () => {
+    // The numbers of the Proper of Time are arithmetic, so a slip in a dated source
+    // cannot quietly send a weekday to the wrong day's readings.
+    const start = Date.UTC(2020, 0, 1);
+    const end = Date.UTC(2040, 11, 31);
+    const wrong: string[] = [];
+    for (let t = start; t <= end; t += 86_400_000) {
+      const day = resolveLiturgicalDay(new Date(t), { calendar: "roman-us" });
+      const expected = temporalLectionaryNumbers(day.temporalKey, day.sundayCycle);
+      if (expected.length === 0 || day.lectionaryKey !== day.temporalKey) continue;
+      if (
+        !/^(ordinary|advent|lent|easter)-\d+-(mon|tues|wednes|thurs|fri|satur)day$/.test(
+          day.temporalKey,
+        )
+      ) {
+        continue;
+      }
+      const number = keyMapEntry(day.temporalKey, day.sundayCycle)?.masses[0].number;
+      if (!expected.includes(Number(number)))
+        wrong.push(`${day.date} ${day.temporalKey} → #${number}`);
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  it("gives every Ordinary-Time weekday a psalm for each year, and they differ", () => {
+    let differing = 0;
+    for (const n of lectionaryNumbers()) {
+      const number = Number.parseInt(n, 10);
+      if (number < 305 || number > 508 || String(number) !== n) continue;
+      const entry = lectionaryEntry(n) as LectionaryEntry;
+      const psalm = (weekdayCycle: "I" | "II") =>
+        sectionsForCycles(entry, { weekdayCycle }).find((s) => s.kind === "PSALM")?.citation;
+      expect(psalm("I"), `#${n} Year I`).toBeTruthy();
+      expect(psalm("II"), `#${n} Year II`).toBeTruthy();
+      if (psalm("I") !== psalm("II")) differing += 1;
+    }
+    // A handful share a psalm; if most did, the two years have collapsed into one.
+    expect(differing).toBeGreaterThan(180);
+  });
+
+  it("keeps a weekday on its own readings whatever the Sunday cycle", () => {
+    // 2029-05-10 is a Year A Thursday of the 6th week of Easter: #294, not the
+    // Ascension that the USCCB page also lists for the Thursday provinces.
+    expect(lookupLectionary("easter-6-thursday", { sundayCycle: "A" })?.number).toBe("294");
+    // A Year A slip in the dated source once filed this Tuesday under Monday's #317.
+    expect(lookupLectionary("ordinary-4-tuesday", { sundayCycle: "A" })?.number).toBe("324");
+    expect(lookupLectionary("our-lady-of-guadalupe", { sundayCycle: "C" })?.number).toBe("690A");
   });
 });
 

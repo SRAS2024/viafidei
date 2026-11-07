@@ -1,9 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
-import { resolveLiturgicalDay } from "@/lib/content-shared/liturgical-calendar";
+import { FactList } from "@/components/ui/FactList";
+import {
+  eveningMass,
+  liturgicalColorLabel,
+  liturgicalObligationLabel,
+  liturgicalRankLabel,
+  resolveLiturgicalDay,
+} from "@/lib/content-shared/liturgical-calendar";
+
+import { CalendarPanelSkeleton } from "./CalendarPanelSkeleton";
 
 /**
  * Interactive liturgical calendar.
@@ -13,6 +22,9 @@ import { resolveLiturgicalDay } from "@/lib/content-shared/liturgical-calendar";
  * link to that day's official Mass readings. The computed calendar is the
  * General Roman Calendar; when the visitor's selected rite differs, an
  * honest note points them to its proper calendar.
+ *
+ * A date with an evening Mass (a Saturday, or the eve of a holy day) links to both
+ * Masses. Nothing here guesses from the clock which one a visitor means.
  */
 function todayIso(): string {
   const now = new Date();
@@ -27,12 +39,17 @@ function toCivilDate(isoDate: string): Date {
   return new Date(Date.UTC(y, m - 1, d));
 }
 
-/** "SOLEMNITY" → "Solemnity", "OPTIONAL_MEMORIAL" → "Optional memorial". */
-function rankLabel(rank: string): string {
-  const words = rank.toLowerCase().replace(/_/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
+function longDate(date: Date): string {
+  return new Intl.DateTimeFormat("en", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(date);
 }
 
+/** The vestment colours themselves, whatever the page's theme. The name is always beside it. */
 const SWATCH: Record<string, string> = {
   White: "#f5f0e1",
   Green: "#3f6f4f",
@@ -57,41 +74,51 @@ export function LiturgicalCalendarBrowser({
   // Empty until mounted so server and client render the same initial markup.
   const [iso, setIso] = useState("");
   const [rite, setRite] = useState(initialRite);
+  const dateId = useId();
+  const riteId = useId();
   useEffect(() => setIso(todayIso()), []);
 
-  if (!iso) {
-    return <p className="font-serif text-sm text-ink-faint">Loading the calendar…</p>;
-  }
+  if (!iso) return <CalendarPanelSkeleton />;
 
   const date = toCivilDate(iso);
   // The full resolver (not `liturgicalDay`): the browser names the celebration
   // actually observed that day and its rank, which is what the readings are
   // keyed on.
   const day = resolveLiturgicalDay(date);
+  const evening = eveningMass(date);
   const isRoman = rite === "roman";
   const riteLabel = rites.find((r) => r.value === rite)?.label ?? rite;
+  const dateLine = longDate(date);
+  const colors = liturgicalColorLabel(day);
+  const obligation = liturgicalObligationLabel(day);
 
   return (
-    <div className="vf-card rounded-sm p-6 sm:p-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="vf-eyebrow text-ink-faint">Choose a date</span>
+    <div className="vf-calendar-panel">
+      <div className="vf-calendar-controls">
+        <div>
+          <label htmlFor={dateId} className="vf-label">
+            Choose a date
+          </label>
           <input
+            id={dateId}
             type="date"
             value={iso}
             onChange={(e) => setIso(e.target.value || todayIso())}
-            className="rounded-sm border border-ink/20 bg-transparent px-3 py-2 font-serif text-ink"
+            className="vf-input"
           />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="vf-eyebrow text-ink-faint">Rite</span>
+        </div>
+        <div>
+          <label htmlFor={riteId} className="vf-label">
+            Rite
+          </label>
           <select
+            id={riteId}
             value={rite}
             onChange={(e) => {
               setRite(e.target.value);
               persistRiteCookie(e.target.value);
             }}
-            className="rounded-sm border border-ink/20 bg-transparent px-3 py-2 font-serif text-ink"
+            className="vf-input"
           >
             {rites.map((r) => (
               <option key={r.value} value={r.value}>
@@ -99,55 +126,77 @@ export function LiturgicalCalendarBrowser({
               </option>
             ))}
           </select>
-        </label>
+        </div>
       </div>
 
-      <div className="mt-6 flex items-center gap-3">
-        <span
-          aria-hidden
-          className="inline-block h-5 w-5 rounded-full border border-ink/20"
-          style={{ backgroundColor: SWATCH[day.color] ?? "#cccccc" }}
+      <div className="vf-calendar-result">
+        {/* Changing the date replaces everything below; this says what it became. */}
+        <p className="sr-only" role="status">
+          {dateLine}: {day.celebration}. {day.seasonLabel}. Liturgical colour {colors}.
+        </p>
+        <div className="vf-calendar-season">
+          <span
+            aria-hidden="true"
+            className="vf-swatch"
+            style={{ backgroundColor: SWATCH[day.color] ?? "#cccccc" }}
+          />
+          <p className="vf-eyebrow">{day.seasonLabel}</p>
+        </div>
+        <h2 className="vf-calendar-title text-ink">{day.celebration}</h2>
+        <p className="vf-calendar-date">{dateLine}</p>
+
+        <FactList
+          items={[
+            {
+              label: "Rank",
+              value: obligation
+                ? `${liturgicalRankLabel(day)} · ${obligation}`
+                : liturgicalRankLabel(day),
+            },
+            { label: "Liturgical colour", value: colors },
+            { label: "Sunday cycle", value: `Year ${day.sundayCycle}` },
+            { label: "Weekday cycle", value: `Year ${day.weekdayCycle}` },
+            day.isJubileeYear ? { label: "Holy Year", value: "Jubilee Year" } : null,
+          ]}
         />
-        <p className="font-display text-2xl text-ink">{day.seasonLabel}</p>
-        {day.isJubileeYear ? (
-          <span className="vf-eyebrow rounded-sm border border-liturgical-gold/50 px-2 py-0.5 text-liturgical-gold">
-            Jubilee Year
-          </span>
+
+        {/* Route to the INTERNAL daily-readings page for the selected day, which
+            computes that day's readings from the Lectionary tables and links out
+            to the official source modestly at the bottom. */}
+        <nav aria-label={`Mass readings for ${dateLine}`} className="vf-calendar-links">
+          <p className="vf-label vf-calendar-links-title" aria-hidden="true">
+            Mass readings
+          </p>
+          {/* Without markers Safari drops a list's role, so it is said out loud. */}
+          <ul className="vf-calendar-links-row" role="list">
+            <li>
+              <Link
+                href={`/liturgy/readings?date=${iso}`}
+                className="vf-btn vf-btn-sm vf-btn-primary"
+              >
+                {evening ? evening.dayLabel : "Readings for this day"}
+              </Link>
+            </li>
+            {evening ? (
+              <li>
+                <Link
+                  href={`/liturgy/readings?date=${iso}&mass=vigil`}
+                  className="vf-btn vf-btn-sm vf-btn-ghost"
+                >
+                  {evening.label}
+                </Link>
+              </li>
+            ) : null}
+          </ul>
+        </nav>
+
+        {!isRoman ? (
+          <p className="vf-fineprint vf-calendar-rite-note">
+            This calendar follows the General Roman Calendar. The {riteLabel} observes its own
+            proper calendar, which may differ in its seasons and feasts.
+          </p>
         ) : null}
       </div>
-
-      <p className="mt-3 font-display text-lg text-ink">{day.celebration}</p>
-
-      <dl className="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 font-serif text-sm text-ink-soft">
-        <dt className="font-medium text-ink">Rank</dt>
-        <dd>
-          {rankLabel(day.rank)}
-          {day.isHolyDayOfObligation ? " · Holy day of obligation" : ""}
-        </dd>
-        <dt className="font-medium text-ink">Liturgical colour</dt>
-        <dd>{day.color}</dd>
-        <dt className="font-medium text-ink">Sunday cycle</dt>
-        <dd>Year {day.sundayCycle}</dd>
-        <dt className="font-medium text-ink">Weekday cycle</dt>
-        <dd>Year {day.weekdayCycle}</dd>
-      </dl>
-
-      {/* Route to the INTERNAL daily-readings page for the selected day, which
-          computes that day's readings from the Lectionary tables and links out
-          to the official source modestly at the bottom. */}
-      <Link
-        href={`/liturgy/readings?date=${iso}`}
-        className="vf-btn vf-btn-primary mt-6 inline-block"
-      >
-        Official Mass readings for this day →
-      </Link>
-
-      {!isRoman ? (
-        <p className="mt-6 rounded-sm border border-ink/15 bg-ink/5 p-3 font-serif text-xs leading-relaxed text-ink-soft">
-          This calendar follows the General Roman Calendar. The {riteLabel} observes its own proper
-          calendar, which may differ in its seasons and feasts.
-        </p>
-      ) : null}
     </div>
   );
 }

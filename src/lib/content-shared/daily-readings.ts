@@ -8,6 +8,8 @@
  */
 
 import {
+  liturgicalColorLabel,
+  liturgicalRankLabel,
   resolveLiturgicalDay,
   usccbReadingsUrl,
   type LiturgicalCalendarOptions,
@@ -54,9 +56,13 @@ export interface ReadingFraming {
   seasonLabel: string;
   /** Week within the season (0 for stand-alone days and the Christmas season). */
   weekOfSeason: number;
+  /** The rank as a reader should see it ("Memorial", "Paschal Triduum"). */
+  rankLabel: string;
   sundayCycle: string;
   weekdayCycle: string;
   color: string;
+  /** Every colour the calendar allows, as a phrase ("Rose or violet"). */
+  colorLabel: string;
   isJubileeYear: boolean;
   isSunday: boolean;
   /** A weekday holy day of obligation (US rules by default). */
@@ -119,9 +125,11 @@ export function buildReadingFraming(date: Date, opts?: LiturgicalCalendarOptions
     season: day.season,
     seasonLabel: day.seasonLabel,
     weekOfSeason: day.weekOfSeason,
+    rankLabel: liturgicalRankLabel(day),
     sundayCycle: day.sundayCycle,
     weekdayCycle: day.weekdayCycle,
     color: day.color,
+    colorLabel: liturgicalColorLabel(day),
     isJubileeYear: day.isJubileeYear,
     isSunday: isSunday(date),
     isHolyDayOfObligation: day.isHolyDayOfObligation,

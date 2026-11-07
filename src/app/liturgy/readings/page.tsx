@@ -1,38 +1,35 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { ShareButton } from "@/components/ui";
+import { ShareButton } from "@/components/ui/ShareButton";
 import { prisma } from "@/lib/db/client";
 
+import { MassChoice } from "./MassChoice";
 import { ReadingSections } from "./ReadingSections";
 import { TodayDateSync } from "./TodayDateSync";
-import { buildReadingsView, parseDateParam, type StoredReadingRow } from "./readings-view";
+import {
+  buildReadingsView,
+  longDate,
+  parseDateParam,
+  storedRowDate,
+  type StoredReadingRow,
+} from "./readings-view";
 
 export const dynamic = "force-dynamic";
 
-function longDate(date: Date): string {
-  return new Intl.DateTimeFormat("en", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(date);
-}
-
-type SearchParams = { date?: string; variant?: string };
+type SearchParams = { date?: string; variant?: string; mass?: string };
 
 export async function generateMetadata({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }): Promise<Metadata> {
-  const { date: dateParam } = await searchParams;
+  const { date: dateParam, mass } = await searchParams;
   const date = parseDateParam(dateParam);
-  const view = buildReadingsView(date);
+  const view = buildReadingsView(date, { mass: mass ?? null });
   return {
-    title: `${view.framing.celebration} — Mass Readings · Via Fidei`,
-    description: `The Scripture readings of Holy Mass for ${longDate(date)}: ${view.framing.celebration}.`,
+    title: `${view.title} — Mass Readings`,
+    description: `The Scripture readings of Holy Mass for ${longDate(date)}: ${view.title}.`,
   };
 }
 
@@ -51,112 +48,102 @@ export default async function DailyReadingsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { date: dateParam, variant } = await searchParams;
+  const { date: dateParam, variant, mass } = await searchParams;
   const date = parseDateParam(dateParam);
 
-  const row = (await prisma.dailyReading
-    .findUnique({
-      where: { date_calendar_locale: { date, calendar: "roman-ordinary", locale: "en" } },
-    })
-    .catch(() => null)) as StoredReadingRow | null;
+  const rowDate = storedRowDate(date, mass);
+  const row = rowDate
+    ? ((await prisma.dailyReading
+        .findUnique({
+          where: {
+            date_calendar_locale: { date: rowDate, calendar: "roman-ordinary", locale: "en" },
+          },
+        })
+        .catch(() => null)) as StoredReadingRow | null)
+    : null;
 
-  const view = buildReadingsView(date, { variant: variant ?? null, row });
+  const view = buildReadingsView(date, { variant: variant ?? null, mass: mass ?? null, row });
   const { framing } = view;
-  const dateQuery = `date=${view.date}`;
+  const catholicResources = view.attribution.find((a) => a.source === "catholic-resources");
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6">
+    <article className="vf-detail">
       {/* A visitor who asked for "today" gets their OWN calendar date, not the
           server's UTC one. */}
-      <TodayDateSync renderedDate={view.date} enabled={!dateParam} />
+      <TodayDateSync renderedDate={view.date} enabled={!dateParam} mass={mass ?? null} />
 
-      <div className="text-center">
-        <p className="vf-eyebrow text-ink-faint">Daily Readings</p>
-        <h1 className="mt-2 font-display text-2xl text-ink sm:text-3xl">{framing.celebration}</h1>
-        <p className="mt-1 font-serif text-sm text-ink-soft">{longDate(date)}</p>
-        <p className="mt-2 font-serif text-sm text-ink-soft">
+      <header className="vf-detail-header">
+        <p className="vf-eyebrow">Daily Readings</p>
+        <h1 className="vf-detail-title text-ink">{view.title}</h1>
+        <p className="vf-detail-subtitle">{view.dateLine}</p>
+        <p className="vf-reading-meta">
           {framing.seasonLabel} · Sunday Cycle {framing.sundayCycle} · Weekday Cycle{" "}
           {framing.weekdayCycle}
           {framing.isJubileeYear ? " · Jubilee Year" : ""}
         </p>
-        <p className="mt-1 font-serif text-xs text-ink-faint">
-          Liturgical colour: {framing.color}
+        <p className="vf-reading-meta vf-reading-meta-next">
+          Liturgical colour: {framing.colorLabel}
           {view.lectionaryNumber ? ` · Lectionary: ${view.lectionaryNumber}` : ""}
         </p>
-        <div className="mt-4 flex justify-center">
-          <ShareButton
-            title={`${framing.celebration} — ${longDate(date)}`}
-            text={`Mass readings — ${framing.celebration}`}
-          />
+        <div className="vf-detail-actions">
+          <ShareButton title={`${view.title} — ${view.dateLine}`} />
         </div>
-        <div className="vf-rule mx-auto my-7" />
-      </div>
+      </header>
 
-      {/* The day's other Mass formularies (Christmas vigil/night/dawn/day, the
-          Year A scrutiny readings…). Links, so each Mass has its own URL. */}
-      {view.masses.length > 1 ? (
-        <div className="mb-8 flex flex-wrap items-center justify-center gap-2">
-          <span className="vf-eyebrow text-ink-faint">Mass</span>
-          {view.masses.map((mass) => (
-            <Link
-              key={mass.variant ?? "principal"}
-              href={
-                mass.variant
-                  ? `/liturgy/readings?${dateQuery}&variant=${mass.variant}`
-                  : `/liturgy/readings?${dateQuery}`
-              }
-              aria-current={mass.isActive ? "true" : undefined}
-              className={`rounded-sm border px-2.5 py-1 font-serif text-xs ${
-                mass.isActive
-                  ? "border-ink/40 bg-ink/5 text-ink"
-                  : "border-ink/15 text-ink-soft hover:border-ink/30"
-              }`}
-            >
-              {mass.label}
-            </Link>
-          ))}
+      {/* The Masses of this date: its own formularies (Christmas vigil, night, dawn
+          and day) and its evening Mass. Links, so each Mass has its own URL. */}
+      {view.masses.length > 1 || view.formularies.length > 1 || view.massNote ? (
+        <div className="vf-mass-choices">
+          {view.masses.length > 1 ? (
+            <MassChoice label="Mass" navLabel="Masses on this date" options={view.masses} />
+          ) : null}
+          {view.formularies.length > 1 ? (
+            <MassChoice
+              label="Readings"
+              navLabel="Readings of this Mass"
+              options={view.formularies}
+            />
+          ) : null}
+          {view.massNote ? <p className="vf-fineprint">{view.massNote}</p> : null}
         </div>
       ) : null}
 
-      {!view.hasText && (
-        <div className="mb-8 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-center font-serif text-sm text-amber-900">
+      {!view.hasText ? (
+        <p className="vf-reading-notice">
           The verified text of today&apos;s readings is not yet available in the public-domain
           translation used here. The citations are shown below; the full text is available from the
           source.
-        </div>
-      )}
+        </p>
+      ) : null}
 
-      <ReadingSections sections={view.sections} />
+      <ReadingSections
+        sections={view.sections}
+        sourceUrl={view.sourceUrl}
+        sourceName={view.sourceName}
+      />
 
-      <footer className="mt-12 text-center">
-        <div className="vf-rule mx-auto mb-5" />
+      <footer className="vf-detail-footer">
+        <Link href="/liturgical-calendar" className="vf-link-action">
+          Open the liturgical calendar →
+        </Link>
+      </footer>
+
+      <div className="vf-credits vf-fineprint">
         {view.hasText ? (
-          <p className="font-serif text-xs leading-relaxed text-ink-faint">
+          <p>
             Scripture text: the Douay-Rheims (Challoner) translation, in the public domain. The
             Lectionary&apos;s verse numbering is mapped onto the Douay-Rheims (Vulgate) numbering;
             where the Lectionary reads only part of a verse, the whole verse is shown.
           </p>
         ) : null}
-        <p className="mt-3 font-serif text-xs text-ink-faint">
+        <p>
           Readings for the day:{" "}
-          <a
-            href={view.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="vf-nav-link underline"
-          >
+          <a href={view.sourceUrl} target="_blank" rel="noopener noreferrer">
             {view.sourceName} →
           </a>
         </p>
-        <p className="mt-2 font-serif text-xs text-ink-faint">
-          {view.attribution.find((a) => a.source === "catholic-resources")?.note}
-        </p>
-        <p className="mt-3">
-          <Link href="/liturgical-calendar" className="vf-nav-link text-sm">
-            Open the liturgical calendar →
-          </Link>
-        </p>
-      </footer>
-    </main>
+        {catholicResources ? <p>{catholicResources.note}</p> : null}
+      </div>
+    </article>
   );
 }
