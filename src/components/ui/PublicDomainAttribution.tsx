@@ -16,6 +16,7 @@ export function PublicDomainAttribution({ payload }: { payload: Record<string, u
       Text from{" "}
       <a href={source.url} target="_blank" rel="noopener noreferrer">
         {source.work}
+        <span className="sr-only"> (opens in a new tab)</span>
       </a>
       {source.title ? `, “${source.title}”` : null}, public domain
     </p>

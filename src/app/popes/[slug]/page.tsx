@@ -5,6 +5,8 @@ import { PublishedDetail } from "@/components/ui";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { localizeItem } from "@/lib/translation/localize";
 
+import { popeFactItems } from "./facts";
+
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -15,22 +17,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /**
- * The birth name worth a line under a pope's name: one his papal name does not
- * already say. 34 of the 128 recorded are the papal name itself ("Gregory"
- * under "Pope Saint Gregory the Great"), and "Born Gregory" adds nothing.
- */
-function birthNameLine(title: string, value: unknown): string | null {
-  const name = typeof value === "string" ? value.trim() : "";
-  if (!name) return null;
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`, "i").test(title) ? null : `Born ${name}`;
-}
-
-/**
- * A pope: the name, the papacy (the subtitle, "Pope from 1958 to 1963"), the
- * birth name, then his life. The summary ("Pope John, who reigned as Roman
- * Pontiff from 1958–1963.") only restated the subtitle and was printed twice,
- * and "Papacy began", "Papacy ended" and "Content subtype" rows are gone.
+ * A pope: the name, the facts (his pontificate, the name he was born with), then
+ * his life. The stored subtitle ("Pope from 1958 to 1963") said the same as the
+ * first fact and the summary ("Pope John, who reigned as Roman Pontiff from
+ * 1958–1963.") restated it again. "Pope" over a name that opens with it says nothing.
  */
 export default async function PopeDetailPage({ params }: Props) {
   const { slug } = await params;
@@ -39,8 +29,11 @@ export default async function PopeDetailPage({ params }: Props) {
   return (
     <PublishedDetail
       item={item}
+      eyebrow={/^pope\b/i.test(item.title) ? null : undefined}
+      showSubtitle={false}
       lede={false}
-      facts={[birthNameLine(item.title, item.payload.birthName)]}
+      factItems={popeFactItems(item.title, item.payload)}
+      factsInSubtitle={["Pontificate"]}
       primaryFields={["background"]}
       headings={{ background: null }}
     />

@@ -11,6 +11,7 @@ import { formatFeastDay } from "./saints";
 
 const APPROVAL_LABELS: Record<string, string> = {
   approved: "Approved",
+  nihil_obstat: "Nihil obstat",
   constat_de_supernaturalitate: "Constat de supernaturalitate",
   non_constat: "Non constat de supernaturalitate",
   not_supernatural: "Not supernatural",

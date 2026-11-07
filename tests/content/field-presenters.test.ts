@@ -146,6 +146,36 @@ describe("presentValue", () => {
     });
   });
 
+  it("puts matter before form whatever order the payload's keys come back in", () => {
+    // Postgres stores a jsonb object's keys shortest first.
+    const presented = presentValue("matterAndForm", {
+      form: "The words.",
+      matter: "The water.",
+      note: "Anything else follows.",
+    });
+    if (presented?.kind !== "pairs") throw new Error("expected pairs");
+    expect(presented.pairs.map((pair) => pair.label)).toEqual(["Matter", "Form", "Note"]);
+  });
+
+  it("leaves every other object's keys in the order they came", () => {
+    const presented = presentValue("hours", { closeTime: "17:00", openTime: "09:00" });
+    if (presented?.kind !== "pairs") throw new Error("expected pairs");
+    expect(presented.pairs.map((pair) => pair.label)).toEqual(["Close time", "Open time"]);
+  });
+
+  it("drops the number of a paragraph an excerpt was cut off before", () => {
+    expect(presentValue("bodyExcerpt", "1. He has loved us.\n\n2. And so we love.\n\n3.")).toEqual({
+      kind: "text",
+      text: "1. He has loved us.\n\n2. And so we love.",
+      multiline: true,
+    });
+    expect(presentValue("bodyExcerpt", "One sentence, in 3 parts.")).toEqual({
+      kind: "text",
+      text: "One sentence, in 3 parts.",
+      multiline: false,
+    });
+  });
+
   it("keeps an array of objects as an ordered list of pairs", () => {
     const presented = presentValue("days", [
       { day: 1, intention: "For the Church" },
@@ -159,13 +189,13 @@ describe("presentValue", () => {
 });
 
 describe("isChipList", () => {
-  it("treats short single-line strings as chips", () => {
+  it("treats short single-line strings as a plain list", () => {
     const presented = presentValue("patronages", ["Travellers", "Lost items"]);
     expect(presented).not.toBeNull();
     expect(isChipList(presented!)).toBe(true);
   });
 
-  it("keeps long entries as a list so a paragraph is never squeezed into a chip", () => {
+  it("keeps long entries as bullets so a paragraph never reads as a bare line", () => {
     const presented = presentValue("tips", [
       "Pray a single decade when you are short of time — a decade prayed well is worth more than five rushed.",
     ]);

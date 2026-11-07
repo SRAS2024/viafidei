@@ -4,15 +4,11 @@ import { notFound } from "next/navigation";
 import { PublishedDetail } from "@/components/ui";
 import { SaveContentButton } from "@/components/profile";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
-import {
-  saintBiographyForDisplay,
-  saintCardDetailLines,
-  saintCardDetails,
-  saintDetailEyebrow,
-  saintLifeDates,
-} from "@/lib/content-shared/saints";
+import { saintBiographyForDisplay, saintDetailEyebrow } from "@/lib/content-shared/saints";
 import { getTranslator } from "@/lib/i18n/server";
 import { localizeItem } from "@/lib/translation/localize";
+
+import { saintFactItems } from "./facts";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +20,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /**
- * A saint's page, in the owner's order: the name, then the patronage, then the
- * feast day, then the dates the saint lived, then the biography — and nothing
- * else. The patronage and feast lines are the catalogue card's own lines, so the
- * card and the page always agree. No "Biography" heading over the life, no
- * canonization record, no feast-month or Wikidata rows, no sources — not even
- * the "A fuller biography is recorded in the … Wikipedia article and on
+ * A saint's page, in the owner's order: the name, then the facts (patronage, feast
+ * day, the dates the saint lived, the canonization), then the biography. No
+ * "Biography" heading over the life, no feast-month or Wikidata rows, no sources,
+ * not even the "A fuller biography is recorded in the … Wikipedia article and on
  * Wikidata" line a composed biography ends with.
  */
 export default async function SaintDetailPage({ params }: Props) {
@@ -37,13 +31,10 @@ export default async function SaintDetailPage({ params }: Props) {
   const stored = await getPublishedBySlug("SAINT", slug);
   if (!stored) notFound();
   const { t } = await getTranslator();
-  // The card's own lines, from the stored record as on the card. Their wording
-  // is the dictionaries' (English until a dictionary carries it), so a machine-
-  // translated patronage would put two languages in one line.
-  const facts = [
-    ...saintCardDetailLines(saintCardDetails(stored.payload), t),
-    saintLifeDates(stored.payload),
-  ];
+  // From the stored record, as on the card. The labels are the dictionaries'
+  // (English until a dictionary carries them), so a machine-translated patronage
+  // would put two languages in one fact.
+  const factItems = saintFactItems(stored.payload, t);
   // Rendering only: the stored biography (and its record) is untouched.
   const biography = stored.payload.biography;
   const shown = typeof biography === "string" ? saintBiographyForDisplay(biography) : biography;
@@ -61,10 +52,10 @@ export default async function SaintDetailPage({ params }: Props) {
       // Godeberta" only repeated the first word of the name.
       eyebrow={saintDetailEyebrow(item.payload, item.title) ?? null}
       // The stored subtitle ("Religious, patron of Noyon · Feast April 11")
-      // repeats the lines below it, and the summary repeats the biography.
+      // repeats the facts below it, and the summary repeats the biography.
       showSubtitle={false}
       lede={false}
-      facts={facts}
+      factItems={factItems}
       action={<SaveContentButton contentType="SAINT" slug={slug} />}
       primaryFields={["biography", "background"]}
       headings={{ biography: null, background: null }}

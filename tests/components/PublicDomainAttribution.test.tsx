@@ -41,13 +41,14 @@ const ITA = {
 describe("PublicDomainAttribution", () => {
   it("credits the Encyclopedia article, linked", () => {
     render(<PublicDomainAttribution payload={ITA} />);
-    expect(screen.getByText(/Text from/).textContent).toBe(
+    const line = screen.getByText(/Text from/);
+    expect(line).toHaveClass("vf-fineprint");
+    expect(line.textContent?.replace(" (opens in a new tab)", "")).toBe(
       "Text from the Catholic Encyclopedia (1913), “St. Ita”, public domain",
     );
-    expect(screen.getByRole("link", { name: "the Catholic Encyclopedia (1913)" })).toHaveAttribute(
-      "href",
-      CE,
-    );
+    expect(
+      screen.getByRole("link", { name: "the Catholic Encyclopedia (1913) (opens in a new tab)" }),
+    ).toHaveAttribute("href", CE);
   });
 
   it("credits the Martyrology", () => {
@@ -59,13 +60,12 @@ describe("PublicDomainAttribution", () => {
         }}
       />,
     );
-    expect(screen.getByText(/Text from/).textContent).toBe(
+    expect(screen.getByText(/Text from/).textContent?.replace(" (opens in a new tab)", "")).toBe(
       "Text from the Roman Martyrology (1916), public domain",
     );
-    expect(screen.getByRole("link", { name: "the Roman Martyrology (1916)" })).toHaveAttribute(
-      "href",
-      RM,
-    );
+    expect(
+      screen.getByRole("link", { name: "the Roman Martyrology (1916) (opens in a new tab)" }),
+    ).toHaveAttribute("href", RM);
   });
 
   it("renders nothing for Wikipedia text", () => {
@@ -98,7 +98,7 @@ describe("PublishedDetail on a saint with an Encyclopedia biography", () => {
     render(<PublishedDetail item={item} primaryFields={["biography"]} />);
     expect(screen.getAllByText(/Text from/)).toHaveLength(1);
     expect(
-      screen.getByRole("link", { name: "the Catholic Encyclopedia (1913)" }),
+      screen.getByRole("link", { name: /^the Catholic Encyclopedia \(1913\)/ }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/CC BY-SA/)).not.toBeInTheDocument();
   });

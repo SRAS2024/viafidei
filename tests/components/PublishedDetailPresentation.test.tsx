@@ -126,7 +126,7 @@ describe("PublishedDetail — field presentation (PUB-8)", () => {
     expect(screen.queryByRole("heading", { name: /Indulgenced/ })).not.toBeInTheDocument();
   });
 
-  it("shows short string arrays as chips", () => {
+  it("shows short string arrays as a plain list that nothing makes look clickable", () => {
     const { container } = render(
       <PublishedDetail
         item={makeItem({ patronages: ["Travellers", "Lost items"] })}
@@ -134,9 +134,26 @@ describe("PublishedDetail — field presentation (PUB-8)", () => {
       />,
     );
     expect(screen.getByRole("heading", { name: "Patronage" })).toBeInTheDocument();
-    expect(screen.getByText("Travellers")).toBeInTheDocument();
-    // Chips, not a bulleted column.
-    expect(container.querySelector("ul.list-disc")).toBeNull();
+    const list = container.querySelector("ul.vf-plain-list");
+    expect(list?.textContent).toBe("TravellersLost items");
+    // VoiceOver drops a list with no markers unless the role is said out loud.
+    expect(list).toHaveAttribute("role", "list");
+    expect(list?.querySelectorAll("a, button")).toHaveLength(0);
+  });
+
+  it("sets a field's blank lines as paragraphs, and keeps its single line breaks", () => {
+    const { container } = render(
+      <PublishedDetail
+        item={makeItem({ body: "First paragraph.\n\nSecond paragraph,\nwith a break." })}
+        primaryFields={["body"]}
+      />,
+    );
+    const paragraphs = Array.from(container.querySelectorAll(".vf-reading p"));
+    expect(paragraphs.map((p) => p.textContent)).toEqual([
+      "First paragraph.",
+      "Second paragraph,\nwith a break.",
+    ]);
+    expect(paragraphs[1]).toHaveClass("whitespace-pre-line");
   });
 });
 
@@ -225,6 +242,35 @@ describe("PublishedDetail — the title and what matters (owner's formatting pas
     expect(screen.queryByText("Religious · Feast April 11")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
     expect(screen.getByText("She was abbess of Noyon.")).toBeInTheDocument();
+  });
+
+  it("sets labelled facts apart from the prose, then the actions, then the summary", () => {
+    const { container } = render(
+      <PublishedDetail
+        item={makeItem({ summary: "A one-line lede.", background: "The history." })}
+        factItems={[{ label: "Feast day", value: "April 11" }, null]}
+        primaryFields={["background"]}
+      />,
+    );
+    const header = container.querySelector("header")!;
+    expect(Array.from(header.children).map((el) => el.className.split(" ")[0])).toEqual([
+      "vf-eyebrow",
+      "vf-detail-title",
+      "vf-facts",
+      "vf-detail-actions",
+      "vf-lede",
+    ]);
+    expect(header.querySelector("dt")).toHaveTextContent("Feast day");
+    expect(header.querySelector("dd")).toHaveTextContent("April 11");
+  });
+
+  it("never lets a title break through the name Our Lady", () => {
+    render(
+      <PublishedDetail item={{ ...makeItem({}), title: "Apparition of Our Lady of Fatima" }} />,
+    );
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Apparition of Our\u00a0Lady of Fatima",
+    );
   });
 
   it("keeps the subtitle by default — for most types it is the compact fact line", () => {

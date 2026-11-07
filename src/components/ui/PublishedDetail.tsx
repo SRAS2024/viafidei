@@ -14,7 +14,7 @@
  */
 
 import { contentTypeLabel, type PublishedItem } from "@/lib/data/published";
-import { displayItem } from "@/lib/translation/display";
+import { displayItem, displayOverlay } from "@/lib/translation/display";
 import { documentDatePrecision } from "@/lib/content-shared/church-history/timeline";
 import { formatHistoryDate } from "@/lib/content-shared/church-history/types";
 import { toDisclosureItems } from "@/lib/content-shared/structured-content";
@@ -28,6 +28,7 @@ import {
 import { Disclosure } from "./Disclosure";
 import { FactList, type FactItem } from "./FactList";
 import { PrayerLinkedText } from "./PrayerLinkedText";
+import { PrayerText } from "./PrayerText";
 import { PublicDomainAttribution } from "./PublicDomainAttribution";
 import { ShareButton } from "./ShareButton";
 import { WikipediaAttribution } from "./WikipediaAttribution";
@@ -87,6 +88,13 @@ export interface PublishedDetailProps {
    */
   factItems?: ReadonlyArray<FactItem | null | undefined>;
   /**
+   * The labels of the `factItems` the stored subtitle also says, for a page that
+   * shows facts in place of it. Facts are read from the stored English and the
+   * subtitle is machine-translated, so a reader in another language keeps that
+   * translated line, under the plain type label, and these facts give way to it.
+   */
+  factsInSubtitle?: readonly string[];
+  /**
    * Show the payload's `summary` as a lede under the title (default). It is
    * left out anyway when a shown field already contains it, so a sacrament's
    * overview is not printed twice.
@@ -117,16 +125,24 @@ function renderPresented(
 ): React.ReactNode {
   if (value.kind === "text") {
     const multiline = layout.kind === "text" ? layout.multiline : value.multiline;
-    return multiline ? <p className="whitespace-pre-line">{value.text}</p> : <p>{value.text}</p>;
+    if (!multiline) return <p>{value.text}</p>;
+    // A blank line is a new paragraph; a single line break stays where it is.
+    const paragraphs = value.text.split(/\n\s*\n/).filter((part) => part.trim());
+    return paragraphs.map((part, i) => (
+      <p key={i} className="whitespace-pre-line">
+        {part.trim()}
+      </p>
+    ));
   }
   if (value.kind === "list") {
     const shape =
       layout.kind === "list" && layout.items.length === value.items.length ? layout : value;
-    // Short single-line entries (patronages, visionaries) read best as a neat
-    // run of plain text. They are facts, so nothing about them looks clickable.
+    // Short single-line entries read best as a neat run of plain text. They are
+    // facts, so nothing about them looks clickable. VoiceOver stops calling a list
+    // a list once its markers are gone, so the role is said out loud.
     if (isChipList(shape)) {
       return (
-        <ul className="vf-plain-list">
+        <ul className="vf-plain-list" role="list">
           {value.items.map((item, i) => (
             <li key={i}>{item.kind === "text" ? item.text : null}</li>
           ))}
@@ -196,7 +212,7 @@ const HIDDEN_FIELDS = new Set([
  * Show the year for those, the full date for a genuine 1-January encyclical.
  * Fails open: anything unparseable returns null and renders as before.
  */
-function formatIssuedDate(value: unknown, documentType: unknown): string | null {
+export function formatIssuedDate(value: unknown, documentType: unknown): string | null {
   if (typeof value !== "string") return null;
   const placed = documentDatePrecision({
     issuedDate: value,
@@ -225,6 +241,7 @@ export function PublishedDetail({
   showSubtitle = true,
   facts,
   factItems,
+  factsInSubtitle,
   lede = true,
   headings,
 }: PublishedDetailProps) {
@@ -241,10 +258,16 @@ export function PublishedDetail({
     typeof shownPayload.summary === "string" && shownPayload.summary.trim()
       ? shownPayload.summary
       : summary;
+  const translatedLine = displayOverlay(item)?.subtitle;
+  const keepsTranslatedLine =
+    !!factsInSubtitle && !!translatedLine && translatedLine !== item.subtitle;
+  const shownFacts = keepsTranslatedLine
+    ? factItems?.filter((fact) => fact && !factsInSubtitle.includes(fact.label))
+    : factItems;
   // The eyebrow is a word, not an enum: "MARIAN_TITLE" used to print here.
   // `subtype` refines it (a PRAYER whose prayerType is "litany" reads "Litany").
   const eyebrowLabel =
-    eyebrow === undefined
+    eyebrow === undefined || (keepsTranslatedLine && eyebrow !== null)
       ? contentTypeLabel(
           item.contentType,
           typeof payload.prayerType === "string" ? payload.prayerType : null,
@@ -334,7 +357,7 @@ export function PublishedDetail({
                   headingLevel={panelLevel(key)}
                 />
               ) : (
-                <p className="whitespace-pre-line">{d.body}</p>
+                <PrayerText text={d.body} headingLevel={panelLevel(key)} />
               )}
             </Disclosure>
           ))}
@@ -366,11 +389,14 @@ export function PublishedDetail({
     <article className="vf-detail">
       <header className="vf-detail-header">
         {eyebrowLabel ? <p className="vf-eyebrow">{eyebrowLabel}</p> : null}
-        <h1 className="vf-detail-title text-ink">{shown.title}</h1>
-        {showSubtitle && shown.subtitle ? (
+        {/* "Our Lady" is one name: a title wraps around it, never through it. */}
+        <h1 className="vf-detail-title text-ink">
+          {shown.title.replace(/\bOur Lady\b/g, "Our Lady")}
+        </h1>
+        {(showSubtitle || keepsTranslatedLine) && shown.subtitle ? (
           <p className="vf-detail-subtitle">{shown.subtitle}</p>
         ) : null}
-        {factItems ? <FactList items={factItems} /> : null}
+        {shownFacts ? <FactList items={shownFacts} /> : null}
         {factLines.length > 0 ? (
           <div className="mt-2">
             {factLines.map((line, i) => (
@@ -383,11 +409,12 @@ export function PublishedDetail({
             ))}
           </div>
         ) : null}
-        {ledeText ? <p className="vf-lede">{ledeText}</p> : null}
         <div className="vf-detail-actions">
           <ShareButton title={shown.title} text={shownSummary ?? shown.title} />
           {action}
         </div>
+        {/* After the actions, so the summary runs straight on into the sections. */}
+        {ledeText ? <p className="vf-lede">{ledeText}</p> : null}
       </header>
 
       {primary.map(renderField)}

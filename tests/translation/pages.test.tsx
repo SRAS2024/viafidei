@@ -117,9 +117,6 @@ const expectAbsent = (...needles: string[]) => {
   const text = pageText();
   for (const needle of needles) expect(text, needle).not.toContain(needle);
 };
-/** The lines under the title, in order. */
-const headerLines = () =>
-  [...document.querySelectorAll("header p")].map((p) => p.textContent ?? "");
 
 beforeEach(() => {
   published.clear();
@@ -170,8 +167,11 @@ describe("a saint's page in Spanish", () => {
     // The name is never machine-translated, and nothing sits above it.
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Saint Isidore the Farmer");
     expect(document.querySelector(".vf-eyebrow")).toBeNull();
-    // The card's own lines from the stored record, then the dates lived.
-    expect(headerLines()).toEqual(["Patron of farmers", "Feast day: May 15", "1070 – 1130"]);
+    // The facts, read from the stored record as on the card.
+    const facts = Array.from(document.querySelectorAll(".vf-facts dt")).map(
+      (dt) => `${dt.textContent}: ${dt.nextElementSibling?.textContent}`,
+    );
+    expect(facts).toEqual(["Patron of: farmers", "Feast day: May 15", "Born: 1070", "Died: 1130"]);
     // The biography in Spanish, the saint's name kept as written.
     expect(pageText()).toContain("Isidore fue un labrador cerca de Madrid.");
     // No source pointer in either language, no subtitle, no summary.
@@ -202,7 +202,7 @@ describe("a saint's page in Spanish", () => {
     ]);
     render(await SaintDetailPage(params("blessed-hildegard-burjan")));
     expect(pageText()).toContain("Hildegard Burjan fundó las Hermanas del Servicio Social.");
-    const credit = screen.getByRole("link", { name: "Wikipedia (Hildegard Burjan)" });
+    const credit = screen.getByRole("link", { name: /^Wikipedia \(Hildegard Burjan\)/ });
     expect(credit.getAttribute("href")).toBe("https://en.wikipedia.org/wiki/Hildegard_Burjan");
     expect(pageText()).toContain("CC BY-SA 4.0");
   });
@@ -250,12 +250,12 @@ describe("a devotion's prayers in Spanish", () => {
     expectAbsent("Devoción eucarística", "Eucharistic devotion", "Citation", "Enchiridion");
 
     // The instruction names the prayer in Spanish, and the name opens it in place.
-    const article = screen.getByRole("article");
-    fireEvent.click(within(article).getByRole("button", { name: /Padre Nuestro/ }));
-    const inline = within(article).getByText(
+    const howTo = screen.getByRole("heading", { name: "How to practice" }).closest("section")!;
+    fireEvent.click(within(howTo).getByRole("button", { name: /Padre Nuestro/ }));
+    const inline = within(howTo).getByText(
       "Padre nuestro, que estás en el cielo, santificado sea tu nombre.",
     );
-    expect(inline.getAttribute("lang")).toBe("es");
+    expect(inline.closest(".vf-prayer")?.getAttribute("lang")).toBe("es");
 
     // The list below: the English instructions name it, so it is numbered.
     const list = screen
@@ -267,7 +267,8 @@ describe("a devotion's prayers in Spanish", () => {
     expect(
       within(list)
         .getByText("Padre nuestro, que estás en el cielo, santificado sea tu nombre.")
-        .getAttribute("lang"),
+        .closest(".vf-prayer")
+        ?.getAttribute("lang"),
     ).toBe("es");
   });
 });
@@ -299,7 +300,7 @@ describe("a prayer's page in Spanish", () => {
 
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Dios te salve, María");
     const text = screen.getByText("Dios te salve, María, llena eres de gracia.");
-    expect(text.getAttribute("lang")).toBe("es");
+    expect(text.closest(".vf-prayer")?.getAttribute("lang")).toBe("es");
     expect(document.querySelector(".vf-eyebrow")).toBeNull();
     expectAbsent(
       "English",
@@ -312,9 +313,9 @@ describe("a prayer's page in Spanish", () => {
 
     // The Latin is the stored text, never translated.
     fireEvent.click(screen.getByRole("button", { name: "Latin" }));
-    const latin = screen.getByText("Ave Maria, gratia plena.");
-    expect(latin.getAttribute("lang")).toBe("la");
-    expect(latin.getAttribute("translate")).toBe("no");
+    const latin = screen.getByText("Ave Maria, gratia plena.").closest(".vf-prayer");
+    expect(latin?.getAttribute("lang")).toBe("la");
+    expect(latin?.getAttribute("translate")).toBe("no");
   });
 });
 
@@ -361,9 +362,9 @@ describe("a church's page in Spanish", () => {
 });
 
 describe("a Church document in Spanish", () => {
-  it("keeps its key themes as chips when a translation is longer than a chip", async () => {
-    // 32 characters, a chip in English; its 34-character Spanish used to turn
-    // the whole row into a bulleted list for Spanish readers alone.
+  it("keeps its key themes a plain list when a translation runs longer", async () => {
+    // 32 characters, a plain line in English; its 34-character Spanish used to
+    // turn the whole set into a bulleted list for Spanish readers alone.
     const theme = "Preferential option for the poor";
     const encyclical = put(
       "CHURCH_DOCUMENT",
@@ -380,12 +381,59 @@ describe("a Church document in Spanish", () => {
 
     const themes = screen.getByRole("heading", { name: "Key themes" }).closest("section")!;
     const list = within(themes).getByRole("list");
-    expect(list.className).toContain("flex-wrap");
+    expect(list.className).toContain("vf-plain-list");
     expect(
       within(list)
         .getAllByRole("listitem")
         .map((li) => li.textContent),
     ).toEqual(["Fraternidad", "Opción preferencial por los pobres"]);
+  });
+});
+
+describe("a page that opens on facts, in Spanish", () => {
+  it("keeps the translated subtitle in place of the English facts it restates", async () => {
+    const encyclical = put(
+      "CHURCH_DOCUMENT",
+      "rerum-novarum",
+      "Rerum Novarum",
+      {
+        documentType: "encyclical",
+        issuingAuthority: "Pope Leo XIII",
+        issuedDate: "1891-05-15",
+        summary: "On capital and labor.",
+      },
+      "Encyclical of Pope Leo XIII (1891)",
+    );
+    spanishCache([
+      [encyclical, "Encyclical of Pope Leo XIII (1891)", "Encíclica del Papa León XIII (1891)"],
+      [encyclical, "On capital and labor.", "Sobre el capital y el trabajo."],
+    ]);
+    const { container } = render(await LiturgyHistoryDetailPage(params("rerum-novarum")));
+    expect(screen.getByText("Encíclica del Papa León XIII (1891)")).toHaveClass(
+      "vf-detail-subtitle",
+    );
+    expect(container.querySelector(".vf-facts")).toBeNull();
+    expect(container.querySelector(".vf-eyebrow")).toHaveTextContent("Church Document");
+  });
+
+  it("keeps the facts while the subtitle is still waiting for the translator", async () => {
+    const encyclical = put(
+      "CHURCH_DOCUMENT",
+      "rerum-novarum",
+      "Rerum Novarum",
+      {
+        documentType: "encyclical",
+        issuingAuthority: "Pope Leo XIII",
+        issuedDate: "1891-05-15",
+        summary: "On capital and labor.",
+      },
+      "Encyclical of Pope Leo XIII (1891)",
+    );
+    spanishCache([[encyclical, "On capital and labor.", "Sobre el capital y el trabajo."]]);
+    const { container } = render(await LiturgyHistoryDetailPage(params("rerum-novarum")));
+    expect(container.querySelector(".vf-detail-subtitle")).toBeNull();
+    expect(container.querySelector(".vf-facts")).toHaveTextContent("15 May 1891");
+    expect(pageText()).toContain("Sobre el capital y el trabajo.");
   });
 });
 
@@ -415,9 +463,16 @@ describe("the other prayer-bearing pages in Spanish", () => {
     } as unknown as Db);
   }
 
-  /** Every element and its classes, in order: what the page shows, without the words. */
+  /**
+   * Every element and its classes, in order: what the page shows, without the
+   * words. Facts are the one exception: they are read from the stored English, so
+   * for this reader the translated subtitle stands in for the facts it restates.
+   */
   function layout(): string[] {
-    return [...document.body.querySelectorAll("*")].map((el) =>
+    const elements = [...document.body.querySelectorAll("*")].filter(
+      (el) => !el.closest(".vf-facts, .vf-detail-subtitle, .vf-eyebrow"),
+    );
+    return elements.map((el) =>
       [
         el.tagName,
         ...[...el.attributes]

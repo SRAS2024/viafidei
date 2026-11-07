@@ -189,6 +189,31 @@ const SOURCE_KEYS: ReadonlySet<string> = new Set([
   "sourceUrls",
 ]);
 
+/**
+ * Pairs whose order means something. Postgres hands back a payload's keys in its
+ * own order (shortest first), so a "Matter and form" section printed Form above
+ * Matter. Keys not named here keep the order they came in.
+ */
+const PAIR_ORDER: Readonly<Record<string, readonly string[]>> = {
+  matterAndForm: ["matter", "form"],
+};
+
+function inPairOrder(key: string, entries: Array<[string, unknown]>): Array<[string, unknown]> {
+  const order = PAIR_ORDER[key];
+  if (!order) return entries;
+  const rank = ([k]: [string, unknown]) => {
+    const at = order.indexOf(k);
+    return at === -1 ? order.length : at;
+  };
+  return [...entries].sort((a, b) => rank(a) - rank(b));
+}
+
+/**
+ * An excerpt cut off where the next numbered paragraph began ends on a lone "3."
+ * The number belongs to text that is not there, so it goes.
+ */
+const NEXT_PARAGRAPH_NUMBER = /\s*\n\s*\d+\s*\.\s*$/;
+
 function text(value: string): PresentedValue {
   return { kind: "text", text: value, multiline: value.includes("\n") };
 }
@@ -211,6 +236,7 @@ export function presentValue(key: string, value: unknown, depth = 0): PresentedV
       return text(formatted ?? trimmed);
     }
     if (ENUM_KEYS.has(key)) return text(formatEnumValue(key, trimmed));
+    if (key === "bodyExcerpt") return text(trimmed.replace(NEXT_PARAGRAPH_NUMBER, ""));
     // Keep the original (untrimmed) string so deliberate indentation in prayer
     // and step text survives.
     return text(value.replace(/\s+$/, ""));
@@ -248,7 +274,7 @@ export function presentValue(key: string, value: unknown, depth = 0): PresentedV
   if (typeof value === "object") {
     if (depth >= MAX_DEPTH) return null;
     const pairs: Array<{ label: string; value: PresentedValue }> = [];
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    for (const [k, v] of inPairOrder(key, Object.entries(value as Record<string, unknown>))) {
       if (SOURCE_KEYS.has(k)) continue;
       const presented = presentValue(k, v, depth + 1);
       if (presented) pairs.push({ label: fieldLabel(k), value: presented });
@@ -260,13 +286,14 @@ export function presentValue(key: string, value: unknown, depth = 0): PresentedV
   return null;
 }
 
-/** Longest single-line string still shown as a chip rather than a bullet. */
+/** Longest single-line string still shown as a plain line rather than a bullet. */
 export const CHIP_MAX_LENGTH = 32;
 
 /**
- * Whether a presented list should render as chips (short tags — patronages,
- * what-you-need) rather than a bulleted list. Chips only ever hold short,
- * single-line text so they cannot swallow a paragraph.
+ * Whether a presented list should render as plain lines (short entries:
+ * patronages, what-you-need) rather than a bulleted list. Only short, single-line
+ * text qualifies, so a paragraph never reads as a bare line. The name is older
+ * than the look: these were once outlined chips, which looked like buttons.
  */
 export function isChipList(value: PresentedValue): boolean {
   if (value.kind !== "list") return false;

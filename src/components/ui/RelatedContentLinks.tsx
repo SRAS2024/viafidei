@@ -62,7 +62,7 @@ export function RelatedContentLinks({ title, links }: { title: string; links: Re
   return (
     <section className="vf-detail-section mt-[var(--space-related)]">
       <h2 className="vf-subhead">{title}</h2>
-      <ul className="vf-plain-list vf-reading">
+      <ul role="list" className="vf-plain-list vf-reading">
         {links.map((link) => (
           <li key={`${link.typeLabel}:${link.slug}`}>
             <Link href={link.href} className="vf-link">

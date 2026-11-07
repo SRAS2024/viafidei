@@ -49,12 +49,14 @@ describe("WikipediaAttribution", () => {
   it("renders the credit line with the article and licence links", () => {
     render(<WikipediaAttribution contentType="SAINT" payload={BURJAN} />);
     const line = screen.getByText(/Text from/);
-    expect(line.textContent).toBe("Text from Wikipedia (Hildegard Burjan), CC BY-SA 4.0");
-    expect(screen.getByRole("link", { name: "Wikipedia (Hildegard Burjan)" })).toHaveAttribute(
-      "href",
-      EN,
+    expect(line).toHaveClass("vf-fineprint");
+    expect(line.textContent?.replaceAll(" (opens in a new tab)", "")).toBe(
+      "Text from Wikipedia (Hildegard Burjan), CC BY-SA 4.0",
     );
-    expect(screen.getByRole("link", { name: "CC BY-SA 4.0" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Wikipedia (Hildegard Burjan) (opens in a new tab)" }),
+    ).toHaveAttribute("href", EN);
+    expect(screen.getByRole("link", { name: "CC BY-SA 4.0 (opens in a new tab)" })).toHaveAttribute(
       "href",
       "https://creativecommons.org/licenses/by-sa/4.0/",
     );
@@ -78,7 +80,9 @@ describe("PublishedDetail on a structured saint", () => {
       />,
     );
     expect(screen.getAllByText(/Text from/)).toHaveLength(1);
-    expect(screen.getByRole("link", { name: "Wikipedia (Hildegard Burjan)" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /^Wikipedia \(Hildegard Burjan\)/ }),
+    ).toBeInTheDocument();
   });
 
   it("never prints the feast month / day-of-month split or the Wikidata id", () => {

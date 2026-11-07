@@ -26,10 +26,17 @@ export function WikipediaAttribution({
       Text from{" "}
       <a href={source.url} target="_blank" rel="noopener noreferrer">
         {wikipediaEditionName(source.lang)} ({source.title})
+        <span className="sr-only"> (opens in a new tab)</span>
       </a>
       ,{" "}
-      <a href={WIKIPEDIA_LICENSE.url} target="_blank" rel="noopener noreferrer license">
+      <a
+        href={WIKIPEDIA_LICENSE.url}
+        target="_blank"
+        rel="noopener noreferrer license"
+        className="whitespace-nowrap"
+      >
         {WIKIPEDIA_LICENSE.name}
+        <span className="sr-only"> (opens in a new tab)</span>
       </a>
     </p>
   );

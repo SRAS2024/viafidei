@@ -1,22 +1,24 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
   GuidePrayers,
   PublishedDetail,
-  RelatedContentLinks,
   resolveRelatedLinks,
+  type RelatedLink,
 } from "@/components/ui";
 import { SaveContentButton } from "@/components/profile";
-import { formatFeastDay } from "@/lib/content-shared/saints";
 import {
   getPublishedBySlug,
   getAnyPublishedBySlug,
   buildPublishedMetadata,
-  type PublishedItem,
 } from "@/lib/data/published";
 import { loadPrayerSet } from "@/lib/data/prayer-sets";
+import { displayItem } from "@/lib/translation/display";
 import { localizeItem, localizePrayers } from "@/lib/translation/localize";
+
+import { apparitionFactItems, marianEyebrow, marianFactItems } from "./facts";
 
 export const dynamic = "force-dynamic";
 
@@ -28,22 +30,62 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /**
- * "Feast day: May 13", unless the subtitle under the title already says it
- * ("Title of the Blessed Virgin Mary · Feast May 13"). A dogma's subtitle
- * ("Marian dogma · defined 1854") and an apparition's do not carry the feast.
+ * A fact that leads somewhere: a real link, blue and underlined, so it can't be
+ * taken for one of the plain facts around it. A reference that does not resolve to
+ * a published page has no title to print, and leaves no fact at all.
  */
-function feastLine(item: PublishedItem): string | null {
-  const feast = formatFeastDay(item.payload.feastDay);
-  if (!feast || item.subtitle.includes(feast)) return null;
-  return `Feast day: ${feast}`;
+function linkedFact(label: string, links: RelatedLink[]) {
+  const [first] = links;
+  if (!first) return null;
+  return {
+    label,
+    value:
+      links.length === 1 ? (
+        <Link href={first.href} className="vf-link">
+          {first.title}
+        </Link>
+      ) : (
+        <ul className="vf-plain-list" role="list">
+          {links.map((link) => (
+            <li key={link.slug}>
+              <Link href={link.href} className="vf-link">
+                {link.title}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ),
+  };
+}
+
+/** The visionaries' names, one to a line: they are facts, and nothing about them is clickable. */
+function visionariesFact(value: unknown) {
+  const names = Array.isArray(value)
+    ? value.filter((name): name is string => typeof name === "string" && !!name.trim())
+    : [];
+  const [first] = names;
+  if (!first) return null;
+  return {
+    label: "Visionaries",
+    value:
+      names.length === 1 ? (
+        first
+      ) : (
+        <ul className="vf-plain-list" role="list">
+          {names.map((name) => (
+            <li key={name}>{name}</li>
+          ))}
+        </ul>
+      ),
+  };
 }
 
 /**
- * Our Lady: a Marian title or an approved apparition. The stored subtitle is
- * kept — it is the compact line a reader wants ("Church-approved Marian
- * apparition · Lourdes, France, 1858") — so the separate place, country,
- * status, year and region sections that repeated it are gone, as are aliases,
- * the worker's subtype and the approving document's source link.
+ * Our Lady: a Marian title or an approved apparition. Each opens on its facts: the
+ * status, place, year and visionaries of an apparition, the feast and region of a
+ * title, and the page the other one is linked to. The stored subtitle said the
+ * same in one line ("Church-approved Marian apparition · Lourdes, France, 1858").
+ * Aliases, the worker's subtype and the approving document's source link stay out.
  */
 export default async function SpiritualGuidanceDetailPage({ params }: Props) {
   const { slug } = await params;
@@ -66,17 +108,16 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
       <>
         <PublishedDetail
           item={marian}
-          facts={[feastLine(marian)]}
+          eyebrow={marianEyebrow(marian.payload)}
+          showSubtitle={false}
+          factItems={[
+            ...marianFactItems(marian.payload),
+            linkedFact(apparitions.length === 1 ? "Apparition" : "Apparitions", apparitions),
+          ]}
+          factsInSubtitle={["Feast day", "Defined", "Region"]}
           primaryFields={["origin", "theologicalSignificance", "iconographyNotes"]}
           headings={{ iconographyNotes: "Iconography" }}
           linkedPrayers={prayers}
-          footer={
-            apparitions.length > 0 ? (
-              <div className="w-full">
-                <RelatedContentLinks title="Apparitions" links={apparitions} />
-              </div>
-            ) : null
-          }
         />
         {/* A title's prayers are alternatives, not a sequence: no "Prayer 1". */}
         <GuidePrayers prayers={prayers} heading="Prayers" ordered={false} />
@@ -94,16 +135,18 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
     return (
       <PublishedDetail
         item={apparition}
+        // "Apparition" over "Apparition of Our Lady of Fatima" says nothing.
+        eyebrow={/^apparitions?\b/i.test(apparition.title) ? null : undefined}
+        showSubtitle={false}
         action={<SaveContentButton contentType="APPARITION" slug={slug} />}
-        facts={[feastLine(apparition)]}
-        primaryFields={["background", "visionaries", "messageHighlights"]}
-        footer={
-          titles.length > 0 ? (
-            <div className="w-full">
-              <RelatedContentLinks title="Under the title" links={titles} />
-            </div>
-          ) : null
-        }
+        factItems={[
+          ...apparitionFactItems(apparition.payload),
+          // The names as the reader's language has them, in the stored order.
+          visionariesFact(displayItem(apparition).payload.visionaries),
+          linkedFact("Under the title", titles),
+        ]}
+        factsInSubtitle={["Status", "Place", "Year"]}
+        primaryFields={["background", "messageHighlights"]}
       />
     );
   }
