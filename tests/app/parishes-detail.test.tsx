@@ -13,7 +13,7 @@
  * published parish change at once with no worker pass.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import type { PublishedItem } from "@/lib/data/published";
 
 const published = new Map<string, PublishedItem>();
@@ -135,6 +135,21 @@ describe("/parishes/[slug]", () => {
     seed(FULL_PAYLOAD);
     await render1();
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+  });
+
+  it("sits on the reading page's column, with directions, share and save in one row", async () => {
+    seed(FULL_PAYLOAD);
+    await render1();
+    expect(document.querySelector("article")).toHaveClass("vf-detail");
+    const actions = document.querySelector(".vf-detail-actions") as HTMLElement;
+    const names = within(actions)
+      .getAllByRole("button")
+      .map((button) => button.getAttribute("aria-label") ?? button.textContent);
+    expect(names).toEqual([
+      "Get directions to Cathedral Basilica of the Immaculate Conception",
+      "Share Cathedral Basilica of the Immaculate Conception",
+      "Save",
+    ]);
   });
 
   it("404s an unknown slug", async () => {

@@ -16,6 +16,12 @@ type Props = {
   className?: string;
   /** Button label for the block variant. */
   label?: string;
+  /**
+   * The place's name, heard in the button's name ("Get directions to St. Mary"):
+   * a directory has one of these buttons per card, and a screen reader's list of
+   * buttons has to tell them apart.
+   */
+  destination?: string;
 };
 
 /** iOS / iPadOS detection so we deep-link to Apple Maps on Apple devices. */
@@ -59,6 +65,7 @@ export function MapsAddressLink({
   variant = "inline",
   className,
   label,
+  destination,
 }: Props) {
   const open = useCallback(
     (e: { preventDefault: () => void; stopPropagation: () => void }) => {
@@ -73,17 +80,17 @@ export function MapsAddressLink({
   if (!address || !address.trim()) return null;
 
   if (variant === "block") {
+    const text = label ?? "Get directions";
     return (
       <button
         type="button"
         onClick={open}
-        className={
-          className ?? "vf-btn vf-btn-ghost inline-flex items-center gap-2 !py-1.5 !px-3 text-sm"
-        }
+        className={className ?? "vf-btn vf-btn-sm vf-btn-ghost"}
         title="Open in Maps for directions"
+        aria-label={destination ? `${text} to ${destination}` : undefined}
       >
-        <PinIcon />
-        {label ?? "Get directions"}
+        <PinIcon className="shrink-0" />
+        {text}
       </button>
     );
   }
@@ -112,8 +119,8 @@ function PinIcon({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
-      width="13"
-      height="13"
+      width="1.1em"
+      height="1.1em"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

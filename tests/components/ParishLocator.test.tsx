@@ -163,7 +163,7 @@ function nearResponse(body: Record<string, unknown>) {
  */
 async function locateWith(
   languages: string[],
-  props: { locale?: Locale; awayTemplate?: string } = {},
+  props: Props = {},
   items: ParishListItem[] = [parish({ id: "near", title: "Near Parish", ...HALF_A_MILE_EAST })],
 ) {
   stubGeolocation(HERE.latitude, HERE.longitude, languages);
@@ -407,11 +407,102 @@ describe("ParishLocator", () => {
     expect(tryAgainButton()).toBeInTheDocument();
   });
 
+  it("lays the directory out in three columns of the shared cards", () => {
+    renderLocator();
+    const list = screen.getByRole("list");
+    expect(list).toHaveClass("vf-grid", "vf-grid--3");
+    expect(within(list).getAllByRole("article")[0]).toHaveClass("vf-entry");
+  });
+
   it("shows the page's empty message when this page of the directory has no parishes", () => {
     renderLocator({ parishes: [], empty: <p>No parishes match “zzz”.</p> });
     expect(screen.getByText("No parishes match “zzz”.")).toBeInTheDocument();
     // …and "Use my location" is still there to tap.
     expect(locateButton()).toBeInTheDocument();
+  });
+});
+
+describe("ParishLocator — one control group, one spot that says what is going on", () => {
+  it("keeps the button in the same control group as the page's search and filter", () => {
+    renderLocator({
+      search: <input aria-label="Search parishes" />,
+      filter: <button type="button">Filter</button>,
+    });
+    const group = screen.getByRole("textbox", { name: "Search parishes" }).parentElement!;
+    expect(group).toHaveClass("vf-list-controls");
+    const buttons = within(group).getAllByRole("button");
+    expect(buttons.map((button) => button.textContent)).toEqual(["Filter", "Use my location"]);
+    // They wrap as a pair, so the filter's menu always has room to open.
+    expect(buttons[0]!.parentElement).toBe(buttons[1]!.parentElement);
+  });
+
+  it("says the directory's size in the live region, and nothing there during a search", () => {
+    const { unmount } = renderLocator({ total: 271945 });
+    expect(status()).toHaveAttribute("aria-live", "polite");
+    expect(status()).toHaveTextContent("271,945 parishes in the directory.");
+    unmount();
+    // A search reports its own count; the page passes no total then.
+    renderLocator();
+    expect(status()).toBeEmptyDOMElement();
+  });
+
+  it("writes the size in the site language's digits, on the server and in the browser alike", () => {
+    renderLocator({ total: 271945, locale: "de" });
+    expect(status()).toHaveTextContent("271.945 parishes in the directory.");
+  });
+
+  it("speaks each change in the same place: size, then searching, then the answer", async () => {
+    const { pending } = stubDevice(["hang"]);
+    vi.stubGlobal(
+      "fetch",
+      nearResponse({
+        items: [parish({ id: "near", title: "Near Parish", ...HALF_A_MILE_EAST })],
+        requestedRadiusMiles: 50,
+        radiusMiles: 50,
+        widened: false,
+      }),
+    );
+    renderLocator({ total: 1030 });
+    const region = status();
+    expect(region).toHaveTextContent("1,030 parishes in the directory.");
+
+    tapLocate();
+    // The one region, never replaced, so a screen reader hears the change.
+    expect(status()).toBe(region);
+    expect(region).toHaveTextContent(/^Finding parishes near you…$/);
+
+    await act(async () => pending[0]!());
+    await waitFor(() =>
+      expect(region).toHaveTextContent("The parishes nearest you, within 50 miles."),
+    );
+    expect(status()).toBe(region);
+    expect(region).not.toHaveTextContent("parishes in the directory.");
+  });
+
+  it("going back to the directory keeps keyboard focus and says the directory's size", async () => {
+    await locateWith(["en-US"], { total: 1030 });
+    const back = screen.getByRole("button", { name: /show the full directory/i });
+    back.focus();
+    fireEvent.click(back);
+    // The control left with the sentence; focus must not fall to the page.
+    expect(locateButton()).toHaveFocus();
+    expect(status()).toHaveTextContent("1,030 parishes in the directory.");
+  });
+
+  it("takes the directory's page links away while the nearest parishes are showing", async () => {
+    const pagination = <nav aria-label="Pagination" />;
+    await locateWith(["en-US"], { pagination });
+    expect(screen.queryByRole("navigation", { name: "Pagination" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /show the full directory/i }));
+    expect(screen.getByRole("navigation", { name: "Pagination" })).toBeInTheDocument();
+  });
+
+  it("keeps the page links through a refusal, while the directory is still what is showing", async () => {
+    stubDevice([1], { permission: "denied" });
+    renderLocator({ pagination: <nav aria-label="Pagination" /> });
+    tapLocate();
+    await waitFor(() => expect(status()).toHaveTextContent(/blocking location/));
+    expect(screen.getByRole("navigation", { name: "Pagination" })).toBeInTheDocument();
   });
 });
 

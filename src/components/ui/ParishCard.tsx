@@ -5,6 +5,7 @@ import {
   parishAddressLines,
   parishDesignationLabel,
   parishDirectionsAddress,
+  parishTextLanguage,
 } from "@/lib/content-shared/parish";
 
 import { MapsAddressLink } from "./MapsAddressLink";
@@ -14,9 +15,9 @@ export type ParishCardProps = {
   name: string;
   /**
    * Where the name links (directory cards). Omitted on the detail page, where
-   * the parish IS the page. The card is deliberately not one big anchor: it
-   * contains a "Get directions" button, and a button inside a link is invalid
-   * HTML and swallows the directions tap.
+   * the parish IS the page. The link stretches over the whole card rather than
+   * wrapping it: the card contains a "Get directions" button, and a button
+   * inside a link is invalid HTML and swallows the directions tap.
    */
   href?: string | null;
   /**
@@ -40,12 +41,35 @@ export type ParishCardProps = {
    * formats a distance.
    */
   distanceSlot?: ReactNode;
-  /** Controls beside the name (Share / Save). Not parish information. */
+  /** The parish page's controls beside Get directions (Share / Save). */
   action?: ReactNode;
   /** "list" is a directory card (h2); "detail" is the parish page (h1). */
   variant?: "list" | "detail";
-  className?: string;
 };
+
+/**
+ * A church's name in its own language and direction. A name in another script
+ * is shown beside its transliteration ("Dae Seongdang (대성당)"); the original is
+ * marked on its own, so the transliteration is read in the page's voice and the
+ * original in its language's.
+ */
+function ParishName({ name, countryCode }: { name: string; countryCode?: string | null }) {
+  const language = parishTextLanguage(name, countryCode);
+  const beside = language ? null : /^(.+ \()([^()]+)\)$/.exec(name);
+  const originalLanguage = beside ? parishTextLanguage(beside[2], countryCode) : undefined;
+  return (
+    <span dir="auto" lang={language}>
+      {beside && originalLanguage ? (
+        <>
+          {beside[1]}
+          <span lang={originalLanguage}>{beside[2]}</span>)
+        </>
+      ) : (
+        name
+      )}
+    </span>
+  );
+}
 
 /**
  * The one and only church presentation — parish, cathedral, basilica, shrine,
@@ -54,14 +78,18 @@ export type ParishCardProps = {
  * It shows what the owner asked for and nothing else: the name, then what the
  * church is ("Minor Basilica" — a basilica always says minor or major), then
  * its address (street, postal code, town, region, country, as the record has
- * them) with Get directions. The website and the "Diocese" label (which sat on
- * a line that was really the town) are gone. Directions aim at the record's
- * coordinates when it has them, so a church with no street (most of them) can
- * still be reached; the street address is the fallback destination. Because
- * this is rendering and not data, every published parish changes the moment
- * this component does: no migration, no backfill, no worker pass. Phone, Mass
- * and confession times, the website and the rest stay in the payload; they
- * are simply not shown.
+ * them) with Get directions beneath it. The website and the "Diocese" label
+ * (which sat on a line that was really the town) are gone. Directions aim at
+ * the record's coordinates when it has them, so a church with no street (most
+ * of them) can still be reached; the street address is the fallback
+ * destination. Because this is rendering and not data, every published parish
+ * changes the moment this component does: no migration, no backfill, no worker
+ * pass. Phone, Mass and confession times, the website and the rest stay in the
+ * payload; they are simply not shown.
+ *
+ * The directory holds records in every script, so each line says its own
+ * language and direction: a Hangul street is read in a Korean voice, and a
+ * Hebrew one runs right to left while keeping the card's left edge.
  */
 export function ParishCard({
   name,
@@ -78,7 +106,6 @@ export function ParishCard({
   distanceSlot,
   action,
   variant = "list",
-  className,
 }: ParishCardProps) {
   const detail = variant === "detail";
   const parts = { address, postalCode, city, state, country, countryCode };
@@ -88,70 +115,72 @@ export function ParishCard({
   const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
   // A town alone is no destination; a street or the exact coordinates are.
   const directions = street != null || hasCoordinates;
+  const nameText = <ParishName name={name} countryCode={countryCode} />;
 
-  // The directory card sits in a list under the page's h1, so it is an h2
-  // there and an h1 on the parish's own page.
-  const Heading = detail ? "h1" : "h2";
-  const heading = (
-    <Heading
+  // Omitted entirely when the record has no address part, so the card never
+  // shows an empty row.
+  const addressBlock =
+    lines.length > 0 ? (
+      <address className="vf-address">
+        {lines.map((line, i) => (
+          <span key={i} dir="auto" lang={parishTextLanguage(line, countryCode)}>
+            {line}
+          </span>
+        ))}
+      </address>
+    ) : null;
+
+  const directionsButton = directions ? (
+    <MapsAddressLink
+      variant="block"
+      address={parishDirectionsAddress(parts) || name}
+      destination={name}
+      latitude={hasCoordinates ? (latitude as number) : undefined}
+      longitude={hasCoordinates ? (longitude as number) : undefined}
+      // The parish page's one main action; on a directory of cards it stays
+      // quiet, above the card's stretched link.
       className={
         detail
-          ? "break-words font-display text-4xl text-ink"
-          : "break-words font-display text-xl text-ink sm:text-2xl"
+          ? "vf-btn vf-btn-sm vf-btn-primary"
+          : "vf-btn vf-btn-sm vf-btn-ghost vf-entry-control"
       }
-    >
-      {href ? (
-        <Link href={href} className="underline-offset-4 hover:underline">
-          {name}
-        </Link>
-      ) : (
-        name
-      )}
-    </Heading>
-  );
+    />
+  ) : null;
 
+  if (detail) {
+    return (
+      <article className="vf-detail">
+        <header className="vf-detail-header">
+          <h1 className="vf-detail-title vf-parish-name text-ink">{nameText}</h1>
+          {kind ? <p className="vf-detail-subtitle">{kind}</p> : null}
+          {addressBlock}
+          {directionsButton || action ? (
+            <div className="vf-detail-actions">
+              {directionsButton}
+              {action}
+            </div>
+          ) : null}
+        </header>
+      </article>
+    );
+  }
+
+  // The directory card sits in a list under the page's h1, so it is an h2.
   return (
-    <article
-      className={
-        className ??
-        (detail
-          ? "mx-auto max-w-3xl px-4 py-10"
-          : "vf-card flex h-full flex-col rounded-sm p-6 transition hover:border-ink/30")
-      }
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          {heading}
-          {kind ? <p className="mt-1 font-serif text-ink-soft">{kind}</p> : null}
-          {distanceSlot ? <div className="mt-1">{distanceSlot}</div> : null}
-        </div>
-        {action ? <div className="flex shrink-0 items-center gap-2 pt-1">{action}</div> : null}
-      </div>
-
-      {/* Omitted entirely when there is neither an address part nor a place
-          to aim directions at, so the card never shows an empty row. */}
-      {lines.length > 0 || directions ? (
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          {lines.length > 0 ? (
-            <address className="font-serif not-italic leading-relaxed text-ink">
-              {lines.map((line, i) => (
-                <span key={i} className="block break-words">
-                  {line}
-                </span>
-              ))}
-            </address>
-          ) : null}
-          {directions ? (
-            <MapsAddressLink
-              variant="block"
-              address={parishDirectionsAddress(parts) || name}
-              latitude={hasCoordinates ? (latitude as number) : undefined}
-              longitude={hasCoordinates ? (longitude as number) : undefined}
-              className="vf-btn vf-btn-ghost inline-flex shrink-0 items-center gap-2 self-start !px-3 !py-1.5 text-sm"
-            />
-          ) : null}
-        </div>
-      ) : null}
+    <article className="vf-entry">
+      <h2 className="vf-entry-title vf-parish-name">
+        {href ? (
+          <Link href={href} className="vf-entry-link">
+            {nameText}
+          </Link>
+        ) : (
+          nameText
+        )}
+      </h2>
+      {kind ? <p className="vf-entry-meta">{kind}</p> : null}
+      {distanceSlot ? <p className="vf-entry-meta">{distanceSlot}</p> : null}
+      {addressBlock}
+      {directionsButton ? <div className="vf-entry-action">{directionsButton}</div> : null}
     </article>
   );
 }

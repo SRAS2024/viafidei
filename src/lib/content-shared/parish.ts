@@ -182,11 +182,29 @@ const COUNTRY_CODES_BY_NAME: Readonly<Record<string, string>> = {
   brasil: "BR",
 };
 
+const BARE_COUNTRY_CODE = /^[A-Za-z]{2}$/;
+
+/**
+ * A country line in words. Some early records stored the country as its bare
+ * ISO code ("AT"), which is no use on an envelope; the name comes from the
+ * platform's own region data, and anything it does not know stays as stored.
+ */
+function countryInWords(country: string): string {
+  if (!BARE_COUNTRY_CODE.test(country)) return country;
+  try {
+    const name = new Intl.DisplayNames(["en"], { type: "region" }).of(country.toUpperCase());
+    return name && name !== "Unknown Region" ? name : country;
+  } catch {
+    return country;
+  }
+}
+
 /**
  * A church's address as the lines of an envelope: the street, then the
  * locality (postal code, town and region, in the country's own order), then
- * the country. Missing parts are dropped, and a record with none of them
- * yields []. Nothing is reshaped or looked up — only what the record stores.
+ * the country in words. Missing parts are dropped, and a record with none of
+ * them yields []. Nothing is looked up beyond the name of a bare country code:
+ * only what the record stores.
  */
 export function parishAddressLines(parts: ParishAddressParts): string[] {
   const street = trimmed(parts.address);
@@ -195,7 +213,10 @@ export function parishAddressLines(parts: ParishAddressParts): string[] {
   const region = trimmed(parts.state);
   const country = trimmed(parts.country);
   const code =
-    trimmed(parts.countryCode).toUpperCase() || COUNTRY_CODES_BY_NAME[country.toLowerCase()] || "";
+    trimmed(parts.countryCode).toUpperCase() ||
+    (BARE_COUNTRY_CODE.test(country) ? country.toUpperCase() : "") ||
+    COUNTRY_CODES_BY_NAME[country.toLowerCase()] ||
+    "";
 
   let locality: string;
   if (postal && POSTCODE_AFTER_LOCALITY.has(code)) {
@@ -205,5 +226,65 @@ export function parishAddressLines(parts: ParishAddressParts): string[] {
     const town = [postal, city].filter(Boolean).join(" ");
     locality = [town, region].filter(Boolean).join(", ");
   }
-  return [street, locality, country].filter(Boolean);
+  return [street, locality, countryInWords(country)].filter(Boolean);
+}
+
+/**
+ * The directory's other scripts and the language each is read in, with the
+ * countries where a neighbouring language writes it.
+ */
+const SCRIPT_LANGUAGES: ReadonlyArray<
+  readonly [RegExp, string, Readonly<Record<string, string>>?]
+> = [
+  [/\p{Script=Hangul}/gu, "ko"],
+  [/\p{Script=Greek}/gu, "el"],
+  [/\p{Script=Cyrillic}/gu, "ru", { UA: "uk", BG: "bg" }],
+  [/\p{Script=Arabic}/gu, "ar"],
+  [/\p{Script=Hebrew}/gu, "he"],
+  [/\p{Script=Thai}/gu, "th"],
+  [/\p{Script=Lao}/gu, "lo"],
+  [/\p{Script=Myanmar}/gu, "my"],
+  [/\p{Script=Devanagari}/gu, "hi", { NP: "ne" }],
+  [/\p{Script=Bengali}/gu, "bn"],
+  [/\p{Script=Tamil}/gu, "ta"],
+  [/\p{Script=Malayalam}/gu, "ml"],
+  [/\p{Script=Georgian}/gu, "ka"],
+  [/\p{Script=Armenian}/gu, "hy"],
+  [/\p{Script=Ethiopic}/gu, "am"],
+];
+const HAN = /\p{Script=Han}/gu;
+const KANA = /[\p{Script=Hiragana}\p{Script=Katakana}]/gu;
+const ANY_LETTER = /\p{L}/gu;
+
+function countOf(text: string, pattern: RegExp): number {
+  return text.match(pattern)?.length ?? 0;
+}
+
+/**
+ * The language a church's name or a line of its address is written in, when
+ * most of its letters settle it. VoiceOver reads such a line in that language's
+ * voice instead of spelling Hangul or Hebrew through an English one, and the
+ * browser draws Han in the country's own forms. Latin script settles nothing
+ * ("Via Roma" and "Main Street" look alike), and a mixed line ("Dae Seongdang
+ * (대성당)") keeps the page's language: most of it is meant to be read that way.
+ */
+export function parishTextLanguage(
+  text: string | null | undefined,
+  countryCode?: string | null,
+): string | undefined {
+  const value = trimmed(text);
+  if (!value) return undefined;
+  const letters = countOf(value, ANY_LETTER);
+  const han = countOf(value, HAN);
+  const kana = countOf(value, KANA);
+  const code = trimmed(countryCode).toUpperCase();
+  if (2 * (han + kana) > letters) {
+    if (kana > 0 || code === "JP") return "ja";
+    if (code === "KR") return "ko";
+    return code === "TW" || code === "HK" || code === "MO" ? "zh-Hant" : "zh";
+  }
+  for (const [script, language, byCountry] of SCRIPT_LANGUAGES) {
+    if (2 * countOf(value, script) > letters) return byCountry?.[code] ?? language;
+  }
+  return undefined;
 }

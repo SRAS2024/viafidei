@@ -3,7 +3,6 @@ import {
   LIST_PAGE_SIZE,
   ListSearch,
   ListSearchNoResults,
-  PageHero,
   Pagination,
   parsePageParam,
 } from "@/components/ui";
@@ -14,6 +13,7 @@ import { PARISH_FILTERS, resolveParishFilter } from "@/lib/content-shared/parish
 import { getTranslator } from "@/lib/i18n/server";
 
 import { ParishLocator } from "./ParishLocator";
+import { ParishesHero } from "./ParishesHero";
 import { parishLocatorLabels } from "./locator-labels";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +50,7 @@ export default async function ParishesPage({
   // One page of the directory, filtered and counted in SQL. The page used to
   // load every published parish and hand the whole array to a client
   // component; the directory is heading for 200,000 records, so it now ships
-  // thirty projected rows and nothing else. A search matches the parish's
+  // one page of projected rows and nothing else. A search matches the parish's
   // name, its city, state or country, and its postal code.
   const [result, counts] = await Promise.all([
     listParishPage({
@@ -69,39 +69,39 @@ export default async function ParishesPage({
 
   return (
     <div>
-      <PageHero
-        eyebrow="Find a parish"
-        title="Parishes"
-        subtitle="Catholic parishes, chapels, shrines, cathedrals, and basilicas — use your location to find the nearest."
-      />
-
-      {/* The same GET form as every list page: searching is a real URL, so a
-          result page can be linked, bookmarked, and crawled. */}
-      <ListSearch
-        action="/parishes"
-        query={query}
-        label={t("listSearch.parishes")}
-        placeholder={t("listSearch.parishesPlaceholder")}
-        keep={keep}
-        resultCount={result.total}
-        t={t}
-        locale={locale}
-      />
-
-      <FilterChips
-        ariaLabel="Filter by classification"
-        activeKey={active}
-        className="mb-6"
-        items={PARISH_FILTERS.filter((f) => f.key === "all" || hasContent(f.key)).map((f) => ({
-          key: f.key,
-          label: f.label,
-          href: listHref("/parishes", { class: f.key === "all" ? undefined : f.key, q: query }),
-        }))}
-      />
+      <ParishesHero />
 
       {/* The locator renders even when this page of the directory is empty:
           "Use my location" must stay one tap away whatever the list shows. */}
       <ParishLocator
+        // The same GET form as every list page: searching is a real URL, so a
+        // result page can be linked, bookmarked, and crawled.
+        search={
+          <ListSearch
+            action="/parishes"
+            query={query}
+            label={t("listSearch.parishes")}
+            placeholder={t("listSearch.parishesPlaceholder")}
+            keep={keep}
+            resultCount={result.total}
+            t={t}
+            locale={locale}
+          />
+        }
+        filter={
+          <FilterChips
+            ariaLabel="Filter by classification"
+            activeKey={active}
+            items={PARISH_FILTERS.filter((f) => f.key === "all" || hasContent(f.key)).map((f) => ({
+              key: f.key,
+              label: f.label,
+              href: listHref("/parishes", {
+                class: f.key === "all" ? undefined : f.key,
+                q: query,
+              }),
+            }))}
+          />
+        }
         // Names in another script transliterated and countries named in
         // the reader's language (rule b), in memory: no cache lookup.
         parishes={await localizeParishes(result.items, { locale })}
@@ -121,15 +121,17 @@ export default async function ParishesPage({
             </div>
           )
         }
+        pagination={
+          result.items.length > 0 ? (
+            <Pagination
+              basePath="/parishes"
+              page={result.page}
+              totalPages={result.pageCount}
+              searchParams={{ ...keep, q: query || undefined }}
+            />
+          ) : null
+        }
       />
-      {result.items.length > 0 ? (
-        <Pagination
-          basePath="/parishes"
-          page={result.page}
-          totalPages={result.pageCount}
-          searchParams={{ ...keep, q: query || undefined }}
-        />
-      ) : null}
     </div>
   );
 }

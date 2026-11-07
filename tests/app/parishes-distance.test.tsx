@@ -71,6 +71,22 @@ function stubBrowser(languages: string[]) {
   );
 }
 
+describe("/parishes control group", () => {
+  it("holds the search, the filter and Use my location together, above the three columns", async () => {
+    stubBrowser(["en-US"]);
+    render(await ParishesPage({ searchParams: Promise.resolve({}) }));
+
+    const search = screen.getByRole("search");
+    const group = search.closest(".vf-list-controls") as HTMLElement;
+    expect(group).not.toBeNull();
+    expect(within(group).getByRole("group", { name: "Filter by classification" })).toBeTruthy();
+    expect(within(group).getByRole("button", { name: "Use my location" })).toBeTruthy();
+    // The line that says what the list is showing comes straight after them.
+    expect(group.nextElementSibling?.querySelector('[role="status"]')).not.toBeNull();
+    expect(document.querySelector(".vf-grid--3")).not.toBeNull();
+  });
+});
+
 describe("/parishes near-me distance line", () => {
   it.each([
     ["pt", ["en-US"], "A 800 m de distância"],

@@ -2,6 +2,8 @@
 
 import { useRef, useState, type ReactNode } from "react";
 
+import { ListControls } from "@/components/ui/ListSearch";
+import { PaginatedGrid } from "@/components/ui/PaginatedGrid";
 import { ParishCard } from "@/components/ui/ParishCard";
 import {
   formatDistanceAway,
@@ -28,6 +30,12 @@ import type { LocatorLabels } from "./locator-labels";
 
 /** What the button asks for first; the API widens from here on its own. */
 const REQUESTED_RADIUS_MILES = 50;
+
+/**
+ * The API answers with fifty. A whole number of rows at two and three columns
+ * leaves no card alone at the end of the list.
+ */
+const NEAREST_SHOWN = 48;
 
 type Located = {
   kind: "located";
@@ -130,7 +138,7 @@ function locatedMessage(s: Located): string {
 /**
  * The parish directory page, with an optional "parishes near me" view.
  *
- * The component receives ONE page of the directory (thirty projected rows) —
+ * The component receives ONE page of the directory (a page of projected rows) —
  * it used to receive every published parish and sort the whole array in the
  * browser, which at the directory's 200,000-record goal is tens of megabytes
  * of client props per visitor. When the visitor grants location access the
@@ -149,6 +157,13 @@ function locatedMessage(s: Located): string {
  * exactly the failure this replaced. The Permissions API is read only after a
  * refusal, to say whether the browser has the site blocked or the device
  * simply did not share, followed by where this platform keeps the switch.
+ *
+ * The button sits in one control group with the page's search and filter, which
+ * the server renders and passes in. Directly under them one spot
+ * in the page says what the list is showing, and it is the live region: the
+ * directory's size, then "Finding parishes near you…", then the answer or what
+ * went wrong. A screen reader hears each change, and a sighted reader sees one
+ * line change in place while the cards below stay where they are.
  */
 export function ParishLocator({
   parishes,
@@ -157,6 +172,9 @@ export function ParishLocator({
   awayTemplate,
   labels,
   empty,
+  search,
+  filter,
+  pagination,
 }: {
   parishes: ParishListItem[];
   total?: number;
@@ -168,6 +186,12 @@ export function ParishLocator({
   labels: LocatorLabels;
   /** Shown in place of the directory when this page of it has no parishes. */
   empty?: ReactNode;
+  /** The page's search field, the first of the control group. */
+  search?: ReactNode;
+  /** The page's filter. It keeps to the button's line whenever the row wraps. */
+  filter?: ReactNode;
+  /** The directory's page links. The nearest parishes are one list, so they go. */
+  pagination?: ReactNode;
 }) {
   const [state, setState] = useState<LocateState>({ kind: "idle" });
   // Each tap is a new attempt; an answer that arrives for an older one is dropped.
@@ -176,7 +200,7 @@ export function ParishLocator({
 
   const located = state.kind === "located" ? state : null;
   const problem = state.kind === "problem" ? state : null;
-  const shown = located ? located.items : parishes;
+  const shown = located ? located.items.slice(0, NEAREST_SHOWN) : parishes;
 
   const locate = () => {
     const attempt = ++attemptRef.current;
@@ -277,107 +301,110 @@ export function ParishLocator({
     locate();
   };
 
+  const showDirectory = () => {
+    attemptRef.current += 1;
+    // This control leaves with the sentence it sits in; keep keyboard focus on
+    // the one that stays.
+    buttonRef.current?.focus();
+    setState({ kind: "idle" });
+  };
+
   const steps =
     problem && (problem.problem === "blocked" || problem.problem === "notShared")
       ? stepsFor(problem.platform, labels)
       : [];
+  const directorySize =
+    state.kind === "idle" && typeof total === "number" && total > parishes.length
+      ? // The site language's digits, so the server and the browser write it alike.
+        total.toLocaleString(resolveDistanceDisplay(locale, []).locale)
+      : null;
 
   return (
     <div>
-      <div className="mb-6 flex flex-col items-center gap-2">
-        {/* Never disabled and never renamed: a tap while an earlier ask is
-            still open simply asks again, and the name a screen reader
-            announced is the name that stays focused. */}
-        <button
-          ref={buttonRef}
-          type="button"
-          onClick={locate}
-          className="vf-btn vf-btn-primary inline-flex items-center gap-2"
-        >
-          <LocationIcon />
-          {labels.button}
-        </button>
-        {/* Always in the page, so a screen reader hears each new answer. */}
-        <div role="status" aria-live="polite" className="w-full max-w-xl text-center">
-          {state.kind === "locating" ? (
-            <p className="text-xs text-ink-soft">{labels.locating}</p>
-          ) : null}
-          {problem ? (
-            <div className="rounded-sm border border-ink/20 bg-ink/5 p-4 text-left text-sm">
-              <p className="font-serif text-ink">{problemMessage(problem.problem, labels)}</p>
-              {steps.length > 0 ? (
-                <>
-                  <p className="mt-3 font-sans text-xs uppercase tracking-liturgical text-ink-faint">
-                    {labels.howTo}
-                  </p>
-                  <ol className="mt-2 list-decimal space-y-1.5 pl-5 font-serif text-ink-soft">
-                    {steps.map((step) => (
-                      <li key={step}>{step}</li>
-                    ))}
-                  </ol>
-                </>
-              ) : null}
-            </div>
+      <div className="vf-locator">
+        <ListControls>
+          {search}
+          <div className="vf-locator-actions">
+            {filter}
+            {/* Never disabled and never renamed: a tap while an earlier ask is
+                still open simply asks again, and the name a screen reader
+                announced is the name that stays focused. */}
+            <button ref={buttonRef} type="button" onClick={locate} className="vf-btn vf-btn-ghost">
+              <LocationIcon />
+              {labels.button}
+            </button>
+          </div>
+        </ListControls>
+        <div className={problem ? "vf-locator-problem" : undefined}>
+          {/* Always in the page, so a screen reader hears each new answer. */}
+          <div role="status" aria-live="polite">
+            {directorySize ? (
+              <p className="vf-fineprint vf-locator-line">
+                {directorySize} parishes in the directory.
+              </p>
+            ) : null}
+            {state.kind === "locating" ? (
+              <p className="vf-fineprint vf-locator-line">{labels.locating}</p>
+            ) : null}
+            {located ? (
+              <p className="vf-fineprint vf-locator-line">
+                {locatedMessage(located)}{" "}
+                <button type="button" onClick={showDirectory} className="vf-link -my-1 py-1">
+                  Show the full directory
+                </button>
+              </p>
+            ) : null}
+            {problem ? (
+              <div className="vf-reading">
+                <p>{problemMessage(problem.problem, labels)}</p>
+                {steps.length > 0 ? (
+                  <>
+                    <p className="vf-eyebrow">{labels.howTo}</p>
+                    <ol className="!mt-2">
+                      {steps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          {problem && RETRYABLE.has(problem.problem) ? (
+            <button type="button" onClick={tryAgain} className="vf-btn vf-btn-sm vf-btn-ghost mt-3">
+              {labels.tryAgain}
+            </button>
           ) : null}
         </div>
-        {problem && RETRYABLE.has(problem.problem) ? (
-          <button type="button" onClick={tryAgain} className="vf-btn vf-btn-ghost">
-            {labels.tryAgain}
-          </button>
-        ) : null}
-        {located ? (
-          <p className="text-xs text-ink-soft">
-            {locatedMessage(located)}{" "}
-            <button
-              type="button"
-              onClick={() => {
-                attemptRef.current += 1;
-                setState({ kind: "idle" });
-              }}
-              className="vf-nav-link underline-offset-2"
-            >
-              Show the full directory
-            </button>
-          </p>
-        ) : null}
-        {!located && typeof total === "number" && total > parishes.length ? (
-          <p className="text-xs text-ink-faint">
-            {total.toLocaleString()} parishes in the directory.
-          </p>
-        ) : null}
       </div>
 
       {!located && shown.length === 0 && empty ? (
         empty
-      ) : (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {shown.map((p) => {
-            // Only ever shown once the visitor has located themselves — the plain
-            // directory has no origin to measure from and no distance to claim.
-            const away = located ? distanceAway(located, p, awayTemplate) : null;
-            return (
-              <li key={p.id}>
-                <ParishCard
-                  name={p.title}
-                  href={`/parishes/${p.slug}`}
-                  designation={p.designation}
-                  address={p.address}
-                  postalCode={p.postalCode}
-                  city={p.city}
-                  state={p.state}
-                  country={p.country}
-                  countryCode={p.countryCode}
-                  latitude={p.latitude}
-                  longitude={p.longitude}
-                  distanceSlot={
-                    away ? <span className="font-serif text-sm text-ink-soft">{away}</span> : null
-                  }
-                />
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      ) : shown.length > 0 ? (
+        <PaginatedGrid
+          columns={3}
+          items={shown.map((p) => (
+            <ParishCard
+              key={p.id}
+              name={p.title}
+              href={`/parishes/${p.slug}`}
+              designation={p.designation}
+              address={p.address}
+              postalCode={p.postalCode}
+              city={p.city}
+              state={p.state}
+              country={p.country}
+              countryCode={p.countryCode}
+              latitude={p.latitude}
+              longitude={p.longitude}
+              // Only ever shown once the visitor has located themselves — the plain
+              // directory has no origin to measure from and no distance to claim.
+              distanceSlot={located ? distanceAway(located, p, awayTemplate) : null}
+            />
+          ))}
+        />
+      ) : null}
+      {located ? null : pagination}
     </div>
   );
 }
@@ -400,14 +427,15 @@ function LocationIcon() {
   return (
     <svg
       aria-hidden="true"
-      width="15"
-      height="15"
+      width="1.15em"
+      height="1.15em"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className="shrink-0"
     >
       <path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0Z" />
       <circle cx="12" cy="10" r="3" />
