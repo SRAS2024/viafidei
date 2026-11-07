@@ -11,24 +11,29 @@ export const QUICK_LINKS: QuickLink[] = [
   { href: "/parishes", key: "home.ql.parish" },
 ];
 
-export function HomeQuickLinks({ t, links = QUICK_LINKS }: { t: Translator; links?: QuickLink[] }) {
+/** The first places to go: the second half of "Begin here". */
+export function HomeQuickLinks({
+  t,
+  links = QUICK_LINKS,
+  labelledBy,
+}: {
+  t: Translator;
+  links?: QuickLink[];
+  /** The heading that names the list for a screen reader. */
+  labelledBy?: string;
+}) {
   return (
-    <section>
-      <div className="mb-10 text-center">
-        <p className="vf-eyebrow">III.</p>
-        <h2 className="mt-3 font-display text-4xl">{t("home.quickLinks.title")}</h2>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {links.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="vf-card flex min-h-[120px] items-center justify-center rounded-sm p-6 text-center font-serif text-lg text-ink transition hover:-translate-y-0.5 hover:border-ink/30"
-          >
+    <ul className="vf-link-rows vf-home-begin-links" aria-labelledby={labelledBy}>
+      {links.map((link) => (
+        <li key={link.href}>
+          <Link href={link.href} className="vf-link-row">
             {t(link.key)}
+            <span className="vf-link-row-arrow" aria-hidden="true">
+              →
+            </span>
           </Link>
-        ))}
-      </div>
-    </section>
+        </li>
+      ))}
+    </ul>
   );
 }

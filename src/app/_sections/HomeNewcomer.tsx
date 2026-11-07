@@ -1,19 +1,15 @@
 import Link from "next/link";
 import type { Translator } from "@/lib/i18n/translator";
 
+/** The welcome for someone new to the faith: the first half of "Begin here". */
 export function HomeNewcomer({ t }: { t: Translator }) {
   return (
-    <section className="vf-card rounded-sm p-12 text-center">
-      <p className="vf-eyebrow">V.</p>
-      <h2 className="mt-3 font-display text-4xl">{t("home.newcomer.title")}</h2>
-      <p className="mx-auto mt-5 max-w-reading font-serif text-lg leading-relaxed text-ink-soft">
-        {t("home.newcomer.body")}
-      </p>
-      <div className="mt-8 flex justify-center">
-        <Link href="/spiritual-life" className="vf-btn vf-btn-primary">
-          {t("nav.spiritualLife")}
-        </Link>
-      </div>
-    </section>
+    <div className="vf-home-begin-intro">
+      <h3 className="vf-subhead">{t("home.newcomer.title")}</h3>
+      <p className="vf-reading text-ink-soft">{t("home.newcomer.body")}</p>
+      <Link href="/spiritual-life" className="vf-btn vf-btn-primary mt-5">
+        {t("nav.spiritualLife")}
+      </Link>
+    </div>
   );
 }

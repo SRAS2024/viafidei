@@ -1,44 +1,62 @@
-import Link from "next/link";
-
+import { ContentCard } from "@/components/ui/ContentCard";
+import { saintCardDetailLines } from "@/lib/content-shared/saints";
 import { featuredHrefFor, type FeaturedBlockView } from "@/lib/data/homepage";
+import type { Translator } from "@/lib/i18n/translator";
 
-/** Pretty content-type eyebrow for a featured rail (e.g. "Prayers"). */
-function railEyebrow(blockType: string): string {
-  const label = blockType.replace(/^featured-/, "").replace(/-/g, " ");
-  return label.replace(/\b\w/g, (c) => c.toUpperCase());
+import { FeaturedCards } from "./FeaturedRail";
+import { HomeSectionHead } from "./HomeSectionHead";
+
+/**
+ * A rail's name under the section's "Featured" heading: "Prayers", not "Featured
+ * Prayers". The worker's stored heading is English, so the kinds the site has
+ * words for are worded in the reader's language.
+ */
+function railName(block: FeaturedBlockView, t: Translator): string {
+  switch (block.blockType) {
+    case "featured-prayers":
+      return t("nav.prayers");
+    case "featured-saints":
+      return t("home.featured.saints");
+    case "featured-devotions":
+      return t("home.featured.devotions");
+    case "featured-novenas":
+      return t("home.featured.novenas");
+    default:
+      return block.heading.replace(/^Featured\s+/i, "");
+  }
 }
 
 /**
- * Live homepage featured rails, driven by worker-published
- * `featured-*` blocks. Rendered only when a Homepage Makeover has been
- * published; otherwise the homepage falls back to its static featured
- * section. Mirrors the visual language of the static rails so a
- * published makeover looks native.
+ * Section III when a Homepage Makeover has been published: the worker's
+ * `featured-*` rails, each a small subsection of its own. Otherwise the homepage
+ * falls back to its static featured prayers.
  */
-export function HomeWorkerFeatured({ blocks }: { blocks: FeaturedBlockView[] }) {
+export function HomeWorkerFeatured({ blocks, t }: { blocks: FeaturedBlockView[]; t: Translator }) {
   if (blocks.length === 0) return null;
   return (
-    <div className="flex flex-col gap-24">
-      {blocks.map((block) => (
-        <section key={block.blockKey}>
-          <div className="mb-10 text-center">
-            <p className="vf-eyebrow">{railEyebrow(block.blockType)}</p>
-            <h2 className="mt-3 font-display text-4xl">{block.heading}</h2>
+    <section className="vf-home-section" aria-labelledby="home-featured-title">
+      <HomeSectionHead n={3} id="home-featured-title">
+        {t("home.featured.section")}
+      </HomeSectionHead>
+      <div className="vf-stack-related">
+        {blocks.map((block) => (
+          <div key={block.blockKey}>
+            <h3 className="vf-subhead vf-home-rail-title">{railName(block, t)}</h3>
+            <FeaturedCards
+              cards={block.items.map((item) => (
+                <ContentCard
+                  key={item.slug}
+                  href={featuredHrefFor(block.blockType, item.slug)}
+                  title={item.title}
+                  titleAs="h4"
+                  meta={[...(item.meta ?? []), ...saintCardDetailLines(item.saint, t)]}
+                  action={t("common.open")}
+                />
+              ))}
+            />
           </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {block.items.map((item) => (
-              <Link
-                key={`${block.blockKey}:${item.slug}`}
-                href={featuredHrefFor(block.blockType, item.slug)}
-                className="vf-card block rounded-sm p-8 transition hover:border-ink/30"
-              >
-                <h3 className="font-display text-2xl">{item.title}</h3>
-                <p className="mt-4 font-serif text-sm text-ink-faint">Open →</p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
+        ))}
+      </div>
+    </section>
   );
 }

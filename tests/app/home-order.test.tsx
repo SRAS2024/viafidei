@@ -1,0 +1,135 @@
+/**
+ * @vitest-environment jsdom
+ */
+/**
+ * The homepage's order: welcome, Begin Here with New to the Faith, the day's
+ * readings and prayer and saints, the featured collections, then the mission.
+ * Roman numerals run I to IV with nothing missing, on both forms of section III.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, within } from "@testing-library/react";
+
+const getPublishedFeaturedBlocks = vi.fn();
+
+vi.mock("@/lib/data/published", () => ({ listFeaturedPrayers: async () => [] }));
+vi.mock("@/lib/data/homepage", () => ({
+  getPublishedFeaturedBlocks: () => getPublishedFeaturedBlocks(),
+  featuredHrefFor: (type: string, slug: string) => `/${type}/${slug}`,
+}));
+vi.mock("@/lib/i18n/server", () => ({
+  getTranslator: async () => ({ t: (key: string) => key }),
+}));
+
+import HomePage from "@/app/page";
+
+beforeEach(() => {
+  // The parts of "Today" fetch after mount; the order does not depend on them.
+  globalThis.fetch = vi.fn(async () => new Response("{}", { status: 500 })) as typeof fetch;
+  getPublishedFeaturedBlocks.mockReset();
+  getPublishedFeaturedBlocks.mockResolvedValue([]);
+});
+afterEach(() => cleanup());
+
+/** The text a sighted reader sees: the screen reader's digits are not part of it. */
+function numerals(container: HTMLElement): string[] {
+  return [...container.querySelectorAll(".vf-eyebrow [aria-hidden='true']")].map(
+    (el) => el.textContent ?? "",
+  );
+}
+
+function headings(): string[] {
+  return screen
+    .getAllByRole("heading")
+    .map((el) => `${el.tagName.toLowerCase()} ${el.textContent}`);
+}
+
+describe("the homepage's sections", () => {
+  it("run in the owner's order, with a heading structure to match", async () => {
+    render(await HomePage());
+
+    expect(headings().slice(0, 7)).toEqual([
+      "h1 home.title",
+      "h2 home.quickLinks.title",
+      "h3 home.newcomer.title",
+      expect.stringMatching(/^h2 /), // The date, once the device has been read.
+      "h3 Today's Scripture Readings",
+      "h3 Prayer of the Day",
+      "h3 Today's Feast Day Saints",
+    ]);
+    const rest = headings().slice(7);
+    expect(rest[0]).toBe("h2 home.featured.title");
+    expect(rest.slice(-2)).toEqual(["h2 home.mission.title", "h2 home.catholic.title"]);
+  });
+
+  it("number I to IV with nothing missing, with the fallback prayers", async () => {
+    const { container } = render(await HomePage());
+    expect(numerals(container)).toEqual(["I.", "II.", "III.", "IV."]);
+  });
+
+  it("number I to IV with nothing missing, with the worker's rails", async () => {
+    getPublishedFeaturedBlocks.mockResolvedValue([
+      {
+        blockKey: "featured-prayers",
+        blockType: "featured-prayers",
+        heading: "Featured Prayers",
+        items: [{ slug: "de-profundis", title: "De Profundis" }],
+      },
+      {
+        blockKey: "featured-saints",
+        blockType: "featured-saints",
+        heading: "Featured Saints",
+        items: [{ slug: "saint-hyginus", title: "Saint Hyginus" }],
+      },
+    ]);
+
+    const { container } = render(await HomePage());
+    expect(numerals(container)).toEqual(["I.", "II.", "III.", "IV."]);
+  });
+
+  it("gives a screen reader each numeral as a digit", async () => {
+    const { container } = render(await HomePage());
+    expect(
+      [...container.querySelectorAll(".vf-eyebrow .sr-only")].map((el) => el.textContent),
+    ).toEqual(["1.", "2.", "3.", "4."]);
+  });
+
+  it("name each section for a screen reader's landmarks", async () => {
+    render(await HomePage());
+    const names = screen.getAllByRole("region").map((el) => el.getAttribute("aria-labelledby"));
+    expect(names).toEqual([
+      "home-begin-title",
+      "home-today-title",
+      "home-featured-title",
+      "home-mission-title home-catholic-title",
+    ]);
+  });
+
+  it("put Begin Here and New to the Faith in one section", async () => {
+    render(await HomePage());
+    const section = screen.getByRole("region", { name: "home.quickLinks.title" });
+
+    expect(
+      within(section).getByRole("heading", { name: "home.newcomer.title" }),
+    ).toBeInTheDocument();
+    expect(within(section).getByRole("link", { name: "nav.spiritualLife" })).toHaveAttribute(
+      "href",
+      "/spiritual-life",
+    );
+    const list = within(section).getByRole("list", { name: "home.quickLinks.title" });
+    expect(within(list).getAllByRole("link")).toHaveLength(5);
+    expect(within(list).getByRole("link", { name: "home.ql.parish" })).toHaveAttribute(
+      "href",
+      "/parishes",
+    );
+  });
+
+  it("open with the two primary actions, filled then outlined", async () => {
+    render(await HomePage());
+    const explore = screen.getByRole("link", { name: "home.ctaExplore" });
+    const join = screen.getByRole("link", { name: "home.ctaJoin" });
+
+    expect(explore).toHaveClass("vf-btn-primary");
+    expect(join).toHaveClass("vf-btn-ghost");
+    expect(explore.compareDocumentPosition(join)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+});

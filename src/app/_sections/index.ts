@@ -1,9 +1,11 @@
 export { HomeHero } from "./HomeHero";
 export { HomeMission } from "./HomeMission";
+export { HomeBeginHere } from "./HomeBeginHere";
+export { HomeNewcomer } from "./HomeNewcomer";
 export { HomeQuickLinks, QUICK_LINKS, type QuickLink } from "./HomeQuickLinks";
 export { HomeFeatured, type FeaturedPrayer } from "./HomeFeatured";
 export { HomeWorkerFeatured } from "./HomeWorkerFeatured";
-export { HomeNewcomer } from "./HomeNewcomer";
+export { HomeTodaySection } from "./HomeTodaySection";
 export { HomeToday } from "./HomeToday";
 export { LiturgicalToday } from "./LiturgicalToday";
 export { HomePrayerOfTheDay } from "./HomePrayerOfTheDay";

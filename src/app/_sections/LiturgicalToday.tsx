@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { liturgicalDay, type LiturgicalDay } from "@/lib/content-shared/liturgical-calendar";
+import { FactList } from "@/components/ui/FactList";
+import {
+  eveningMass,
+  liturgicalDay,
+  type LiturgicalDay,
+} from "@/lib/content-shared/liturgical-calendar";
+
+import { SkeletonLine } from "./SkeletonLine";
 
 /**
  * Homepage "Today's Scripture Readings" block.
@@ -13,7 +20,8 @@ import { liturgicalDay, type LiturgicalDay } from "@/lib/content-shared/liturgic
  * with a link to the day's readings *inside the app* (/liturgy/readings),
  * which presents the readings and keeps the authoritative source as a
  * modest link at the bottom. Computation runs after mount to keep
- * server/client render in sync.
+ * server/client render in sync; until then only the day's own facts are
+ * placeholders, since the rest of the block is the same every day.
  */
 function localCivilDate(): Date {
   const now = new Date();
@@ -22,46 +30,88 @@ function localCivilDate(): Date {
   return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 }
 
+/** Spoken as a number, which is how the cycle is said aloud: "cycle two". */
+function WeekdayCycle({ cycle }: { cycle: LiturgicalDay["weekdayCycle"] }) {
+  return (
+    <>
+      <span aria-hidden="true">{cycle}</span>
+      <span className="sr-only">{cycle === "I" ? 1 : 2}</span>
+    </>
+  );
+}
+
 export function LiturgicalToday() {
   const [day, setDay] = useState<LiturgicalDay | null>(null);
+  // This evening's anticipated Mass, when it has one: every Saturday but Holy
+  // Saturday, and the eve of a holy day.
+  const [evening, setEvening] = useState<ReturnType<typeof eveningMass>>(null);
 
   useEffect(() => {
-    setDay(liturgicalDay(localCivilDate()));
+    const today = localCivilDate();
+    setDay(liturgicalDay(today));
+    setEvening(eveningMass(today));
   }, []);
 
-  // Carry the VISITOR's civil date to the readings page: the server renders in
-  // UTC, so an evening visitor in the Americas would otherwise be sent to
-  // tomorrow's Mass.
-  const readingsHref = day ? `/liturgy/readings?date=${day.date}` : "/liturgy/readings";
-
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-12 text-center sm:px-6">
-      <p className="vf-eyebrow text-ink-faint">Today</p>
-      <h2 className="mt-2 font-display text-xl text-ink sm:text-2xl">
-        Today&apos;s Scripture Readings
-      </h2>
-      <div className="vf-rule mx-auto my-5" />
-      <div className="min-h-[7rem]">
-        {day ? (
-          <>
-            <p className="font-serif text-sm text-ink-soft">
-              {day.seasonLabel} · Sunday Cycle {day.sundayCycle} · Weekday Cycle {day.weekdayCycle}
-              {day.isJubileeYear ? " · Jubilee Year" : ""}
-            </p>
-            <p className="mt-1 font-serif text-xs text-ink-faint">Liturgical colour: {day.color}</p>
-            <Link href={readingsHref} className="vf-btn vf-btn-primary mt-6 inline-block">
-              Read today&apos;s Mass readings →
+    <div className="vf-card vf-home-part vf-home-part--readings">
+      <h3 className="vf-subhead">Today&apos;s Scripture Readings</h3>
+      <p role="status" className="sr-only">
+        {day ? "" : "Loading today's liturgy…"}
+      </p>
+      <div className="vf-home-part-body">
+        <div className="vf-home-facts" aria-hidden={day ? undefined : true}>
+          <FactList
+            items={[
+              {
+                label: "Season",
+                value: day ? (
+                  `${day.seasonLabel}${day.isJubileeYear ? " · Jubilee Year" : ""}`
+                ) : (
+                  <SkeletonLine className="w-4/5" />
+                ),
+              },
+              {
+                label: "Sunday cycle",
+                value: day ? day.sundayCycle : <SkeletonLine className="w-5" />,
+              },
+              {
+                label: "Weekday cycle",
+                value: day ? (
+                  <WeekdayCycle cycle={day.weekdayCycle} />
+                ) : (
+                  <SkeletonLine className="w-5" />
+                ),
+              },
+              {
+                label: "Liturgical colour",
+                value: day ? day.color : <SkeletonLine className="w-1/2" />,
+              },
+            ]}
+          />
+        </div>
+        <div className="vf-home-readings-go">
+          {/* Carry the VISITOR's civil date to the readings page: the server
+              renders in UTC, so an evening visitor in the Americas would otherwise
+              be sent to tomorrow's Mass. Before mount the link names no date, and
+              the readings page finds the visitor's own. */}
+          <Link
+            href={day ? `/liturgy/readings?date=${day.date}` : "/liturgy/readings"}
+            className="vf-btn vf-btn-primary"
+          >
+            Read today&apos;s Mass readings
+          </Link>
+          {day && evening ? (
+            <Link href={`/liturgy/readings?date=${day.date}&mass=vigil`} className="vf-link-action">
+              {evening.label} <span aria-hidden="true">→</span>
             </Link>
-            <p className="mt-4">
-              <Link href="/liturgical-calendar" className="vf-nav-link text-sm">
-                Open the liturgical calendar →
-              </Link>
-            </p>
-          </>
-        ) : (
-          <p className="font-serif text-sm text-ink-faint">Loading today&apos;s liturgy…</p>
-        )}
+          ) : null}
+        </div>
       </div>
-    </section>
+      <div className="vf-home-part-actions">
+        <Link href="/liturgical-calendar" className="vf-link-action">
+          Open the liturgical calendar <span aria-hidden="true">→</span>
+        </Link>
+      </div>
+    </div>
   );
 }

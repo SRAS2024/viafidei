@@ -21,7 +21,11 @@ vi.mock("@/lib/data/published", () => ({
   listFeaturedPrayers: (...args: unknown[]) => listFeaturedPrayers(...args),
   listPublished: (...args: unknown[]) => listPublished(...args),
 }));
-vi.mock("@/lib/data/homepage", () => ({ getPublishedFeaturedBlocks: async () => [] }));
+const getPublishedFeaturedBlocks = vi.fn();
+vi.mock("@/lib/data/homepage", () => ({
+  getPublishedFeaturedBlocks: () => getPublishedFeaturedBlocks(),
+  featuredHrefFor: (type: string, slug: string) => `/${type}/${slug}`,
+}));
 vi.mock("@/lib/i18n/server", () => ({
   getTranslator: async () => ({ t: (key: string) => key }),
 }));
@@ -29,9 +33,7 @@ vi.mock("@/lib/i18n/server", () => ({
 // accord; this file is about the featured rail, so they are stubbed out.
 vi.mock("@/app/_sections", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  LiturgicalToday: () => null,
-  HomePrayerOfTheDay: () => null,
-  HomeToday: () => null,
+  HomeTodaySection: () => null,
 }));
 
 import HomePage from "@/app/page";
@@ -39,6 +41,8 @@ import HomePage from "@/app/page";
 beforeEach(() => {
   listFeaturedPrayers.mockReset();
   listPublished.mockReset();
+  getPublishedFeaturedBlocks.mockReset();
+  getPublishedFeaturedBlocks.mockResolvedValue([]);
 });
 afterEach(() => cleanup());
 
@@ -55,7 +59,22 @@ describe("homepage featured prayers", () => {
     expect(dayKey).toBe(new Date().toISOString().slice(0, 10));
   });
 
-  it("renders the category LABEL as the eyebrow, never the stored value", async () => {
+  it("does not ask for them when the worker's rails take their place", async () => {
+    getPublishedFeaturedBlocks.mockResolvedValue([
+      {
+        blockKey: "featured-prayers",
+        blockType: "featured-prayers",
+        heading: "Featured Prayers",
+        items: [{ slug: "de-profundis", title: "De Profundis", meta: ["Penitential"] }],
+      },
+    ]);
+    render(await HomePage());
+
+    expect(listFeaturedPrayers).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "De Profundis" })).toBeInTheDocument();
+  });
+
+  it("renders the category LABEL as the card's line, never the stored value", async () => {
     listFeaturedPrayers.mockResolvedValue([
       {
         id: "faith",
@@ -75,6 +94,24 @@ describe("homepage featured prayers", () => {
       "href",
       "/prayers/act-of-faith",
     );
+  });
+
+  it("names no type for a general prayer", async () => {
+    listFeaturedPrayers.mockResolvedValue([
+      {
+        id: "peace",
+        slug: "prayer-for-peace",
+        title: "Prayer for Peace",
+        category: "general",
+        categoryLabel: "General",
+        href: "/prayers/prayer-for-peace",
+      },
+    ]);
+
+    render(await HomePage());
+
+    expect(screen.getByRole("link", { name: "Prayer for Peace" })).toBeInTheDocument();
+    expect(screen.queryByText("General")).not.toBeInTheDocument();
   });
 
   it("falls open to the static rail when the query fails", async () => {

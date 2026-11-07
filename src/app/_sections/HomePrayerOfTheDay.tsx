@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { prayerCategoryLabel } from "@/lib/content-shared/prayer-categories";
+
+import { SkeletonLine } from "./SkeletonLine";
+
 type Prayer = {
   slug: string;
   title: string;
@@ -12,22 +16,6 @@ type Prayer = {
 };
 
 type State = { kind: "loading" } | { kind: "loaded"; prayer: Prayer | null } | { kind: "error" };
-
-const CATEGORY_LABEL: Record<string, string> = {
-  marian: "Marian",
-  angelic: "Angelic",
-  eucharistic: "Eucharistic",
-  trinitarian: "Trinitarian",
-  penitential: "Penitential",
-  litany: "Litany",
-  liturgical: "Liturgical",
-  saintly: "To a saint",
-  novena: "Novena",
-  chaplet: "Chaplet",
-  consecration: "Consecration",
-  devotional: "Devotional",
-  general: "Prayer",
-};
 
 /**
  * Homepage "Prayer of the Day" block. The visitor's local date is computed on
@@ -63,40 +51,67 @@ export function HomePrayerOfTheDay() {
     };
   }, []);
 
+  const prayer = state.kind === "loaded" ? state.prayer : null;
+
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-12 text-center sm:px-6">
-      <p className="vf-eyebrow text-ink-faint">Today</p>
-      <h2 className="mt-2 font-display text-xl text-ink sm:text-2xl">Prayer of the Day</h2>
-      <div className="vf-rule mx-auto my-5" />
-      <div className="min-h-[7rem]">
-        {state.kind === "loading" ? (
-          <p className="font-serif text-sm text-ink-faint">Choosing today&apos;s prayer…</p>
-        ) : state.kind === "error" || !state.prayer ? (
-          <p className="font-serif text-sm text-ink-faint">
-            <Link href="/prayers" className="vf-nav-link">
+    // The prayer's title is the part's one link, stretched over the whole part.
+    <div className="vf-card vf-entry vf-home-part">
+      <h3 className="vf-subhead">Prayer of the Day</h3>
+      <p role="status" className="sr-only">
+        {state.kind === "loading" ? "Choosing today's prayer…" : ""}
+      </p>
+      {state.kind === "loading" ? (
+        <div className="vf-home-part-body" aria-hidden="true">
+          <p className="vf-entry-title">
+            <SkeletonLine className="w-11/12" />
+            <SkeletonLine className="w-3/5" />
+          </p>
+          <p className="vf-entry-meta">
+            <SkeletonLine className="w-1/4" />
+          </p>
+          <p className="vf-entry-summary">
+            <SkeletonLine />
+            <SkeletonLine />
+            <SkeletonLine className="w-11/12" />
+            <SkeletonLine className="w-3/4" />
+          </p>
+        </div>
+      ) : prayer ? (
+        <div className="vf-home-part-body">
+          <p className="vf-entry-title font-display font-medium text-ink">
+            <Link href={`/prayers/${prayer.slug}`} className="vf-entry-link">
+              {prayer.title}
+            </Link>
+          </p>
+          {prayer.category && prayer.category !== "general" ? (
+            <p className="vf-entry-meta">{prayerCategoryLabel(prayer.category)}</p>
+          ) : null}
+          {prayer.excerpt ? (
+            <p
+              className="vf-entry-summary vf-clamp italic"
+              style={{ "--clamp": 4 } as React.CSSProperties}
+            >
+              {prayer.excerpt}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="vf-home-part-body">
+          <p className="font-serif text-ink-soft">
+            <Link href="/prayers" className="vf-link">
               Browse the prayer library
             </Link>
             .
           </p>
-        ) : (
-          <Link href={`/prayers/${state.prayer.slug}`} className="block">
-            <article className="vf-card mx-auto max-w-xl rounded-sm p-6 text-left transition hover:-translate-y-0.5 hover:border-ink/30 sm:p-7">
-              <p className="vf-eyebrow">
-                {CATEGORY_LABEL[state.prayer.category] ?? CATEGORY_LABEL.general}
-              </p>
-              <h3 className="mt-3 break-words font-display text-2xl text-ink">
-                {state.prayer.title}
-              </h3>
-              {state.prayer.excerpt ? (
-                <p className="mt-4 line-clamp-4 font-serif italic leading-relaxed text-ink-soft">
-                  {state.prayer.excerpt}
-                </p>
-              ) : null}
-              <p className="mt-4 font-serif text-sm text-ink-faint">Pray it in full →</p>
-            </article>
-          </Link>
-        )}
-      </div>
-    </section>
+        </div>
+      )}
+      {state.kind === "error" || (state.kind === "loaded" && !prayer) ? null : (
+        <div className="vf-home-part-actions">
+          <p className="vf-entry-action" aria-hidden="true">
+            Pray it in full <span>→</span>
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
