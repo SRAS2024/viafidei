@@ -1,3 +1,5 @@
+const path = require("node:path");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -6,8 +8,9 @@ const nextConfig = {
   // Send every page's <title> with its first bytes, not streamed in after them. A
   // screen reader says the title first, and Next's route announcer reads it on every
   // client navigation: with streamed metadata the title was blank for a moment on
-  // each move, so the announcer spoke over the page's own status messages. It also
-  // lets a detail page answer a missing item with a real 404 rather than a 200.
+  // each move, so the announcer spoke over the page's own status messages. A missing
+  // detail item still answers 200, not 404, because its [slug]/loading.tsx boundary
+  // flushes before the not-found takes effect; it has a not-found title and noindex.
   htmlLimitedBots: /.*/,
   // Next 15 promoted `outputFileTracingIncludes` out of `experimental`
   // and the file-based `instrumentation.ts` no longer needs an
@@ -34,6 +37,19 @@ const nextConfig = {
       { protocol: "https", hostname: "res.cloudinary.com" },
       { protocol: "https", hostname: "images.unsplash.com" },
     ],
+  },
+  // Next 15.5 forgets the page Back leads to on a move within a page; the loader says how.
+  webpack(config) {
+    config.module.rules.push({
+      test: /[\\/]next[\\/]dist[\\/](esm[\\/])?client[\\/]components[\\/]router-reducer[\\/]aliased-prefetch-navigations\.js$/,
+      use: path.join(__dirname, "scripts/webpack/router-keeps-back-pages-loader.js"),
+    });
+    // Next 15.5's React can lose a client navigation; the loader says how, and when to drop it.
+    config.module.rules.push({
+      test: /[\\/]next[\\/]dist[\\/]compiled[\\/]react-dom(-experimental)?[\\/]cjs[\\/]react-dom-(client|profiling)\.[a-z]+\.js$/,
+      use: path.join(__dirname, "scripts/webpack/react-lost-ping-loader.js"),
+    });
+    return config;
   },
   async redirects() {
     return [
