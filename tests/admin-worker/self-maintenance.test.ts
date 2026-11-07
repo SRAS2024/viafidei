@@ -617,6 +617,69 @@ describe("REPAIR: restore content a gate now passes", () => {
     expect(prisma.__contentUpdates).toHaveLength(0);
   });
 
+  it("never restores a row whose checklist item is rejected", async () => {
+    const prisma = makePrisma({
+      ...restorable,
+      content: {
+        c1: { ...restorable.content.c1, checklistItemId: "item-withdrawn" },
+      },
+    });
+    (prisma as unknown as { checklistItem: unknown }).checklistItem = {
+      findUnique: vi.fn(async () => ({ approvalStatus: "REJECTED" })),
+    };
+    const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
+    const repair = r.repairs.find((x) => x.repair === "restore_unpublished_content");
+    expect(repair?.counts.restored).toBe(0);
+    expect(repair?.counts.blocked).toBe(1);
+    expect(prisma.__contentUpdates).toHaveLength(0);
+  });
+
+  it("restores a row whose checklist item is not rejected", async () => {
+    const prisma = makePrisma({
+      ...restorable,
+      content: {
+        c1: { ...restorable.content.c1, checklistItemId: "item-fine" },
+      },
+    });
+    (prisma as unknown as { checklistItem: unknown }).checklistItem = {
+      findUnique: vi.fn(async () => ({ approvalStatus: "APPROVED" })),
+    };
+    const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
+    const repair = r.repairs.find((x) => x.repair === "restore_unpublished_content");
+    expect(repair?.counts.restored).toBe(1);
+  });
+
+  // The rest of this file fails open, because it only reports. A blip on this one read must
+  // not republish a withdrawn page, and the row stays in the ledger for a later pass.
+  it("does not restore a row when its checklist item's status cannot be read", async () => {
+    const prisma = makePrisma({
+      ...restorable,
+      content: {
+        c1: { ...restorable.content.c1, checklistItemId: "item-withdrawn" },
+      },
+    });
+    (prisma as unknown as { checklistItem: unknown }).checklistItem = {
+      findUnique: vi.fn(async () => {
+        throw new Error("connection lost");
+      }),
+    };
+    const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
+    const repair = r.repairs.find((x) => x.repair === "restore_unpublished_content");
+    expect(repair?.counts).toMatchObject({ examined: 1, restored: 0, blocked: 1 });
+    expect(prisma.__contentUpdates).toHaveLength(0);
+    expect(prisma.__snapshots).toHaveLength(0);
+  });
+
+  it("does not restore a row when its pending reviews cannot be counted", async () => {
+    const prisma = makePrisma(restorable);
+    const count = prisma.humanReviewQueue.count as unknown as ReturnType<typeof vi.fn>;
+    count.mockRejectedValue(new Error("connection lost"));
+    const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
+    const repair = r.repairs.find((x) => x.repair === "restore_unpublished_content");
+    expect(repair?.counts).toMatchObject({ examined: 1, restored: 0, awaitingReview: 1 });
+    expect(prisma.__contentUpdates).toHaveLength(0);
+  });
+
   it("refuses to restore a row the publish-safety gate still blocks", async () => {
     const prisma = makePrisma({
       ...restorable,

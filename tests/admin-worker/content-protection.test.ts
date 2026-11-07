@@ -87,6 +87,118 @@ describe("evaluateContentChange", () => {
     expect(a.addedFields).toEqual(["address"]);
     expect(a.changedFields).toEqual([]);
   });
+
+  // jsonb hands an object's keys back shortest first, so a stored row never lists them
+  // as the curated entry wrote them. Each `stored` below is how Postgres returned it.
+  describe("nested objects, whatever order their keys come in", () => {
+    const written = {
+      steps: [
+        { order: 1, title: "Begin", body: "Make the Sign of the Cross." },
+        { order: 2, title: "Pray", body: "Pray the Creed." },
+      ],
+      matterAndForm: { matter: "Water", form: "I baptize you" },
+    };
+    const stored = {
+      steps: [
+        { body: "Make the Sign of the Cross.", order: 1, title: "Begin" },
+        { body: "Pray the Creed.", order: 2, title: "Pray" },
+      ],
+      matterAndForm: { form: "I baptize you", matter: "Water" },
+    };
+
+    it("a reordered payload is no change", () => {
+      const a = evaluateContentChange(stored, written);
+      expect(a.kind).toBe("noop");
+      expect(a.summary).toBe("noop");
+      expect(a.changedFields).toEqual([]);
+      expect(a.extendedFields).toEqual([]);
+      expect(a.shrunkFields).toEqual([]);
+      expect(a.addedFields).toEqual([]);
+    });
+
+    it("key order is ignored at every depth", () => {
+      const a = evaluateContentChange(
+        { days: [{ prayer: { refs: [{ url: "u", label: "l" }], text: "t" }, day: 1 }] },
+        { days: [{ day: 1, prayer: { text: "t", refs: [{ label: "l", url: "u" }] } }] },
+      );
+      expect(a.kind).toBe("noop");
+    });
+
+    it("a key holding undefined is the same as no key, as it is once stored", () => {
+      const a = evaluateContentChange(
+        { steps: [{ body: "b", order: 1 }] },
+        { steps: [{ order: 1, body: "b", note: undefined }] },
+      );
+      expect(a.kind).toBe("noop");
+    });
+
+    it("a real change to a value under reordered keys is still a change", () => {
+      const steps = [
+        { order: 1, title: "Begin", body: "Make the Sign of the Cross and kneel." },
+        { order: 2, title: "Pray", body: "Pray the Creed." },
+      ];
+      const a = evaluateContentChange(stored, { ...written, steps });
+      expect(a.kind).toBe("replace");
+      expect(a.changedFields).toEqual(["steps"]);
+    });
+
+    it("a changed value in a reordered object is still a change", () => {
+      const a = evaluateContentChange(stored, {
+        ...written,
+        matterAndForm: { matter: "Oil", form: "I baptize you" },
+      });
+      expect(a.kind).toBe("replace");
+      expect(a.changedFields).toEqual(["matterAndForm"]);
+    });
+
+    it("a key added or removed under reordered keys is still a change", () => {
+      const withNote = evaluateContentChange(stored, {
+        ...written,
+        matterAndForm: { ...written.matterAndForm, minister: "A priest" },
+      });
+      expect(withNote.changedFields).toEqual(["matterAndForm"]);
+      const without = evaluateContentChange(stored, {
+        ...written,
+        matterAndForm: { matter: "Water" },
+      });
+      expect(without.changedFields).toEqual(["matterAndForm"]);
+    });
+
+    it("a value's type still counts", () => {
+      const a = evaluateContentChange(
+        { steps: [{ order: 1, body: "b" }] },
+        { steps: [{ order: "1", body: "b" }] },
+      );
+      expect(a.kind).toBe("replace");
+    });
+
+    it("a removed step is still a replacement", () => {
+      const a = evaluateContentChange(stored, { ...written, steps: written.steps.slice(0, 1) });
+      expect(a.kind).toBe("replace");
+      expect(a.changedFields).toEqual(["steps"]);
+    });
+
+    it("a new step after reordered ones is an extension, not a replacement", () => {
+      const a = evaluateContentChange(stored, {
+        ...written,
+        steps: [...written.steps, { order: 3, title: "End", body: "Conclude." }],
+      });
+      expect(a.kind).toBe("enrich");
+      expect(a.extendedFields).toEqual(["steps"]);
+      expect(a.changedFields).toEqual([]);
+    });
+
+    it("the order of a list still counts: steps put in another order are not unchanged", () => {
+      // Not a noop, and isExtension's own rule stands: it asks whether everything
+      // is still there, so the same steps in another order count as an extension.
+      const a = evaluateContentChange(stored, {
+        ...written,
+        steps: [...written.steps].reverse(),
+      });
+      expect(a.kind).toBe("enrich");
+      expect(a.extendedFields).toEqual(["steps"]);
+    });
+  });
 });
 
 // ── Fake Prisma for the DB-touching functions ────────────────────────────────
@@ -234,6 +346,24 @@ describe("applyProtectedContentUpdate", () => {
     expect(res.applied).toBe(false);
     expect(res.kind).toBe("noop");
     expect(prisma.versions).toHaveLength(0);
+  });
+
+  it("takes no snapshot and bumps no version when only the keys' order differs", async () => {
+    const prisma = fakePrisma([
+      baseContent({ payload: { steps: [{ body: "Begin.", order: 1, title: "First" }] } }),
+    ]);
+    const res = await applyProtectedContentUpdate(prisma as FakePrisma, {
+      contentId: "c1",
+      proposedPayload: { steps: [{ order: 1, title: "First", body: "Begin." }] },
+      allowReplace: true,
+      qualityScore: 0.95,
+      evidenceCount: 1,
+    });
+    expect(res.applied).toBe(false);
+    expect(res.kind).toBe("noop");
+    expect(prisma.versions).toHaveLength(0);
+    expect(prisma.rows.get("c1")?.version).toBe(1);
+    expect(prisma.rows.get("c1")?.contentChecksum).toBe("old");
   });
 });
 

@@ -128,6 +128,13 @@ export async function runPublishOrchestrator(
   prisma: PrismaClient,
   input: PublishOrchestratorInput,
 ): Promise<OrchestratorResult> {
+  // 00. A rejected checklist item stays off the site until a person lifts the
+  // rejection. Nothing below reads the item's status, and the worker can offer a
+  // withdrawn row again on any pass (a re-sweep of a structured source, a curated
+  // seed, a parish refresh), so this comes before every other gate.
+  const rejected = await refuseRejectedItem(prisma, input, input.contentId);
+  if (rejected) return rejected;
+
   // 0. Strict QA artifact requirement (spec §5/§6 follow-up).
   // When a strictQAArtifactId is supplied, the publish gate refuses
   // unless the AdminWorkerStrictQAResult row exists with status =
@@ -672,9 +679,18 @@ export async function runPublishOrchestrator(
   const existing = await prisma.publishedContent
     .findFirst({
       where: { contentType: input.contentType as never, slug: input.slug },
-      select: { id: true, isPublished: true },
+      select: { id: true, isPublished: true, checklistItemId: true },
     })
     .catch(() => null);
+
+  // 4a. The row under this slug may belong to another checklist item than the one
+  //     being published (a fresh item made for a slug whose withdrawn row's item
+  //     has a different canonical slug). Republishing it would bring back what that
+  //     item's rejection took down.
+  if (existing && !existing.isPublished && existing.checklistItemId !== input.contentId) {
+    const rowRejected = await refuseRejectedItem(prisma, input, existing.checklistItemId);
+    if (rowRejected) return rowRejected;
+  }
 
   // 4b. Canonical-maximum gate (audit KB-15). A CLOSED content type has a hard
   //     maximum fixed by the faith (SACRAMENT = 7). Nothing enforced it at
@@ -1006,6 +1022,39 @@ async function postPublishSideEffects(
   }).catch(() => undefined);
 }
 
+/**
+ * The refusal for a checklist item that a person, or a withdrawal migration such as
+ * 0065, has rejected; null when the item may publish. The admin checklist's rebuild
+ * re-approves an item, and that is the way back. A database error is not a verdict
+ * on the item, so it blocks retryably: a blip must not put a withdrawn page back.
+ */
+async function refuseRejectedItem(
+  prisma: PrismaClient,
+  input: PublishOrchestratorInput,
+  checklistItemId: string | null | undefined,
+): Promise<OrchestratorResult | null> {
+  if (!checklistItemId) return null;
+  let item: { approvalStatus: string } | null | undefined;
+  try {
+    // A partial client (a script's, a unit test's) has no checklist to consult.
+    item = await prisma.checklistItem?.findUnique?.({
+      where: { id: checklistItemId },
+      select: { approvalStatus: true },
+    });
+  } catch {
+    return {
+      kind: "blocked",
+      blockedBy: "rejected-item",
+      retryable: true,
+      reason: "the checklist item's status could not be read (database error)",
+    };
+  }
+  if (item?.approvalStatus !== "REJECTED") return null;
+  const reason = `checklist item ${checklistItemId} is rejected; it stays unpublished until a person restores it`;
+  await logBlocked(prisma, input, reason);
+  return { kind: "blocked", blockedBy: "rejected-item", reason };
+}
+
 async function logBlocked(
   prisma: PrismaClient,
   input: PublishOrchestratorInput,
@@ -1128,6 +1177,7 @@ const PUBLISH_REJECTION_CODES: Readonly<Record<string, string>> = {
   canonical_max: "CANONICAL_MAX",
   protection: "PROTECTED_UPDATE_REFUSED",
   persist: "PERSIST_CONSTRAINT",
+  "rejected-item": "CHECKLIST_ITEM_REJECTED",
 };
 
 export function publishRejectionCode(blockedBy: string): string {

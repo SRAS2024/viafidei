@@ -30,6 +30,7 @@ import type { PrismaClient, Prisma } from "@prisma/client";
 import { derivedColumnsFor } from "@/lib/content-shared/derived-columns";
 
 import { computeContentChecksum } from "./cache-freshness";
+import { canonicalJson } from "./canonical-json";
 import { writeAdminWorkerLog } from "./logs";
 
 /** Meta keys that are not user-facing content — changes to them never count as
@@ -72,14 +73,14 @@ function isExtension(before: unknown, after: unknown): boolean {
   }
   if (Array.isArray(before) && Array.isArray(after)) {
     if (after.length < before.length) return false;
-    const afterSet = new Set(after.map((x) => JSON.stringify(x)));
-    return before.every((x) => afterSet.has(JSON.stringify(x)));
+    const afterSet = new Set(after.map((x) => canonicalJson(x)));
+    return before.every((x) => afterSet.has(canonicalJson(x)));
   }
   return false;
 }
 
 function equalValue(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return canonicalJson(a) === canonicalJson(b);
 }
 
 /**

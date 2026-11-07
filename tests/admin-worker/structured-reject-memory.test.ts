@@ -229,6 +229,47 @@ describe("rejection backoff", () => {
   });
 });
 
+describe("runStructuredIngest — a withdrawn entity stays withdrawn", () => {
+  // The live index only knows live rows, so a re-sweep offers a withdrawn entity again,
+  // under whatever slug its label gives today.
+  function withdrawn(itemsRejected: number) {
+    const fake = fakePrisma();
+    const findMany = fake.prisma.publishedContent.findMany as unknown as ReturnType<typeof vi.fn>;
+    findMany.mockImplementation(
+      async ({ where }: { where: { isPublished?: boolean; sourceRef?: string } }) =>
+        where.isPublished === false && where.sourceRef === "https://www.wikidata.org/wiki/Q7"
+          ? [{ checklistItemId: "the-withdrawn-item" }]
+          : [],
+    );
+    const count = vi.fn(async () => itemsRejected);
+    (fake.prisma.checklistItem as unknown as { count: unknown }).count = count;
+    return { ...fake, count };
+  }
+
+  it("does not offer it, and leaves no fresh checklist item behind", async () => {
+    mockedSparql.mockResolvedValue([pope("Q7", "Linus")]);
+    const { prisma, memory, count } = withdrawn(1);
+    const res = await runStructuredIngest(prisma, { contentType: "POPE", batch: 1 });
+    expect(res.published).toBe(0);
+    expect(res.skipReasons).toEqual({ publish_rejected: 1 });
+    expect(mockedPublish).not.toHaveBeenCalled();
+    expect(prisma.checklistItem.create).not.toHaveBeenCalled();
+    expect(count).toHaveBeenCalledWith({
+      where: { id: { in: ["the-withdrawn-item"] }, approvalStatus: "REJECTED" },
+    });
+    // Remembered like any other verdict on the entity, so the sweep does not keep asking.
+    expect(memoOf(memory, "Q7")?.code).toBe("publish_rejected");
+  });
+
+  it("publishes it once a person has restored the item", async () => {
+    mockedSparql.mockResolvedValue([pope("Q7", "Linus")]);
+    const { prisma } = withdrawn(0);
+    const res = await runStructuredIngest(prisma, { contentType: "POPE", batch: 1 });
+    expect(res.published).toBe(1);
+    expect(mockedPublish).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("runStructuredIngest — rejected entities are not re-mapped every sweep", () => {
   const page = () => [
     pope("Q1", "Linus"),

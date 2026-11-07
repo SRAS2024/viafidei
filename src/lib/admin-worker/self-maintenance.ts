@@ -1310,6 +1310,31 @@ function gatePasses(row: {
 }
 
 /**
+ * Whether a row's checklist item is rejected, or might be. A failed read answers yes, as
+ * the publish orchestrator's does: `call` would hand back the same null as an item that
+ * does not exist, and a blip on this one read must not republish a withdrawn page. The
+ * ledger entry stays restorable, so a later pass reads it again.
+ */
+async function checklistItemMayBeRejected(
+  prisma: PrismaClient,
+  checklistItemId: unknown,
+): Promise<boolean> {
+  if (typeof checklistItemId !== "string" || !checklistItemId) return false;
+  const items = delegate(prisma, "checklistItem");
+  const findUnique = items?.findUnique;
+  if (typeof findUnique !== "function") return false;
+  try {
+    const item = (await findUnique.call(items, {
+      where: { id: checklistItemId },
+      select: { approvalStatus: true },
+    })) as { approvalStatus?: string } | null;
+    return item?.approvalStatus === "REJECTED";
+  } catch {
+    return true;
+  }
+}
+
+/**
  * RESTORE. The ONLY content-mutating action in this file, and the only one that
  * can ever be: content unpublished by a gate that now passes is put back.
  *
@@ -1317,6 +1342,7 @@ function gatePasses(row: {
  *     can only ever restore something the worker itself took down.
  *   - A row whose human review is still PENDING is left alone: a person is
  *     mid-decision on it. Only an EXPIRED / RESOLVED / absent review qualifies.
+ *   - A row whose checklist item is rejected stays down.
  *   - The deterministic publish-safety gate must pass NOW.
  *   - The current state is snapshotted first (content-protection.ts), so the
  *     restore is itself reversible, and the reason is logged.
@@ -1356,7 +1382,9 @@ async function repairRestoreContent(ctx: RepairContext): Promise<Omit<RepairActi
     if (row.isPublished === true) continue;
     examined += 1;
 
-    // A PENDING rollback review means a person still owns this decision.
+    // A PENDING rollback review means a person still owns this decision. The helpers in
+    // this file fail open, and this decision must not: a count that could not be read
+    // (-1) leaves the row for a later pass.
     const pending = await call<number>(
       ctx.prisma,
       "humanReviewQueue",
@@ -1368,10 +1396,17 @@ async function repairRestoreContent(ctx: RepairContext): Promise<Omit<RepairActi
           contentTitle: String(row.title ?? ""),
         },
       },
-      0,
+      -1,
     );
-    if (pending > 0) {
+    if (pending !== 0) {
       awaitingReview += 1;
+      continue;
+    }
+
+    // A rejected checklist item is a person's decision, or a withdrawal migration's,
+    // and a ledger entry from an earlier rollback does not outrank it.
+    if (await checklistItemMayBeRejected(ctx.prisma, row.checklistItemId)) {
+      blocked += 1;
       continue;
     }
 

@@ -45,10 +45,27 @@ vi.mock("@/lib/admin-worker/public-routes", () => ({
   })),
 }));
 
-import { runPublishOrchestrator } from "@/lib/admin-worker/publish-orchestrator";
+import {
+  publishRejectionCode,
+  runPublishOrchestrator,
+} from "@/lib/admin-worker/publish-orchestrator";
 
-function makePrisma(opts: { existing?: { id: string; isPublished: boolean } | null } = {}) {
+function makePrisma(
+  opts: {
+    existing?: { id: string; isPublished: boolean; checklistItemId?: string } | null;
+    /** The status of each checklist item the orchestrator might look up. */
+    itemStatus?: Record<string, string>;
+    itemReadFails?: boolean;
+  } = {},
+) {
   return {
+    checklistItem: {
+      findUnique: vi.fn(async (args: { where: { id: string } }) => {
+        if (opts.itemReadFails) throw new Error("connection lost");
+        const approvalStatus = opts.itemStatus?.[args.where.id];
+        return approvalStatus ? { approvalStatus } : null;
+      }),
+    },
     publishedContent: {
       findFirst: vi.fn(async () => opts.existing ?? null),
       update: vi.fn(async (args: { where: { id: string }; data: Record<string, unknown> }) => ({
@@ -99,6 +116,65 @@ const HEALTHY_INPUT = {
   isDoctrinallySensitive: false,
   confidence: 0.9,
 };
+
+describe("runPublishOrchestrator — a rejected checklist item stays withdrawn", () => {
+  const blockedAsRejected = (result: Awaited<ReturnType<typeof runPublishOrchestrator>>) =>
+    result.kind === "blocked" && result.blockedBy === "rejected-item";
+
+  it("refuses to bring a withdrawn row back through its own rejected item", async () => {
+    const prisma = makePrisma({
+      existing: { id: "pub-withdrawn", isPublished: false, checklistItemId: "checklist-1" },
+      itemStatus: { "checklist-1": "REJECTED" },
+    });
+    const result = await runPublishOrchestrator(prisma, HEALTHY_INPUT);
+    expect(blockedAsRejected(result)).toBe(true);
+    expect(prisma.publishedContent.update).not.toHaveBeenCalled();
+    expect(prisma.publishedContent.create).not.toHaveBeenCalled();
+    if (result.kind === "blocked") expect(result.retryable).toBeFalsy();
+  });
+
+  it("refuses a first publish of a rejected item too", async () => {
+    const prisma = makePrisma({ itemStatus: { "checklist-1": "REJECTED" } });
+    const result = await runPublishOrchestrator(prisma, HEALTHY_INPUT);
+    expect(blockedAsRejected(result)).toBe(true);
+    expect(prisma.publishedContent.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses a withdrawn row offered through a fresh item for the same slug", async () => {
+    const prisma = makePrisma({
+      existing: { id: "pub-withdrawn", isPublished: false, checklistItemId: "the-rejected-item" },
+      itemStatus: { "checklist-1": "APPROVED_FOR_BUILD", "the-rejected-item": "REJECTED" },
+    });
+    const result = await runPublishOrchestrator(prisma, HEALTHY_INPUT);
+    expect(blockedAsRejected(result)).toBe(true);
+    expect(prisma.publishedContent.update).not.toHaveBeenCalled();
+  });
+
+  it("publishes again once a person has restored the item", async () => {
+    const prisma = makePrisma({
+      existing: { id: "pub-withdrawn", isPublished: false, checklistItemId: "checklist-1" },
+      itemStatus: { "checklist-1": "APPROVED_FOR_BUILD" },
+    });
+    const result = await runPublishOrchestrator(prisma, HEALTHY_INPUT);
+    expect(result.kind).toBe("published");
+    expect(prisma.publishedContent.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a failed read as a retry, not a licence to publish", async () => {
+    const prisma = makePrisma({
+      existing: { id: "pub-withdrawn", isPublished: false, checklistItemId: "checklist-1" },
+      itemReadFails: true,
+    });
+    const result = await runPublishOrchestrator(prisma, HEALTHY_INPUT);
+    expect(blockedAsRejected(result)).toBe(true);
+    if (result.kind === "blocked") expect(result.retryable).toBe(true);
+    expect(prisma.publishedContent.update).not.toHaveBeenCalled();
+  });
+
+  it("gives the refusal its own rejection code", () => {
+    expect(publishRejectionCode("rejected-item")).toBe("CHECKLIST_ITEM_REJECTED");
+  });
+});
 
 describe("runPublishOrchestrator — autonomous publish path (spec §13)", () => {
   it("publishes when every gate passes", async () => {

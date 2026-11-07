@@ -24,6 +24,7 @@ import type { PrismaClient } from "@prisma/client";
 import { ALL_CURATED_ENTRIES, validatePayload } from "@/lib/checklist";
 import type { CuratedEntry } from "@/lib/checklist/knowledge";
 import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
+import { canonicalJson } from "./canonical-json";
 import { applyProtectedContentUpdate, evaluateContentChange } from "./content-protection";
 import { isDoctrinallySensitive } from "./content-type-profiles";
 import { refreshContentGoals, seedContentGoals } from "./content-goals";
@@ -168,7 +169,11 @@ async function loadLiveCuratedKeys(
   return new Set(rows.map((r) => `${r.contentType}:${r.slug}`));
 }
 
-/** Stable hash of the whole curated corpus — changes exactly when the shipped knowledge changes. */
+/**
+ * Stable hash of the whole curated corpus — changes exactly when the shipped knowledge
+ * changes, at any depth: a correction made only inside a guide's step, a novena's day or
+ * a sacrament's matter and form has to reach the live row like any other.
+ */
 export function curatedKnowledgeFingerprint(entries: readonly CuratedEntry[]): string {
   const h = createHash("sha256");
   for (const e of entries) {
@@ -176,7 +181,7 @@ export function curatedKnowledgeFingerprint(entries: readonly CuratedEntry[]): s
     h.update(":");
     h.update(e.slug);
     h.update(":");
-    h.update(JSON.stringify(e.payload, Object.keys(e.payload).sort()));
+    h.update(canonicalJson(e.payload) ?? "");
     h.update("\n");
   }
   return h.digest("hex").slice(0, 24);

@@ -675,6 +675,42 @@ function withSlug(entry: CuratedEntry, slug: string): CuratedEntry {
   return { ...entry, slug, payload: { ...entry.payload, slug } };
 }
 
+/**
+ * Was this Wikidata entity withdrawn? Its row stays behind, unpublished, with its
+ * checklist item rejected, and the live index only knows live rows, so a re-sweep
+ * offers the entity again. The orchestrator refuses that row's own slug and item;
+ * this catches the same entity under a slug derived afresh, because its label changed
+ * or the label it once collided with has gone. A failed read falls through to the
+ * orchestrator's own check.
+ */
+async function isWithdrawnEntity(
+  prisma: PrismaClient,
+  contentType: string,
+  qid: string,
+): Promise<boolean> {
+  const rows = await Promise.resolve()
+    .then(() =>
+      prisma.publishedContent.findMany({
+        where: {
+          contentType: contentType as never,
+          sourceRef: wikidataEntityUrl(qid),
+          isPublished: false,
+        },
+        select: { checklistItemId: true },
+      }),
+    )
+    .catch(() => []);
+  if (!rows?.length) return false;
+  const rejected = await Promise.resolve()
+    .then(() =>
+      prisma.checklistItem.count({
+        where: { id: { in: rows.map((r) => r.checklistItemId) }, approvalStatus: "REJECTED" },
+      }),
+    )
+    .catch(() => 0);
+  return rejected > 0;
+}
+
 /** Publish one structured entry through the real gate. Mirrors curated seed. */
 async function publishStructuredEntry(
   prisma: PrismaClient,
@@ -682,6 +718,11 @@ async function publishStructuredEntry(
 ): Promise<{ ok: boolean; code?: RejectionCode; reason?: string }> {
   const validation = validatePayload(entry.contentType, entry.payload);
   if (!validation.ok) return { ok: false, code: "schema_invalid", reason: "invalid payload" };
+
+  const entityQid = entryQid(entry);
+  if (entityQid && (await isWithdrawnEntity(prisma, entry.contentType, entityQid))) {
+    return { ok: false, code: "publish_rejected", reason: `withdrawn entity ${entityQid}` };
+  }
 
   // Prefer the payload's own display name. SAINT records carry the name in
   // `canonicalName` (not `title`), so without this fallback every structured
@@ -700,7 +741,7 @@ async function publishStructuredEntry(
   // A checklist item under this slug that names a DIFFERENT person (the web
   // pipeline queued another "John") must not receive this entity's payload;
   // publish under a QID-disambiguated slug instead.
-  const qid = entryQid(entry);
+  const qid = entityQid;
   if (
     existing &&
     qid &&

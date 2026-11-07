@@ -32,6 +32,7 @@ import {
   type ReadingSection,
 } from "@/lib/content-shared/daily-readings";
 
+import { canonicalJson } from "./canonical-json";
 import { acquireReadings } from "./readings-source";
 import { classifyFreshness, isBrainEnabled, lectionaryReadings } from "./intelligence";
 import { recordBrainCall, upsertDeveloperRequest } from "./intelligence/store";
@@ -321,6 +322,8 @@ interface StoredRowShape {
   sundayCycle?: string | null;
   weekdayCycle?: string | null;
   color?: string | null;
+  sourceUrl?: string | null;
+  sourceName?: string | null;
   sourceConfidence?: number | null;
   sections?: unknown;
   verifiedAt?: Date | null;
@@ -338,7 +341,12 @@ interface DesiredRow {
   sections: ReadingSection[];
 }
 
-/** True when the stored row no longer matches what the engine now produces. */
+/**
+ * True when the stored row no longer matches what the engine now produces. Sections go
+ * through canonicalJson because the column is jsonb and hands a section's keys back in
+ * its own order; a plain stringify would call every stored day changed. The source
+ * fields count because the readings page links to the row's own.
+ */
 function readingRowDiffers(existing: StoredRowShape, desired: DesiredRow): boolean {
   return (
     (existing.status ?? "") !== desired.status ||
@@ -346,8 +354,10 @@ function readingRowDiffers(existing: StoredRowShape, desired: DesiredRow): boole
     (existing.sundayCycle ?? "") !== desired.sundayCycle ||
     (existing.weekdayCycle ?? "") !== desired.weekdayCycle ||
     (existing.color ?? "") !== desired.color ||
+    (existing.sourceUrl ?? "") !== desired.sourceUrl ||
+    (existing.sourceName ?? "") !== desired.sourceName ||
     (existing.sourceConfidence ?? 0) !== desired.sourceConfidence ||
-    JSON.stringify(existing.sections ?? null) !== JSON.stringify(desired.sections)
+    canonicalJson(existing.sections ?? null) !== canonicalJson(desired.sections)
   );
 }
 

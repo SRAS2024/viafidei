@@ -20,6 +20,8 @@ import { backfillDailyReadings } from "@/lib/admin-worker/daily-readings";
 import { registerReadingsSource, resetReadingsSources } from "@/lib/admin-worker/readings-source";
 import { writeAdminWorkerLog } from "@/lib/admin-worker/logs";
 
+import { asStoredInJsonb } from "../helpers/jsonb-order";
+
 const D = (iso: string) => new Date(`${iso}T00:00:00Z`);
 const isoOf = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -172,6 +174,63 @@ describe("backfillDailyReadings", () => {
     expect(r.unchanged).toBe(1);
     expect(second.updates.length).toBe(0);
     expect(second.creates.length).toBe(0);
+  });
+
+  describe("what counts as a change to a stored day", () => {
+    /** The row the backfill writes for a day, as the jsonb column hands its sections back. */
+    async function storedRow(iso: string) {
+      const first = makePrisma([]);
+      await backfillDailyReadings(first.prisma, { from: D(iso), days: 1 });
+      const row = first.creates[0]!;
+      const sections = asStoredInJsonb(row.sections) as Section[];
+      expect(JSON.stringify(sections)).not.toBe(JSON.stringify(row.sections));
+      return { ...row, sections };
+    }
+
+    it("leaves a day alone when the column has only reordered a section's keys", async () => {
+      // Every stored day looks like this. A comparison that minded key order rewrote the
+      // whole three-year window on every scan, with verifiedAt bumped each time.
+      const row = await storedRow("2025-12-24");
+      const { prisma, updates, creates } = makePrisma([row]);
+      const r = await backfillDailyReadings(prisma, { from: D("2025-12-24"), days: 1 });
+      expect(r).toMatchObject({ created: 0, updated: 0, unchanged: 1 });
+      expect(updates).toHaveLength(0);
+      expect(creates).toHaveLength(0);
+    });
+
+    it("still corrects a section whose text really changed", async () => {
+      const row = await storedRow("2025-12-24");
+      const correct = row.sections[0]!.body;
+      const sections = row.sections.map((s, i) => (i === 0 ? { ...s, body: "Out of date." } : s));
+
+      const { prisma, updates } = makePrisma([{ ...row, sections }]);
+      const r = await backfillDailyReadings(prisma, { from: D("2025-12-24"), days: 1 });
+      expect(r).toMatchObject({ updated: 1, unchanged: 0 });
+      expect((updates[0]!.data.sections as Section[])[0]!.body).toBe(correct);
+    });
+
+    it("still corrects sections stored in the wrong order", async () => {
+      const row = await storedRow("2025-12-24");
+      const [first, second, ...rest] = row.sections;
+      const sections = [second!, first!, ...rest];
+
+      const { prisma, updates } = makePrisma([{ ...row, sections }]);
+      const r = await backfillDailyReadings(prisma, { from: D("2025-12-24"), days: 1 });
+      expect(r).toMatchObject({ updated: 1, unchanged: 0 });
+      expect((updates[0]!.data.sections as Section[])[0]!.kind).toBe(first!.kind);
+    });
+
+    it.each([
+      ["sourceUrl", "https://bible.usccb.org/an-old-link.cfm"],
+      ["sourceName", "An older name"],
+    ])("still corrects a stored %s, which the readings page shows", async (field, stale) => {
+      // Rewriting every row used to refresh these by accident; nothing else would.
+      const row = await storedRow("2025-12-24");
+      const { prisma, updates } = makePrisma([{ ...row, [field]: stale }]);
+      const r = await backfillDailyReadings(prisma, { from: D("2025-12-24"), days: 1 });
+      expect(r).toMatchObject({ updated: 1, unchanged: 0 });
+      expect(updates[0]!.data[field]).toBe(row[field]);
+    });
   });
 
   it("counts write failures and THROWS when nothing landed (a dead database is not success)", async () => {

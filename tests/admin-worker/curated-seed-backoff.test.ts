@@ -274,6 +274,24 @@ describe("seedCuratedContent — failure memory", () => {
     expect(failureMemos(memory)).toEqual({});
   });
 
+  it("counts a fix made only inside a nested field as the corpus changing", async () => {
+    const days = (prayerText: string) => ({ days: [{ day: 1, prayerText }] });
+    const corpus = [entry("PRAYER", "refused-novena", days("Before."))];
+    const { prisma } = fakePrisma(corpus);
+    await seedCuratedContent(prisma, { ...worker, entries: corpus, nowMs: T0 });
+    expect(mockedPublish).toHaveBeenCalledTimes(1);
+
+    // Well inside the backoff, so only a new fingerprint can bring this attempt.
+    const fixed = [entry("PRAYER", "refused-novena", days("After."))];
+    const res = await seedCuratedContent(prisma, {
+      ...worker,
+      entries: fixed,
+      nowMs: T0 + 60 * 1000,
+    });
+    expect(res.deferred).toBe(0);
+    expect(mockedPublish).toHaveBeenCalledTimes(2);
+  });
+
   it("drops the memo of an entry that left the corpus", async () => {
     const corpus = [entry("PRAYER", "gone", { broken: true }), entry("PRAYER", "kept")];
     const { prisma, memory } = fakePrisma(corpus);
