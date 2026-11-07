@@ -58,7 +58,7 @@ describe("GuidePrayers", () => {
     expect(screen.getByText(/Our Father, who art in heaven/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Latin" }));
-    const latin = screen.getByText(/Pater noster/);
+    const latin = screen.getByText(/Pater noster/).closest(".vf-prayer");
     expect(latin).toHaveAttribute("translate", "no");
     expect(latin).toHaveAttribute("lang", "la");
     // A prayer with no Latin keeps its English text rather than going blank.
@@ -104,6 +104,16 @@ describe("GuidePrayers", () => {
     fireEvent.click(screen.getByRole("button", { name: "Greek" }));
     // One note: the Creed's Greek is a machine fill, the Our Father's is not.
     expect(screen.getAllByText(/Unofficial translation/)).toHaveLength(1);
+  });
+
+  it("reads heading, language, a line of help, then the list, and keeps to the reading column", () => {
+    const { container } = render(<GuidePrayers prayers={[OUR_FATHER, DAY_PRAYER]} />);
+    const section = container.querySelector("section")!;
+    expect(section).toHaveClass("vf-prayer-list");
+    expect(section.className).not.toMatch(/max-w-|px-4|pb-12/);
+    expect([...section.children].map((el) => el.tagName)).toEqual(["H2", "DIV", "P", "DIV"]);
+    expect(section.children[1]).toHaveAttribute("role", "group");
+    expect(section.children[3]).toHaveClass("vf-disclosure-list");
   });
 
   it("numbers a sequence, and claims no order for a set of alternatives", () => {

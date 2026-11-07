@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { SaveContentButton } from "@/components/profile";
-import { GuidePrayers, PublishedDetail } from "@/components/ui";
-import { toDisclosureItems } from "@/lib/content-shared/structured-content";
+import { Disclosure, GuidePrayers, PublishedDetail } from "@/components/ui";
+import { PRAYER_LIST_FIELD, readingField, withPrayerList } from "@/components/ui/GuideSteps";
+import { PrayerLinkedText } from "@/components/ui/PrayerLinkedText";
+import { novenaTimingFacts, toDisclosureItems } from "@/lib/content-shared/structured-content";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { loadPrayersForText } from "@/lib/data/prayer-sets";
+import { displayItem } from "@/lib/translation/display";
 import { localizeItem, localizePrayers } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
@@ -32,11 +35,12 @@ async function novenaPrayers(payload: Record<string, unknown>) {
 }
 
 /**
- * A novena's page: the title, when to begin it, its introduction, then each
- * day as a dropdown ("Day 1 · All mankind, especially sinners") holding that
- * day's prayer, then the prayers the days pray. The stored subtitle repeats
- * the start date, and "Intention", "Structure: nine_days" and "Duration: 9
- * days" told the reader nothing the days do not.
+ * A novena's page, the practical material first: the title, when it begins and
+ * ends, its summary, each day as a dropdown ("Day 1 · All mankind, especially
+ * sinners") holding that day's prayer, the prayers the days pray, and then the
+ * background. The stored subtitle repeats the start date, and "Intention",
+ * "Structure: nine_days" and "Duration: 9 days" told the reader nothing the days
+ * do not.
  */
 export default async function NovenaDetailPage({ params }: Props) {
   const { slug } = await params;
@@ -47,23 +51,36 @@ export default async function NovenaDetailPage({ params }: Props) {
   // novena itself (src/lib/translation).
   const { prayers: named, ordered } = await novenaPrayers(item.payload);
   const prayers = await localizePrayers(named);
-  const begins =
-    typeof item.payload.typicalStartDate === "string" && item.payload.typicalStartDate.trim()
-      ? `Begins: ${item.payload.typicalStartDate.trim()}`
-      : null;
 
   return (
-    <>
-      <PublishedDetail
-        item={item}
-        showSubtitle={false}
-        facts={[begins]}
-        primaryFields={["background", "purpose", "intentions", "days"]}
-        headings={{ background: null }}
-        action={<SaveContentButton contentType="NOVENA" slug={slug} />}
-        linkedPrayers={prayers}
-      />
-      <GuidePrayers prayers={prayers} heading="Prayers of this novena" ordered={ordered} />
-    </>
+    <PublishedDetail
+      item={withPrayerList(item, prayers)}
+      showSubtitle={false}
+      factItems={novenaTimingFacts(displayItem(item).payload.typicalStartDate)}
+      primaryFields={["purpose", "intentions", "days", PRAYER_LIST_FIELD, "background"]}
+      headings={{ [PRAYER_LIST_FIELD]: null }}
+      fieldRenderers={{
+        // A day is set as prayer whether or not it names one of the novena's
+        // prayers, so that every novena's versicles and stanzas read the same.
+        days: (value) => {
+          const days = toDisclosureItems(value);
+          return days ? (
+            <div className="vf-disclosure-list">
+              {days.map((day, i) => (
+                <Disclosure key={i} title={day.title} eyebrow={day.eyebrow}>
+                  <PrayerLinkedText text={day.body} prayers={prayers} matchCase />
+                </Disclosure>
+              ))}
+            </div>
+          ) : null;
+        },
+        background: readingField(prayers),
+        [PRAYER_LIST_FIELD]: () => (
+          <GuidePrayers prayers={prayers} heading="Prayers of this novena" ordered={ordered} />
+        ),
+      }}
+      action={<SaveContentButton contentType="NOVENA" slug={slug} />}
+      linkedPrayers={prayers}
+    />
   );
 }

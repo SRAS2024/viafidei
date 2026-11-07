@@ -13,6 +13,7 @@ import {
   usePrayerLanguage,
   type LanguageOption,
 } from "./PrayerLanguageChips";
+import { PrayerText } from "./PrayerText";
 
 /**
  * The prayers of a guide, novena, devotion or chaplet, each as a dropdown (so
@@ -68,20 +69,18 @@ export function GuidePrayers({
   const activeCode = language && languages.some((l) => l.code === language) ? language : null;
 
   return (
-    <section className="mx-auto max-w-3xl px-4 pb-12">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="font-display text-2xl text-ink">{heading}</h2>
-        <PrayerLanguageChips
-          options={languages}
-          active={activeCode}
-          onSelect={(code) => toggle(code, activeCode)}
-        />
-      </div>
-      <p className="mt-1 font-serif text-sm text-ink-soft">
+    <section className="vf-detail-section vf-prayer-list">
+      <h2 className="vf-subhead">{heading}</h2>
+      <PrayerLanguageChips
+        options={languages}
+        active={activeCode}
+        onSelect={(code) => toggle(code, activeCode)}
+      />
+      <p className="vf-detail-note">
         {ordered ? "In the order they are prayed — tap" : "Tap"} a prayer to reveal its full text
         {languages.length > 0 ? " in the chosen language" : ""}.
       </p>
-      <div className="mt-4 space-y-3">
+      <div className="vf-disclosure-list">
         {prayers.map((p, i) => {
           const { shown } = resolvePrayerLanguage(p.variants, language);
           return (
@@ -92,15 +91,13 @@ export function GuidePrayers({
             >
               {shown ? (
                 <>
-                  <p
-                    className="whitespace-pre-line"
-                    translate={shown.preserve ? "no" : undefined}
+                  <PrayerText
+                    text={shown.text}
                     // The reader's language when the vernacular holds their
                     // translation (src/lib/translation), never "en".
                     lang={shown.lang ?? shown.code}
-                  >
-                    {shown.text}
-                  </p>
+                    preserve={shown.preserve}
+                  />
                   <UnofficialTranslationNote variant={shown} className="mt-2" />
                 </>
               ) : (

@@ -43,6 +43,45 @@ describe("RosaryMysteries", () => {
     expect(screen.queryByText("The Baptism of Jesus in the Jordan")).not.toBeInTheDocument();
   });
 
+  it("names today's own weekday, not the first of the set's days", () => {
+    // 2026-06-06 is a Saturday: the Joyful Mysteries, shared with Monday.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-06T09:00:00"));
+    render(<RosaryMysteries />);
+    expect(screen.getByText(/Today \(Saturday\) the Joyful Mysteries are prayed/)).toBeVisible();
+  });
+
+  it("uses the site's filter chips, selected in blue", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-04T09:00:00"));
+    render(<RosaryMysteries />);
+    const today = screen.getByRole("button", { name: /Luminous · Today/ });
+    expect(today).toHaveClass("vf-chip", "vf-filter-active");
+    expect(screen.getByRole("button", { name: "Joyful" })).toHaveClass("vf-chip");
+    expect(screen.getByRole("button", { name: "Joyful" })).not.toHaveClass("vf-filter-active");
+  });
+
+  it("sets a mystery's fruit as text, in the column's numbered steps", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-04T09:00:00"));
+    const { container } = render(<RosaryMysteries />);
+    const facts = container.querySelector(".vf-mystery-facts")!;
+    expect(facts).toHaveTextContent(/^Fruit: /);
+    expect(facts.innerHTML).not.toMatch(/rounded|bg-|border|uppercase/);
+    expect(container.querySelector("ol")).toHaveClass("vf-steps");
+    expect(screen.getAllByRole("heading", { level: 4 })).toHaveLength(5);
+    expect(container.firstElementChild?.className).not.toMatch(/max-w-3xl|px-4/);
+  });
+
+  it("announces the set that has come up", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-04T09:00:00"));
+    render(<RosaryMysteries />);
+    fireEvent.click(screen.getByRole("button", { name: /^Joyful/ }));
+    const heading = screen.getByRole("heading", { name: "Joyful Mysteries", level: 3 });
+    expect(heading.closest("[aria-live]")).toHaveAttribute("aria-live", "polite");
+  });
+
   it("shows each mystery's meditation reading and fruit", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-04T09:00:00"));

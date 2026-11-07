@@ -129,15 +129,19 @@ describe("/devotions/[slug] — the Rosary and the chaplets", () => {
 
     fireEvent.click(within(list).getByRole("button", { name: /Our Father/ }));
     fireEvent.click(within(list).getByRole("button", { name: "Latin" }));
-    expect(within(list).getByText(/Pater noster/)).toHaveAttribute("translate", "no");
+    expect(
+      within(list)
+        .getByText(/Pater noster/)
+        .closest(".vf-prayer"),
+    ).toHaveAttribute("translate", "no");
   });
 
   it("opens a prayer named in 'How to practice' in place", async () => {
     render(await DevotionDetailPage(params("divine-mercy-chaplet")));
-    const article = screen.getByRole("article");
-    const inline = within(article).getByRole("button", { name: /Apostles' Creed/ });
+    const howTo = prayerList("How to practice");
+    const inline = within(howTo).getByRole("button", { name: /Apostles' Creed/ });
     fireEvent.click(inline);
-    expect(within(article).getByText("I believe in God...")).toBeInTheDocument();
+    expect(within(howTo).getByText("I believe in God...")).toBeInTheDocument();
   });
 
   it("no longer shows the prayers as a row of links to other pages", async () => {
@@ -173,9 +177,19 @@ describe("/devotions/[slug] — the Rosary and the chaplets", () => {
     expect(list).toHaveTextContent("In the order they are prayed");
 
     // The Sign of the Cross the instructions open with now opens in place too.
+    const howTo = prayerList("How to practice");
+    fireEvent.click(within(howTo).getByRole("button", { name: /Sign of the Cross/ }));
+    expect(within(howTo).getByText("In the name of the Father...")).toBeInTheDocument();
+  });
+
+  it("reads how to pray it, its prayers, then its background", async () => {
+    render(await DevotionDetailPage(params("divine-mercy-chaplet")));
     const article = screen.getByRole("article");
-    fireEvent.click(within(article).getByRole("button", { name: /Sign of the Cross/ }));
-    expect(within(article).getByText("In the name of the Father...")).toBeInTheDocument();
+    expect(
+      within(article)
+        .getAllByRole("heading", { level: 2 })
+        .map((h) => h.textContent),
+    ).toEqual(["How to practice", "Prayers of this devotion", "Background"]);
   });
 
   it("links the step-by-step guide that names the devotion, not every guide that mentions it", async () => {
@@ -244,6 +258,37 @@ describe("/novenas/[slug]", () => {
     expect(within(list).getByRole("button", { name: "Latin" })).toBeInTheDocument();
   });
 
+  it("sets a day as prayer even when it names none of the novena's prayers", async () => {
+    put("NOVENA", "novena-saint-jude", "Novena to Saint Jude", {
+      days: [
+        {
+          day: 1,
+          title: "Patron of hopeless cases",
+          prayerText: "V. Pray for us, blessed Jude.\nR. That we may be made worthy.",
+        },
+      ],
+    });
+    const { container } = render(await NovenaDetailPage(params("novena-saint-jude")));
+    fireEvent.click(screen.getByRole("button", { name: /Day 1\s*Patron of hopeless cases/ }));
+    expect(
+      container.querySelector(".vf-disclosure-body .vf-prayer .vf-prayer-response"),
+    ).toHaveTextContent("That we may be made worthy.");
+  });
+
+  it("reads its days, its prayers, then its background", async () => {
+    put("NOVENA", "divine-mercy-novena", "Divine Mercy Novena", {
+      background: "The Lord Jesus dictated the novena to St. Faustina in 1937.",
+      days: [{ day: 1, title: "All mankind", prayerText: "Begin with one Our Father." }],
+    });
+    render(await NovenaDetailPage(params("divine-mercy-novena")));
+    const article = screen.getByRole("article");
+    expect(
+      within(article)
+        .getAllByRole("heading", { level: 2 })
+        .map((h) => h.textContent),
+    ).toEqual(["Days", "Prayers of this novena", "Background"]);
+  });
+
   it("lists no prayers its days do not pray — no customary Our Father, Hail Mary, Glory Be", async () => {
     put("NOVENA", "novena-saint-jude", "Novena to Saint Jude", {
       days: [{ day: 1, title: "Patron of hopeless cases", prayerText: "O blessed apostle..." }],
@@ -258,12 +303,12 @@ describe("/novenas/[slug]", () => {
   it("still opens the prayers a day names when its listed prayers are not published", async () => {
     put("NOVENA", "novena-x", "Novena X", {
       relatedPrayers: ["not-published"],
-      days: [{ day: 1, title: "First day", prayerText: "Pray one Our Father." }],
+      days: [{ day: 1, title: "Patron of the poor", prayerText: "Pray one Our Father." }],
     });
     render(await NovenaDetailPage(params("novena-x")));
     const list = prayerList("Prayers of this novena");
     expect(listedPrayers(list)).toEqual(["Prayer 1Our Father"]);
-    fireEvent.click(screen.getByRole("button", { name: /Day 1\s*First day/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Day 1\s*Patron of the poor/ }));
     fireEvent.click(screen.getByRole("button", { name: /^Our Father/ }));
     expect(screen.getByText("Our Father, who art in heaven...")).toBeInTheDocument();
   });
@@ -293,6 +338,34 @@ describe("/our-lady/[slug] and /spiritual-life/[slug]", () => {
     expect(listedPrayers(list)).toEqual(["Hail Holy Queen (Salve Regina)", "Hail Mary"]);
     expect(list).not.toHaveTextContent("In the order they are prayed");
     expect(list).toHaveTextContent("Tap a prayer to reveal its full text in the chosen language.");
+  });
+
+  it("gives Lectio Divina four separate steps, its facts, and its background after them", async () => {
+    put("SPIRITUAL_PRACTICE", "lectio-divina", "Lectio Divina", {
+      summary: "An ancient monastic practice.",
+      tradition: "Benedictine",
+      frequency: "Daily",
+      background: "It was the daily practice of the monasteries.",
+      instructions:
+        "1. Lectio (reading): read a brief passage. 2. Meditatio (meditation): reflect on a word. 3. Oratio (prayer): respond to God. 4. Contemplatio (contemplation): rest in God's presence. Pope Benedict XVI urged its rediscovery.",
+    });
+    render(await SpiritualLifeDetailPage(params("lectio-divina")));
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+      "Step 1: Lectio (reading)",
+      "Step 2: Meditatio (meditation)",
+      "Step 3: Oratio (prayer)",
+      "Step 4: Contemplatio (contemplation)",
+    ]);
+    expect(screen.getByText(/^Pope Benedict XVI urged its rediscovery/)).toBeVisible();
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
+      "How to practice",
+      "Background",
+    ]);
+    const facts = document.querySelector("dl.vf-facts")!;
+    expect([...facts.querySelectorAll("dt")].map((dt) => dt.textContent)).toEqual([
+      "Tradition",
+      "When",
+    ]);
   });
 
   it("shows a practice's prayers in full", async () => {

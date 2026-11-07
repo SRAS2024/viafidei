@@ -7,6 +7,13 @@ import {
   RelatedContentLinks,
   resolveRelatedLinks,
 } from "@/components/ui";
+import { PrayerText } from "@/components/ui/PrayerText";
+import {
+  PRAYER_LIST_FIELD,
+  instructionField,
+  readingField,
+  withPrayerList,
+} from "@/components/ui/GuideSteps";
 import { SaveContentButton } from "@/components/profile";
 import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
 import {
@@ -66,14 +73,17 @@ async function devotionGuides(devotion: PublishedItem) {
 
 /**
  * A devotion — the Rosary, the Divine Mercy Chaplet and the other chaplets
- * among them: its title, how long it takes, its background, how to pray it,
- * then its prayers, and the step-by-step guide when there is one. The prayers
- * are the devotion itself, so they are shown in full: each one named in "How
- * to practice" opens in place, and all of them are listed below as dropdowns,
- * both with the Latin / Greek chips. The list holds every prayer the
- * instructions name (the Rosary's begins with the Sign of the Cross, which its
- * stored list lacked) as well as the stored ones, in the order the
- * instructions give them.
+ * among them. The practical material comes first: its title, how long it takes,
+ * how to pray it, then its prayers, and its background after them, with the
+ * step-by-step guide when there is one. The prayers are the devotion itself, so
+ * they are shown in full: each one named in "How to practice" opens in place, and
+ * all of them are listed below it as dropdowns, both with the Latin / Greek chips.
+ * The list holds every prayer the instructions name (the Rosary's begins with the
+ * Sign of the Cross, which its stored list lacked) as well as the stored ones, in
+ * the order the instructions give them.
+ *
+ * Eight records hold their one description in both fields, and it says what the
+ * devotion is rather than how to pray it, so it is shown once.
  */
 export default async function DevotionDetailPage({ params }: Props) {
   const { slug } = await params;
@@ -90,33 +100,60 @@ export default async function DevotionDetailPage({ params }: Props) {
   // language (src/lib/translation), like the instructions that name them.
   const prayers = await localizePrayers(named);
   const minutes = item.payload.durationMinutes;
+  const background =
+    typeof item.payload.background === "string" ? item.payload.background.trim() : null;
+  const howToPray = INSTRUCTION_FIELDS.filter((key) => {
+    const value = item.payload[key];
+    return typeof value === "string" && value.trim() !== background;
+  });
+  const renderInstructions = instructionField(prayers);
+  // A description shown once, with nothing above it, is the page's own prose.
+  const backgroundLeads = howToPray.length === 0 && prayers.length === 0;
   return (
-    <>
-      <PublishedDetail
-        item={item}
-        // "Devotion to Christ" / "Marian devotion · 20 min" says less than the
-        // eyebrow and the duration line.
-        showSubtitle={false}
-        facts={[typeof minutes === "number" ? formatDurationMinutes(minutes) : null]}
-        action={<SaveContentButton contentType="DEVOTION" slug={slug} />}
-        // No "indulgences": the stored value is a source ({ claimed, citation:
-        // "Enchiridion Indulgentiarum, 4th ed. …" }), so it printed a
-        // "Citation" row on the page. It stays in the payload and search.
-        primaryFields={["background", ...INSTRUCTION_FIELDS]}
-        // `practiceText` is the words the devotion prays ("Immaculate Heart of
-        // Mary, pray for us…"), not a second set of instructions: under the
-        // shared field label it printed "How to practice" twice.
-        headings={{ background: null, practiceText: "Prayer" }}
-        linkedPrayers={prayers}
-        footer={
-          guides.length > 0 ? (
-            <div className="w-full">
-              <RelatedContentLinks title="Guide" links={guides} />
-            </div>
-          ) : null
-        }
-      />
-      <GuidePrayers prayers={prayers} heading="Prayers of this devotion" ordered={ordered} />
-    </>
+    <PublishedDetail
+      item={withPrayerList(item, prayers)}
+      // "Devotion to Christ" / "Marian devotion · 20 min" says less than the
+      // eyebrow and the duration line.
+      showSubtitle={false}
+      factItems={[
+        typeof minutes === "number"
+          ? { label: "Duration", value: formatDurationMinutes(minutes) }
+          : null,
+      ]}
+      action={<SaveContentButton contentType="DEVOTION" slug={slug} />}
+      // No "indulgences": the stored value is a source ({ claimed, citation:
+      // "Enchiridion Indulgentiarum, 4th ed. …" }), so it printed a
+      // "Citation" row on the page. It stays in the payload and search.
+      primaryFields={[...howToPray, PRAYER_LIST_FIELD, "background"]}
+      // `practiceText` is the words the devotion prays ("Immaculate Heart of
+      // Mary, pray for us…"), not a second set of instructions: under the
+      // shared field label it printed "How to practice" twice.
+      headings={{
+        background: backgroundLeads ? null : "Background",
+        practiceText: "Prayer",
+        [PRAYER_LIST_FIELD]: null,
+      }}
+      fieldRenderers={{
+        howToPractice: renderInstructions,
+        practiceInstructions: renderInstructions,
+        practiceText: (value) =>
+          typeof value === "string" ? (
+            <blockquote className="vf-spoken">
+              <PrayerText text={value} />
+            </blockquote>
+          ) : null,
+        background: readingField(prayers, backgroundLeads ? 2 : 3),
+        [PRAYER_LIST_FIELD]: () => (
+          <GuidePrayers prayers={prayers} heading="Prayers of this devotion" ordered={ordered} />
+        ),
+      }}
+      footer={
+        guides.length > 0 ? (
+          <div className="w-full">
+            <RelatedContentLinks title="Guide" links={guides} />
+          </div>
+        ) : null
+      }
+    />
   );
 }

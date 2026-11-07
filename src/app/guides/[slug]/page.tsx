@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { GuidePrayers, GuideSteps, RosaryMysteries, ShareButton } from "@/components/ui";
+import { ReadingText } from "@/components/ui/GuideSteps";
 import { isRosaryGuide } from "@/lib/content-shared/rosary";
 import { guideEyebrow } from "@/lib/content-shared/guide-categories";
 import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
@@ -33,12 +34,12 @@ function stringList(payload: Record<string, unknown>, key: string): string[] {
 
 /**
  * A guide is a how-to, so it gets a purpose-built layout rather than the
- * generic field renderer: header (kind chip, duration, step count) → intro →
- * what you need → when to pray → OPEN numbered steps → tips → rosary mysteries
- * → the guide's prayers in prayed order, each a dropdown with the Latin / Greek
- * chips. That is the whole page: the subtitle only repeated the eyebrow and the
- * step count, and the "Related devotions / practices / saints" rows were not
- * part of praying the guide.
+ * generic field renderer: header (kind, step count, duration) → intro → what you
+ * need → when to pray → OPEN numbered steps → tips → rosary mysteries → the
+ * guide's prayers in prayed order, each a dropdown with the Latin / Greek chips.
+ * All of it sits in one reading column. That is the whole page: the subtitle only
+ * repeated the eyebrow and the step count, and the "Related devotions / practices
+ * / saints" rows were not part of praying the guide.
  */
 export default async function GuideDetailPage({ params }: Props) {
   const { slug } = await params;
@@ -65,90 +66,80 @@ export default async function GuideDetailPage({ params }: Props) {
   const tips = stringList(shown, "tips");
   const durationMinutes =
     typeof payload.durationMinutes === "number" ? payload.durationMinutes : null;
-  // "6 steps · About 20 minutes" — the duration is a chip in the header, never
-  // a section headed "Duration Minutes" containing the bare number 20.
+  // "6 steps · About 20 minutes" — the duration sits in the header, never in a
+  // section headed "Duration Minutes" containing the bare number 20.
   const meta = [
     steps.length > 0 ? `${steps.length} step${steps.length === 1 ? "" : "s"}` : null,
     durationMinutes != null ? formatDurationMinutes(durationMinutes) : null,
   ].filter((m): m is string => m != null);
 
   return (
-    <>
-      <article className="mx-auto max-w-3xl px-4 py-10">
-        <header className="mb-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 sm:flex-1">
-              <p className="vf-eyebrow">{guideEyebrow(payload)}</p>
-              <h1 className="mt-2 break-words font-display text-3xl text-ink sm:text-4xl">
-                {shownGuide.title}
-              </h1>
-            </div>
-            <div className="flex shrink-0 items-center gap-2 sm:pt-1">
-              <ShareButton title={shownGuide.title} text={summary ?? shownGuide.title} />
-            </div>
+    <article className="vf-detail">
+      <header className="vf-detail-header">
+        <p className="vf-eyebrow">{guideEyebrow(payload)}</p>
+        <h1 className="vf-detail-title text-ink">{shownGuide.title}</h1>
+        {meta.length > 0 ? <p className="vf-detail-meta">{meta.join(" · ")}</p> : null}
+        <div className="vf-detail-actions">
+          <ShareButton title={shownGuide.title} text={summary ?? shownGuide.title} />
+        </div>
+        {summary ? <p className="vf-lede">{summary}</p> : null}
+      </header>
+
+      {intro ? (
+        <section className="vf-detail-section">
+          <div className="vf-reading">
+            <ReadingText text={intro} />
           </div>
-          {summary ? (
-            <p className="mt-3 font-serif leading-relaxed text-ink-soft">{summary}</p>
-          ) : null}
-          {meta.length > 0 ? <p className="vf-eyebrow mt-3">{meta.join(" · ")}</p> : null}
-        </header>
+        </section>
+      ) : null}
 
-        {intro ? (
-          <section className="mt-6">
-            <p className="whitespace-pre-line font-serif leading-relaxed text-ink">{intro}</p>
-          </section>
-        ) : null}
-
-        {whatYouNeed.length > 0 ? (
-          <section className="mt-6">
-            <h2 className="font-display text-xl text-ink">What you need</h2>
-            <ul className="mt-2 ml-6 list-disc font-serif leading-relaxed text-ink">
+      {whatYouNeed.length > 0 ? (
+        <section className="vf-detail-section">
+          <h2 className="vf-subhead">What you need</h2>
+          <div className="vf-reading">
+            <ul>
               {whatYouNeed.map((need, i) => (
                 // By position: two items can read the same once translated.
                 <li key={i}>{need}</li>
               ))}
             </ul>
-          </section>
-        ) : null}
+          </div>
+        </section>
+      ) : null}
 
-        {whenToPray ? (
-          <section className="mt-6">
-            <h2 className="font-display text-xl text-ink">When to pray it</h2>
-            <p className="mt-2 whitespace-pre-line font-serif leading-relaxed text-ink">
-              {whenToPray}
-            </p>
-          </section>
-        ) : null}
+      {whenToPray ? (
+        <section className="vf-detail-section">
+          <h2 className="vf-subhead">When to pray it</h2>
+          <div className="vf-reading">
+            <ReadingText text={whenToPray} />
+          </div>
+        </section>
+      ) : null}
 
-        {steps.length > 0 ? (
-          <section className="mt-8">
-            <h2 id="guide-steps" className="font-display text-xl text-ink">
-              Steps
-            </h2>
-            <GuideSteps steps={steps} prayers={prayers} headingId="guide-steps" />
-          </section>
-        ) : null}
+      {steps.length > 0 ? (
+        <section className="vf-detail-section">
+          <h2 id="guide-steps" className="vf-subhead">
+            Steps
+          </h2>
+          <GuideSteps steps={steps} prayers={prayers} headingId="guide-steps" />
+        </section>
+      ) : null}
 
-        {tips.length > 0 ? (
-          <section className="mt-8">
-            <h2 className="font-display text-xl text-ink">Tips</h2>
-            <ul className="mt-2 ml-6 list-disc font-serif leading-relaxed text-ink">
+      {tips.length > 0 ? (
+        <section className="vf-detail-section">
+          <h2 className="vf-subhead">Tips</h2>
+          <div className="vf-reading">
+            <ul>
               {tips.map((tip, i) => (
-                <li key={i} className="mt-1">
-                  {tip}
-                </li>
+                <li key={i}>{tip}</li>
               ))}
             </ul>
-          </section>
-        ) : null}
-      </article>
+          </div>
+        </section>
+      ) : null}
 
-      {isRosaryGuide(payload) && (
-        <div className="mx-auto max-w-3xl px-4 pb-10">
-          <RosaryMysteries />
-        </div>
-      )}
+      {isRosaryGuide(payload) ? <RosaryMysteries /> : null}
       <GuidePrayers prayers={prayers} />
-    </>
+    </article>
   );
 }
