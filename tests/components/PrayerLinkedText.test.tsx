@@ -8,6 +8,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import { PrayerLinkedText } from "@/components/ui/PrayerLinkedText";
 import type { GuidePrayerData } from "@/components/ui/GuidePrayers";
@@ -38,6 +39,139 @@ const GLORY_BE: GuidePrayerData = {
 };
 
 describe("PrayerLinkedText", () => {
+  it("reads as a link, and says whether its prayer is open", () => {
+    render(<PrayerLinkedText text="Pray the Our Father." prayers={[OUR_FATHER]} />);
+    const link = screen.getByRole("button", { name: "Our Father" });
+    expect(link).toHaveClass("vf-link");
+    expect(link).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(link);
+    expect(link).toHaveAttribute("aria-expanded", "true");
+    expect(document.getElementById(link.getAttribute("aria-controls")!)).toHaveTextContent(
+      "Our Father, who art in heaven...",
+    );
+    fireEvent.click(link);
+    expect(link).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/who art in heaven/)).not.toBeInTheDocument();
+  });
+
+  it("works from the keyboard: Enter and Space open and close, Tab reaches the chips", async () => {
+    const user = userEvent.setup();
+    render(<PrayerLinkedText text="Pray the Our Father." prayers={[OUR_FATHER]} />);
+    const link = screen.getByRole("button", { name: "Our Father" });
+
+    await user.tab();
+    expect(link).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(link).toHaveAttribute("aria-expanded", "true");
+
+    // The opened prayer comes next in the tab order, with its chips.
+    await user.tab();
+    const latin = screen.getByRole("button", { name: "Latin" });
+    expect(latin).toHaveFocus();
+    await user.keyboard(" ");
+    expect(latin).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText(/Pater noster/)).toBeInTheDocument();
+    await user.keyboard(" ");
+    expect(latin).toHaveAttribute("aria-pressed", "false");
+
+    await user.tab({ shift: true });
+    expect(link).toHaveFocus();
+    await user.keyboard(" ");
+    expect(link).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("opens a prayer with the look of a disclosure, its text set as prayer", () => {
+    render(<PrayerLinkedText text="Pray the Our Father." prayers={[OUR_FATHER]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Our Father" }));
+    const panel = screen.getByRole("heading", { name: "Our Father" }).closest(".vf-disclosure");
+    expect(panel).not.toBeNull();
+    const line = screen.getByText(/who art in heaven/);
+    expect(line).toHaveClass("vf-prayer-line");
+    expect(line.closest(".vf-disclosure-body")).not.toBeNull();
+    expect(line.closest(".vf-prayer")).toHaveAttribute("lang", "en");
+  });
+
+  it("does not read a name's punctuation on its own", () => {
+    const { container } = render(
+      <PrayerLinkedText text="(Our Father)" prayers={[OUR_FATHER]} matchCase />,
+    );
+    const hidden = [...container.querySelectorAll('[aria-hidden="true"]')].filter(
+      (node) => !(node instanceof SVGElement),
+    );
+    expect(hidden.map((node) => node.textContent)).toEqual(["(", ")"]);
+    expect(container.textContent).toBe("(Our Father)");
+  });
+
+  describe("over text that is itself prayer", () => {
+    const ANGELUS = [
+      "V. The Angel of the Lord declared unto Mary.",
+      "R. And she conceived of the Holy Spirit.",
+      "(Our Father)",
+      "V. Behold the handmaid of the Lord.",
+      "R. Be it done unto me.",
+      "(Our Father)",
+    ].join("\n");
+
+    it("sets the text as prayer, with its links", () => {
+      const { container } = render(
+        <PrayerLinkedText text={ANGELUS} prayers={[OUR_FATHER]} matchCase />,
+      );
+      expect(container.querySelectorAll(".vf-prayer-stanza")).toHaveLength(2);
+      expect(screen.getAllByRole("button", { name: "Our Father" })).toHaveLength(2);
+      expect(screen.getByText("And she conceived of the Holy Spirit.")).toBeInTheDocument();
+    });
+
+    it("opens a prayer under the stanza that names it, and only there", () => {
+      const { container } = render(
+        <PrayerLinkedText text={ANGELUS} prayers={[OUR_FATHER]} matchCase />,
+      );
+      const [first, second] = screen.getAllByRole("button", { name: "Our Father" });
+      fireEvent.click(second!);
+      expect(first).toHaveAttribute("aria-expanded", "false");
+      expect(second).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getAllByText(/who art in heaven/)).toHaveLength(1);
+
+      const panel = document.getElementById(second!.getAttribute("aria-controls")!);
+      const stanzas = container.querySelectorAll(".vf-prayer-stanza");
+      expect(
+        stanzas[1]!.compareDocumentPosition(panel!) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(stanzas[1]!.contains(panel)).toBe(false);
+
+      fireEvent.click(first!);
+      const ids = [first!, second!].map((link) => link.getAttribute("aria-controls"));
+      expect(new Set(ids).size).toBe(2);
+      expect(screen.getAllByText(/who art in heaven/)).toHaveLength(2);
+    });
+
+    it("does not make a line that says a prayer's words a link to it", () => {
+      const GLORY: GuidePrayerData = { ...GLORY_BE };
+      render(
+        <PrayerLinkedText
+          text={"Glory be to Thee, O Lord, for all Thy gifts.\nOur Father, most holy, our Creator."}
+          prayers={[GLORY, OUR_FATHER]}
+          matchCase
+        />,
+      );
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      expect(screen.getByText("Glory be to Thee, O Lord, for all Thy gifts.")).toBeInTheDocument();
+    });
+
+    it("still links a line that only points at a prayer", () => {
+      render(
+        <PrayerLinkedText
+          text={"V. Glory be to the Father, etc.\n\nOn the single bead, pray the Our Father."}
+          prayers={[GLORY_BE, OUR_FATHER]}
+          matchCase
+        />,
+      );
+      expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual([
+        "Glory be",
+        "Our Father",
+      ]);
+    });
+  });
+
   it("expands the full prayer in place when a named prayer is clicked", () => {
     render(
       <PrayerLinkedText text="On the first bead pray the Our Father." prayers={[OUR_FATHER]} />,
@@ -61,7 +195,7 @@ describe("PrayerLinkedText", () => {
     fireEvent.click(screen.getByRole("button", { name: "Latin" }));
     const latin = screen.getByText(/Pater noster, qui es in caelis/);
     expect(latin).toBeInTheDocument();
-    expect(latin).toHaveAttribute("translate", "no");
+    expect(latin.closest(".vf-prayer")).toHaveAttribute("translate", "no");
   });
 
   it("matches the short form of a parenthetical title and plural forms", () => {
@@ -157,7 +291,10 @@ describe("PrayerLinkedText", () => {
     fireEvent.click(screen.getByRole("button", { name: "Latin" }));
     expect(screen.queryByText(note)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Greek" }));
-    expect(screen.getByText("Πιστεύω εἰς Θεὸν...")).toHaveAttribute("translate", "no");
+    expect(screen.getByText("Πιστεύω εἰς Θεὸν...").closest(".vf-prayer")).toHaveAttribute(
+      "translate",
+      "no",
+    );
     expect(screen.getByText(note)).toBeInTheDocument();
   });
 
@@ -170,9 +307,6 @@ describe("PrayerLinkedText", () => {
       />,
     );
     const links = screen.getAllByRole("button");
-    expect(links.map((b) => b.textContent?.replace(/[▾▴]/g, ""))).toEqual([
-      "Our Father",
-      "Glory Be",
-    ]);
+    expect(links.map((b) => b.textContent)).toEqual(["Our Father", "Glory Be"]);
   });
 });

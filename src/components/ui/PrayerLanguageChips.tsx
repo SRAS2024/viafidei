@@ -72,13 +72,15 @@ export interface LanguageOption {
   label: string;
 }
 
-/** The chip row: one real, `aria-pressed` button per selectable language. */
+/**
+ * The chip row: one real, `aria-pressed` button per selectable language. They are
+ * the site's small outlined buttons, and the pressed look comes with `aria-pressed`.
+ */
 export function PrayerLanguageChips({
   options,
   active,
   onSelect,
   label = "Prayer language",
-  size = "md",
   className = "",
 }: {
   /** The selectable (non-vernacular) languages. Renders nothing when empty. */
@@ -88,31 +90,22 @@ export function PrayerLanguageChips({
   onSelect: (code: string) => void;
   /** Accessible name of the group. */
   label?: string;
-  size?: "sm" | "md";
   className?: string;
 }) {
   if (options.length === 0) return null;
-  const sizing = size === "sm" ? "!px-2 !py-0.5 text-[11px]" : "!px-3 !py-1 text-xs";
   return (
-    <div
-      role="group"
-      aria-label={label}
-      className={`flex flex-wrap ${size === "sm" ? "gap-1" : "gap-2"} ${className}`.trim()}
-    >
-      {options.map((option) => {
-        const pressed = option.code === active;
-        return (
-          <button
-            key={option.code}
-            type="button"
-            aria-pressed={pressed}
-            onClick={() => onSelect(option.code)}
-            className={`vf-btn ${sizing} ${pressed ? "vf-btn-primary" : "vf-btn-ghost"}`}
-          >
-            {option.label}
-          </button>
-        );
-      })}
+    <div role="group" aria-label={label} className={`vf-language-chips ${className}`.trim()}>
+      {options.map((option) => (
+        <button
+          key={option.code}
+          type="button"
+          aria-pressed={option.code === active}
+          onClick={() => onSelect(option.code)}
+          className="vf-btn vf-btn-sm vf-btn-ghost"
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -131,7 +124,7 @@ export function UnofficialTranslationNote({
 }) {
   if (!variant?.unofficial) return null;
   return (
-    <p lang="en" className={`font-sans text-xs text-ink-faint ${className}`.trim()}>
+    <p lang="en" className={`vf-fineprint vf-prayer-source ${className}`.trim()}>
       Unofficial translation, not a liturgical text.
     </p>
   );

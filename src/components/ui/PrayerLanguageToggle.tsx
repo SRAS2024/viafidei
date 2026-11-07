@@ -9,6 +9,7 @@ import {
   usePrayerLanguage,
 } from "./PrayerLanguageChips";
 import { PrayerLinkedText } from "./PrayerLinkedText";
+import { PrayerText } from "./PrayerText";
 
 /**
  * A prayer's text with its language selector (the prayer page).
@@ -25,15 +26,18 @@ import { PrayerLinkedText } from "./PrayerLinkedText";
  * for the rest of the session, falling back to the vernacular when a given
  * prayer doesn't have that language.
  *
- * Latin / Greek variants are marked `translate="no"` so device or future
- * auto-translation never rewrites the verbatim liturgical text, and a machine
- * translation says so under the text (`UnofficialTranslationNote`). When the
- * vernacular holds the reader's translation (src/lib/translation), its `lang`
- * is the reader's language, never the English it was translated from.
+ * The chips sit close above the text they switch, and the text is set as prayer
+ * (`PrayerText`) in whichever language is shown. Latin / Greek variants are
+ * marked `translate="no"` so device or future auto-translation never rewrites the
+ * verbatim liturgical text, and a machine translation says so under the text
+ * (`UnofficialTranslationNote`). When the vernacular holds the reader's
+ * translation (src/lib/translation), its `lang` is the reader's language, never
+ * the English it was translated from.
  *
  * `linkedPrayers` are the prayers the vernacular text names ("pray the Our
  * Father", "three Hail Marys"), as in the Rosary and chaplet prayers: each name
- * opens that prayer in place, with its own language chips.
+ * opens that prayer in place, with its own language chips. The Latin text's
+ * names ("Ave Maria") open them too.
  */
 export function PrayerLanguageToggle({
   variants,
@@ -47,35 +51,36 @@ export function PrayerLanguageToggle({
   if (!shown) return null;
 
   const activeCode = shown === vernacular ? null : shown.code;
-  const linked =
-    shown === vernacular && linkedPrayers && linkedPrayers.length > 0 ? linkedPrayers : null;
+  const linked = linkedPrayers && linkedPrayers.length > 0 ? linkedPrayers : null;
 
   return (
-    <div>
+    <div className="vf-prayer-block">
       <PrayerLanguageChips
         options={alternates}
         active={activeCode}
         onSelect={(code) => toggle(code, activeCode)}
-        className="mb-4"
       />
       {linked ? (
-        <div
+        // The page's title is the h1; an opened prayer is the next level. This stays
+        // in place in every language, so a prayer opened here stays open, focus and
+        // all, when the chips inside it switch the text around it.
+        <PrayerLinkedText
+          text={shown.text}
+          prayers={linked}
+          matchCase
+          headingLevel={2}
           lang={shown.lang ?? shown.code}
-          className="font-serif text-lg leading-relaxed text-ink"
-        >
-          {/* The page's title is the h1; an opened prayer is the next level. */}
-          <PrayerLinkedText text={shown.text} prayers={linked} matchCase headingLevel={2} />
-        </div>
+          preserve={shown.preserve}
+        />
       ) : (
-        <p
+        <PrayerText
+          text={shown.text}
           lang={shown.lang ?? shown.code}
-          translate={shown.preserve ? "no" : undefined}
-          className="whitespace-pre-line font-serif text-lg leading-relaxed text-ink"
-        >
-          {shown.text}
-        </p>
+          preserve={shown.preserve}
+          headingLevel={2}
+        />
       )}
-      <UnofficialTranslationNote variant={shown} className="mt-3" />
+      <UnofficialTranslationNote variant={shown} />
     </div>
   );
 }

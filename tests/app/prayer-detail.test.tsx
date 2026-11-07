@@ -7,11 +7,12 @@
  * The audit found /prayers/our-father printing the Our Father twice — once as
  * an "Official prayer" grey box, then again as the main text — because
  * `officialPrayer` is usually the body flattened onto one line. The owner then
- * asked for the title and the prayer and nothing else, so the official-text
- * box, occasions, related saints, sources, subtitle and summary are all gone.
+ * asked for the title and the prayer, so the official-text box, occasions,
+ * related saints, sources, subtitle and summary are all gone. The prayer's type
+ * sits under its title in a word, as on its card, and "General" names no type.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { PublishedItem } from "@/lib/data/published";
 
 const published = new Map<string, PublishedItem>();
@@ -40,6 +41,7 @@ vi.mock("@/lib/data/published", async (importOriginal) => {
   };
 });
 
+import PrayerLoading from "@/app/prayers/[slug]/loading";
 import PrayerDetailPage from "@/app/prayers/[slug]/page";
 import { prayerKnowledge } from "@/lib/checklist/knowledge/prayers";
 
@@ -79,6 +81,8 @@ async function renderPrayer() {
 }
 
 afterEach(() => cleanup());
+// The language choice is session-wide, so one test's Latin must not leak into the next.
+beforeEach(() => window.sessionStorage.clear());
 
 describe("prayer detail page", () => {
   it("renders the prayer text exactly once when officialPrayer repeats the body", async () => {
@@ -155,7 +159,9 @@ describe("prayer detail page", () => {
       "H2:Our Father",
     ]);
     fireEvent.click(screen.getByRole("button", { name: "Latin" }));
-    expect(screen.getByText("Pater noster, qui es in caelis.")).toHaveAttribute("translate", "no");
+    expect(
+      screen.getByText("Pater noster, qui es in caelis.").closest(".vf-prayer"),
+    ).toHaveAttribute("translate", "no");
   });
 
   it("never links a prayer's own name inside its text", async () => {
@@ -180,6 +186,53 @@ describe("prayer detail page", () => {
     expect(container.textContent).not.toContain("General");
     expect(container.querySelector("header")?.firstElementChild?.textContent).toMatch(
       /^Our Father/,
+    );
+  });
+
+  it("loads in the shape of the page it is loading, not the list above it", () => {
+    render(<PrayerLoading />);
+    expect(screen.getByTestId("detail-loading")).toHaveClass("vf-detail");
+  });
+
+  it("sets the page in the reading column: title, actions, then the prayer", async () => {
+    seed({ body: OUR_FATHER_BODY, latin: "Pater noster.", category: "marian" });
+    const { container } = await renderPrayer();
+    const article = container.querySelector("article.vf-detail")!;
+    const header = article.querySelector("header.vf-detail-header")!;
+    expect(header.firstElementChild?.tagName).toBe("H1");
+    expect(header.textContent).not.toContain("Marian");
+    const actions = header.querySelector(".vf-detail-actions")!;
+    expect(
+      within(actions as HTMLElement).getByRole("button", { name: "Share Our Father" }),
+    ).toBeTruthy();
+    // The chips stay with the text they switch, after the header.
+    const group = screen.getByRole("group", { name: "Prayer language" });
+    expect(header.contains(group)).toBe(false);
+    expect(group.nextElementSibling).toHaveClass("vf-prayer");
+    expect(group.nextElementSibling).toHaveTextContent("hallowed be thy name;");
+    expect(screen.getByText("hallowed be thy name;")).toHaveClass("vf-prayer-line");
+  });
+
+  it("sets a title's closing bracket under it, with the title's words unchanged", async () => {
+    seed({ body: OUR_FATHER_BODY });
+    published.get("PRAYER:our-father")!.title = "Hail Holy Queen (Salve Regina)";
+    await renderPrayer();
+    const title = screen.getByRole("heading", { level: 1 });
+    expect(title).toHaveTextContent("Hail Holy Queen (Salve Regina)");
+    expect(title.querySelector(".vf-detail-title-aside")).toHaveTextContent("(Salve Regina)");
+  });
+
+  it("keeps a psalm's other number with its title, and St. with its name", async () => {
+    seed({ body: OUR_FATHER_BODY });
+    published.get("PRAYER:our-father")!.title = "Psalm 102 (103)";
+    const { unmount } = await renderPrayer();
+    expect(screen.getByRole("heading", { level: 1 }).querySelector("span")).toBeNull();
+    unmount();
+
+    published.get("PRAYER:our-father")!.title = "The Chaplet of St. Michael";
+    await renderPrayer();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "The Chaplet of St.\u00a0Michael",
     );
   });
 

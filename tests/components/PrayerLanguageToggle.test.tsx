@@ -2,7 +2,8 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import { PrayerLanguageToggle } from "@/components/ui/PrayerLanguageToggle";
 import type { PrayerVariant } from "@/lib/content-shared/prayer-language";
@@ -53,9 +54,42 @@ describe("PrayerLanguageToggle", () => {
   it("marks Latin / Greek text translate=no so it is never auto-translated", () => {
     window.sessionStorage.setItem("vf_prayer_lang", "la");
     render(<PrayerLanguageToggle variants={[EN, LA]} />);
-    const latin = screen.getByText("Ave Maria...");
+    const latin = screen.getByText("Ave Maria...").closest(".vf-prayer");
     expect(latin).toHaveAttribute("translate", "no");
     expect(latin).toHaveAttribute("lang", "la");
+  });
+
+  it("offers the languages as the site's small outlined buttons, each saying if it is on", () => {
+    render(<PrayerLanguageToggle variants={[EN, LA]} />);
+    const group = screen.getByRole("group", { name: "Prayer language" });
+    const latin = within(group).getByRole("button", { name: "Latin" });
+    expect(latin).toHaveClass("vf-btn", "vf-btn-sm", "vf-btn-ghost");
+    expect(latin).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(latin);
+    // The selected look comes with aria-pressed, not with a second button style.
+    expect(latin).toHaveClass("vf-btn", "vf-btn-sm", "vf-btn-ghost");
+    expect(latin).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("works from the keyboard", async () => {
+    const user = userEvent.setup();
+    render(<PrayerLanguageToggle variants={[EN, LA]} />);
+    await user.tab();
+    const latin = screen.getByRole("button", { name: "Latin" });
+    expect(latin).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(screen.getByText("Ave Maria...")).toBeInTheDocument();
+    await user.keyboard(" ");
+    expect(screen.getByText("Hail Mary...")).toBeInTheDocument();
+  });
+
+  it("sets the text as prayer in whichever language is shown", () => {
+    const body: PrayerVariant = { ...EN, text: "V. Lord, open my lips.\nR. And my mouth." };
+    const latin: PrayerVariant = { ...LA, text: "V. Domine, labia mea aperies.\nR. Et os meum." };
+    render(<PrayerLanguageToggle variants={[body, latin]} />);
+    expect(screen.getByText("And my mouth.")).toHaveClass("vf-prayer-response");
+    fireEvent.click(screen.getByRole("button", { name: "Latin" }));
+    expect(screen.getByText("Et os meum.")).toHaveClass("vf-prayer-response");
   });
 
   it("never renders the vernacular as a toggle button (it is the implicit default)", () => {
@@ -90,7 +124,10 @@ describe("PrayerLanguageToggle", () => {
     expect(screen.getByText("Dios te salve...")).toBeInTheDocument();
     expect(screen.queryByText("Hail Mary...")).not.toBeInTheDocument();
     // A translation is NOT liturgical text, so it stays translatable.
-    expect(screen.getByText("Dios te salve...")).not.toHaveAttribute("translate", "no");
+    expect(screen.getByText("Dios te salve...").closest(".vf-prayer")).not.toHaveAttribute(
+      "translate",
+      "no",
+    );
   });
 
   it("shows no chip at all for a Latin-only prayer (a chip that toggles nothing)", () => {
@@ -129,7 +166,101 @@ describe("PrayerLanguageToggle", () => {
       fireEvent.click(name);
       expect(screen.getByText(/who art in heaven/)).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Latin" }));
-      expect(screen.getByText(/Pater noster/)).toHaveAttribute("translate", "no");
+      expect(screen.getByText(/Pater noster/).closest(".vf-prayer")).toHaveAttribute(
+        "translate",
+        "no",
+      );
+    });
+
+    it("keeps an opened prayer open, and focus on its chip, when Latin switches the page", async () => {
+      const user = userEvent.setup();
+      const angelus: PrayerVariant[] = [
+        {
+          code: "en",
+          label: "English",
+          text: "V. The Angel.\nR. And she.\n(Our Father)",
+          preserve: false,
+        },
+        {
+          code: "la",
+          label: "Latin",
+          text: "V. Angelus.\nR. Et concepit.\n(Pater noster)",
+          preserve: true,
+        },
+      ];
+      render(<PrayerLanguageToggle variants={angelus} linkedPrayers={[OUR_FATHER]} />);
+      fireEvent.click(screen.getByRole("button", { name: "Our Father" }));
+
+      const panelGroup = screen.getByRole("group", { name: "Our Father language" });
+      const chip = within(panelGroup).getByRole("button", { name: "Latin" });
+      chip.focus();
+      await user.keyboard(" ");
+
+      // The page's text is Latin now, and the prayer opened from it still stands.
+      expect(screen.getByText("Angelus.")).toBeInTheDocument();
+      expect(screen.getByText(/Pater noster, qui es in caelis/)).toBeInTheDocument();
+      expect(chip).toBeInTheDocument();
+      expect(chip).toHaveFocus();
+      expect(chip).toHaveAttribute("aria-pressed", "true");
+      // The Latin text's own name for the prayer is its way in.
+      expect(screen.getByRole("button", { name: "Pater noster" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+
+      // And back: the English again, with the prayer still open under its stanza.
+      await user.keyboard(" ");
+      expect(chip).toHaveFocus();
+      expect(screen.getByText("The Angel.")).toBeInTheDocument();
+      expect(screen.getByText(/who art in heaven/)).toBeInTheDocument();
+    });
+
+    it("keeps an opened prayer when the other language has fewer stanzas", async () => {
+      const user = userEvent.setup();
+      const body: PrayerVariant[] = [
+        {
+          code: "en",
+          label: "English",
+          text: "One.\n\nTwo.\n\nPray the Our Father.",
+          preserve: false,
+        },
+        { code: "la", label: "Latin", text: "Unum.", preserve: true },
+      ];
+      render(<PrayerLanguageToggle variants={body} linkedPrayers={[OUR_FATHER]} />);
+      fireEvent.click(screen.getByRole("button", { name: "Our Father" }));
+      const chip = within(screen.getByRole("group", { name: "Our Father language" })).getByRole(
+        "button",
+        { name: "Latin" },
+      );
+      chip.focus();
+      await user.keyboard(" ");
+      expect(screen.getByText("Unum.")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Our Father" })).toBeInTheDocument();
+      // Focus is on a chip still: a language switch never leaves the reader nowhere.
+      expect(document.activeElement).not.toBe(document.body);
+    });
+
+    it("keeps Latin verbatim with an English prayer opened inside it", () => {
+      const noLatin = {
+        slug: "glory-be",
+        title: "Glory Be",
+        variants: [
+          { code: "en", label: "English", text: "Glory be to the Father...", preserve: false },
+        ],
+      };
+      const body: PrayerVariant[] = [
+        { code: "en", label: "English", text: "Pray the Glory Be.", preserve: false },
+        { code: "la", label: "Latin", text: "Gloria Patri.", preserve: true },
+      ];
+      window.sessionStorage.setItem("vf_prayer_lang", "la");
+      render(<PrayerLanguageToggle variants={body} linkedPrayers={[noLatin]} />);
+      const line = screen.getByRole("button", { name: "Gloria Patri" });
+      expect(line.closest(".vf-prayer")).toHaveAttribute("translate", "no");
+      fireEvent.click(line);
+      // A prayer with no Latin shows its vernacular, which stays translatable.
+      const opened = screen.getByText("Glory be to the Father...").closest(".vf-prayer");
+      expect(opened).toHaveAttribute("translate", "yes");
+      expect(opened).toHaveAttribute("lang", "en");
     });
 
     it("reads the text plainly when it names nothing it was given", () => {
