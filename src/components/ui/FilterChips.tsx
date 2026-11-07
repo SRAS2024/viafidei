@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 /**
  * One filter chip. A chip with `href` navigates (URL-driven filtering on a
@@ -145,6 +153,50 @@ export function FilterChips({
   );
 }
 
+/** How close to the edge of the screen an open panel may come. */
+const MENU_GUTTER = 16;
+
+/**
+ * The open panel: centred under its trigger, unless that would carry it off the
+ * edge of the screen, as it would for a trigger at the end of a line. Mounted only
+ * while open, so its layout effect never runs on the server.
+ */
+function FilterMenu({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  const ref = useRef<HTMLUListElement>(null);
+  const [shift, setShift] = useState(0);
+
+  useLayoutEffect(() => {
+    function place() {
+      const panel = ref.current;
+      const screen = document.documentElement.clientWidth;
+      if (!panel || !screen) return;
+      const { left, right } = panel.getBoundingClientRect();
+      setShift((current) => {
+        const over = right - (screen - MENU_GUTTER);
+        const under = MENU_GUTTER - left;
+        if (over > 0) return current - over;
+        if (under > 0) return current + under;
+        return current;
+      });
+    }
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, []);
+
+  return (
+    <ul
+      id={id}
+      ref={ref}
+      aria-label={label}
+      style={{ transform: `translateX(calc(-50% + ${shift}px))` }}
+      className="vf-menu absolute left-1/2 top-full z-30 mt-1.5 max-h-[min(24rem,70dvh)] w-64 max-w-[calc(100vw-2rem)] overflow-y-auto"
+    >
+      {children}
+    </ul>
+  );
+}
+
 /**
  * The dropdown form of the filter row, used when there are more than three
  * filters. A single trigger button (blue when a filter is active, showing that
@@ -171,25 +223,36 @@ function CollapsedFilter({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const panelId = useId();
 
-  // Close on outside pointer / Escape (mirrors the header nav dropdown).
+  // The option holding focus is about to leave the page, and focus would fall to
+  // the top of the document, so a screen reader would start over. It goes back to
+  // the trigger, which now names the filter chosen.
+  const closeToTrigger = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }, []);
+
+  // Close on outside pointer, Escape, or focus moving elsewhere.
   useEffect(() => {
     if (!open) return;
-    function onPointer(event: MouseEvent) {
+    function onOutside(event: Event) {
       const target = event.target as Node | null;
       if (ref.current && target && !ref.current.contains(target)) setOpen(false);
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") closeToTrigger();
     }
-    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("pointerdown", onOutside);
+    document.addEventListener("focusin", onOutside);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("pointerdown", onOutside);
+      document.removeEventListener("focusin", onOutside);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, closeToTrigger]);
 
   const activeItem = items.find((i) => i.key === activeKey);
   const isFiltered = activeKey !== resetKey && activeItem != null;
@@ -209,6 +272,7 @@ function CollapsedFilter({
     <div className={`flex justify-center ${className ?? ""}`}>
       <div className="relative" ref={ref}>
         <button
+          ref={triggerRef}
           type="button"
           aria-expanded={open}
           aria-controls={panelId}
@@ -224,11 +288,7 @@ function CollapsedFilter({
         </button>
 
         {open ? (
-          <ul
-            id={panelId}
-            aria-label={ariaLabel}
-            className="vf-menu absolute left-1/2 top-full z-30 mt-1.5 max-h-[min(24rem,70dvh)] w-64 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-y-auto"
-          >
+          <FilterMenu id={panelId} label={ariaLabel}>
             {items.map((item) => {
               const active = item.key === activeKey;
               return (
@@ -239,7 +299,7 @@ function CollapsedFilter({
                       aria-pressed={active}
                       onClick={() => {
                         onSelect(selectKeyFor(item));
-                        setOpen(false);
+                        closeToTrigger();
                       }}
                       className={`vf-menu-item ${active ? "vf-menu-item-active" : ""}`}
                     >
@@ -249,7 +309,7 @@ function CollapsedFilter({
                     <Link
                       href={hrefFor(item)}
                       aria-current={active ? "page" : undefined}
-                      onClick={() => setOpen(false)}
+                      onClick={closeToTrigger}
                       className="vf-menu-item"
                     >
                       <ChipInner item={item} />
@@ -258,7 +318,7 @@ function CollapsedFilter({
                 </li>
               );
             })}
-          </ul>
+          </FilterMenu>
         ) : null}
       </div>
     </div>

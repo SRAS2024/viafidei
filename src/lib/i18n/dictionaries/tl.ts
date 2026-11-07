@@ -8,6 +8,10 @@ export const tl: Dict = {
   "nav.prayers": "Mga Panalangin",
   "nav.saints": "Mga Santo at Ina ng Diyos",
   "nav.login": "Mag-sign in",
+  "home.featured.section": "Itinatampok",
+  "home.featured.saints": "Mga Santo",
+  "home.featured.devotions": "Mga Debosyon",
+  "home.featured.novenas": "Mga Nobena",
   "parishes.distanceAway": "{distance} ang layo",
   // Phones and computers show these menus in English for Filipino readers,
   // so the setting names stay in English inside the Filipino sentences.
@@ -45,6 +49,8 @@ export const tl: Dict = {
     "I-click ang icon ng lokasyon o ng kandado sa address bar at payagan ang lokasyon para sa site na ito.",
   "parishes.locate.steps.desktopDevice":
     "Kung naka-off ang lokasyon sa iyong computer, i-on ito sa privacy settings nito (sa Mac: System Settings › Privacy & Security › Location Services).",
+  "common.open": "Buksan",
+  "common.skipToContent": "Lumaktaw sa nilalaman",
   "listSearch.submit": "Maghanap",
   "listSearch.clear": "I-clear ang paghahanap",
   // Filipino nouns do not change with the number, so both forms read the same.

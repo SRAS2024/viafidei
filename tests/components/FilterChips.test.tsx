@@ -84,7 +84,7 @@ describe("FilterChips", () => {
     );
     // All chips visible inline; no collapsed trigger.
     expect(screen.getAllByRole("link")).toHaveLength(3);
-    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("collapses to a dropdown when there are more than three filters", () => {
@@ -101,15 +101,19 @@ describe("FilterChips", () => {
         ]}
       />,
     );
-    // Only the trigger button shows; options are hidden until opened.
-    const trigger = screen.getByRole("button", { name: "Filter saints by category" });
+    // Only the trigger button shows, and it names the choice in effect; options
+    // are hidden until opened.
+    const trigger = screen.getByRole("button", { name: "Filter saints by category: All" });
     expect(trigger).toHaveTextContent("Filter");
-    expect(screen.queryByRole("listbox")).toBeNull();
-    expect(screen.queryAllByRole("option")).toHaveLength(0);
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
 
     fireEvent.click(trigger);
-    expect(screen.getByRole("listbox")).toBeInTheDocument();
-    expect(screen.getAllByRole("option")).toHaveLength(5);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    // Plain links in a named list, which a screen reader reads as what they are.
+    expect(screen.getByRole("list", { name: "Filter saints by category" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(5);
+    expect(screen.getByRole("link", { name: "All" })).toHaveAttribute("aria-current", "page");
   });
 
   it("shows the active filter on the trigger and links its option to the reset (deselect)", () => {
@@ -127,17 +131,17 @@ describe("FilterChips", () => {
       />,
     );
     // The trigger fills with the active filter (blue) and shows its label.
-    const trigger = screen.getByRole("button", { name: "Filter saints by category" });
+    const trigger = screen.getByRole("button", { name: "Filter saints by category: Martyrs" });
     expect(trigger).toHaveTextContent("Martyrs");
     expect(trigger.className).toContain("vf-filter-active");
 
     fireEvent.click(trigger);
     // Re-selecting the active filter deselects → its option points at the reset.
-    const martyrs = screen.getByRole("option", { name: "Martyrs" });
+    const martyrs = screen.getByRole("link", { name: "Martyrs" });
     expect(martyrs).toHaveAttribute("href", "/saints");
-    expect(martyrs).toHaveAttribute("aria-selected", "true");
+    expect(martyrs).toHaveAttribute("aria-current", "page");
     // A different filter selects normally.
-    expect(screen.getByRole("option", { name: "Popes" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Popes" })).toHaveAttribute(
       "href",
       "/saints?filter=popes",
     );
@@ -160,17 +164,18 @@ describe("FilterChips", () => {
         ]}
       />,
     );
-    const trigger = screen.getByRole("button", { name: "Filter favorites by type" });
+    const trigger = screen.getByRole("button", { name: "Filter favorites by type: Prayers" });
     expect(trigger).toHaveTextContent("Prayers");
 
     fireEvent.click(trigger);
+    expect(screen.getByRole("button", { name: "Prayers" })).toHaveAttribute("aria-pressed", "true");
     // Choosing another filter selects it.
-    fireEvent.click(screen.getByRole("option", { name: "Saints" }));
+    fireEvent.click(screen.getByRole("button", { name: "Saints" }));
     expect(onSelect).toHaveBeenCalledWith("SAINT");
 
     // Re-open and click the active filter → deselect to the reset key.
-    fireEvent.click(screen.getByRole("button", { name: "Filter favorites by type" }));
-    fireEvent.click(screen.getByRole("option", { name: "Prayers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter favorites by type: Prayers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prayers" }));
     expect(onSelect).toHaveBeenCalledWith("ALL");
   });
 });

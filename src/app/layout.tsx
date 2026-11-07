@@ -4,7 +4,7 @@ import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
 import { Header, Footer } from "@/components/layout";
 import { appConfig } from "@/lib/config";
-import { getLocale } from "@/lib/i18n/server";
+import { getLocale, getTranslator } from "@/lib/i18n/server";
 import { getThemeCookieValue } from "@/lib/i18n/theme-cookie";
 
 const cormorant = Cormorant_Garamond({
@@ -30,7 +30,6 @@ export const metadata: Metadata = {
   },
   description:
     "A multilingual Catholic platform — prayers, saints, sacramental guidance, liturgy, and parish discovery — presented with reverence and clarity.",
-  alternates: { canonical: "/" },
   openGraph: {
     title: "Via Fidei",
     description:
@@ -87,6 +86,7 @@ export async function generateViewport(): Promise<Viewport> {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
+  const { t } = await getTranslator();
   const theme = await getThemeCookieValue();
   // Admin pages have their own visual chrome (the admin login form's
   // brand header, the AdminSection layout). Showing the public site
@@ -100,8 +100,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} data-theme={theme} className={`${cormorant.variable} ${inter.variable}`}>
       <body className="flex min-h-screen flex-col">
+        {isAdminRoute ? null : (
+          <a href="#main-content" className="vf-skip-link">
+            {t("common.skipToContent")}
+          </a>
+        )}
         {isAdminRoute ? null : <Header />}
         <main
+          id="main-content"
+          tabIndex={-1}
           className={
             isAdminRoute
               ? "mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6"

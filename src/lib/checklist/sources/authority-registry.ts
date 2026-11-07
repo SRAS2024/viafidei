@@ -1158,7 +1158,8 @@ export function isNonContentHost(host: string): boolean {
  * it can publish, so opening the fetch list never lowers the accuracy bar.
  */
 export function isFetchableHost(host: string): boolean {
-  const h = (host || "").toLowerCase();
+  // A URL's host carries its port, which would let "localhost:3000" past the patterns.
+  const h = (host || "").toLowerCase().replace(/:\d+$/, "");
   if (!h) return false;
   if (NON_CONTENT_HOST_PATTERNS.some((re) => re.test(h))) return false;
   if (isApprovedAuthorityHost(h)) return true;

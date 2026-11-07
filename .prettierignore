@@ -27,3 +27,6 @@ ios/**/*.xcassets
 ios/build
 ios/build-sim
 ios/build-signed
+
+# Local agent worktrees: separate checkouts, not this tree
+.claude

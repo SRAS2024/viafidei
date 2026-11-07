@@ -5,8 +5,8 @@ export interface ContentCardProps {
   href: string;
   /** The item's name: always the first and largest thing on the card. */
   title: string;
-  /** The card's heading level; "h2" under a page's h1, "h3" under a section's h2. */
-  titleAs?: "h2" | "h3";
+  /** The card's heading level: one below whatever heading the card sits under. */
+  titleAs?: "h2" | "h3" | "h4";
   /** The language of the title when it differs from the page's. */
   lang?: string;
   /** Short lines under the title, in order: a type, a patronage, a feast day, years. */

@@ -47,6 +47,8 @@ type PaginationProps = {
   totalPages: number;
   searchParams?: Record<string, string | undefined>;
   pageParam?: string;
+  /** What a screen reader calls this set of links, when a page has more than one. */
+  label?: string;
 };
 
 function buildHref(
@@ -89,13 +91,14 @@ export function Pagination({
   totalPages,
   searchParams = {},
   pageParam = "page",
+  label = "Pagination",
 }: PaginationProps) {
   if (totalPages <= 1) return null;
   const pages = buildPageList(page, totalPages);
   return (
     <nav
       className="mt-[var(--space-related)] flex flex-wrap items-center justify-center gap-1.5"
-      aria-label="Pagination"
+      aria-label={label}
     >
       {pages.map((p, idx) => {
         if (p === "…") {

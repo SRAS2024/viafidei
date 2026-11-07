@@ -9,6 +9,10 @@ export const la: Dict = {
   "nav.spiritualLife": "Vita Spiritualis",
   "nav.saints": "Sancti et Beata Virgo",
   "nav.login": "Ingredi",
+  "home.featured.section": "Selecta",
+  "home.featured.saints": "Sancti",
+  "home.featured.devotions": "Devotiones",
+  "home.featured.novenas": "Novenae",
   "parishes.distanceAway": "{distance} abest",
   // iOS, Android and macOS have no Latin interface, so the names of their
   // menus are given as the English the device most likely shows.
@@ -46,6 +50,8 @@ export const la: Dict = {
     "Preme iconem loci vel serae in linea inscriptionis et huic paginae locum permitte.",
   "parishes.locate.steps.desktopDevice":
     "Si locus in computatro tuo exstinctus est, eum in optionibus secreti accende (in Mac: System Settings › Privacy & Security › Location Services).",
+  "common.open": "Aperi",
+  "common.skipToContent": "Ad rem transi",
   "listSearch.submit": "Quaere",
   "listSearch.clear": "Quaestionem dele",
   "listSearch.results.one": "{count} inventum pro «{query}»",

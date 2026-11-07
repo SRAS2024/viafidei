@@ -37,7 +37,7 @@ describe("HeaderNavClient (parent-link dropdowns)", () => {
     // …with a separate chevron button that opens the submenu.
     const toggle = screen.getByRole("button", { name: /Saints submenu/ });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("menuitem", { name: "Popes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Popes" })).not.toBeInTheDocument();
   });
 
   it("opens and closes the dropdown on toggle click", () => {
@@ -46,44 +46,70 @@ describe("HeaderNavClient (parent-link dropdowns)", () => {
 
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("menuitem", { name: "Popes" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Popes" })).toBeInTheDocument();
 
     fireEvent.click(toggle);
-    expect(screen.queryByRole("menuitem", { name: "Popes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Popes" })).not.toBeInTheDocument();
   });
 
   it("includes the section's own page as the first item in the dropdown", () => {
     render(<HeaderNavClient entries={entries} />);
     fireEvent.click(screen.getByRole("button", { name: /Saints submenu/ }));
     // The menu opens to Saints (overview) · Our Lady · Popes.
-    const overview = screen.getByRole("menuitem", { name: "Saints" });
+    const [, overview] = screen.getAllByRole("link", { name: "Saints" });
     expect(overview).toHaveAttribute("href", "/saints");
-    expect(screen.getByRole("menuitem", { name: "Our Lady" })).toHaveAttribute("href", "/our-lady");
-    expect(screen.getByRole("menuitem", { name: "Popes" })).toHaveAttribute("href", "/popes");
+    expect(screen.getByRole("link", { name: "Our Lady" })).toHaveAttribute("href", "/our-lady");
+    expect(screen.getByRole("link", { name: "Popes" })).toHaveAttribute("href", "/popes");
   });
 
   it("opens the dropdown on hover (desktop) and closes when the pointer leaves", () => {
     const { container } = render(<HeaderNavClient entries={entries} />);
     const group = container.querySelector(".relative.inline-flex") as HTMLElement;
     fireEvent.mouseEnter(group);
-    expect(screen.getByRole("menuitem", { name: "Popes" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Popes" })).toBeInTheDocument();
     fireEvent.mouseLeave(group);
-    expect(screen.queryByRole("menuitem", { name: "Popes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Popes" })).not.toBeInTheDocument();
   });
 
   it("closes the dropdown when a menu item is chosen", () => {
     render(<HeaderNavClient entries={entries} />);
     fireEvent.click(screen.getByRole("button", { name: /Saints submenu/ }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Our Lady" }));
-    expect(screen.queryByRole("menuitem", { name: "Our Lady" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "Our Lady" }));
+    expect(screen.queryByRole("link", { name: "Our Lady" })).not.toBeInTheDocument();
   });
 
   it("closes the dropdown on Escape", () => {
     render(<HeaderNavClient entries={entries} />);
     fireEvent.click(screen.getByRole("button", { name: /Saints submenu/ }));
-    expect(screen.getByRole("menuitem", { name: "Popes" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Popes" })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("menuitem", { name: "Popes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Popes" })).not.toBeInTheDocument();
+  });
+
+  it("does not open on focus alone, so moving along the tabs stays short", () => {
+    render(<HeaderNavClient entries={entries} />);
+    fireEvent.focus(screen.getByRole("link", { name: "Saints" }));
+    fireEvent.focus(screen.getByRole("button", { name: /Saints submenu/ }));
+    expect(screen.queryByRole("link", { name: "Popes" })).not.toBeInTheDocument();
+  });
+
+  it("hands focus back to the chevron when Escape closes the menu", () => {
+    render(<HeaderNavClient entries={entries} />);
+    const toggle = screen.getByRole("button", { name: /Saints submenu/ });
+    fireEvent.click(toggle);
+    screen.getByRole("link", { name: "Popes" }).focus();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("link", { name: "Popes" })).not.toBeInTheDocument();
+    expect(toggle).toHaveFocus();
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("names the list it controls", () => {
+    render(<HeaderNavClient entries={entries} />);
+    const toggle = screen.getByRole("button", { name: /Saints submenu/ });
+    fireEvent.click(toggle);
+    const list = screen.getByRole("list", { name: "Saints" });
+    expect(document.getElementById(toggle.getAttribute("aria-controls")!)).toContainElement(list);
   });
 
   it("marks the parent link active when it or one of its children is the current route", () => {

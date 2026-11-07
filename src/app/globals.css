@@ -90,18 +90,19 @@
     --link: var(--action-blue);
     --link-hover: var(--action-blue-hover);
     --on-accent: #ffffff;
+    --error-ink: var(--action-red);
     --accent-fill: var(--action-blue);
     --accent-fill-hover: var(--action-blue-hover);
     --focus-ring: var(--action-blue);
     --card-lift: 0 1px 0 rgba(17, 17, 17, 0.03), 0 20px 34px -30px rgba(17, 17, 17, 0.32);
 
     /* The sticky header's height, so anchors and sticky rows land below it. */
-    --header-h: 7.5rem;
+    --header-h: 7rem;
   }
 
   @media (max-width: 899.98px) {
     :root {
-      --header-h: 4.25rem;
+      --header-h: 4.0625rem;
     }
   }
 
@@ -147,10 +148,11 @@
     --rule-control: rgba(251, 248, 241, 0.28);
     --surface-card: rgba(255, 255, 255, 0.04);
     --surface-hover: rgba(255, 255, 255, 0.06);
+    --error-ink: #f2a6a6;
     --link: #a9c1f2;
     --link-hover: #c9d8f7;
-    --accent-fill: #5b82d6;
-    --accent-fill-hover: #7098e4;
+    --accent-fill: #4a6fc4;
+    --accent-fill-hover: #3f62b3;
     --focus-ring: #a9c1f2;
     --card-lift: 0 2px 12px rgba(0, 0, 0, 0.3);
 
@@ -160,8 +162,8 @@
        drive links / nav / borders (the dark look is unchanged); only the solid
        "affirmative action" buttons are blue, matching how they look in light
        mode instead of the washed translucent purple they used to be. */
-    --btn-blue: #5b82d6;
-    --btn-blue-hover: #7098e4;
+    --btn-blue: #4a6fc4;
+    --btn-blue-hover: #3f62b3;
 
     /* Extended dark-mode design tokens (charcoal surfaces, off-white text) */
     --bg: #2e2e2e;
@@ -405,6 +407,42 @@
     color: var(--ink);
     text-decoration-line: underline;
     text-decoration-color: var(--link);
+  }
+
+  /* The caret beside a tab: a 24px target however small the chevron it holds. */
+  .vf-nav-caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+  }
+
+  /* Out of sight until the keyboard reaches it; a screen reader finds it first. */
+  .vf-skip-link {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 60;
+    padding: 0.625rem 1rem;
+    border-radius: var(--radius-control);
+    background: var(--accent-fill);
+    color: var(--on-accent);
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-decoration: none;
+    transform: translateY(-200%);
+  }
+
+  .vf-skip-link:focus {
+    transform: none;
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  main:focus {
+    outline: none;
   }
 
   /* ---------- Buttons ----------
@@ -855,177 +893,7 @@
     color: var(--ink-soft);
   }
 
-  /* Timeline events use the same arrow but with a date label and meta lines. */
-  .vf-timeline-event {
-    border-left: 2px solid rgba(17, 17, 17, 0.1);
-    padding-left: 1rem;
-    margin-bottom: 0.4rem;
-  }
-
-  .vf-timeline-event:hover {
-    border-left-color: var(--action-blue);
-  }
-
-  .vf-timeline-trigger {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    width: 100%;
-    text-align: left;
-    background: transparent;
-    border: 0;
-    padding: 0.85rem 0.25rem 0.85rem 0;
-    cursor: pointer;
-    color: var(--ink);
-    transition: color 140ms ease;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .vf-timeline-trigger:hover,
-  .vf-timeline-trigger:focus-visible {
-    color: var(--action-blue);
-  }
-
-  .vf-timeline-title {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    flex: 1;
-    min-width: 0;
-    font-family: var(--font-display);
-    font-size: 1.15rem;
-    line-height: 1.25;
-  }
-
-  .vf-timeline-date {
-    font-family: var(--font-sans);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    color: var(--ink-faint);
-  }
-
-  .vf-timeline-body {
-    padding: 0.25rem 0 1.1rem 1.7rem;
-  }
-
-  .vf-timeline-meta {
-    display: flex;
-    align-items: baseline;
-    gap: 0.65rem;
-    font-family: var(--font-sans);
-    font-size: 0.78rem;
-    color: var(--ink-soft);
-    margin-bottom: 0.6rem;
-  }
-
-  .vf-timeline-meta-label {
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    font-size: 0.66rem;
-    color: var(--ink-faint);
-  }
-
-  .vf-timeline-section {
-    margin-top: 0.7rem;
-  }
-
-  .vf-timeline-section-title {
-    font-family: var(--font-sans);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    color: var(--ink-faint);
-    margin-bottom: 0.25rem;
-  }
-
-  .vf-timeline-section-body {
-    font-family: var(--font-serif);
-    font-size: 0.98rem;
-    line-height: 1.6;
-    color: var(--ink-soft);
-  }
-
   /* ---------- Login-required popup ---------- */
-  .vf-login-popup-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(10, 10, 10, 0.35);
-    backdrop-filter: blur(2px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-    z-index: 60;
-  }
-
-  .vf-login-popup {
-    position: relative;
-    width: 100%;
-    max-width: 23rem;
-    background: var(--paper-bright);
-    border: 1px solid rgba(17, 17, 17, 0.1);
-    border-radius: 10px;
-    box-shadow: 0 24px 48px -16px rgba(10, 10, 10, 0.4);
-    padding: 2.25rem 1.5rem 1.5rem;
-    text-align: center;
-  }
-
-  .vf-login-popup-msg {
-    font-family: var(--font-serif);
-    color: var(--ink);
-    font-size: 1.05rem;
-    line-height: 1.5;
-    margin: 0 0 1.1rem 0;
-  }
-
-  .vf-login-popup-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-
-  .vf-login-popup-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 0.7rem 1rem;
-    border-radius: 8px;
-    border: 1px solid rgba(17, 17, 17, 0.18);
-    background: transparent;
-    color: var(--ink);
-    font-family: var(--font-sans);
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    cursor: pointer;
-    transition:
-      background-color 140ms ease,
-      border-color 140ms ease,
-      color 140ms ease;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .vf-login-popup-btn:hover,
-  .vf-login-popup-btn:focus-visible {
-    background: rgba(17, 17, 17, 0.05);
-    border-color: rgba(17, 17, 17, 0.32);
-  }
-
-  .vf-login-popup-btn-primary {
-    background: var(--action-blue);
-    border-color: var(--action-blue);
-    color: #ffffff;
-  }
-
-  .vf-login-popup-btn-primary:hover,
-  .vf-login-popup-btn-primary:focus-visible {
-    background: var(--action-blue-hover);
-    border-color: var(--action-blue-hover);
-    color: #ffffff;
-  }
-
   .vf-login-popup-close {
     position: absolute;
     top: 0.5rem;
@@ -1161,24 +1029,15 @@
 
   html[data-theme="dark"] .vf-nav-link {
     color: var(--text-muted);
-    padding: 0.4rem 0.85rem;
-    border: 1px solid transparent;
-    border-radius: var(--radius-pill);
-    transition:
-      color var(--transition-normal) ease,
-      background-color var(--transition-normal) ease,
-      border-color var(--transition-normal) ease;
+    transition: color var(--transition-normal) ease;
   }
 
   html[data-theme="dark"] .vf-nav-link:hover {
     color: var(--text-main);
-    border-color: rgba(255, 255, 255, 0.06);
   }
 
   html[data-theme="dark"] .vf-nav-link[aria-current="page"] {
     color: var(--text-main);
-    background: var(--accent-purple-soft);
-    border-color: var(--accent-purple-border);
   }
 
   /* Primary CTA + selected filters are SOLID BLUE in dark mode (filled, white
@@ -1361,62 +1220,7 @@
     color: var(--text-soft);
   }
 
-  html[data-theme="dark"] .vf-timeline-event {
-    border-left-color: var(--accent-purple-line);
-  }
-
-  html[data-theme="dark"] .vf-timeline-event:hover {
-    border-left-color: var(--accent-purple-link);
-  }
-
-  html[data-theme="dark"] .vf-timeline-trigger {
-    color: var(--text-main);
-  }
-
-  html[data-theme="dark"] .vf-timeline-trigger:hover,
-  html[data-theme="dark"] .vf-timeline-trigger:focus-visible {
-    color: var(--accent-purple-link);
-  }
-
-  html[data-theme="dark"] .vf-timeline-date,
-  html[data-theme="dark"] .vf-timeline-meta-label,
-  html[data-theme="dark"] .vf-timeline-section-title {
-    color: var(--text-muted);
-  }
-
-  html[data-theme="dark"] .vf-timeline-meta,
-  html[data-theme="dark"] .vf-timeline-section-body {
-    color: var(--text-soft);
-  }
-
   /* Login-required popup */
-  html[data-theme="dark"] .vf-login-popup-backdrop {
-    background: rgba(0, 0, 0, 0.75);
-  }
-
-  html[data-theme="dark"] .vf-login-popup {
-    background: var(--bg-modal);
-    border-color: var(--border-modal);
-    box-shadow: var(--modal-shadow);
-  }
-
-  html[data-theme="dark"] .vf-login-popup-msg {
-    color: var(--text-main);
-  }
-
-  html[data-theme="dark"] .vf-login-popup-link {
-    color: var(--accent-purple-link);
-  }
-
-  html[data-theme="dark"] .vf-login-popup-link:hover,
-  html[data-theme="dark"] .vf-login-popup-link:focus-visible {
-    color: var(--text-main);
-  }
-
-  html[data-theme="dark"] .vf-login-popup-sep {
-    color: var(--text-muted);
-  }
-
   html[data-theme="dark"] .vf-login-popup-close {
     color: var(--text-muted);
   }
@@ -1582,6 +1386,19 @@
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
   }
 
+  /* A short list under a centred heading (one day's saints) stands centred too,
+     every row of it, at the width of a three-column card. */
+  .vf-grid-centred .vf-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .vf-grid-centred .vf-grid > li {
+    flex: 1 1 19rem;
+    max-width: 22rem;
+  }
+
   /* ---------- Collection cards ----------
      Title first, then short metadata, then a description preview, then the
      action on a common lower line. The title's link stretches over the card,
@@ -1592,7 +1409,8 @@
     flex-direction: column;
     width: 100%;
     min-width: 0;
-    padding: 1.25rem 1.375rem;
+    /* Enlarged text on a phone keeps its side padding small, so words still fit. */
+    padding: 1.25rem min(1.375rem, 6vw);
     background: var(--surface-card);
     border: 1px solid var(--rule);
     border-radius: var(--radius-control);
@@ -1742,16 +1560,23 @@
     font-family: var(--font-serif);
     font-size: var(--fs-lede);
     font-weight: 500;
+    font-variant-numeric: lining-nums;
     line-height: 1.5;
     color: var(--ink-soft);
     text-wrap: pretty;
   }
 
-  /* Reading text: the book column. */
+  .vf-detail-actions + .vf-lede {
+    margin-top: 1.25rem;
+  }
+
+  /* Reading text: the book column. Full-height figures, because Cormorant's
+     old-style 1 is a small capital I: "May I in 1955", "Matthew 28:I9". */
   .vf-reading {
     font-family: var(--font-serif);
     font-size: var(--fs-body);
     font-weight: 500;
+    font-variant-numeric: lining-nums;
     line-height: var(--lh-body);
     color: var(--ink);
     text-wrap: pretty;
@@ -1795,6 +1620,13 @@
     margin-bottom: 0.5rem;
     font-size: var(--fs-subsection);
     text-wrap: balance;
+  }
+
+  /* A reading page's subsections stand clearly above their text: a heavier cut of
+     the serif, the heading close to what it heads. */
+  .vf-detail-section > .vf-subhead {
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
 
   .vf-subhead-sm {
@@ -1847,14 +1679,14 @@
   }
 
   .vf-fineprint a {
+    color: var(--link);
     text-decoration: underline;
-    text-decoration-color: var(--rule-control);
+    text-decoration-thickness: 1px;
     text-underline-offset: 0.18em;
   }
 
   .vf-fineprint a:hover {
-    color: var(--ink);
-    text-decoration-color: currentColor;
+    color: var(--link-hover);
   }
 
   .vf-credits {
@@ -1871,24 +1703,33 @@
     display: none;
   }
 
+  /* What comes after the reading: one action, or a list with its own heading. The
+     credits below it carry the only rule, so the two never stack up. */
   .vf-detail-footer {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem;
     margin-top: var(--space-related);
-    padding-top: var(--space-related);
-    border-top: 1px solid var(--rule);
   }
 
-  /* Static information set as a tidy run of text, never as button-like pills. */
+  .vf-detail-footer .vf-detail-section {
+    margin-top: 0;
+  }
+
+  /* Static information set as neat lines of text, never as button-like pills. One
+     name to a line; a longer run of short entries earns two columns. */
   .vf-plain-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.125rem 1.25rem;
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+
+  .vf-plain-list:has(> li:nth-child(5)) {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
   }
 
   .vf-reading ul.vf-plain-list {
@@ -1900,26 +1741,55 @@
     margin-top: 0;
   }
 
-  /* Labelled pairs inside a section (Form / Matter): label above its explanation
-     on a phone, beside it where there is room. */
+  .vf-facts .vf-plain-list,
+  .vf-facts .vf-plain-list:has(> li:nth-child(5)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Labelled pairs inside a section (Matter / Form): two ruled rows, the label a
+     small sans beside its serif explanation, or above it on a phone. */
   .vf-pairs {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 0.75rem;
+  }
+
+  .vf-pairs > div {
+    padding-block: 0.625rem;
+    border-top: 1px solid var(--rule);
+  }
+
+  .vf-pairs > div:first-child {
+    padding-top: 0.25rem;
+    border-top: 0;
+  }
+
+  .vf-pairs > div:last-child {
+    padding-bottom: 0;
   }
 
   .vf-pairs dt {
     font-family: var(--font-sans);
-    font-size: var(--fs-label);
+    font-size: 0.875rem;
     font-weight: 600;
-    line-height: 1.4;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
+    line-height: 1.5;
+    color: var(--ink-soft);
   }
 
   .vf-pairs dd {
     margin: 0.125rem 0 0;
+  }
+
+  @media (min-width: 30rem) {
+    .vf-pairs > div {
+      display: grid;
+      grid-template-columns: 5.5rem minmax(0, 1fr);
+      column-gap: 1.25rem;
+      align-items: baseline;
+    }
+
+    .vf-pairs dd {
+      margin: 0;
+    }
   }
 
   /* ---------- Facts: dates, feast days, patronage ---------- */
@@ -1957,8 +1827,114 @@
       gap: 0;
     }
 
-    .vf-facts dd + dt {
+    .vf-facts > div + div dt {
       margin-top: 0.5rem;
+    }
+  }
+
+  /* On a reading page every label column is the same width, so one biography's
+     facts line up with the next one's, and each label sits on its value's line. */
+  .vf-detail-header .vf-facts {
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    align-items: baseline;
+    margin-top: 1rem;
+  }
+
+  .vf-detail-header .vf-facts dt {
+    padding-top: 0;
+  }
+
+  .vf-detail-header .vf-facts dd {
+    font-variant-numeric: lining-nums;
+    text-wrap: pretty;
+    overflow-wrap: break-word;
+  }
+
+  @media (max-width: 29.99rem) {
+    .vf-detail-header .vf-facts {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .vf-detail-header .vf-facts > div + div > dt {
+      margin-top: 0.5rem;
+    }
+  }
+
+  /* ---------- The sacraments ----------
+     Three groups on one six-part grid, so the three and the two each fill the
+     width. The grid follows the room it has in rem, so enlarged text stacks the
+     cards just as a phone does. */
+  .vf-sacrament-groups {
+    container: vf-sacraments / inline-size;
+  }
+
+  .vf-sacrament-groups > section + section {
+    margin-top: var(--space-section);
+  }
+
+  .vf-sacrament-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .vf-sacrament-grid > li {
+    display: flex;
+    min-width: 0;
+  }
+
+  /* Stacked, a card is one line: the badge, then the name. */
+  .vf-sacrament-grid .vf-entry {
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .vf-sacrament-grid .vf-entry-title {
+    min-width: 0;
+  }
+
+  /* Greatly enlarged on a phone, the name needs the whole width to itself. */
+  @container vf-sacraments (max-width: 16rem) {
+    .vf-sacrament-grid .vf-entry {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.625rem;
+    }
+  }
+
+  /* The badge reads as part of the card, and comes first only on the page: it is
+     decoration, and the card's name is what a screen reader meets. */
+  .vf-sacrament-badge {
+    order: -1;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  /* Side by side, each card centres its badge over its name, so the three and the
+     two read as one composition. */
+  @container vf-sacraments (min-width: 42rem) {
+    .vf-sacrament-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .vf-sacrament-grid > li {
+      grid-column: span 3;
+    }
+
+    .vf-sacrament-grid--3 > li {
+      grid-column: span 2;
+    }
+
+    .vf-sacrament-grid .vf-entry {
+      flex-direction: column;
+      gap: 0.625rem;
+      padding-block: 1.5rem;
+      text-align: center;
     }
   }
 
@@ -2069,11 +2045,41 @@
     color: var(--ink);
   }
 
+  /* Selected = blue. Written against the chip because .vf-chip comes later in
+     this file than .vf-filter-active, and would otherwise paint over it. */
+  .vf-chip.vf-filter-active {
+    background: var(--accent-fill);
+    border-color: var(--accent-fill);
+    color: var(--on-accent);
+  }
+
+  .vf-chip.vf-filter-active:hover {
+    background: var(--accent-fill-hover);
+    border-color: var(--accent-fill-hover);
+    color: var(--on-accent);
+  }
+
+  /* Beside the search field a chip is the field's height, so the row lines up. */
+  .vf-list-controls .vf-chip {
+    min-height: var(--control-h);
+  }
+
+  /* The hint in an empty field has to be readable too (4.5:1 on the field). */
+  .vf-input::placeholder {
+    color: var(--ink-faint);
+    opacity: 0.85;
+  }
+
   .vf-chip-count {
     font-size: 0.8125rem;
     font-weight: 400;
     font-variant-numeric: tabular-nums;
     opacity: 0.72;
+  }
+
+  .vf-filter-active .vf-chip-count,
+  [aria-current] > .vf-chip-count {
+    opacity: 1;
   }
 
   .vf-menu {
@@ -2148,20 +2154,184 @@
 
   .vf-step-body {
     grid-column: 2;
+    margin-top: 0.125rem;
+  }
+
+  /* Enlarged text on a narrow screen: the number moves above its step, so that
+     the indent does not cost the words a third of the line. */
+  .vf-steps {
+    container-type: inline-size;
+  }
+
+  @container (max-width: 17.5rem) {
+    .vf-step {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .vf-step-number {
+      text-align: left;
+    }
+
+    .vf-step-body {
+      grid-column: 1;
+    }
+  }
+
+  /* Steps stand on their own wherever they sit, reading text included. */
+  .vf-reading ol.vf-steps {
+    padding-left: 0;
+    list-style: none;
+  }
+
+  .vf-reading ol.vf-steps > li + li {
+    margin-top: 0;
+  }
+
+  /* A lead-in stays with its steps; what follows them stands clear of the last. */
+  .vf-reading > * + .vf-steps {
+    margin-top: 0.75rem;
+  }
+
+  .vf-reading > .vf-steps + * {
+    margin-top: 1.5rem;
+  }
+
+  /* A step with no title of its own: its words start level with its number. */
+  .vf-step-number + .sr-only + .vf-step-body {
+    margin-top: 0;
+  }
+
+  /* Short items with no titles (the sorrows, the stations) sit closer together. */
+  .vf-steps-tight {
+    gap: 0.5rem;
+  }
+
+  /* A sequence inside a step: the list's own numbers, smaller than the step's. */
+  .vf-reading ol.vf-substeps {
+    padding-left: 1.5em;
+  }
+
+  .vf-reading ol.vf-substeps > li + li {
+    margin-top: 0.625em;
+  }
+
+  .vf-substeps > li::marker {
+    color: var(--ink-faint);
+  }
+
+  .vf-substeps > li > * + * {
+    margin-top: 0.5em;
+  }
+
+  .vf-substep-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+
+  /* Words to say aloud, set apart from the instructions around them: indented, in
+     prayer type. The indent and the rule carry it, not colour. */
+  .vf-spoken {
+    padding-left: 1rem;
+    border-left: 2px solid var(--rule-strong);
+  }
+
+  /* The lead-in stays with its words: "Begin:" closer to them than to what is next. */
+  .vf-reading > .vf-spoken {
+    margin-top: 0.5em;
+  }
+
+  /* Lines of one exchange read apart by a small gap, wrapped lines flush. */
+  .vf-spoken .vf-prayer-line:not(.vf-prayer-marked) {
+    padding-left: 0;
+    text-indent: 0;
+  }
+
+  .vf-spoken .vf-prayer-line + .vf-prayer-line {
+    margin-top: 0.25em;
+  }
+
+  /* A sentence of help under a section's heading. */
+  .vf-detail-note {
     margin-top: 0.25rem;
+    font-family: var(--font-serif);
+    font-size: var(--fs-note);
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    text-wrap: pretty;
+  }
+
+  /* Supporting metadata under a title ("8 steps · About 20 minutes"). */
+  .vf-detail-meta {
+    margin-top: 0.5rem;
+    font-family: var(--font-sans);
+    font-size: var(--fs-meta);
+    line-height: var(--lh-meta);
+    color: var(--ink-faint);
+  }
+
+  /* A section of prayers: heading, language, a line of help, then the list. It
+     keeps to the reading column wherever a page places it. */
+  .vf-prayer-list,
+  .vf-mysteries {
+    margin-inline: auto;
+    max-width: var(--measure-page);
+  }
+
+  .vf-prayer-list .vf-language-chips {
+    margin-top: 0.5rem;
+  }
+
+  .vf-prayer-list .vf-disclosure-list {
+    margin-top: var(--space-close);
+  }
+
+  .vf-mysteries-picker {
+    margin-top: 0.625rem;
+  }
+
+  .vf-mysteries-picker + div {
+    margin-top: var(--space-close);
+  }
+
+  .vf-mysteries .vf-steps {
+    margin-top: var(--space-close);
+  }
+
+  /* Full-height figures, as in reading text: "Day 1", "Stations 1 to 3", "Luke 1:26". */
+  .vf-step-title,
+  .vf-substep-title,
+  .vf-disclosure-title,
+  .vf-mystery-facts {
+    font-variant-numeric: lining-nums;
+  }
+
+  .vf-mystery-facts {
+    font-family: var(--font-serif);
+    font-size: var(--fs-note);
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--ink-soft);
   }
 
   /* ---------- Prayer text ---------- */
   .vf-prayer {
+    /* The margin a marked line hangs in: wide enough for "V." and "10.", and no
+       wider than a narrow screen can spare when the text is enlarged. */
+    --vf-prayer-hang: min(2.125rem, 15vw);
     max-width: var(--measure-prayer);
     font-family: var(--font-serif);
     font-size: var(--fs-prayer);
     font-weight: 500;
     line-height: var(--lh-prayer);
     color: var(--ink);
+    overflow-wrap: break-word;
   }
 
-  .vf-prayer-stanza + .vf-prayer-stanza {
+  .vf-prayer-stanza + .vf-prayer-stanza,
+  .vf-inline-prayer + .vf-prayer-stanza {
     margin-top: 1em;
   }
 
@@ -2172,18 +2342,1932 @@
     text-indent: -1.25em;
   }
 
-  /* A repeated response: set apart the same way every time. */
+  /* A paragraph of prayer, not a verse: it wraps flush. */
+  .vf-prayer-prose {
+    padding-left: 0;
+    text-indent: 0;
+    text-wrap: pretty;
+  }
+
+  .vf-prayer-prose + .vf-prayer-prose {
+    margin-top: 0.625em;
+  }
+
+  /* A line with its marker in the hanging margin: V., R., 3. */
+  .vf-prayer-marked {
+    padding-left: var(--vf-prayer-hang);
+    text-indent: calc(-1 * var(--vf-prayer-hang));
+  }
+
+  .vf-prayer-continued {
+    padding-left: var(--vf-prayer-hang);
+    text-indent: 0;
+  }
+
+  /* `pre` keeps the space inside the marker, so copied text stays "V. Lord". */
+  .vf-prayer-marker {
+    display: inline-block;
+    width: var(--vf-prayer-hang);
+    white-space: pre;
+    text-indent: 0;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-style: normal;
+    font-weight: 600;
+    color: var(--ink-faint);
+  }
+
+  /* A part's name running into its line: Ant., Meditation. */
+  .vf-prayer-label {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-style: normal;
+    font-weight: 600;
+    color: var(--ink-faint);
+  }
+
+  /* The people's part: set apart the same way every time, within a line or as one. */
   .vf-prayer-response {
     color: var(--link);
     font-style: italic;
   }
 
+  .vf-prayer-response .vf-prayer-marker {
+    color: var(--link);
+  }
+
+  /* Within a line it moves to the next line whole rather than break mid-phrase. */
+  .vf-prayer-line .vf-prayer-response {
+    display: inline-block;
+    max-width: 100%;
+    text-indent: 0;
+  }
+
   /* An instruction, not spoken: smaller and quieter than the prayer itself. */
-  .vf-prayer-rubric {
+  .vf-prayer-rubric,
+  .vf-prayer-reference {
     font-family: var(--font-sans);
-    font-size: 0.9375rem;
+    font-size: var(--fs-meta);
+    font-style: normal;
+    font-weight: 400;
     line-height: 1.5;
     color: var(--ink-faint);
+  }
+
+  /* An instruction on its own line stands a little off the words around it. */
+  .vf-prayer-line.vf-prayer-rubric {
+    padding-left: 0;
+    text-indent: 0;
+    margin-block: 0.375rem;
+  }
+
+  .vf-prayer-line.vf-prayer-rubric.vf-prayer-marked {
+    padding-left: var(--vf-prayer-hang);
+    text-indent: calc(-1 * var(--vf-prayer-hang));
+  }
+
+  .vf-prayer-stanza > .vf-prayer-rubric:first-child {
+    margin-top: 0;
+  }
+
+  .vf-prayer-stanza > .vf-prayer-rubric:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Something about the prayer: book text, a size down from the prayer. */
+  .vf-prayer-note {
+    font-size: var(--fs-note);
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+
+  /* A part's name inside a prayer: First Decade, Station IV. */
+  .vf-prayer-heading {
+    margin-block: 1.5em 0.25em;
+    font-family: var(--font-display);
+    font-size: 1.3125rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+
+  .vf-prayer > .vf-prayer-heading:first-child {
+    margin-top: 0;
+  }
+
+  .vf-prayer-heading + .vf-prayer-heading {
+    margin-top: 0.25em;
+  }
+
+  /* A printed sign that is not a word: the "*" of a responsory, a blessing's cross. */
+  .vf-prayer-symbol {
+    font-style: normal;
+    color: var(--ink-faint);
+  }
+
+  /* A prayer's page: its other name under the title, its type in a word. */
+  .vf-detail-title-aside {
+    display: block;
+    margin-top: 0.375rem;
+    font-size: var(--fs-lede);
+    font-style: italic;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--ink-soft);
+  }
+
+  /* The language chips sit close above the text they switch, a note close below. */
+  .vf-prayer-block > * + * {
+    margin-top: var(--space-close);
+  }
+
+  .vf-language-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .vf-prayer-source {
+    margin-top: var(--space-close);
+  }
+
+  /* A prayer named in the text: a link that opens the prayer in place. */
+  .vf-inline-prayer-toggle {
+    font: inherit;
+    text-align: inherit;
+    text-indent: 0;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+
+  .vf-inline-prayer-toggle:focus-visible {
+    outline-offset: 1px;
+  }
+
+  .vf-inline-prayer-chevron {
+    display: inline-block;
+    width: 0.625em;
+    height: 0.625em;
+    margin-left: 0.25em;
+    vertical-align: baseline;
+    transition: transform 180ms ease;
+  }
+
+  .vf-inline-prayer-toggle[aria-expanded="true"] .vf-inline-prayer-chevron {
+    transform: rotate(180deg);
+  }
+
+  /* The opened prayer has the look of a disclosure, a title row over its text. */
+  .vf-inline-prayer {
+    margin-block: var(--space-close);
+  }
+
+  .vf-inline-prayer + .vf-inline-prayer {
+    margin-top: 0.5rem;
+  }
+
+  .vf-inline-prayer-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    min-height: 3.25rem;
+    padding: 0.625rem 1.125rem;
+  }
+
+  /* ---------- Parish directory ----------
+     A postal address, one line per part, in the reading serif with full-height
+     figures. A string with no break in it at all still wraps inside its card, and
+     a right-to-left line runs right to left but keeps the card's left edge. */
+  .vf-address {
+    margin-top: var(--space-close);
+    font-family: var(--font-serif);
+    font-size: min(1.125rem, 8.5vw);
+    font-style: normal;
+    font-weight: 500;
+    font-variant-numeric: lining-nums;
+    line-height: 1.45;
+    text-align: left;
+    color: var(--ink-soft);
+    overflow-wrap: anywhere;
+  }
+
+  .vf-address > span {
+    display: block;
+    text-wrap: balance;
+  }
+
+  /* On a parish's own page the address is its one set of facts, ruled off like a
+     biography's. */
+  .vf-detail-header .vf-address {
+    padding-block: 0.75rem;
+    font-size: min(var(--fs-body), 9.5vw);
+    color: var(--ink);
+    border-block: 1px solid var(--rule);
+  }
+
+  /* An ordinary word stays whole even in the largest text on a narrow phone. */
+  .vf-parish-name {
+    font-variant-numeric: lining-nums;
+    text-wrap: balance;
+  }
+
+  .vf-entry-title.vf-parish-name {
+    font-size: min(var(--fs-card-title), 10.5vw);
+  }
+
+  .vf-detail-title.vf-parish-name {
+    font-size: min(var(--fs-page-title), 13vw);
+  }
+
+  /* Get directions stays whole and inside its card in the largest text on the
+     narrowest phone, where the card is narrower than the word at its full size. */
+  .vf-entry-action > .vf-btn,
+  .vf-detail-actions > .vf-btn {
+    max-width: 100%;
+    gap: min(0.5rem, 2vw);
+    padding-inline: min(0.875rem, 4.4vw);
+    font-size: min(0.75rem, 4.6vw);
+    overflow-wrap: anywhere;
+  }
+
+  /* Cormorant has no Hangul, kana or Han, and a browser left to itself sets them
+     in a heavy sans beside it, so the matching serif faces are named. Hangul keeps
+     whole words together. */
+  .vf-address :lang(ko),
+  .vf-parish-name :lang(ko) {
+    font-family:
+      var(--font-serif-loaded), "AppleMyungjo", "Nanum Myeongjo", "Noto Serif KR",
+      "Noto Serif CJK KR", "Batang", serif;
+    word-break: keep-all;
+  }
+
+  .vf-address :lang(ja),
+  .vf-parish-name :lang(ja) {
+    font-family:
+      var(--font-serif-loaded), "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP",
+      "Noto Serif CJK JP", serif;
+  }
+
+  .vf-address :lang(zh),
+  .vf-parish-name :lang(zh) {
+    font-family:
+      var(--font-serif-loaded), "Songti SC", "Noto Serif SC", "Noto Serif CJK SC", "SimSun", serif;
+  }
+
+  .vf-address :lang(zh-Hant),
+  .vf-parish-name :lang(zh-Hant) {
+    font-family:
+      var(--font-serif-loaded), "Songti TC", "Noto Serif TC", "Noto Serif CJK TC", "PMingLiU", serif;
+  }
+
+  /* Scripts beyond Cormorant's come from system fonts, many of which have only a
+     regular and a bold, and the site's medium weight picks the bold. */
+  .vf-address [lang]:not(:lang(ru), :lang(uk), :lang(bg)),
+  .vf-parish-name [lang]:not(:lang(ru), :lang(uk), :lang(bg)) {
+    font-weight: 400;
+  }
+
+  /* The locator's answers stay with the controls that asked for them. */
+  .vf-locator {
+    margin-bottom: var(--space-related);
+  }
+
+  .vf-locator > .vf-list-controls {
+    margin-bottom: 0;
+  }
+
+  /* The filter and the location button wrap together, so the filter is never left
+     at the end of a line with its menu running off the page. */
+  .vf-locator-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.625rem;
+    min-width: 0;
+  }
+
+  .vf-locator-actions > .vf-btn {
+    max-width: 100%;
+    gap: min(0.5rem, 2vw);
+    padding-inline: min(1.25rem, 4.4vw);
+    font-size: min(0.8125rem, 5vw);
+    overflow-wrap: anywhere;
+  }
+
+  .vf-locator-actions .vf-menu {
+    left: 0;
+    transform: none;
+  }
+
+  /* On a phone they fill the line under the search field, edge to edge with it. */
+  @media (max-width: 44.99rem) {
+    .vf-locator-actions {
+      flex: 1 1 100%;
+    }
+
+    .vf-locator-actions > * {
+      flex: 1 1 auto;
+    }
+
+    .vf-locator-actions > * > .relative,
+    .vf-locator-actions > * > .relative > .vf-chip {
+      width: 100%;
+    }
+  }
+
+  .vf-locator-line {
+    margin-top: var(--space-close);
+    text-align: center;
+  }
+
+  .vf-locator-problem {
+    max-width: var(--measure);
+    margin: var(--space-close) auto 0;
+    padding: 1rem 1.25rem 1.125rem;
+    background: var(--surface-card);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-control);
+    font-variant-numeric: lining-nums;
+  }
+
+  /* ---------- The homepage ----------
+     Each section is a size container, and its composition follows from the room
+     it has in rem: enlarged text steps a composition down exactly as a narrow
+     screen does. */
+  .vf-home-section {
+    container: vf-home / inline-size;
+  }
+
+  .vf-home-hero {
+    padding-top: 0.25rem;
+    text-align: center;
+  }
+
+  .vf-home-tagline {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 1.4rem + 0.5vw, 1.875rem);
+    font-style: italic;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--ink-soft);
+  }
+
+  .vf-home-hero .vf-rule {
+    margin: 0.75rem auto;
+  }
+
+  .vf-home-title {
+    font-size: var(--fs-display);
+    line-height: 1.06;
+    text-wrap: balance;
+  }
+
+  .vf-home-hero .vf-page-hero-lede {
+    margin-top: 1rem;
+  }
+
+  .vf-home-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .vf-home-actions .vf-btn {
+    flex: 0 1 15rem;
+  }
+
+  /* Rows of links with hairlines between them and a quiet arrow. */
+  .vf-link-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .vf-link-rows > * + * {
+    border-top: 1px solid var(--rule);
+  }
+
+  .vf-link-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 3.25rem;
+    padding-block: 0.5rem;
+    font-family: var(--font-display);
+    font-size: 1.3125rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+    transition: color 160ms ease;
+  }
+
+  .vf-link-row:hover {
+    color: var(--link);
+  }
+
+  .vf-link-row-arrow {
+    flex-shrink: 0;
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    color: var(--ink-faint);
+    transition:
+      color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .vf-link-row:hover .vf-link-row-arrow {
+    color: var(--link);
+    transform: translateX(0.125rem);
+  }
+
+  .vf-link-rows--compact .vf-link-row {
+    min-height: 2.8125rem;
+    padding-block: 0.375rem;
+    font-size: 1.1875rem;
+  }
+
+  /* I. Begin here: the welcome beside the first five links. */
+  .vf-home-begin {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vf-home-begin-intro {
+    padding: 1.5rem 1.375rem;
+  }
+
+  .vf-home-begin-links {
+    padding: 0.375rem 1.375rem;
+    border-top: 1px solid var(--rule);
+  }
+
+  @container vf-home (min-width: 44rem) {
+    .vf-home-begin {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    }
+
+    .vf-home-begin-intro {
+      align-self: center;
+      padding: 2rem;
+    }
+
+    .vf-home-begin-links {
+      padding: 0.5rem 2rem;
+      border-top: 0;
+      border-left: 1px solid var(--rule);
+    }
+  }
+
+  /* II. Today: the date, then three parts. A line of placeholder text takes its
+     height from the real text's own line height. */
+  .vf-home-skeleton-line {
+    display: flex;
+    align-items: center;
+    height: 1.4em;
+    height: 1lh;
+  }
+
+  .vf-home-skeleton-line > .vf-skeleton {
+    height: 58%;
+  }
+
+  .vf-home-date {
+    min-height: calc(1em * var(--lh-heading));
+  }
+
+  .vf-home-date-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3em;
+    height: 1.16em;
+    height: 1lh;
+  }
+
+  .vf-home-date-placeholder > .vf-skeleton {
+    height: 0.6em;
+  }
+
+  /* The weekday takes its own line on a phone, so the heading is the same height
+     whatever the date's length. */
+  @container vf-home (max-width: 33.99rem) {
+    .vf-home-date {
+      min-height: calc(2em * var(--lh-heading));
+    }
+
+    .vf-home-date-part {
+      display: block;
+    }
+
+    .vf-home-date-placeholder {
+      flex-direction: column;
+      gap: 0.56em;
+      height: 2.32em;
+      height: 2lh;
+    }
+  }
+
+  .vf-home-today {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+
+  .vf-home-part {
+    display: flex;
+    flex-direction: column;
+    padding: 1.25rem 1.375rem 1.375rem;
+  }
+
+  .vf-home-part > .vf-subhead {
+    margin-bottom: var(--space-close);
+    padding-bottom: 0.625rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .vf-home-part-body {
+    min-width: 0;
+  }
+
+  /* The first row's name starts where the other parts' first lines do. */
+  .vf-home-part-body .vf-link-rows--compact {
+    margin-top: -0.375rem;
+  }
+
+  .vf-home-part-actions {
+    display: flex;
+    align-items: flex-start;
+    margin-top: auto;
+    padding-top: var(--space-close);
+  }
+
+  /* The prayer's action reads the same as the links on the parts beside it. */
+  .vf-home-part-actions .vf-entry-action {
+    margin: 0;
+    padding: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    letter-spacing: 0;
+  }
+
+  /* The day's facts stay two aligned columns in the part's narrow width. */
+  .vf-home-part .vf-facts {
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.25rem 1rem;
+    margin-top: 0;
+    padding-block: 0;
+    border-block: 0;
+  }
+
+  .vf-home-part .vf-facts dd {
+    font-size: 1.125rem;
+    overflow-wrap: break-word;
+  }
+
+  .vf-home-part .vf-facts > div + div dt {
+    margin-top: 0;
+  }
+
+  @container vf-home (max-width: 19.99rem) {
+    .vf-home-part .vf-facts {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+    }
+
+    .vf-home-part .vf-facts > div + div dt {
+      margin-top: 0.5rem;
+    }
+  }
+
+  /* The way into the day's readings: the button, and on a Saturday the Vigil. */
+  .vf-home-readings-go {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.625rem;
+    margin-top: 0.875rem;
+  }
+
+  .vf-home-readings-go .vf-btn {
+    width: 100%;
+    max-width: 24rem;
+    padding-inline: 0.75rem;
+    text-wrap: balance;
+  }
+
+  /* On a tablet the readings run across, with the prayer and saints beneath. The
+     gap is what lines its second column up with the text of the part below. */
+  @container vf-home (min-width: 40rem) {
+    .vf-home-today {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .vf-home-part--readings {
+      display: grid;
+      grid-column: 1 / -1;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: auto auto minmax(0, 1fr);
+      column-gap: 4rem;
+    }
+
+    .vf-home-part--readings > .vf-subhead {
+      grid-column: 1 / -1;
+    }
+
+    .vf-home-part--readings > .vf-home-part-body {
+      display: contents;
+    }
+
+    .vf-home-part--readings .vf-home-facts {
+      grid-column: 1;
+      grid-row: 2 / span 2;
+    }
+
+    .vf-home-part--readings .vf-home-readings-go {
+      grid-column: 2;
+      grid-row: 2;
+      margin-top: 0;
+    }
+
+    .vf-home-part--readings > .vf-home-part-actions {
+      grid-column: 2;
+      grid-row: 3;
+      padding-top: 0.625rem;
+    }
+  }
+
+  /* On a desktop three equal parts share rows, so their titles, bodies and last
+     links line up across the section whatever each one holds. */
+  @container vf-home (min-width: 58rem) {
+    .vf-home-today {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: auto minmax(14.125rem, 1fr) auto;
+      row-gap: 0;
+    }
+
+    .vf-home-part,
+    .vf-home-part--readings {
+      display: grid;
+      grid-column: auto;
+      grid-row: span 3;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: subgrid;
+      gap: 0;
+    }
+
+    .vf-home-part--readings > .vf-subhead,
+    .vf-home-part--readings .vf-home-facts,
+    .vf-home-part--readings .vf-home-readings-go {
+      grid-column: auto;
+      grid-row: auto;
+    }
+
+    .vf-home-part--readings > .vf-home-part-body {
+      display: block;
+    }
+
+    .vf-home-part--readings .vf-home-readings-go {
+      margin-top: 0.875rem;
+    }
+
+    .vf-home-part--readings > .vf-home-part-actions {
+      grid-column: auto;
+      grid-row: auto;
+      padding-top: var(--space-close);
+    }
+  }
+
+  /* III. Featured: a small heading over each rail. A rail's columns follow from
+     how many cards it holds, and a last row of one or two shares the row's width. */
+  .vf-home-rail-title {
+    margin-bottom: var(--space-close);
+    padding-bottom: 0.375rem;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+
+  .vf-home-rail .vf-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  @container vf-home (min-width: 40rem) {
+    .vf-home-rail .vf-grid--2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @container vf-home (min-width: 44rem) {
+    .vf-home-rail .vf-grid--3 {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .vf-home-rail .vf-grid--3 > li {
+      grid-column: span 2;
+    }
+
+    .vf-home-rail .vf-grid--3 > li:last-child:nth-child(3n + 1) {
+      grid-column: span 6;
+    }
+
+    .vf-home-rail .vf-grid--3 > li:last-child:nth-child(3n + 2),
+    .vf-home-rail .vf-grid--3 > li:nth-last-child(2):nth-child(3n + 1) {
+      grid-column: span 3;
+    }
+  }
+
+  /* Every surface on the page reads as one in the dark theme, too. */
+  html[data-theme="dark"] .vf-home-section .vf-card,
+  html[data-theme="dark"] .vf-home-section .vf-card:not(.vf-entry):hover {
+    border-color: var(--rule);
+    box-shadow: none;
+  }
+
+  html[data-theme="dark"] .vf-home-section .vf-entry.vf-card:hover,
+  html[data-theme="dark"] .vf-home-section .vf-entry.vf-card:focus-within {
+    border-color: var(--rule-control);
+    box-shadow: var(--card-lift);
+  }
+
+  /* IV. Two panels close the page. */
+  .vf-home-pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+
+  .vf-home-panel {
+    padding: 1.25rem 1.375rem 1.375rem;
+  }
+
+  @container vf-home (min-width: 44rem) {
+    .vf-home-pair {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .vf-home-panel {
+      padding: 1.5rem 1.75rem 1.625rem;
+    }
+  }
+
+  /* ---------- Account forms ----------
+     Log in, create account, password reset and verification share one column, one
+     field width and one rhythm: close from label to field, and the action right
+     under the fields. */
+  .vf-account {
+    width: 100%;
+    max-width: 26rem;
+    margin-inline: auto;
+    padding-bottom: var(--space-related);
+  }
+
+  .vf-account-head {
+    margin-bottom: 1.25rem;
+    text-align: center;
+  }
+
+  .vf-account-title {
+    font-size: var(--fs-section);
+    text-wrap: balance;
+  }
+
+  .vf-account-lede {
+    margin-top: 0.375rem;
+    font-family: var(--font-serif);
+    font-size: 1.1875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    text-wrap: pretty;
+  }
+
+  .vf-account-card {
+    padding: 1.25rem min(1.25rem, 5vw);
+    background: var(--surface-card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-control);
+  }
+
+  .vf-account-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0 1.25rem;
+    margin-top: 0.625rem;
+  }
+
+  .vf-account-links:has(> :only-child) {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .vf-account-links .vf-link-action {
+    padding-block: 0.25rem;
+  }
+
+  .vf-account-note {
+    margin-top: var(--space-close);
+    text-align: center;
+    text-wrap: pretty;
+  }
+
+  @media (min-width: 480px) {
+    .vf-account-card {
+      padding: 1.5rem;
+    }
+  }
+
+  .vf-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  /* Two short fields side by side where they fit; enlarged text stacks them. */
+  .vf-field-pair {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr));
+    gap: 1rem 0.75rem;
+  }
+
+  /* A password's Show control shares the label's line but follows the field in
+     the source, so the Tab key and a screen reader meet the field first. */
+  .vf-field-split {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    column-gap: 1rem;
+  }
+
+  .vf-field-split > .vf-label {
+    order: 1;
+  }
+
+  .vf-field-toggle {
+    order: 2;
+    margin-bottom: 0.375rem;
+    font-size: 0.8125rem;
+    cursor: pointer;
+  }
+
+  .vf-field-split > .vf-input {
+    order: 3;
+    flex: 0 0 100%;
+  }
+
+  .vf-field-split > .vf-field-error {
+    order: 4;
+    flex: 0 0 100%;
+  }
+
+  textarea.vf-input {
+    display: block;
+    resize: vertical;
+  }
+
+  .vf-input::placeholder {
+    color: var(--ink-faint);
+    opacity: 0.8;
+  }
+
+  /* A hint longer than a phone's field ends in an ellipsis, not a cut letter. */
+  .vf-input:placeholder-shown,
+  .vf-header-search-input:placeholder-shown {
+    text-overflow: ellipsis;
+  }
+
+  /* A journal entry is written in the type it will be read in. */
+  .vf-input-prose {
+    font-family: var(--font-serif);
+    font-size: 1.1875rem;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  .vf-input[aria-invalid="true"] {
+    border-color: var(--error-ink);
+  }
+
+  .vf-field-error {
+    margin-top: 0.375rem;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--error-ink);
+  }
+
+  .vf-form-note {
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--ink-faint);
+  }
+
+  .vf-btn-block {
+    width: 100%;
+  }
+
+  /* A notice or error in a form or at the top of a page. The word carries the
+     meaning; the rule and colour only help it be seen. */
+  .vf-notice {
+    padding: 0.625rem 0.875rem;
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    background: var(--surface-hover);
+    border: 1px solid var(--rule);
+    border-inline-start: 3px solid var(--link);
+    border-radius: var(--radius-control);
+    overflow-wrap: anywhere;
+  }
+
+  .vf-notice-error {
+    color: var(--error-ink);
+    border-inline-start-color: var(--error-ink);
+  }
+
+  /* An input's focus has to show on the charcoal page too, and its edge has to be
+     visible before it is focused. */
+  html[data-theme="dark"] .vf-input {
+    border-color: var(--rule-control);
+  }
+
+  html[data-theme="dark"] .vf-input:hover {
+    border-color: rgba(251, 248, 241, 0.42);
+  }
+
+  html[data-theme="dark"] .vf-input:focus {
+    border-color: var(--focus-ring);
+    box-shadow: 0 0 0 3px rgba(169, 193, 242, 0.22);
+  }
+
+  html[data-theme="dark"] .vf-input[aria-invalid="true"] {
+    border-color: var(--error-ink);
+  }
+
+  html[data-theme="dark"] .vf-input::placeholder {
+    color: var(--ink-faint);
+    opacity: 0.8;
+  }
+
+  html[data-theme="dark"] .vf-label {
+    color: var(--ink-soft);
+  }
+
+  /* ---------- Search ---------- */
+  .vf-mark {
+    color: inherit;
+    font-weight: 600;
+    background: var(--surface-hover);
+    border-radius: 2px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  /* In a line of metadata the weight alone is enough, or a word that appears in
+     both the title and the line beneath it would be marked twice over. */
+  .vf-entry-meta .vf-mark,
+  .vf-suggest-meta .vf-mark {
+    background: none;
+  }
+
+  /* A long query repeated back to the reader wraps, even if it is one word. */
+  .vf-results,
+  .vf-list-controls .vf-fineprint {
+    overflow-wrap: anywhere;
+  }
+
+  .vf-results {
+    width: 100%;
+    max-width: 46rem;
+    margin-inline: auto;
+  }
+
+  .vf-result-group + .vf-result-group {
+    margin-top: var(--space-related);
+  }
+
+  .vf-result-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .vf-result-head .vf-subhead {
+    margin-bottom: 0;
+  }
+
+  .vf-result-count {
+    font-family: var(--font-sans);
+    font-size: var(--fs-meta);
+    line-height: var(--lh-meta);
+    color: var(--ink-faint);
+  }
+
+  .vf-result-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: var(--surface-card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-control);
+  }
+
+  .vf-result {
+    position: relative;
+    padding: 0.75rem min(1.125rem, 5vw) 0.8125rem;
+    transition: background-color 160ms ease;
+  }
+
+  .vf-result + .vf-result {
+    border-top: 1px solid var(--rule);
+  }
+
+  .vf-result:hover {
+    background: var(--surface-hover);
+  }
+
+  .vf-result-title {
+    font-size: 1.3125rem;
+    line-height: 1.25;
+    overflow-wrap: break-word;
+    text-wrap: pretty;
+  }
+
+  .vf-result:hover .vf-entry-link {
+    color: var(--link);
+  }
+
+  .vf-result .vf-entry-meta {
+    margin-top: 0.125rem;
+  }
+
+  /* The header search's suggestion panel: its list scrolls, and the way to the
+     full results stays in view beneath it. */
+  .vf-suggest {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    width: 28rem;
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100dvh - var(--header-h) - 3.5rem);
+    margin-top: 0.375rem;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .vf-suggest-full {
+    left: 0;
+    width: auto;
+    max-width: none;
+  }
+
+  .vf-suggest-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .vf-suggest-group {
+    padding-block: 0.25rem;
+  }
+
+  .vf-suggest-group + .vf-suggest-group {
+    border-top: 1px solid var(--rule);
+  }
+
+  .vf-suggest-label {
+    padding: 0.5rem 1rem 0.125rem;
+  }
+
+  .vf-suggest-option {
+    display: block;
+    width: 100%;
+    padding: 0.4375rem 1rem 0.5rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+  }
+
+  .vf-suggest-option[aria-selected="true"] {
+    background: var(--surface-hover);
+    box-shadow: inset 3px 0 0 var(--link);
+  }
+
+  .vf-suggest-title {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.1875rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--ink);
+    overflow-wrap: break-word;
+  }
+
+  .vf-suggest-meta {
+    margin-top: 0.125rem;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: var(--lh-meta);
+    color: var(--ink-faint);
+    overflow-wrap: anywhere;
+  }
+
+  .vf-suggest-status {
+    padding: 0.75rem 1rem;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--ink-faint);
+    overflow-wrap: anywhere;
+  }
+
+  .vf-suggest-foot {
+    flex: none;
+    border-top: 1px solid var(--rule);
+  }
+
+  .vf-suggest-all {
+    display: block;
+    width: 100%;
+    padding: 0.5625rem 1rem;
+    text-align: left;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+  }
+
+  .vf-suggest-all:hover {
+    background: var(--surface-hover);
+  }
+
+  .vf-suggest-hint {
+    display: none;
+    padding: 0 1rem 0.5rem;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--ink-faint);
+  }
+
+  @media (min-width: 900px) and (min-height: 32rem) {
+    .vf-suggest-hint {
+      display: block;
+    }
+  }
+
+  /* The browser's clear control, quiet beside the field. */
+  .vf-header-search-input::-webkit-search-cancel-button,
+  .vf-input::-webkit-search-cancel-button {
+    filter: grayscale(1);
+    opacity: 0.7;
+    cursor: pointer;
+  }
+
+  /* The field beside the masthead's centred wordmark: it never reaches the mark,
+     whatever the window or the reader's text size. */
+  .vf-header-search-field {
+    width: min(20rem, calc(50vw - 14rem));
+    min-width: 8rem;
+  }
+
+  /* The phone's field, in its row under the bar. */
+  .vf-header-search-row {
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    padding: 0.625rem 1rem;
+    background: var(--paper-bright);
+    border-bottom: 1px solid var(--rule-strong);
+  }
+
+  @media (min-width: 40rem) {
+    .vf-header-search-row {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  /* ---------- Dialogs ---------- */
+  .vf-modal {
+    position: relative;
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    padding: 1.5rem;
+    border-color: var(--rule-strong);
+    border-radius: var(--radius-control);
+  }
+
+  .vf-modal:focus {
+    outline: none;
+  }
+
+  .vf-modal-narrow {
+    max-width: 23rem;
+  }
+
+  .vf-modal-title {
+    margin-bottom: 0.5rem;
+    font-size: var(--fs-subsection);
+    text-wrap: balance;
+  }
+
+  .vf-modal-body {
+    font-size: 1.1875rem;
+    font-weight: 500;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+  }
+
+  /* The close control sits in the corner, so the message keeps clear of it. */
+  .vf-modal-message {
+    padding-inline: min(1.5rem, 8vw);
+  }
+
+  .vf-modal-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+  }
+
+  .vf-modal-actions .vf-btn {
+    flex: 1 1 7rem;
+  }
+
+  .vf-modal-actions-stacked {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .vf-modal-actions-stacked .vf-btn {
+    flex: none;
+  }
+
+  .vf-login-popup-close {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-control);
+  }
+
+  .vf-link-danger {
+    overflow-wrap: anywhere;
+  }
+
+  html[data-theme="dark"] .vf-btn-ghost {
+    border-color: var(--rule-control);
+  }
+
+  /* The dark theme's translucent wash leaves the word too faint to read. */
+  html[data-theme="dark"] .vf-btn-danger {
+    background: #a93b47;
+    border-color: #a93b47;
+    color: #ffffff;
+  }
+
+  html[data-theme="dark"] .vf-btn-danger:hover:not(:disabled) {
+    background: #bd4a56;
+    border-color: #bd4a56;
+    color: #ffffff;
+  }
+
+  html[data-theme="dark"] .vf-link-danger {
+    color: var(--error-ink);
+  }
+
+  /* ---------- Messages: not found, something went wrong ---------- */
+  .vf-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-block: var(--space-related) var(--space-section);
+    text-align: center;
+  }
+
+  .vf-message .vf-page-hero {
+    padding-bottom: 1.25rem;
+  }
+
+  /* ---------- The profile ---------- */
+  .vf-column {
+    width: 100%;
+    max-width: 46rem;
+    margin-inline: auto;
+  }
+
+  .vf-profile-back {
+    margin-bottom: 0.25rem;
+  }
+
+  .vf-profile-back .vf-link-action {
+    padding-block: 0.25rem;
+  }
+
+  .vf-profile-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: var(--space-related);
+    text-align: center;
+  }
+
+  .vf-profile-hero .vf-avatar-wrapper {
+    margin-bottom: 0.75rem;
+  }
+
+  .vf-profile-hero .vf-page-hero-title {
+    overflow-wrap: anywhere;
+  }
+
+  .vf-profile-email {
+    margin-top: 0.25rem;
+    font-family: var(--font-sans);
+    font-size: var(--fs-meta);
+    line-height: var(--lh-meta);
+    color: var(--ink-faint);
+    overflow-wrap: anywhere;
+  }
+
+  .vf-profile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.875rem;
+  }
+
+  /* The photo stays round and the edit control may sit on its edge, with its
+     tooltip free to show. */
+  .vf-avatar {
+    width: 5.5rem;
+    height: 5.5rem;
+    font-size: 1.875rem;
+    overflow: visible;
+    border-color: var(--rule-strong);
+  }
+
+  .vf-avatar-img {
+    border-radius: inherit;
+  }
+
+  /* `.vf-tooltip` would make the control a flow item beside the initials,
+     pushing them off centre. */
+  .vf-avatar-edit.vf-tooltip {
+    position: absolute;
+    right: -2%;
+    bottom: -2%;
+  }
+
+  /* A touch screen has no hover, so the control has to show by itself. */
+  @media (hover: none) {
+    .vf-avatar-edit {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .vf-avatar-status {
+    max-width: 18rem;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .vf-avatar-status:empty {
+    display: none;
+  }
+
+  .vf-avatar-status-error,
+  html[data-theme="dark"] .vf-avatar-status-error {
+    color: var(--error-ink);
+  }
+
+  /* Three quiet panels, or one column where three would be cramped. */
+  .vf-dash-frame {
+    container-type: inline-size;
+  }
+
+  .vf-dash {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+
+  @container (min-width: 44rem) {
+    .vf-dash {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  /* A page's main action on the left and its filter or companion link on the
+     right, over a column of cards. An open form takes the whole row. */
+  .vf-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.625rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .vf-overdue {
+    font-weight: 500;
+    color: var(--error-ink);
+  }
+
+  /* The side padding stays modest on a phone with enlarged text, where every
+     pixel of the line is wanted. */
+  .vf-panel {
+    min-width: 0;
+    padding: 1.25rem min(1.375rem, 5vw);
+    background: var(--surface-card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-control);
+  }
+
+  .vf-panel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .vf-panel-text {
+    margin-top: 0.5rem;
+    font-family: var(--font-serif);
+    font-size: 1.1875rem;
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+  }
+
+  .vf-panel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.875rem;
+  }
+
+  /* A destructive text action standing among buttons takes their height, and
+     keeps its distance from them at the row's far end. */
+  .vf-panel-actions .vf-link-danger,
+  .vf-rows .vf-link-danger,
+  .vf-entry-foot .vf-link-danger {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    min-height: var(--control-h-sm);
+    padding-inline: 0.5rem;
+  }
+
+  .vf-panel-actions .vf-link-danger {
+    margin-inline-start: auto;
+  }
+
+  .vf-entry-foot .vf-link-danger {
+    padding-inline: 0;
+  }
+
+  .vf-panel-inset {
+    margin-top: 0.875rem;
+    padding: 1rem min(1rem, 4vw);
+    background: var(--surface-hover);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-control);
+  }
+
+  .vf-entry-foot {
+    margin-top: auto;
+    padding-top: 0.5rem;
+  }
+
+  .vf-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .vf-rows > li + li {
+    border-top: 1px solid var(--rule);
+  }
+
+  .vf-dash-link {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-block: 0.625rem;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--ink);
+    transition: color 160ms ease;
+  }
+
+  .vf-dash-link:hover {
+    color: var(--link);
+  }
+
+  .vf-dash-count {
+    flex: none;
+    font-family: var(--font-sans);
+    font-size: var(--fs-meta);
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+  }
+
+  /* A recorded item with its Remove control: name on the left, control on the
+     right, until enlarged text wants the room. */
+  .vf-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem 1rem;
+    padding: 0.625rem min(1.125rem, 5vw);
+  }
+
+  .vf-row-body {
+    flex: 1 1 10rem;
+    min-width: 0;
+  }
+
+  .vf-row-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.25;
+    overflow-wrap: break-word;
+  }
+
+  .vf-row .vf-panel-text {
+    margin-top: 0.125rem;
+    font-size: 1.0625rem;
+  }
+
+  /* A goal's checklist. */
+  .vf-checklist {
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--rule);
+  }
+
+  .vf-checklist > li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    column-gap: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* Words stay whole: with enlarged text the line takes the row, and the remove
+     control drops beneath it. */
+  .vf-check {
+    display: flex;
+    flex: 1 1 12rem;
+    align-items: flex-start;
+    gap: 0.625rem;
+    min-width: 0;
+    padding-block: 0.5625rem;
+    font-family: var(--font-serif);
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.35;
+    color: var(--ink-soft);
+    overflow-wrap: break-word;
+    cursor: pointer;
+  }
+
+  .vf-check input {
+    flex: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: 0.1875rem;
+    accent-color: var(--accent-fill);
+  }
+
+  .vf-check input:checked + span {
+    color: var(--ink-faint);
+    text-decoration: line-through;
+  }
+
+  .vf-check input:disabled {
+    cursor: default;
+  }
+
+  .vf-check:has(input:disabled) {
+    cursor: default;
+  }
+
+  .vf-icon-btn {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+    font-family: var(--font-sans);
+    font-size: 1.125rem;
+    line-height: 1;
+    color: var(--ink-faint);
+    border-radius: var(--radius-control);
+    cursor: pointer;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .vf-icon-btn:hover {
+    color: var(--error-ink);
+    background: var(--surface-hover);
+  }
+
+  .vf-add-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .vf-add-row .vf-btn {
+    flex: none;
+    min-width: var(--control-h-sm);
+    padding-inline: 0.5rem;
+    font-size: 1.125rem;
+    line-height: 1;
+  }
+
+  .vf-add-row .vf-input {
+    flex: 1 1 10rem;
+    width: auto;
+    min-width: 0;
+    min-height: var(--control-h-sm);
+  }
+
+  /* A chip that records something: once recorded it shows a tick and stays put. */
+  .vf-chip[aria-disabled="true"] {
+    cursor: default;
+  }
+
+  .vf-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  /* A journal entry's row of formatting marks, set in the type they produce. */
+  .vf-format-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-bottom: 0.375rem;
+  }
+
+  .vf-format-bar .vf-btn {
+    min-width: var(--control-h-sm);
+    padding-inline: 0.5rem;
+    font-family: var(--font-serif);
+    font-size: 1.0625rem;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* ---------- Daily readings and the liturgical calendar ---------- */
+  .vf-reading-meta {
+    margin-top: var(--space-close);
+    font-family: var(--font-sans);
+    font-size: var(--fs-meta);
+    line-height: var(--lh-meta);
+    color: var(--ink-faint);
+  }
+
+  .vf-reading-meta-next {
+    margin-top: 0.125rem;
+  }
+
+  /* A choice of Mass or of reading: a quiet label, then chips that wrap. */
+  .vf-mass-choices {
+    display: grid;
+    gap: var(--space-close);
+    margin-bottom: var(--space-related);
+    padding-block: var(--space-close);
+    border-block: 1px solid var(--rule);
+  }
+
+  .vf-choice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+  }
+
+  .vf-choice-label {
+    font-family: var(--font-sans);
+    font-size: var(--fs-label);
+    font-weight: 500;
+    line-height: var(--lh-meta);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .vf-choice-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .vf-choice-options .vf-chip {
+    text-align: left;
+  }
+
+  /* One reading: its name, its reference, its text, its note, each told apart. */
+  .vf-reading-section .vf-subhead,
+  .vf-reading-section .vf-subhead-sm {
+    margin-bottom: 0.125rem;
+  }
+
+  .vf-reading-section + .vf-reading-section {
+    padding-top: var(--space-related);
+    border-top: 1px solid var(--rule);
+  }
+
+  .vf-reading-ref {
+    margin-bottom: var(--space-close);
+    font-family: var(--font-sans);
+    font-size: var(--fs-meta);
+    font-weight: 500;
+    line-height: var(--lh-meta);
+    color: var(--ink-soft);
+  }
+
+  /* The hanging indent stops growing with enlarged text, or a phone would spend a
+     third of every line on it. */
+  .vf-reading-section .vf-prayer-line {
+    padding-left: min(1.25em, 4vw);
+    text-indent: calc(min(1.25em, 4vw) * -1);
+  }
+
+  .vf-reading-either {
+    margin-bottom: var(--space-close);
+  }
+
+  .vf-reading-response {
+    margin-bottom: var(--space-close);
+  }
+
+  .vf-reading-note {
+    margin-top: var(--space-close);
+  }
+
+  .vf-reading-notice {
+    margin-bottom: var(--space-related);
+    padding: 0.875rem 1.125rem;
+    font-family: var(--font-serif);
+    font-size: var(--fs-note);
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    background: var(--surface-card);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-control);
+  }
+
+  /* The calendar's contained result. The date and rite sit together, one height. */
+  .vf-calendar-panel {
+    margin-inline: auto;
+    /* The page opening's own space, minus what a panel straight below it doesn't need. */
+    margin-top: calc(var(--space-close) * -1);
+    max-width: 40rem;
+    /* Enlarged text scales rem, and on a phone the panel must not spend its width
+       on padding, so the padding stops growing with the text. */
+    padding: min(1.25rem, 5vw);
+    background: var(--surface-card);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-control);
+  }
+
+  @media (min-width: 40rem) {
+    .vf-calendar-panel {
+      padding: 1.75rem 2rem;
+    }
+  }
+
+  .vf-calendar-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-close) 1rem;
+  }
+
+  @media (min-width: 30rem) {
+    .vf-calendar-controls {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  /* A date field's own controls give it a wide minimum, which on a phone would
+     push the whole page sideways unless the field is told it may shrink. */
+  .vf-calendar-controls .vf-input {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    min-height: var(--control-h);
+    height: auto;
+    padding-inline: min(0.875rem, 3vw);
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .vf-calendar-controls select.vf-input {
+    padding-right: min(2.25rem, 9vw);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right min(0.875rem, 3vw) center;
+    background-size: 0.75rem;
+  }
+
+  .vf-calendar-result {
+    margin-top: var(--space-related);
+    padding-top: var(--space-related);
+    border-top: 1px solid var(--rule);
+  }
+
+  .vf-calendar-season {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .vf-swatch {
+    flex-shrink: 0;
+    width: 0.875rem;
+    height: 0.875rem;
+    border: 1px solid var(--rule-control);
+    border-radius: 50%;
+  }
+
+  .vf-calendar-title {
+    margin-top: 0.25rem;
+    font-size: var(--fs-subsection);
+    text-wrap: balance;
+  }
+
+  .vf-calendar-date {
+    margin-top: 0.25rem;
+    font-family: var(--font-serif);
+    font-size: var(--fs-note);
+    font-style: italic;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ink-soft);
+  }
+
+  .vf-calendar-links {
+    margin-top: var(--space-related);
+  }
+
+  .vf-calendar-links-title {
+    margin-bottom: 0.5rem;
+  }
+
+  .vf-calendar-links-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .vf-calendar-rite-note {
+    margin-top: var(--space-related);
+    padding-top: var(--space-close);
+    border-top: 1px solid var(--rule);
   }
 
   /* ---------- Loading placeholders ---------- */
@@ -2203,6 +4287,22 @@
     background: var(--btn-blue);
     border-color: var(--btn-blue);
     color: #ffffff;
+  }
+
+  /* Pointing at a pressed control leaves it pressed: without these the outlined
+     button's hover took its blue away and left its white label on the paper. */
+  .vf-btn-ghost[aria-pressed="true"]:hover:not(:disabled),
+  .vf-btn-ghost[aria-current="true"]:hover:not(:disabled),
+  .vf-btn-ghost[aria-current="page"]:hover:not(:disabled) {
+    background: var(--action-blue-hover);
+    border-color: var(--action-blue-hover);
+  }
+
+  html[data-theme="dark"] .vf-btn-ghost[aria-pressed="true"]:hover:not(:disabled),
+  html[data-theme="dark"] .vf-btn-ghost[aria-current="true"]:hover:not(:disabled),
+  html[data-theme="dark"] .vf-btn-ghost[aria-current="page"]:hover:not(:disabled) {
+    background: var(--btn-blue-hover);
+    border-color: var(--btn-blue-hover);
   }
 
   html[data-theme="dark"] .vf-nav-link-active,
@@ -2228,55 +4328,1158 @@
     color: #ffffff;
   }
 
-  /* History timeline slider — restrained, on-brand. Inherits the same
-     ink/paper palette so it reads identically on light + dark modes. */
+  /* ================================================================
+     Church history: the control panel and the timeline. Layout inside both
+     follows from a container query in rem, so a phone, a narrow window and
+     enlarged text all arrive at the same arrangements by the same rules.
+     ================================================================ */
+
+  .vf-history {
+    /* The card surface as a solid color, for what must hide the rows beneath it. */
+    --sheet: #fffdf7;
+    --zone-x: clamp(0.875rem, 2.2vw, 1.25rem);
+    /* The opening stays short, so the events appear on the first screen. */
+    margin-top: -0.75rem;
+    /* Cormorant's old-style 1 reads as a small capital I: "1,529" as "I,529", "1st"
+       as "Ist". On a page this full of dates, every figure stands at full height. */
+    font-variant-numeric: lining-nums;
+  }
+
+  html[data-theme="dark"] .vf-history {
+    --sheet: #363636;
+  }
+
+  html[data-theme="dark"] .vf-history .vf-filter-active .vf-history-era-count {
+    opacity: 1;
+  }
+
+  .vf-history .vf-page-hero {
+    padding-bottom: 0.875rem;
+  }
+
+  .vf-history .vf-page-hero-lede {
+    margin-top: 0.375rem;
+    max-width: 58rem;
+    text-wrap: balance;
+  }
+
+  /* The search's placeholder is the only words a sighted reader sees for it. */
+  .vf-history .vf-input::placeholder {
+    color: var(--ink-faint);
+    opacity: 0.85;
+  }
+
+  /* ---------- The control panel ---------- */
+  .vf-history-panel {
+    /* Above the list, because its menus open over it. */
+    z-index: 5;
+    container: history-panel / inline-size;
+    background: var(--surface-card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-control);
+  }
+
+  .vf-history-zone {
+    padding: 0.5625rem var(--zone-x);
+  }
+
+  .vf-history-zone + .vf-history-zone {
+    border-top: 1px solid var(--rule);
+  }
+
+  /* Finding and filtering, on one row where they fit. */
+  .vf-history-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem 0.75rem;
+  }
+
+  .vf-history-tools-end {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-left: auto;
+  }
+
+  /* A native disclosure dressed as the site's dropdown. */
+  .vf-history-menu {
+    position: relative;
+  }
+
+  .vf-history-menu > summary,
+  .vf-history-eras-fold > summary {
+    min-height: var(--control-h);
+    list-style: none;
+    user-select: none;
+  }
+
+  .vf-history-menu > summary::-webkit-details-marker,
+  .vf-history-eras-fold > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .vf-history-menu > summary::after,
+  .vf-history-eras-fold > summary::after {
+    content: "";
+    flex-shrink: 0;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    margin: -0.1875rem 0.125rem 0 0.125rem;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 160ms ease;
+  }
+
+  .vf-history-menu[open] > summary::after,
+  .vf-history-eras-fold[open] > summary::after {
+    margin-top: 0.1875rem;
+    transform: rotate(-135deg);
+  }
+
+  /* A closed disclosure's content still keeps a box in some browsers. These two
+     need no finding by the browser's Find, so they give it up entirely. */
+  .vf-history-menu:not([open]) > .vf-menu,
+  .vf-history-eras-fold:not([open]) > nav {
+    display: none;
+  }
+
+  .vf-history-menu > .vf-menu {
+    position: absolute;
+    top: calc(100% + 0.375rem);
+    left: 0;
+    z-index: 30;
+    width: 17rem;
+    max-width: calc(100cqw - 2 * var(--zone-x));
+    margin: 0;
+    list-style: none;
+  }
+
+  /* Two labelled choices, joined: both are always in view and the blue one is
+     the order in effect. */
+  .vf-history-order {
+    display: inline-flex;
+  }
+
+  .vf-history-order .vf-chip {
+    min-height: var(--control-h);
+    white-space: nowrap;
+  }
+
+  .vf-history-order .vf-chip:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .vf-history-order .vf-chip:last-child {
+    margin-left: -1px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+
+  /* Once the search takes a row of its own, the filter and order fill the next. */
+  @container history-panel (max-width: 44rem) {
+    .vf-history-tools-end {
+      width: 100%;
+      margin-left: 0;
+    }
+
+    .vf-history-menu,
+    .vf-history-order {
+      flex: 1 1 auto;
+    }
+
+    .vf-history-menu > summary {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .vf-history-order .vf-chip {
+      flex: 1 1 50%;
+    }
+  }
+
+  /* Enlarged text on a phone: the two choices wrap rather than push the page wide,
+     and the panel gives its margins to the text. */
+  @container history-panel (max-width: 20rem) {
+    .vf-history-zone {
+      padding-inline: 0.5rem;
+    }
+
+    .vf-history-order {
+      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    .vf-history-order .vf-chip {
+      padding-inline: 0.5rem;
+      white-space: normal;
+    }
+
+    .vf-history-eras-fold > summary > .vf-chip-count {
+      display: none;
+    }
+  }
+
+  /* ---------- The era choices ----------
+     Twelve cells: at one, two, three or four columns, none is ever stranded. */
+  .vf-history-eras {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 13.5rem), 1fr));
+    gap: 0.375rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .vf-history-eras > li {
+    display: flex;
+    min-width: 0;
+  }
+
+  /* A long name that wraps makes its whole row taller; the years and counts stay
+     aligned along the row's lower edge. */
+  .vf-history-era {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 1fr auto;
+    column-gap: 0.75rem;
+    width: 100%;
+    padding: 0.3125rem 0.6875rem 0.375rem;
+    color: var(--ink);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-control);
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease;
+  }
+
+  a.vf-history-era:hover {
+    background: var(--surface-hover);
+    border-color: var(--ink);
+  }
+
+  a.vf-history-era.vf-filter-active:hover {
+    background: var(--accent-fill-hover);
+    border-color: var(--accent-fill-hover);
+  }
+
+  .vf-history-era-name {
+    grid-column: 1 / -1;
+    font-family: var(--font-display);
+    font-size: 1.1875rem;
+    font-weight: 600;
+    line-height: 1.15;
+  }
+
+  .vf-history-era-years,
+  .vf-history-era-count {
+    font-family: var(--font-sans);
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .vf-history-era-years {
+    font-size: 0.8125rem;
+    color: var(--ink-faint);
+  }
+
+  /* The count is the quietest thing in the cell. */
+  .vf-history-era-count {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--ink-faint);
+    opacity: 0.82;
+  }
+
+  /* The class order would otherwise leave the selected cell's text dark. */
+  .vf-history-era.vf-filter-active {
+    color: var(--on-accent);
+  }
+
+  .vf-filter-active .vf-history-era-years,
+  .vf-filter-active .vf-history-era-count {
+    color: inherit;
+  }
+
+  .vf-filter-active .vf-history-era-count {
+    opacity: 0.88;
+  }
+
+  /* An era with nothing under these filters is information, not a choice. */
+  .vf-history-era-empty {
+    color: var(--ink-faint);
+    border-color: var(--rule);
+    background: transparent;
+  }
+
+  .vf-history-era-empty .vf-history-era-name {
+    font-weight: 500;
+  }
+
+  .vf-history-eras-fold {
+    display: none;
+  }
+
+  /* On a phone the grid folds into one line, so the events appear soon. */
+  @container history-panel (max-width: 34rem) {
+    .vf-history-eras-grid {
+      display: none;
+    }
+
+    .vf-history-eras-fold {
+      display: block;
+    }
+
+    .vf-history-eras-fold > summary {
+      display: flex;
+      width: 100%;
+      justify-content: flex-start;
+      text-align: left;
+    }
+
+    .vf-history-eras-fold > summary > .vf-chip-count {
+      margin-left: auto;
+    }
+
+    .vf-history-fold-label {
+      color: var(--ink-faint);
+      font-weight: 400;
+    }
+
+    .vf-history-eras-fold .vf-history-eras {
+      margin-top: 0.5rem;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.25rem;
+    }
+  }
+
+  /* In the fold, one line to an era where text size leaves room for it. */
+  @container history-panel (min-width: 19rem) and (max-width: 34rem) {
+    .vf-history-eras-fold .vf-history-era {
+      grid-template-columns: minmax(0, 1fr) auto 2.375rem;
+      grid-template-rows: auto;
+      align-items: baseline;
+      column-gap: 0.625rem;
+      min-height: var(--control-h);
+      padding-block: 0.4375rem;
+    }
+
+    .vf-history-eras-fold .vf-history-era-name {
+      grid-column: auto;
+    }
+
+    .vf-history-eras-fold .vf-history-era-count {
+      text-align: right;
+    }
+  }
+
+  /* ---------- The year ----------
+     On a phone: the readout beside the typed box, then the slider. Where there
+     is room, all three share one row, the slider in the middle. */
+  .vf-history-year {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "readout goto"
+      "slider slider";
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+  }
+
+  .vf-history-readout {
+    grid-area: readout;
+    min-width: 0;
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--ink-soft);
+  }
+
+  .vf-history-readout-year {
+    font-size: 1.5rem;
+    color: var(--ink);
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .vf-history-goto {
+    grid-area: goto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  /* The field's hint says "Year" where the words would not fit beside it. */
+  .vf-history-goto label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .vf-history-goto .vf-input {
+    width: 4.75rem;
+    min-height: var(--control-h-sm);
+    padding: 0.25rem 0.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Enlarged text or the narrowest phones: one thing to a row. */
+  @container history-panel (max-width: 20rem) {
+    .vf-history-year {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        "readout"
+        "slider"
+        "goto";
+    }
+  }
+
+  @container history-panel (min-width: 52rem) {
+    .vf-history-year {
+      grid-template-columns: 13.75rem minmax(0, 1fr) auto;
+      grid-template-areas: "readout slider goto";
+      gap: 0 1.25rem;
+    }
+
+    .vf-history-goto label {
+      position: static;
+      width: auto;
+      height: auto;
+      overflow: visible;
+      clip-path: none;
+      font-family: var(--font-sans);
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.25;
+      color: var(--ink-soft);
+    }
+  }
+
+  /* The slider's labels: a few fixed years that can never collide, and unlabelled
+     ticks where the eras turn. --p is a position from 0 to 1 along the track; the
+     thumb's centre travels only between half its width from either end, and the
+     same sum keeps every mark under it. */
+  .vf-history-slider-wrap {
+    --thumb: 1.375rem;
+    position: relative;
+    grid-area: slider;
+    padding-bottom: 1.25rem;
+  }
+
   .vf-history-slider {
+    display: block;
+    width: 100%;
+    height: 2rem;
+    margin: 0;
     appearance: none;
     -webkit-appearance: none;
-    height: 4px;
-    border-radius: 9999px;
-    background: rgba(0, 0, 0, 0.1);
-    outline: none;
+    background: transparent;
     cursor: pointer;
+    /* A finger moving up the page scrolls it; moving along the track moves the thumb. */
+    touch-action: pan-y;
   }
+
   .vf-history-slider:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 4px;
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
   }
+
+  .vf-history-slider::-webkit-slider-runnable-track {
+    height: 0.1875rem;
+    border-radius: 2px;
+    background: linear-gradient(
+      to right,
+      var(--accent-fill) calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p)),
+      var(--rule-control) 0
+    );
+  }
+
+  .vf-history-slider::-moz-range-track {
+    height: 0.1875rem;
+    border-radius: 2px;
+    background: var(--rule-control);
+  }
+
+  .vf-history-slider::-moz-range-progress {
+    height: 0.1875rem;
+    border-radius: 2px;
+    background: var(--accent-fill);
+  }
+
   .vf-history-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    height: 18px;
-    width: 18px;
+    width: var(--thumb);
+    height: var(--thumb);
+    margin-top: calc((0.1875rem - var(--thumb)) / 2);
+    background: var(--accent-fill);
+    border: 3px solid var(--paper-bright);
     border-radius: 50%;
-    background: var(--ink, #1a1a1a);
-    border: 2px solid var(--paper, #fdfaf3);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-    cursor: pointer;
-    transition: transform 0.12s ease;
+    box-shadow:
+      0 0 0 1px var(--accent-fill),
+      0 1px 4px rgb(var(--ink-rgb) / 0.3);
+    cursor: grab;
   }
-  .vf-history-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.1);
-  }
+
   .vf-history-slider::-moz-range-thumb {
-    height: 18px;
-    width: 18px;
+    box-sizing: border-box;
+    width: var(--thumb);
+    height: var(--thumb);
+    background: var(--accent-fill);
+    border: 3px solid var(--paper-bright);
     border-radius: 50%;
-    background: var(--ink, #1a1a1a);
-    border: 2px solid var(--paper, #fdfaf3);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    box-shadow:
+      0 0 0 1px var(--accent-fill),
+      0 1px 4px rgb(var(--ink-rgb) / 0.3);
+    cursor: grab;
+  }
+
+  .vf-history-slider:active::-webkit-slider-thumb {
+    cursor: grabbing;
+  }
+
+  .vf-history-slider:active::-moz-range-thumb {
+    cursor: grabbing;
+  }
+
+  .vf-history-scale {
+    position: absolute;
+    top: 1.25rem;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    pointer-events: none;
+  }
+
+  .vf-history-tick {
+    position: absolute;
+    top: 0;
+    left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p));
+    width: 1px;
+    height: 0.3125rem;
+    background: var(--rule-control);
+  }
+
+  .vf-history-anchor {
+    position: absolute;
+    top: 0.5625rem;
+    left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p));
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+    transform: translateX(-50%);
+  }
+
+  .vf-history-anchor::before {
+    content: "";
+    position: absolute;
+    top: -0.5625rem;
+    left: 50%;
+    width: 1px;
+    height: 0.4375rem;
+    background: var(--ink-faint);
+  }
+
+  /* The two ends sit inside the track, with their ticks still under the thumb. */
+  .vf-history-anchor-start {
+    left: 0;
+    transform: none;
+  }
+
+  .vf-history-anchor-start::before {
+    left: calc(var(--thumb) / 2);
+  }
+
+  .vf-history-anchor-end {
+    right: 0;
+    left: auto;
+    transform: none;
+  }
+
+  .vf-history-anchor-end::before {
+    right: calc(var(--thumb) / 2);
+    left: auto;
+  }
+
+  /* Enlarged text keeps the ends and the middle; five labels would run together. */
+  @container history-panel (max-width: 16rem) {
+    .vf-history-anchor-minor {
+      display: none;
+    }
+  }
+
+  /* Nothing can read a slider when no script is running; the typed year works. */
+  @media (scripting: none) {
+    .vf-history-slider-wrap {
+      display: none;
+    }
+  }
+
+  /* ---------- The timeline ---------- */
+  .vf-timeline-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.125rem 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .vf-timeline-status {
+    font-family: var(--font-sans);
+    font-size: var(--fs-meta);
+    line-height: var(--lh-meta);
+    color: var(--ink-faint);
+  }
+
+  .vf-timeline-status:focus {
+    outline: none;
+  }
+
+  .vf-timeline {
+    container: history-list / inline-size;
+    transition: opacity 160ms ease;
+  }
+
+  /* The old list stays while the next is on its way; a short wait shows nothing. */
+  .vf-timeline[data-pending] {
+    opacity: 0.55;
+    transition-delay: 120ms;
+  }
+
+  /* Each era is a sheet of its own. */
+  .vf-timeline-era {
+    margin-top: var(--space-related);
+    padding: 0 var(--zone-x) 0.75rem;
+    background: var(--surface-card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-control);
+  }
+
+  .vf-timeline-era:first-child {
+    margin-top: 0.5rem;
+  }
+
+  .vf-timeline-era-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0 1rem;
+    padding-block: 0.5rem 0.375rem;
+    background: var(--sheet);
+    border-bottom: 1px solid var(--rule-strong);
+  }
+
+  .vf-timeline-era-title {
+    font-size: clamp(1.625rem, 1.5rem + 0.5vw, 1.875rem);
+    overflow-wrap: break-word;
+    text-wrap: balance;
+  }
+
+  .vf-timeline-era-title:focus {
+    outline: none;
+  }
+
+  .vf-timeline-era-meta {
+    font-family: var(--font-sans);
+    font-size: var(--fs-meta);
+    line-height: var(--lh-meta);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+  }
+
+  .vf-timeline-century {
+    --tl-rail: 1.25rem;
+    --tl-title-x: var(--tl-rail);
+    --tl-rail-x: calc(var(--tl-rail) / 2);
+    --tl-stick: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .vf-timeline-century + .vf-timeline-century {
+    margin-top: 0.875rem;
+  }
+
+  /* A century: its name in the title's column, and a hairline on to the edge. */
+  .vf-timeline-century-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-left: var(--tl-title-x);
+    font-size: 1.25rem;
+    font-style: italic;
+    line-height: 1.25;
+    color: var(--ink-soft);
+  }
+
+  .vf-timeline-century-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  .vf-timeline-list {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* The rail, drawn row by row, so it can run from the first marker to the last
+     and on through the details of a last row that is open. */
+  .vf-timeline-list > li {
+    position: relative;
+  }
+
+  .vf-timeline-list > li::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--tl-rail-x) - 0.5px);
+    width: 1px;
+    background: var(--rule-strong);
+  }
+
+  .vf-timeline-list > li:first-child::before {
+    top: 1.25rem;
+  }
+
+  .vf-timeline-list > li:last-child:not(:has(> details[open]))::before {
+    bottom: auto;
+    height: 1.25rem;
+  }
+
+  .vf-timeline-list > li:only-child:not(:has(> details[open]))::before {
+    display: none;
+  }
+
+  .vf-timeline-anchor {
+    display: block;
+    scroll-margin-top: var(--tl-stick);
+  }
+
+  .vf-timeline-event {
+    scroll-margin-top: var(--tl-stick);
+  }
+
+  /* Where the browser can animate a disclosure's height, a row opens rather than
+     jumps. Everywhere else it simply opens, and Reduce Motion stops the transition. */
+  @supports selector(::details-content) and (interpolate-size: allow-keywords) {
+    .vf-timeline-event {
+      interpolate-size: allow-keywords;
+    }
+
+    .vf-timeline-event::details-content {
+      block-size: 0;
+      overflow: clip;
+      opacity: 0;
+      transition:
+        block-size 200ms ease,
+        opacity 200ms ease,
+        content-visibility 200ms allow-discrete;
+    }
+
+    .vf-timeline-event[open]::details-content {
+      block-size: auto;
+      opacity: 1;
+    }
+  }
+
+  /* On a phone: marker on the rail, the date above the title with the kind and the
+     chevron beside it, and the whole width below for the title. */
+  .vf-timeline-summary {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--tl-rail) minmax(0, auto) minmax(0, 1fr) 1.25rem;
+    grid-template-areas:
+      "marker date kind chevron"
+      "marker title title title";
+    column-gap: 0.625rem;
+    padding-block: 0.5625rem;
+    list-style: none;
     cursor: pointer;
+    border-radius: 2px;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 140ms ease;
   }
-  html[data-theme="dark"] .vf-history-slider {
-    background: rgba(255, 255, 255, 0.15);
+
+  .vf-timeline-summary::-webkit-details-marker {
+    display: none;
   }
-  html[data-theme="dark"] .vf-history-slider::-webkit-slider-thumb {
-    background: var(--text-main, #e7e3d6);
-    border-color: var(--ink, #1a1a1a);
+
+  .vf-timeline-summary:hover {
+    background: var(--surface-hover);
   }
-  html[data-theme="dark"] .vf-history-slider::-moz-range-thumb {
-    background: var(--text-main, #e7e3d6);
-    border-color: var(--ink, #1a1a1a);
+
+  .vf-timeline-summary:focus-visible {
+    outline-offset: 0;
+  }
+
+  /* The marker, on the rail beside the first line. */
+  .vf-timeline-summary::before {
+    content: "";
+    position: relative;
+    z-index: 1;
+    grid-area: marker;
+    align-self: start;
+    justify-self: center;
+    width: 0.5625rem;
+    height: 0.5625rem;
+    margin-top: 0.4rem;
+    background: var(--sheet);
+    border: 1.5px solid var(--ink-faint);
+    border-radius: 50%;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease;
+  }
+
+  .vf-timeline-summary:hover::before {
+    border-color: var(--link);
+  }
+
+  .vf-timeline-event[open] > .vf-timeline-summary::before,
+  .vf-timeline-current::before {
+    background: var(--accent-fill);
+    border-color: var(--accent-fill);
+  }
+
+  /* The chevron says the row opens. */
+  .vf-timeline-summary::after {
+    content: "";
+    grid-area: chevron;
+    align-self: start;
+    justify-self: end;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    margin: 0.4375rem 0.3125rem 0 0;
+    border-right: 1.5px solid var(--ink-faint);
+    border-bottom: 1.5px solid var(--ink-faint);
+    transform: translateY(-20%) rotate(45deg);
+    transition: transform 160ms ease;
+  }
+
+  .vf-timeline-event[open] > .vf-timeline-summary::after {
+    transform: translateY(20%) rotate(-135deg);
+  }
+
+  .vf-timeline-date {
+    grid-area: date;
+    font-family: var(--font-sans);
+    font-size: var(--fs-meta);
+    line-height: var(--lh-meta);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+  }
+
+  .vf-timeline-title {
+    grid-area: title;
+    min-width: 0;
+    font-family: var(--font-display);
+    font-size: 1.3125rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--ink);
+    overflow-wrap: break-word;
+    text-wrap: pretty;
+    transition: color 140ms ease;
+  }
+
+  .vf-timeline-summary:hover .vf-timeline-title {
+    color: var(--link);
+  }
+
+  .vf-timeline-kind {
+    grid-area: kind;
+    align-self: baseline;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    line-height: var(--lh-meta);
+    color: var(--ink-faint);
+  }
+
+  /* The row a year or a link landed on. */
+  .vf-timeline-current {
+    background: var(--surface-hover);
+  }
+
+  /* The details line up with the title, at reading size and width. */
+  .vf-timeline-body {
+    padding: 0.125rem 0.75rem 1.125rem calc(var(--tl-title-x) + 0.625rem);
+    font-family: var(--font-serif);
+    font-size: 1.1875rem;
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+
+  .vf-timeline-body > * {
+    max-width: var(--measure);
+  }
+
+  .vf-timeline-body h4 {
+    margin-top: 0.75rem;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0;
+    color: var(--ink-faint);
+  }
+
+  .vf-timeline-body > :first-child {
+    margin-top: 0;
+  }
+
+  .vf-timeline-excerpt {
+    margin-top: 0.75rem;
+    white-space: pre-wrap;
+  }
+
+  .vf-timeline-fact > span {
+    margin-right: 0.375rem;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink-faint);
+  }
+
+  .vf-timeline-body ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.125rem 1.125rem;
+    margin: 0.125rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .vf-timeline-body li {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* The serif's arrow is drawn for display sizes; the sans sits with the text. */
+  .vf-timeline-body a > [aria-hidden] {
+    font-family: var(--font-sans);
+    font-size: 0.75em;
+  }
+
+  /* Enlarged text on a phone: every margin goes to the words. */
+  @container history-list (max-width: 20rem) {
+    .vf-timeline-era {
+      padding-inline: 0.5rem;
+    }
+
+    .vf-timeline-century {
+      --tl-rail: 0.75rem;
+    }
+
+    .vf-timeline-summary {
+      column-gap: 0.375rem;
+    }
+
+    .vf-timeline-body {
+      padding-right: 0;
+      padding-left: calc(var(--tl-title-x) + 0.375rem);
+    }
+  }
+
+  /* From tablet width: a date column, the rail, then the title. */
+  @container history-list (min-width: 42rem) {
+    .vf-timeline-century {
+      /* Wide enough for "24 September 1046" on one line. */
+      --tl-date: 9.75rem;
+      --tl-rail: 2rem;
+      --tl-title-x: calc(var(--tl-date) + var(--tl-rail));
+      --tl-rail-x: calc(var(--tl-date) + var(--tl-rail) / 2);
+    }
+
+    .vf-timeline-summary {
+      grid-template-columns: var(--tl-date) var(--tl-rail) minmax(0, 1fr) auto 1.5rem;
+      grid-template-areas: "date marker title kind chevron";
+      align-items: baseline;
+      column-gap: 0;
+      padding-block: 0.5rem;
+    }
+
+    .vf-timeline-summary::before,
+    .vf-timeline-summary::after {
+      margin-top: 0.5rem;
+    }
+
+    .vf-timeline-date {
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .vf-timeline-kind {
+      padding-left: 1rem;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .vf-timeline-body {
+      padding-right: 1.5rem;
+      padding-left: var(--tl-title-x);
+    }
+  }
+
+  /* Era headings stay in view where there is room for them. Enlarged text leaves
+     the container narrow in rem, so it never gets a heading that eats the screen. */
+  @media (min-height: 40rem) {
+    @container history-list (min-width: 56rem) {
+      .vf-timeline-era-head {
+        position: sticky;
+        /* Its top padding may slide under the header's edge, never a gap above. */
+        top: calc(var(--header-h) - 0.5rem);
+        z-index: 2;
+      }
+
+      .vf-timeline-century {
+        --tl-stick: 2.75rem;
+      }
+    }
+  }
+
+  .vf-timeline-empty {
+    margin-top: var(--space-close);
+    padding: 2rem 1.5rem;
+    text-align: center;
+    background: var(--surface-card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-control);
+  }
+
+  .vf-timeline-empty-message {
+    font-family: var(--font-serif);
+    font-size: var(--fs-lede);
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    overflow-wrap: anywhere;
+  }
+
+  .vf-timeline-empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  /* Windows High Contrast drops the blue fill, so selection gets an outline. */
+  @media (forced-colors: active) {
+    .vf-history-panel [aria-current] {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
+    }
+  }
+
+  .vf-history-pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    margin-top: var(--space-related);
+  }
+
+  .vf-history-pager ol {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.375rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .vf-history-pager .vf-chip {
+    min-width: 2.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .vf-history-pager li .vf-chip {
+    padding-inline: 0.5rem;
+  }
+
+  /* Where the row will not hold them all: the numbers on one line, Previous and
+     Next below them, so each stays where the thumb expects it. */
+  @container history-list (max-width: 34rem) {
+    .vf-history-pager ol {
+      order: -1;
+      flex-basis: 100%;
+    }
+  }
+
+  .vf-history-pager-gap {
+    align-self: center;
+    padding-inline: 0.25rem;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    color: var(--ink-faint);
+  }
+
+  /* The eras on either side, at the foot of an era's list. */
+  .vf-history-era-steps {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: var(--space-related);
+  }
+
+  .vf-history-era-step {
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem 1rem 0.8125rem;
+    background: var(--surface-card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-control);
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .vf-history-era-step:hover {
+    border-color: var(--rule-control);
+    box-shadow: var(--card-lift);
+  }
+
+  .vf-history-era-step-end {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .vf-history-era-step-label,
+  .vf-history-era-step-years {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--ink-faint);
+  }
+
+  .vf-history-era-step-years {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .vf-history-era-step-name {
+    margin-block: 0.125rem;
+    font-family: var(--font-display);
+    font-size: 1.3125rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--link);
   }
 }
 

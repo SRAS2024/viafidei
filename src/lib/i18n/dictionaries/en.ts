@@ -62,6 +62,10 @@ const home: Dict = {
   "home.ql.confession": "A guide to Confession",
   "home.ql.parish": "Find a parish",
   "home.featured.title": "Featured prayers",
+  "home.featured.section": "Featured",
+  "home.featured.saints": "Saints",
+  "home.featured.devotions": "Devotions",
+  "home.featured.novenas": "Novenas",
   "home.newcomer.title": "New to the faith?",
   "home.newcomer.body":
     "A calm, step-by-step introduction to prayer, the sacraments, and the life of grace.",
@@ -500,7 +504,7 @@ const admin: Dict = {
 const footer: Dict = {
   "footer.copy": "Via Fidei — a reverent, private Catholic companion.",
   "footer.canonical": "etviafidei.com",
-  "footer.copyright": "© 2025 Via Fidei. All rights reserved.",
+  "footer.copyright": "© {year} Via Fidei. All rights reserved.",
   "footer.privacy": "Privacy policy",
 };
 
@@ -544,6 +548,8 @@ const common: Dict = {
   "common.create": "Create",
   "common.confirm": "Confirm",
   "common.close": "Close",
+  "common.open": "Open",
+  "common.skipToContent": "Skip to content",
   "common.notFound": "Not found",
   "common.notFoundBody": "This page doesn't exist or has been removed.",
   "common.backToList": "Back to list",

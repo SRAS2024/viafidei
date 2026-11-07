@@ -52,7 +52,14 @@ export function HeaderNavClient({ entries }: Props) {
       if (navRef.current && target && !navRef.current.contains(target)) setOpenKey(null);
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpenKey(null);
+      if (event.key !== "Escape") return;
+      // A link in the menu is about to leave the page, and focus would fall to the
+      // top of the document, so it goes back to the chevron that opened the menu.
+      const nav = navRef.current;
+      if (nav?.contains(document.activeElement)) {
+        nav.querySelector<HTMLButtonElement>('button[aria-expanded="true"]')?.focus();
+      }
+      setOpenKey(null);
     }
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -92,20 +99,21 @@ export function HeaderNavClient({ entries }: Props) {
           { href: entry.href, label: entry.label },
           ...entry.items,
         ];
+        const menuId = `nav-menu-${entry.key.replace(/\W+/g, "-")}`;
         return (
-          // The container's hover/focus only reveals the submenu as an
-          // enhancement; the real controls (the section link + the chevron
-          // button) are focusable and fully keyboard-operable, so the wrapper
-          // needs no interactive role of its own.
+          // The container's hover only reveals the submenu as an enhancement; the
+          // real controls (the section link + the chevron button) are focusable and
+          // fully keyboard-operable, so the wrapper needs no interactive role of its
+          // own.
           // eslint-disable-next-line jsx-a11y/no-static-element-interactions
           <div
             key={entry.key}
             className="relative inline-flex items-center"
-            // Desktop: hover opens the menu (standard mega-menu behavior);
-            // keyboard focus opens it too, and blurring away closes it.
+            // Desktop: hover opens the menu (standard mega-menu behavior). The
+            // keyboard and screen readers open it with the chevron, so moving along
+            // the tabs does not stop at every submenu on the way. Leaving closes it.
             onMouseEnter={() => setOpenKey(entry.key)}
             onMouseLeave={() => setOpenKey((k) => (k === entry.key ? null : k))}
-            onFocus={() => setOpenKey(entry.key)}
             onBlur={(e) => {
               if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
                 setOpenKey((k) => (k === entry.key ? null : k));
@@ -123,11 +131,11 @@ export function HeaderNavClient({ entries }: Props) {
             </Link>
             <button
               type="button"
-              aria-haspopup="menu"
               aria-expanded={open}
+              aria-controls={menuId}
               aria-label={`${entry.label} submenu`}
               onClick={() => setOpenKey(open ? null : entry.key)}
-              className="vf-nav-link !px-1"
+              className="vf-nav-link vf-nav-caret"
             >
               <Chevron open={open} />
             </button>
@@ -135,27 +143,26 @@ export function HeaderNavClient({ entries }: Props) {
               // `pt-2` (not `mt-2`) keeps the hoverable area contiguous with the
               // tab so the menu doesn't close while the pointer crosses the gap.
               <div
-                role="menu"
-                aria-label={entry.label}
+                id={menuId}
                 className="absolute left-1/2 top-full z-50 w-56 -translate-x-1/2 pt-2"
               >
-                <div className="vf-menu">
+                <ul role="list" aria-label={entry.label} className="vf-menu">
                   {menuItems.map((leaf) => {
                     const active = isActive(pathname, leaf.href);
                     return (
-                      <Link
-                        key={leaf.href}
-                        href={leaf.href}
-                        role="menuitem"
-                        onClick={() => setOpenKey(null)}
-                        aria-current={active ? "page" : undefined}
-                        className="vf-menu-item"
-                      >
-                        {leaf.label}
-                      </Link>
+                      <li key={leaf.href}>
+                        <Link
+                          href={leaf.href}
+                          onClick={() => setOpenKey(null)}
+                          aria-current={active ? "page" : undefined}
+                          className="vf-menu-item"
+                        >
+                          {leaf.label}
+                        </Link>
+                      </li>
                     );
                   })}
-                </div>
+                </ul>
               </div>
             ) : null}
           </div>

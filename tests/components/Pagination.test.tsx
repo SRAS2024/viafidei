@@ -28,17 +28,23 @@ describe("parsePageParam", () => {
 });
 
 describe("pageSlice", () => {
-  const rows = Array.from({ length: 65 }, (_, i) => i + 1);
+  const rows = Array.from({ length: 77 }, (_, i) => i + 1);
 
-  it("cuts 30-item pages and reports the real total", () => {
+  it("cuts 36-item pages and reports the real total", () => {
     const first = pageSlice(rows, 1);
-    expect(LIST_PAGE_SIZE).toBe(30);
-    expect(first.items).toHaveLength(30);
+    expect(LIST_PAGE_SIZE).toBe(36);
+    expect(first.items).toHaveLength(36);
     expect(first.items[0]).toBe(1);
-    expect(first.total).toBe(65);
+    expect(first.total).toBe(77);
     expect(first.pageCount).toBe(3);
 
-    expect(pageSlice(rows, 3).items).toEqual([61, 62, 63, 64, 65]);
+    expect(pageSlice(rows, 3).items).toEqual([73, 74, 75, 76, 77]);
+  });
+
+  it("fills every column layout evenly, so a full page never strands a card", () => {
+    for (const columns of [2, 3, 4]) {
+      expect(LIST_PAGE_SIZE % columns).toBe(0);
+    }
   });
 
   it("clamps out-of-range pages instead of showing an empty grid", () => {

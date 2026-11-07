@@ -69,6 +69,7 @@ export function HeaderMobileMenu({
   const [open, setOpen] = useState(false);
   const pathname = usePathname() ?? "/";
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
   // Groups whose submenu is expanded. Seed with the group that contains the
   // current route so the menu opens already showing where you are.
   const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -94,7 +95,10 @@ export function HeaderMobileMenu({
       setOpen(false);
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      // A link in the menu is about to leave the page, and focus with it.
+      if (wrapperRef.current?.contains(document.activeElement)) toggleRef.current?.focus();
+      setOpen(false);
     }
     // pointerdown fires before click on iOS/Android, so the menu closes
     // reliably even when a tap lands on an SVG child or the document body.
@@ -109,6 +113,7 @@ export function HeaderMobileMenu({
   return (
     <div ref={wrapperRef} className="relative min-[900px]:hidden">
       <button
+        ref={toggleRef}
         type="button"
         aria-label={open ? closeLabel : openLabel}
         aria-expanded={open}
@@ -118,7 +123,7 @@ export function HeaderMobileMenu({
           setOpen((v) => !v);
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="vf-mobile-menu-toggle relative -mr-1.5 flex h-11 w-11 items-center justify-center rounded-sm text-ink"
+        className="vf-mobile-menu-toggle relative -mr-1.5 flex h-[44px] w-[44px] items-center justify-center rounded-sm text-ink"
       >
         {/* Visually centered icon, but a 48x48 hit target that doesn't move
             its visual position. The pointer-events catch on the button itself,
