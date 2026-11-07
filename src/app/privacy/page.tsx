@@ -21,28 +21,29 @@ export default async function PrivacyPolicyPage() {
   ];
 
   return (
-    <article className="mx-auto max-w-3xl pt-12 pb-16">
-      <div className="text-center">
-        <div className="mx-auto mb-4 inline-flex items-center justify-center" aria-hidden="true">
-          <Logo size={56} />
+    <article className="vf-detail">
+      <div className="vf-detail-header text-center">
+        <div className="mb-2 inline-flex items-center justify-center" aria-hidden="true">
+          <Logo size={48} />
         </div>
         <p className="vf-eyebrow">Via Fidei</p>
-        <div className="vf-rule mx-auto my-5" />
-        <h1 className="font-display text-4xl">{t("privacy.title")}</h1>
-        <p className="mx-auto mt-3 max-w-xl font-serif text-ink-soft">{t("privacy.subtitle")}</p>
+        <h1 className="vf-detail-title">{t("privacy.title")}</h1>
+        <p className="vf-lede">{t("privacy.subtitle")}</p>
       </div>
 
-      <div className="vf-card mt-10 rounded-sm p-8">
-        <p className="font-serif text-ink">{t("privacy.intro")}</p>
+      <div className="vf-reading break-words">
+        <p>{t("privacy.intro")}</p>
+      </div>
 
-        <div className="mt-8 space-y-6">
-          {sections.map((s) => (
-            <section key={s.titleKey}>
-              <h2 className="font-display text-2xl">{t(s.titleKey)}</h2>
-              <p className="mt-2 font-serif text-ink-soft">{t(s.bodyKey)}</p>
-            </section>
-          ))}
-        </div>
+      <div className="mt-[var(--space-related)]">
+        {sections.map((s) => (
+          <section key={s.titleKey} className="vf-detail-section">
+            <h2 className="vf-subhead">{t(s.titleKey)}</h2>
+            <div className="vf-reading break-words">
+              <p>{t(s.bodyKey)}</p>
+            </div>
+          </section>
+        ))}
       </div>
     </article>
   );

@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { FavoritesBrowser, type FavoriteItem } from "@/app/profile/favorites/FavoritesBrowser";
 
@@ -39,47 +39,70 @@ const ITEMS: FavoriteItem[] = [
   },
 ];
 
+const filterTrigger = () => screen.getByRole("button", { name: /^Filter favorites by type/ });
+
+/** A filter inside the opened dropdown, by the words on it. */
+const filterOption = (name: RegExp) => screen.getByRole("button", { name });
+
 beforeEach(() => {
-  vi.spyOn(window, "confirm").mockReturnValue(true);
+  vi.spyOn(window, "confirm");
 });
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
 describe("FavoritesBrowser", () => {
   it("shows all favorites by default with per-type counts", () => {
     render(<FavoritesBrowser items={ITEMS} />);
-    expect(screen.getByText("The Memorare")).toBeInTheDocument();
-    expect(screen.getByText("Saint Francis")).toBeInTheDocument();
-    expect(screen.getByText("Our Lady of Lourdes")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "The Memorare" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Saint Francis" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Our Lady of Lourdes" })).toBeInTheDocument();
     // Six type filters → a single dropdown trigger (unfiltered shows "Filter").
-    const trigger = screen.getByRole("button", { name: "Filter favorites by type" });
+    const trigger = filterTrigger();
     expect(trigger).toHaveTextContent("Filter");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
     // Inside the dropdown, "All" is selected and counts everything.
     fireEvent.click(trigger);
-    const allOption = screen.getByRole("option", { name: /All/ });
-    expect(allOption).toHaveAttribute("aria-selected", "true");
+    const allOption = filterOption(/^All/);
+    expect(allOption).toHaveAttribute("aria-pressed", "true");
     expect(allOption).toHaveTextContent("3");
   });
 
   it("filters to a single content type when its chip is selected", () => {
     render(<FavoritesBrowser items={ITEMS} />);
-    fireEvent.click(screen.getByRole("button", { name: "Filter favorites by type" }));
-    fireEvent.click(screen.getByRole("option", { name: /Saints/ }));
-    expect(screen.getByText("Saint Francis")).toBeInTheDocument();
-    expect(screen.queryByText("The Memorare")).not.toBeInTheDocument();
-    expect(screen.queryByText("Our Lady of Lourdes")).not.toBeInTheDocument();
+    fireEvent.click(filterTrigger());
+    fireEvent.click(filterOption(/^Saints/));
+    expect(screen.getByRole("link", { name: "Saint Francis" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "The Memorare" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Our Lady of Lourdes" })).not.toBeInTheDocument();
+    // The option that was focused is gone with the menu; focus returns to the trigger.
+    expect(filterTrigger()).toHaveFocus();
+    expect(screen.getByRole("status")).toHaveTextContent("1 favorite");
   });
 
-  it("removes a favorite via DELETE /api/saved/<kind> and drops it from the list", async () => {
+  it("gives every card its title as a heading, its link, and its type", () => {
+    render(<FavoritesBrowser items={ITEMS} />);
+    const heading = screen.getByRole("heading", { name: "The Memorare" });
+    expect(within(heading).getByRole("link")).toHaveAttribute("href", "/prayers/the-memorare");
+    expect(screen.getByText("Prayer")).toBeInTheDocument();
+  });
+
+  it("removes a favorite via DELETE /api/saved/<kind> after confirming, not before", async () => {
     const fetchMock = vi.fn(async () => ({ ok: true }) as Response);
     vi.stubGlobal("fetch", fetchMock);
 
     render(<FavoritesBrowser items={ITEMS} />);
-    // Items render in the order passed; the first card is the Memorare (prayers).
-    const removeButtons = screen.getAllByText("Remove");
-    fireEvent.click(removeButtons[0]!);
+    // The control names what it removes, among a page of identical buttons.
+    fireEvent.click(screen.getByRole("button", { name: "Remove: The Memorare" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("The Memorare");
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -87,7 +110,36 @@ describe("FavoritesBrowser", () => {
         expect.objectContaining({ method: "DELETE" }),
       ),
     );
-    await waitFor(() => expect(screen.queryByText("The Memorare")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole("link", { name: "The Memorare" })).not.toBeInTheDocument(),
+    );
+    // The button that was focused is gone; focus moves to the card that took its place.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("link", { name: "Saint Francis" })),
+    );
+  });
+
+  it("keeps the favorite when the confirmation is cancelled", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<FavoritesBrowser items={ITEMS} />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove: The Memorare" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "The Memorare" })).toBeInTheDocument();
+  });
+
+  it("says so, and keeps the card, when the removal fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false }) as Response),
+    );
+    render(<FavoritesBrowser items={ITEMS} />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove: The Memorare" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Could not remove/);
+    expect(screen.getByRole("link", { name: "The Memorare" })).toBeInTheDocument();
   });
 
   it("shows an empty state when there are no favorites", () => {
@@ -107,9 +159,9 @@ describe("FavoritesBrowser", () => {
       savedAt: "2026-01-04T00:00:00.000Z",
     };
     render(<FavoritesBrowser items={[...ITEMS, parish]} />);
-    fireEvent.click(screen.getByRole("button", { name: "Filter favorites by type" }));
-    fireEvent.click(screen.getByRole("option", { name: /Parishes/ }));
-    expect(screen.getByText("St. Mary's Cathedral")).toBeInTheDocument();
-    expect(screen.queryByText("The Memorare")).not.toBeInTheDocument();
+    fireEvent.click(filterTrigger());
+    fireEvent.click(filterOption(/^Parishes/));
+    expect(screen.getByRole("link", { name: "St. Mary's Cathedral" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "The Memorare" })).not.toBeInTheDocument();
   });
 });

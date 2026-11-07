@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 type Props = {
   initialTheme: "light" | "dark" | null;
@@ -38,6 +38,7 @@ async function persistThemeServer(theme: "light" | "dark") {
 
 export function ThemeAppearancePicker({ initialTheme, labels }: Props) {
   const [theme, setTheme] = useState<"light" | "dark">(initialTheme ?? "light");
+  const headingId = useId();
 
   useEffect(() => {
     applyThemeToDocument(theme);
@@ -52,11 +53,13 @@ export function ThemeAppearancePicker({ initialTheme, labels }: Props) {
 
   return (
     <div>
-      <p className="vf-label">{labels.heading}</p>
-      <div className="mt-2 flex gap-3">
+      <p id={headingId} className="vf-label">
+        {labels.heading}
+      </p>
+      <div role="group" aria-labelledby={headingId} className="flex flex-wrap gap-2">
         <button
           type="button"
-          className={`vf-btn ${theme === "light" ? "vf-btn-primary" : "vf-btn-ghost"}`}
+          className="vf-btn vf-btn-ghost"
           aria-pressed={theme === "light"}
           onClick={() => onChoose("light")}
         >
@@ -64,7 +67,7 @@ export function ThemeAppearancePicker({ initialTheme, labels }: Props) {
         </button>
         <button
           type="button"
-          className={`vf-btn ${theme === "dark" ? "vf-btn-primary" : "vf-btn-ghost"}`}
+          className="vf-btn vf-btn-ghost"
           aria-pressed={theme === "dark"}
           onClick={() => onChoose("dark")}
         >

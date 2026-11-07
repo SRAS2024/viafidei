@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 
 export type GoalJournalEntry = {
   id: string;
@@ -32,6 +32,8 @@ export function GoalJournalPanel({ goalId, initialEntries, open }: Props) {
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const titleRef = useRef<HTMLInputElement>(null);
+  const uid = useId();
 
   useEffect(() => {
     if (!open || loaded) return;
@@ -59,7 +61,7 @@ export function GoalJournalPanel({ goalId, initialEntries, open }: Props) {
   function submit() {
     const t = title.trim();
     const b = body.trim();
-    if (!t || !b) return;
+    if (!t || !b || pending) return;
     setError(null);
     startTransition(async () => {
       const res = await fetch("/api/journal", {
@@ -75,75 +77,95 @@ export function GoalJournalPanel({ goalId, initialEntries, open }: Props) {
       setEntries((prev) => [data.entry, ...prev]);
       setTitle("");
       setBody("");
+      titleRef.current?.focus();
     });
   }
 
   if (!open) return null;
 
   return (
-    <div className="mt-4 rounded-sm border border-ink/10 bg-parchment/40 p-4">
-      <p className="vf-eyebrow text-ink-faint">Journal · {entries.length}</p>
-      <p className="mt-1 font-serif text-xs text-ink-faint">
+    <div className="vf-panel-inset">
+      {/* The count is live so a saved entry is announced where it is made. */}
+      <p className="vf-eyebrow" aria-live="polite">
+        Journal · {entries.length}
+      </p>
+      <p className="vf-fineprint mt-1">
         Record reflections, progress, struggles, graces, and completion notes — kept with this goal
         in your spiritual history.
       </p>
 
-      <div className="mt-3 flex flex-col gap-2">
-        <input
-          className="vf-input"
-          placeholder="Entry title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          maxLength={200}
-        />
-        <textarea
-          className="vf-input"
-          rows={3}
-          placeholder="What did God do in you today through this goal?"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          maxLength={20000}
-        />
-        {error ? <p className="font-serif text-xs text-liturgical-red">{error}</p> : null}
-        <div className="flex justify-end">
+      <form
+        className="vf-form mt-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <div>
+          <label className="vf-label" htmlFor={`${uid}-title`}>
+            Entry title
+          </label>
+          <input
+            ref={titleRef}
+            id={`${uid}-title`}
+            className="vf-input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={200}
+          />
+        </div>
+        <div>
+          <label className="vf-label" htmlFor={`${uid}-body`}>
+            What did God do in you today through this goal?
+          </label>
+          <textarea
+            id={`${uid}-body`}
+            className="vf-input vf-input-prose"
+            rows={3}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            maxLength={20000}
+          />
+        </div>
+        {error ? (
+          <p role="alert" className="vf-notice vf-notice-error">
+            {error}
+          </p>
+        ) : null}
+        <div>
           <button
-            type="button"
-            className="vf-btn vf-btn-primary text-xs"
-            onClick={submit}
-            disabled={pending || !title.trim() || !body.trim()}
+            type="submit"
+            className="vf-btn vf-btn-sm vf-btn-primary"
+            disabled={!title.trim() || !body.trim()}
+            aria-disabled={pending}
+            aria-busy={pending}
           >
-            {pending ? "…" : "Save entry"}
+            Save entry
           </button>
         </div>
-      </div>
+      </form>
 
       {entries.length > 0 ? (
-        <div className="mt-4 flex flex-col gap-2">
+        <ul className="vf-rows mt-4 border-t border-[color:var(--rule)]">
           {entries.map((entry) => {
             const created = new Date(entry.createdAt);
             return (
-              <div key={entry.id} className="rounded-sm border border-ink/10 bg-parchment p-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h4 className="break-words font-display text-base">{entry.title}</h4>
-                  <p className="vf-eyebrow text-ink-faint">
-                    {created.toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </p>
-                </div>
-                <p className="mt-2 whitespace-pre-wrap break-words font-serif text-sm leading-relaxed text-ink-soft">
-                  {entry.body}
+              <li key={entry.id} className="py-3">
+                <h3 className="vf-row-title">{entry.title}</h3>
+                <p className="vf-entry-meta">
+                  {created.toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
                 </p>
-              </div>
+                <p className="vf-panel-text whitespace-pre-wrap">{entry.body}</p>
+              </li>
             );
           })}
-        </div>
+        </ul>
       ) : loaded ? (
-        <p className="mt-3 text-center font-serif text-xs text-ink-faint">
-          No journal entries yet for this goal.
-        </p>
+        <p className="vf-fineprint mt-3">No journal entries yet for this goal.</p>
       ) : null}
     </div>
   );

@@ -119,6 +119,46 @@ describe("RegisterForm privacy notice", () => {
     expect(screen.queryByText(labels.weakPassword)).not.toBeInTheDocument();
   });
 
+  it("ties a failure from the server to its field, and moves focus there", () => {
+    render(<RegisterForm labels={labels} error="That email is taken." errorField="email" />);
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("That email is taken.");
+    const email = screen.getByLabelText("Email");
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveAccessibleDescription("That email is taken.");
+    expect(email).toHaveFocus();
+  });
+
+  it("starts a reader at the top of the form for a failure that belongs to no field", () => {
+    render(<RegisterForm labels={labels} error="Too many requests." />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Too many requests.");
+    expect(screen.getByLabelText("First name")).toHaveFocus();
+    expect(screen.getByLabelText("Email")).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("asks the browser for the right autofill on every field", () => {
+    render(<RegisterForm labels={labels} />);
+    expect(screen.getByLabelText("First name")).toHaveAttribute("autocomplete", "given-name");
+    expect(screen.getByLabelText("Last name")).toHaveAttribute("autocomplete", "family-name");
+    expect(screen.getByLabelText("Email")).toHaveAttribute("autocomplete", "email");
+    expect(screen.getByLabelText("Password")).toHaveAttribute("autocomplete", "new-password");
+    expect(screen.getByLabelText("Re-enter password")).toHaveAttribute(
+      "autocomplete",
+      "new-password",
+    );
+  });
+
+  it("puts the Show control after the field it reveals, in reading and tab order", () => {
+    render(<RegisterForm labels={labels} />);
+    const password = screen.getByLabelText("Password");
+    const toggle = screen.getByRole("button", { name: "Show" });
+    expect(password.compareDocumentPosition(toggle)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    fireEvent.click(toggle);
+    expect(password).toHaveAttribute("type", "text");
+    expect(screen.getByLabelText("Re-enter password")).toHaveAttribute("type", "text");
+    expect(screen.getByRole("button", { name: "Hide" })).toBeInTheDocument();
+  });
+
   it("has no obvious accessibility violations in its initial render", async () => {
     const { container } = render(<RegisterForm labels={labels} />);
     const results = await axe(container);

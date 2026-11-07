@@ -122,7 +122,7 @@ export function ProfileAvatar({
 
   return (
     <div className="vf-avatar-wrapper">
-      <div className="vf-avatar" aria-label="Profile photo">
+      <div className="vf-avatar" role="group" aria-label="Profile photo">
         {previewSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={previewSrc} alt="" className="vf-avatar-img" />
@@ -168,7 +168,8 @@ export function ProfileAvatar({
         ) : null}
       </div>
 
-      {editable && statusMessage ? (
+      {/* Kept on the page empty, so its text is announced when it arrives. */}
+      {editable ? (
         <p className={`vf-avatar-status ${statusTone}`} role="status" aria-live="polite">
           {statusMessage}
         </p>

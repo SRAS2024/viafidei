@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 type Tier = "SACRAMENT" | "SPIRITUAL" | "PERSONAL";
@@ -27,11 +27,12 @@ const SPIRITUAL_PRESETS: Preset[] = [
 ];
 
 type Props = {
+  /** Which kind of milestone this control records. */
+  tier: Tier;
+  /** That kind's name, for the group of presets. */
+  heading: string;
   existingSlugs: string[];
   labels: {
-    sacraments: string;
-    spiritual: string;
-    personal: string;
     record: string;
     alreadyRecorded: string;
     addCustom: string;
@@ -42,27 +43,45 @@ type Props = {
   };
 };
 
-export function MilestoneCreator({ existingSlugs, labels }: Props) {
+export function MilestoneCreator({ tier, heading, existingSlugs, labels }: Props) {
   const [customOpen, setCustomOpen] = useState(false);
   const [customTitle, setCustomTitle] = useState("");
   const [customDesc, setCustomDesc] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Said aloud once a milestone is saved: the new row appears out of the reader's way.
+  const [recordedNote, setRecordedNote] = useState("");
   const router = useRouter();
+  const addRef = useRef<HTMLButtonElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const refocusAdd = useRef(false);
 
-  function recordPreset(preset: Preset, tier: Tier) {
+  useEffect(() => {
+    if (customOpen) {
+      titleRef.current?.focus();
+    } else if (refocusAdd.current) {
+      refocusAdd.current = false;
+      addRef.current?.focus();
+    }
+  }, [customOpen]);
+
+  function recordPreset(preset: Preset) {
+    if (pending) return;
+    setError(null);
     startTransition(async () => {
-      await fetch("/api/milestones", {
+      const res = await fetch("/api/milestones", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ tier, slug: preset.slug, title: preset.title }),
       });
+      if (res.ok) setRecordedNote(`${preset.title}: ${labels.alreadyRecorded}`);
+      else setError("Failed to save milestone.");
       router.refresh();
     });
   }
 
   function saveCustom() {
-    if (!customTitle.trim()) return;
+    if (!customTitle.trim() || pending) return;
     const slug = `personal-${Date.now()}`;
     setError(null);
     startTransition(async () => {
@@ -80,123 +99,140 @@ export function MilestoneCreator({ existingSlugs, labels }: Props) {
         setError("Failed to save milestone.");
         return;
       }
+      setRecordedNote(`${customTitle.trim()}: ${labels.alreadyRecorded}`);
       setCustomTitle("");
       setCustomDesc("");
+      refocusAdd.current = true;
       setCustomOpen(false);
       router.refresh();
     });
   }
 
-  return (
-    <div className="mb-10">
-      <section className="mb-8">
-        <h2 className="font-display text-2xl">{labels.sacraments}</h2>
-        <div className="vf-rule my-3" />
-        <div className="flex flex-wrap gap-2">
-          {SACRAMENTS.map((s) => {
+  const presets = tier === "SACRAMENT" ? SACRAMENTS : tier === "SPIRITUAL" ? SPIRITUAL_PRESETS : [];
+
+  const errorNote = error ? (
+    <p role="alert" className="vf-notice vf-notice-error mt-3">
+      {error}
+    </p>
+  ) : null;
+
+  // On the page before there is anything to say, so its text is announced.
+  const recordedStatus = (
+    <p role="status" aria-live="polite" className="sr-only">
+      {recordedNote}
+    </p>
+  );
+
+  if (tier !== "PERSONAL") {
+    return (
+      <>
+        <div role="group" aria-label={`${labels.record}: ${heading}`} className="vf-chip-row">
+          {presets.map((s) => {
             const recorded = existingSlugs.includes(s.slug);
+            // Not `disabled`: focus would fall off a chip the moment it records.
             return (
               <button
                 key={s.slug}
                 type="button"
-                disabled={recorded || pending}
-                onClick={() => recordPreset(s, "SACRAMENT")}
-                className={`rounded-sm border px-3 py-1.5 text-sm font-serif transition ${
-                  recorded
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 cursor-default"
-                    : "border-ink/20 hover:border-ink/40 text-ink"
-                }`}
-              >
-                {recorded ? `✓ ${s.title}` : s.title}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="font-display text-2xl">{labels.spiritual}</h2>
-        <div className="vf-rule my-3" />
-        <div className="flex flex-wrap gap-2">
-          {SPIRITUAL_PRESETS.map((s) => {
-            const recorded = existingSlugs.includes(s.slug);
-            return (
-              <button
-                key={s.slug}
-                type="button"
-                disabled={recorded || pending}
-                onClick={() => recordPreset(s, "SPIRITUAL")}
-                className={`rounded-sm border px-3 py-1.5 text-sm font-serif transition ${
-                  recorded
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 cursor-default"
-                    : "border-ink/20 hover:border-ink/40 text-ink"
-                }`}
-              >
-                {recorded ? `✓ ${s.title}` : s.title}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="font-display text-2xl">{labels.personal}</h2>
-        <div className="vf-rule my-3" />
-        {customOpen ? (
-          <div className="vf-card rounded-sm p-6">
-            <label className="vf-label" htmlFor="custom-title">
-              {labels.customTitle}
-            </label>
-            <input
-              id="custom-title"
-              className="vf-input"
-              value={customTitle}
-              onChange={(e) => setCustomTitle(e.target.value)}
-              autoFocus
-            />
-            <label className="vf-label mt-4" htmlFor="custom-desc">
-              {labels.customDesc}
-            </label>
-            <textarea
-              id="custom-desc"
-              rows={2}
-              className="vf-input"
-              value={customDesc}
-              onChange={(e) => setCustomDesc(e.target.value)}
-            />
-            {error ? <p className="mt-2 text-sm text-liturgical-red">{error}</p> : null}
-            <div className="mt-4 flex gap-3">
-              <button
-                type="button"
-                className="vf-btn vf-btn-cancel"
+                aria-disabled={recorded}
+                aria-label={recorded ? `${s.title}: ${labels.alreadyRecorded}` : undefined}
                 onClick={() => {
-                  setCustomOpen(false);
-                  setCustomTitle("");
-                  setCustomDesc("");
+                  if (!recorded) recordPreset(s);
                 }}
+                className={`vf-chip ${recorded ? "vf-filter-active" : ""}`}
               >
-                {labels.cancel}
+                {recorded ? <span aria-hidden="true">✓</span> : null}
+                <span>{s.title}</span>
               </button>
-              <button
-                type="button"
-                className="vf-btn vf-btn-primary"
-                disabled={pending || !customTitle.trim()}
-                onClick={saveCustom}
-              >
-                {pending ? "…" : labels.save}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="vf-btn vf-btn-ghost text-sm"
-            onClick={() => setCustomOpen(true)}
-          >
-            + {labels.addCustom}
-          </button>
-        )}
-      </section>
-    </div>
+            );
+          })}
+        </div>
+        {errorNote}
+        {recordedStatus}
+      </>
+    );
+  }
+
+  if (!customOpen) {
+    return (
+      <>
+        <button
+          ref={addRef}
+          type="button"
+          className="vf-btn vf-btn-ghost"
+          onClick={() => setCustomOpen(true)}
+        >
+          <span aria-hidden="true">+</span> {labels.addCustom}
+        </button>
+        {errorNote}
+        {recordedStatus}
+      </>
+    );
+  }
+
+  return (
+    <form
+      className="vf-panel vf-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        saveCustom();
+      }}
+    >
+      <div>
+        <label className="vf-label" htmlFor="custom-title">
+          {labels.customTitle}
+        </label>
+        <input
+          ref={titleRef}
+          id="custom-title"
+          className="vf-input"
+          required
+          maxLength={200}
+          value={customTitle}
+          onChange={(e) => setCustomTitle(e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="vf-label" htmlFor="custom-desc">
+          {labels.customDesc}
+        </label>
+        <textarea
+          id="custom-desc"
+          rows={2}
+          className="vf-input"
+          maxLength={4000}
+          value={customDesc}
+          onChange={(e) => setCustomDesc(e.target.value)}
+        />
+      </div>
+      {error ? (
+        <p role="alert" className="vf-notice vf-notice-error">
+          {error}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="submit"
+          className="vf-btn vf-btn-primary"
+          disabled={!customTitle.trim()}
+          aria-disabled={pending}
+          aria-busy={pending}
+        >
+          {labels.save}
+        </button>
+        <button
+          type="button"
+          className="vf-btn vf-btn-ghost"
+          onClick={() => {
+            refocusAdd.current = true;
+            setCustomOpen(false);
+            setCustomTitle("");
+            setCustomDesc("");
+          }}
+        >
+          {labels.cancel}
+        </button>
+      </div>
+    </form>
   );
 }

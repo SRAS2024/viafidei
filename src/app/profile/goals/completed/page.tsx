@@ -3,15 +3,19 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
 import { listCompletedGoalsForUser } from "@/lib/data/profile";
+import { ProfileBackLink } from "@/components/profile/ProfileBackLink";
 import { PageHero } from "@/components/ui/PageHero";
 import { logPageError } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Completed Goals" };
+export async function generateMetadata() {
+  const { t } = await getTranslator();
+  return { title: t("profile.tab.completedGoals") };
+}
 
-function formatDate(d: Date | null | undefined): string {
+function formatDate(d: Date | null | undefined, locale: string): string {
   if (!d) return "—";
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(locale, {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -30,7 +34,7 @@ export default async function CompletedGoalsPage() {
     });
   }
   if (!user) redirect("/login?next=/profile/goals/completed");
-  const { t } = await getTranslator();
+  const { t, locale } = await getTranslator();
 
   let goals: Awaited<ReturnType<typeof listCompletedGoalsForUser>> = [];
   try {
@@ -44,12 +48,8 @@ export default async function CompletedGoalsPage() {
   }
 
   return (
-    <div>
-      <div className="mb-4">
-        <Link href="/profile" className="vf-nav-link">
-          ← {t("common.back")}
-        </Link>
-      </div>
+    <div className="vf-column">
+      <ProfileBackLink label={t("profile.tab.goals")} href="/profile/goals" />
       <PageHero
         eyebrow={t("profile.title")}
         title={t("profile.tab.completedGoals")}
@@ -57,82 +57,59 @@ export default async function CompletedGoalsPage() {
       />
 
       {goals.length === 0 ? (
-        <p className="text-center font-serif text-ink-faint">
+        <p className="vf-section-lede text-center">
           You have not completed any goals yet. Goals you finish on{" "}
-          <Link href="/profile/goals" className="vf-nav-link">
+          <Link href="/profile/goals" className="vf-link">
             My Goals
           </Link>{" "}
           will appear here.
         </p>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="vf-panel-list">
           {goals.map((g) => {
             const checklistDone = g.checklist.filter((c) => c.isCompleted).length;
             return (
-              <article key={g.id} className="vf-card rounded-sm p-5 sm:p-6">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="break-words font-display text-xl sm:text-2xl">{g.title}</h2>
-                  <p className="vf-eyebrow text-emerald-700">
-                    Completed {formatDate(g.completedAt)}
-                  </p>
-                </div>
-                {g.description ? (
-                  <p className="mt-2 font-serif text-sm leading-relaxed text-ink-soft">
-                    {g.description}
-                  </p>
-                ) : null}
+              <article key={g.id} className="vf-panel">
+                <h2 className="vf-entry-title">{g.title}</h2>
+                <p className="vf-entry-meta">Completed {formatDate(g.completedAt, locale)}</p>
+                {g.description ? <p className="vf-panel-text">{g.description}</p> : null}
 
                 {g.checklist.length > 0 ? (
-                  <div className="mt-4">
-                    <p className="vf-eyebrow text-ink-faint">
+                  <>
+                    <p className="vf-eyebrow mt-4">
                       Checklist · {checklistDone}/{g.checklist.length}
                     </p>
-                    <ul className="mt-2 divide-y divide-ink/5">
+                    {/* A record, not a form: each box says whether the step was
+                        done, to a screen reader as well as to the eye, and cannot
+                        be changed. */}
+                    <ul className="vf-checklist mt-1.5">
                       {g.checklist.map((c) => (
-                        <li key={c.id} className="flex items-start gap-3 py-2 font-serif text-sm">
-                          <span
-                            className={`mt-0.5 inline-block h-4 w-4 shrink-0 rounded-sm border ${
-                              c.isCompleted
-                                ? "border-liturgical-gold bg-liturgical-gold/30"
-                                : "border-ink/20"
-                            }`}
-                            aria-hidden
-                          />
-                          <span
-                            className={
-                              c.isCompleted ? "text-ink-faint line-through" : "text-ink-soft"
-                            }
-                          >
-                            {c.label}
-                          </span>
+                        <li key={c.id}>
+                          <label className="vf-check">
+                            <input type="checkbox" checked={c.isCompleted} disabled readOnly />
+                            <span className="min-w-0">{c.label}</span>
+                          </label>
                         </li>
                       ))}
                     </ul>
-                  </div>
+                  </>
                 ) : null}
 
                 {g.journalEntries.length > 0 ? (
-                  <div className="mt-5">
-                    <p className="vf-eyebrow text-ink-faint">
+                  <div className="vf-panel-inset">
+                    <p className="vf-eyebrow">
                       Journal · {g.journalEntries.length}{" "}
                       {g.journalEntries.length === 1 ? "entry" : "entries"}
                     </p>
-                    <div className="mt-2 flex flex-col gap-3">
+                    <ul className="vf-rows mt-1">
                       {g.journalEntries.map((j) => (
-                        <div
-                          key={j.id}
-                          className="rounded-sm border border-ink/10 bg-parchment/40 p-3"
-                        >
-                          <div className="flex flex-wrap items-baseline justify-between gap-2">
-                            <h3 className="font-display text-base sm:text-lg">{j.title}</h3>
-                            <p className="vf-eyebrow text-ink-faint">{formatDate(j.createdAt)}</p>
-                          </div>
-                          <p className="mt-2 whitespace-pre-wrap break-words font-serif text-sm leading-relaxed text-ink-soft">
-                            {j.body}
-                          </p>
-                        </div>
+                        <li key={j.id} className="py-3 last:pb-0">
+                          <h3 className="vf-row-title">{j.title}</h3>
+                          <p className="vf-entry-meta">{formatDate(j.createdAt, locale)}</p>
+                          <p className="vf-panel-text whitespace-pre-wrap">{j.body}</p>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   </div>
                 ) : null}
               </article>

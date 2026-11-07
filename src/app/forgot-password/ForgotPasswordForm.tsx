@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Labels = {
   email: string;
@@ -19,8 +19,6 @@ type Labels = {
   deliveryFailed: string;
 };
 
-const ERROR_COLOR = "#8b1a1a";
-
 type Status =
   | { kind: "idle" }
   | { kind: "loading" }
@@ -30,9 +28,19 @@ type Status =
   | { kind: "delivery_failed" }
   | { kind: "error" };
 
+const EMAIL_ERROR_ID = "forgot-email-error";
+
 export function ForgotPasswordForm({ labels }: { labels: Labels }) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [email, setEmail] = useState("");
+  const successRef = useRef<HTMLParagraphElement>(null);
+
+  // The form and its button leave the page on success. Focus moves to the message
+  // that replaces them, so a keyboard or screen-reader user is not left nowhere.
+  const succeeded = status.kind === "ok";
+  useEffect(() => {
+    if (succeeded) successRef.current?.focus();
+  }, [succeeded]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -102,14 +110,25 @@ export function ForgotPasswordForm({ labels }: { labels: Labels }) {
 
   if (status.kind === "ok") {
     return (
-      <p role="status" className="text-center font-serif text-sm text-ink-soft">
+      <p ref={successRef} tabIndex={-1} role="status" className="vf-notice">
         {labels.success.replace("{email}", status.email)}
       </p>
     );
   }
 
+  const formError =
+    status.kind === "rate_limited"
+      ? rateLimitText()
+      : status.kind === "delivery_failed"
+        ? labels.deliveryFailed
+        : status.kind === "error"
+          ? labels.error
+          : null;
+
+  // The browser's own validation stops an empty or malformed address before it is
+  // sent, and says why in the reader's language.
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+    <form onSubmit={handleSubmit} className="vf-form">
       <div>
         <label htmlFor="email" className="vf-label">
           {labels.email}
@@ -119,6 +138,8 @@ export function ForgotPasswordForm({ labels }: { labels: Labels }) {
           name="email"
           type="email"
           autoComplete="email"
+          autoCapitalize="none"
+          spellCheck={false}
           required
           className="vf-input"
           value={email}
@@ -131,42 +152,27 @@ export function ForgotPasswordForm({ labels }: { labels: Labels }) {
             }
           }}
           aria-invalid={status.kind === "not_found"}
-          aria-describedby={status.kind === "not_found" ? "forgot-email-error" : undefined}
+          aria-describedby={status.kind === "not_found" ? EMAIL_ERROR_ID : undefined}
         />
         {status.kind === "not_found" ? (
-          <p
-            id="forgot-email-error"
-            role="alert"
-            className="mt-1 font-serif text-xs"
-            style={{ color: ERROR_COLOR }}
-          >
+          <p id={EMAIL_ERROR_ID} role="alert" className="vf-field-error">
             {labels.notFound}
           </p>
         ) : null}
       </div>
+      {formError ? (
+        <p role="alert" className="vf-notice vf-notice-error">
+          {formError}
+        </p>
+      ) : null}
       <button
         type="submit"
-        className="vf-btn vf-btn-primary mt-2"
-        disabled={status.kind === "loading"}
+        className="vf-btn vf-btn-primary vf-btn-block"
+        aria-disabled={status.kind === "loading"}
         aria-busy={status.kind === "loading"}
       >
         {labels.submit}
       </button>
-      {status.kind === "rate_limited" ? (
-        <p role="alert" className="text-center text-sm" style={{ color: ERROR_COLOR }}>
-          {rateLimitText()}
-        </p>
-      ) : null}
-      {status.kind === "delivery_failed" ? (
-        <p role="alert" className="text-center text-sm" style={{ color: ERROR_COLOR }}>
-          {labels.deliveryFailed}
-        </p>
-      ) : null}
-      {status.kind === "error" ? (
-        <p role="alert" className="text-center text-sm" style={{ color: ERROR_COLOR }}>
-          {labels.error}
-        </p>
-      ) : null}
     </form>
   );
 }

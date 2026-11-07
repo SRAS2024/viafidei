@@ -1,7 +1,10 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useId, useRef } from "react";
+import { createPortal } from "react-dom";
+
+import { useModalDialog } from "./useModalDialog";
 
 type Props = {
   open: boolean;
@@ -28,17 +31,13 @@ export function LoginRequiredPopup({
   closeLabel = DEFAULTS.closeLabel,
 }: Props) {
   const pathname = usePathname();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const loginRef = useRef<HTMLButtonElement>(null);
+  const messageId = useId();
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  useModalDialog({ open, onClose, dialogRef, initialFocusRef: loginRef });
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
   // Send the user back to where they were after they log in / register.
   const next = pathname ? `?next=${encodeURIComponent(pathname)}` : "";
@@ -53,19 +52,22 @@ export function LoginRequiredPopup({
     if (typeof window !== "undefined") window.location.assign(`${base}${next}`);
   };
 
-  return (
+  // Portalled to <body> so it paints above the sticky header; see ConfirmDialog.
+  return createPortal(
     <div
-      className="vf-login-popup-backdrop"
+      className="vf-modal-backdrop"
       role="presentation"
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="vf-login-popup-msg"
-        className="vf-login-popup"
+        aria-labelledby={messageId}
+        tabIndex={-1}
+        className="vf-modal vf-modal-narrow"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <button
@@ -90,22 +92,24 @@ export function LoginRequiredPopup({
             <line x1="18" y1="6" x2="6" y2="18" />
           </svg>
         </button>
-        <p id="vf-login-popup-msg" className="vf-login-popup-msg">
+        <p id={messageId} className="vf-modal-body vf-modal-message">
           {message}
         </p>
-        <div className="vf-login-popup-actions">
+        <div className="vf-modal-actions vf-modal-actions-stacked">
           <button
+            ref={loginRef}
             type="button"
-            className="vf-login-popup-btn vf-login-popup-btn-primary"
+            className="vf-btn vf-btn-primary"
             onClick={(e) => go(e, "/login")}
           >
             {loginLabel}
           </button>
-          <button type="button" className="vf-login-popup-btn" onClick={(e) => go(e, "/register")}>
+          <button type="button" className="vf-btn vf-btn-ghost" onClick={(e) => go(e, "/register")}>
             {registerLabel}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

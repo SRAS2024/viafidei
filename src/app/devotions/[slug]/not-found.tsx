@@ -1,15 +1,17 @@
 import Link from "next/link";
 
+import { PageHero } from "@/components/ui/PageHero";
+
 export default function DevotionNotFound() {
   return (
-    <div className="flex flex-col items-center gap-6 py-24 text-center">
-      <p className="vf-eyebrow">404</p>
-      <h1 className="font-display text-4xl">Devotion not found</h1>
-      <p className="font-serif text-ink-faint">
-        This entry may have been removed or the link is incorrect.
-      </p>
+    <div className="vf-message">
+      <PageHero
+        eyebrow="404"
+        title="Devotion not found"
+        subtitle="This entry may have been removed or the link is incorrect."
+      />
       <Link href="/devotions" className="vf-btn vf-btn-ghost">
-        ← Back to Devotions
+        <span aria-hidden="true">←</span> Back to Devotions
       </Link>
     </div>
   );

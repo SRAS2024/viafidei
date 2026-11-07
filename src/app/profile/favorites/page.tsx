@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
-import { PageHero } from "@/components/ui";
+import { ProfileBackLink } from "@/components/profile/ProfileBackLink";
+import { PageHero } from "@/components/ui/PageHero";
 import { requireUser } from "@/lib/auth";
 import {
   listSavedApparitions,
@@ -10,11 +11,15 @@ import {
   listSavedPrayers,
   listSavedSaints,
 } from "@/lib/data/saved";
+import { getTranslator } from "@/lib/i18n/server";
 
 import { FavoritesBrowser, type FavoriteItem } from "./FavoritesBrowser";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Favorites" };
+export async function generateMetadata() {
+  const { t } = await getTranslator();
+  return { title: t("profile.tab.favorites") };
+}
 
 type SavedRow = { id: string; slug: string; title: string; savedAt: Date };
 
@@ -40,6 +45,7 @@ function toItems(
 export default async function FavoritesPage() {
   const user = await requireUser();
   if (!user) redirect("/login?next=/profile/favorites");
+  const { t } = await getTranslator();
 
   const [prayers, saints, apparitions, devotions, novenas, parishes] = await Promise.all([
     listSavedPrayers(user.id),
@@ -61,12 +67,21 @@ export default async function FavoritesPage() {
 
   return (
     <div>
+      <ProfileBackLink label={t("common.back")} />
       <PageHero
-        eyebrow="Your profile"
-        title="Favorites"
+        eyebrow={t("profile.title")}
+        title={t("profile.tab.favorites")}
         subtitle="Everything you've favorited, filterable by type."
       />
-      <FavoritesBrowser items={items} />
+      <FavoritesBrowser
+        items={items}
+        labels={{
+          remove: t("profile.saved.remove"),
+          cancel: t("common.cancel"),
+          removeTitle: t("profile.saved.removeTitle"),
+          removeBody: t("profile.saved.removeBody"),
+        }}
+      />
     </div>
   );
 }

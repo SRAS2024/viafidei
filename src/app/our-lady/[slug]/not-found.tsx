@@ -1,15 +1,17 @@
 import Link from "next/link";
 
+import { PageHero } from "@/components/ui/PageHero";
+
 export default function OurLadyNotFound() {
   return (
-    <div className="flex flex-col items-center gap-6 py-24 text-center">
-      <p className="vf-eyebrow">404</p>
-      <h1 className="font-display text-4xl">Not found</h1>
-      <p className="font-serif text-ink-faint">
-        This page may have been removed or the link is incorrect.
-      </p>
+    <div className="vf-message">
+      <PageHero
+        eyebrow="404"
+        title="Not found"
+        subtitle="This page may have been removed or the link is incorrect."
+      />
       <Link href="/our-lady" className="vf-btn vf-btn-ghost">
-        ← Back to Our Lady
+        <span aria-hidden="true">←</span> Back to Our Lady
       </Link>
     </div>
   );

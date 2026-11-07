@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { checkPasswordStrength, PASSWORD_MIN_LENGTH } from "@/lib/auth/schemas";
 
 type Labels = {
@@ -10,6 +10,8 @@ type Labels = {
   submit: string;
   successHeading: string;
   backToLogin: string;
+  show: string;
+  hide: string;
   weakPassword: string;
   mismatch: string;
   invalidToken: string;
@@ -31,7 +33,6 @@ type Status =
   | { kind: "server_error"; message: string };
 
 const PASSWORD_MIN = PASSWORD_MIN_LENGTH;
-const ERROR_COLOR = "#8b1a1a";
 
 function isStrongPassword(value: string): boolean {
   return checkPasswordStrength(value) === null;
@@ -44,24 +45,45 @@ export function ResetPasswordForm({ token, labels }: Props) {
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [touched, setTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
+  const successRef = useRef<HTMLParagraphElement>(null);
 
   // Inline validation mirrors the register form: hidden until the user has
   // typed and either left a field or attempted to submit, and clears
-  // automatically once the input becomes valid.
+  // automatically once the input becomes valid. A submit with the fields still
+  // empty is a real attempt too: without a message it would simply do nothing.
   const validation: FieldValidation = (() => {
     if (!touched) return null;
-    if (password.length === 0) return null;
+    if (password.length === 0 && !submitted) return null;
     if (!isStrongPassword(password)) return "weak";
-    if (passwordConfirm.length > 0 && password !== passwordConfirm) return "mismatch";
+    if ((passwordConfirm.length > 0 || submitted) && password !== passwordConfirm) {
+      return "mismatch";
+    }
     return null;
   })();
+
+  // The form leaves the page on success; focus moves to what replaces it.
+  const succeeded = status.kind === "success";
+  useEffect(() => {
+    if (succeeded) successRef.current?.focus();
+  }, [succeeded]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setTouched(true);
+    setSubmitted(true);
     if (status.kind === "loading") return;
-    if (!isStrongPassword(password)) return;
-    if (password !== passwordConfirm) return;
+    if (!isStrongPassword(password)) {
+      passwordRef.current?.focus();
+      return;
+    }
+    if (password !== passwordConfirm) {
+      confirmRef.current?.focus();
+      return;
+    }
 
     setStatus({ kind: "loading" });
     try {
@@ -106,37 +128,35 @@ export function ResetPasswordForm({ token, labels }: Props) {
 
   if (status.kind === "success") {
     return (
-      <div className="text-center">
+      <div className="vf-form">
         <p
+          ref={successRef}
+          tabIndex={-1}
           role="status"
           aria-live="polite"
-          className="font-display text-2xl text-ink"
+          className="vf-notice"
           data-testid="reset-success-heading"
         >
           {labels.successHeading}
         </p>
-        <p className="mt-4 text-xs text-ink-faint">
-          <Link
-            href="/login"
-            className="underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
-          >
-            {labels.backToLogin}
-          </Link>
-        </p>
+        <Link href="/login" className="vf-btn vf-btn-primary vf-btn-block">
+          {labels.backToLogin}
+        </Link>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
-      <div>
+    <form onSubmit={handleSubmit} className="vf-form" noValidate>
+      <div className="vf-field-split">
         <label htmlFor="password" className="vf-label">
           {labels.newPassword}
         </label>
         <input
+          ref={passwordRef}
           id="password"
           name="password"
-          type="password"
+          type={showPassword ? "text" : "password"}
           minLength={PASSWORD_MIN}
           required
           autoComplete="new-password"
@@ -147,13 +167,15 @@ export function ResetPasswordForm({ token, labels }: Props) {
           aria-invalid={validation === "weak"}
           aria-describedby={validation === "weak" ? "reset-password-error" : undefined}
         />
+        <button
+          type="button"
+          onClick={() => setShowPassword((s) => !s)}
+          className="vf-field-toggle vf-link-action"
+        >
+          {showPassword ? labels.hide : labels.show}
+        </button>
         {validation === "weak" ? (
-          <p
-            id="reset-password-error"
-            role="alert"
-            className="mt-1 font-serif text-xs"
-            style={{ color: ERROR_COLOR }}
-          >
+          <p id="reset-password-error" role="alert" className="vf-field-error">
             {labels.weakPassword}
           </p>
         ) : null}
@@ -163,9 +185,10 @@ export function ResetPasswordForm({ token, labels }: Props) {
           {labels.confirmPassword}
         </label>
         <input
+          ref={confirmRef}
           id="passwordConfirm"
           name="passwordConfirm"
-          type="password"
+          type={showPassword ? "text" : "password"}
           minLength={PASSWORD_MIN}
           required
           autoComplete="new-password"
@@ -177,29 +200,24 @@ export function ResetPasswordForm({ token, labels }: Props) {
           aria-describedby={validation === "mismatch" ? "reset-confirm-error" : undefined}
         />
         {validation === "mismatch" ? (
-          <p
-            id="reset-confirm-error"
-            role="alert"
-            className="mt-1 font-serif text-xs"
-            style={{ color: ERROR_COLOR }}
-          >
+          <p id="reset-confirm-error" role="alert" className="vf-field-error">
             {labels.mismatch}
           </p>
         ) : null}
       </div>
+      {status.kind === "server_error" ? (
+        <p role="alert" className="vf-notice vf-notice-error">
+          {status.message}
+        </p>
+      ) : null}
       <button
         type="submit"
-        className="vf-btn vf-btn-primary mt-2"
-        disabled={status.kind === "loading"}
+        className="vf-btn vf-btn-primary vf-btn-block"
+        aria-disabled={status.kind === "loading"}
         aria-busy={status.kind === "loading"}
       >
         {labels.submit}
       </button>
-      {status.kind === "server_error" ? (
-        <p role="alert" className="text-center text-sm" style={{ color: ERROR_COLOR }}>
-          {status.message}
-        </p>
-      ) : null}
     </form>
   );
 }

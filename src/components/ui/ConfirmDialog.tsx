@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useId, useRef } from "react";
+import { createPortal } from "react-dom";
+
+import { useModalDialog } from "./useModalDialog";
 
 type Props = {
   open: boolean;
@@ -25,58 +28,71 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: Props) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-    };
-    window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [open, onCancel]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const bodyId = useId();
 
-  if (!open) return null;
+  // A destructive dialog opens on Cancel, so a stray Enter or a double tap cannot
+  // destroy anything.
+  useModalDialog({
+    open,
+    onClose: onCancel,
+    dialogRef,
+    initialFocusRef: destructive ? cancelRef : confirmRef,
+  });
+
+  if (!open || typeof document === "undefined") return null;
 
   const interpolated = entityName ? body.replaceAll("{name}", entityName) : body;
 
-  return (
-    // Backdrop dismiss-on-click. Keyboard equivalent is the window-level
-    // Escape listener wired up in the useEffect above, which fires before
-    // any focused descendant can swallow the key — so a duplicate inline
-    // onKeyDown on this element would invoke onCancel twice. The rule is
-    // satisfied by the global listener; the inline disable documents that.
+  // Portalled to <body>: the page's <main> is its own stacking context, so from
+  // inside it even a high z-index would leave the sticky header painted on top.
+  return createPortal(
+    // Backdrop dismiss-on-click. The keyboard equivalent is the Escape listener
+    // in useModalDialog, which fires however focus is placed.
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="vf-modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="vf-confirm-title"
+      role="presentation"
       onClick={(e) => {
+        e.stopPropagation();
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div className="vf-modal">
-        <h2 id="vf-confirm-title" className="vf-modal-title">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={interpolated ? bodyId : undefined}
+        tabIndex={-1}
+        className="vf-modal"
+      >
+        <h2 id={titleId} className="vf-modal-title">
           {title}
         </h2>
-        <p className="vf-modal-body">{interpolated}</p>
+        {interpolated ? (
+          <p id={bodyId} className="vf-modal-body">
+            {interpolated}
+          </p>
+        ) : null}
         <div className="vf-modal-actions">
-          <button type="button" className="vf-btn vf-btn-cancel" onClick={onCancel}>
+          <button ref={cancelRef} type="button" className="vf-btn vf-btn-ghost" onClick={onCancel}>
             {cancelLabel}
           </button>
           <button
+            ref={confirmRef}
             type="button"
             className={`vf-btn ${destructive ? "vf-btn-danger" : "vf-btn-primary"}`}
             onClick={onConfirm}
-            autoFocus
           >
             {confirmLabel}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

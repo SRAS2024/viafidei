@@ -47,7 +47,18 @@ describe("ForgotPasswordForm", () => {
       new Response(JSON.stringify({ ok: true, sent: true, email: "u@x.test" }), { status: 200 }),
     );
     await submit("u@x.test");
-    expect(await screen.findByText(/Reset email sent to u@x.test\./)).toBeInTheDocument();
+    const message = await screen.findByText(/Reset email sent to u@x.test\./);
+    expect(message).toHaveAttribute("role", "status");
+    // The form and its button are gone; focus lands on what replaced them.
+    expect(message).toHaveFocus();
+  });
+
+  it("leaves an empty form to the browser's own validation, sending nothing", async () => {
+    const user = userEvent.setup();
+    render(<ForgotPasswordForm labels={LABELS} />);
+    await user.click(screen.getByRole("button", { name: LABELS.submit }));
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(LABELS.email)).toBeInvalid();
   });
 
   it("does NOT show success when the server returns delivery_failed (Resend rejected the send)", async () => {
@@ -81,7 +92,10 @@ describe("ForgotPasswordForm", () => {
       new Response(JSON.stringify({ ok: false, error: "not_found" }), { status: 404 }),
     );
     await submit("ghost@x.test");
-    expect(await screen.findByText(LABELS.notFound)).toBeInTheDocument();
+    expect(await screen.findByText(LABELS.notFound)).toHaveAttribute("role", "alert");
+    const field = screen.getByLabelText(LABELS.email);
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(field).toHaveAccessibleDescription(LABELS.notFound);
     expect(screen.queryByText(/Reset email sent to/)).not.toBeInTheDocument();
   });
 

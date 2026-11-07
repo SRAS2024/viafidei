@@ -3,7 +3,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushSync } from "react-dom";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
 
@@ -193,26 +193,64 @@ describe("HeaderSearchClient", () => {
     expect(pushMock).toHaveBeenCalledWith("/saints/augustine");
   });
 
-  it("Escape closes the dropdown and clears the active selection", async () => {
+  it("Escape closes the dropdown, keeping the text and the focus in the field", async () => {
+    mockSuggestFetch();
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    const user = userEvent.setup();
+    const input = await typeAndWait(user, "ani");
+    await user.keyboard("{ArrowDown}{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    });
+    expect(input).toHaveValue("ani");
+    expect(input).toHaveFocus();
+    expect(input).toHaveAttribute("aria-expanded", "false");
+    expect(input).not.toHaveAttribute("aria-activedescendant");
+  });
+
+  it("ArrowDown reopens the dropdown Escape closed", async () => {
     mockSuggestFetch();
     render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
     const user = userEvent.setup();
     await typeAndWait(user, "ani");
     await user.keyboard("{Escape}");
-    await waitFor(() => {
-      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
   });
 
-  it("shows a loading state while the request is in flight", async () => {
+  it("a second Escape closes the search and puts focus back on its icon", async () => {
+    mockSuggestFetch();
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    const user = userEvent.setup();
+    await typeAndWait(user, "ani");
+    await user.keyboard("{Escape}{Escape}");
+    await waitFor(() => expect(screen.queryByRole("combobox")).not.toBeInTheDocument());
+    const toggle = screen.getByRole("button", { name: "Search the site" });
+    expect(toggle).toHaveFocus();
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("Escape in an empty field goes straight back to the icon", async () => {
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    const user = userEvent.setup();
+    await openSearch(user);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search the site" })).toHaveFocus();
+  });
+
+  it("shows a loading state while the request is in flight, and says it aloud", async () => {
     // A fetch that never settles keeps the panel in its loading state.
     vi.spyOn(globalThis, "fetch").mockReturnValue(new Promise(() => {}) as Promise<Response>);
     render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
     const user = userEvent.setup();
     await user.type(await openSearch(user), "ani");
-    await waitFor(() => expect(screen.getByText("Searching…")).toBeInTheDocument(), {
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Searching…"), {
       timeout: 1000,
     });
+    // One visible copy for the eye, one in the status region for the ear.
+    expect(screen.getAllByText("Searching…")).toHaveLength(2);
   });
 
   it("shows an empty state rather than a blank panel when nothing matches", async () => {
@@ -220,9 +258,10 @@ describe("HeaderSearchClient", () => {
     render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
     const user = userEvent.setup();
     await user.type(await openSearch(user), "zzzq");
-    await waitFor(() => expect(screen.getByText(/No matches for/)).toBeInTheDocument(), {
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/No matches for/), {
       timeout: 1000,
     });
+    expect(screen.getAllByText(/No matches for/)).toHaveLength(2);
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 
@@ -232,9 +271,100 @@ describe("HeaderSearchClient", () => {
     const user = userEvent.setup();
     await user.type(await openSearch(user), "ani");
     await waitFor(
-      () => expect(screen.getByText("Search is unavailable right now.")).toBeInTheDocument(),
+      () => expect(screen.getByRole("status")).toHaveTextContent("Search is unavailable"),
       { timeout: 1000 },
     );
+    expect(screen.getAllByText("Search is unavailable right now.")).toHaveLength(2);
+  });
+
+  it("announces how many suggestions arrived through a region that was already there", async () => {
+    mockSuggestFetch();
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    const status = screen.getByRole("status");
+    expect(status).toBeEmptyDOMElement();
+    expect(status).toHaveAttribute("aria-live", "polite");
+    await typeAndWait(userEvent.setup(), "ani");
+    // The same element: a region created with its text is not reliably read.
+    expect(screen.getByRole("status")).toBe(status);
+    expect(status).toHaveTextContent(/^3 suggestions\./);
+    expect(status).toHaveTextContent(/arrow keys/);
+  });
+
+  it("groups options in a valid listbox, each row reachable only with the arrow keys", async () => {
+    mockSuggestFetch();
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    await typeAndWait(userEvent.setup(), "ani");
+    const listbox = screen.getByRole("listbox");
+    const groups = within(listbox).getAllByRole("group");
+    expect(groups.map((g) => g.getAttribute("aria-labelledby"))).toHaveLength(2);
+    expect(within(listbox).getByRole("group", { name: "Saint" })).toBeInTheDocument();
+    for (const option of within(listbox).getAllByRole("option")) {
+      expect(option).toHaveAttribute("tabindex", "-1");
+      expect(option).toHaveAttribute("aria-setsize", "3");
+    }
+    expect(within(listbox).queryByRole("list")).not.toBeInTheDocument();
+  });
+
+  it("says a row's position in the whole list, and its type, to a screen reader", async () => {
+    mockSuggestFetch();
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    await typeAndWait(userEvent.setup(), "zz");
+    const row = optionByText("St. Augustine");
+    expect(row).toHaveAttribute("aria-posinset", "3");
+    expect(row).toHaveAccessibleName(/St\. Augustine.*Bishop, Doctor of the Church.*Saint/);
+  });
+
+  it("wraps from the first row to the last, and scrolls the active row into view", async () => {
+    mockSuggestFetch();
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    const user = userEvent.setup();
+    await typeAndWait(user, "ani");
+    await user.keyboard("{ArrowUp}");
+    expect(screen.getAllByRole("option")[2]).toHaveAttribute("aria-selected", "true");
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+    // @ts-expect-error restoring jsdom's own lack of it
+    delete Element.prototype.scrollIntoView;
+  });
+
+  it("closes the panel when focus is tabbed away, keeping the typed text", async () => {
+    mockSuggestFetch();
+    render(
+      <>
+        <HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />
+        <button type="button">Elsewhere</button>
+      </>,
+    );
+    const user = userEvent.setup();
+    const input = await typeAndWait(user, "ani");
+    await user.tab(); // to See all results
+    expect(screen.getByRole("button", { name: /See all results for/ })).toHaveFocus();
+    await user.tab(); // out of the search
+    expect(screen.getByRole("button", { name: "Elsewhere" })).toHaveFocus();
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(input).toHaveValue("ani");
+  });
+
+  it("Escape on See all results returns to the field with the panel shut", async () => {
+    mockSuggestFetch();
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    const user = userEvent.setup();
+    const input = await typeAndWait(user, "ani");
+    await user.tab();
+    await user.keyboard("{Escape}");
+    expect(input).toHaveFocus();
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("puts the search away after a row is opened", async () => {
+    mockSuggestFetch();
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    const user = userEvent.setup();
+    await typeAndWait(user, "ani");
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(pushMock).toHaveBeenCalled();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
   it("offers a way to the full results page for the current query", async () => {
@@ -268,6 +398,61 @@ describe("HeaderSearchClient", () => {
     const { container } = render(
       <HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />,
     );
+    const results = await axe(container);
+    expect(results.violations).toEqual([]);
+  });
+});
+
+describe("HeaderSearchClient — the phone's panel", () => {
+  const panel = () => (
+    <HeaderSearchClient placeholder="Search" ariaLabel="Search the site" variant="panel" />
+  );
+
+  it("keeps its icon, whose state and target follow the field's row", async () => {
+    render(panel());
+    const user = userEvent.setup();
+    const toggle = screen.getByRole("button", { name: "Search the site" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const row = document.getElementById(toggle.getAttribute("aria-controls") ?? "");
+    expect(row).toContainElement(screen.getByRole("combobox", { name: "Search the site" }));
+    expect(screen.getByRole("combobox")).toHaveFocus();
+  });
+
+  it("closes from the icon, clearing the field and keeping focus on the icon", async () => {
+    mockSuggestFetch();
+    render(panel());
+    const user = userEvent.setup();
+    const toggle = screen.getByRole("button", { name: "Search the site" });
+    await user.click(toggle);
+    await user.type(screen.getByRole("combobox"), "ani");
+    await waitFor(() => expect(screen.getByRole("listbox")).toBeInTheDocument(), { timeout: 1000 });
+    await user.click(toggle);
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(toggle).toHaveFocus();
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    expect(screen.getByRole("combobox")).toHaveValue("");
+  });
+
+  it("does not mention arrow keys on a touch screen's panel", async () => {
+    mockSuggestFetch();
+    render(panel());
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Search the site" }));
+    await user.type(screen.getByRole("combobox"), "ani");
+    await waitFor(() => expect(screen.getByRole("listbox")).toBeInTheDocument(), { timeout: 1000 });
+    expect(screen.getByRole("status")).toHaveTextContent(/^3 suggestions\.$/);
+  });
+
+  it("has no obvious accessibility violations with the panel open", async () => {
+    mockSuggestFetch();
+    const { container } = render(panel());
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Search the site" }));
+    await user.type(screen.getByRole("combobox"), "ani");
+    await waitFor(() => expect(screen.getByRole("listbox")).toBeInTheDocument(), { timeout: 1000 });
     const results = await axe(container);
     expect(results.violations).toEqual([]);
   });

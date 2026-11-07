@@ -56,33 +56,38 @@ export function UnverifiedEmailNotice({ labels }: { labels: Labels }) {
     }
   }
 
+  const failure =
+    status === "rate_limited"
+      ? labels.rateLimited
+      : status === "delivery_failed"
+        ? labels.deliveryFailed
+        : status === "error"
+          ? labels.error
+          : null;
+
   return (
-    <aside
-      className="rounded-sm border border-ink/20 bg-ink/5 p-4 text-sm"
-      role="status"
-      aria-live="polite"
-    >
-      <p className="font-serif text-ink">{labels.notice}</p>
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+    <div className="vf-notice">
+      <p>{labels.notice}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
         <button
           type="button"
           onClick={resend}
-          disabled={status === "loading"}
+          aria-disabled={status === "loading"}
           aria-busy={status === "loading"}
-          className="vf-btn vf-btn-ghost"
+          className="vf-btn vf-btn-sm vf-btn-ghost"
         >
           {labels.resend}
         </button>
-        {status === "sent" ? (
-          <span className="text-ink-soft">{labels.sent}</span>
-        ) : status === "rate_limited" ? (
-          <span style={{ color: "#8b1a1a" }}>{labels.rateLimited}</span>
-        ) : status === "delivery_failed" ? (
-          <span style={{ color: "#8b1a1a" }}>{labels.deliveryFailed}</span>
-        ) : status === "error" ? (
-          <span style={{ color: "#8b1a1a" }}>{labels.error}</span>
+        {/* Kept on the page empty, so its text is announced when it arrives. */}
+        <span role="status" aria-live="polite">
+          {status === "sent" ? labels.sent : ""}
+        </span>
+        {failure ? (
+          <span role="alert" className="vf-field-error !mt-0">
+            {failure}
+          </span>
         ) : null}
       </div>
-    </aside>
+    </div>
   );
 }

@@ -49,8 +49,11 @@ describe("UnverifiedEmailNotice", () => {
     );
     const user = userEvent.setup();
     render(<UnverifiedEmailNotice labels={LABELS} />);
+    // The status region is there, empty, before the reply, so its text is announced.
+    const status = screen.getByRole("status");
+    expect(status).toBeEmptyDOMElement();
     await user.click(screen.getByRole("button", { name: LABELS.resend }));
-    expect(await screen.findByText(LABELS.sent)).toBeInTheDocument();
+    expect(await screen.findByText(LABELS.sent)).toBe(status);
     expect(screen.queryByText(LABELS.deliveryFailed)).not.toBeInTheDocument();
   });
 
@@ -115,7 +118,7 @@ describe("UnverifiedEmailNotice", () => {
     const user = userEvent.setup();
     render(<UnverifiedEmailNotice labels={LABELS} />);
     await user.click(screen.getByRole("button", { name: LABELS.resend }));
-    expect(await screen.findByText(LABELS.rateLimited)).toBeInTheDocument();
+    expect(await screen.findByText(LABELS.rateLimited)).toHaveAttribute("role", "alert");
     expect(screen.queryByText(LABELS.sent)).not.toBeInTheDocument();
   });
 });

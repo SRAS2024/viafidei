@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CatholicRite } from "@/lib/content-shared/rites";
 
 type Option = { value: CatholicRite; label: string };
@@ -8,6 +8,10 @@ type Option = { value: CatholicRite; label: string };
 type Props = {
   initialRite: CatholicRite;
   options: Option[];
+  /** The menu's name; the section's heading already says it to the eye. */
+  label: string;
+  /** Said and shown once a choice has been kept. */
+  savedLabel: string;
 };
 
 const RITE_COOKIE_NAME = "vf_rite";
@@ -18,20 +22,28 @@ function persistRiteCookie(rite: CatholicRite) {
   document.cookie = `${RITE_COOKIE_NAME}=${rite}; Path=/; Max-Age=${oneYear}; SameSite=Lax`;
 }
 
-export function RitePicker({ initialRite, options }: Props) {
+export function RitePicker({ initialRite, options, label, savedLabel }: Props) {
   const [rite, setRite] = useState<CatholicRite>(initialRite);
   const [saved, setSaved] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const onChange = (next: CatholicRite) => {
     setRite(next);
     persistRiteCookie(next);
     setSaved(true);
-    window.setTimeout(() => setSaved(false), 1800);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setSaved(false), 1800);
   };
 
   return (
     <div>
+      <label htmlFor="rite" className="sr-only">
+        {label}
+      </label>
       <select
+        id="rite"
         className="vf-input"
         value={rite}
         onChange={(e) => onChange(e.target.value as CatholicRite)}
@@ -42,7 +54,14 @@ export function RitePicker({ initialRite, options }: Props) {
           </option>
         ))}
       </select>
-      {saved ? <p className="mt-2 text-xs text-ink-faint">✓</p> : null}
+      {/* Always on the page, so the word is announced when it appears. */}
+      <p role="status" aria-live="polite" className="vf-fineprint mt-1.5 min-h-[1.375rem]">
+        {saved ? (
+          <>
+            <span aria-hidden="true">✓</span> {savedLabel}
+          </>
+        ) : null}
+      </p>
     </div>
   );
 }

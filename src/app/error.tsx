@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 
+import { PageHero } from "@/components/ui/PageHero";
+
 export default function RootError({
   error,
   reset,
@@ -26,23 +28,20 @@ export default function RootError({
   }, [error]);
 
   return (
-    <div className="mx-auto max-w-xl px-6 py-16 text-center">
-      <h1 className="vf-wordmark text-2xl text-ink">Something went wrong</h1>
-      <p className="mt-4 text-sm text-ink/70">
-        We encountered an unexpected error. Please try again, or return to the home page.
-      </p>
-      {error.digest ? <p className="mt-2 text-xs text-ink/50">Reference: {error.digest}</p> : null}
-      <div className="mt-8 flex justify-center gap-3">
-        <button
-          onClick={reset}
-          className="rounded-full border border-ink/20 px-5 py-2 text-sm hover:bg-ink/5"
-        >
+    <div className="vf-message">
+      <PageHero
+        title="Something went wrong"
+        subtitle="We encountered an unexpected error. Please try again, or return to the home page."
+      />
+      <div className="flex flex-wrap justify-center gap-3">
+        <button type="button" onClick={reset} className="vf-btn vf-btn-primary">
           Try again
         </button>
-        <Link href="/" className="rounded-full bg-ink px-5 py-2 text-sm text-paper hover:bg-ink/90">
+        <Link href="/" className="vf-btn vf-btn-ghost">
           Home
         </Link>
       </div>
+      {error.digest ? <p className="vf-fineprint mt-4">Reference: {error.digest}</p> : null}
     </div>
   );
 }

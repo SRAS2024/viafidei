@@ -1,15 +1,17 @@
 import Link from "next/link";
 
+import { PageHero } from "@/components/ui/PageHero";
+
 export default function SpiritualLifeNotFound() {
   return (
-    <div className="flex flex-col items-center gap-6 py-24 text-center">
-      <p className="vf-eyebrow">404</p>
-      <h1 className="font-display text-4xl">Guide not found</h1>
-      <p className="font-serif text-ink-faint">
-        This guide may have been removed or the link is incorrect.
-      </p>
+    <div className="vf-message">
+      <PageHero
+        eyebrow="404"
+        title="Guide not found"
+        subtitle="This guide may have been removed or the link is incorrect."
+      />
       <Link href="/spiritual-life" className="vf-btn vf-btn-ghost">
-        ← Back to Spiritual Life
+        <span aria-hidden="true">←</span> Back to Spiritual Life
       </Link>
     </div>
   );

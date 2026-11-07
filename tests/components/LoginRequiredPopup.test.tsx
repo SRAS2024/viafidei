@@ -70,6 +70,12 @@ describe("LoginRequiredPopup", () => {
     expect(assign).toHaveBeenLastCalledWith("/register?next=%2Fparishes%2Fst-marys");
   });
 
+  it("moves focus into itself, on the first action, so a screen reader hears it", () => {
+    render(<LoginRequiredPopup open onClose={() => {}} message="An account is required." />);
+    expect(screen.getByRole("button", { name: "Log in" })).toHaveFocus();
+    expect(screen.getByRole("dialog", { name: "An account is required." })).toBeInTheDocument();
+  });
+
   it("closes on the close button, the backdrop and Escape", () => {
     const onClose = vi.fn();
     render(<LoginRequiredPopup open onClose={onClose} />);

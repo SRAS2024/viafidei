@@ -65,17 +65,12 @@ export function VerifyEmailClient({ token, labels }: { token: string; labels: La
     };
   }, [token]);
 
-  if (status === "checking") {
+  if (status === "checking" || status === "success") {
+    // One element whose text changes, so the outcome is announced where a new
+    // element carrying it might not be.
     return (
-      <p role="status" className="text-center font-serif text-sm text-ink-soft" aria-live="polite">
-        {labels.checking}
-      </p>
-    );
-  }
-  if (status === "success") {
-    return (
-      <p role="status" className="text-center font-serif text-sm text-ink" aria-live="polite">
-        {labels.success}
+      <p role="status" aria-live="polite" className="vf-notice">
+        {status === "checking" ? labels.checking : labels.success}
       </p>
     );
   }
@@ -90,7 +85,7 @@ export function VerifyEmailClient({ token, labels }: { token: string; labels: La
             ? labels.error
             : labels.invalid;
   return (
-    <p role="alert" className="text-center text-sm" style={{ color: "#8b1a1a" }}>
+    <p role="alert" className="vf-notice vf-notice-error">
       {message}
     </p>
   );

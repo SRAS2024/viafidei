@@ -36,12 +36,16 @@ export function ProfileBadgeStrip({
   badges,
   emptyMessage = "Complete a sacrament or consecration goal to earn your first badge.",
 }: Props) {
-  if (badges.length === 0) {
+  const shown = badges.flatMap((b) => {
+    const Badge = getBadgeForGoalSlug(b.templateSlug);
+    return Badge ? [{ ...b, Badge }] : [];
+  });
+  if (shown.length === 0) {
     if (emptyMessage === null) return null;
     return (
-      <p className="mt-2 font-serif text-xs text-ink-faint">
+      <p className="vf-fineprint mt-2">
         {emptyMessage}{" "}
-        <Link href="/sacraments" className="vf-nav-link">
+        <Link href="/sacraments" className="vf-link">
           Browse sacraments
         </Link>
       </p>
@@ -50,18 +54,16 @@ export function ProfileBadgeStrip({
   return (
     <Link
       href="/profile/milestones"
-      aria-label="View your sacrament and consecration badges"
-      className="mt-3 inline-flex flex-wrap items-center justify-center gap-3 rounded-sm px-2 py-1 transition hover:bg-ink/5"
+      aria-label={`View your sacrament and consecration badges: ${shown
+        .map((b) => b.title)
+        .join(", ")}`}
+      className="mt-2 inline-flex flex-wrap items-center justify-center gap-3 rounded-sm px-2 py-1 transition hover:bg-ink/5"
     >
-      {badges.map((b) => {
-        const Badge = getBadgeForGoalSlug(b.templateSlug);
-        if (!Badge) return null;
-        return (
-          <span key={b.id} title={b.title} aria-label={b.title} className="text-ink">
-            <Badge size={36} />
-          </span>
-        );
-      })}
+      {shown.map(({ id, title, Badge }) => (
+        <span key={id} title={title} className="text-ink">
+          <Badge size={36} />
+        </span>
+      ))}
     </Link>
   );
 }

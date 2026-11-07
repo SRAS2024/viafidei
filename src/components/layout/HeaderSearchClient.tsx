@@ -200,8 +200,18 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  // Set when the search closes by keyboard, so focus goes back to the icon rather
+  // than falling to the top of the page with the field it was in.
+  const refocusToggle = useRef(false);
+  // Focus returning to the field from the panel must not reopen the panel.
+  const keepPanelShut = useRef(false);
+  // Only the arrow keys scroll the list: a row under a resting mouse must not.
+  const movedByKey = useRef(false);
   const limit = useSuggestionLimit();
   const listboxId = useId();
+  const rowId = useId();
 
   const trimmed = q.trim();
 
@@ -258,23 +268,41 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
     return () => window.removeEventListener("click", onClick);
   }, [q]);
 
-  // Focus the field as soon as the search expands.
+  // Focus the field as soon as the search expands, and return to the icon when
+  // the keyboard closes it.
   useEffect(() => {
-    if (expanded) inputRef.current?.focus();
+    if (expanded) {
+      inputRef.current?.focus();
+    } else if (refocusToggle.current) {
+      refocusToggle.current = false;
+      toggleRef.current?.focus();
+    }
   }, [expanded]);
 
   function pick(suggestion: Suggestion) {
     setOpen(false);
     setQ("");
     setActiveIndex(-1);
+    setExpanded(false);
     router.push(hrefFor(suggestion));
   }
 
   function goToResults() {
     if (!trimmed) return;
     setOpen(false);
+    setQ("");
     setActiveIndex(-1);
+    setExpanded(false);
     router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+  }
+
+  /** Puts the search away altogether, back to the icon. */
+  function closeSearch() {
+    setOpen(false);
+    setQ("");
+    setActiveIndex(-1);
+    refocusToggle.current = true;
+    setExpanded(false);
   }
 
   // Group suggestions for the dropdown — prayers / saints / devotions
@@ -306,24 +334,66 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
 
   const showPanel = open && expanded && trimmed.length >= MIN_QUERY_LENGTH;
   const showList = showPanel && status === "ready" && flat.length > 0;
-  const activeId =
-    activeIndex >= 0 && flat[activeIndex] ? `vf-suggestion-${activeIndex}` : undefined;
+  const optionId = (index: number) => `${listboxId}-option-${index}`;
+  const activeId = activeIndex >= 0 && flat[activeIndex] ? optionId(activeIndex) : undefined;
+
+  // The panel ends above the bottom of what can be seen, which on a phone means
+  // above the keyboard, and never reaches past the window's left edge: its right
+  // edge is fixed to the field's. `dvh` alone knows nothing of the keyboard.
+  useEffect(() => {
+    if (!showPanel) return;
+    const panel = panelRef.current;
+    const viewport = window.visualViewport;
+    if (!panel || !viewport) return;
+    const fit = () => {
+      const { top, right } = panel.getBoundingClientRect();
+      panel.style.maxHeight = `${Math.max(viewport.height + viewport.offsetTop - top - 12, 160)}px`;
+      if (variant === "inline") panel.style.maxWidth = `${Math.max(right - 16, 240)}px`;
+    };
+    fit();
+    viewport.addEventListener("resize", fit);
+    viewport.addEventListener("scroll", fit);
+    return () => {
+      viewport.removeEventListener("resize", fit);
+      viewport.removeEventListener("scroll", fit);
+    };
+  }, [showPanel, variant]);
+
+  useEffect(() => {
+    if (!movedByKey.current || !activeId) return;
+    movedByKey.current = false;
+    document.getElementById(activeId)?.scrollIntoView?.({ block: "nearest" });
+  }, [activeId]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Escape") {
-      setOpen(false);
-      setActiveIndex(-1);
-      if (!q.trim()) setExpanded(false);
-      inputRef.current?.blur();
+      // First the panel goes, keeping what was typed; then the search itself.
+      // The browser's own clearing of a search field would lose the text at the
+      // first press.
+      e.preventDefault();
+      if (showPanel) {
+        setOpen(false);
+        setActiveIndex(-1);
+      } else {
+        closeSearch();
+      }
       return;
     }
-    if (!showList) return;
+    if (!showList) {
+      if (e.key === "ArrowDown" && !showPanel) {
+        e.preventDefault();
+        setOpen(true);
+      }
+      return;
+    }
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      movedByKey.current = true;
       setActiveIndex((i) => (i + 1) % flat.length);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActiveIndex((i) => (i - 1 + flat.length) % flat.length);
+      movedByKey.current = true;
+      setActiveIndex((i) => (i <= 0 ? flat.length - 1 : i - 1));
     } else if (e.key === "Enter" && activeIndex >= 0) {
       // Only an explicitly highlighted row is opened; a bare Enter falls
       // through to the form and lands on the full /search page.
@@ -333,41 +403,77 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
   }
 
   const panelVariant = variant === "panel";
+
+  // A status region is only announced when its text changes, so it stays on the
+  // page, empty, from the start. The rows themselves are reached with the arrow
+  // keys through aria-activedescendant, or by swiping on a phone.
+  const announcement = !showPanel
+    ? ""
+    : status === "loading"
+      ? "Searching…"
+      : status === "error"
+        ? "Search is unavailable right now."
+        : status === "ready" && flat.length === 0
+          ? `No matches for “${trimmed}”.`
+          : status === "ready"
+            ? `${flat.length} ${flat.length === 1 ? "suggestion" : "suggestions"}.${
+                panelVariant ? "" : " Use the up and down arrow keys to review, and Enter to open."
+              }`
+            : "";
+
   const toggle = (
     <button
+      ref={toggleRef}
       type="button"
       aria-label={ariaLabel}
       aria-expanded={expanded}
+      aria-controls={panelVariant ? rowId : undefined}
       onClick={() => {
-        setExpanded((v) => !v);
-        setOpen(true);
+        if (expanded) {
+          closeSearch();
+        } else {
+          setExpanded(true);
+          setOpen(true);
+        }
       }}
-      className="vf-header-search-toggle flex h-11 w-11 items-center justify-center rounded-full text-ink-soft transition hover:bg-ink/5 hover:text-ink"
+      className="vf-header-search-toggle flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-sm text-ink-soft transition hover:bg-ink/5 hover:text-ink aria-expanded:bg-ink/5 aria-expanded:text-ink"
     >
       <SearchIcon size={18} />
     </button>
   );
 
   return (
+    // Not a control: it only hears focus leaving the search as a whole.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       ref={wrapperRef}
       className={
         panelVariant ? "flex items-center" : "relative flex min-w-0 items-center justify-end"
       }
+      onBlur={(e) => {
+        // Tabbing out closes the panel; a click elsewhere has its own listener
+        // above, and has no related target to go by here.
+        const next = e.relatedTarget;
+        if (next instanceof Node && !e.currentTarget.contains(next)) {
+          setOpen(false);
+          if (!q.trim()) setExpanded(false);
+        }
+      }}
     >
       {panelVariant || !expanded ? toggle : null}
+      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcement}
+      </p>
       {expanded ? (
         <div
-          className={
-            panelVariant
-              ? "absolute inset-x-0 top-full border-b border-ink/10 bg-paper-bright px-4 py-2.5 sm:px-6"
-              : "w-48 lg:w-56 xl:w-64"
-          }
+          id={rowId}
+          className={panelVariant ? "vf-header-search-row" : "vf-header-search-field"}
         >
           <form
             method="get"
             action="/search"
             role="search"
+            aria-label={ariaLabel}
             className="vf-header-search relative flex min-w-0 items-center gap-2"
           >
             <SearchIcon size={16} className="shrink-0 text-ink-faint" />
@@ -380,7 +486,13 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
                 setQ(e.target.value);
                 setOpen(true);
               }}
-              onFocus={() => setOpen(true)}
+              onFocus={() => {
+                if (keepPanelShut.current) {
+                  keepPanelShut.current = false;
+                  return;
+                }
+                setOpen(true);
+              }}
               onKeyDown={onKeyDown}
               placeholder={placeholder}
               aria-label={ariaLabel}
@@ -390,78 +502,113 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
               aria-controls={listboxId}
               aria-activedescendant={activeId}
               autoComplete="off"
+              enterKeyHint="search"
               className="vf-header-search-input min-w-0 flex-1"
             />
             {showPanel ? (
               // The panel's right edge meets the field's and it never leaves the
               // viewport; on a phone it spans the field's own full-width row.
+              // A press inside it leaves focus in the field, which is what keeps the
+              // arrow keys working and the panel open.
+              // eslint-disable-next-line jsx-a11y/no-static-element-interactions
               <div
-                className={`vf-menu absolute right-0 top-full z-50 mt-1.5 max-h-[calc(100dvh-var(--header-h)-3.5rem)] overflow-y-auto !p-0 ${
-                  panelVariant ? "left-0" : "w-[min(28rem,calc(100vw-2rem))]"
-                }`}
+                ref={panelRef}
+                onMouseDown={(e) => e.preventDefault()}
+                className={`vf-menu vf-suggest ${panelVariant ? "vf-suggest-full" : ""}`}
               >
                 {status === "loading" ? (
-                  <p aria-live="polite" className="vf-fineprint px-4 py-3">
+                  <p aria-hidden="true" className="vf-suggest-status">
                     Searching…
                   </p>
                 ) : null}
                 {status === "error" ? (
-                  <p aria-live="polite" className="vf-fineprint px-4 py-3">
+                  <p aria-hidden="true" className="vf-suggest-status">
                     Search is unavailable right now.
                   </p>
                 ) : null}
                 {status === "ready" && flat.length === 0 ? (
-                  <p aria-live="polite" className="vf-fineprint px-4 py-3">
+                  <p aria-hidden="true" className="vf-suggest-status">
                     No matches for &ldquo;{trimmed}&rdquo;.
                   </p>
                 ) : null}
                 {showList ? (
-                  <div id={listboxId} role="listbox" aria-label="Search suggestions">
-                    {grouped.map(({ group, label, items }) => (
-                      <div key={group} className="border-b border-ink/10 py-1 last:border-b-0">
-                        <p className="vf-eyebrow px-4 pb-0.5 pt-1.5">{label}</p>
-                        <ul>
+                  <div
+                    id={listboxId}
+                    role="listbox"
+                    aria-label="Search suggestions"
+                    tabIndex={-1}
+                    className="vf-suggest-scroll"
+                  >
+                    {grouped.map(({ group, label, items }) => {
+                      const groupId = `${listboxId}-group-${group}`;
+                      return (
+                        <div
+                          key={group}
+                          role="group"
+                          aria-labelledby={groupId}
+                          className="vf-suggest-group"
+                        >
+                          <div
+                            id={groupId}
+                            role="presentation"
+                            className="vf-eyebrow vf-suggest-label"
+                          >
+                            {label}
+                          </div>
                           {items.map((s) => {
                             const flatIndex = flat.indexOf(s);
-                            const active = flatIndex === activeIndex;
                             return (
-                              <li key={`${s.group}:${s.id}`}>
-                                <button
-                                  type="button"
-                                  id={`vf-suggestion-${flatIndex}`}
-                                  role="option"
-                                  aria-selected={active}
-                                  onMouseEnter={() => setActiveIndex(flatIndex)}
-                                  onClick={() => pick(s)}
-                                  className={`flex w-full flex-col items-start gap-0.5 px-4 py-2 text-left ${active ? "bg-ink/5" : ""}`}
-                                >
-                                  <span className="font-serif text-[1.1875rem] leading-snug text-ink">
-                                    <SearchHighlight text={s.label} query={trimmed} />
+                              <button
+                                key={`${s.group}:${s.id}`}
+                                type="button"
+                                id={optionId(flatIndex)}
+                                role="option"
+                                aria-selected={flatIndex === activeIndex}
+                                aria-posinset={flatIndex + 1}
+                                aria-setsize={flat.length}
+                                tabIndex={-1}
+                                onMouseEnter={() => setActiveIndex(flatIndex)}
+                                onClick={() => pick(s)}
+                                className="vf-suggest-option"
+                              >
+                                <span className="vf-suggest-title">
+                                  <SearchHighlight text={s.label} query={trimmed} />
+                                </span>
+                                {s.subtitle ? <span className="sr-only">, </span> : null}
+                                {s.subtitle ? (
+                                  <span className="vf-suggest-meta vf-clamp [--clamp:2]">
+                                    <SearchHighlight text={s.subtitle} query={trimmed} />
                                   </span>
-                                  {s.subtitle ? (
-                                    <span className="vf-clamp font-sans text-sm leading-snug text-ink-faint [--clamp:2]">
-                                      <SearchHighlight text={s.subtitle} query={trimmed} />
-                                    </span>
-                                  ) : null}
-                                </button>
-                              </li>
+                                ) : null}
+                                {/* VoiceOver reads a row alone, not its group's name. */}
+                                <span className="sr-only">, {s.typeLabel ?? label}</span>
+                              </button>
                             );
                           })}
-                        </ul>
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : null}
-                <div className="border-t border-ink/10">
+                <div className="vf-suggest-foot">
                   <button
                     type="button"
                     onClick={goToResults}
-                    className="vf-link-action w-full px-4 py-2.5 text-left hover:bg-ink/5"
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        setOpen(false);
+                        setActiveIndex(-1);
+                        keepPanelShut.current = true;
+                        inputRef.current?.focus();
+                      }
+                    }}
+                    className="vf-link-action vf-suggest-all"
                   >
                     See all results for &ldquo;{trimmed}&rdquo;
                   </button>
                   {showList ? (
-                    <p className="vf-fineprint hidden px-4 pb-2.5 min-[900px]:block">
+                    <p aria-hidden="true" className="vf-suggest-hint">
                       ↑↓ navigate &middot; ↵ open &middot; esc close
                     </p>
                   ) : null}

@@ -5,10 +5,14 @@ import type { SearchResultGroup as SearchResultGroupData } from "@/lib/data/publ
 
 /**
  * One content-type section of the /search page: a human heading ("Our Lady",
- * never MARIAN_TITLE), then a row per hit with its title, the subtitle that
- * tells the two St Johns apart, and the matched text marked. Every row links
- * to the canonical href the data layer computed — the page never rebuilds
+ * never MARIAN_TITLE), then a row per hit with its title and the subtitle that
+ * tells the two St Johns apart, the matched text marked. A row's own type shows
+ * only where it differs from the heading (a Litany among Prayers). Every row
+ * links to the canonical href the data layer computed — the page never rebuilds
  * routes from slugs, and never shows a slug.
+ *
+ * The title's link stretches over its row, so the whole row is the target while
+ * a screen reader hears a heading with the item's name, then its details.
  */
 export function SearchResultGroup({
   group,
@@ -18,33 +22,36 @@ export function SearchResultGroup({
   query: string;
 }) {
   return (
-    <section>
-      <header className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="break-words font-display text-2xl text-ink">{group.label}</h2>
-        <span className="vf-eyebrow shrink-0">
+    <section className="vf-result-group">
+      <div className="vf-result-head">
+        <h2 className="vf-subhead">{group.label}</h2>
+        <p className="vf-result-count">
           {group.items.length} {group.items.length === 1 ? "result" : "results"}
-        </span>
-      </header>
-      <ul className="vf-card divide-y divide-ink/10 rounded-sm">
-        {group.items.map((item) => (
-          <li key={item.id} className="px-4 py-3 sm:px-5 sm:py-4">
-            <Link href={item.href} className="flex items-center justify-between gap-4">
-              <span className="min-w-0 flex-1">
-                <span className="block break-words font-serif text-base text-ink sm:text-lg">
+        </p>
+      </div>
+      <ul className="vf-result-list">
+        {group.items.map((item) => {
+          const meta = [
+            item.typeLabel && item.typeLabel !== group.label ? item.typeLabel : null,
+            item.subtitle,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          return (
+            <li key={item.id} className="vf-result">
+              <h3 className="vf-result-title">
+                <Link href={item.href} className="vf-entry-link">
                   <SearchHighlight text={item.title} query={query} />
-                </span>
-                {item.subtitle ? (
-                  <span className="vf-eyebrow mt-1 block break-words normal-case">
-                    <SearchHighlight text={item.subtitle} query={query} />
-                  </span>
-                ) : null}
-              </span>
-              <span aria-hidden="true" className="shrink-0 text-ink-faint">
-                →
-              </span>
-            </Link>
-          </li>
-        ))}
+                </Link>
+              </h3>
+              {meta ? (
+                <p className="vf-entry-meta">
+                  <SearchHighlight text={meta} query={query} />
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

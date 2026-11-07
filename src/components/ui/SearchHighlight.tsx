@@ -30,11 +30,7 @@ export function SearchHighlight({ text, query }: { text: string; query: string }
     <>
       {parts.map((part, i) => (
         <Fragment key={i}>
-          {part.match ? (
-            <mark className="rounded-sm bg-ink/10 px-0.5 text-ink">{part.text}</mark>
-          ) : (
-            part.text
-          )}
+          {part.match ? <mark className="vf-mark">{part.text}</mark> : part.text}
         </Fragment>
       ))}
     </>

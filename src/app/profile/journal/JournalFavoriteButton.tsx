@@ -4,39 +4,56 @@ import { useState, useTransition } from "react";
 
 type Props = {
   entryId: string;
+  /** Names the entry to a screen reader, among a page of identical buttons. */
+  entryTitle?: string;
   isFavorite: boolean;
   favoriteLabel: string;
-  unfavoriteLabel: string;
 };
 
-export function JournalFavoriteButton({
-  entryId,
-  isFavorite,
-  favoriteLabel,
-  unfavoriteLabel,
-}: Props) {
+export function JournalFavoriteButton({ entryId, entryTitle, isFavorite, favoriteLabel }: Props) {
   const [fav, setFav] = useState(isFavorite);
+  const [failed, setFailed] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function toggle() {
+    if (pending) return;
+    setFailed(false);
     startTransition(async () => {
-      await fetch(`/api/journal/${entryId}/favorite`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ isFavorite: !fav }),
-      });
-      setFav((v) => !v);
+      try {
+        const res = await fetch(`/api/journal/${entryId}/favorite`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ isFavorite: !fav }),
+        });
+        if (!res.ok) throw new Error("save failed");
+        setFav((v) => !v);
+      } catch {
+        setFailed(true);
+      }
     });
   }
 
+  // One name and a pressed state: VoiceOver says "selected" as it changes, where a
+  // label that swaps under the cursor goes unannounced. The blue fill says it to the eye.
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      disabled={pending}
-      className={`text-sm transition ${fav ? "text-liturgical-gold" : "text-ink-faint hover:text-ink"}`}
-    >
-      {fav ? `★ ${unfavoriteLabel}` : `☆ ${favoriteLabel}`}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-pressed={fav}
+        aria-disabled={pending}
+        aria-busy={pending}
+        aria-label={entryTitle ? `${favoriteLabel}: ${entryTitle}` : favoriteLabel}
+        className="vf-btn vf-btn-sm vf-btn-ghost"
+      >
+        <span aria-hidden="true">{fav ? "★" : "☆"}</span>
+        <span>{favoriteLabel}</span>
+      </button>
+      {failed ? (
+        <p role="alert" className="vf-field-error w-full">
+          Could not save. Please try again.
+        </p>
+      ) : null}
+    </>
   );
 }

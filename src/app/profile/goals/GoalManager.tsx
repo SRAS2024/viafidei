@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Disclosure } from "@/components/ui/Disclosure";
 import { GoalJournalPanel } from "./GoalJournalPanel";
 
 type ChecklistItem = {
@@ -39,21 +40,33 @@ type Labels = {
   deleteTitle: string;
   deleteBody: string;
   checklist: string;
+  /** The name of a checklist step's remove control; "Remove" when absent. */
+  remove?: string;
 };
 
-function statusBadge(status: string, dueDate: string | null) {
-  const overdue =
-    dueDate && new Date(dueDate) < new Date() && status !== "COMPLETED" && status !== "ARCHIVED";
-  const label = overdue ? "Overdue" : status.charAt(0) + status.slice(1).toLowerCase();
-  const colour =
-    status === "COMPLETED"
-      ? "text-emerald-700"
-      : overdue || status === "OVERDUE"
-        ? "text-liturgical-red"
-        : status === "ARCHIVED"
-          ? "text-ink-faint"
-          : "text-ink-soft";
-  return <span className={`vf-eyebrow ${colour}`}>{label}</span>;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * A goal's due date is a calendar day stored as midnight UTC. It is not overdue
+ * until that whole day has passed, and it prints as that day whatever the reader's
+ * time zone, not as the evening before.
+ */
+function isOverdue(status: string, dueDate: string | null): boolean {
+  if (!dueDate || status === "COMPLETED" || status === "ARCHIVED") return false;
+  return new Date(dueDate).getTime() + DAY_MS < Date.now();
+}
+
+function formatDueDate(dueDate: string, locale: string): string {
+  try {
+    return new Date(dueDate).toLocaleDateString(locale, { dateStyle: "medium", timeZone: "UTC" });
+  } catch {
+    return dueDate.slice(0, 10);
+  }
+}
+
+function statusLabel(status: string, dueDate: string | null): string {
+  if (isOverdue(status, dueDate)) return "Overdue";
+  return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
 function CreateForm({
@@ -72,7 +85,7 @@ function CreateForm({
   const [error, setError] = useState<string | null>(null);
 
   function submit(completed: boolean) {
-    if (!title.trim()) return;
+    if (!title.trim() || pending) return;
     setError(null);
     startTransition(async () => {
       const res = await fetch("/api/goals", {
@@ -95,49 +108,66 @@ function CreateForm({
   }
 
   return (
-    <div className="vf-card mb-6 rounded-sm p-6">
-      <label className="vf-label" htmlFor="goal-title">
-        {labels.title}
-      </label>
-      <input
-        id="goal-title"
-        className="vf-input"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        autoFocus
-      />
-      <label className="vf-label mt-4" htmlFor="goal-desc">
-        {labels.description}
-      </label>
-      <textarea
-        id="goal-desc"
-        rows={3}
-        className="vf-input"
-        value={desc}
-        onChange={(e) => setDesc(e.target.value)}
-      />
-      <label className="vf-label mt-4" htmlFor="goal-due">
-        {labels.dueDate}
-      </label>
-      <input
-        id="goal-due"
-        type="date"
-        className="vf-input"
-        value={due}
-        onChange={(e) => setDue(e.target.value)}
-      />
-      {error ? <p className="mt-2 text-sm text-liturgical-red">{error}</p> : null}
-      <div className="mt-4 flex flex-wrap gap-3">
-        <button type="button" className="vf-btn vf-btn-cancel" onClick={onCancel}>
-          {labels.cancel}
-        </button>
+    <form
+      className="vf-panel vf-form mb-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit(false);
+      }}
+    >
+      <div>
+        <label className="vf-label" htmlFor="goal-title">
+          {labels.title}
+        </label>
+        <input
+          id="goal-title"
+          className="vf-input"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+          maxLength={200}
+          autoFocus
+        />
+      </div>
+      <div>
+        <label className="vf-label" htmlFor="goal-desc">
+          {labels.description}
+        </label>
+        <textarea
+          id="goal-desc"
+          rows={3}
+          className="vf-input"
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+          maxLength={4000}
+        />
+      </div>
+      <div>
+        <label className="vf-label" htmlFor="goal-due">
+          {labels.dueDate}
+        </label>
+        <input
+          id="goal-due"
+          type="date"
+          className="vf-input"
+          value={due}
+          onChange={(e) => setDue(e.target.value)}
+        />
+      </div>
+      {error ? (
+        <p role="alert" className="vf-notice vf-notice-error">
+          {error}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
         <button
-          type="button"
+          type="submit"
           className="vf-btn vf-btn-primary"
-          onClick={() => submit(false)}
-          disabled={pending || !title.trim()}
+          disabled={!title.trim()}
+          aria-disabled={pending}
+          aria-busy={pending}
         >
-          {pending ? "…" : labels.startGoal}
+          {labels.startGoal}
         </button>
         {/* Manual completion: for a goal the user finished before joining.
             Creates it already-completed and awards its milestone. */}
@@ -145,25 +175,34 @@ function CreateForm({
           type="button"
           className="vf-btn vf-btn-ghost"
           onClick={() => submit(true)}
-          disabled={pending || !title.trim()}
+          disabled={!title.trim()}
+          aria-disabled={pending}
         >
           {labels.alreadyCompleted}
         </button>
+        <button type="button" className="vf-btn vf-btn-ghost" onClick={onCancel}>
+          {labels.cancel}
+        </button>
       </div>
-    </div>
+    </form>
   );
 }
 
 function GoalCard({
   goal,
   labels,
+  locale,
   onUpdate,
   onDelete,
+  onLeave,
 }: {
   goal: Goal;
   labels: Labels;
+  locale: string;
   onUpdate: (updated: Goal) => void;
   onDelete: (id: string) => void;
+  /** Says where focus should go when this card leaves the list it was in. */
+  onLeave: (to: "completed" | "archived") => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(goal.title);
@@ -172,6 +211,28 @@ function GoalCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, startTransition] = useTransition();
   const [journalOpen, setJournalOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [itemPending, setItemPending] = useState<string | null>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  const newItemRef = useRef<HTMLInputElement>(null);
+  const refocusEdit = useRef(false);
+  const uid = useId();
+  const titleId = `${uid}-title`;
+  const descId = `${uid}-desc`;
+  const stepId = `${uid}-step`;
+  const headingId = `${uid}-heading`;
+  const journalId = `${uid}-journal`;
+
+  // Editing swaps the card's text for its fields and back; focus goes with it.
+  useEffect(() => {
+    if (editing) {
+      titleInputRef.current?.focus();
+    } else if (refocusEdit.current) {
+      refocusEdit.current = false;
+      editButtonRef.current?.focus();
+    }
+  }, [editing]);
 
   async function patchGoal(body: object) {
     const res = await fetch(`/api/goals/${goal.id}`, {
@@ -182,64 +243,92 @@ function GoalCard({
     if (res.ok) {
       const data = await res.json();
       onUpdate({ ...data.goal, checklist: goal.checklist });
+      return true;
     }
+    setError("Could not save this goal. Please try again.");
+    return false;
   }
 
   function saveEdit() {
+    if (pending) return;
+    setError(null);
     startTransition(async () => {
-      await patchGoal({ title: title.trim(), description: desc.trim() || null });
-      setEditing(false);
+      if (await patchGoal({ title: title.trim(), description: desc.trim() || null })) {
+        refocusEdit.current = true;
+        setEditing(false);
+      }
     });
   }
 
   function complete() {
+    if (pending) return;
+    setError(null);
     startTransition(async () => {
       const res = await fetch(`/api/goals/${goal.id}/complete`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
+        onLeave("completed");
         onUpdate({ ...data.goal, checklist: goal.checklist });
+      } else {
+        setError("Could not update this goal. Please try again.");
       }
     });
   }
 
   function archive() {
+    if (pending) return;
+    setError(null);
     startTransition(async () => {
       const res = await fetch(`/api/goals/${goal.id}/archive`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
+        onLeave("archived");
         onUpdate({ ...data.goal, checklist: goal.checklist });
+      } else {
+        setError("Could not update this goal. Please try again.");
       }
     });
   }
 
   function confirmAndDelete() {
     setConfirmDelete(false);
+    setError(null);
     startTransition(async () => {
       const res = await fetch(`/api/goals/${goal.id}`, { method: "DELETE" });
       if (res.ok) onDelete(goal.id);
+      else setError("Could not delete this goal. Please try again.");
     });
   }
 
   function toggleItem(item: ChecklistItem) {
+    // The box changes at once, as a checkbox should, and goes back if the save
+    // fails; waiting for the server left it looking unresponsive.
+    const next = !item.isCompleted;
+    const withValue = (value: boolean) =>
+      goal.checklist.map((c) => (c.id === item.id ? { ...c, isCompleted: value } : c));
+    setError(null);
+    setItemPending(item.id);
+    onUpdate({ ...goal, checklist: withValue(next) });
     startTransition(async () => {
-      const res = await fetch(`/api/goals/${goal.id}/checklist/${item.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ isCompleted: !item.isCompleted }),
-      });
-      if (res.ok) {
-        onUpdate({
-          ...goal,
-          checklist: goal.checklist.map((c) =>
-            c.id === item.id ? { ...c, isCompleted: !c.isCompleted } : c,
-          ),
+      try {
+        const res = await fetch(`/api/goals/${goal.id}/checklist/${item.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ isCompleted: next }),
         });
+        if (!res.ok) throw new Error("save failed");
+      } catch {
+        onUpdate({ ...goal, checklist: withValue(item.isCompleted) });
+        setError("Could not save that step. Please try again.");
+      } finally {
+        setItemPending(null);
       }
     });
   }
 
   function addItem() {
-    if (!newItem.trim()) return;
+    if (!newItem.trim() || pending) return;
+    setError(null);
     startTransition(async () => {
       const res = await fetch(`/api/goals/${goal.id}/checklist`, {
         method: "POST",
@@ -250,166 +339,230 @@ function GoalCard({
         const data = await res.json();
         onUpdate({ ...goal, checklist: [...goal.checklist, data.item] });
         setNewItem("");
+        newItemRef.current?.focus();
+      } else {
+        setError("Could not add that step. Please try again.");
       }
     });
   }
 
   function removeItem(itemId: string) {
+    setError(null);
     startTransition(async () => {
       const res = await fetch(`/api/goals/${goal.id}/checklist/${itemId}`, { method: "DELETE" });
       if (res.ok) {
         onUpdate({ ...goal, checklist: goal.checklist.filter((c) => c.id !== itemId) });
+        // Its button has gone with the step; the field below is the nearest
+        // control that always remains.
+        newItemRef.current?.focus();
+      } else {
+        setError("Could not remove that step. Please try again.");
       }
     });
   }
 
-  return (
-    <article className="vf-card rounded-sm p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
-        <div className="min-w-0 flex-1">
-          {statusBadge(goal.status, goal.dueDate)}
-          {editing ? (
-            <div className="mt-2">
-              <input
-                className="vf-input text-lg font-display"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-              <textarea
-                className="vf-input mt-2"
-                rows={2}
-                value={desc}
-                onChange={(e) => setDesc(e.target.value)}
-                placeholder={labels.description}
-              />
-              <div className="mt-2 flex gap-2">
-                <button
-                  className="vf-btn vf-btn-cancel text-sm"
-                  onClick={() => {
-                    setEditing(false);
-                    setTitle(goal.title);
-                    setDesc(goal.description ?? "");
-                  }}
-                >
-                  {labels.cancel}
-                </button>
-                <button
-                  className="vf-btn vf-btn-primary text-sm"
-                  disabled={pending}
-                  onClick={saveEdit}
-                >
-                  {pending ? "…" : labels.save}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <h2 className="mt-2 break-words font-display text-xl sm:text-2xl">{goal.title}</h2>
-              {goal.description ? (
-                <p className="mt-1 break-words font-serif text-ink-soft">{goal.description}</p>
-              ) : null}
-            </>
-          )}
-        </div>
+  const canChange = goal.status !== "COMPLETED" && goal.status !== "ARCHIVED";
+  const stepsDone = goal.checklist.filter((c) => c.isCompleted).length;
 
-        {!editing ? (
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {goal.status === "ACTIVE" || goal.status === "OVERDUE" ? (
-              <>
-                <button className="vf-btn vf-btn-ghost text-xs" onClick={() => setEditing(true)}>
-                  {labels.edit}
-                </button>
-                <button
-                  className="vf-btn vf-btn-ghost text-xs"
-                  disabled={pending}
-                  onClick={complete}
-                >
-                  {labels.complete}
-                </button>
-                <button
-                  className="vf-btn vf-btn-ghost text-xs"
-                  disabled={pending}
-                  onClick={archive}
-                >
-                  {labels.archive}
-                </button>
-              </>
-            ) : null}
+  return (
+    <article className="vf-panel" aria-labelledby={editing ? undefined : headingId}>
+      {editing ? (
+        <div className="vf-form">
+          <div>
+            <label className="vf-label" htmlFor={titleId}>
+              {labels.title}
+            </label>
+            <input
+              ref={titleInputRef}
+              id={titleId}
+              className="vf-input"
+              value={title}
+              maxLength={200}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="vf-label" htmlFor={descId}>
+              {labels.description}
+            </label>
+            <textarea
+              id={descId}
+              className="vf-input"
+              rows={2}
+              value={desc}
+              maxLength={4000}
+              onChange={(e) => setDesc(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
             <button
-              className="vf-link-danger text-xs"
-              disabled={pending}
-              onClick={() => setConfirmDelete(true)}
+              type="button"
+              className="vf-btn vf-btn-primary"
+              disabled={!title.trim()}
+              aria-disabled={pending}
+              aria-busy={pending}
+              onClick={saveEdit}
             >
-              {labels.delete}
+              {labels.save}
+            </button>
+            <button
+              type="button"
+              className="vf-btn vf-btn-ghost"
+              onClick={() => {
+                refocusEdit.current = true;
+                setEditing(false);
+                setTitle(goal.title);
+                setDesc(goal.description ?? "");
+              }}
+            >
+              {labels.cancel}
             </button>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : (
+        <>
+          <h2 id={headingId} className="vf-entry-title">
+            {goal.title}
+          </h2>
+          {/* A date's punctuation can differ between server and browser; both are right. */}
+          <p className="vf-entry-meta" suppressHydrationWarning>
+            <span className={isOverdue(goal.status, goal.dueDate) ? "vf-overdue" : undefined}>
+              {statusLabel(goal.status, goal.dueDate)}
+            </span>
+            {goal.dueDate ? ` · Due ${formatDueDate(goal.dueDate, locale)}` : ""}
+          </p>
+          {goal.description ? <p className="vf-panel-text">{goal.description}</p> : null}
+        </>
+      )}
 
       {goal.checklist.length > 0 ? (
-        <ul className="mt-4 divide-y divide-ink/5">
-          {goal.checklist.map((item) => (
-            <li key={item.id} className="flex items-center gap-3 py-2">
-              <input
-                type="checkbox"
-                checked={item.isCompleted}
-                onChange={() => toggleItem(item)}
-                className="h-4 w-4 accent-liturgical-gold"
-              />
-              <span
-                className={`flex-1 font-serif text-sm ${item.isCompleted ? "line-through text-ink-faint" : "text-ink-soft"}`}
-              >
-                {item.label}
-              </span>
-              <button
-                type="button"
-                onClick={() => removeItem(item.id)}
-                className="text-xs text-ink-faint hover:text-liturgical-red"
-                aria-label="Remove"
-              >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="vf-eyebrow mt-4">
+            {labels.checklist} · {stepsDone}/{goal.checklist.length}
+          </p>
+          <ul className="vf-checklist mt-1.5">
+            {goal.checklist.map((item) => (
+              <li key={item.id}>
+                <label className="vf-check">
+                  <input
+                    type="checkbox"
+                    checked={item.isCompleted}
+                    aria-busy={itemPending === item.id}
+                    onChange={() => {
+                      if (itemPending !== item.id) toggleItem(item);
+                    }}
+                  />
+                  <span className="min-w-0">{item.label}</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => removeItem(item.id)}
+                  className="vf-icon-btn"
+                  aria-label={`${labels.remove ?? "Remove"}: ${item.label}`}
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       ) : null}
 
-      {goal.status !== "COMPLETED" && goal.status !== "ARCHIVED" ? (
-        <div className="mt-3 flex gap-2">
+      {canChange ? (
+        <form
+          className="vf-add-row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            addItem();
+          }}
+        >
+          <label htmlFor={stepId} className="sr-only">
+            {labels.addChecklist}
+          </label>
           <input
-            className="vf-input flex-1 py-1 text-sm"
+            ref={newItemRef}
+            id={stepId}
+            className="vf-input"
             placeholder={labels.addChecklist}
             value={newItem}
+            maxLength={200}
             onChange={(e) => setNewItem(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addItem();
-              }
-            }}
           />
           <button
-            type="button"
-            className="vf-btn vf-btn-ghost text-sm"
-            disabled={!newItem.trim() || pending}
-            onClick={addItem}
+            type="submit"
+            className="vf-btn vf-btn-sm vf-btn-ghost"
+            disabled={!newItem.trim()}
+            aria-disabled={pending}
+            aria-label={labels.addChecklist}
           >
-            +
+            <span aria-hidden="true">+</span>
+          </button>
+        </form>
+      ) : null}
+
+      {error ? (
+        <p role="alert" className="vf-notice vf-notice-error mt-3">
+          {error}
+        </p>
+      ) : null}
+
+      {!editing ? (
+        <div className="vf-panel-actions">
+          {goal.status === "ACTIVE" || goal.status === "OVERDUE" ? (
+            <>
+              <button
+                ref={editButtonRef}
+                type="button"
+                className="vf-btn vf-btn-sm vf-btn-ghost"
+                aria-label={`${labels.edit}: ${goal.title}`}
+                onClick={() => setEditing(true)}
+              >
+                {labels.edit}
+              </button>
+              <button
+                type="button"
+                className="vf-btn vf-btn-sm vf-btn-ghost"
+                aria-disabled={pending}
+                aria-label={`${labels.complete}: ${goal.title}`}
+                onClick={complete}
+              >
+                {labels.complete}
+              </button>
+              <button
+                type="button"
+                className="vf-btn vf-btn-sm vf-btn-ghost"
+                aria-disabled={pending}
+                aria-label={`${labels.archive}: ${goal.title}`}
+                onClick={archive}
+              >
+                {labels.archive}
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            className="vf-btn vf-btn-sm vf-btn-ghost"
+            onClick={() => setJournalOpen((v) => !v)}
+            aria-expanded={journalOpen}
+            aria-controls={journalId}
+          >
+            {journalOpen ? "Hide journal" : "Open journal"}
+          </button>
+          <button
+            type="button"
+            className="vf-link-danger"
+            aria-disabled={pending}
+            aria-label={`${labels.delete}: ${goal.title}`}
+            onClick={() => setConfirmDelete(true)}
+          >
+            {labels.delete}
           </button>
         </div>
       ) : null}
 
-      <div className="mt-4 flex justify-end">
-        <button
-          type="button"
-          className="vf-nav-link text-xs"
-          onClick={() => setJournalOpen((v) => !v)}
-          aria-expanded={journalOpen}
-        >
-          {journalOpen ? "Hide journal" : "Open journal"}
-        </button>
+      <div id={journalId}>
+        <GoalJournalPanel goalId={goal.id} open={journalOpen} />
       </div>
-      <GoalJournalPanel goalId={goal.id} open={journalOpen} />
 
       <ConfirmDialog
         open={confirmDelete}
@@ -435,17 +588,65 @@ type Props = {
    * the active list stays short.
    */
   completedCount?: number;
+  /** The reader's language, for due dates: the same on the server and the client. */
+  locale?: string;
   labels: Labels;
 };
 
-export function GoalManager({ initialGoals, completedCount = 0, labels }: Props) {
+type FocusTarget = "new" | "completed" | "archived" | "first-goal";
+
+export function GoalManager({ initialGoals, completedCount = 0, locale = "en", labels }: Props) {
   const [goals, setGoals] = useState(initialGoals);
   const [showCreate, setShowCreate] = useState(false);
+  // Completed here since the page was rendered, until the server's count catches up.
+  const [completedHere, setCompletedHere] = useState(0);
   const router = useRouter();
+  const newGoalRef = useRef<HTMLButtonElement>(null);
+  const completedLinkRef = useRef<HTMLAnchorElement>(null);
+  const archivedRef = useRef<HTMLDivElement>(null);
+  const activeListRef = useRef<HTMLDivElement>(null);
+  // A goal that completes, archives or deletes takes its focused button with it,
+  // and a new one has just arrived. Focus moves to where things went, which also
+  // tells a screen reader what happened.
+  const [focusRequest, setFocusRequest] = useState<{ to: FocusTarget } | null>(null);
+
+  useEffect(() => {
+    if (!focusRequest) return;
+    const { to } = focusRequest;
+    if (to === "completed") {
+      completedLinkRef.current?.focus();
+    } else if (to === "archived") {
+      archivedRef.current?.querySelector("button")?.focus();
+    } else if (to === "first-goal") {
+      const heading = activeListRef.current?.querySelector<HTMLElement>("h2");
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus();
+      }
+    } else {
+      newGoalRef.current?.focus();
+    }
+  }, [focusRequest]);
+
+  // The server's count includes what was completed here once a refresh lands.
+  useEffect(() => {
+    setCompletedHere(0);
+  }, [completedCount]);
+
+  const shownCompleted = completedCount + completedHere;
 
   function handleCreated(g: Goal) {
-    setGoals((prev) => [g, ...prev]);
     setShowCreate(false);
+    // "Already Completed" creates a finished goal, which belongs on the completed
+    // page, not in this list.
+    if (g.status === "COMPLETED") {
+      setCompletedHere((n) => n + 1);
+      setFocusRequest({ to: "completed" });
+      router.refresh();
+      return;
+    }
+    setGoals((prev) => [{ ...g, checklist: g.checklist ?? [] }, ...prev]);
+    setFocusRequest({ to: "first-goal" });
   }
 
   function handleUpdate(updated: Goal) {
@@ -454,16 +655,20 @@ export function GoalManager({ initialGoals, completedCount = 0, labels }: Props)
     // it from local state matches what the next server fetch will
     // return (listGoalsForUser excludes COMPLETED rows).
     if (updated.status === "COMPLETED") {
+      setCompletedHere((n) => n + 1);
       setGoals((prev) => prev.filter((g) => g.id !== updated.id));
       router.refresh();
       return;
     }
+    const before = goals.find((g) => g.id === updated.id);
     setGoals((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
-    router.refresh();
+    // Ticking a step or rewording a title changes nothing the server renders here.
+    if (before?.status !== updated.status) router.refresh();
   }
 
   function handleDelete(id: string) {
     setGoals((prev) => prev.filter((g) => g.id !== id));
+    setFocusRequest({ to: "new" });
   }
 
   // Completed goals migrate to /profile/goals/completed where they are
@@ -475,17 +680,23 @@ export function GoalManager({ initialGoals, completedCount = 0, labels }: Props)
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap justify-center gap-3">
+      <div className="vf-toolbar">
         <button
+          ref={newGoalRef}
           type="button"
           className="vf-btn vf-btn-primary"
+          aria-expanded={showCreate}
           onClick={() => setShowCreate((v) => !v)}
         >
-          {showCreate ? labels.cancel : labels.newGoal}
+          {labels.newGoal}
         </button>
-        {completedCount > 0 ? (
-          <Link href="/profile/goals/completed" className="vf-btn vf-btn-ghost">
-            View completed goals ({completedCount})
+        {shownCompleted > 0 ? (
+          <Link
+            ref={completedLinkRef}
+            href="/profile/goals/completed"
+            className="vf-btn vf-btn-ghost"
+          >
+            View completed goals ({shownCompleted})
           </Link>
         ) : null}
       </div>
@@ -494,18 +705,21 @@ export function GoalManager({ initialGoals, completedCount = 0, labels }: Props)
         <CreateForm
           labels={labels}
           onCreated={handleCreated}
-          onCancel={() => setShowCreate(false)}
+          onCancel={() => {
+            setShowCreate(false);
+            setFocusRequest({ to: "new" });
+          }}
         />
       ) : null}
 
       {active.length === 0 && archived.length === 0 && !showCreate ? (
-        <p className="text-center font-serif text-ink-faint">
+        <p className="vf-section-lede text-center">
           No active goals. Create one above
-          {completedCount > 0 ? (
+          {shownCompleted > 0 ? (
             <>
               {" "}
               or revisit your{" "}
-              <Link href="/profile/goals/completed" className="vf-nav-link">
+              <Link href="/profile/goals/completed" className="vf-link">
                 completed goals
               </Link>
             </>
@@ -515,36 +729,39 @@ export function GoalManager({ initialGoals, completedCount = 0, labels }: Props)
       ) : null}
 
       {active.length > 0 ? (
-        <div className="flex flex-col gap-4">
+        <div ref={activeListRef} className="vf-panel-list">
           {active.map((g) => (
             <GoalCard
               key={g.id}
               goal={g}
               labels={labels}
+              locale={locale}
               onUpdate={handleUpdate}
               onDelete={handleDelete}
+              onLeave={(to) => setFocusRequest({ to })}
             />
           ))}
         </div>
       ) : null}
 
       {archived.length > 0 ? (
-        <details className="mt-8">
-          <summary className="cursor-pointer font-display text-lg text-ink-faint">
-            Archived ({archived.length})
-          </summary>
-          <div className="mt-4 flex flex-col gap-4">
-            {archived.map((g) => (
-              <GoalCard
-                key={g.id}
-                goal={g}
-                labels={labels}
-                onUpdate={handleUpdate}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
-        </details>
+        <div ref={archivedRef} className="mt-[var(--space-related)]">
+          <Disclosure title={`Archived (${archived.length})`}>
+            <div className="vf-panel-list">
+              {archived.map((g) => (
+                <GoalCard
+                  key={g.id}
+                  goal={g}
+                  labels={labels}
+                  locale={locale}
+                  onUpdate={handleUpdate}
+                  onDelete={handleDelete}
+                  onLeave={(to) => setFocusRequest({ to })}
+                />
+              ))}
+            </div>
+          </Disclosure>
+        </div>
       ) : null}
     </div>
   );

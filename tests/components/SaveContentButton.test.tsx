@@ -13,7 +13,7 @@
  * than any prayer or saint slug.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const nav = vi.hoisted(() => ({
   path: "/parishes/cathedral-basilica-of-the-immaculate-conception",
@@ -180,8 +180,7 @@ describe("a signed-in tap on a parish Favorite", () => {
     );
   });
 
-  it("unfavourites via DELETE and returns the control to Favorite", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+  it("unfavourites via DELETE after the dialog, and returns the control to Favorite", async () => {
     const fetchMock = vi.fn(
       async () => ({ ok: true, text: async () => "" }) as unknown as Response,
     );
@@ -189,6 +188,8 @@ describe("a signed-in tap on a parish Favorite", () => {
 
     render(<SaveButton kind="parishes" entityId={LONG_PARISH_SLUG} initiallySaved={true} />);
     fireEvent.click(screen.getByRole("button", { name: "Favorited" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -203,15 +204,26 @@ describe("a signed-in tap on a parish Favorite", () => {
     );
   });
 
-  it("keeps the parish favorited when the removal confirm is declined", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
+  it("keeps the parish favorited when the removal is cancelled", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
     render(<SaveButton kind="parishes" entityId={LONG_PARISH_SLUG} initiallySaved={true} />);
     fireEvent.click(screen.getByRole("button", { name: "Favorited" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
 
-    await waitFor(() => expect(fetchMock).not.toHaveBeenCalled());
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Favorited" })).toBeInTheDocument();
+  });
+
+  it("explains a failed save in words, not the server's raw reply", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, text: async () => '{"error":"x"}' }) as unknown as Response),
+    );
+    render(<SaveButton kind="parishes" entityId={LONG_PARISH_SLUG} initiallySaved={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Favorite" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not save. Please try again.");
   });
 });

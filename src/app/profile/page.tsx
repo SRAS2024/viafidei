@@ -18,6 +18,11 @@ import { logoutAction } from "@/app/_actions/auth";
 // Reads the auth session (cookies), so it can never be statically prerendered.
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata() {
+  const { t } = await getTranslator();
+  return { title: t("profile.title") };
+}
+
 const EMPTY_COUNTS: ProfileCounts = {
   journalCount: 0,
   prayersSaved: 0,
@@ -47,12 +52,15 @@ export default async function ProfilePage() {
 
   let counts: ProfileCounts = EMPTY_COUNTS;
   let favoriteJournalCount = 0;
+  let favoritesTotal = 0;
   let profile: Awaited<ReturnType<typeof getProfileForUser>> = null;
   let badges: Awaited<ReturnType<typeof listBadgesForUser>> = [];
   try {
-    [counts, favoriteJournalCount, profile, badges] = await Promise.all([
+    [counts, favoriteJournalCount, favoritesTotal, profile, badges] = await Promise.all([
       getProfileCounts(user.id),
       prisma.journalEntry.count({ where: { userId: user.id, isFavorite: true } }),
+      // Every saved kind, parishes and novenas included, to match the page it links to.
+      prisma.userSavedContent.count({ where: { userId: user.id } }),
       getProfileForUser(user.id),
       listBadgesForUser(user.id),
     ]);
@@ -68,13 +76,16 @@ export default async function ProfilePage() {
   // Favorites section with per-type tab filters on /profile/favorites — the
   // old per-type /profile/{prayers,saints,apparitions,devotions} pages never
   // existed, so those dashboard links 404'd.
-  const favoritesTotal =
-    counts.prayersSaved + counts.saintsSaved + counts.apparitionsSaved + counts.devotionsSaved;
   const sections: ProfileSection[] = [
     {
       key: "profile.section.goals",
       tabs: [
-        { href: "/profile/goals", key: "profile.tab.goals", count: counts.goalsCount },
+        {
+          // The page this opens lists goals still in hand; completed ones have their own.
+          href: "/profile/goals",
+          key: "profile.tab.goals",
+          count: Math.max(counts.goalsCount - counts.completedGoalsCount, 0),
+        },
         {
           href: "/profile/goals/completed",
           key: "profile.tab.completedGoals",
@@ -111,7 +122,7 @@ export default async function ProfilePage() {
   return (
     <div>
       {!user.emailVerifiedAt ? (
-        <div className="mx-auto mb-6 max-w-2xl">
+        <div className="vf-column mb-[var(--space-related)]">
           <UnverifiedEmailNotice
             labels={{
               notice: t("auth.verify.unverifiedNotice"),
@@ -124,7 +135,7 @@ export default async function ProfilePage() {
           />
         </div>
       ) : null}
-      <section className="flex flex-col items-center pt-6 pb-10 text-center">
+      <section className="vf-profile-hero">
         <ProfileAvatar
           initials={initials || "VF"}
           src={avatarSrc}
@@ -138,12 +149,8 @@ export default async function ProfilePage() {
             tooLarge: t("profile.avatar.tooLarge"),
           }}
         />
-        <p className="vf-eyebrow mt-6">{t("profile.title")}</p>
-        <div className="vf-rule mx-auto my-4" />
-        <h1 className="font-display text-4xl text-ink sm:text-5xl">
-          {`${user.firstName} ${user.lastName}`}
-        </h1>
-        <p className="mt-3 font-serif text-ink-soft">{user.email}</p>
+        <h1 className="vf-page-hero-title">{`${user.firstName} ${user.lastName}`}</h1>
+        <p className="vf-profile-email">{user.email}</p>
         <ProfileBadgeStrip
           badges={badges.map((b) => ({
             id: b.id,
@@ -151,44 +158,45 @@ export default async function ProfilePage() {
             templateSlug: b.templateSlug,
           }))}
         />
-        <Link href="/profile/settings" className="vf-nav-link mt-5">
-          {t("profile.tab.settings")}
-        </Link>
-        {/*
-          Sign-out is also available in the mobile hamburger menu, but
-          desktop users had no way to sign out without re-using the
-          mobile menu — adding it here puts it within reach on every
-          screen. Server Action so the Router Cache invalidates on the
-          way out (see logoutAction in src/app/_actions/auth.ts).
-        */}
-        <form action={logoutAction} className="mt-3">
-          <button type="submit" className="vf-nav-link">
-            {t("nav.logout")}
-          </button>
-        </form>
+        <div className="vf-profile-actions">
+          <Link href="/profile/settings" className="vf-btn vf-btn-sm vf-btn-ghost">
+            {t("profile.tab.settings")}
+          </Link>
+          {/*
+            Sign-out is also available in the mobile hamburger menu, but
+            desktop users had no way to sign out without re-using the
+            mobile menu — adding it here puts it within reach on every
+            screen. Server Action so the Router Cache invalidates on the
+            way out (see logoutAction in src/app/_actions/auth.ts).
+          */}
+          <form action={logoutAction}>
+            <button type="submit" className="vf-btn vf-btn-sm vf-btn-ghost">
+              {t("nav.logout")}
+            </button>
+          </form>
+        </div>
       </section>
 
-      <div className="flex flex-col gap-10">
-        {sections.map((section) => (
-          <section key={section.key}>
-            <header className="mb-4 flex items-baseline justify-between gap-3">
-              <h2 className="font-display text-2xl text-ink">{t(section.key)}</h2>
-              <div className="hidden h-px flex-1 bg-ink/10 sm:block" aria-hidden="true" />
-            </header>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {section.tabs.map((tab) => (
-                <Link
-                  key={tab.href}
-                  href={tab.href}
-                  className="vf-card flex flex-col rounded-sm p-6 transition hover:border-ink/30"
-                >
-                  <p className="vf-eyebrow">{typeof tab.count === "number" ? tab.count : "—"}</p>
-                  <h3 className="mt-3 font-display text-2xl">{t(tab.key)}</h3>
-                </Link>
-              ))}
-            </div>
-          </section>
-        ))}
+      <div className="vf-dash-frame">
+        <div className="vf-dash">
+          {sections.map((section) => (
+            <section key={section.key} className="vf-panel">
+              <h2 className="vf-subhead">{t(section.key)}</h2>
+              <ul className="vf-rows">
+                {section.tabs.map((tab) => (
+                  <li key={tab.href}>
+                    <Link href={tab.href} className="vf-dash-link">
+                      <span className="min-w-0">{t(tab.key)}</span>
+                      {typeof tab.count === "number" ? (
+                        <span className="vf-dash-count">{tab.count}</span>
+                      ) : null}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
       </div>
     </div>
   );

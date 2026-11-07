@@ -35,9 +35,12 @@ export function RemoveSavedButton({ kind, entityId, entityTitle, labels }: Props
     <>
       <button
         type="button"
-        className="text-xs text-ink-faint hover:text-liturgical-red"
-        disabled={pending}
-        onClick={() => setOpen(true)}
+        className="vf-link-danger"
+        aria-disabled={pending}
+        aria-busy={pending}
+        onClick={() => {
+          if (!pending) setOpen(true);
+        }}
       >
         {labels.remove}
       </button>

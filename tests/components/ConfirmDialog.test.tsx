@@ -1,8 +1,9 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { useState } from "react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -26,6 +27,8 @@ function renderDialog(overrides: Partial<Parameters<typeof ConfirmDialog>[0]> = 
   );
   return { ...utils, onCancel, onConfirm };
 }
+
+afterEach(() => cleanup());
 
 describe("ConfirmDialog", () => {
   it("renders nothing when open=false", () => {
@@ -78,9 +81,79 @@ describe("ConfirmDialog", () => {
   it("dismisses (without confirming) on backdrop click", async () => {
     const user = userEvent.setup();
     const { onCancel, onConfirm } = renderDialog();
-    await user.click(screen.getByRole("dialog"));
+    await user.click(screen.getByRole("presentation"));
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("is named by its title and described by its body, for a screen reader", () => {
+    renderDialog();
+    const dialog = screen.getByRole("dialog", { name: "Remove this saint?" });
+    expect(dialog).toHaveAccessibleDescription(
+      "This will remove St. Therese from your saved saints.",
+    );
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+  });
+
+  it("opens with focus on Cancel when destructive, so a stray Enter destroys nothing", () => {
+    renderDialog({ destructive: true });
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+  });
+
+  it("opens with focus on the confirm button when nothing would be lost", () => {
+    renderDialog({ destructive: false });
+    expect(screen.getByRole("button", { name: "Remove" })).toHaveFocus();
+  });
+
+  it("keeps Tab inside the dialog", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Remove" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "Remove" })).toHaveFocus();
+  });
+
+  it("returns focus to the control that opened it, and frees the page behind it", async () => {
+    const user = userEvent.setup();
+    function Host() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Open
+          </button>
+          <ConfirmDialog
+            open={open}
+            title="Sure?"
+            body="Really."
+            cancelLabel="Cancel"
+            confirmLabel="Yes"
+            destructive
+            onCancel={() => setOpen(false)}
+            onConfirm={() => setOpen(false)}
+          />
+        </>
+      );
+    }
+    const { container } = render(<Host />);
+    const opener = screen.getByRole("button", { name: "Open" });
+    await user.click(opener);
+    expect(container).toHaveAttribute("inert");
+    expect(document.body.style.overflow).toBe("hidden");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+    expect(container).not.toHaveAttribute("inert");
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("leaves out the description when there is only a title", () => {
+    renderDialog({ body: "", entityName: undefined });
+    expect(screen.getByRole("dialog")).not.toHaveAttribute("aria-describedby");
   });
 
   it("uses the destructive button styling when destructive=true", () => {
@@ -89,8 +162,9 @@ describe("ConfirmDialog", () => {
   });
 
   it("has no obvious accessibility violations (aria-modal, labelled, named buttons)", async () => {
-    const { container } = renderDialog();
-    const results = await axe(container);
+    renderDialog();
+    // Portalled to <body>, so the check has to start there.
+    const results = await axe(document.body);
     expect(results.violations).toEqual([]);
   });
 });

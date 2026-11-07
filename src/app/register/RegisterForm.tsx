@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { checkPasswordStrength, PASSWORD_MIN_LENGTH } from "@/lib/auth/schemas";
 
 const PASSWORD_MIN = PASSWORD_MIN_LENGTH;
@@ -23,15 +23,29 @@ export type RegisterFormLabels = {
   privacyAfter: string;
 };
 
+export type RegisterErrorField = "email" | "password" | "passwordConfirm";
+
 function isStrongPassword(value: string): boolean {
   return checkPasswordStrength(value) === null;
 }
 
 type ValidationKind = "weak" | "mismatch";
 
-const ERROR_COLOR = "#8b1a1a";
+const SERVER_ERROR_ID = "register-error";
 
-export function RegisterForm({ labels, next }: { labels: RegisterFormLabels; next?: string }) {
+export function RegisterForm({
+  labels,
+  next,
+  error,
+  errorField,
+}: {
+  labels: RegisterFormLabels;
+  next?: string;
+  /** A failure the server sent the reader back with. */
+  error?: string | null;
+  /** The field that failure belongs to, when it belongs to one. */
+  errorField?: RegisterErrorField;
+}) {
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -39,6 +53,26 @@ export function RegisterForm({ labels, next }: { labels: RegisterFormLabels; nex
   // fields. The requirements message is hidden by default and surfaces only
   // when a constraint is broken — never as a passive hint.
   const [touched, setTouched] = useState(false);
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
+
+  // The server redirects back with the failure in the URL, so the message is on
+  // the page from first paint and a live region stays silent. Focusing the field
+  // it belongs to makes a screen reader read the field with its error.
+  useEffect(() => {
+    if (!error) return;
+    const target =
+      errorField === "email"
+        ? emailRef
+        : errorField === "password"
+          ? passwordRef
+          : errorField === "passwordConfirm"
+            ? confirmRef
+            : firstNameRef;
+    target.current?.focus();
+  }, [error, errorField]);
 
   const validation: ValidationKind | null = (() => {
     if (!touched) return null;
@@ -52,36 +86,47 @@ export function RegisterForm({ labels, next }: { labels: RegisterFormLabels; nex
     setTouched(true);
     if (!isStrongPassword(password)) {
       event.preventDefault();
+      passwordRef.current?.focus();
       return;
     }
     if (password !== passwordConfirm) {
       event.preventDefault();
+      confirmRef.current?.focus();
       return;
     }
   }
 
+  // The server's verdict on a field stands until the reader's own edit has been
+  // checked here, so a field is never marked invalid for two reasons at once.
+  const serverInvalid = (field: RegisterErrorField) =>
+    error && errorField === field && !validation
+      ? { "aria-invalid": true, "aria-describedby": SERVER_ERROR_ID }
+      : null;
+
   return (
-    <form
-      method="post"
-      action="/api/auth/register"
-      className="flex flex-col gap-5"
-      onSubmit={handleSubmit}
-    >
+    <form method="post" action="/api/auth/register" className="vf-form" onSubmit={handleSubmit}>
       {/* Where to land after registering — set when an account-gated control
           (e.g. Favorite on a parish) sent the visitor here. */}
       {next ? <input type="hidden" name="next" value={next} /> : null}
-      <div className="grid grid-cols-2 gap-4">
+      {error ? (
+        <p id={SERVER_ERROR_ID} role="alert" className="vf-notice vf-notice-error">
+          {error}
+        </p>
+      ) : null}
+      <div className="vf-field-pair">
         <div>
           <label htmlFor="firstName" className="vf-label">
             {labels.firstName}
           </label>
           <input
+            ref={firstNameRef}
             id="firstName"
             name="firstName"
             type="text"
             required
             className="vf-input"
             autoComplete="given-name"
+            autoCapitalize="words"
             maxLength={80}
           />
         </div>
@@ -96,6 +141,7 @@ export function RegisterForm({ labels, next }: { labels: RegisterFormLabels; nex
             required
             className="vf-input"
             autoComplete="family-name"
+            autoCapitalize="words"
             maxLength={80}
           />
         </div>
@@ -106,26 +152,26 @@ export function RegisterForm({ labels, next }: { labels: RegisterFormLabels; nex
           {labels.email}
         </label>
         <input
+          ref={emailRef}
           id="email"
           name="email"
           type="email"
           required
           className="vf-input"
           autoComplete="email"
+          autoCapitalize="none"
+          spellCheck={false}
           maxLength={200}
+          {...serverInvalid("email")}
         />
       </div>
 
-      <div>
-        <div className="flex items-center justify-between">
-          <label htmlFor="password" className="vf-label">
-            {labels.password}
-          </label>
-          <button type="button" onClick={() => setShowPassword((s) => !s)} className="vf-nav-link">
-            {showPassword ? labels.hide : labels.show}
-          </button>
-        </div>
+      <div className="vf-field-split">
+        <label htmlFor="password" className="vf-label">
+          {labels.password}
+        </label>
         <input
+          ref={passwordRef}
           id="password"
           name="password"
           type={showPassword ? "text" : "password"}
@@ -138,14 +184,17 @@ export function RegisterForm({ labels, next }: { labels: RegisterFormLabels; nex
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           onBlur={() => setTouched(true)}
+          {...serverInvalid("password")}
         />
+        <button
+          type="button"
+          onClick={() => setShowPassword((s) => !s)}
+          className="vf-field-toggle vf-link-action"
+        >
+          {showPassword ? labels.hide : labels.show}
+        </button>
         {validation === "weak" ? (
-          <p
-            id="password-error"
-            role="alert"
-            className="mt-1 font-serif text-xs"
-            style={{ color: ERROR_COLOR }}
-          >
+          <p id="password-error" role="alert" className="vf-field-error">
             {labels.weakPassword}
           </p>
         ) : null}
@@ -156,6 +205,7 @@ export function RegisterForm({ labels, next }: { labels: RegisterFormLabels; nex
           {labels.passwordConfirm}
         </label>
         <input
+          ref={confirmRef}
           id="passwordConfirm"
           name="passwordConfirm"
           type={showPassword ? "text" : "password"}
@@ -168,31 +218,24 @@ export function RegisterForm({ labels, next }: { labels: RegisterFormLabels; nex
           value={passwordConfirm}
           onChange={(e) => setPasswordConfirm(e.target.value)}
           onBlur={() => setTouched(true)}
+          {...serverInvalid("passwordConfirm")}
         />
         {validation === "mismatch" ? (
-          <p
-            id="passwordConfirm-error"
-            role="alert"
-            className="mt-1 font-serif text-xs"
-            style={{ color: ERROR_COLOR }}
-          >
+          <p id="passwordConfirm-error" role="alert" className="vf-field-error">
             {labels.mismatch}
           </p>
         ) : null}
       </div>
 
-      <p className="font-serif text-xs text-ink-faint" data-testid="register-privacy-notice">
+      <p className="vf-form-note" data-testid="register-privacy-notice">
         {labels.privacyBefore}
-        <Link
-          href="/privacy"
-          className="underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
-        >
+        <Link href="/privacy" className="vf-link">
           {labels.privacyLink}
         </Link>
         {labels.privacyAfter}
       </p>
 
-      <button type="submit" className="vf-btn vf-btn-primary mt-2">
+      <button type="submit" className="vf-btn vf-btn-primary vf-btn-block">
         {labels.submit}
       </button>
     </form>

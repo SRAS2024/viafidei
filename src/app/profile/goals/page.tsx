@@ -1,14 +1,19 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
 import { countCompletedGoalsForUser, listGoalsForUser } from "@/lib/data/profile";
+import { ProfileBackLink } from "@/components/profile/ProfileBackLink";
 import { PageHero } from "@/components/ui/PageHero";
 import { GoalManager } from "./GoalManager";
 import { logPageError } from "@/lib/observability/page-errors";
 
 // Reads the auth session (cookies), so it can never be statically prerendered.
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata() {
+  const { t } = await getTranslator();
+  return { title: t("profile.tab.goals") };
+}
 
 export default async function GoalsPage() {
   let user: Awaited<ReturnType<typeof requireUser>> = null;
@@ -18,7 +23,7 @@ export default async function GoalsPage() {
     logPageError({ route: "/profile/goals", entityType: "User", error: err });
   }
   if (!user) redirect("/login?next=/profile/goals");
-  const { t } = await getTranslator();
+  const { t, locale } = await getTranslator();
   let goals: Awaited<ReturnType<typeof listGoalsForUser>> = [];
   let completedCount = 0;
   try {
@@ -45,16 +50,13 @@ export default async function GoalsPage() {
   }));
 
   return (
-    <div>
-      <div className="mb-4">
-        <Link href="/profile" className="vf-nav-link">
-          ← {t("common.back")}
-        </Link>
-      </div>
+    <div className="vf-column">
+      <ProfileBackLink label={t("common.back")} />
       <PageHero eyebrow={t("profile.title")} title={t("profile.tab.goals")} />
       <GoalManager
         initialGoals={serialized}
         completedCount={completedCount}
+        locale={locale}
         labels={{
           newGoal: t("profile.goals.new"),
           title: t("profile.goals.title"),
@@ -72,6 +74,7 @@ export default async function GoalsPage() {
           deleteTitle: t("profile.goals.deleteTitle"),
           deleteBody: t("profile.goals.deleteBody"),
           checklist: t("profile.goals.checklist"),
+          remove: t("common.remove"),
         }}
       />
     </div>

@@ -28,13 +28,12 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/profile/favorites",
 }));
 
-// The "@/components/ui" barrel re-exports PublishedDetail, which pulls the
-// Prisma client in; the page only needs PageHero here.
-vi.mock("@/components/ui", () => ({
-  PageHero: ({ title }: { title: string }) => <h1>{title}</h1>,
-}));
-
 vi.mock("@/lib/auth", () => ({ requireUser: async () => server.user }));
+
+vi.mock("@/lib/i18n/server", async () => {
+  const { createTranslator } = await import("@/lib/i18n/translator");
+  return { getTranslator: async () => ({ t: createTranslator("en"), locale: "en" }) };
+});
 
 vi.mock("@/lib/data/saved", () => ({
   listSavedPrayers: async () => server.prayers,
@@ -90,7 +89,6 @@ beforeEach(() => {
       savedAt: new Date("2026-02-01T00:00:00.000Z"),
     },
   ];
-  vi.spyOn(window, "confirm").mockReturnValue(true);
 });
 
 afterEach(() => {
@@ -107,22 +105,24 @@ describe("the favorites page includes saved parishes", () => {
       name: "Cathedral Basilica of the Immaculate Conception",
     });
     expect(heading).toBeInTheDocument();
-    expect(heading.closest("a")).toHaveAttribute("href", `/parishes/${PARISH_SLUG}`);
+    expect(within(heading).getByRole("link")).toHaveAttribute("href", `/parishes/${PARISH_SLUG}`);
     expect(screen.getByText("Parish")).toBeInTheDocument();
     // Other types still render alongside it.
-    expect(screen.getByText("The Memorare")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "The Memorare" })).toBeInTheDocument();
   });
 
   it("filters down to Parishes and counts them", async () => {
     render(await FavoritesPage());
 
-    fireEvent.click(screen.getByRole("button", { name: "Filter favorites by type" }));
-    const parishOption = screen.getByRole("option", { name: /Parishes/ });
+    fireEvent.click(screen.getByRole("button", { name: /^Filter favorites by type/ }));
+    const parishOption = screen.getByRole("button", { name: /^Parishes/ });
     expect(parishOption).toHaveTextContent("1");
     fireEvent.click(parishOption);
 
-    expect(screen.getByText("Cathedral Basilica of the Immaculate Conception")).toBeInTheDocument();
-    expect(screen.queryByText("The Memorare")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Cathedral Basilica of the Immaculate Conception" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "The Memorare" })).not.toBeInTheDocument();
   });
 
   it("names parishes in the empty state so they don't read as un-favouritable", async () => {
@@ -140,10 +140,12 @@ describe("removing a favorited parish", () => {
 
     render(<FavoritesBrowser items={[PARISH_ITEM, PRAYER_ITEM]} />);
 
-    const card = screen
-      .getByText("Cathedral Basilica of the Immaculate Conception")
-      .closest("div.vf-card") as HTMLElement;
-    fireEvent.click(within(card).getByRole("button", { name: "Remove" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Remove: Cathedral Basilica of the Immaculate Conception",
+      }),
+    );
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
@@ -153,12 +155,12 @@ describe("removing a favorited parish", () => {
 
     await waitFor(() =>
       expect(
-        screen.queryByText("Cathedral Basilica of the Immaculate Conception"),
+        screen.queryByRole("link", { name: "Cathedral Basilica of the Immaculate Conception" }),
       ).not.toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Filter favorites by type" }));
-    expect(screen.getByRole("option", { name: /Parishes/ })).toHaveTextContent("0");
-    expect(screen.getByRole("option", { name: /^All/ })).toHaveTextContent("1");
+    fireEvent.click(screen.getByRole("button", { name: /^Filter favorites by type/ }));
+    expect(screen.getByRole("button", { name: /^Parishes/ })).toHaveTextContent("0");
+    expect(screen.getByRole("button", { name: /^All/ })).toHaveTextContent("1");
   });
 });
