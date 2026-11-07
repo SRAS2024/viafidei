@@ -1,6 +1,9 @@
 /**
  * Generic list renderer for published checklist items of one content type.
  *
+ * Every card leads with the item's title, then a brief label and short facts, then
+ * a description preview (see ContentCard).
+ *
  * Accepts either shape the data layer returns:
  *   - `PublishedItem`     — the full row, payload included (small types, and
  *                           cards whose body is payload prose such as a
@@ -27,7 +30,7 @@ function payloadOf(item: PublishedListEntry): Record<string, unknown> | null {
 
 /**
  * The payload of a list entry, or `{}` for a projected row. Lets an
- * `eyebrowFor` callback keep using the payload helpers (`saintEyebrow`,
+ * `eyebrowFor` callback keep using the payload helpers (`guideEyebrow`,
  * `apparitionEyebrow`) without having to narrow the union itself.
  */
 export function entryPayload(item: PublishedListEntry): Record<string, unknown> {
@@ -40,9 +43,9 @@ export interface PublishedListProps {
   emptyMessage?: string;
   /**
    * Payload field (or, for a projected row, the indexed `subtype`) shown as the
-   * card's eyebrow. The raw value is ALWAYS run through `formatEnumValue`, so a
-   * stored enum such as `lent_preparation` or `contemplative_prayer` can never
-   * reach a reader as-is.
+   * brief label under the card's title. The raw value is ALWAYS run through
+   * `formatEnumValue`, so a stored enum such as `lent_preparation` or
+   * `contemplative_prayer` can never reach a reader as-is.
    */
   eyebrowField?: string;
   summaryField?: string;
@@ -54,7 +57,7 @@ export interface PublishedListProps {
   showSummary?: boolean;
   /** Optional comparator to order items (payload rows only; SQL orders the rest). */
   sortItems?: (a: PublishedItem, b: PublishedItem) => number;
-  /** Optional computed eyebrow; overrides `eyebrowField` when provided. */
+  /** Optional computed label; overrides `eyebrowField` when provided. */
   eyebrowFor?: (item: PublishedListEntry) => string | undefined;
   /**
    * Show the stored one-line subtitle as the card body for projected rows.
@@ -74,6 +77,8 @@ export interface PublishedListProps {
   columns?: GridColumns;
   /** The card's quiet action on its bottom line ("Open"). */
   action?: string;
+  /** The card's heading level: "h3" when the list sits under a section's h2. */
+  titleAs?: "h2" | "h3";
 }
 
 export function PublishedList({
@@ -90,6 +95,7 @@ export function PublishedList({
   themeFor,
   columns = 3,
   action,
+  titleAs,
 }: PublishedListProps) {
   if (items.length === 0) {
     return (
@@ -108,8 +114,8 @@ export function PublishedList({
       : [...items];
 
   const cards = ordered.map((item) => {
-    // Eyebrows and ordering read the stored (English) fields; the card shows
-    // the reader's language when the item carries a translation overlay.
+    // Labels and ordering read the stored (English) fields; the card shows the
+    // reader's language when the item carries a translation overlay.
     const shown = displayItem(item);
     const payload = payloadOf(item);
     const shownPayload = payloadOf(shown);
@@ -137,6 +143,7 @@ export function PublishedList({
         key={item.id}
         href={`${baseHref}/${item.slug}`}
         title={shown.title}
+        titleAs={titleAs}
         meta={[eyebrow, ...details]}
         theme={themeFor?.(item)}
         summary={summary}

@@ -1,4 +1,3 @@
-import { PageHero } from "@/components/ui/PageHero";
 import { PublishedList, entryPayload } from "@/components/ui/PublishedList";
 import { saintSubtypeLabel } from "@/lib/content-shared/saint-categories";
 import { saintCardDetailLines, saintCardDetails } from "@/lib/content-shared/saints";
@@ -21,6 +20,7 @@ export default async function SaintsTodayPage({ searchParams }: Props) {
   // back to the server date only when they're absent or invalid.
   const pm = Number(qMonth);
   const pd = Number(qDay);
+  const dateFromUrl = inRange(pm, 1, 12) && inRange(pd, 1, 31);
   const month = inRange(pm, 1, 12) ? pm : now.getMonth() + 1;
   const day = inRange(pd, 1, 31) ? pd : now.getDate();
   // The indexed feast lookup (memoised ten minutes per calendar day), the same
@@ -30,20 +30,30 @@ export default async function SaintsTodayPage({ searchParams }: Props) {
 
   return (
     <div>
-      <PageHero eyebrow={t("saints.today.eyebrow")} title={t("saints.today.title")} />
-      <TodayDateLabel serverMonth={month} serverDay={day} />
+      {/* The page's opening, with the date as its sentence: the same shape as
+          PageHero, whose subtitle cannot hold the date's client component. */}
+      <section className="vf-page-hero">
+        <p className="vf-eyebrow">{t("saints.today.eyebrow")}</p>
+        <h1 className="vf-page-hero-title text-ink">{t("saints.today.title")}</h1>
+        <TodayDateLabel serverMonth={month} serverDay={day} dateFromUrl={dateFromUrl} />
+      </section>
       {/* The same card as /saints: the name, then the patronage, then the feast
           day — not a clipped biography under a "Feast day" eyebrow. These
           rows carry their payload, so the summary is switched off explicitly:
-          /saints shows none because its projected rows have none. */}
-      <PublishedList
-        items={todaySaints}
-        baseHref="/saints"
-        showSummary={false}
-        emptyMessage="No published feast day saints for today."
-        eyebrowFor={(item) => saintSubtypeLabel(entryPayload(item).saintType as string | undefined)}
-        detailLinesFor={(item) => saintCardDetailLines(saintCardDetails(entryPayload(item)), t)}
-      />
+          /saints shows none because its projected rows have none. A day's few
+          saints stand centred under the heading rather than off to one side. */}
+      <div className="vf-grid-centred">
+        <PublishedList
+          items={todaySaints}
+          baseHref="/saints"
+          showSummary={false}
+          emptyMessage="No published feast day saints for today."
+          eyebrowFor={(item) =>
+            saintSubtypeLabel(entryPayload(item).saintType as string | undefined)
+          }
+          detailLinesFor={(item) => saintCardDetailLines(saintCardDetails(entryPayload(item)), t)}
+        />
+      </div>
     </div>
   );
 }

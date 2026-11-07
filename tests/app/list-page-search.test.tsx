@@ -4,8 +4,8 @@
 /**
  * Every content list page has a search bar that works when it is pressed.
  *
- * The owner asked for one on every content-type page except the sacraments,
- * the history timeline and the liturgical calendar. Each bar is the same GET
+ * The owner asked for one on every content-type page except the sacraments and
+ * the liturgical calendar. Each bar is the same GET
  * form back to its own page, so the search is a `?q=` URL rendered on the
  * server: the page shows only the matching items of ITS type, says how many,
  * keeps its filter and its paging, and says plainly when nothing matches.
@@ -30,6 +30,10 @@ vi.mock("@/lib/data/published", () => ({
   listParishPage: (...args: unknown[]) => listParishPage(...args),
   countPublishedBySubtype: (...args: unknown[]) => countPublishedBySubtype(...args),
   listSaintCardDetails: (...args: unknown[]) => listSaintCardDetails(...args),
+}));
+vi.mock("next/navigation", async () => ({
+  ...(await vi.importActual<typeof import("next/navigation")>("next/navigation")),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 vi.mock("@/lib/i18n/server", () => ({
   getTranslator: async () => ({ t: createTranslator("en"), locale: "en" }),
@@ -204,7 +208,9 @@ async function show(page: Page, params: Record<string, string> = {}) {
   render(await page({ searchParams: Promise.resolve(params) }));
 }
 
-const titles = () => screen.queryAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+// A card is an h2 under the page's h1, and an h3 under a section's h2.
+const titles = () =>
+  screen.queryAllByRole("heading").flatMap((h) => (h.tagName === "H1" ? [] : [h.textContent]));
 const hrefs = () => screen.getAllByRole("link").map((a) => a.getAttribute("href"));
 const searchBar = () => screen.getByRole("search");
 
@@ -319,9 +325,7 @@ describe.each(IN_MEMORY)("/$name search", ({ page, path, label, query, expect: h
 
   it(`filters the page to the matching items for “${query}”`, async () => {
     await show(page, { q: query });
-    expect(titles().filter((t) => t !== "Marian Titles" && t !== "Approved Apparitions")).toEqual(
-      hits,
-    );
+    expect(titles().filter((t) => t !== "Marian Titles" && t !== "Apparitions")).toEqual(hits);
     expect(screen.getByRole("searchbox")).toHaveValue(query);
     expect(screen.getByText(new RegExp(`^${hits.length} results? for “${query}”`))).toBeVisible();
     expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute("href", path);
@@ -331,15 +335,13 @@ describe.each(IN_MEMORY)("/$name search", ({ page, path, label, query, expect: h
     await show(page, { q: "zzzzqx" });
     expect(screen.getByText("Nothing here matches “zzzzqx”.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute("href", path);
-    expect(titles().filter((t) => t !== "Marian Titles" && t !== "Approved Apparitions")).toEqual(
-      [],
-    );
+    expect(titles().filter((t) => t !== "Marian Titles" && t !== "Apparitions")).toEqual([]);
   });
 });
 
 describe("searching keeps the page's filter and paging", () => {
   it("carries the filter in the form and the search in every chip and page link", async () => {
-    const many = Array.from({ length: 35 }, (_, i) =>
+    const many = Array.from({ length: 40 }, (_, i) =>
       published("PRAYER", `Prayer to Mary ${i + 1}`, { category: "marian", body: "Ave." }),
     );
     listPublished.mockImplementation(async () => many);
@@ -351,8 +353,8 @@ describe("searching keeps the page's filter and paging", () => {
     // …and the search rides along on the chips and the page links.
     expect(hrefs()).toContain("/prayers?filter=marian&q=mary&page=2");
     expect(hrefs()).toContain("/prayers?q=mary");
-    expect(titles()).toHaveLength(30);
-    expect(screen.getByText(/^35 results for “mary”/)).toBeInTheDocument();
+    expect(titles()).toHaveLength(36);
+    expect(screen.getByText(/^40 results for “mary”/)).toBeInTheDocument();
     // Clearing the search keeps the filter.
     expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute(
       "href",
@@ -362,7 +364,7 @@ describe("searching keeps the page's filter and paging", () => {
 
   it("searches Our Lady's titles and apparitions together from the default view", async () => {
     await show(OurLadyPage as Page, { q: "lourdes" });
-    expect(titles()).toEqual(["Approved Apparitions", "Our Lady of Lourdes"]);
+    expect(titles()).toEqual(["Apparitions", "Our Lady of Lourdes"]);
     // An explicit filter is kept, and narrows the search.
     cleanup();
     await show(OurLadyPage as Page, { q: "lourdes", filter: "titles" });
@@ -379,7 +381,7 @@ describe("the large types search in SQL", () => {
     await show(SaintsPage as Page, { q: "sailors", filter: "bishops" });
     expect(listPublishedPage).toHaveBeenCalledWith(
       "SAINT",
-      expect.objectContaining({ q: "sailors", order: "chronological" }),
+      expect.objectContaining({ q: "sailors", order: "saints" }),
     );
     expect(searchBar()).toHaveAccessibleName("Search saints");
     expect(titles()).toEqual(["St. Nicholas"]);
@@ -457,10 +459,26 @@ describe("the large types search in SQL", () => {
   });
 });
 
+describe("/history", () => {
+  it("searches the timeline with the same bar, keeping its era and theme", async () => {
+    await show(HistoryPage as unknown as Page, { q: "nicaea", era: "fathers", theme: "councils" });
+    expect(searchBar()).toHaveAccessibleName("Find an event");
+    expect(searchBar()).toHaveAttribute("action", "/history");
+    expect(searchBar().querySelector('input[name="era"]')).toHaveAttribute("value", "fathers");
+    expect(searchBar().querySelector('input[name="theme"]')).toHaveAttribute("value", "councils");
+    expect(screen.getAllByRole("search")).toHaveLength(1);
+    expect(screen.getByText(/First Council of Nicaea/)).toBeInTheDocument();
+  });
+
+  it("says so when nothing matches", async () => {
+    await show(HistoryPage as unknown as Page, { q: "zzzzqx" });
+    expect(screen.getByText("Nothing here matches “zzzzqx”.")).toBeInTheDocument();
+  });
+});
+
 describe("pages that get no search bar", () => {
   it.each([
     ["sacraments", SacramentsPage as unknown as Page],
-    ["history", HistoryPage as unknown as Page],
     ["the liturgical calendar", LiturgicalCalendarPage as unknown as Page],
   ])("/%s has none", async (_name, page) => {
     const { container } = render(await page({ searchParams: Promise.resolve({}) }));

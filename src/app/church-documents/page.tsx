@@ -1,8 +1,8 @@
-import Link from "next/link";
-
 import {
+  ContentCard,
   FilterChips,
   LIST_PAGE_SIZE,
+  ListControls,
   ListSearch,
   ListSearchNoResults,
   PageHero,
@@ -42,7 +42,7 @@ export default async function ChurchDocumentsPage({ searchParams }: Props) {
   const { filter, page: pageParam, q: rawQuery } = await searchParams;
   const query = parseSearchQuery(rawQuery);
   const selected = documentCategory(filter);
-  // Each card shows the document's kind, title and summary (the summary is in
+  // Each card shows the document's title, kind and summary (the summary is in
   // the payload), so the magisterial corpus is read whole and paged here. The
   // card has no "Read on vatican.va" line: that named the source, and the
   // document's own page has "Read the full document".
@@ -65,22 +65,16 @@ export default async function ChurchDocumentsPage({ searchParams }: Props) {
     if (all.some((d) => cat.matches(d.payload))) present.add(cat.key);
   }
 
-  const cards = page.items.map((doc) => {
-    const summary = typeof doc.payload.summary === "string" ? doc.payload.summary : "";
-    return (
-      <article key={doc.id} className="vf-card flex h-full flex-col rounded-sm p-6 sm:p-7">
-        <p className="vf-eyebrow">{documentTypeLabel(doc.payload.documentType)}</p>
-        <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">
-          <Link href={`/liturgy-history/${doc.slug}`} className="hover:underline">
-            {doc.title}
-          </Link>
-        </h2>
-        {summary && (
-          <p className="mt-3 line-clamp-4 font-serif leading-relaxed text-ink-soft">{summary}</p>
-        )}
-      </article>
-    );
-  });
+  const cards = page.items.map((doc) => (
+    <ContentCard
+      key={doc.id}
+      href={`/liturgy-history/${doc.slug}`}
+      title={doc.title}
+      meta={[documentTypeLabel(doc.payload.documentType)]}
+      summary={typeof doc.payload.summary === "string" ? doc.payload.summary : null}
+      action={t("common.open")}
+    />
+  ));
 
   return (
     <div>
@@ -90,37 +84,37 @@ export default async function ChurchDocumentsPage({ searchParams }: Props) {
         subtitle="Encyclicals, council documents, the Catechism, and Canon Law — each linked to its official source."
       />
 
-      <ListSearch
-        action="/church-documents"
-        query={query}
-        label={t("listSearch.churchDocuments")}
-        keep={keep}
-        resultCount={visible.length}
-        t={t}
-        locale={locale}
-      />
-
-      <FilterChips
-        ariaLabel="Filter documents by category"
-        activeKey={selected.key}
-        className="mb-6"
-        items={DOCUMENT_CATEGORIES.filter((c) => c.key === "all" || present.has(c.key)).map(
-          (c) => ({
-            key: c.key,
-            label: c.label,
-            href: listHref("/church-documents", {
-              filter: c.key === "all" ? undefined : c.key,
-              q: query,
+      <ListControls>
+        <ListSearch
+          action="/church-documents"
+          query={query}
+          label={t("listSearch.churchDocuments")}
+          keep={keep}
+          resultCount={visible.length}
+          t={t}
+          locale={locale}
+        />
+        <FilterChips
+          ariaLabel="Filter documents by category"
+          activeKey={selected.key}
+          items={DOCUMENT_CATEGORIES.filter((c) => c.key === "all" || present.has(c.key)).map(
+            (c) => ({
+              key: c.key,
+              label: c.label,
+              href: listHref("/church-documents", {
+                filter: c.key === "all" ? undefined : c.key,
+                q: query,
+              }),
             }),
-          }),
-        )}
-      />
+          )}
+        />
+      </ListControls>
 
       {cards.length === 0 ? (
         query ? (
           <ListSearchNoResults action="/church-documents" query={query} keep={keep} t={t} />
         ) : (
-          <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
+          <div className="vf-card rounded-sm px-6 py-8 text-center font-serif text-ink-soft">
             No documents in this category yet.
           </div>
         )

@@ -2,14 +2,17 @@ import Link from "next/link";
 
 import {
   LIST_PAGE_SIZE,
+  ListControls,
   ListSearch,
   ListSearchNoResults,
   PageHero,
   Pagination,
   PublishedList,
+  entryPayload,
   pageSlice,
   parsePageParam,
 } from "@/components/ui";
+import { formatEnumValue } from "@/lib/content-shared/field-presenters";
 import {
   parseSearchQuery,
   publishedSearchFields,
@@ -42,29 +45,38 @@ export default async function DevotionsPage({
         title={t("devotions.title")}
         subtitle={t("devotions.subtitle")}
       />
-      <ListSearch
-        action="/devotions"
-        query={query}
-        label={t("listSearch.devotions")}
-        resultCount={visible.length}
-        t={t}
-        locale={locale}
-      />
-      <p className="mb-8 text-center font-serif text-sm text-ink-soft">
-        Looking for a nine-day novena?{" "}
-        <Link href="/novenas" className="vf-nav-link">
-          Browse novenas →
-        </Link>
-      </p>
+      <ListControls>
+        <ListSearch
+          action="/devotions"
+          query={query}
+          label={t("listSearch.devotions")}
+          resultCount={visible.length}
+          t={t}
+          locale={locale}
+        />
+        <p className="basis-full text-center font-serif text-[length:var(--fs-note)] text-ink-soft">
+          Looking for a nine-day novena?{" "}
+          <Link href="/novenas" className="vf-link">
+            Browse novenas <span aria-hidden="true">→</span>
+          </Link>
+        </p>
+      </ListControls>
       {query && visible.length === 0 ? (
         <ListSearchNoResults action="/devotions" query={query} t={t} />
       ) : (
         <>
-          {/* The eyebrow is the humanised devotion type — never the stored value. */}
+          {/* The line under the title is the humanised devotion type — never the
+              stored value — and "General" names no type. */}
           <PublishedList
             items={await localizeItems(page.items, { depth: "card" })}
             baseHref="/devotions"
-            eyebrowField="devotionType"
+            eyebrowFor={(item) => {
+              const type = entryPayload(item).devotionType;
+              return typeof type === "string" && type.trim() && type !== "general"
+                ? formatEnumValue("devotionType", type)
+                : undefined;
+            }}
+            action={t("common.open")}
           />
           <Pagination
             basePath="/devotions"

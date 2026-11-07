@@ -1,14 +1,17 @@
 import {
   FilterChips,
   LIST_PAGE_SIZE,
+  ListControls,
   ListSearch,
   ListSearchNoResults,
   PageHero,
   Pagination,
   PublishedList,
+  entryPayload,
   pageSlice,
   parsePageParam,
 } from "@/components/ui";
+import { formatEnumValue } from "@/lib/content-shared/field-presenters";
 import {
   listHref,
   parseSearchQuery,
@@ -81,43 +84,53 @@ export default async function SpiritualLifePage({
         title={t("spiritualLife.title")}
         subtitle={t("spiritualLife.subtitle")}
       />
-      <ListSearch
-        action="/spiritual-life"
-        query={query}
-        label={t("listSearch.spiritualLife")}
-        keep={keep}
-        resultCount={visible.length}
-        t={t}
-        locale={locale}
-      />
-      <FilterChips
-        ariaLabel="Filter practices by kind"
-        activeKey={selected.key}
-        className="mb-6"
-        items={SPIRITUAL_FILTERS.filter((f) => f.key === "all" || present.has(f.key)).map((f) => ({
-          key: f.key,
-          label: f.label,
-          href: listHref("/spiritual-life", {
-            filter: f.key === "all" ? undefined : f.key,
-            q: query,
-          }),
-        }))}
-      />
+      <ListControls>
+        <ListSearch
+          action="/spiritual-life"
+          query={query}
+          label={t("listSearch.spiritualLife")}
+          keep={keep}
+          resultCount={visible.length}
+          t={t}
+          locale={locale}
+        />
+        <FilterChips
+          ariaLabel="Filter practices by kind"
+          activeKey={selected.key}
+          items={SPIRITUAL_FILTERS.filter((f) => f.key === "all" || present.has(f.key)).map(
+            (f) => ({
+              key: f.key,
+              label: f.label,
+              href: listHref("/spiritual-life", {
+                filter: f.key === "all" ? undefined : f.key,
+                q: query,
+              }),
+            }),
+          )}
+        />
+      </ListControls>
       {page.items.length === 0 ? (
         query ? (
           <ListSearchNoResults action="/spiritual-life" query={query} keep={keep} t={t} />
         ) : (
-          <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
+          <div className="vf-card rounded-sm px-6 py-8 text-center font-serif text-ink-soft">
             No practices in this category yet.
           </div>
         )
       ) : (
         <>
-          {/* The eyebrow is the humanised practice kind — never `lectio_divina`. */}
+          {/* The line under the title is the humanised practice kind — never
+              `lectio_divina` — and "Other" names no kind. */}
           <PublishedList
             items={await localizeItems(page.items, { depth: "card" })}
             baseHref="/spiritual-life"
-            eyebrowField="practiceKind"
+            eyebrowFor={(item) => {
+              const kind = entryPayload(item).practiceKind;
+              return typeof kind === "string" && kind.trim() && kind !== "other"
+                ? formatEnumValue("practiceKind", kind)
+                : undefined;
+            }}
+            action={t("common.open")}
           />
           <Pagination
             basePath="/spiritual-life"

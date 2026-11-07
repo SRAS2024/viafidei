@@ -1,14 +1,10 @@
-import Link from "next/link";
-
 import {
-  LIST_PAGE_SIZE,
+  ListControls,
   ListSearch,
   ListSearchNoResults,
   PageHero,
-  PaginatedGrid,
-  Pagination,
-  pageSlice,
-  parsePageParam,
+  PublishedList,
+  entryPayload,
 } from "@/components/ui";
 import {
   parseSearchQuery,
@@ -21,20 +17,25 @@ import { getTranslator } from "@/lib/i18n/server";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Doctors of the Church" };
 
+/** The name the Church knows a Doctor by ("Angelic Doctor"), for the card's line. */
+function doctorEpithet(payload: Record<string, unknown>): string | undefined {
+  return typeof payload.doctorTitle === "string" ? payload.doctorTitle : undefined;
+}
+
 export default async function DoctorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; q?: string | string[] }>;
+  searchParams: Promise<{ q?: string | string[] }>;
 }) {
   const { t, locale } = await getTranslator();
-  const { page: pageParam, q: rawQuery } = await searchParams;
+  const { q: rawQuery } = await searchParams;
   const query = parseSearchQuery(rawQuery);
   // A closed list (37 Doctors), and each card shows the Doctor's epithet from
-  // the payload, so the type is read whole and paged here. A search reads the
-  // name and the epithet ("Angelic Doctor") first.
+  // the payload, so the type is read whole. It runs only just past one page of
+  // cards, so it stays on one: a second page would hold two Doctors and nothing
+  // else. A search reads the name and the epithet ("Angelic Doctor") first.
   const doctors = await listPublished("DOCTOR");
   const visible = query ? rankBySearch(doctors, query, (d) => publishedSearchFields(d)) : doctors;
-  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
 
   return (
     <div>
@@ -44,47 +45,32 @@ export default async function DoctorsPage({
         subtitle="A Doctor of the Church is a saint recognized by the Church for an eminent contribution to theology or doctrine through their writing, teaching, and holiness."
       />
 
-      <ListSearch
-        action="/doctors"
-        query={query}
-        label={t("listSearch.doctors")}
-        resultCount={visible.length}
-        t={t}
-        locale={locale}
-      />
+      <ListControls>
+        <ListSearch
+          action="/doctors"
+          query={query}
+          label={t("listSearch.doctors")}
+          resultCount={visible.length}
+          t={t}
+          locale={locale}
+        />
+      </ListControls>
 
       {doctors.length === 0 ? (
-        <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
+        <div className="vf-card rounded-sm px-6 py-8 text-center font-serif text-ink-soft">
           The Doctors of the Church will appear here as records are approved and published through
           the checklist-first worker.
         </div>
       ) : query && visible.length === 0 ? (
         <ListSearchNoResults action="/doctors" query={query} t={t} />
       ) : (
-        <>
-          <PaginatedGrid
-            items={page.items.map((d) => {
-              const payload = d.payload as Record<string, unknown>;
-              const epithet = typeof payload.doctorTitle === "string" ? payload.doctorTitle : "";
-              return (
-                <Link
-                  key={d.id}
-                  href={`/doctors/${d.slug}`}
-                  className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30"
-                >
-                  {epithet ? <p className="vf-eyebrow">{epithet}</p> : null}
-                  <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{d.title}</h2>
-                </Link>
-              );
-            })}
-          />
-          <Pagination
-            basePath="/doctors"
-            page={page.page}
-            totalPages={page.pageCount}
-            searchParams={{ q: query || undefined }}
-          />
-        </>
+        // The Doctor's name leads; the epithet is a line beneath it.
+        <PublishedList
+          items={visible}
+          baseHref="/doctors"
+          showSummary={false}
+          eyebrowFor={(item) => doctorEpithet(entryPayload(item))}
+        />
       )}
     </div>
   );

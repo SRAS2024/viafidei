@@ -63,7 +63,7 @@ describe("SAINT_FILTER_SUBTYPES", () => {
 
 describe("saintSubtypeLabel", () => {
   it("labels only the types the spec permits a title for", () => {
-    expect(saintSubtypeLabel("apostle")).toBe("Apostle and Disciple of Jesus");
+    expect(saintSubtypeLabel("apostle")).toBe("Apostle");
     expect(saintSubtypeLabel("doctor_of_the_church")).toBe("Doctor of the Church");
     expect(saintSubtypeLabel("evangelist")).toBe("Evangelist");
   });

@@ -1,6 +1,7 @@
 import {
   FilterChips,
   LIST_PAGE_SIZE,
+  ListControls,
   ListSearch,
   ListSearchNoResults,
   PageHero,
@@ -68,41 +69,47 @@ export default async function GuidesPage({
         title="Guides"
         subtitle="Step-by-step guides to the Rosary, the Divine Mercy Chaplet, Confession, and the spiritual life — steps first, then each prayer in a dropdown."
       />
-      <ListSearch
-        action="/guides"
-        query={query}
-        label={t("listSearch.guides")}
-        keep={keep}
-        resultCount={visible.length}
-        t={t}
-        locale={locale}
-      />
-      <FilterChips
-        ariaLabel="Filter guides by kind"
-        activeKey={selected.key}
-        className="mb-6"
-        items={GUIDE_FILTERS.filter((f) => f.key === "all" || hasContent(f.key)).map((f) => ({
-          key: f.key,
-          label: f.label,
-          href: listHref("/guides", { filter: f.key === "all" ? undefined : f.key, q: query }),
-        }))}
-      />
+      <ListControls>
+        <ListSearch
+          action="/guides"
+          query={query}
+          label={t("listSearch.guides")}
+          keep={keep}
+          resultCount={visible.length}
+          t={t}
+          locale={locale}
+        />
+        <FilterChips
+          ariaLabel="Filter guides by kind"
+          activeKey={selected.key}
+          items={GUIDE_FILTERS.filter((f) => f.key === "all" || hasContent(f.key)).map((f) => ({
+            key: f.key,
+            label: f.label,
+            href: listHref("/guides", { filter: f.key === "all" ? undefined : f.key, q: query }),
+          }))}
+        />
+      </ListControls>
       {page.items.length === 0 ? (
         query ? (
           <ListSearchNoResults action="/guides" query={query} keep={keep} t={t} />
         ) : (
-          <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
+          <div className="vf-card rounded-sm px-6 py-8 text-center font-serif text-ink-soft">
             No guides in this category yet.
           </div>
         )
       ) : (
         <>
-          {/* The eyebrow is the human label for the guide's kind — never the
-              stored enum (`lent_preparation`, `rcia`, `general`). */}
+          {/* The line under the title is the human label for the guide's kind —
+              never the stored enum (`lent_preparation`, `rcia`, `general`) — and
+              on this page "Guide" says nothing, so a plain guide has no line. */}
           <PublishedList
             items={await localizeItems(page.items, { depth: "card" })}
             baseHref="/guides"
-            eyebrowFor={(item) => guideEyebrow(entryPayload(item))}
+            eyebrowFor={(item) => {
+              const label = guideEyebrow(entryPayload(item));
+              return label === "Guide" ? undefined : label;
+            }}
+            action={t("common.open")}
           />
           <Pagination
             basePath="/guides"

@@ -63,6 +63,14 @@ describe("/saints/today", () => {
     expect(container.textContent).not.toContain("reformer of monasteries");
   });
 
+  it("opens with the page's own hero, the date as its sentence", async () => {
+    listSaintsForFeast.mockResolvedValue([]);
+    const { container } = render(await SaintsTodayPage({ searchParams: Promise.resolve({}) }));
+    const hero = container.querySelector(".vf-page-hero")!;
+    expect(hero.querySelector("h1")).toHaveTextContent("Today's Feast Day Saints");
+    expect(hero.querySelector(".vf-eyebrow")).toHaveTextContent("Today");
+  });
+
   it("says so when no saint's feast falls today", async () => {
     listSaintsForFeast.mockResolvedValue([]);
     render(await SaintsTodayPage({ searchParams: Promise.resolve({}) }));

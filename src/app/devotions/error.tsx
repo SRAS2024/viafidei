@@ -1,12 +1,10 @@
 "use client";
 
-export default function DevotionsError({ reset }: { reset: () => void }) {
-  return (
-    <div className="flex flex-col items-center gap-4 py-20 text-center font-serif text-ink-faint">
-      <p>Something went wrong loading devotions.</p>
-      <button className="vf-btn vf-btn-ghost" onClick={reset}>
-        Try again
-      </button>
-    </div>
-  );
+import { RouteError } from "@/components/layout/RouteError";
+
+export default function DevotionsError(props: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  return <RouteError {...props} title="Devotions unavailable" />;
 }

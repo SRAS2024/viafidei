@@ -73,18 +73,25 @@ describe("PublishedList detail lines beneath the title", () => {
       <PublishedList
         items={[peter]}
         baseHref="/saints"
-        eyebrowFor={() => "Apostle and Disciple of Jesus"}
+        eyebrowFor={() => "Apostle"}
         detailLinesFor={() => ["Patron of the papacy, fishermen, Rome", "Feast day: June 29"]}
       />,
     );
 
     const card = screen.getByRole("heading", { level: 2, name: "St. Peter" }).closest("article")!;
+    // The name comes first; the brief label and the facts follow it.
     expect([...card.querySelectorAll("h2, p")].map((el) => el.textContent)).toEqual([
-      "Apostle and Disciple of Jesus",
       "St. Peter",
+      "Apostle",
       "Patron of the papacy, fishermen, Rome",
       "Feast day: June 29",
     ]);
+  });
+
+  it("sets the cards one level down when the list sits under a section's heading", () => {
+    render(<PublishedList items={[peter]} baseHref="/saints" titleAs="h3" />);
+    expect(screen.getByRole("heading", { level: 3, name: "St. Peter" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
   });
 
   it("adds nothing beneath the name when there are no lines", () => {

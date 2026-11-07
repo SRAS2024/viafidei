@@ -1,7 +1,7 @@
-import Link from "next/link";
-
 import {
+  FilterChips,
   LIST_PAGE_SIZE,
+  ListControls,
   ListSearch,
   ListSearchNoResults,
   PageHero,
@@ -12,6 +12,10 @@ import {
   parsePageParam,
 } from "@/components/ui";
 import { apparitionEyebrow } from "@/lib/content-shared/apparitions";
+import {
+  sortApparitionsForDisplay,
+  sortMarianTitlesForDisplay,
+} from "@/lib/content-shared/display-order";
 import {
   listHref,
   parseSearchQuery,
@@ -48,14 +52,16 @@ export default async function OurLadyPage({
     view.showTitles ? listPublished("MARIAN_TITLE") : Promise.resolve([]),
     view.showApparitions ? listPublished("APPARITION") : Promise.resolve([]),
   ]);
+  const orderedTitles = sortMarianTitlesForDisplay(allTitles);
+  const orderedApparitions = sortApparitionsForDisplay(allApparitions);
   const titles = query
-    ? rankBySearch(allTitles, query, (m) => publishedSearchFields(m))
-    : allTitles;
+    ? rankBySearch(orderedTitles, query, (m) => publishedSearchFields(m))
+    : orderedTitles;
   const apparitions = query
-    ? rankBySearch(allApparitions, query, (a) =>
+    ? rankBySearch(orderedApparitions, query, (a) =>
         publishedSearchFields(a, [apparitionEyebrow(a.payload)]),
       )
-    : allApparitions;
+    : orderedApparitions;
   const titlePage = pageSlice(titles, parsePageParam(pageParam), LIST_PAGE_SIZE);
   const apparitionPage = pageSlice(apparitions, parsePageParam(apageParam), LIST_PAGE_SIZE);
   // The filter as the URLs carry it. A search keeps even the default
@@ -63,6 +69,9 @@ export default async function OurLadyPage({
   const filterParam = view.active === "titles" && !filter ? undefined : view.active;
   const keep = { filter: filter ? view.active : undefined };
   const matches = titles.length + apparitions.length;
+  // Under "All" each list has a section heading, so its cards are one level down.
+  const sectioned = view.active === "all";
+  const titleAs = sectioned ? "h3" : "h2";
 
   return (
     <div>
@@ -72,56 +81,46 @@ export default async function OurLadyPage({
         subtitle="Marian titles and the Church-approved apparitions of the Blessed Virgin Mary."
       />
 
-      <ListSearch
-        action="/our-lady"
-        query={query}
-        label={t("listSearch.ourLady")}
-        keep={keep}
-        resultCount={matches}
-        t={t}
-        locale={locale}
-      />
-
-      {/* Filters (not separate tabs): actively narrow the page; the active
-          one is highlighted. Only "All" shows both together. With a search
-          in effect each filter keeps it. */}
-      <nav aria-label="Our Lady filter" className="mb-6 flex flex-wrap gap-2">
-        {OUR_LADY_FILTERS.map((f) => {
-          const isActive = view.active === f.key;
-          const href =
-            f.key === "titles" && !query
-              ? "/our-lady"
-              : listHref("/our-lady", { filter: f.key, q: query });
-          return (
-            <Link
-              key={f.key}
-              href={href}
-              aria-current={isActive ? "page" : undefined}
-              className={`rounded-full px-4 py-1.5 text-sm transition ${
-                isActive
-                  ? "bg-indigo-600 text-white"
-                  : "border border-slate-300 text-ink-soft hover:border-ink/40"
-              }`}
-            >
-              {f.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <ListControls>
+        <ListSearch
+          action="/our-lady"
+          query={query}
+          label={t("listSearch.ourLady")}
+          keep={keep}
+          resultCount={matches}
+          t={t}
+          locale={locale}
+        />
+        {/* Filters (not separate tabs): actively narrow the page; the active
+            one is highlighted. Only "All" shows both together. With a search
+            in effect each filter keeps it. */}
+        <FilterChips
+          ariaLabel="Our Lady filter"
+          activeKey={view.active}
+          items={OUR_LADY_FILTERS.map((f) => ({
+            key: f.key,
+            label: f.label,
+            href:
+              f.key === "titles" && !query
+                ? "/our-lady"
+                : listHref("/our-lady", { filter: f.key, q: query }),
+          }))}
+        />
+      </ListControls>
 
       {query && matches === 0 ? (
-        <div className="mt-8">
-          <ListSearchNoResults action="/our-lady" query={query} keep={keep} t={t} />
-        </div>
+        <ListSearchNoResults action="/our-lady" query={query} keep={keep} t={t} />
       ) : (
-        <>
+        <div className="vf-stack-section">
           {view.showTitles && !(query && titles.length === 0) && (
             <section>
-              {view.active === "all" && (
-                <h2 className="mt-12 mb-6 font-display text-2xl text-ink">Marian Titles</h2>
+              {sectioned && (
+                <div className="vf-section-head">
+                  <h2 className="vf-section-title">Marian Titles</h2>
+                </div>
               )}
               {titles.length === 0 ? (
-                <p className="mt-8 rounded border border-slate-200 bg-white p-6 text-center font-serif text-ink-faint">
+                <p className="vf-card rounded-sm px-6 py-8 text-center font-serif text-ink-soft">
                   No Marian titles are published yet. The worker adds verified titles as they are
                   approved and sourced.
                 </p>
@@ -130,8 +129,11 @@ export default async function OurLadyPage({
                   <PublishedList
                     items={await localizeItems(titlePage.items, { depth: "card" })}
                     baseHref="/our-lady"
+                    titleAs={titleAs}
+                    action={t("common.open")}
                   />
                   <Pagination
+                    label="Marian titles pages"
                     basePath="/our-lady"
                     page={titlePage.page}
                     totalPages={titlePage.pageCount}
@@ -144,11 +146,15 @@ export default async function OurLadyPage({
 
           {view.showApparitions && !(query && apparitions.length === 0) && (
             <section>
-              {view.active === "all" && (
-                <h2 className="mt-12 mb-6 font-display text-2xl text-ink">Approved Apparitions</h2>
+              {sectioned && (
+                <div className="vf-section-head">
+                  {/* Not "Approved": each card states its own standing, and some
+                      are reported, or not yet judged. */}
+                  <h2 className="vf-section-title">Apparitions</h2>
+                </div>
               )}
               {apparitions.length === 0 ? (
-                <p className="mt-8 rounded border border-slate-200 bg-white p-6 text-center font-serif text-ink-faint">
+                <p className="vf-card rounded-sm px-6 py-8 text-center font-serif text-ink-soft">
                   No Marian apparitions are published yet. The worker adds verified apparitions with
                   their Church approval status.
                 </p>
@@ -157,9 +163,12 @@ export default async function OurLadyPage({
                   <PublishedList
                     items={await localizeItems(apparitionPage.items, { depth: "card" })}
                     baseHref="/our-lady"
+                    titleAs={titleAs}
                     eyebrowFor={(item) => apparitionEyebrow(entryPayload(item))}
+                    action={t("common.open")}
                   />
                   <Pagination
+                    label="Apparitions pages"
                     basePath="/our-lady"
                     pageParam="apage"
                     page={apparitionPage.page}
@@ -170,7 +179,7 @@ export default async function OurLadyPage({
               )}
             </section>
           )}
-        </>
+        </div>
       )}
     </div>
   );

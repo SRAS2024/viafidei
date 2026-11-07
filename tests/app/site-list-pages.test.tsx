@@ -11,9 +11,9 @@
  *     and the back button works;
  *   - a filter chip appears only when the indexed subtype count says it has
  *     content, and filtering pushes the subtype into the query;
- *   - /saints comes back chronologically ordered by SQL;
+ *   - /saints comes back in the site's saint order, by SQL;
  *   - /litanies filters on the indexed subtype, not by re-categorising every
- *     prayer in the library;
+ *     prayer in the library, and pages the set it ordered;
  *   - /parishes ships one page of the directory, never the whole table;
  *   - the homepage's featured rail rotates daily and shows category LABELS.
  */
@@ -96,7 +96,7 @@ afterEach(() => cleanup());
 const hrefs = () => screen.getAllByRole("link").map((a) => a.getAttribute("href"));
 
 describe("/saints", () => {
-  it("asks for one chronologically-ordered SQL page and links the next one", async () => {
+  it("asks for one SQL page in the saint order and links the next one", async () => {
     listPublishedPage.mockResolvedValue(
       page([projected({ id: "peter", title: "St. Peter", subtype: "apostle" })], {
         total: 1896,
@@ -110,15 +110,15 @@ describe("/saints", () => {
 
     expect(listPublishedPage).toHaveBeenCalledWith("SAINT", {
       page: 2,
-      pageSize: 30,
+      pageSize: 36,
       subtype: null,
-      order: "chronological",
+      order: "saints",
     });
     // Real, crawlable page links — not client-side buttons.
     expect(hrefs()).toContain("/saints?page=3");
     expect(screen.getByRole("link", { name: "Page 2" })).toHaveAttribute("aria-current", "page");
     // The one permitted title label, never the stored `apostle`.
-    expect(screen.getByText("Apostle and Disciple of Jesus")).toBeInTheDocument();
+    expect(screen.getByText("Apostle")).toBeInTheDocument();
     expect(screen.queryByText("apostle")).not.toBeInTheDocument();
   });
 
@@ -141,9 +141,9 @@ describe("/saints", () => {
 
     expect(listPublishedPage).toHaveBeenCalledWith("SAINT", {
       page: 1,
-      pageSize: 30,
+      pageSize: 36,
       subtype: ["religious", "founder", "missionary"],
-      order: "chronological",
+      order: "saints",
     });
   });
 
@@ -171,8 +171,10 @@ describe("/saints", () => {
       const text = [...card.querySelectorAll("h2, p")].map((el) => el.textContent);
       return text.slice(text.indexOf(name));
     };
+    // The Apostle's brief label sits under the name, above his facts.
     expect(linesOf("St. Peter")).toEqual([
       "St. Peter",
+      "Apostle",
       "Patron of the papacy, fishermen, Rome",
       "Feast day: June 29",
     ]);
@@ -192,7 +194,7 @@ describe("/saints", () => {
 
 describe("/guides", () => {
   it("renders one page of guides with human eyebrows and a crawlable next page", async () => {
-    const guides = Array.from({ length: 35 }, (_, i) => ({
+    const guides = Array.from({ length: 40 }, (_, i) => ({
       id: `g${i}`,
       checklistItemId: `g${i}`,
       contentType: "GUIDE" as const,
@@ -205,46 +207,47 @@ describe("/guides", () => {
       publishedAt: new Date(),
     }));
     listPublished.mockResolvedValue(guides);
-    countPublishedBySubtype.mockResolvedValue({ lent_preparation: 1, general: 34 });
+    countPublishedBySubtype.mockResolvedValue({ lent_preparation: 1, general: 39 });
 
     render(await GuidesPage({ searchParams: Promise.resolve({}) }));
 
-    // 35 guides / 30 per page → only the first 30 cards are rendered.
-    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(30);
+    // 40 guides / 36 per page → only the first 36 cards are rendered.
+    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(36);
     expect(hrefs()).toContain("/guides?page=2");
     // G-08: the eyebrow is the human label, never the stored enum.
     expect(screen.getByText("Lent")).toBeInTheDocument();
     expect(screen.queryByText("lent_preparation")).not.toBeInTheDocument();
+    // On the Guides page the word "Guide" says nothing, so a plain guide has no line.
+    expect(screen.queryByText("Guide")).not.toBeInTheDocument();
   });
 });
 
 describe("/litanies", () => {
   it("filters on the indexed subtype instead of re-categorising every prayer", async () => {
-    listPublishedPage.mockResolvedValue(
-      page(
-        [
-          projected({
-            id: "loreto",
-            title: "Litany of Loreto",
-            contentType: "PRAYER",
-            subtype: "litany",
-          }),
-        ],
-        { total: 40, pageCount: 2 },
-      ),
+    const litanies = Array.from({ length: 40 }, (_, i) =>
+      projected({
+        id: `litany-${i}`,
+        title: `Litany ${i}`,
+        contentType: "PRAYER",
+        subtype: "litany",
+      }),
     );
+    listPublishedPage.mockResolvedValue(page(litanies));
 
     render(await LitaniesPage({ searchParams: Promise.resolve({}) }));
 
+    // Every litany, from the indexed column, so the familiar ones can lead
+    // however their titles fall; one page of cards is rendered.
     expect(listPublishedPage).toHaveBeenCalledWith("PRAYER", {
       page: 1,
-      pageSize: 30,
+      pageSize: 100,
       subtype: "litany",
     });
+    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(36);
     expect(listPublished).not.toHaveBeenCalled();
-    expect(screen.getByText("Litany")).toBeInTheDocument();
+    expect(screen.getAllByText("Litany")).toHaveLength(36);
     // Cards link into the prayer detail route, which is where litanies live.
-    expect(hrefs()).toContain("/prayers/loreto");
+    expect(hrefs().filter((href) => href?.startsWith("/prayers/litany-"))).toHaveLength(36);
     expect(hrefs()).toContain("/litanies?page=2");
   });
 });
@@ -278,7 +281,7 @@ describe("/parishes", () => {
 
     expect(listParishPage).toHaveBeenCalledWith({
       page: 1,
-      pageSize: 30,
+      pageSize: 36,
       q: "mary",
       class: ["major-basilica", "minor-basilica", "basilica"],
     });
@@ -333,14 +336,27 @@ describe("/liturgy chips", () => {
   });
 
   it("shows a chip from the indexed counts and humanises the kind on the card", async () => {
-    listPublished.mockResolvedValue([entry("liturgical_season")]);
-    countPublishedBySubtype.mockResolvedValue({ liturgical_season: 6 });
+    listPublished.mockResolvedValue([entry("optional_memorial")]);
+    countPublishedBySubtype.mockResolvedValue({ optional_memorial: 6 });
+
+    render(await LiturgyPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByRole("link", { name: /Memorials/ })).toBeInTheDocument();
+    expect(screen.getByText("Optional memorial")).toBeInTheDocument();
+    expect(screen.queryByText("optional_memorial")).not.toBeInTheDocument();
+  });
+
+  it("prints no filing term as if it were the entry's name", async () => {
+    // Ash Wednesday is no "Liturgical season", nor the Rite of Baptism a "Mass
+    // structure": the title and the section say what such an entry is.
+    listPublished.mockResolvedValue([entry("liturgical_season"), entry("mass_structure")]);
+    countPublishedBySubtype.mockResolvedValue({ liturgical_season: 1, mass_structure: 1 });
 
     render(await LiturgyPage({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole("link", { name: /Seasons/ })).toBeInTheDocument();
-    expect(screen.getByText("Liturgical season")).toBeInTheDocument();
-    expect(screen.queryByText("liturgical_season")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Liturgical season|liturgical_season/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mass structure|mass_structure/)).not.toBeInTheDocument();
   });
 
   it("fails open: a chip with published content still appears when the counts miss it", async () => {

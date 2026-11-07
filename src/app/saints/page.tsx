@@ -1,6 +1,7 @@
 import {
   FilterChips,
   LIST_PAGE_SIZE,
+  ListControls,
   ListSearch,
   ListSearchNoResults,
   PageHero,
@@ -38,18 +39,17 @@ export default async function SaintsPage({
   const selected = resolvePayloadFilter(SAINT_FILTERS, filter);
   const subtypes = selected.key === "all" ? null : (SAINT_FILTER_SUBTYPES[selected.key] ?? null);
 
-  // One indexed page of saints, ordered chronologically in SQL by the stored
-  // `sortYear` column. The catalogue is heading for 10,000 rows, so the page
-  // must never load the whole type: `listPublishedPage` projects away the
-  // payload and takes exactly the 30 rows this page shows. A search runs in
-  // SQL as well — name, patronage and the rest of the search index — best
-  // match first, inside the chosen category.
+  // One indexed page of saints, in the site's saint order, in SQL. The catalogue
+  // is heading for 10,000 rows, so the page must never load the whole type:
+  // `listPublishedPage` projects away the payload and takes exactly the rows
+  // this page shows. A search runs in SQL as well — name, patronage and the rest
+  // of the search index — best match first, inside the chosen category.
   const [result, counts] = await Promise.all([
     listPublishedPage("SAINT", {
       page: parsePageParam(pageParam),
       pageSize: LIST_PAGE_SIZE,
       subtype: subtypes,
-      order: "chronological",
+      order: "saints",
       ...(query ? { q: query } : {}),
     }),
     countPublishedBySubtype("SAINT").catch(() => ({}) as Record<string, number>),
@@ -75,41 +75,43 @@ export default async function SaintsPage({
         title={t("saints.title")}
         subtitle={t("saints.subtitle")}
       />
-      <ListSearch
-        action="/saints"
-        query={query}
-        label={t("listSearch.saints")}
-        keep={keep}
-        resultCount={result.total}
-        t={t}
-        locale={locale}
-      />
-      <FilterChips
-        ariaLabel="Filter saints by category"
-        activeKey={selected.key}
-        className="mb-6"
-        items={SAINT_FILTERS.filter((f) => f.key === "all" || hasContent(f.key)).map((f) => ({
-          key: f.key,
-          label: f.label,
-          // The chips keep the search, so a search can be narrowed by category.
-          href: listHref("/saints", { filter: f.key === "all" ? undefined : f.key, q: query }),
-        }))}
-      />
+      <ListControls>
+        <ListSearch
+          action="/saints"
+          query={query}
+          label={t("listSearch.saints")}
+          keep={keep}
+          resultCount={result.total}
+          t={t}
+          locale={locale}
+        />
+        <FilterChips
+          ariaLabel="Filter saints by category"
+          activeKey={selected.key}
+          items={SAINT_FILTERS.filter((f) => f.key === "all" || hasContent(f.key)).map((f) => ({
+            key: f.key,
+            label: f.label,
+            // The chips keep the search, so a search can be narrowed by category.
+            href: listHref("/saints", { filter: f.key === "all" ? undefined : f.key, q: query }),
+          }))}
+        />
+      </ListControls>
       {result.items.length === 0 ? (
         query ? (
           <ListSearchNoResults action="/saints" query={query} keep={keep} t={t} />
         ) : (
-          <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
+          <div className="vf-card rounded-sm px-6 py-8 text-center font-serif text-ink-soft">
             No saints in this category yet.
           </div>
         )
       ) : (
         <>
-          {/* Earliest saints first (Apostles → modern), each tagged with the
-              one title label the spec permits for its type. */}
+          {/* A name is short and its facts are brief, so four cards fit a row.
+              Each card carries the one title label the spec permits for its type. */}
           <PublishedList
             items={await localizeItems(result.items, { depth: "card" })}
             baseHref="/saints"
+            columns={4}
             eyebrowFor={(item) => saintSubtypeLabel("subtype" in item ? item.subtype : null)}
             detailLinesFor={(item) => saintCardDetailLines(details.get(item.id), t)}
           />

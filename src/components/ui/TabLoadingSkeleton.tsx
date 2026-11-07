@@ -11,12 +11,17 @@ import { gridClass, type GridColumns } from "./PaginatedGrid";
  */
 export function TabLoadingSkeleton({
   title,
+  eyebrow,
+  subtitle,
   cards = 6,
   columns = 3,
   controls = true,
   summary = true,
 }: {
   title: string;
+  /** The loaded page's label and sentence, so its heading takes the same height. */
+  eyebrow?: string;
+  subtitle?: string;
   cards?: number;
   /** The loaded page's grid. */
   columns?: GridColumns;
@@ -28,8 +33,12 @@ export function TabLoadingSkeleton({
   return (
     <div role="status" aria-busy="true" data-testid="tab-loading">
       <div className="vf-page-hero">
+        {eyebrow ? <p className="vf-eyebrow">{eyebrow}</p> : null}
         <h1 className="vf-page-hero-title text-ink">{title}</h1>
-        <p className="vf-page-hero-lede">Loading the latest published content…</p>
+        {subtitle ? <p className="vf-page-hero-lede">{subtitle}</p> : null}
+        <p className={subtitle ? "sr-only" : "vf-page-hero-lede"}>
+          Loading the latest published content…
+        </p>
       </div>
       {controls ? (
         <div className="vf-list-controls" aria-hidden="true">
@@ -46,11 +55,15 @@ export function TabLoadingSkeleton({
               <span className="vf-skeleton h-6 w-3/4" />
               <span className="vf-skeleton mt-2.5 h-4 w-2/5" />
               {summary ? (
-                <span className="mt-3.5 block space-y-2">
-                  <span className="vf-skeleton h-4 w-full" />
-                  <span className="vf-skeleton h-4 w-11/12" />
-                  <span className="vf-skeleton h-4 w-3/4" />
-                </span>
+                <>
+                  <span className="mt-3.5 block space-y-2">
+                    <span className="vf-skeleton h-4 w-full" />
+                    <span className="vf-skeleton h-4 w-11/12" />
+                    <span className="vf-skeleton h-4 w-full" />
+                    <span className="vf-skeleton h-4 w-3/4" />
+                  </span>
+                  <span className="vf-skeleton mt-4 h-3.5 w-14" />
+                </>
               ) : null}
             </div>
           </li>

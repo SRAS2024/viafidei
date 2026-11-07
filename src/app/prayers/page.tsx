@@ -1,9 +1,9 @@
-import Link from "next/link";
-
 import { getTranslator } from "@/lib/i18n/server";
 import {
+  ContentCard,
   FilterChips,
   LIST_PAGE_SIZE,
+  ListControls,
   ListSearch,
   ListSearchNoResults,
   PageHero,
@@ -13,6 +13,7 @@ import {
   parsePageParam,
 } from "@/components/ui";
 import { listPublished } from "@/lib/data/published";
+import { sortPrayersForDisplay } from "@/lib/content-shared/display-order";
 import {
   listHref,
   parseSearchQuery,
@@ -39,7 +40,7 @@ export default async function PrayersPage({ searchParams }: Props) {
   // The category and the search read the prayer's own fields (its type, its
   // words), which the payload-free projection does not carry, so the library is
   // read whole and paged here. Only the current page of cards is rendered.
-  const prayers = await listPublished("PRAYER");
+  const prayers = sortPrayersForDisplay(await listPublished("PRAYER"));
 
   // Categorise each prayer (Marian / Angelic / Liturgical / …) so the filter
   // works against real data even before the worker emits canonical categories.
@@ -82,28 +83,28 @@ export default async function PrayersPage({ searchParams }: Props) {
         subtitle={t("prayers.subtitle")}
       />
 
-      <ListSearch
-        action="/prayers"
-        query={query}
-        label={t("listSearch.prayers")}
-        keep={keep}
-        resultCount={visible.length}
-        t={t}
-        locale={locale}
-      />
-
-      {prayers.length > 0 ? (
-        <FilterChips
-          ariaLabel="Filter prayers by category"
-          activeKey={selected ?? "__all__"}
-          items={filterChips}
-          className="mb-8"
-          resetKey="__all__"
+      <ListControls>
+        <ListSearch
+          action="/prayers"
+          query={query}
+          label={t("listSearch.prayers")}
+          keep={keep}
+          resultCount={visible.length}
+          t={t}
+          locale={locale}
         />
-      ) : null}
+        {prayers.length > 0 ? (
+          <FilterChips
+            ariaLabel="Filter prayers by category"
+            activeKey={selected ?? "__all__"}
+            items={filterChips}
+            resetKey="__all__"
+          />
+        ) : null}
+      </ListControls>
 
       {prayers.length === 0 ? (
-        <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
+        <div className="vf-card rounded-sm px-6 py-8 text-center font-serif text-ink-soft">
           The prayer library will appear here as items are approved and published through the
           checklist-first worker.
         </div>
@@ -115,16 +116,12 @@ export default async function PrayersPage({ searchParams }: Props) {
               prayer itself opens on its own page. "General" names no type. */}
           <PaginatedGrid
             items={page.items.map(({ prayer: p, category }) => (
-              <Link key={p.id} href={`/prayers/${p.slug}`} className="block h-full">
-                <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30 sm:p-7">
-                  <h2 className="break-words font-display text-xl sm:text-2xl">{p.title}</h2>
-                  {category !== "general" && (
-                    <p className="mt-2 font-serif text-sm leading-snug text-ink-soft">
-                      {prayerCategoryLabel(category)}
-                    </p>
-                  )}
-                </article>
-              </Link>
+              <ContentCard
+                key={p.id}
+                href={`/prayers/${p.slug}`}
+                title={p.title}
+                meta={[category !== "general" ? prayerCategoryLabel(category) : null]}
+              />
             ))}
           />
           <Pagination
