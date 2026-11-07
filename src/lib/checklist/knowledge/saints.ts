@@ -509,7 +509,7 @@ export const saintKnowledge: CuratedEntry[] = [
     "apostle",
     "canonized",
     ["Uruguay", "hatters"],
-    "Saint Philip, of Bethsaida, was among the first disciples Jesus called and one of the Twelve Apostles (John 1:43). He led Nathanael to the Lord, and at the Last Supper he asked, 'Lord, show us the Father' (John 14:8). Tradition holds that he preached the Gospel in Asia Minor and died at Hierapolis in Phrygia. He is not the Philip who was one of the seven deacons (Acts 6:5). His relics rest with those of Saint James the Less in the Basilica of the Holy Apostles in Rome, and the two are honored together on May 3.",
+    "Saint Philip, of Bethsaida, was among the first disciples Jesus called and one of the Twelve Apostles (John 1:43-44). He led Nathanael to the Lord, and at the Last Supper he asked, 'Lord, shew us the Father' (John 14:8). Tradition holds that he preached the Gospel in Asia Minor and died at Hierapolis in Phrygia. He is not the Philip who was one of the seven deacons (Acts 6:5). His relics rest with those of Saint James the Less in the Basilica of the Holy Apostles in Rome, and the two are honored together on May 3.",
   ),
   saint(
     "saint-james-the-less",
@@ -536,7 +536,7 @@ export const saintKnowledge: CuratedEntry[] = [
     "other",
     "canonized",
     ["messengers", "telecommunications workers"],
-    "Saint Gabriel is one of the three archangels named in Scripture, and his name means 'strength of God'. He explained visions to the prophet Daniel (Daniel 8:16; 9:21), announced the birth of John the Baptist to Zechariah in the Temple (Luke 1:19), and was sent to Nazareth to ask the Blessed Virgin Mary to be the Mother of God, greeting her: 'Hail, full of grace, the Lord is with thee' (Luke 1:28). Pope Pius XII named him patron of telecommunications workers in 1951. The Church honors him with Saints Michael and Raphael on September 29.",
+    "Saint Gabriel is one of the three archangels named in Scripture, and his name means 'strength of God'. He explained visions to the prophet Daniel (Daniel 8:16; 9:21), announced the birth of John the Baptist to Zechariah in the Temple (Luke 1:19), and was sent to Nazareth to announce to the Blessed Virgin Mary that she would be the Mother of God, greeting her: 'Hail, full of grace, the Lord is with thee' (Luke 1:28). Pope Pius XII named him patron of telecommunications workers in 1951. The Church honors him with Saints Michael and Raphael on September 29.",
     { titleLabel: "Archangel" },
   ),
   saint(
@@ -556,7 +556,7 @@ export const saintKnowledge: CuratedEntry[] = [
     "other",
     "canonized",
     ["expectant mothers"],
-    "Saint Elizabeth, the wife of Zechariah and a kinswoman of the Blessed Virgin Mary, was, Scripture says, just before God and advanced in years without a child (Luke 1:6-7). According to the word of the angel she conceived John the Baptist in her old age. When Mary came to visit her the child leapt in her womb, and, filled with the Holy Spirit, she greeted Mary: 'Blessed art thou among women, and blessed is the fruit of thy womb' (Luke 1:42), words the Church has prayed ever since in the Hail Mary. The Roman Martyrology commemorates her with Zechariah on September 23.",
+    "Saint Elizabeth, the wife of Zechariah and a kinswoman of the Blessed Virgin Mary, was, Scripture says, just before God and advanced in years without a child (Luke 1:6-7). According to the word of the angel she conceived John the Baptist in her old age. When Mary came to visit her the child leapt in her womb, and, filled with the Holy Spirit, she greeted Mary: 'Blessed art thou among women, and blessed is the fruit of thy womb' (Luke 1:42), words the Church still prays in the Hail Mary. The Roman Martyrology commemorates her with Zechariah on September 23.",
     { titleLabel: "Mother of John the Baptist" },
   ),
   saint(
@@ -566,7 +566,7 @@ export const saintKnowledge: CuratedEntry[] = [
     "other",
     "canonized",
     [],
-    "Saint Zechariah, a priest of the course of Abia, was the husband of Saint Elizabeth and the father of John the Baptist. As he served in the Temple, the Archangel Gabriel told him that his aged wife would bear a son; because he doubted, he was struck dumb until the child was born (Luke 1:5-22). When he named the boy John his speech returned, and, filled with the Holy Spirit, he sang the canticle the Church prays every morning, the Benedictus (Luke 1:68-79). The Roman Martyrology commemorates him with Elizabeth on September 23.",
+    "Saint Zechariah, a priest of the course of Abia, was the husband of Saint Elizabeth and the father of John the Baptist. As he served in the Temple, the Archangel Gabriel told him that his aged wife would bear a son; because he doubted, he was struck dumb until the child was named (Luke 1:5-22). When he named the boy John his speech returned, and, filled with the Holy Spirit, he sang the canticle the Church prays every morning, the Benedictus (Luke 1:68-79). The Roman Martyrology commemorates him with Elizabeth on September 23.",
     { titleLabel: "Father of John the Baptist" },
   ),
   saint(
@@ -620,7 +620,7 @@ export const saintKnowledge: CuratedEntry[] = [
   saint(
     "saint-margaret-clitherow",
     "Saint Margaret Clitherow",
-    "03-26",
+    "03-25",
     "martyr",
     "canonized",
     ["converts", "businesswomen"],
@@ -632,7 +632,7 @@ export const saintKnowledge: CuratedEntry[] = [
     "10-19",
     "martyr",
     "canonized",
-    ["the Americas", "Canada"],
+    ["North America", "Canada"],
     "Saint Isaac Jogues (1607-1646), a French Jesuit priest, was sent to New France in 1636 and labored among the Huron people. Captured by the Iroquois in 1642, he endured a year of torture and slavery, in which he lost several fingers, before he escaped to France with Dutch help. Pope Urban VIII allowed him to say Mass despite his mutilated hands, and he soon returned to the mission by his own choice. In 1646, on a journey of peace into the Mohawk country, he was killed at Ossernenon, near what is now Auriesville, New York. Pope Pius XI canonized him with the other North American Martyrs in 1930, and the Church honors them on October 19.",
   ),
   saint(
@@ -642,7 +642,7 @@ export const saintKnowledge: CuratedEntry[] = [
     "other",
     "canonized",
     ["funeral directors", "pallbearers"],
-    "Saint Joseph of Arimathea, a respected member of the Sanhedrin and a secret disciple of Jesus, did not consent to the council's condemnation of the Lord (Luke 23:50-51). After the Crucifixion he went boldly to Pilate and asked for the body of Jesus, wrapped it in fine linen with the help of Nicodemus, and laid it in his own new tomb, cut in the rock (Matthew 27:57-60; John 19:38-42). The Roman Martyrology commemorates him with Saint Nicodemus on August 31.",
+    "Saint Joseph of Arimathea, a respected member of the Sanhedrin and a secret disciple of Jesus, did not consent to the council's condemnation of the Lord (Luke 23:50-51). After the Crucifixion he went boldly to Pilate and asked for the body of Jesus, wrapped it in fine linen with the help of Nicodemus, and laid it in his own new tomb, cut in the rock (Matthew 27:57-60; Mark 15:43-46; John 19:38-42). The Roman Martyrology commemorates him with Saint Nicodemus on August 31.",
   ),
   saint(
     "saint-abraham-the-patriarch",
@@ -651,7 +651,7 @@ export const saintKnowledge: CuratedEntry[] = [
     "other",
     "canonized",
     [],
-    "Abraham, the father of all who believe (Romans 4:11), was called by God out of Ur of the Chaldeans to a land he did not know, and God made a covenant with him, promising that in his seed all the nations of the earth would be blessed (Genesis 12; 15; 22:18). He believed the promise against all hope, received his son Isaac in his old age, and was ready to offer him to God on the mountain in the land of Moria. The Roman Canon names him 'our patriarch Abraham', and the Roman Martyrology commemorates him on October 9.",
+    "Abraham, the father of all who believe (Romans 4:11), was called by God out of Ur of the Chaldeans to a land he did not know, and God made a covenant with him, promising that in his seed all the nations of the earth would be blessed (Genesis 12; 15; 22:18). He believed the promise against all hope, received his son Isaac in his old age, and was ready to offer him to God on the mountain God showed him. The Roman Canon names him 'our patriarch Abraham', and the Roman Martyrology commemorates him on October 9.",
     { titleLabel: "Patriarch" },
   ),
   saint(
@@ -661,7 +661,7 @@ export const saintKnowledge: CuratedEntry[] = [
     "other",
     "canonized",
     [],
-    "Moses, whom God called from the burning bush, led the people of Israel out of slavery in Egypt, through the Red Sea and across the desert toward the promised land (Exodus 3-14). On Mount Sinai he received the Law and the Ten Commandments (Exodus 20), and Scripture says that the Lord spoke to him face to face, as a man speaks to his friend (Exodus 33:11). He appeared with Elijah beside Christ at the Transfiguration (Matthew 17:3). The Roman Martyrology commemorates him on September 4.",
+    "Moses, whom God called from the burning bush, led the people of Israel out of slavery in Egypt, through the Red Sea and across the desert toward the promised land (Exodus 3-19). On Mount Sinai he received the Law and the Ten Commandments (Exodus 20), and Scripture says that the Lord spoke to him face to face, as a man speaks to his friend (Exodus 33:11). He appeared with Elijah beside Christ at the Transfiguration (Matthew 17:3). The Roman Martyrology commemorates him on September 4.",
     { titleLabel: "Prophet and lawgiver" },
   ),
   saint(
@@ -711,7 +711,7 @@ export const saintKnowledge: CuratedEntry[] = [
     "other",
     "canonized",
     [],
-    "Daniel, a young man of Judah taken to Babylon in the exile, stayed faithful to the Law of God at the court of its kings. God gave him understanding of dreams and visions. He was cast into the lions' den for praying to the Lord and came out unharmed (Daniel 6), and he saw one like a son of man coming with the clouds of heaven, to whom an everlasting kingdom was given (Daniel 7:13-14), the title Jesus took for himself. The Roman Martyrology commemorates him on July 21.",
+    "Daniel, a young man of Judah taken to Babylon in the exile, stayed faithful to the Law of God at the court of its kings. God gave him understanding of dreams and visions. He was cast into the lions' den for praying to the Lord and came out unharmed (Daniel 6), and he saw one like the son of man coming with the clouds of heaven, to whom an everlasting kingdom was given (Daniel 7:13-14), the title Jesus took for himself. Earlier editions of the Roman Martyrology commemorated him on July 21.",
     { titleLabel: "Prophet" },
   ),
   saint(

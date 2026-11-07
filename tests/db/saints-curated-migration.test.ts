@@ -103,6 +103,14 @@ describe(`${NAME}`, () => {
     expect(body.match(/ON CONFLICT DO NOTHING/g)?.length).toBe(inserts);
   });
 
+  it("publishes nothing for an item a person has rejected", () => {
+    for (const slug of SLUGS) {
+      expect(publishedInsert(slug)).toContain(
+        `"approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"`,
+      );
+    }
+  });
+
   for (const slug of SLUGS) {
     describe(slug, () => {
       const expected = orchestrated(slug);
@@ -144,6 +152,14 @@ describe(FOUND_MISSING_NAME, () => {
     const inserts = body.match(/INSERT INTO/g)?.length ?? 0;
     expect(inserts).toBe(1 + 2 * FOUND_MISSING.length + FOUND_MISSING.length);
     expect(body.match(/ON CONFLICT DO NOTHING/g)?.length).toBe(inserts);
+  });
+
+  it("publishes nothing for an item a person has rejected", () => {
+    for (const slug of FOUND_MISSING) {
+      expect(publishedInsert(slug, foundMissingSql)).toContain(
+        `"approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"`,
+      );
+    }
   });
 
   for (const slug of FOUND_MISSING) {

@@ -15,7 +15,8 @@
 -- sweep both find nothing to change.
 --
 -- Deploy safety: plain inserts, no schema change. Every statement is safe to run again:
--- a row that already exists, however it got there, is left exactly as it is.
+-- a row that already exists, however it got there, is left exactly as it is, and an item
+-- a person has rejected gets no published row.
 SET LOCAL lock_timeout = '5s';
 
 -- The checklist items.
@@ -32,7 +33,7 @@ INSERT INTO "ChecklistItem" (
   ('cmept4wp6ck5gs0dkm5l95uln', 'SAINT'::"ChecklistContentType", 'Saint Basil the Great', 'saint-basil-the-great', ARRAY[]::TEXT[], 'APPROVED_FOR_BUILD'::"ChecklistApprovalStatus", 69, false, 'VATICAN'::"SourceAuthorityLevel", '{"feastDay":"01-02","saintType":"doctor_of_the_church","canonizationStatus":"canonized"}'::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('cmry1y25l7sybmsv7g743sm5s', 'SAINT'::"ChecklistContentType", 'Saint Gregory Nazianzen', 'saint-gregory-nazianzen', ARRAY[]::TEXT[], 'APPROVED_FOR_BUILD'::"ChecklistApprovalStatus", 70, false, 'VATICAN'::"SourceAuthorityLevel", '{"feastDay":"01-02","saintType":"doctor_of_the_church","canonizationStatus":"canonized"}'::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('cmh5i5l5fkpmajl0pcx7c1ogn', 'SAINT'::"ChecklistContentType", 'Saint Cuthbert of Lindisfarne', 'saint-cuthbert-of-lindisfarne', ARRAY[]::TEXT[], 'APPROVED_FOR_BUILD'::"ChecklistApprovalStatus", 71, false, 'VATICAN'::"SourceAuthorityLevel", '{"feastDay":"03-20","saintType":"bishop","canonizationStatus":"canonized"}'::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('cmh43bci6fbb3187wuye6w88s', 'SAINT'::"ChecklistContentType", 'Saint Margaret Clitherow', 'saint-margaret-clitherow', ARRAY[]::TEXT[], 'APPROVED_FOR_BUILD'::"ChecklistApprovalStatus", 72, false, 'VATICAN'::"SourceAuthorityLevel", '{"feastDay":"03-26","saintType":"martyr","canonizationStatus":"canonized"}'::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('cmh43bci6fbb3187wuye6w88s', 'SAINT'::"ChecklistContentType", 'Saint Margaret Clitherow', 'saint-margaret-clitherow', ARRAY[]::TEXT[], 'APPROVED_FOR_BUILD'::"ChecklistApprovalStatus", 72, false, 'VATICAN'::"SourceAuthorityLevel", '{"feastDay":"03-25","saintType":"martyr","canonizationStatus":"canonized"}'::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('cm5fsurzi19wnfxn26q79cgrk', 'SAINT'::"ChecklistContentType", 'Saint Isaac Jogues', 'saint-isaac-jogues', ARRAY[]::TEXT[], 'APPROVED_FOR_BUILD'::"ChecklistApprovalStatus", 73, false, 'VATICAN'::"SourceAuthorityLevel", '{"feastDay":"10-19","saintType":"martyr","canonizationStatus":"canonized"}'::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('cm9s6dqb1jvqeg31hap5nn1xo', 'SAINT'::"ChecklistContentType", 'Saint Joseph of Arimathea', 'saint-joseph-of-arimathea', ARRAY[]::TEXT[], 'APPROVED_FOR_BUILD'::"ChecklistApprovalStatus", 74, false, 'VATICAN'::"SourceAuthorityLevel", '{"feastDay":"08-31","saintType":"other","canonizationStatus":"canonized"}'::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('cmc5hpjrjj1fiai7vel3agvgp', 'SAINT'::"ChecklistContentType", 'Saint Abraham the Patriarch', 'saint-abraham-the-patriarch', ARRAY[]::TEXT[], 'APPROVED_FOR_BUILD'::"ChecklistApprovalStatus", 75, false, 'VATICAN'::"SourceAuthorityLevel", '{"feastDay":"10-09","saintType":"other","canonizationStatus":"canonized"}'::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -242,12 +243,13 @@ INSERT INTO "PublishedContent" (
   "feastMonth", "feastDayOfMonth", "sortYear", "subtype", "createdAt", "updatedAt"
 )
 SELECT 'cm7slqzij0exzmi907gvkhoak', "id", 'SAINT'::"ChecklistContentType", 'saint-gabriel-the-archangel', 'Saint Gabriel the Archangel', 'Saint, patron of messengers · Feast September 29',
-  $payload${"slug":"saint-gabriel-the-archangel","canonicalName":"Saint Gabriel the Archangel","feastDay":"09-29","feastMonth":9,"feastDayOfMonth":29,"patronages":["messengers","telecommunications workers"],"biography":"Saint Gabriel is one of the three archangels named in Scripture, and his name means 'strength of God'. He explained visions to the prophet Daniel (Daniel 8:16; 9:21), announced the birth of John the Baptist to Zechariah in the Temple (Luke 1:19), and was sent to Nazareth to ask the Blessed Virgin Mary to be the Mother of God, greeting her: 'Hail, full of grace, the Lord is with thee' (Luke 1:28). Pope Pius XII named him patron of telecommunications workers in 1951. The Church honors him with Saints Michael and Raphael on September 29.","saintType":"other","canonizationStatus":"canonized","titleLabel":"Archangel","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
+  $payload${"slug":"saint-gabriel-the-archangel","canonicalName":"Saint Gabriel the Archangel","feastDay":"09-29","feastMonth":9,"feastDayOfMonth":29,"patronages":["messengers","telecommunications workers"],"biography":"Saint Gabriel is one of the three archangels named in Scripture, and his name means 'strength of God'. He explained visions to the prophet Daniel (Daniel 8:16; 9:21), announced the birth of John the Baptist to Zechariah in the Temple (Luke 1:19), and was sent to Nazareth to announce to the Blessed Virgin Mary that she would be the Mother of God, greeting her: 'Hail, full of grace, the Lord is with thee' (Luke 1:28). Pope Pius XII named him patron of telecommunications workers in 1951. The Church honors him with Saints Michael and Raphael on September 29.","saintType":"other","canonizationStatus":"canonized","titleLabel":"Archangel","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
   'VATICAN'::"SourceAuthorityLevel",
-  true, CURRENT_TIMESTAMP, 'b4a441f5d55288e7', 1,
+  true, CURRENT_TIMESTAMP, '4c4a6aac9bd95212', 1,
   9, 29, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-gabriel-the-archangel'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -262,6 +264,7 @@ SELECT 'cm5cs7zi9sycudibs3rpqqspg', "id", 'SAINT'::"ChecklistContentType", 'sain
   9, 29, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-raphael-the-archangel'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -270,12 +273,13 @@ INSERT INTO "PublishedContent" (
   "feastMonth", "feastDayOfMonth", "sortYear", "subtype", "createdAt", "updatedAt"
 )
 SELECT 'cmeqxes78ilb41xfugy3hxt1o', "id", 'SAINT'::"ChecklistContentType", 'saint-elizabeth-mother-of-john-the-baptist', 'Saint Elizabeth, Mother of John the Baptist', 'Saint, patron of expectant mothers · Feast September 23',
-  $payload${"slug":"saint-elizabeth-mother-of-john-the-baptist","canonicalName":"Saint Elizabeth, Mother of John the Baptist","feastDay":"09-23","feastMonth":9,"feastDayOfMonth":23,"patronages":["expectant mothers"],"biography":"Saint Elizabeth, the wife of Zechariah and a kinswoman of the Blessed Virgin Mary, was, Scripture says, just before God and advanced in years without a child (Luke 1:6-7). According to the word of the angel she conceived John the Baptist in her old age. When Mary came to visit her the child leapt in her womb, and, filled with the Holy Spirit, she greeted Mary: 'Blessed art thou among women, and blessed is the fruit of thy womb' (Luke 1:42), words the Church has prayed ever since in the Hail Mary. The Roman Martyrology commemorates her with Zechariah on September 23.","saintType":"other","canonizationStatus":"canonized","titleLabel":"Mother of John the Baptist","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
+  $payload${"slug":"saint-elizabeth-mother-of-john-the-baptist","canonicalName":"Saint Elizabeth, Mother of John the Baptist","feastDay":"09-23","feastMonth":9,"feastDayOfMonth":23,"patronages":["expectant mothers"],"biography":"Saint Elizabeth, the wife of Zechariah and a kinswoman of the Blessed Virgin Mary, was, Scripture says, just before God and advanced in years without a child (Luke 1:6-7). According to the word of the angel she conceived John the Baptist in her old age. When Mary came to visit her the child leapt in her womb, and, filled with the Holy Spirit, she greeted Mary: 'Blessed art thou among women, and blessed is the fruit of thy womb' (Luke 1:42), words the Church still prays in the Hail Mary. The Roman Martyrology commemorates her with Zechariah on September 23.","saintType":"other","canonizationStatus":"canonized","titleLabel":"Mother of John the Baptist","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
   'VATICAN'::"SourceAuthorityLevel",
-  true, CURRENT_TIMESTAMP, '1dc419f92cbf623e', 1,
+  true, CURRENT_TIMESTAMP, '42b448dddc4e2af4', 1,
   9, 23, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-elizabeth-mother-of-john-the-baptist'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -284,12 +288,13 @@ INSERT INTO "PublishedContent" (
   "feastMonth", "feastDayOfMonth", "sortYear", "subtype", "createdAt", "updatedAt"
 )
 SELECT 'cml4myzjgpi5hibvoi1sffsz8', "id", 'SAINT'::"ChecklistContentType", 'saint-zechariah-father-of-john-the-baptist', 'Saint Zechariah, Father of John the Baptist', 'Saint · Feast September 23',
-  $payload${"slug":"saint-zechariah-father-of-john-the-baptist","canonicalName":"Saint Zechariah, Father of John the Baptist","feastDay":"09-23","feastMonth":9,"feastDayOfMonth":23,"patronages":[],"biography":"Saint Zechariah, a priest of the course of Abia, was the husband of Saint Elizabeth and the father of John the Baptist. As he served in the Temple, the Archangel Gabriel told him that his aged wife would bear a son; because he doubted, he was struck dumb until the child was born (Luke 1:5-22). When he named the boy John his speech returned, and, filled with the Holy Spirit, he sang the canticle the Church prays every morning, the Benedictus (Luke 1:68-79). The Roman Martyrology commemorates him with Elizabeth on September 23.","saintType":"other","canonizationStatus":"canonized","titleLabel":"Father of John the Baptist","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
+  $payload${"slug":"saint-zechariah-father-of-john-the-baptist","canonicalName":"Saint Zechariah, Father of John the Baptist","feastDay":"09-23","feastMonth":9,"feastDayOfMonth":23,"patronages":[],"biography":"Saint Zechariah, a priest of the course of Abia, was the husband of Saint Elizabeth and the father of John the Baptist. As he served in the Temple, the Archangel Gabriel told him that his aged wife would bear a son; because he doubted, he was struck dumb until the child was named (Luke 1:5-22). When he named the boy John his speech returned, and, filled with the Holy Spirit, he sang the canticle the Church prays every morning, the Benedictus (Luke 1:68-79). The Roman Martyrology commemorates him with Elizabeth on September 23.","saintType":"other","canonizationStatus":"canonized","titleLabel":"Father of John the Baptist","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
   'VATICAN'::"SourceAuthorityLevel",
-  true, CURRENT_TIMESTAMP, '55759d1d81a67ab1', 1,
+  true, CURRENT_TIMESTAMP, '2e34cd21bf07a8de', 1,
   9, 23, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-zechariah-father-of-john-the-baptist'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -304,6 +309,7 @@ SELECT 'cmam5soe2huohg2kmre9awxq9', "id", 'SAINT'::"ChecklistContentType", 'sain
   5, 1, NULL, 'religious', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-peregrine-laziosi'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -318,6 +324,7 @@ SELECT 'cmi3pdy2sxszs200v0lt3a8h3', "id", 'SAINT'::"ChecklistContentType", 'sain
   3, 25, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-dismas'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -332,6 +339,7 @@ SELECT 'cm8jfvl0ksfc2dlr62j3o10ae', "id", 'SAINT'::"ChecklistContentType", 'sain
   1, 2, NULL, 'doctor_of_the_church', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-basil-the-great'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -346,6 +354,7 @@ SELECT 'cmhf0v2l7gnn8x63jo97gnyvc', "id", 'SAINT'::"ChecklistContentType", 'sain
   1, 2, NULL, 'doctor_of_the_church', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-gregory-nazianzen'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -360,6 +369,7 @@ SELECT 'cm3gnk3el9fri5ginksjvirhv', "id", 'SAINT'::"ChecklistContentType", 'sain
   3, 20, NULL, 'bishop', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-cuthbert-of-lindisfarne'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -367,13 +377,14 @@ INSERT INTO "PublishedContent" (
   "isPublished", "publishedAt", "contentChecksum", "version",
   "feastMonth", "feastDayOfMonth", "sortYear", "subtype", "createdAt", "updatedAt"
 )
-SELECT 'cm0u6p75i93ur5rdgf3pgf5g7', "id", 'SAINT'::"ChecklistContentType", 'saint-margaret-clitherow', 'Saint Margaret Clitherow', 'Martyr, patron of converts · Feast March 26',
-  $payload${"slug":"saint-margaret-clitherow","canonicalName":"Saint Margaret Clitherow","feastDay":"03-26","feastMonth":3,"feastDayOfMonth":26,"patronages":["converts","businesswomen"],"biography":"Saint Margaret Clitherow (c. 1556-1586), called the Pearl of York, was the wife of a butcher of York and a mother, who became a Catholic about 1574 in the reign of Queen Elizabeth I. She sheltered hunted priests in her home, where Mass was offered in secret, and was imprisoned more than once for her faith. Arrested in 1586 for harboring priests, she refused to plead so that her children and servants would not be made to testify, and for this she was pressed to death at York on Good Friday, March 25. Pope Paul VI canonized her in 1970 among the Forty Martyrs of England and Wales.","saintType":"martyr","canonizationStatus":"canonized","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
+SELECT 'cm0u6p75i93ur5rdgf3pgf5g7', "id", 'SAINT'::"ChecklistContentType", 'saint-margaret-clitherow', 'Saint Margaret Clitherow', 'Martyr, patron of converts · Feast March 25',
+  $payload${"slug":"saint-margaret-clitherow","canonicalName":"Saint Margaret Clitherow","feastDay":"03-25","feastMonth":3,"feastDayOfMonth":25,"patronages":["converts","businesswomen"],"biography":"Saint Margaret Clitherow (c. 1556-1586), called the Pearl of York, was the wife of a butcher of York and a mother, who became a Catholic about 1574 in the reign of Queen Elizabeth I. She sheltered hunted priests in her home, where Mass was offered in secret, and was imprisoned more than once for her faith. Arrested in 1586 for harboring priests, she refused to plead so that her children and servants would not be made to testify, and for this she was pressed to death at York on Good Friday, March 25. Pope Paul VI canonized her in 1970 among the Forty Martyrs of England and Wales.","saintType":"martyr","canonizationStatus":"canonized","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
   'VATICAN'::"SourceAuthorityLevel",
-  true, CURRENT_TIMESTAMP, '14925fe53dd1ed04', 1,
-  3, 26, NULL, 'martyr', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  true, CURRENT_TIMESTAMP, '2a5be7f5967c0b61', 1,
+  3, 25, NULL, 'martyr', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-margaret-clitherow'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -381,13 +392,14 @@ INSERT INTO "PublishedContent" (
   "isPublished", "publishedAt", "contentChecksum", "version",
   "feastMonth", "feastDayOfMonth", "sortYear", "subtype", "createdAt", "updatedAt"
 )
-SELECT 'cm7mm71hx883o5n2ts6z7dvvw', "id", 'SAINT'::"ChecklistContentType", 'saint-isaac-jogues', 'Saint Isaac Jogues', 'Martyr, patron of the Americas · Feast October 19',
-  $payload${"slug":"saint-isaac-jogues","canonicalName":"Saint Isaac Jogues","feastDay":"10-19","feastMonth":10,"feastDayOfMonth":19,"patronages":["the Americas","Canada"],"biography":"Saint Isaac Jogues (1607-1646), a French Jesuit priest, was sent to New France in 1636 and labored among the Huron people. Captured by the Iroquois in 1642, he endured a year of torture and slavery, in which he lost several fingers, before he escaped to France with Dutch help. Pope Urban VIII allowed him to say Mass despite his mutilated hands, and he soon returned to the mission by his own choice. In 1646, on a journey of peace into the Mohawk country, he was killed at Ossernenon, near what is now Auriesville, New York. Pope Pius XI canonized him with the other North American Martyrs in 1930, and the Church honors them on October 19.","saintType":"martyr","canonizationStatus":"canonized","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
+SELECT 'cm7mm71hx883o5n2ts6z7dvvw', "id", 'SAINT'::"ChecklistContentType", 'saint-isaac-jogues', 'Saint Isaac Jogues', 'Martyr, patron of North America · Feast October 19',
+  $payload${"slug":"saint-isaac-jogues","canonicalName":"Saint Isaac Jogues","feastDay":"10-19","feastMonth":10,"feastDayOfMonth":19,"patronages":["North America","Canada"],"biography":"Saint Isaac Jogues (1607-1646), a French Jesuit priest, was sent to New France in 1636 and labored among the Huron people. Captured by the Iroquois in 1642, he endured a year of torture and slavery, in which he lost several fingers, before he escaped to France with Dutch help. Pope Urban VIII allowed him to say Mass despite his mutilated hands, and he soon returned to the mission by his own choice. In 1646, on a journey of peace into the Mohawk country, he was killed at Ossernenon, near what is now Auriesville, New York. Pope Pius XI canonized him with the other North American Martyrs in 1930, and the Church honors them on October 19.","saintType":"martyr","canonizationStatus":"canonized","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
   'VATICAN'::"SourceAuthorityLevel",
-  true, CURRENT_TIMESTAMP, '83f9ddd85a73b79f', 1,
+  true, CURRENT_TIMESTAMP, '451b4425d7002be9', 1,
   10, 19, NULL, 'martyr', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-isaac-jogues'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -396,12 +408,13 @@ INSERT INTO "PublishedContent" (
   "feastMonth", "feastDayOfMonth", "sortYear", "subtype", "createdAt", "updatedAt"
 )
 SELECT 'cmk9tw9s3f6n5a0oqhwsmz2m9', "id", 'SAINT'::"ChecklistContentType", 'saint-joseph-of-arimathea', 'Saint Joseph of Arimathea', 'Saint, patron of funeral directors · Feast August 31',
-  $payload${"slug":"saint-joseph-of-arimathea","canonicalName":"Saint Joseph of Arimathea","feastDay":"08-31","feastMonth":8,"feastDayOfMonth":31,"patronages":["funeral directors","pallbearers"],"biography":"Saint Joseph of Arimathea, a respected member of the Sanhedrin and a secret disciple of Jesus, did not consent to the council's condemnation of the Lord (Luke 23:50-51). After the Crucifixion he went boldly to Pilate and asked for the body of Jesus, wrapped it in fine linen with the help of Nicodemus, and laid it in his own new tomb, cut in the rock (Matthew 27:57-60; John 19:38-42). The Roman Martyrology commemorates him with Saint Nicodemus on August 31.","saintType":"other","canonizationStatus":"canonized","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
+  $payload${"slug":"saint-joseph-of-arimathea","canonicalName":"Saint Joseph of Arimathea","feastDay":"08-31","feastMonth":8,"feastDayOfMonth":31,"patronages":["funeral directors","pallbearers"],"biography":"Saint Joseph of Arimathea, a respected member of the Sanhedrin and a secret disciple of Jesus, did not consent to the council's condemnation of the Lord (Luke 23:50-51). After the Crucifixion he went boldly to Pilate and asked for the body of Jesus, wrapped it in fine linen with the help of Nicodemus, and laid it in his own new tomb, cut in the rock (Matthew 27:57-60; Mark 15:43-46; John 19:38-42). The Roman Martyrology commemorates him with Saint Nicodemus on August 31.","saintType":"other","canonizationStatus":"canonized","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
   'VATICAN'::"SourceAuthorityLevel",
-  true, CURRENT_TIMESTAMP, '5a6fc80a97e7e369', 1,
+  true, CURRENT_TIMESTAMP, '66a21713b37d16d0', 1,
   8, 31, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-joseph-of-arimathea'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -410,12 +423,13 @@ INSERT INTO "PublishedContent" (
   "feastMonth", "feastDayOfMonth", "sortYear", "subtype", "createdAt", "updatedAt"
 )
 SELECT 'cmubdf113xfh8uq66h7ivu09y', "id", 'SAINT'::"ChecklistContentType", 'saint-abraham-the-patriarch', 'Saint Abraham the Patriarch', 'Saint · Feast October 9',
-  $payload${"slug":"saint-abraham-the-patriarch","canonicalName":"Saint Abraham the Patriarch","feastDay":"10-09","feastMonth":10,"feastDayOfMonth":9,"patronages":[],"biography":"Abraham, the father of all who believe (Romans 4:11), was called by God out of Ur of the Chaldeans to a land he did not know, and God made a covenant with him, promising that in his seed all the nations of the earth would be blessed (Genesis 12; 15; 22:18). He believed the promise against all hope, received his son Isaac in his old age, and was ready to offer him to God on the mountain in the land of Moria. The Roman Canon names him 'our patriarch Abraham', and the Roman Martyrology commemorates him on October 9.","saintType":"other","canonizationStatus":"canonized","titleLabel":"Patriarch","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
+  $payload${"slug":"saint-abraham-the-patriarch","canonicalName":"Saint Abraham the Patriarch","feastDay":"10-09","feastMonth":10,"feastDayOfMonth":9,"patronages":[],"biography":"Abraham, the father of all who believe (Romans 4:11), was called by God out of Ur of the Chaldeans to a land he did not know, and God made a covenant with him, promising that in his seed all the nations of the earth would be blessed (Genesis 12; 15; 22:18). He believed the promise against all hope, received his son Isaac in his old age, and was ready to offer him to God on the mountain God showed him. The Roman Canon names him 'our patriarch Abraham', and the Roman Martyrology commemorates him on October 9.","saintType":"other","canonizationStatus":"canonized","titleLabel":"Patriarch","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
   'VATICAN'::"SourceAuthorityLevel",
-  true, CURRENT_TIMESTAMP, '82e1945fcb682b21', 1,
+  true, CURRENT_TIMESTAMP, '819c769116aa11ab', 1,
   10, 9, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-abraham-the-patriarch'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -424,12 +438,13 @@ INSERT INTO "PublishedContent" (
   "feastMonth", "feastDayOfMonth", "sortYear", "subtype", "createdAt", "updatedAt"
 )
 SELECT 'cmvutljc0apm7jzjjhc22vnxr', "id", 'SAINT'::"ChecklistContentType", 'saint-moses-the-lawgiver', 'Saint Moses the Lawgiver', 'Saint · Feast September 4',
-  $payload${"slug":"saint-moses-the-lawgiver","canonicalName":"Saint Moses the Lawgiver","feastDay":"09-04","feastMonth":9,"feastDayOfMonth":4,"patronages":[],"biography":"Moses, whom God called from the burning bush, led the people of Israel out of slavery in Egypt, through the Red Sea and across the desert toward the promised land (Exodus 3-14). On Mount Sinai he received the Law and the Ten Commandments (Exodus 20), and Scripture says that the Lord spoke to him face to face, as a man speaks to his friend (Exodus 33:11). He appeared with Elijah beside Christ at the Transfiguration (Matthew 17:3). The Roman Martyrology commemorates him on September 4.","saintType":"other","canonizationStatus":"canonized","titleLabel":"Prophet and lawgiver","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
+  $payload${"slug":"saint-moses-the-lawgiver","canonicalName":"Saint Moses the Lawgiver","feastDay":"09-04","feastMonth":9,"feastDayOfMonth":4,"patronages":[],"biography":"Moses, whom God called from the burning bush, led the people of Israel out of slavery in Egypt, through the Red Sea and across the desert toward the promised land (Exodus 3-19). On Mount Sinai he received the Law and the Ten Commandments (Exodus 20), and Scripture says that the Lord spoke to him face to face, as a man speaks to his friend (Exodus 33:11). He appeared with Elijah beside Christ at the Transfiguration (Matthew 17:3). The Roman Martyrology commemorates him on September 4.","saintType":"other","canonizationStatus":"canonized","titleLabel":"Prophet and lawgiver","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
   'VATICAN'::"SourceAuthorityLevel",
-  true, CURRENT_TIMESTAMP, '9f928ae382a15667', 1,
+  true, CURRENT_TIMESTAMP, 'c1a161c366c1bead', 1,
   9, 4, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-moses-the-lawgiver'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -444,6 +459,7 @@ SELECT 'cmpsn9mdzqm1byq94lidlpcyu', "id", 'SAINT'::"ChecklistContentType", 'sain
   12, 29, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-david-the-king'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -458,6 +474,7 @@ SELECT 'cmqt3n7ycgvqqdovab2d7qjun', "id", 'SAINT'::"ChecklistContentType", 'sain
   5, 9, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-isaiah-the-prophet'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -472,6 +489,7 @@ SELECT 'cmzpeuff449ib003xn75eq6br', "id", 'SAINT'::"ChecklistContentType", 'sain
   5, 1, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-jeremiah-the-prophet'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -486,6 +504,7 @@ SELECT 'cmb4extdtkilga7s0yycx1rxn', "id", 'SAINT'::"ChecklistContentType", 'sain
   7, 23, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-ezekiel-the-prophet'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -494,10 +513,11 @@ INSERT INTO "PublishedContent" (
   "feastMonth", "feastDayOfMonth", "sortYear", "subtype", "createdAt", "updatedAt"
 )
 SELECT 'cmxymlmq0l5xwf03rxiadgxk3', "id", 'SAINT'::"ChecklistContentType", 'saint-daniel-the-prophet', 'Saint Daniel the Prophet', 'Saint · Feast July 21',
-  $payload${"slug":"saint-daniel-the-prophet","canonicalName":"Saint Daniel the Prophet","feastDay":"07-21","feastMonth":7,"feastDayOfMonth":21,"patronages":[],"biography":"Daniel, a young man of Judah taken to Babylon in the exile, stayed faithful to the Law of God at the court of its kings. God gave him understanding of dreams and visions. He was cast into the lions' den for praying to the Lord and came out unharmed (Daniel 6), and he saw one like a son of man coming with the clouds of heaven, to whom an everlasting kingdom was given (Daniel 7:13-14), the title Jesus took for himself. The Roman Martyrology commemorates him on July 21.","saintType":"other","canonizationStatus":"canonized","titleLabel":"Prophet","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
+  $payload${"slug":"saint-daniel-the-prophet","canonicalName":"Saint Daniel the Prophet","feastDay":"07-21","feastMonth":7,"feastDayOfMonth":21,"patronages":[],"biography":"Daniel, a young man of Judah taken to Babylon in the exile, stayed faithful to the Law of God at the court of its kings. God gave him understanding of dreams and visions. He was cast into the lions' den for praying to the Lord and came out unharmed (Daniel 6), and he saw one like the son of man coming with the clouds of heaven, to whom an everlasting kingdom was given (Daniel 7:13-14), the title Jesus took for himself. Earlier editions of the Roman Martyrology commemorated him on July 21.","saintType":"other","canonizationStatus":"canonized","titleLabel":"Prophet","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
   'VATICAN'::"SourceAuthorityLevel",
-  true, CURRENT_TIMESTAMP, '8795071d4018e723', 1,
+  true, CURRENT_TIMESTAMP, '8b2284e4bc7a7cc8', 1,
   7, 21, NULL, 'other', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-daniel-the-prophet'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;

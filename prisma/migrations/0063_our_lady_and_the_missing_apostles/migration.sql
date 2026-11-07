@@ -22,7 +22,8 @@
 --
 -- Deploy safety: plain inserts and a short targeted update, no schema change. Every
 -- statement is safe to run again: a row that already exists, however it got there,
--- is left exactly as it is. lock_timeout bounds any wait on a row the worker holds.
+-- is left exactly as it is, and an item a person has rejected gets no published row.
+-- lock_timeout bounds any wait on a row the worker holds.
 SET LOCAL lock_timeout = '5s';
 
 -- The checklist items.
@@ -90,6 +91,7 @@ SELECT 'cmnt83rtn61qqf6y1n91sp0jl', "id", 'SAINT'::"ChecklistContentType", 'sain
   1, 1, NULL, 'virgin', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-blessed-virgin-mary'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -98,12 +100,13 @@ INSERT INTO "PublishedContent" (
   "feastMonth", "feastDayOfMonth", "sortYear", "subtype", "createdAt", "updatedAt"
 )
 SELECT 'cmv1x9u2gua6brov8dnz8bavk', "id", 'SAINT'::"ChecklistContentType", 'saint-philip-the-apostle', 'Saint Philip the Apostle', 'Apostle, patron of Uruguay · Feast May 3',
-  $payload${"slug":"saint-philip-the-apostle","canonicalName":"Saint Philip the Apostle","feastDay":"05-03","feastMonth":5,"feastDayOfMonth":3,"patronages":["Uruguay","hatters"],"biography":"Saint Philip, of Bethsaida, was among the first disciples Jesus called and one of the Twelve Apostles (John 1:43). He led Nathanael to the Lord, and at the Last Supper he asked, 'Lord, show us the Father' (John 14:8). Tradition holds that he preached the Gospel in Asia Minor and died at Hierapolis in Phrygia. He is not the Philip who was one of the seven deacons (Acts 6:5). His relics rest with those of Saint James the Less in the Basilica of the Holy Apostles in Rome, and the two are honored together on May 3.","saintType":"apostle","canonizationStatus":"canonized","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
+  $payload${"slug":"saint-philip-the-apostle","canonicalName":"Saint Philip the Apostle","feastDay":"05-03","feastMonth":5,"feastDayOfMonth":3,"patronages":["Uruguay","hatters"],"biography":"Saint Philip, of Bethsaida, was among the first disciples Jesus called and one of the Twelve Apostles (John 1:43-44). He led Nathanael to the Lord, and at the Last Supper he asked, 'Lord, shew us the Father' (John 14:8). Tradition holds that he preached the Gospel in Asia Minor and died at Hierapolis in Phrygia. He is not the Philip who was one of the seven deacons (Acts 6:5). His relics rest with those of Saint James the Less in the Basilica of the Holy Apostles in Rome, and the two are honored together on May 3.","saintType":"apostle","canonizationStatus":"canonized","relatedPrayers":[],"relatedDevotions":[],"citations":["https://www.vatican.va/","https://www.newadvent.org/cathen/"],"contentSubtype":"saint_biography"}$payload$::jsonb,
   'VATICAN'::"SourceAuthorityLevel",
-  true, CURRENT_TIMESTAMP, 'bb68f1669a231acf', 1,
+  true, CURRENT_TIMESTAMP, 'f4a0af744b839ab4', 1,
   5, 3, NULL, 'apostle', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-philip-the-apostle'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -118,6 +121,7 @@ SELECT 'cmn6j1hsu4wjcv994efewfqik', "id", 'SAINT'::"ChecklistContentType", 'sain
   5, 3, NULL, 'apostle', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-james-the-less'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 INSERT INTO "PublishedContent" (
@@ -132,6 +136,7 @@ SELECT 'cm4hdvehqenpj13lz4wnja7a8', "id", 'SAINT'::"ChecklistContentType", 'sain
   10, 28, NULL, 'apostle', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM "ChecklistItem"
 WHERE "contentType" = 'SAINT'::"ChecklistContentType" AND "canonicalSlug" = 'saint-simon-the-zealot'
+  AND "approvalStatus" <> 'REJECTED'::"ChecklistApprovalStatus"
 ON CONFLICT DO NOTHING;
 
 -- The year of a death date stored as an ISO date with an era ("542-08-27 AD").
