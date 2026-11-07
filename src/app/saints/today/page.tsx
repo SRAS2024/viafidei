@@ -1,5 +1,4 @@
 import { PublishedList, entryPayload } from "@/components/ui/PublishedList";
-import { saintSubtypeLabel } from "@/lib/content-shared/saint-categories";
 import { saintCardDetailLines, saintCardDetails } from "@/lib/content-shared/saints";
 import { getTranslator } from "@/lib/i18n/server";
 import { listSaintsForFeast } from "@/lib/data/published";
@@ -41,16 +40,14 @@ export default async function SaintsTodayPage({ searchParams }: Props) {
           day — not a clipped biography under a "Feast day" eyebrow. These
           rows carry their payload, so the summary is switched off explicitly:
           /saints shows none because its projected rows have none. A day's few
-          saints stand centred under the heading rather than off to one side. */}
+          saints stand centred under the heading rather than off to one side, and
+          never one alone under a full row. */}
       <div className="vf-grid-centred">
         <PublishedList
           items={todaySaints}
           baseHref="/saints"
           showSummary={false}
           emptyMessage="No published feast day saints for today."
-          eyebrowFor={(item) =>
-            saintSubtypeLabel(entryPayload(item).saintType as string | undefined)
-          }
           detailLinesFor={(item) => saintCardDetailLines(saintCardDetails(entryPayload(item)), t)}
         />
       </div>

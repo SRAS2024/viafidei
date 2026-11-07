@@ -5,8 +5,13 @@ import { SaveContentButton } from "@/components/profile";
 import { Disclosure, GuidePrayers, PublishedDetail } from "@/components/ui";
 import { PRAYER_LIST_FIELD, readingField, withPrayerList } from "@/components/ui/GuideSteps";
 import { PrayerLinkedText } from "@/components/ui/PrayerLinkedText";
-import { novenaTimingFacts, toDisclosureItems } from "@/lib/content-shared/structured-content";
+import {
+  novenaBackgroundForDisplay,
+  novenaTimingFacts,
+  toDisclosureItems,
+} from "@/lib/content-shared/structured-content";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { getTranslator } from "@/lib/i18n/server";
 import { loadPrayersForText } from "@/lib/data/prayer-sets";
 import { displayItem } from "@/lib/translation/display";
 import { localizeItem, localizePrayers } from "@/lib/translation/localize";
@@ -35,6 +40,19 @@ async function novenaPrayers(payload: Record<string, unknown>) {
 }
 
 /**
+ * The novena with its background as the page should say it, before it is put into
+ * the reader's language, so that a translation is of what is shown.
+ */
+function withBackgroundForDisplay<T extends { payload: Record<string, unknown> }>(item: T): T {
+  const { background } = item.payload;
+  if (typeof background !== "string") return item;
+  return {
+    ...item,
+    payload: { ...item.payload, background: novenaBackgroundForDisplay(background) },
+  };
+}
+
+/**
  * A novena's page, the practical material first: the title, when it begins and
  * ends, its summary, each day as a dropdown ("Day 1 · All mankind, especially
  * sinners") holding that day's prayer, the prayers the days pray, and then the
@@ -44,16 +62,20 @@ async function novenaPrayers(payload: Record<string, unknown>) {
  */
 export default async function NovenaDetailPage({ params }: Props) {
   const { slug } = await params;
-  const item = await localizeItem(await getPublishedBySlug("NOVENA", slug));
+  const stored = await getPublishedBySlug("NOVENA", slug);
+  if (!stored) notFound();
+  const item = await localizeItem(withBackgroundForDisplay(stored));
   if (!item) notFound();
 
   // Chosen from the stored days; shown in the reader's language like the
   // novena itself (src/lib/translation).
   const { prayers: named, ordered } = await novenaPrayers(item.payload);
   const prayers = await localizePrayers(named);
+  const { t } = await getTranslator();
 
   return (
     <PublishedDetail
+      t={t}
       item={withPrayerList(item, prayers)}
       showSubtitle={false}
       factItems={novenaTimingFacts(displayItem(item).payload.typicalStartDate)}

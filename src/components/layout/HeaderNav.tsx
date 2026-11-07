@@ -20,7 +20,11 @@ export const NAV_GROUPS: NavGroup[] = [
     kind: "group",
     href: "/prayers",
     key: "nav.prayers",
-    items: [{ href: "/litanies", key: "nav.litanies" }],
+    items: [
+      { href: "/litanies", key: "nav.litanies" },
+      { href: "/devotions", key: "nav.devotions" },
+      { href: "/novenas", key: "nav.novenas" },
+    ],
   },
   {
     kind: "group",

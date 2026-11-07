@@ -147,8 +147,8 @@ describe("PublishedList — full rows", () => {
     render(
       <PublishedList
         items={[
-          full("ocia", { kind: "rcia", summary: "Becoming Catholic." }),
-          full("lent", { kind: "lent_preparation", summary: "Preparing for Lent." }),
+          full("becoming-catholic", { kind: "rcia", summary: "Becoming Catholic." }),
+          full("ashes", { kind: "lent_preparation", summary: "Preparing for Lent." }),
           full("plain", { kind: "general", summary: "A guide." }),
         ]}
         baseHref="/guides"

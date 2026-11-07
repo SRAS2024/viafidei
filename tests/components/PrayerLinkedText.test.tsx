@@ -102,6 +102,105 @@ describe("PrayerLinkedText", () => {
     expect(container.textContent).toBe("(Our Father)");
   });
 
+  describe("a name and the punctuation that belongs to it", () => {
+    const marks = (container: HTMLElement) =>
+      [...container.querySelectorAll(".vf-inline-prayer-mark")].map((node) => node.textContent);
+
+    it("keeps the comma after a name in the name's box, out of its name", () => {
+      const { container } = render(
+        <PrayerLinkedText
+          text="Pray the Our Father, then the Glory Be."
+          prayers={[OUR_FATHER, GLORY_BE]}
+        />,
+      );
+      const name = screen.getByRole("button", { name: "Our Father" });
+      expect(name.querySelector(".vf-inline-prayer-mark")).toHaveTextContent(",");
+      expect(name.querySelector(".vf-inline-prayer-mark")).toHaveAttribute("aria-hidden", "true");
+      expect(screen.getByRole("button", { name: "Glory Be" })).toHaveTextContent("Glory Be.");
+      expect(marks(container)).toEqual([",", "."]);
+      expect(container.textContent).toBe("Pray the Our Father, then the Glory Be.");
+    });
+
+    it("keeps an opening bracket or quotation mark with its name", () => {
+      const { container } = render(
+        <PrayerLinkedText
+          text='Say it (Our Father) or "Glory Be".'
+          prayers={[OUR_FATHER, GLORY_BE]}
+        />,
+      );
+      expect(container.textContent).toBe('Say it (Our Father) or "Glory Be".');
+      expect(marks(container)).toEqual(["(", ")", '"', '".']);
+      expect(screen.getByRole("button", { name: "Our Father" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Glory Be" })).toBeInTheDocument();
+    });
+
+    it("reads a possessive as the rest of the name's word, since it is one", () => {
+      const { container } = render(
+        <PrayerLinkedText text="At the Glory Be's end, kneel." prayers={[GLORY_BE]} />,
+      );
+      expect(container.textContent).toBe("At the Glory Be's end, kneel.");
+      expect(marks(container)).toEqual([]);
+      expect(screen.getByRole("button", { name: "Glory Be's" })).toBeInTheDocument();
+    });
+
+    it.each([
+      'Our Father"Glory Be',
+      'Our Father" "Glory Be',
+      "Our Father)(Glory Be",
+      "(Our Father), (Glory Be).",
+      "Our Father's, Glory Be's.",
+      "'Our Father' and 'Glory Be'",
+      "Our Father",
+      ", Our Father ,",
+    ])("loses and doubles nothing around the names: %s", (text) => {
+      const { container } = render(
+        <PrayerLinkedText text={text} prayers={[OUR_FATHER, GLORY_BE]} />,
+      );
+      expect(container.textContent).toBe(text);
+    });
+
+    it("has nothing to keep for a name with nothing beside it", () => {
+      const { container } = render(
+        <PrayerLinkedText text="Pray the Our Father slowly." prayers={[OUR_FATHER]} />,
+      );
+      expect(marks(container)).toEqual([]);
+      expect(container.textContent).toBe("Pray the Our Father slowly.");
+    });
+
+    it("keeps two names apart, the comma with the first", () => {
+      const { container } = render(
+        <PrayerLinkedText text="Our Father, Glory Be" prayers={[OUR_FATHER, GLORY_BE]} />,
+      );
+      expect(container.textContent).toBe("Our Father, Glory Be");
+      expect(marks(container)).toEqual([","]);
+      expect(screen.getAllByRole("button")).toHaveLength(2);
+    });
+
+    it("leaves a line that says a prayer's words as it is", () => {
+      const { container } = render(
+        <PrayerLinkedText
+          text="Glory be to Thee, O Lord, for all Thy gifts."
+          prayers={[GLORY_BE]}
+          matchCase
+        />,
+      );
+      expect(marks(container)).toEqual([]);
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      expect(screen.getByText("Glory be to Thee, O Lord, for all Thy gifts.")).toBeInTheDocument();
+    });
+  });
+
+  it("takes how its paragraph is set from the page, with or without a prayer named", () => {
+    const { container, rerender } = render(
+      <PrayerLinkedText text="Our Father" prayers={[OUR_FATHER]} className="vf-substep-title" />,
+    );
+    expect(container.querySelector("p")).toHaveClass("vf-substep-title", "whitespace-pre-line");
+    rerender(
+      <PrayerLinkedText text="Prayer" prayers={[OUR_FATHER]} className="vf-substep-title" />,
+    );
+    expect(container.querySelector("p")).toHaveClass("vf-substep-title", "whitespace-pre-line");
+  });
+
   describe("over text that is itself prayer", () => {
     const ANGELUS = [
       "V. The Angel of the Lord declared unto Mary.",
@@ -165,10 +264,9 @@ describe("PrayerLinkedText", () => {
           matchCase
         />,
       );
-      expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual([
-        "Glory be",
-        "Our Father",
-      ]);
+      expect(screen.getByRole("button", { name: "Glory be" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Our Father" })).toBeInTheDocument();
+      expect(screen.getAllByRole("button")).toHaveLength(2);
     });
   });
 
@@ -306,7 +404,8 @@ describe("PrayerLinkedText", () => {
         matchCase
       />,
     );
-    const links = screen.getAllByRole("button");
-    expect(links.map((b) => b.textContent)).toEqual(["Our Father", "Glory Be"]);
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Our Father" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Glory Be" })).toBeInTheDocument();
   });
 });

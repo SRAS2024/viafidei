@@ -4,16 +4,20 @@
  * Pure (no DB, no network): the page does the IO and hands the stored
  * DailyReading row in. The rule this module exists to enforce is that the page
  * ALWAYS computes the day's readings from the liturgical calendar engine + the
- * Lectionary tables, and only overlays the worker's stored row when that row is
- * PUBLISHED and actually carries text. A REVIEW skeleton (the worker writes one
- * for any day it cannot verify) must never shadow readings the page can compute
- * for itself.
+ * Lectionary tables, and only overlays a stored row from another source when that
+ * row is PUBLISHED and actually carries text. A REVIEW skeleton (the worker writes
+ * one for any day it cannot verify) must never shadow readings the page can compute
+ * for itself, and neither may the worker's own copy of those readings.
  *
  * A date can offer more than one Mass. Some are the day's own formularies
  * (Christmas during the Night, the Year A scrutiny readings); the other is its
  * evening Mass, the Vigil of the next day, which reads the next day's readings
  * under this date (?mass=vigil). Which Masses a date has is decided by
- * `eveningMass` in the calendar engine and by the tables, never by the clock.
+ * `massOptions` in the calendar engine and by the tables, never by the clock.
+ *
+ * On the four dates the Ascension's observances differ, the page shows what most of
+ * the United States keeps, and offers what the provinces that keep the Ascension on
+ * Thursday read (?ascension=thursday), as the USCCB prints the two side by side.
  */
 
 import {
@@ -23,7 +27,11 @@ import {
   type ReadingSection,
 } from "@/lib/content-shared/daily-readings";
 import {
+  ascensionNote,
   eveningMass,
+  massHref,
+  massOptions,
+  parseCivilDate,
   resolveLiturgicalDay,
   usccbReadingsUrl,
   type EveningMass,
@@ -33,9 +41,11 @@ import {
   LECTIONARY_ATTRIBUTION,
   layoutFromText,
   resolveDayReadings,
+  resolveReadings,
   type ReadingAlternative,
   type ResolvedReadingSection,
   type ResolvedReadings,
+  type SundayCycle,
 } from "@/lib/content-shared/lectionary";
 
 export interface ReadingsViewSection extends ResolvedReadingSection {
@@ -99,23 +109,16 @@ export function utcMidnight(date: Date): Date {
 
 /**
  * Parse an optional ?date=YYYY-MM-DD param; fall back to today (UTC). A visitor
- * with no ?date is corrected to their own local date by the client (see
+ * who named no usable date is corrected to their own local date by the client (see
  * TodayDateSync) — the server has no way to know their timezone.
  */
 export function parseDateParam(raw: string | undefined): Date {
-  if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    const [y, m, d] = raw.split("-").map(Number);
-    const dt = new Date(Date.UTC(y, m - 1, d));
-    if (
-      !Number.isNaN(dt.getTime()) &&
-      dt.getUTCFullYear() === y &&
-      dt.getUTCMonth() === m - 1 &&
-      dt.getUTCDate() === d
-    ) {
-      return dt;
-    }
-  }
-  return utcMidnight(new Date());
+  return parseCivilDate(raw) ?? utcMidnight(new Date());
+}
+
+/** The calendar a page asks for by ?ascension=thursday. Nothing else changes the calendar. */
+export function calendarFromParam(raw: string | undefined): LiturgicalCalendarOptions | undefined {
+  return raw === "thursday" ? { ascensionOnThursday: true } : undefined;
 }
 
 export function longDate(date: Date): string {
@@ -183,10 +186,9 @@ function storedSections(row: StoredReadingRow | null | undefined): ReadingSectio
 }
 
 /**
- * Overlay a stored section on the computed one. A stored row is a snapshot of the
- * tables as they stood when the worker wrote it, so its text may replace the
- * computed text of the SAME reading, but a row citing a different reading is out of
- * date: a correction to the tables must not be undone by an older copy of them.
+ * Overlay a stored section on the computed one. A row from another source may replace
+ * the computed text of the SAME reading, but a row citing a different reading is out
+ * of date: a correction to the tables must not be undone by an older copy of them.
  */
 function overlaySection(
   section: ResolvedReadingSection,
@@ -220,18 +222,15 @@ function overlaySection(
 }
 
 /** The date whose stored row belongs to this view, or null when none can. */
-export function storedRowDate(date: Date, mass: string | null | undefined): Date | null {
-  const evening = mass === "vigil" ? eveningMass(date) : null;
+export function storedRowDate(
+  date: Date,
+  mass: string | null | undefined,
+  calendar?: LiturgicalCalendarOptions,
+): Date | null {
+  const evening = mass === "vigil" ? eveningMass(date, calendar) : null;
   if (!evening) return date;
   // The stored row is the next day's principal Mass; the Vigil's own readings are not.
   return evening.ownReadings ? null : new Date(`${evening.next.date}T00:00:00Z`);
-}
-
-function queryFor(date: string, params: { mass?: boolean; variant?: string | null }): string {
-  const parts = [`date=${date}`];
-  if (params.mass) parts.push("mass=vigil");
-  if (params.variant) parts.push(`variant=${params.variant}`);
-  return `/liturgy/readings?${parts.join("&")}`;
 }
 
 /** The readings of a Vigil view: its own formulary, or the next day's Mass. */
@@ -289,10 +288,15 @@ export function buildReadingsView(
     : buildReadingFraming(date, opts.calendar);
 
   const stored = storedSections(opts.row);
+  // The worker writes its rows from these same tables, under the framing's source
+  // name, so such a row can only repeat what is computed here or be older: a
+  // correction to the Scripture store must not be undone by a copy from before it.
+  const tableCopy = opts.row?.sourceName === framing.sourceName;
   // The stored row belongs to the day, not to one formulary — only overlay it on
   // the principal Mass, or an alternative Mass would show the wrong text.
   const overlayable =
-    resolved === principal || (vigil && !evening?.ownReadings && resolved?.variant == null)
+    !tableCopy &&
+    (resolved === principal || (vigil && !evening?.ownReadings && resolved?.variant == null))
       ? stored
       : null;
   const byKind = new Map<string, ReadingSection>();
@@ -309,29 +313,42 @@ export function buildReadingsView(
     .map((mass) => ({
       variant: mass.variant,
       label: massLabel(mass.variant, today.lectionaryKey, today.sundayCycle),
-      href: queryFor(iso, { variant: mass.variant }),
+      href: massHref(iso, { variant: mass.variant }),
       isActive: mass.variant === activeDayVariant,
     }));
 
-  // The evening Mass stands beside them, unless its readings are the day's own:
-  // then there is nothing to choose between.
-  const sameReadings = evening ? sameCitations(principal, evening) : false;
-  const showEvening = evening !== null && !sameReadings;
-  if (showEvening) {
+  // The other Masses stand beside them: the evening's, unless its readings are the
+  // day's own, when there is nothing to choose between; and on the Ascension's four
+  // dates, what the provinces that keep Thursday read.
+  const onThursday = opts.calendar?.ascensionOnThursday === true;
+  const [ownOption, ...otherOptions] = massOptions(date);
+  const others = otherOptions.filter(
+    (option) =>
+      option.ascensionOnThursday || (evening !== null && !sameCitations(principal, evening)),
+  );
+  // ?ascension=thursday on a Wednesday's or a Saturday's own Mass changes nothing,
+  // so the day's own option is the chosen one there.
+  const chosen =
+    others.find((o) => o.evening === isVigil && o.ascensionOnThursday === onThursday) ??
+    others.find((o) => o.evening === isVigil && !o.ascensionOnThursday) ??
+    null;
+  if (others.length > 0) {
     if (masses.length === 0) {
       masses.push({
         variant: null,
-        label: evening.dayLabel,
-        href: queryFor(iso, {}),
-        isActive: !isVigil,
+        label: ownOption.label,
+        href: massHref(iso, {}),
+        isActive: chosen === null,
       });
     }
-    masses.push({
-      variant: "evening",
-      label: evening.label,
-      href: queryFor(iso, { mass: true }),
-      isActive: isVigil,
-    });
+    for (const option of others) {
+      masses.push({
+        variant: option.ascensionOnThursday ? "ascension-thursday" : "evening",
+        label: option.label,
+        href: massHref(iso, option),
+        isActive: option === chosen,
+      });
+    }
   }
 
   const formularies: ReadingsMassOption[] =
@@ -344,7 +361,11 @@ export function buildReadingsView(
               variant === "vigil"
                 ? "Vigil Mass"
                 : massLabel(variant, framing.lectionaryKey, framing.sundayCycle),
-            href: queryFor(iso, { mass: true, variant }),
+            href: massHref(iso, {
+              evening: true,
+              ascensionOnThursday: onThursday,
+              variant,
+            }),
             isActive: variant === (resolved?.variant ?? null),
           }))
       : [];
@@ -361,9 +382,7 @@ export function buildReadingsView(
         : longDate(date),
     massNote: holySaturday
       ? "Holy Saturday has no Mass during the day. The Easter Vigil, celebrated after nightfall, is the first Mass of Easter."
-      : isVigil
-        ? null
-        : massNoteFor(framing, date),
+      : (ascensionNote(date) ?? (isVigil ? sixthSundayNote(framing) : massNoteFor(framing, date))),
     lectionaryNumber: resolved?.number ?? null,
     lectionaryLabel: resolved?.label ?? null,
     sections,
@@ -403,7 +422,20 @@ function massNoteFor(framing: ReadingFraming, date: Date): string | null {
   if (month === 7 && dayOfMonth === 4 && framing.rank === "WEEKDAY") {
     return "This is Independence Day in the United States. Any readings from the Mass For the Country or a City or the Mass For Peace and Justice may be used.";
   }
-  return null;
+  return sixthSundayNote(framing);
+}
+
+/**
+ * The USCCB's calendar leaves one more choice open on the Sixth Sunday of Easter, for
+ * the provinces whose Sunday next week is the Ascension and so never hears the
+ * Seventh Sunday's readings.
+ */
+function sixthSundayNote(framing: ReadingFraming): string | null {
+  if (framing.temporalKey !== "easter-6-sunday") return null;
+  const seventh = resolveReadings("easter-7-sunday", {
+    sundayCycle: framing.sundayCycle as SundayCycle,
+  });
+  return `Where the Ascension is kept next Sunday, the Second Reading and Gospel of the Seventh Sunday of Easter (Lectionary ${seventh?.number}) may be read at this Mass.`;
 }
 
 /** True when the next day's evening Mass reads what this date already reads. */

@@ -1,5 +1,4 @@
 import { getTranslator } from "@/lib/i18n/server";
-import { Logo } from "@/components/icons/Logo";
 
 export const metadata = {
   title: "Privacy policy",
@@ -22,14 +21,11 @@ export default async function PrivacyPolicyPage() {
 
   return (
     <article className="vf-detail">
-      <div className="vf-detail-header text-center">
-        <div className="mb-2 inline-flex items-center justify-center" aria-hidden="true">
-          <Logo size={48} />
-        </div>
+      <header className="vf-detail-header">
         <p className="vf-eyebrow">Via Fidei</p>
         <h1 className="vf-detail-title">{t("privacy.title")}</h1>
         <p className="vf-lede">{t("privacy.subtitle")}</p>
-      </div>
+      </header>
 
       <div className="vf-reading break-words">
         <p>{t("privacy.intro")}</p>

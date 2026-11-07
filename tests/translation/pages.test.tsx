@@ -413,7 +413,8 @@ describe("a page that opens on facts, in Spanish", () => {
       "vf-detail-subtitle",
     );
     expect(container.querySelector(".vf-facts")).toBeNull();
-    expect(container.querySelector(".vf-eyebrow")).toHaveTextContent("Church Document");
+    // The plain type label, in the reader's language like the line under it.
+    expect(container.querySelector(".vf-eyebrow")).toHaveTextContent(/^Documento de la Iglesia$/);
   });
 
   it("keeps the facts while the subtitle is still waiting for the translator", async () => {
@@ -604,6 +605,26 @@ describe("the other prayer-bearing pages in Spanish", () => {
       expect(spanish.layout).toEqual(english.layout);
     },
   );
+});
+
+describe("a novena's background in Spanish", () => {
+  it("is a translation of what the page shows, so a sentence it leaves out holds nothing back", async () => {
+    const stored = put("NOVENA", "novena-saint-dominic", "Novena to Saint Dominic", {
+      background: "He founded the Order of Preachers.",
+      days: [{ day: 1, title: "Preaching", prayerText: "O holy father Dominic." }],
+    });
+    spanishCache([
+      [stored, "He founded the Order of Preachers.", "Fundó la Orden de Predicadores."],
+    ]);
+    // The row as it is stored: the sentence about day meditations has no translation.
+    put("NOVENA", "novena-saint-dominic", "Novena to Saint Dominic", {
+      background: "He founded the Order of Preachers. The day meditations are editorial.",
+      days: [{ day: 1, title: "Preaching", prayerText: "O holy father Dominic." }],
+    });
+    render(await NovenaDetailPage(params("novena-saint-dominic")));
+    expect(pageText()).toContain("Fundó la Orden de Predicadores.");
+    expectAbsent("He founded the Order of Preachers.", "day meditations");
+  });
 });
 
 describe("an old guide link under /spiritual-life", () => {

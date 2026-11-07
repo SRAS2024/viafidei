@@ -64,7 +64,8 @@ type Problem =
   | "lookupFailed";
 
 type LocateState =
-  | { kind: "idle" }
+  // `restoredTotal`: the directory came back at the visitor's own request, at this size.
+  | { kind: "idle"; restoredTotal?: number }
   | { kind: "locating" }
   | Located
   | { kind: "problem"; problem: Problem; platform: LocationPlatform };
@@ -159,11 +160,13 @@ function locatedMessage(s: Located): string {
  * simply did not share, followed by where this platform keeps the switch.
  *
  * The button sits in one control group with the page's search and filter, which
- * the server renders and passes in. Directly under them one spot
- * in the page says what the list is showing, and it is the live region: the
- * directory's size, then "Finding parishes near you…", then the answer or what
- * went wrong. A screen reader hears each change, and a sighted reader sees one
- * line change in place while the cards below stay where they are.
+ * the server renders and passes in. Directly under them one spot in the page says
+ * what the list is showing: the directory's size, then "Finding parishes near you…",
+ * then the answer or what went wrong. A sighted reader sees one line change in place
+ * while the cards below stay where they are, and a screen reader hears each thing the
+ * button did. The size alone stays out of the live region when a filter or page link
+ * changed it, because the router announces the page's new title for those, and the
+ * two would be spoken over each other.
  */
 export function ParishLocator({
   parishes,
@@ -306,7 +309,7 @@ export function ParishLocator({
     // This control leaves with the sentence it sits in; keep keyboard focus on
     // the one that stays.
     buttonRef.current?.focus();
-    setState({ kind: "idle" });
+    setState({ kind: "idle", restoredTotal: total });
   };
 
   const steps =
@@ -318,6 +321,11 @@ export function ParishLocator({
       ? // The site language's digits, so the server and the browser write it alike.
         total.toLocaleString(resolveDistanceDisplay(locale, []).locale)
       : null;
+  const directoryLine = directorySize ? (
+    <p className="vf-fineprint vf-locator-line">{directorySize} parishes in the directory.</p>
+  ) : null;
+  // No title changes when the directory comes back, so this is the only word of it.
+  const announceDirectory = state.kind === "idle" && state.restoredTotal === total;
 
   return (
     <div>
@@ -336,13 +344,10 @@ export function ParishLocator({
           </div>
         </ListControls>
         <div className={problem ? "vf-locator-problem" : undefined}>
+          {announceDirectory ? null : directoryLine}
           {/* Always in the page, so a screen reader hears each new answer. */}
           <div role="status" aria-live="polite">
-            {directorySize ? (
-              <p className="vf-fineprint vf-locator-line">
-                {directorySize} parishes in the directory.
-              </p>
-            ) : null}
+            {announceDirectory ? directoryLine : null}
             {state.kind === "locating" ? (
               <p className="vf-fineprint vf-locator-line">{labels.locating}</p>
             ) : null}

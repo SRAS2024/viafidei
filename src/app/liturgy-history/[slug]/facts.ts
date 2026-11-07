@@ -88,16 +88,22 @@ export function documentLinkLabel(url: string): string {
 /**
  * The parts of a liturgical entry's line. A celebration has a rank, a date and
  * sometimes a season ("Memorial · October 7 · Ordinary Time"); anything else (the
- * Order of Mass, a glossary term) has only what kind of entry it is. The record
- * files Good Friday and Divine Mercy Sunday as seasons too, but only a real season
- * is called one; the rest keep the page's plain "Liturgy" label.
+ * Order of Mass, a liturgical book, a glossary term) has only what kind of entry it
+ * is. The title is part of that: the record files The Rite of Baptism under the
+ * structure of the Mass. It files Good Friday and Divine Mercy Sunday as seasons too,
+ * but only a real season is called one; the rest keep the page's plain "Liturgy"
+ * label.
  */
-export function liturgicalLine(payload: Record<string, unknown>): {
+export function liturgicalLine(
+  payload: Record<string, unknown>,
+  title: string = clean(payload.title),
+): {
   kind: string;
   facts: FactItem[];
 } {
   const [first = "", ...rest] = generateContentSubtitle({
     contentType: "LITURGICAL",
+    title,
     fields: payload,
   }).split(" · ");
   if (rest.length === 0) {

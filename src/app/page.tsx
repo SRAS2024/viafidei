@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { getSession } from "@/lib/auth/session";
+import { sessionCredentialsCurrent } from "@/lib/auth/user";
 import { getTranslator } from "@/lib/i18n/server";
 import { listFeaturedPrayers } from "@/lib/data/published";
 import { getPublishedFeaturedBlocks } from "@/lib/data/homepage";
@@ -17,8 +19,27 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
+/**
+ * Read as the header reads it, so the two never disagree: a sign-in that a password reset
+ * has ended is no sign-in, and /profile would only send it to log in. A failed lookup says
+ * nothing about the sign-in, and a cookie that cannot be read is a signed-out reader.
+ */
+async function isSignedIn(): Promise<boolean> {
+  try {
+    const session = await getSession();
+    return (
+      session.role === "USER" &&
+      !!session.userId &&
+      (await sessionCredentialsCurrent(session).catch(() => true))
+    );
+  } catch {
+    return false;
+  }
+}
+
 export default async function HomePage() {
   const { t } = await getTranslator();
+  const signedIn = await isSignedIn();
 
   // Worker-published featured rails (Homepage Makeover). When present,
   // they replace the static featured prayers rail; otherwise the
@@ -43,9 +64,9 @@ export default async function HomePage() {
 
   return (
     <div className="vf-stack-section">
-      <HomeHero t={t} />
+      <HomeHero t={t} signedIn={signedIn} />
       <HomeBeginHere t={t} />
-      <HomeTodaySection />
+      <HomeTodaySection t={t} />
       {workerFeatured.length > 0 ? (
         <HomeWorkerFeatured blocks={workerFeatured} t={t} />
       ) : (

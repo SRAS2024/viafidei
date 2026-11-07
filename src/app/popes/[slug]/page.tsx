@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { PublishedDetail } from "@/components/ui";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { getTranslator } from "@/lib/i18n/server";
 import { localizeItem } from "@/lib/translation/localize";
 
 import { popeFactItems } from "./facts";
@@ -26,8 +27,10 @@ export default async function PopeDetailPage({ params }: Props) {
   const { slug } = await params;
   const item = await localizeItem(await getPublishedBySlug("POPE", slug));
   if (!item) notFound();
+  const { t } = await getTranslator();
   return (
     <PublishedDetail
+      t={t}
       item={item}
       eyebrow={/^pope\b/i.test(item.title) ? null : undefined}
       showSubtitle={false}

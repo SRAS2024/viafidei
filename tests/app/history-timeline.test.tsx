@@ -52,7 +52,7 @@ function seed() {
           },
         ];
       case "SAINT":
-        return [{ slug: "saint-peter" }];
+        return [{ slug: "saint-peter", title: "Saint Peter the Apostle" }];
       case "POPE":
       case "DOCTOR":
       case "APPARITION":
@@ -75,8 +75,14 @@ describe("history timeline loader", () => {
       doctors: [],
       apparitions: [],
     });
-    // One documents read + one slug read per related type, selecting slugs only.
+    expect(inputs.relatedTitles?.saints).toEqual({ "saint-peter": "Saint Peter the Apostle" });
+    // One documents read + one read per related type, of the slugs and titles of
+    // just the pages the events name, not the thousands of saints.
     expect(findMany).toHaveBeenCalledTimes(5);
+    expect(findMany.mock.calls[2]?.[0]?.select).toEqual({ slug: true, title: true });
+    const named = findMany.mock.calls.map((call) => call[0].where.slug?.in).filter(Boolean);
+    expect(named).toHaveLength(4);
+    for (const slugs of named) expect(slugs.length).toBeLessThan(400);
     expect(findMany.mock.calls[0]?.[0]).toMatchObject({
       where: { contentType: "CHURCH_DOCUMENT", isPublished: true },
       select: { slug: true, title: true, payload: true },
@@ -92,10 +98,21 @@ describe("history timeline loader", () => {
     expect(nicaea?.href).toBe("/liturgy-history/first-council-of-nicaea");
     expect(nicaea?.dateLabel).toBe("20 May 325");
     const pentecost = timeline.events.find((e) => e.slug === "pentecost");
-    expect(pentecost?.links).toEqual([{ href: "/saints/saint-peter", label: "Saint Peter" }]);
+    expect(pentecost?.links).toEqual([
+      { href: "/saints/saint-peter", label: "Saint Peter the Apostle" },
+    ]);
     const peter = timeline.events.find((e) => e.slug === "martyrdom-of-saint-peter");
     expect(peter?.links.map((l) => l.href)).toEqual(["/saints/saint-peter"]);
     expect(JSON.stringify(timeline)).not.toContain("NEVER SHIPPED");
+  });
+
+  it("gives its cache entry a new key when what it caches changes shape", () => {
+    // A cached entry outlives a deploy, and an old one has no titles to give.
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/data/history-timeline.ts"),
+      "utf8",
+    );
+    expect(source).toContain('"history-timeline-inputs", "v2"');
   });
 
   it("caches for an hour under the tags the worker revalidates on publish", () => {

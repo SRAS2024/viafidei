@@ -159,6 +159,8 @@ function ReadingSectionView({
               {" "}
               <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
                 Read it at {sourceName ?? "the source"}
+                <span aria-hidden="true"> ↗</span>
+                <span className="sr-only"> (opens in a new tab)</span>
               </a>
               .
             </>

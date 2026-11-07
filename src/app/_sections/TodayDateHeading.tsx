@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLocalToday } from "@/components/ui/useLocalToday";
+import { civilDate } from "@/lib/content-shared/liturgical-calendar";
 
 const MONTH_NAMES = [
   "January",
@@ -29,27 +30,21 @@ const WEEKDAY_NAMES = [
 
 /**
  * Section II's heading: the visitor's own date ("Friday, November 6, 2026"), read
- * from the device after mount so it follows them wherever they are. Until then a
- * placeholder holds the heading's place, and a screen reader hears "Today".
+ * from the device after mount so it follows them wherever they are, and across
+ * midnight. Until then a placeholder holds the heading's place, and a screen reader
+ * hears "Today".
  */
 export function TodayDateHeading({ id }: { id: string }) {
-  const [now, setNow] = useState<Date | null>(null);
-
-  useEffect(() => {
-    setNow(new Date());
-  }, []);
+  const today = useLocalToday();
+  const date = today ? civilDate(today) : null;
 
   return (
     <h2 id={id} className="vf-section-title vf-home-date">
-      {now ? (
-        <time
-          dateTime={`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-            now.getDate(),
-          ).padStart(2, "0")}`}
-        >
-          <span className="vf-home-date-part">{WEEKDAY_NAMES[now.getDay()]},</span>{" "}
+      {today && date ? (
+        <time dateTime={today}>
+          <span className="vf-home-date-part">{WEEKDAY_NAMES[date.getUTCDay()]},</span>{" "}
           <span className="vf-home-date-part">
-            {MONTH_NAMES[now.getMonth()]} {now.getDate()}, {now.getFullYear()}
+            {MONTH_NAMES[date.getUTCMonth()]} {date.getUTCDate()}, {date.getUTCFullYear()}
           </span>
         </time>
       ) : (

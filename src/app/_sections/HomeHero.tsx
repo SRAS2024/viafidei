@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Translator } from "@/lib/i18n/translator";
 
-export function HomeHero({ t }: { t: Translator }) {
+export function HomeHero({ t, signedIn = false }: { t: Translator; signedIn?: boolean }) {
   return (
     <section className="vf-home-hero">
       <p className="vf-home-tagline">{t("brand.tagline")}</p>
@@ -12,9 +12,16 @@ export function HomeHero({ t }: { t: Translator }) {
         <Link href="/prayers" className="vf-btn vf-btn-primary">
           {t("home.ctaExplore")}
         </Link>
-        <Link href="/register" className="vf-btn vf-btn-ghost">
-          {t("home.ctaJoin")}
-        </Link>
+        {/* A reader who already has a profile is not asked to make one. */}
+        {signedIn ? (
+          <Link href="/profile" className="vf-btn vf-btn-ghost">
+            {t("home.ctaProfile")}
+          </Link>
+        ) : (
+          <Link href="/register" className="vf-btn vf-btn-ghost">
+            {t("home.ctaJoin")}
+          </Link>
+        )}
       </div>
     </section>
   );

@@ -1,3 +1,5 @@
+import type { Translator } from "@/lib/i18n/translator";
+
 import { HomeNumeral } from "./HomeSectionHead";
 import { HomePrayerOfTheDay } from "./HomePrayerOfTheDay";
 import { HomeToday } from "./HomeToday";
@@ -10,7 +12,7 @@ import { TodayDateHeading } from "./TodayDateHeading";
  * component that reads the device's date after mount, and reserves its finished
  * shape with placeholders until then, so nothing moves when the content arrives.
  */
-export function HomeTodaySection() {
+export function HomeTodaySection({ t }: { t: Translator }) {
   return (
     <section className="vf-home-section" aria-labelledby="home-today-title">
       <div className="vf-section-head">
@@ -18,9 +20,9 @@ export function HomeTodaySection() {
         <TodayDateHeading id="home-today-title" />
       </div>
       <div className="vf-home-today">
-        <LiturgicalToday />
-        <HomePrayerOfTheDay />
-        <HomeToday />
+        <LiturgicalToday loadingLabel={t("common.loadingLiturgy")} />
+        <HomePrayerOfTheDay loadingLabel={t("common.loadingPrayer")} />
+        <HomeToday loadingLabel={t("common.loadingSaints")} errorLabel={t("home.saints.error")} />
       </div>
     </section>
   );

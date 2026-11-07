@@ -1,6 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+
+/** The button's words; `shareItem` carries a {title}. */
+export type ShareLabels = {
+  share: string;
+  shareItem: string;
+  copied: string;
+  failed: string;
+};
+
+const ShareLabelsContext = createContext<ShareLabels>({
+  share: "Share",
+  shareItem: "Share {title}",
+  copied: "Link copied",
+  failed: "Could not copy the link",
+});
+
+/**
+ * The button's words in the reader's language, given once by the root layout. The
+ * button stands on many kinds of page, several of which have no translator of their
+ * own to hand down.
+ */
+export function ShareLabelsProvider({
+  labels,
+  children,
+}: {
+  labels: ShareLabels;
+  children: ReactNode;
+}) {
+  return <ShareLabelsContext.Provider value={labels}>{children}</ShareLabelsContext.Provider>;
+}
 
 type Props = {
   /** The content card's title — used as the share sheet title + copied text. */
@@ -50,14 +80,32 @@ function ShareGlyph() {
  * (`navigator.share`, i.e. most phones) this opens the native share sheet, so
  * the user can send the page — with its title and, via the page's Open Graph /
  * favicon metadata, its preview — to anyone. Everywhere else it copies the link
- * to the clipboard and briefly confirms. A signed-in account is not required.
+ * to the clipboard and confirms. A signed-in account is not required.
+ *
+ * The button never takes `disabled`, even while the sheet is up: a disabled button
+ * drops focus to the top of the page, and VoiceOver with it. The outcome is said in a
+ * status region, because the button's own label names what it shares and hides the
+ * words it shows.
  */
 export function ShareButton({ title, text, url, className }: Props) {
-  const [copied, setCopied] = useState(false);
-  const [pending, setPending] = useState(false);
+  const labels = useContext(ShareLabelsContext);
+  const [outcome, setOutcome] = useState<"copied" | "failed" | null>(null);
+  const sharing = useRef(false);
+  const clearOutcome = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(clearOutcome.current), []);
+
+  function report(result: "copied" | "failed") {
+    setOutcome(result);
+    window.clearTimeout(clearOutcome.current);
+    clearOutcome.current = window.setTimeout(() => setOutcome(null), 4000);
+  }
 
   async function onShare() {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || sharing.current) return;
+    sharing.current = true;
+    // Cleared first, so copying a second time is announced a second time.
+    setOutcome(null);
     const shareUrl = url ?? window.location.href;
     // Share ONLY the URL (plus a title for the share-sheet / mail subject).
     // Deliberately DO NOT pass `text`: iOS Messages puts `text` into the message
@@ -71,7 +119,6 @@ export function ShareButton({ title, text, url, className }: Props) {
       title,
       url: shareUrl,
     };
-    setPending(true);
     try {
       if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
         try {
@@ -83,28 +130,34 @@ export function ShareButton({ title, text, url, className }: Props) {
           // Fall through to the clipboard fallback on any other failure.
         }
       }
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      try {
+        // No clipboard at all and a refused copy come to the same thing for the reader.
         await navigator.clipboard.writeText(shareUrl);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 2000);
+        report("copied");
+      } catch {
+        report("failed");
       }
     } finally {
-      setPending(false);
+      sharing.current = false;
     }
   }
+
+  const message = outcome === "copied" ? labels.copied : outcome === "failed" ? labels.failed : "";
 
   return (
     <div className={className}>
       <button
         type="button"
         onClick={onShare}
-        disabled={pending}
-        aria-label={`Share ${title}`}
+        aria-label={labels.shareItem.replace("{title}", () => title)}
         className="vf-btn vf-btn-sm vf-btn-ghost"
       >
         <ShareGlyph />
-        <span>{copied ? "Link copied" : "Share"}</span>
+        <span>{message || labels.share}</span>
       </button>
+      <span role="status" className="sr-only">
+        {message}
+      </span>
     </div>
   );
 }

@@ -19,6 +19,8 @@ import { render, screen, within } from "@testing-library/react";
 
 import { ParishCard } from "@/components/ui/ParishCard";
 import {
+  accentBlindPattern,
+  parishDisplayName,
   parishAddressLines,
   parishDesignationLabel,
   parishStreetAddress,
@@ -321,6 +323,188 @@ describe("the parish page", () => {
   });
 });
 
+describe("accentBlindPattern", () => {
+  /** What Postgres's ~* does with these patterns, with its word edges in JavaScript's terms. */
+  const finds = (typed: string, stored: string) =>
+    new RegExp(
+      accentBlindPattern(typed)
+        .replaceAll("\\m", "(?<![\\p{L}\\p{N}])")
+        .replaceAll("\\M", "(?![\\p{L}\\p{N}])"),
+      "iu",
+    ).test(stored);
+
+  it("finds a name with or without its accents, typed either way", () => {
+    expect(finds("Krakow", "Kraków")).toBe(true);
+    expect(finds("Kraków", "Krakow")).toBe(true);
+    expect(finds("Sao", "São Paulo")).toBe(true);
+    expect(finds("sao", "SÃO PAULO")).toBe(true);
+    expect(finds("Dusseldorf", "Düsseldorf")).toBe(true);
+    expect(finds("Lodz", "Łódź")).toBe(true);
+    expect(finds("Łódź", "Lodz")).toBe(true);
+    expect(finds("Malmo", "Malmö")).toBe(true);
+    expect(finds("Nestor", "Néstor")).toBe(true);
+    expect(finds("Istanbul", "İstanbul")).toBe(true);
+  });
+
+  it("finds Vietnamese, typed plain or with its tones", () => {
+    for (const [typed, stored] of [
+      ["Ha", "Hà Nội"],
+      ["Noi", "Hà Nội"],
+      ["Giao", "Giáo xứ"],
+      ["xu", "Giáo xứ"],
+      ["Duc", "Đức Bà"],
+      ["Nhue", "Cổ Nhuế"],
+      ["Son", "Vinh Sơn"],
+      ["Quang", "Quảng Trị"],
+      ["Tri", "Quảng Trị"],
+      ["Sai", "Sài Gòn"],
+      ["Gon", "Sài Gòn"],
+    ]) {
+      expect(finds(typed!, stored!), `${typed} in ${stored}`).toBe(true);
+    }
+    for (const word of ["Hà", "Nội", "Giáo", "xứ", "thờ", "Nhà", "Đức", "Nhuế", "Sơn", "Trị"]) {
+      expect(finds(word, `Nhà thờ ${word} Việt Nam`), word).toBe(true);
+    }
+  });
+
+  it("a word typed with its accents finds itself, in the letters of any language", () => {
+    for (const word of [
+      "Ọ̀ṣọ́",
+      "Ẹ̀kọ́",
+      "Ńdị́",
+      "Nǐ",
+      "ṭīkā",
+      "ḍāka",
+      "ṇa",
+      "Xīnjiāng",
+      "Ðakar",
+      "Þingvellir",
+      "ħamrun",
+      "Ɓauchi",
+      "ɗan",
+      "Kɔfɔ",
+      "ĐỨC",
+    ]) {
+      expect(finds(word, `Giáo xứ ${word}`), word).toBe(true);
+    }
+  });
+
+  it("reaches every accented Latin letter from its plain form, and from itself", () => {
+    const blocks = [
+      [0xc0, 0x24f],
+      [0x1e00, 0x1eff],
+    ] as const;
+    for (const [first, last] of blocks) {
+      for (let code = first; code <= last; code++) {
+        const letter = String.fromCodePoint(code);
+        const base = letter.normalize("NFD")[0]!;
+        if (!/\p{L}/u.test(letter) || !/[a-z]/i.test(base) || letter === base) continue;
+        expect(finds(`${base}x`, `${letter}x`), `${base} finds ${letter}`).toBe(true);
+        expect(finds(`${letter}x`, `${letter}x`), `${letter} finds itself`).toBe(true);
+        expect(finds(`${letter}x`, `a ${base}x b`), `${letter} finds plain ${base}`).toBe(true);
+      }
+    }
+  });
+
+  it("means the accents a reader typed: the plain word counts only whole", () => {
+    expect(finds("thờ", "Nha tho An Chau")).toBe(true);
+    expect(finds("thờ", "Assumption Roman Catholic Church")).toBe(false);
+    expect(finds("thờ", "Saint Thomas")).toBe(false);
+    expect(finds("Nhà", "Saint Patrick's, Manhattan")).toBe(false);
+    expect(finds("Đức", "Kościół Świętego Ducha")).toBe(false);
+    expect(finds("Kraków", "ulica Krakowska")).toBe(false);
+    // Another tone is another word.
+    expect(finds("thờ", "Đền thọ")).toBe(false);
+    // Typed plain, the search still reads as it always has.
+    expect(finds("tho", "Assumption Roman Catholic Church")).toBe(true);
+    expect(finds("Duc", "Kościół Świętego Ducha")).toBe(true);
+  });
+
+  it("finds a record that stores its accents as separate marks", () => {
+    expect(finds("Noi", "Hà No\u0323\u0302i")).toBe(true);
+    expect(finds("Nội", "Hà No\u0323\u0302i")).toBe(true);
+    expect(finds("Ha", "Ha\u0300 Nội")).toBe(true);
+    expect(finds("Eko", "E\u0323\u0301ko\u0323\u0301")).toBe(true);
+  });
+
+  it("reads the letters a reader spells out for one", () => {
+    expect(finds("Strasse", "Hauptstraße")).toBe(true);
+    expect(finds("Straße", "Hauptstrasse")).toBe(true);
+    expect(finds("Koeln", "Köln")).toBe(true);
+    expect(finds("Köln", "Koeln")).toBe(true);
+    expect(finds("Muenchen", "München")).toBe(true);
+    expect(finds("München", "Muenchen")).toBe(true);
+    expect(finds("Soeur", "Sœur")).toBe(true);
+    expect(finds("Thorlak", "Þorlákur")).toBe(true);
+    // Plain letters with no one letter of their own read as themselves.
+    expect(finds("Nguyen", "Nguyễn")).toBe(true);
+  });
+
+  it("still tells different words apart", () => {
+    expect(finds("Krakow", "Kraljevo")).toBe(false);
+    expect(finds("Paris", "Porto")).toBe(false);
+  });
+
+  it("matches another script as typed, in either case, and digits as they are", () => {
+    expect(accentBlindPattern("대성당")).toBe("대성당");
+    expect(accentBlindPattern("60614")).toBe("60614");
+    expect(accentBlindPattern("Мо")).toBe("[мМ][оО]");
+    expect(finds("대성당", "서울 대성당")).toBe(true);
+    expect(finds("москва", "МОСКВА")).toBe(true);
+    expect(finds("Москва", "москва")).toBe(true);
+    // A vowel sign belongs to its word, in Hindi or Thai.
+    expect(finds("कैथेड्रल", "कैथेड्रल चर्च")).toBe(true);
+  });
+
+  it("reads no further than a word can be told apart, so a pasted run of letters costs little", () => {
+    expect(accentBlindPattern("ö".repeat(100))).toBe(accentBlindPattern("ö".repeat(40)));
+    expect(accentBlindPattern("ö".repeat(100)).length).toBeLessThan(15_000);
+    expect(finds(`${"a".repeat(40)}zzz`, "a".repeat(40))).toBe(true);
+  });
+
+  it("holds only letters, classes and the groups it adds: nothing a reader typed is syntax", () => {
+    for (const word of ["Strasse", "thờ", "Ẹ̀kọ́"]) {
+      const syntax = accentBlindPattern(word)
+        .replaceAll("\\m", "")
+        .replaceAll("\\M", "")
+        .replace(/[\p{L}\p{M}]/gu, "");
+      expect(syntax).toMatch(/^[[\]()?:|*-]+$/);
+    }
+  });
+});
+
+describe("a church with two names", () => {
+  it("marks the original's language when it holds a second name of its own", () => {
+    render(<ParishCard name="Samgu (Dae Seongdang) (삼구 (대성당))" countryCode="KR" />);
+    const original = screen.getByText("삼구 (대성당)");
+    expect(original).toHaveAttribute("lang", "ko");
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
+      "Samgu (Dae Seongdang) (삼구 (대성당))",
+    );
+  });
+});
+
+describe("parishDisplayName", () => {
+  it("sets a second name beside the first, not after a raw semicolon", () => {
+    expect(
+      parishDisplayName("Saint Rose of Lima Catholic Church;Iglesia Católica Santa Rosa de Lima"),
+    ).toBe("Saint Rose of Lima Catholic Church (Iglesia Católica Santa Rosa de Lima)");
+    expect(parishDisplayName("Đền Thánh Đức Mẹ La-Vang; Our Lady of Lavang Catholic Church")).toBe(
+      "Đền Thánh Đức Mẹ La-Vang (Our Lady of Lavang Catholic Church)",
+    );
+  });
+
+  it("says a name once, and leaves a plain one alone", () => {
+    expect(parishDisplayName("St. Anne;St. Anne")).toBe("St. Anne");
+    expect(parishDisplayName("St. Anne")).toBe("St. Anne");
+    expect(parishDisplayName(" St. Anne ; ")).toBe("St. Anne");
+  });
+
+  it("does not mistake the semicolon that ends an HTML entity", () => {
+    expect(parishDisplayName("St. Mary&#39;s Church")).toBe("St. Mary&#39;s Church");
+  });
+});
+
 describe("church address and designation helpers", () => {
   it("places the postal code by country, and drops what the record lacks", () => {
     expect(
@@ -346,6 +530,29 @@ describe("church address and designation helpers", () => {
     ).toEqual(["Chicago, IL 60629", "USA"]);
     expect(parishAddressLines({ postalCode: "00184", countryCode: "IT" })).toEqual(["00184"]);
     expect(parishAddressLines({ city: " ", country: null })).toEqual([]);
+  });
+
+  it("shows one value of a semicolon list, as an envelope would", () => {
+    expect(
+      parishAddressLines({ address: "14-18;18 Belvidere Street", city: "Boston", state: "MA" }),
+    ).toEqual(["14-18 Belvidere Street", "Boston, MA"]);
+    expect(
+      parishAddressLines({ address: "113 Baxter Street", city: "New York;Manhattan", state: "NY" }),
+    ).toEqual(["113 Baxter Street", "New York, NY"]);
+    expect(parishAddressLines({ address: "12;14;16 Main St" })).toEqual(["12 Main St"]);
+    expect(parishAddressLines({ address: "Main St 5;7" })).toEqual(["Main St 5"]);
+    expect(parishAddressLines({ address: "Main Street;Elm Street" })).toEqual(["Main Street"]);
+    expect(parishAddressLines({ address: "5;7" })).toEqual(["5"]);
+    expect(parishAddressLines({ postalCode: "10001;10002", country: "Italy;Vatican" })).toEqual([
+      "10001",
+      "Italy",
+    ]);
+  });
+
+  it("leaves a semicolon that belongs to the text alone", () => {
+    expect(parishAddressLines({ address: "Saints Peter &amp; Paul Road" })).toEqual([
+      "Saints Peter &amp; Paul Road",
+    ]);
   });
 
   it("writes the postal code after the town in the countries that do", () => {

@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+
 import {
   FilterChips,
   LIST_PAGE_SIZE,
@@ -12,6 +15,7 @@ import {
   parsePageParam,
 } from "@/components/ui";
 import { formatEnumValue } from "@/lib/content-shared/field-presenters";
+import { listPageTitleFor } from "@/lib/content-shared/list-page";
 import {
   listHref,
   parseSearchQuery,
@@ -37,28 +41,62 @@ const SPIRITUAL_FILTER_SUBTYPES: Readonly<Record<string, readonly string[]>> = {
 };
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Spiritual Life" };
 
-export default async function SpiritualLifePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ filter?: string; page?: string; q?: string | string[] }>;
-}) {
-  const { t, locale } = await getTranslator();
-  const { filter, page: pageParam, q: rawQuery } = await searchParams;
-  const query = parseSearchQuery(rawQuery);
-  const selected = resolvePayloadFilter(SPIRITUAL_FILTERS, filter);
-  // Practice cards show the practice's summary from the payload, so the type
-  // (a small, closed catalogue) is read whole and paged here.
+type SearchParams = Promise<{ filter?: string; page?: string; q?: string | string[] }>;
+
+// Practice cards show the practice's summary from the payload, so the type
+// (a small, closed catalogue) is read whole and paged here. One read per request:
+// the tab's title and the page both need the answer.
+const loadPractices = cache(async (filterKey: string, pageNumber: number, query: string) => {
   const [all, counts] = await Promise.all([
     listPublished("SPIRITUAL_PRACTICE"),
     countPublishedBySubtype("SPIRITUAL_PRACTICE").catch(() => ({}) as Record<string, number>),
   ]);
-  const practices = applyPayloadFilter(SPIRITUAL_FILTERS, all, selected.key);
+  const practices = applyPayloadFilter(SPIRITUAL_FILTERS, all, filterKey);
   const visible = query
     ? rankBySearch(practices, query, (p) => publishedSearchFields(p))
     : practices;
-  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  return { all, counts, visible, page: pageSlice(visible, pageNumber, LIST_PAGE_SIZE) };
+});
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const { t, locale } = await getTranslator();
+  const { filter, page, q } = await searchParams;
+  const query = parseSearchQuery(q);
+  const selected = resolvePayloadFilter(SPIRITUAL_FILTERS, filter);
+  const pageNumber = parsePageParam(page);
+  return {
+    title: await listPageTitleFor(
+      {
+        name: t("nav.spiritualLife"),
+        filter: selected.key === "all" ? null : selected.label,
+        query,
+        t,
+        locale,
+      },
+      pageNumber > 1,
+      async () => {
+        const data = await loadPractices(selected.key, pageNumber, query);
+        return { pages: [data.page], total: data.visible.length };
+      },
+    ),
+  };
+}
+
+export default async function SpiritualLifePage({ searchParams }: { searchParams: SearchParams }) {
+  const { t, locale } = await getTranslator();
+  const { filter, page: pageParam, q: rawQuery } = await searchParams;
+  const query = parseSearchQuery(rawQuery);
+  const selected = resolvePayloadFilter(SPIRITUAL_FILTERS, filter);
+  const { all, counts, visible, page } = await loadPractices(
+    selected.key,
+    parsePageParam(pageParam),
+    query,
+  );
   const keep = { filter: selected.key === "all" ? undefined : selected.key };
 
   // Only offer a category chip when at least one practice falls under it. The
@@ -133,6 +171,7 @@ export default async function SpiritualLifePage({
             action={t("common.open")}
           />
           <Pagination
+            t={t}
             basePath="/spiritual-life"
             page={page.page}
             totalPages={page.pageCount}

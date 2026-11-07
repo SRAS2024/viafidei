@@ -202,9 +202,55 @@ describe("buildTimeline", () => {
     ]);
   });
 
-  it("labels related chips from their slugs", () => {
+  it("labels a related link with its page's own title", () => {
+    const timeline = buildTimeline([], {
+      publishedSlugs: {
+        saints: new Set(["saint-mark-the-evangelist"]),
+        apparitions: new Set(["apparition-our-lady-of-the-pillar-zaragoza"]),
+      },
+      relatedTitles: {
+        saints: new Map([["saint-mark-the-evangelist", "Saint Mark the Evangelist"]]),
+        apparitions: new Map([
+          [
+            "apparition-our-lady-of-the-pillar-zaragoza",
+            "Our Lady of the Pillar Appearing to Saint James at Zaragoza",
+          ],
+        ]),
+      },
+    });
+    const labels = timeline.events.flatMap((e) => e.links.map((l) => l.label));
+    expect(labels).toContain("Saint Mark the Evangelist");
+    expect(labels).toContain("Our Lady of the Pillar Appearing to Saint James at Zaragoza");
+    expect(labels).not.toContain("Saint Mark The Evangelist");
+  });
+
+  it("tells a Doctor's page from the same person's page among the saints", () => {
+    const timeline = buildTimeline([], {
+      publishedSlugs: {
+        saints: new Set(["saint-jerome"]),
+        doctors: new Set(["doctor-jerome"]),
+      },
+      relatedTitles: {
+        saints: new Map([["saint-jerome", "Saint Jerome"]]),
+        doctors: new Map([["doctor-jerome", "Saint Jerome"]]),
+      },
+    });
+    const row = timeline.events.find((e) => e.slug === "jerome-begins-the-vulgate");
+    expect(row?.links.filter((l) => l.href.includes("jerome"))).toEqual([
+      { href: "/saints/saint-jerome", label: "Saint Jerome" },
+      { href: "/doctors/doctor-jerome", label: "Saint Jerome", asDoctor: true },
+    ]);
+  });
+
+  it("makes words of a slug only for a page whose title is not known", () => {
     expect(relatedLinkLabel("pope-saint-paul-vi")).toBe("Pope Saint Paul VI");
-    expect(relatedLinkLabel("our-lady-of-fatima")).toBe("Our Lady Of Fatima");
+    expect(relatedLinkLabel("pope-saint-john-xxiii")).toBe("Pope Saint John XXIII");
+    expect(relatedLinkLabel("our-lady-of-fatima")).toBe("Our Lady of Fatima");
+    expect(relatedLinkLabel("saints-philip-and-james")).toBe("Saints Philip and James");
+    expect(relatedLinkLabel("doctor-augustine-of-hippo")).toBe("Augustine of Hippo");
+    expect(relatedLinkLabel("apparition-our-lady-of-the-pillar-zaragoza")).toBe(
+      "Our Lady of the Pillar Zaragoza",
+    );
   });
 
   it("only ever links to routes that exist under src/app", () => {

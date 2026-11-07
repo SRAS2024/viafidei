@@ -119,6 +119,61 @@ describe("Rite families", () => {
     expect(keyFor(RITE_FILTERS, item({ riteKey: "byzantine" }))).toBe("eastern");
     expect(keyFor(RITE_FILTERS, item({ riteKey: "maronite" }))).toBe("eastern");
   });
+  it("files every Latin use under Latin, whatever its record carries", () => {
+    for (const payload of [
+      { riteKey: "roman" },
+      { riteKey: "ambrosian" },
+      { riteKey: "anglicanUse", family: "latin", entryKind: "latin_use" },
+      { riteKey: "bragan", family: "latin" },
+      { riteKey: "carthusian", family: "latin" },
+      { riteKey: "dominican", family: "latin" },
+      { riteKey: "mozarabic" },
+      { riteKey: "zaire", family: "latin" },
+      // The Beneventan Rite's record has neither key nor family.
+      { title: "Beneventan Rite" },
+    ]) {
+      expect(keyFor(RITE_FILTERS, item(payload)), JSON.stringify(payload)).toBe("latin");
+    }
+  });
+
+  it("files every Eastern rite and Church under Eastern Catholic", () => {
+    for (const payload of [
+      { riteKey: "byzantine" },
+      { riteKey: "byzantine", family: "byzantine", entryKind: "church_sui_iuris" },
+      { riteKey: "alexandrian", family: "alexandrian" },
+      { riteKey: "armenian" },
+      { riteKey: "chaldean" },
+      { riteKey: "coptic" },
+      { riteKey: "eastSyriac", family: "east_syriac" },
+      { riteKey: "westSyriac", family: "west_syriac" },
+      { riteKey: "ethiopic", family: "alexandrian" },
+      { riteKey: "maronite" },
+      { riteKey: "melkite" },
+      { riteKey: "ruthenian" },
+      { riteKey: "syroMalabar" },
+      { riteKey: "syroMalankara" },
+      { riteKey: "ukrainian" },
+    ]) {
+      expect(keyFor(RITE_FILTERS, item(payload)), JSON.stringify(payload)).toBe("eastern");
+    }
+  });
+
+  it("puts each rite in exactly one family", () => {
+    const families = RITE_FILTERS.filter((f) => f.key !== "all");
+    for (const payload of [
+      { riteKey: "roman" },
+      { riteKey: "zaire", family: "latin" },
+      { riteKey: "byzantine" },
+      { title: "Beneventan Rite" },
+      {},
+    ]) {
+      expect(
+        families.filter((f) => f.matches(payload)),
+        JSON.stringify(payload),
+      ).toHaveLength(1);
+    }
+  });
+
   it("All includes both; Eastern excludes the Latin rite", () => {
     const items = [item({ riteKey: "roman" }), item({ riteKey: "byzantine" })];
     expect(applyPayloadFilter(RITE_FILTERS, items, "all")).toHaveLength(2);

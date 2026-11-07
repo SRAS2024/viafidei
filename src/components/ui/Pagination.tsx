@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+import { MAX_PAGE_NUMBER } from "@/lib/content-shared/list-page";
+import type { Translator } from "@/lib/i18n/translator";
+
+import { PaginationNav } from "./PaginationNav";
+
 /**
  * How many cards a public list page shows per page. One number for the whole
  * site so `?page=2` means the same thing everywhere and the SQL `skip/take`
@@ -8,10 +13,16 @@ import Link from "next/link";
  */
 export const LIST_PAGE_SIZE = 36;
 
-/** `?page=` → a 1-based page number. Anything unparseable is page 1. */
-export function parsePageParam(value: string | undefined): number {
-  const n = Number.parseInt(value ?? "", 10);
-  return Number.isFinite(n) && n > 0 ? n : 1;
+/**
+ * `?page=` → a 1-based page number: the first when the parameter repeats, 1 for
+ * anything unparseable. A number no list could reach is capped here, so it stays a
+ * page past the end, which the list answers with its last page, and never turns into
+ * an offset the database refuses.
+ */
+export function parsePageParam(value: string | readonly string[] | undefined): number {
+  const raw = typeof value === "string" ? value : (value?.[0] ?? "");
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? Math.min(n, MAX_PAGE_NUMBER) : 1;
 }
 
 export interface SlicedPage<T> {
@@ -49,6 +60,8 @@ type PaginationProps = {
   pageParam?: string;
   /** What a screen reader calls this set of links, when a page has more than one. */
   label?: string;
+  /** The reader's language, for the words a voice says: "Página 2", not "Page 2". */
+  t: Translator;
 };
 
 function buildHref(
@@ -91,14 +104,16 @@ export function Pagination({
   totalPages,
   searchParams = {},
   pageParam = "page",
-  label = "Pagination",
+  label,
+  t,
 }: PaginationProps) {
   if (totalPages <= 1) return null;
   const pages = buildPageList(page, totalPages);
   return (
-    <nav
+    <PaginationNav
+      page={page}
+      label={label ?? t("pagination.label")}
       className="mt-[var(--space-related)] flex flex-wrap items-center justify-center gap-1.5"
-      aria-label={label}
     >
       {pages.map((p, idx) => {
         if (p === "…") {
@@ -116,17 +131,20 @@ export function Pagination({
         const href = buildHref(basePath, pageParam, p, searchParams);
         const classes = `vf-chip min-w-[2.5rem] !px-2 tabular-nums ${isCurrent ? "vf-filter-active" : ""}`;
         return (
+          // Not prefetched: another page of this list keeps the page in place until it
+          // arrives, so a prefetch has no placeholder to offer, only a read to pay for.
           <Link
             key={p}
             href={href}
+            prefetch={false}
             className={classes}
             aria-current={isCurrent ? "page" : undefined}
-            aria-label={`Page ${p}`}
+            aria-label={t("pagination.page", { page: p })}
           >
             {p}
           </Link>
         );
       })}
-    </nav>
+    </PaginationNav>
   );
 }

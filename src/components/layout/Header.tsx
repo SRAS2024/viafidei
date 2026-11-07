@@ -1,9 +1,11 @@
 import { getTranslator } from "@/lib/i18n/server";
 import { getSession } from "@/lib/auth/session";
+import { sessionCredentialsCurrent } from "@/lib/auth/user";
 import { logger } from "@/lib/observability";
 import { getProfileForUser } from "@/lib/data/profile";
 import { logoutAction } from "@/app/_actions/auth";
 import { HeaderBrand } from "./HeaderBrand";
+import { HeaderHeight } from "./HeaderHeight";
 import { HeaderNav, NAV_GROUPS } from "./HeaderNav";
 import { HeaderSearch } from "./HeaderSearch";
 import { HeaderSearchSlot } from "./HeaderSearchSlot";
@@ -15,7 +17,12 @@ type AuthState = { isAuthed: boolean; userId: string | null };
 async function readAuthState(): Promise<AuthState> {
   try {
     const session = await getSession();
-    const isAuthed = session.role === "USER" && !!session.userId;
+    // A password reset ends every earlier sign-in, and this browser may hold one of them.
+    // A failed lookup says nothing about the sign-in, so the header leaves it standing.
+    const isAuthed =
+      session.role === "USER" &&
+      !!session.userId &&
+      (await sessionCredentialsCurrent(session).catch(() => true));
     return { isAuthed, userId: isAuthed ? (session.userId ?? null) : null };
   } catch (error: unknown) {
     // iron-session throws when SESSION_SECRET rotates or a cookie is malformed.
@@ -70,17 +77,17 @@ export async function Header() {
     : undefined;
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-ink/10 bg-paper/90 backdrop-blur-md">
-      {/* PHONE / TABLET — one bar: brand on the left, search and menu on the right */}
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-1.5 sm:px-6 min-[900px]:hidden">
+    // Opaque: reading text scrolling beneath a see-through header ghosts through the
+    // tabs. Which of the two layouts shows is the header's own container query.
+    <header className="vf-header sticky top-0 z-40 w-full border-b border-ink/10 bg-paper">
+      <HeaderHeight />
+      {/* PHONE / TABLET, AND ENLARGED TEXT — one bar: brand on the left, search and
+          menu on the right */}
+      <div className="vf-header-bar mx-auto flex max-w-6xl items-center justify-between gap-2 px-[min(1rem,5vw)] py-1.5 sm:px-6">
         <HeaderBrand brandName={t("brand.name")} locale={locale} />
         <div className="flex items-center gap-1">
           <HeaderSearchSlot>
-            <HeaderSearch
-              placeholder={t("search.placeholder")}
-              ariaLabel={t("nav.search")}
-              variant="panel"
-            />
+            <HeaderSearch t={t} locale={locale} variant="panel" />
           </HeaderSearchSlot>
           <HeaderMobileMenu
             navItems={navItems}
@@ -96,13 +103,18 @@ export async function Header() {
 
       {/* DESKTOP — centred masthead, with the account and search controls at its
           right edge so the tabs below never move between pages. The account link
-          keeps its place on the homepage, where no search sits beside it. */}
-      <div className="hidden min-[900px]:block">
-        <div className="relative mx-auto flex max-w-6xl items-center justify-center px-6 py-1.5">
-          <HeaderBrand brandName={t("brand.name")} locale={locale} centered />
-          <div className="absolute inset-y-0 right-6 flex items-center gap-4">
+          keeps its place on the homepage, where no search sits beside it. The two
+          outer columns share what the mark leaves, so the mark stays centred and
+          the controls, whatever their length or the reader's text size, cannot
+          reach it. */}
+      <div className="vf-header-tabs">
+        <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-6 py-1.5">
+          <div className="col-start-2 flex">
+            <HeaderBrand brandName={t("brand.name")} locale={locale} centered />
+          </div>
+          <div className="flex min-w-0 items-center justify-end gap-4 pl-4">
             <HeaderSearchSlot>
-              <HeaderSearch placeholder={t("search.placeholder")} ariaLabel={t("nav.search")} />
+              <HeaderSearch t={t} locale={locale} />
             </HeaderSearchSlot>
             {isAuthed ? (
               <HeaderUserMenu

@@ -18,8 +18,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { findCuratedEntry } from "@/lib/checklist/knowledge";
 import type { PublishedItem } from "@/lib/data/published";
+import { createTranslator } from "@/lib/i18n/translator";
 
 const published = new Map<string, PublishedItem>();
+
+vi.mock("@/lib/i18n/server", () => ({
+  getTranslator: async () => ({ t: createTranslator("en") }),
+}));
 
 vi.mock("next/navigation", () => ({
   notFound: () => {

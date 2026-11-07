@@ -43,6 +43,12 @@ vi.mock("@/lib/i18n/server", () => ({
   getTranslator: async () => ({ t: createTranslator(siteLocale), locale: siteLocale }),
 }));
 
+// React's request-scoped cache exists only in the server runtime Next.js brings.
+vi.mock("react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react")>()),
+  cache: <T,>(fn: T) => fn,
+}));
+
 import ParishesPage from "@/app/parishes/(list)/page";
 
 afterEach(() => {

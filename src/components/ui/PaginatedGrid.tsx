@@ -36,7 +36,9 @@ export function PaginatedGrid({
   columns?: GridColumns;
 }) {
   return (
-    <ul className={gridClass(columns)}>
+    // role="list": Safari drops a list's role where its markers are removed, and with
+    // it VoiceOver's "list, 36 items" and its list navigation.
+    <ul role="list" className={gridClass(columns)}>
       {items.map((node, i) => (
         <li key={i}>{node}</li>
       ))}

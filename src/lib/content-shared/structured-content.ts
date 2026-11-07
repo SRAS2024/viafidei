@@ -262,6 +262,8 @@ export interface ParsedSequence {
   steps: SequenceStep[];
   /** Text after the last step, "" when the text closes with it. */
   trailing: string;
+  /** Set when these are the named parts of something rather than things to do in turn. */
+  parts?: true;
 }
 
 /** Where a step's numeral sits (`start`) and its own words begin (`end`). */
@@ -396,20 +398,455 @@ function countedMarkers(text: string): StepMarker[] | null {
       continue;
     }
     const count = COUNT_WORDS[lastCount[1]!.toLowerCase()]!;
-    let start = colon + 1;
-    while (/\s/.test(text[start] ?? "")) start += 1;
-    const markers: StepMarker[] = [{ start: colon + 1, end: start, order: 1 }];
-    let depth = 0;
-    for (let i = start; i < closing; i++) {
-      const ch = text[i];
-      if (ch === "(") depth += 1;
-      if (ch === ")") depth -= 1;
-      if (ch !== ";" || depth !== 0 || inQuote(i)) continue;
-      let next = i + 1;
-      while (/\s/.test(text[next] ?? "")) next += 1;
-      markers.push({ start: next, end: next, order: markers.length + 1 });
-    }
+    const markers = itemsAfterColon(text, colon, closing, inQuote);
     if (markers.length === count) return markers;
+  }
+  return null;
+}
+
+/** Where each sentence of `text` begins, the first included. */
+function sentenceStarts(text: string): number[] {
+  return [0, ...sentenceEnds(text).map((end) => end + /^\s*/.exec(text.slice(end))![0].length)];
+}
+
+/** The sentence-openers that bound a how-to: its first step and its last. */
+const OPENS_STEPS = /^(?:Begin|Start)\b/;
+const CLOSES_STEPS = /^(?:Conclude|Close|End|Finish|Finally|Lastly|At the end)\b/;
+
+/**
+ * "Begin with the Sign of the Cross. Pray one Our Father. Then meditate. Conclude
+ * with the Hail Holy Queen." A sentence that opens with Begin and a later one that
+ * opens with Conclude say the sentences from one to the other are the steps of
+ * something, one to a sentence. It takes at least one between them: "Begin ...
+ * End ..." alone is two remarks, and "Begin ... Then ..." alone is how a good many
+ * counsels start without being a sequence at all.
+ */
+function bookendedMarkers(text: string): StepMarker[] | null {
+  const starts = sentenceStarts(text);
+  const opening = starts.findIndex((start) => OPENS_STEPS.test(text.slice(start)));
+  if (opening < 0) return null;
+  const closing = starts.findIndex(
+    (start, i) => i >= opening + 2 && CLOSES_STEPS.test(text.slice(start)),
+  );
+  if (closing < 0) return null;
+  return starts
+    .slice(opening, closing + 1)
+    .map((start, i) => ({ start, end: start, order: i + 1 }));
+}
+
+/** The items of a list set out after a colon, the colon's own sentence ending at `closing`. */
+function itemsAfterColon(
+  text: string,
+  colon: number,
+  closing: number,
+  inQuote: (index: number) => boolean,
+): StepMarker[] {
+  let start = colon + 1;
+  while (/\s/.test(text[start] ?? "")) start += 1;
+  const markers: StepMarker[] = [{ start: colon + 1, end: start, order: 1 }];
+  let depth = 0;
+  for (let i = start; i < closing; i++) {
+    const ch = text[i];
+    if (ch === "(") depth += 1;
+    if (ch === ")") depth -= 1;
+    if (ch !== ";" || depth !== 0 || inQuote(i)) continue;
+    let next = i + 1;
+    while (/\s/.test(text[next] ?? "")) next += 1;
+    markers.push({ start: next, end: next, order: markers.length + 1 });
+  }
+  return markers;
+}
+
+/** A lead-in that says what follows comes in order; "the Order of Mass" is a name. */
+const NAMES_AN_ORDER = /\b(?:order|sequence|shape|stages)\b[^.!?;]*$/;
+
+/**
+ * "A traditional shape for the hour: begin with an act of adoration; read the
+ * Gospel; make reparation; intercede; end with the Divine Praises." "The usual order
+ * is: the processional cross; the faithful; the choir." A list after a colon, whose
+ * lead-in says it comes in order, holds the steps however many it has.
+ */
+function orderedListMarkers(text: string): StepMarker[] | null {
+  const quotes = findQuotes(text);
+  const inQuote = (i: number) => quotes.some((q) => q.start < i && i < q.end);
+  const ends = sentenceEnds(text);
+  for (let colon = text.indexOf(":"); colon >= 0; colon = text.indexOf(":", colon + 1)) {
+    if (inQuote(colon)) continue;
+    const opening = ends.filter((e) => e < colon).pop() ?? 0;
+    if (!NAMES_AN_ORDER.test(text.slice(opening, colon))) continue;
+    const closing = ends.find((e) => e > colon) ?? text.length;
+    const markers = itemsAfterColon(text, colon, closing, inQuote);
+    if (markers.length >= 3) return markers;
+  }
+  return null;
+}
+
+const PART_ORDINALS = [...ORDINALS, "Eleventh", "Twelfth", "Thirteenth", "Fourteenth", "Fifteenth"];
+const ORDINAL_PART = new RegExp(`^The (${PART_ORDINALS.join("|")}) (\\p{Lu}\\p{Ll}+)\\b(?!:)`, "u");
+
+/**
+ * "The First Week considers sin. The Second Week contemplates the life of Christ.
+ * The Third Week ...": at least three sentences that name the same part in counted
+ * order, from the first. Each keeps its name in its own words, since the sentence
+ * has no sense without it. A guide's "The Second Station: ..." is not one of these:
+ * those run across several steps and keep the paragraphs `splitParagraphs` gives them.
+ */
+function ordinalPartMarkers(text: string): StepMarker[] | null {
+  const markers: StepMarker[] = [];
+  let noun: string | null = null;
+  for (const start of sentenceStarts(text)) {
+    const part = ORDINAL_PART.exec(text.slice(start));
+    if (!part) continue;
+    const order = PART_ORDINALS.indexOf(part[1]!) + 1;
+    if (order === 1 && markers.length === 0) noun = part[2]!;
+    if (part[2] === noun && order === markers.length + 1)
+      markers.push({ start, end: start, order });
+  }
+  return markers.length >= 3 ? markers : null;
+}
+
+/**
+ * A name and a colon opening a sentence: "Prayer:", "Liturgy of the Word:". Not one
+ * that hands over words to say ("Answer: 'His mercy endures for ever.'"), which is a
+ * dialogue and is set as one (`splitSpokenWords`).
+ */
+const LABEL = /^\p{Lu}[\p{L}'’-]*(?: [\p{L}'’-]+){0,4}:\s+(?!["'“‘])\S/u;
+
+/**
+ * "Prayer: the fixed times. Word and study: what you will read. Penance: the Friday
+ * penance. Charity: the works of mercy." At least three sentences in a row, each
+ * opening with a short name and a colon, are the named parts of something. The name
+ * becomes the step's title (`buildSequence`).
+ */
+function labelledMarkers(text: string): StepMarker[] | null {
+  const starts = sentenceStarts(text);
+  const isLabelled = (start: number) => {
+    const sentence = text.slice(start);
+    return LABEL.test(sentence) && !OPENS_A_PART.test(sentence);
+  };
+  for (let i = 0; i < starts.length; i++) {
+    let last = i;
+    while (last < starts.length && isLabelled(starts[last]!)) last += 1;
+    if (last - i >= 3) {
+      return starts.slice(i, last).map((start, n) => ({ start, end: start, order: n + 1 }));
+    }
+    i = Math.max(i, last);
+  }
+  return null;
+}
+
+/**
+ * Instructions that plainly are a sequence, though nothing in their wording could
+ * tell a program so: "Make or buy a wreath. On the First Sunday of Advent, light the
+ * first candle. Each evening afterwards ...". Each line is the words that open each
+ * step of one how-to, read and marked by hand. The words are matched exactly and in
+ * order, so a text that is edited stops matching and simply reads as paragraphs, as
+ * text in another language does. Counsels that merely follow one another, with no
+ * order the reader has to keep ("Keep one book going. Read with a pencil."), are not
+ * marked: a wrong list is worse than a long paragraph.
+ */
+const MARKED_SEQUENCES: ReadonlyArray<readonly string[]> = [
+  // Guides: the postures at Mass, what canon 874 asks of a godparent or sponsor, and
+  // the feasts commonly chosen for a Marian consecration, in the year's order.
+  [
+    "stand from the entrance chant",
+    "sit for the first reading",
+    "stand for the Alleluia",
+    "sit for the homily",
+    "stand for the Creed",
+    "sit during the preparation",
+    "stand from the invitation",
+    "kneel from after",
+    "stand for the Our Father",
+    "kneel after the Lamb",
+    "and stand for the prayer after Communion",
+  ],
+  [
+    "be chosen by the parents",
+    "be at least sixteen",
+    "be a Catholic who",
+    "not be under any canonical penalty",
+    "and not be the father or mother",
+  ],
+  [
+    "the Immaculate Conception (8 December)",
+    "Our Lady of Guadalupe (12 December)",
+    "the Solemnity of Mary, Mother of God (1 January)",
+    "Our Lady of Lourdes (11 February)",
+    "the Annunciation (25 March)",
+    "Our Lady of Fatima (13 May)",
+    "the Visitation (31 May)",
+    "the Immaculate Heart of Mary (the Saturday",
+    "Our Lady of Mount Carmel (16 July)",
+    "the Assumption (15 August)",
+    "the Queenship of Mary (22 August)",
+    "the Nativity of Mary (8 September)",
+    "Our Lady of the Rosary (7 October)",
+    "and the Presentation of Mary (21 November)",
+  ],
+  // The Hours: Morning and Evening Prayer as Night Prayer beside them already reads.
+  [
+    "If this is the first Hour",
+    "Sing or say the hymn",
+    "Pray the first psalm",
+    "Read the short Scripture reading",
+    "Say the responsory line by line",
+    "Stand and make the Sign of the Cross for the Benedictus",
+    "Pray the intercessions",
+    "If no priest or deacon",
+  ],
+  [
+    "Begin 'God, come to my assistance",
+    "The hymn follows",
+    "Pray two psalms",
+    "Read the short reading, pause",
+    "Stand and make the Sign of the Cross for the Magnificat",
+    "The intercessions at Evening Prayer",
+    "Then the Our Father",
+  ],
+  // The candles week by week, the figures of the crib from the back, and its blessing.
+  ["In the first week", "In the second week", "In the third week", "In the fourth week"],
+  [
+    "the stable or cave",
+    "then the animals inside",
+    "then Mary and Joseph",
+    "The angel goes above",
+    "Set the three Magi",
+  ],
+  [
+    "All gather before the crib",
+    "one member reads",
+    "the leader says the prayer of blessing",
+    "and all end with the Our Father",
+  ],
+  // The Rosary's opening, bead by bead: the mysteries' four guides, then the general one.
+  [
+    "Make the Sign of the Cross",
+    "Holding the crucifix",
+    "On the first large bead",
+    "on the next three small beads",
+    "then pray the Glory Be",
+  ],
+  ["On the first large bead", "On each of the next three small beads", "On the chain or space"],
+  ["Begin clearly", "Then lead the Apostles' Creed", "On the opening beads lead"],
+  ["Open with the Sign of the Cross", "then for each mystery", "Close with the Salve Regina"],
+  // The shape of something said each time: the O Antiphons, a station, the Christmas novena.
+  ["the day's antiphon", "the Magnificat, 'My soul", "a Glory Be;", "and the antiphon again"],
+  [
+    "The leader announces it",
+    "All genuflect or bow",
+    "Then the meditation is read",
+    "Pray the Our Father",
+  ],
+  ["Read the Gospel of the day's Mass", "Then pray the day's O Antiphon", "End with a Hail Mary"],
+  // Blessing a home, and enthroning the Sacred Heart in it.
+  ["Gather the family", "Then pray in your own words", "Sprinkle each room"],
+  [
+    "Gather at the door",
+    "make the Sign of the Cross",
+    "read the Gospel of the Magi",
+    "and pray that all who enter",
+    "then write the inscription",
+    "and close with the Our Father",
+  ],
+  [
+    "Gather around the prepared place",
+    "Begin with the Sign of the Cross",
+    "The priest blesses the image",
+    "Then the head of the household",
+  ],
+  // Confession from the penitent's side, and the evening examen.
+  [
+    "When you go into the confessional",
+    "Then tell Father your sins",
+    "When you finish, say",
+    "Father will talk with you",
+    "Then pray the Act of Contrition",
+    "Father will say the words",
+  ],
+  ["'Bless me, Father", "Then: 'I am sorry", "Then the Act of Contrition", "Then 'Amen'"],
+  ["Begin as usual", "Then go through your notes", "When you finish, add"],
+  [
+    "Begin with the Sign of the Cross and 'Bless me",
+    "say your sins plainly",
+    "listen to the priest's counsel",
+    "pray the Act of Contrition",
+    "and receive absolution",
+  ],
+  [
+    "Thank him for what was good",
+    "Ask the Holy Spirit for light",
+    "Be sorry for the failures",
+    "Finally, look to tomorrow",
+  ],
+  // The rites a reader takes part in, each in the order it runs.
+  [
+    "The priest greets the sick person",
+    "If the sick person wishes to confess",
+    "A short passage of Scripture",
+    "Then the priest lays his hands",
+    "He anoints the hands",
+    "A prayer follows",
+  ],
+  [
+    "Sit or stand with your candidate",
+    "After the homily the candidates",
+    "Then the candidates come forward",
+    "The bishop anoints",
+    "Then you both return",
+  ],
+  ["The Vigil for the Deceased", "The Funeral Liturgy is", "The Rite of Committal"],
+  // Devotions.
+  [
+    "Pray thirteen small decades",
+    "On the first bead of each decade",
+    "After the thirteenth decade",
+  ],
+  ["Pray one Our Father and three Hail Marys in honor", "then conclude with four Our Fathers"],
+  ["Take the chaplet", "On the first three beads", "On the remaining twelve beads", "Close with"],
+  ["Begin at the medal", "Then on each of the thirty-three beads"],
+  ["Make or buy a wreath", "On the First Sunday of Advent", "Each evening afterwards"],
+  ["Enter the church quietly", "Kneel or sit near it", "Then speak simply", "Before leaving"],
+  [
+    "The Blessed Sacrament is exposed",
+    "A period of adoration follows",
+    "Toward the end",
+    "Vested in humeral veil",
+    "The Divine Praises are then said",
+  ],
+  [
+    "After returning to your place",
+    "Make an act of faith in the presence",
+    "Stay for ten or fifteen minutes",
+    "End by offering",
+  ],
+  ["Take the three versicles in turn", "Then say the versicle"],
+  [
+    "Arrange nine households",
+    "Each evening the pilgrims",
+    "On the first eight nights",
+    "On the ninth night",
+  ],
+  ["Take part first", "Then, before the churches close", "In each, kneel"],
+  ["Kneel before a crucifix", "Take the wounds one at a time", "Close with the prayer"],
+  ["Use a small evergreen", "Prepare one symbol", "Each evening gather"],
+  ["Set a statue or image", "Make a wreath of fresh flowers", "Sing a Marian hymn"],
+  [
+    "The procession normally sets out",
+    "Walk in order behind the cross",
+    "Where the route allows",
+    "At the end return",
+  ],
+  ["Recollect yourself", "Make an act of faith in the real presence", "Remain a little while"],
+  [
+    "Prepare by going to confession",
+    "Choose a Marian feast",
+    "Kneel before an image",
+    "Renew the act",
+  ],
+  ["Ask your parish when", "Prepare a basket", "Bring it to church", "Begin the Easter breakfast"],
+  ["Plan the table", "Set up three tiers", "Ask a priest to bless"],
+  ["First be enrolled", "Afterwards a medal", "Wear it constantly"],
+  ["Be enrolled by a priest", "and afterwards wear it"],
+  ["Be enrolled by a priest", "and then wear it"],
+  ["Ask a Dominican house", "Then keep the undertaking"],
+  ["Ask a priest to bless the medal", "Then wear it, or keep it", "Use it with an act of faith"],
+  [
+    "days of emptying oneself",
+    "knowledge of self",
+    "knowledge of Mary",
+    "and knowledge of Jesus",
+    "then pronounce the act",
+  ],
+  ["With the right hand touch the forehead", "then the breast", "then the left shoulder"],
+  ["approach quietly", "kneel or bow", "and kiss or touch the reliquary", "Then pray — not"],
+  ["Say or sing the four acclamations", "and close with the prayer"],
+  ["begin with adoration", "then thanksgiving", "reparation,", "and intercession"],
+  // Practices.
+  ["Set aside a fixed time", "Place yourself", "Take a scene", "Conclude with thanksgiving"],
+  ["Begin with vocal prayer", "then meditation on a scene"],
+  [
+    "Come before the Blessed Sacrament",
+    "Begin with an act of faith and adoration",
+    "then converse with the Lord",
+    "read Scripture",
+    "pray the Rosary or the Liturgy",
+    "intercede for the world",
+    "and rest in loving silence",
+  ],
+  [
+    "the introductory verse",
+    "a hymn,",
+    "two psalms and an Old",
+    "a short Scripture reading",
+    "the Gospel canticle",
+    "intercessions,",
+    "the Our Father,",
+    "and the concluding prayer",
+  ],
+  ["three versicles with their responses", "then the versicle"],
+  [
+    "Keep the same hour",
+    "Sit still, close the eyes",
+    "Then withdraw the senses",
+    "Use a short vocal prayer",
+    "When thoughts scatter",
+    "Ask for nothing in particular",
+    "Expect dryness",
+    "Carry the recollection",
+  ],
+  [
+    "the Sign of the Cross,",
+    "the Our Father,",
+    "the Hail Mary,",
+    "the Glory Be,",
+    "the prayer to the Guardian Angel,",
+    "and then intercessions",
+  ],
+  [
+    "Book with a retreat house",
+    "Arrange the practical things",
+    "Keep the house's horarium",
+    "Take one short Scripture passage",
+    "Go to confession while you are there",
+    "Expect the first day",
+    "On the last day",
+  ],
+  [
+    "Fix the day and keep it",
+    "Prepare with an examination",
+    "In the confessional",
+    "Listen to the counsel",
+    "Make an Act of Contrition",
+    "Then ask the confessor",
+  ],
+  [
+    "Before you speak, ask three questions",
+    "Pray for the person first",
+    "Then speak privately",
+    "If a private word fails",
+  ],
+  ["Read the passage twice", "Then stay with", "Ask the plain questions", "End with a moment"],
+  ["Begin with the morning exercise", "Then, through the day", "Afterwards, thank him"],
+  [
+    "Begin with the Sign of the Cross and one line",
+    "Then say the chosen prayer",
+    "When distraction",
+  ],
+];
+
+/** The hand-marked sequence `text` is, when it is one. */
+function markedSequence(text: string): StepMarker[] | null {
+  for (const openers of MARKED_SEQUENCES) {
+    const markers: StepMarker[] = [];
+    let from = 0;
+    for (const opener of openers) {
+      const start = text.indexOf(opener, from);
+      if (start < 0 || (start > 0 && !/\s/.test(text[start - 1]!))) break;
+      markers.push({ start, end: start, order: markers.length + 1 });
+      from = start + opener.length;
+    }
+    if (markers.length === openers.length) return markers;
   }
   return null;
 }
@@ -449,15 +886,15 @@ function buildSequence(text: string, markers: StepMarker[]): ParsedSequence {
     }
   }
 
-  // Semicolons only separated the items, and the list now does that. A joining
-  // "and" stays on the step it follows, so that no word is lost.
+  // Semicolons, commas and a dash that closes an aside only separated the items, and
+  // the list now does that. A joining "and" stays on the step it follows, so that no
+  // word is lost.
   const isList = raw
     .slice(0, -1)
     .every((step) => /;$/.test(step) || !/[.!?]["'”’)\]]*$/.test(step));
   const steps = raw.map((step, i) => {
-    let body = step;
-    if (i < lastIndex && /^and\s/i.test(raw[i + 1]!)) body = `${body.replace(/;$/, "")}; and`;
-    else body = body.replace(/[;,]$/, "");
+    let body = step.replace(/\s*[;,—]$/, "");
+    if (i < lastIndex && /^and\s/i.test(raw[i + 1]!)) body = `${body}; and`;
     if (i > 0 && /^and\s/i.test(raw[i]!)) body = body.replace(/^and\s+/i, "");
     if (i === lastIndex && isList) body = body.replace(/\.$/, "");
     return body;
@@ -485,28 +922,38 @@ function buildSequence(text: string, markers: StepMarker[]): ParsedSequence {
 /**
  * The steps of a sequence in running instructions, or null when the text does
  * not unambiguously hold one. It finds "1. X 2. Y 3. Z" inline or one to a line,
- * "(1) X; (2) Y; (3) Z", "Step 1: X", "First, X Second, Y Third, Z" and a
- * counted list ("the seven last words: a; b; ..."). Numbers must run consecutively from
- * the start of a sentence, so "1 Cor. 13", "(Luke 11:41)" and "in 1917." never
- * fire it. A step that opens with a name and a colon, when all of them do,
- * becomes a title and a body.
+ * "(1) X; (2) Y; (3) Z", "Step 1: X", "First, X Second, Y Third, Z", a counted list
+ * ("the seven last words: a; b; ..."), "The First Week ... The Second Week ...",
+ * named parts ("Prayer: ... Word and study: ..."), a run of sentences from "Begin"
+ * to "Conclude", and the how-tos marked by hand above. Numbers must run
+ * consecutively from the start of a sentence, so "1 Cor. 13", "(Luke 11:41)" and "in
+ * 1917." never fire it. A step that opens with a name and a colon, when all of them
+ * do, becomes a title and a body.
  */
 export function parseSequence(text: string): ParsedSequence | null {
   const value = text.trim();
   if (!value) return null;
   const markers =
+    markedSequence(value) ??
     consecutiveRun(markersFrom(value, STEP_WORD), value, 2) ??
     consecutiveRun(markersFrom(value, NUMERAL), value, /\n/.test(value) ? 2 : 3) ??
     consecutiveRun(markersFrom(value, BRACKETED_NUMERAL), value, 3) ??
     ordinalMarkers(value) ??
-    countedMarkers(value);
-  return markers ? buildSequence(value, markers) : null;
+    countedMarkers(value) ??
+    ordinalPartMarkers(value);
+  if (markers) return buildSequence(value, markers);
+  const parts = labelledMarkers(value);
+  if (parts) return { ...buildSequence(value, parts), parts: true };
+  const steps = orderedListMarkers(value) ?? bookendedMarkers(value);
+  return steps ? buildSequence(value, steps) : null;
 }
 
 /* ------------------------------------------------------------- paragraphs */
 
 /** Above this a paragraph is too long to read comfortably on a page or a phone. */
 const LONG_PARAGRAPH = 600;
+/** A step's text sits beside its number on a shorter line, so it breaks sooner. */
+export const LONG_STEP_PARAGRAPH = 450;
 /** What a split aims for, about five lines at the reading measure. */
 const IDEAL_PARAGRAPH = 380;
 /** A new paragraph should not open by leaning on the last one ("This is why..."). */
@@ -547,13 +994,16 @@ function splitBySentences(paragraph: string, limit: number): string[] {
   const cuts = [0, ...sentenceEnds(paragraph), paragraph.length];
   if (cuts.length < 3) return [paragraph];
   // The cheapest way to group the sentences: each paragraph near the ideal
-  // length, none tiny, and breaks at the sentences that can start one.
+  // length, none tiny, and breaks at the sentences that can start one. Staying over
+  // the limit costs more than a short paragraph does: a long sentence with two short
+  // ones after it used to keep them all together rather than leave them on their own.
   const best: { cost: number; from: number }[] = [{ cost: 0, from: 0 }];
   for (let end = 1; end < cuts.length; end++) {
     let chosen = { cost: Infinity, from: 0 };
     for (let start = 0; start < end; start++) {
       const piece = paragraph.slice(cuts[start], cuts[end]).trim();
       let cost = best[start]!.cost + (piece.length - IDEAL_PARAGRAPH) ** 2;
+      if (piece.length > limit) cost += 40000 + 6 * (piece.length - limit) ** 2;
       if (piece.length < 140) cost += 60000;
       if (start > 0 && LEANS_BACK.test(piece)) cost += 30000;
       if (start > 0 && TURNS.test(piece)) cost -= 12000;
@@ -624,11 +1074,27 @@ const JOINS_SPOKEN = /^(?:or|and|then|or simply|or else|and then)$/i;
 const MIN_SPOKEN_WORDS = 3;
 
 /**
+ * "Blessed be God. Blessed be his holy Name. Blessed be Jesus Christ ...": sentences
+ * that all open the same way are said a line at a time, as the Divine Praises are, the
+ * people repeating each. Four of them at least, since two or three alike is only style.
+ */
+function litanyLines(words: string): string[] | null {
+  const ends = sentenceEnds(words);
+  if (ends.length < 3) return null;
+  const lines = [0, ...ends].map((start, i) => words.slice(start, ends[i]).trim());
+  const opening = (line: string) => line.split(/\s+/).slice(0, 2).join(" ");
+  return lines.every((line) => opening(line) === opening(lines[0]!)) ? lines : null;
+}
+
+/**
  * One line per speaker: a versicle and its response never share a line, and when
  * a dialogue runs on ("R. And with your spirit. Lift up your hearts. R. We lift
  * them up to the Lord."), the next speaker starts where the response's sentence ends.
+ * A litany's lines are its own (`litanyLines`).
  */
 function spokenLines(words: string): string[] {
+  const litany = litanyLines(words);
+  if (litany) return litany;
   return words
     .split(/\s+(?=[VR]\.\s+\p{Lu})/u)
     .flatMap((line) => {
@@ -760,10 +1226,10 @@ export function splitSpokenWords(text: string): ReadingBlock[] {
  * Text as it should be set on a reading page: instructions in paragraphs of a
  * readable length, and the words to say apart from them.
  */
-export function readingBlocks(text: string): ReadingBlock[] {
+export function readingBlocks(text: string, limit = LONG_PARAGRAPH): ReadingBlock[] {
   return splitSpokenWords(text).flatMap((block): ReadingBlock[] =>
     block.kind === "text"
-      ? splitParagraphs(block.text).map((paragraph) => ({ kind: "text", text: paragraph }))
+      ? splitParagraphs(block.text, limit).map((paragraph) => ({ kind: "text", text: paragraph }))
       : [block],
   );
 }
@@ -794,4 +1260,107 @@ export function novenaTimingFacts(stored: unknown): LabelledFact[] {
     ];
   }
   return [{ label: STARTS_ON_A_DAY.test(value) ? "Begins" : "When", value }];
+}
+
+/**
+ * Whether a novena's days show the meditation each one stores. They do not, and that
+ * is the owner's call: the older novenas' meditations are templated, and the owner has
+ * been told they are there. To show them, render a day's `meditation` in the days
+ * renderer of src/app/novenas/[slug]/page.tsx and set this to true. The stored
+ * backgrounds still say what they always said about them, so every sentence comes back.
+ */
+export const NOVENA_DAY_MEDITATIONS_SHOWN = false;
+
+/**
+ * What a stored background says about the day meditations, and what it reads without
+ * them. Each was read by hand, in all 104 novenas. A sentence that is only about them
+ * goes, and one that says something else as well keeps the rest, every other word as
+ * stored. Where the novena as written is made of meditations or considerations, which a
+ * reader has just been told in its summary, the page says plainly that it does not give
+ * them, so that nobody opens a day looking for one.
+ */
+const DAY_MEDITATION_NOTES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\s*The day meditations are editorial\./g, ""],
+  [
+    /\bThe day meditations are editorial(?: introductions)?, and the indulgence (notes are|note is) omitted\./g,
+    "The indulgence $1 omitted.",
+  ],
+  [
+    /; the day meditations are editorial(?: introductions)?,? and the indulgence notes are omitted\./g,
+    "; the indulgence notes are omitted.",
+  ],
+  [/; the day meditations are editorial\./g, "."],
+  [/, and the day meditations are editorial introductions written for a child\./g, "."],
+  [/, so the day meditations here are editorial introductions to each day's virtue\./g, "."],
+  [/; the meditations are short editorial introductions\./g, "."],
+  [/\s*The meditations (?:below|above) are short editorial introductions[^.]*\./g, ""],
+  [
+    /; his meditations, which precede them, are summarised in the day meditations (?:below|above)\./g,
+    "; his meditations, which precede them, are not reproduced here.",
+  ],
+  [
+    /; the considerations are summarised in the day meditations (?:below|above), and only the prayers are reproduced\./g,
+    "; only the prayers are reproduced.",
+  ],
+  [
+    /, and the considerations are summarised in the day meditations\./g,
+    ", and the considerations are not reproduced.",
+  ],
+  [
+    /; they are summarised in the day meditations, and the indulgence notes are omitted\./g,
+    "; they and the indulgence notes are omitted.",
+  ],
+  [
+    /, summarised in the day meditations, is followed by a prayer\./g,
+    " is followed by a prayer; the considerations are not reproduced here.",
+  ],
+  [/, which the day meditations summarise\./g, "."],
+  [
+    /\bThe meditations are summarised in the day meditations; the prayers are reproduced in full\./g,
+    "The meditations are not reproduced here; the prayers are reproduced in full.",
+  ],
+  [
+    /\bthe addresses are summarised in the day meditations and are best read/g,
+    "the addresses are best read",
+  ],
+  [
+    /\bEach day's consideration is summarised in the day meditation\./g,
+    "The considerations are not reproduced here.",
+  ],
+  [
+    /\band gives these meditations on the Litany of Loreto/g,
+    "and gives meditations on the Litany of Loreto",
+  ],
+  // His name goes with the first half of the sentence, and the second half needs it.
+  [
+    /\bThe meditations given here are short editorial introductions to the subject (St\. \p{L}+) assigns each day; his own meditations/gu,
+    "$1's own meditations",
+  ],
+  // These two say nothing of it themselves, though their summaries say what the novena
+  // is made of: nine meditations, and a different meditation each day.
+  [
+    /(\bwrote this novena as nine meditations on charity, the gift proper to the Holy Spirit\.)/g,
+    "$1 His meditations are not reproduced here, and the prayers above are his own.",
+  ],
+  [
+    /(\bthe nine meditation subjects above are those of the received Redemptorist novena)\./g,
+    "$1; the meditations themselves are not reproduced here.",
+  ],
+];
+
+/**
+ * A novena's background as a reader should meet it: true where it stands. While the
+ * days do not show their meditations, it does not say they do. It runs on the stored
+ * English before the page is put into the reader's language, so a translation is of
+ * what is shown, and it works on a row whatever its age.
+ */
+export function novenaBackgroundForDisplay(
+  background: string,
+  meditationsShown = NOVENA_DAY_MEDITATIONS_SHOWN,
+): string {
+  if (meditationsShown) return background;
+  return DAY_MEDITATION_NOTES.reduce(
+    (text, [note, rest]) => text.replace(note, rest),
+    background,
+  ).trim();
 }

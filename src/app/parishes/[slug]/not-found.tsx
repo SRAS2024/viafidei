@@ -1,18 +1,7 @@
-import Link from "next/link";
+import { notFoundMetadata, notFoundPage } from "@/components/ui/NotFoundMessage";
 
-import { PageHero } from "@/components/ui/PageHero";
+export const generateMetadata = () => notFoundMetadata("parish");
 
 export default function ParishNotFound() {
-  return (
-    <div className="vf-message">
-      <PageHero
-        eyebrow="404"
-        title="Parish not found"
-        subtitle="This parish may have been removed or the link is incorrect."
-      />
-      <Link href="/parishes" className="vf-btn vf-btn-ghost">
-        <span aria-hidden="true">←</span> Back to Parishes
-      </Link>
-    </div>
-  );
+  return notFoundPage("parish");
 }

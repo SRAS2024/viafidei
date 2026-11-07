@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { useLocalToday } from "@/components/ui/useLocalToday";
 import { prayerCategoryLabel } from "@/lib/content-shared/prayer-categories";
 
 import { SkeletonLine } from "./SkeletonLine";
@@ -24,18 +25,16 @@ type State = { kind: "loading" } | { kind: "loaded"; prayer: Prayer | null } | {
  * at the visitor's midnight, is the same for everyone on the same date, and
  * keeps cycling whether or not the Admin Worker is running.
  */
-export function HomePrayerOfTheDay() {
+export function HomePrayerOfTheDay({ loadingLabel }: { loadingLabel: string }) {
   const [state, setState] = useState<State>({ kind: "loading" });
+  const today = useLocalToday();
 
   useEffect(() => {
-    const now = new Date();
-    const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-      now.getDate(),
-    ).padStart(2, "0")}`;
+    if (!today) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/prayers/today?date=${iso}`, { cache: "no-store" });
+        const res = await fetch(`/api/prayers/today?date=${today}`, { cache: "no-store" });
         if (!res.ok) {
           if (!cancelled) setState({ kind: "error" });
           return;
@@ -49,7 +48,7 @@ export function HomePrayerOfTheDay() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [today]);
 
   const prayer = state.kind === "loaded" ? state.prayer : null;
 
@@ -58,7 +57,7 @@ export function HomePrayerOfTheDay() {
     <div className="vf-card vf-entry vf-home-part">
       <h3 className="vf-subhead">Prayer of the Day</h3>
       <p role="status" className="sr-only">
-        {state.kind === "loading" ? "Choosing today's prayer…" : ""}
+        {state.kind === "loading" ? loadingLabel : ""}
       </p>
       {state.kind === "loading" ? (
         <div className="vf-home-part-body" aria-hidden="true">

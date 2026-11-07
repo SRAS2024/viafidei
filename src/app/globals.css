@@ -50,16 +50,19 @@
     /* ---------- The visual system ----------
        Every size is in rem so a reader's enlarged text scales the whole page.
        Reading type is Cormorant Garamond, whose small x-height needs the larger
-       sizes and medium weight below to read as ordinary book text. */
+       sizes and medium weight below to read as ordinary book text.
+       Enlarged text on a phone caps a size by the width, so that words stay whole, and
+       the caps step down as the sizes do: a page title's 11.5vw, a section title's 10.5vw,
+       then the ones here. A heading never ends up smaller than what stands under it. */
     --fs-display: clamp(2.625rem, 1.9rem + 3vw, 4.125rem);
     --fs-page-title: clamp(2.25rem, 1.85rem + 1.75vw, 3.25rem);
     --fs-section: clamp(1.875rem, 1.7rem + 0.8vw, 2.375rem);
-    --fs-subsection: clamp(1.5rem, 1.42rem + 0.35vw, 1.75rem);
+    --fs-subsection: min(clamp(1.5rem, 1.42rem + 0.35vw, 1.75rem), 10.25vw);
     --fs-card-title: 1.4375rem;
-    --fs-lede: clamp(1.25rem, 1.2rem + 0.25vw, 1.375rem);
-    --fs-body: clamp(1.1875rem, 1.15rem + 0.2vw, 1.25rem);
-    --fs-prayer: clamp(1.25rem, 1.2rem + 0.25vw, 1.3125rem);
-    --fs-note: 1.0625rem;
+    --fs-lede: min(clamp(1.25rem, 1.2rem + 0.25vw, 1.375rem), 10vw);
+    --fs-body: min(clamp(1.1875rem, 1.15rem + 0.2vw, 1.25rem), 10vw);
+    --fs-prayer: min(clamp(1.25rem, 1.2rem + 0.25vw, 1.3125rem), 10vw);
+    --fs-note: min(1.0625rem, 9vw);
     --fs-meta: 0.9375rem;
     --fs-label: 0.75rem;
 
@@ -84,7 +87,9 @@
     --radius-control: 3px;
 
     --rule-strong: rgba(17, 17, 17, 0.16);
-    --rule-control: rgba(17, 17, 17, 0.26);
+    /* The only edge a text field has, so it holds 3:1 against the paper and against
+       the field: the least that does, to stay an understated line. */
+    --rule-control: rgba(17, 17, 17, 0.47);
     --surface-card: rgba(255, 253, 247, 0.92);
     --surface-hover: rgba(17, 17, 17, 0.045);
     --link: var(--action-blue);
@@ -96,13 +101,17 @@
     --focus-ring: var(--action-blue);
     --card-lift: 0 1px 0 rgba(17, 17, 17, 0.03), 0 20px 34px -30px rgba(17, 17, 17, 0.32);
 
-    /* The sticky header's height, so anchors and sticky rows land below it. */
-    --header-h: 7rem;
+    /* The sticky header's height, so anchors and sticky rows land below it: 118px
+       with the tabs at the browser's usual text size. The logo is fixed in pixels and
+       everything else is in rem, so this holds at any text size. HeaderHeight then
+       keeps it true for whatever the browser actually drew. */
+    --header-h: calc(3.5rem + 62px);
   }
 
-  @media (max-width: 899.98px) {
+  /* The phone bar's: the same width the header's own container query changes at. */
+  @media not all and (min-width: 56.25rem) {
     :root {
-      --header-h: 4.0625rem;
+      --header-h: calc(0.75rem + 52.83px);
     }
   }
 
@@ -130,22 +139,22 @@
     --ink-faint-rgb: 185 180 168;
     --rule: rgba(251, 248, 241, 0.1);
 
-    /* Semantic action accents lean into the deep liturgical purple in dark mode */
-    --action-blue: #5b2d8e;
-    --action-blue-hover: #7847a8;
+    /* The same blue as the light theme's, a touch lighter to read on charcoal. */
+    --action-blue: #4a6fc4;
+    --action-blue-hover: #3f62b3;
     --action-red: #c8616f;
     --action-red-hover: #e07070;
     --action-gray: #8a8a99;
     --action-gray-hover: #c5c5cb;
-    --marian-blue: #a88bd4;
-    --marian-blue-light: rgba(168, 139, 212, 0.4);
+    --marian-blue: #a9c1f2;
+    --marian-blue-light: rgba(169, 193, 242, 0.4);
     --eucharist-gold: #b68d40;
-    --liturgical-blue-rgb: 91 45 142;
+    --liturgical-blue-rgb: 169 193 242;
     --liturgical-gold-rgb: 182 141 64;
     --liturgical-red-rgb: 224 112 112;
 
     --rule-strong: rgba(251, 248, 241, 0.16);
-    --rule-control: rgba(251, 248, 241, 0.28);
+    --rule-control: rgba(251, 248, 241, 0.43);
     --surface-card: rgba(255, 255, 255, 0.04);
     --surface-hover: rgba(255, 255, 255, 0.06);
     --error-ink: #f2a6a6;
@@ -158,10 +167,7 @@
 
     /* Filled BLUE action buttons (primary CTA, selected filters) stay BLUE in
        dark mode — a touch LIGHTER than the light-theme navy so they read clearly
-       on the charcoal surface. The purple accent tokens above intentionally
-       drive links / nav / borders (the dark look is unchanged); only the solid
-       "affirmative action" buttons are blue, matching how they look in light
-       mode instead of the washed translucent purple they used to be. */
+       on the charcoal surface. */
     --btn-blue: #4a6fc4;
     --btn-blue-hover: #3f62b3;
 
@@ -189,16 +195,6 @@
     --border-hover: rgba(255, 255, 255, 0.14);
     --border-modal: rgba(255, 255, 255, 0.1);
 
-    --accent-purple: #5b2d8e;
-    --accent-purple-link: #a88bd4;
-    --accent-purple-soft: rgba(91, 45, 142, 0.07);
-    --accent-purple-hover: rgba(91, 45, 142, 0.12);
-    --accent-purple-border: rgba(91, 45, 142, 0.2);
-    --accent-purple-border-hover: rgba(91, 45, 142, 0.3);
-    --accent-purple-glow: rgba(91, 45, 142, 0.04);
-    --accent-purple-line: rgba(168, 139, 212, 0.18);
-    --accent-purple-text-soft: rgba(168, 139, 212, 0.65);
-
     --success-bg: rgba(50, 160, 80, 0.06);
     --success-border: rgba(50, 160, 80, 0.2);
     --success-text: #6ccf8a;
@@ -214,12 +210,7 @@
 
   html[data-theme="dark"] body {
     background-color: var(--bg);
-    /* A single, faint purple radial glow at the top — sacred quiet */
-    background-image: radial-gradient(
-      ellipse 70% 50% at 50% 0%,
-      var(--accent-purple-glow) 0%,
-      transparent 70%
-    );
+    background-image: none;
     background-size: auto;
   }
 
@@ -250,6 +241,20 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+  }
+
+  /* Cormorant's old-style 1 reads as a small capital I: "the 3Ist Week", "Psalm I3o",
+     "in I53I". Every figure stands at full height, in any serif text, and a form
+     control's own font would otherwise take it back to the default. */
+  body {
+    font-variant-numeric: lining-nums;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font-variant-numeric: inherit;
   }
 
   body {
@@ -367,11 +372,19 @@
   .vf-eyebrow {
     font-family: var(--font-sans);
     text-transform: uppercase;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.08em;
     font-size: var(--fs-label);
     font-weight: 500;
     line-height: var(--lh-meta);
     color: var(--ink-faint);
+  }
+
+  /* A label at the length of a phrase stays in sentence type (see eyebrowClass). */
+  .vf-eyebrow-long {
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-size: 0.875rem;
+    line-height: 1.3;
   }
 
   .vf-card {
@@ -418,6 +431,39 @@
     min-height: 1.5rem;
   }
 
+  /* The header's two layouts. The tabs take over at a width in rem, and a rem in a
+     container query follows the page's real text size however it was enlarged. So
+     enlarged text keeps the one short bar, not a two-row masthead holding a quarter
+     of the screen. The stylesheet's --header-h changes at the same width. */
+  .vf-header {
+    container: vf-header / inline-size;
+  }
+
+  .vf-header-tabs {
+    display: none;
+  }
+
+  .vf-nav-tabs {
+    column-gap: 1.25rem;
+  }
+
+  @container vf-header (min-width: 56.25rem) {
+    /* Two classes: the bar is also a flex utility, which comes later in the file. */
+    .vf-header .vf-header-bar {
+      display: none;
+    }
+
+    .vf-header-tabs {
+      display: block;
+    }
+  }
+
+  @container vf-header (min-width: 64rem) {
+    .vf-nav-tabs {
+      column-gap: 1.75rem;
+    }
+  }
+
   /* Out of sight until the keyboard reaches it; a screen reader finds it first. */
   .vf-skip-link {
     position: fixed;
@@ -441,27 +487,35 @@
     outline-offset: 2px;
   }
 
-  main:focus {
+  main:focus,
+  [data-focus-landing]:focus {
     outline: none;
   }
 
   /* ---------- Buttons ----------
      Three treatments only: filled primary, outlined secondary, text link. One
-     height, one corner, one label style. */
+     height, one corner, one label style, at the 14px the brief sets for supporting
+     text. Very large text on a phone: a button stays within what holds it and its type
+     is capped by the width. A word is never broken: one wider than the room inside the
+     padding runs on into the padding, centred, so the padding gives way before the
+     word does. None of it moves anything at ordinary sizes, from 320 wide up. */
   .vf-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    max-width: 100%;
     min-height: var(--control-h);
-    padding: 0.5rem 1.25rem;
+    padding: 0.5rem min(1.25rem, 6.25vw);
     font-family: var(--font-sans);
-    font-size: 0.8125rem;
+    font-size: min(0.875rem, 9vw);
     font-weight: 500;
     line-height: 1.25;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.06em;
     text-align: center;
+    /* Said, not inherited: a list of results breaks its long queries anywhere. */
+    overflow-wrap: normal;
     border-radius: var(--radius-control);
     transition:
       background-color 180ms ease,
@@ -473,10 +527,10 @@
     user-select: none;
   }
 
+  /* Smaller in height and padding only: its words are the same size as any button's. */
   .vf-btn-sm {
     min-height: var(--control-h-sm);
-    padding: 0.375rem 0.875rem;
-    font-size: 0.75rem;
+    padding: 0.375rem min(0.875rem, 4.4vw);
   }
 
   .vf-btn:disabled,
@@ -596,7 +650,7 @@
   }
 
   .vf-input:hover {
-    border-color: rgba(17, 17, 17, 0.42);
+    border-color: rgba(17, 17, 17, 0.72);
   }
 
   .vf-input:focus {
@@ -622,7 +676,7 @@
 
   /* ---------- Header search ---------- */
   .vf-header-search {
-    border-bottom: 1px solid rgba(17, 17, 17, 0.15);
+    border-bottom: 1px solid var(--rule-control);
     padding: 0.25rem 0;
     transition: border-color 160ms ease;
   }
@@ -776,7 +830,7 @@
     color: var(--paper-bright);
     font-family: var(--font-sans);
     font-size: 0.66rem;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     padding: 0.35rem 0.55rem;
     border-radius: 2px;
@@ -803,7 +857,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1rem;
+    /* Gives way at enlarged text on a phone, where a button's words need the room. */
+    padding: min(1rem, 5vw);
     z-index: 50;
   }
 
@@ -950,7 +1005,7 @@
   .vf-mobile-menu-link {
     font-family: var(--font-sans);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     font-size: 0.8125rem;
     font-weight: 500;
     color: var(--ink-soft);
@@ -968,9 +1023,24 @@
     color: var(--ink);
   }
 
+  /* The section a reader is in, marked as on the desktop tab: a quiet rule under
+     the word, never colour alone. */
   .vf-mobile-menu-link-active {
     color: var(--ink);
-    background: rgba(17, 17, 17, 0.05);
+    text-decoration-line: underline;
+    text-decoration-color: var(--link);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.4em;
+  }
+
+  /* The page itself, or the entry its page belongs to, filled as the desktop menu
+     fills it. */
+  .vf-mobile-menu-link[aria-current],
+  .vf-mobile-menu-link[aria-current]:hover,
+  .vf-mobile-menu-link[aria-current]:focus-visible {
+    background: var(--accent-fill);
+    color: var(--on-accent);
+    text-decoration-line: none;
   }
 
   /* Header profile avatar (small, circular, signed-in users) */
@@ -1002,15 +1072,10 @@
   }
 
   /* ================================================================
-     Dark-mode overrides — sacred, quiet, matte, purple-accented.
+     Dark-mode overrides — sacred, quiet, matte, in the same restrained blue.
      Light-mode rules above remain unchanged; everything below only
      applies under html[data-theme="dark"].
      ================================================================ */
-
-  html[data-theme="dark"] .vf-rule {
-    background: var(--accent-purple-line);
-    opacity: 1;
-  }
 
   html[data-theme="dark"] .vf-eyebrow {
     color: var(--text-muted);
@@ -1036,14 +1101,14 @@
     color: var(--text-main);
   }
 
+  html[data-theme="dark"] .vf-nav-link-active,
   html[data-theme="dark"] .vf-nav-link[aria-current="page"] {
     color: var(--text-main);
   }
 
   /* Primary CTA + selected filters are SOLID BLUE in dark mode (filled, white
      text) — the same "affirmative = blue" language as light mode, just a lighter
-     blue for contrast on charcoal. Previously these took a translucent purple
-     wash that read as gray. Ghost / cancel / danger keep their neutral dark
+     blue for contrast on charcoal. Ghost / cancel / danger keep their neutral dark
      treatments below. */
   html[data-theme="dark"] .vf-btn-primary,
   html[data-theme="dark"] .vf-filter-active {
@@ -1066,7 +1131,7 @@
 
   html[data-theme="dark"] .vf-btn-ghost:hover:not(:disabled) {
     background: var(--card-bg-hover);
-    border-color: var(--border-hover);
+    border-color: var(--ink);
   }
 
   html[data-theme="dark"] .vf-btn-cancel {
@@ -1101,20 +1166,11 @@
     color: var(--text-main);
   }
 
-  /* Forms — dark sunken inputs with a sacred purple focus. */
+  /* Forms — dark sunken inputs. Their edges and focus are further down, with the
+     rest of the form system. */
   html[data-theme="dark"] .vf-input {
     background: var(--surface-input);
     color: var(--text-main);
-    border-color: var(--border);
-  }
-
-  html[data-theme="dark"] .vf-input:hover {
-    border-color: var(--border-hover);
-  }
-
-  html[data-theme="dark"] .vf-input:focus {
-    border-color: rgba(91, 45, 142, 0.25);
-    box-shadow: 0 0 0 3px rgba(91, 45, 142, 0.12);
   }
 
   html[data-theme="dark"] .vf-input::placeholder {
@@ -1124,10 +1180,6 @@
 
   html[data-theme="dark"] .vf-label {
     color: var(--text-muted);
-  }
-
-  html[data-theme="dark"] .vf-header-search {
-    border-bottom-color: var(--border);
   }
 
   html[data-theme="dark"] .vf-header-search:focus-within {
@@ -1158,9 +1210,9 @@
   }
 
   html[data-theme="dark"] .vf-avatar-edit {
-    background: var(--accent-purple);
+    background: var(--btn-blue);
     border-color: var(--bg-modal);
-    color: var(--text-main);
+    color: #ffffff;
   }
 
   html[data-theme="dark"] .vf-avatar-status-info {
@@ -1209,7 +1261,7 @@
 
   html[data-theme="dark"] .vf-expandable-trigger:hover,
   html[data-theme="dark"] .vf-expandable-trigger:focus-visible {
-    color: var(--accent-purple-link);
+    color: var(--link);
   }
 
   html[data-theme="dark"] .vf-expandable-arrow {
@@ -1253,7 +1305,13 @@
 
   html[data-theme="dark"] .vf-mobile-menu-link-active {
     color: var(--text-main);
-    background: var(--accent-purple-soft);
+  }
+
+  html[data-theme="dark"] .vf-mobile-menu-link[aria-current],
+  html[data-theme="dark"] .vf-mobile-menu-link[aria-current]:hover,
+  html[data-theme="dark"] .vf-mobile-menu-link[aria-current]:focus-visible {
+    background: var(--btn-blue);
+    color: #ffffff;
   }
 
   /* Header avatar */
@@ -1264,22 +1322,17 @@
 
   html[data-theme="dark"] .vf-header-avatar:hover,
   html[data-theme="dark"] .vf-header-avatar:focus-visible {
-    border-color: var(--accent-purple-border-hover);
-    box-shadow: 0 0 0 2px rgba(91, 45, 142, 0.18);
+    border-color: var(--focus-ring);
+    box-shadow: 0 0 0 2px rgba(169, 193, 242, 0.22);
   }
 
-  /* Sacrament accents adopt the purple-link tone in dark mode */
-  html[data-theme="dark"] .vf-icon-marian {
-    color: var(--accent-purple-link);
-  }
-
-  /* Content links inside long-form copy take the soft purple link tone */
+  /* Content links inside long-form copy */
   html[data-theme="dark"] .vf-content a,
   html[data-theme="dark"] .prose a {
-    color: var(--accent-purple-link);
+    color: var(--link);
     text-decoration: underline;
     text-underline-offset: 3px;
-    text-decoration-color: rgba(168, 139, 212, 0.3);
+    text-decoration-color: rgba(169, 193, 242, 0.35);
   }
 
   html[data-theme="dark"] .vf-content a:hover,
@@ -1293,14 +1346,29 @@
      read the same in the light and dark themes.
      ================================================================ */
 
+  /* Words for a voice alone, inside a line of text. .sr-only will not do there: Safari's
+     accessibility tree joins a line's text into one item and leaves out whatever is
+     absolutely positioned, so a voice gets the line without these, then these alone. One
+     pixel rather than none, because a screen reader may pass over text with no size. Left
+     out of a copy, since a reader copying the line did not see it. */
+  .vf-sr-inline {
+    font-size: 1px;
+    line-height: 0;
+    opacity: 0;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
   /* ---------- Page openings ---------- */
   .vf-page-hero {
     padding: 0.25rem 0 var(--space-related);
     text-align: center;
   }
 
+  /* Capped on a phone with enlarged text, where an ordinary word would otherwise
+     break in the middle. Only a word wider than the screen still does. */
   .vf-page-hero-title {
-    font-size: var(--fs-page-title);
+    font-size: min(var(--fs-page-title), 11.5vw);
     text-wrap: balance;
   }
 
@@ -1312,11 +1380,13 @@
     margin: var(--space-close) auto 0;
     max-width: 40rem;
     font-family: var(--font-serif);
-    font-size: var(--fs-lede);
+    /* Capped with the title above it, so the sentence never outgrows the title. */
+    font-size: min(var(--fs-lede), 9.5vw);
     font-weight: 500;
     line-height: 1.45;
     color: var(--ink-soft);
-    text-wrap: pretty;
+    /* Centred, so balanced: a last line of one or two words looks like a mistake. */
+    text-wrap: balance;
   }
 
   /* A major section's heading: label, title, optional sentence, kept together. */
@@ -1326,7 +1396,9 @@
   }
 
   .vf-section-title {
-    font-size: var(--fs-section);
+    /* Between a page title's cap and a card title's, for enlarged text on a phone. */
+    font-size: min(var(--fs-section), 10.5vw);
+    overflow-wrap: break-word;
     text-wrap: balance;
   }
 
@@ -1387,16 +1459,62 @@
   }
 
   /* A short list under a centred heading (one day's saints) stands centred too,
-     every row of it, at the width of a three-column card. */
-  .vf-grid-centred .vf-grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+     every row of it, in cards the width of the /saints list's, and no card is left
+     alone under a full row: 4 saints are 2 + 2, 7 are 3 + 2 + 2, 10 are 3 + 3 + 2 + 2.
+     The columns are halves of a card, so a shorter row can sit between them. They go
+     by the width of this box, in rem, so enlarged text earns fewer cards to a row. */
+  .vf-grid-centred {
+    container: vf-centred / inline-size;
   }
 
-  .vf-grid-centred .vf-grid > li {
-    flex: 1 1 19rem;
-    max-width: 22rem;
+  @container vf-centred (min-width: 39.25rem) {
+    .vf-grid-centred .vf-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .vf-grid-centred .vf-grid > li {
+      grid-column: span 2;
+    }
+
+    .vf-grid-centred .vf-grid > li:last-child:nth-child(odd) {
+      grid-column: 2 / span 2;
+    }
+  }
+
+  @container vf-centred (min-width: 59.5rem) {
+    .vf-grid-centred .vf-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .vf-grid-centred .vf-grid > li,
+    .vf-grid-centred .vf-grid > li:last-child:nth-child(odd) {
+      grid-column: span 2;
+    }
+
+    /* The last two, when two are left over. */
+    .vf-grid-centred .vf-grid > li:nth-last-child(2):nth-child(3n + 1) {
+      grid-column: 2 / span 2;
+    }
+
+    .vf-grid-centred .vf-grid > li:last-child:nth-child(3n + 2) {
+      grid-column: 4 / span 2;
+    }
+
+    /* The last four as two pairs, when one is left over. */
+    .vf-grid-centred .vf-grid > li:nth-last-child(4):nth-child(3n + 1),
+    .vf-grid-centred .vf-grid > li:nth-last-child(2):nth-child(3n) {
+      grid-column: 2 / span 2;
+    }
+
+    .vf-grid-centred .vf-grid > li:nth-last-child(3):nth-child(3n + 2),
+    .vf-grid-centred .vf-grid > li:last-child:nth-child(3n + 1) {
+      grid-column: 4 / span 2;
+    }
+
+    /* One saint alone stands in the middle. */
+    .vf-grid-centred .vf-grid > li:first-child:last-child {
+      grid-column: 3 / span 2;
+    }
   }
 
   /* ---------- Collection cards ----------
@@ -1426,12 +1544,14 @@
   }
 
   .vf-entry-title {
-    font-size: var(--fs-card-title);
+    /* An ordinary word stays whole in the largest text on a narrow phone. */
+    font-size: min(var(--fs-card-title), 9vw);
     line-height: 1.2;
     /* A long word breaks only if it could not otherwise fit the card at all. */
     overflow-wrap: break-word;
     hyphens: manual;
-    text-wrap: pretty;
+    /* Never one word alone on the last line: the lines of a name stay even. */
+    text-wrap: balance;
   }
 
   .vf-entry-link {
@@ -1462,7 +1582,7 @@
   .vf-entry-meta {
     margin-top: 0.375rem;
     font-family: var(--font-sans);
-    font-size: var(--fs-meta);
+    font-size: min(var(--fs-meta), 7vw);
     line-height: var(--lh-meta);
     color: var(--ink-faint);
     overflow-wrap: anywhere;
@@ -1476,17 +1596,20 @@
   .vf-entry-theme {
     margin-top: 0.5rem;
     font-family: var(--font-serif);
-    font-size: 1.0625rem;
+    font-size: min(1.0625rem, 8.5vw);
     font-style: italic;
     font-weight: 500;
-    line-height: 1.4;
+    /* A line of it is a line of description, so a neighbour's longer one is room
+       for one more line of text and not a gap. */
+    line-height: 1.54;
     color: var(--ink-soft);
   }
 
+  /* Stays under the card's title, whose size is capped on a phone with enlarged text. */
   .vf-entry-summary {
     margin-top: 0.625rem;
     font-family: var(--font-serif);
-    font-size: 1.125rem;
+    font-size: min(1.125rem, 9vw);
     font-weight: 500;
     line-height: 1.45;
     color: var(--ink-soft);
@@ -1499,11 +1622,66 @@
     overflow: hidden;
   }
 
+  /* In a row of cards the tallest sets the height, and how a neighbour's title
+     really wraps cannot be known from here. So a description in a row takes the room
+     its card has left, and its clamp follows that room a whole line at a time, so it
+     is never cut short above blank space. `--clamp` is the least it gets, a line being
+     1.125rem at 1.45. One column has no neighbours, and the plain clamp stands there. */
+  @media (min-width: 42.25rem) {
+    @supports (container-type: size) {
+      .vf-entry-fit {
+        flex: 1 1 0;
+        min-height: calc(var(--clamp) * 1.63125rem);
+        container: vf-fit / size;
+      }
+
+      .vf-entry-fit > .vf-clamp {
+        -webkit-line-clamp: 2;
+      }
+
+      @container vf-fit (min-height: 4.864rem) {
+        .vf-entry-fit > .vf-clamp {
+          -webkit-line-clamp: 3;
+        }
+      }
+
+      @container vf-fit (min-height: 6.495rem) {
+        .vf-entry-fit > .vf-clamp {
+          -webkit-line-clamp: 4;
+        }
+      }
+
+      @container vf-fit (min-height: 8.126rem) {
+        .vf-entry-fit > .vf-clamp {
+          -webkit-line-clamp: 5;
+        }
+      }
+
+      @container vf-fit (min-height: 9.758rem) {
+        .vf-entry-fit > .vf-clamp {
+          -webkit-line-clamp: 6;
+        }
+      }
+
+      @container vf-fit (min-height: 11.389rem) {
+        .vf-entry-fit > .vf-clamp {
+          -webkit-line-clamp: 7;
+        }
+      }
+
+      @container vf-fit (min-height: 13.02rem) {
+        .vf-entry-fit > .vf-clamp {
+          -webkit-line-clamp: 8;
+        }
+      }
+    }
+  }
+
   .vf-entry-action {
     margin-top: auto;
     padding-top: 0.875rem;
     font-family: var(--font-sans);
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-weight: 500;
     line-height: 1.4;
     letter-spacing: 0.02em;
@@ -1528,7 +1706,8 @@
   }
 
   .vf-detail-title {
-    font-size: var(--fs-page-title);
+    /* As a list page's title: an ordinary word stays whole on a phone with enlarged text. */
+    font-size: min(var(--fs-page-title), 11.5vw);
     overflow-wrap: break-word;
     text-wrap: balance;
   }
@@ -1560,7 +1739,6 @@
     font-family: var(--font-serif);
     font-size: var(--fs-lede);
     font-weight: 500;
-    font-variant-numeric: lining-nums;
     line-height: 1.5;
     color: var(--ink-soft);
     text-wrap: pretty;
@@ -1570,13 +1748,11 @@
     margin-top: 1.25rem;
   }
 
-  /* Reading text: the book column. Full-height figures, because Cormorant's
-     old-style 1 is a small capital I: "May I in 1955", "Matthew 28:I9". */
+  /* Reading text: the book column. */
   .vf-reading {
     font-family: var(--font-serif);
     font-size: var(--fs-body);
     font-weight: 500;
-    font-variant-numeric: lining-nums;
     line-height: var(--lh-body);
     color: var(--ink);
     text-wrap: pretty;
@@ -1629,9 +1805,10 @@
     letter-spacing: -0.01em;
   }
 
+  /* No smaller than the step titles it can head. */
   .vf-subhead-sm {
     margin-bottom: 0.25rem;
-    font-size: 1.3125rem;
+    font-size: min(1.375rem, 10vw);
     line-height: 1.25;
   }
 
@@ -1814,7 +1991,7 @@
   .vf-facts dd {
     margin: 0;
     font-family: var(--font-serif);
-    font-size: 1.1875rem;
+    font-size: min(1.1875rem, 10vw);
     font-weight: 500;
     line-height: 1.4;
     color: var(--ink);
@@ -1845,7 +2022,6 @@
   }
 
   .vf-detail-header .vf-facts dd {
-    font-variant-numeric: lining-nums;
     text-wrap: pretty;
     overflow-wrap: break-word;
   }
@@ -1945,14 +2121,16 @@
     border-radius: var(--radius-control);
   }
 
+  /* The side padding stops growing with enlarged text on a narrow screen, where
+     every pixel of it would be taken from the words. */
   .vf-disclosure-trigger {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: min(1rem, 4vw);
     width: 100%;
     min-height: 3.25rem;
-    padding: 0.625rem 1.125rem;
+    padding: 0.625rem min(1.125rem, 5vw);
     text-align: left;
     border-radius: inherit;
     transition: background-color 160ms ease;
@@ -1977,7 +2155,7 @@
   .vf-disclosure-title {
     display: block;
     font-family: var(--font-display);
-    font-size: 1.3125rem;
+    font-size: min(1.3125rem, 10vw);
     font-weight: 500;
     line-height: 1.25;
     color: var(--ink);
@@ -1995,7 +2173,7 @@
 
   /* Expanded prayer text keeps full prayer size. */
   .vf-disclosure-body {
-    padding: 0.875rem 1.125rem 1.125rem;
+    padding: 0.875rem min(1.125rem, 5vw) 1.125rem;
     border-top: 1px solid var(--rule);
     font-family: var(--font-serif);
     font-size: var(--fs-prayer);
@@ -2071,7 +2249,7 @@
   }
 
   .vf-chip-count {
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-weight: 400;
     font-variant-numeric: tabular-nums;
     opacity: 0.72;
@@ -2088,6 +2266,21 @@
     border: 1px solid var(--rule-strong);
     border-radius: var(--radius-control);
     box-shadow: 0 18px 40px -24px rgba(10, 10, 10, 0.45);
+  }
+
+  /* A filter's open panel: as tall as its options, until the window runs out. What it
+     leaves is room for the header, its trigger and a gutter, so panel and trigger are
+     both in view together once it has brought itself up. A very short window, or a
+     short one at enlarged text, cannot spare that and still show a few rows. There the
+     trigger goes part way under the header, and the panel takes the room from where the
+     page's scroll-padding and its own scroll-margin put its top down to the foot of the
+     window, and never more, so all of it can be seen. */
+  .vf-filter-panel {
+    max-height: max(
+      min(11rem, calc(100dvh - var(--header-h) - 2rem)),
+      calc(100dvh - var(--header-h) - 4.5rem)
+    );
+    scroll-margin-block: 0.75rem;
   }
 
   .vf-menu-item {
@@ -2144,11 +2337,10 @@
     line-height: 1.1;
     text-align: right;
     color: var(--ink-faint);
-    font-variant-numeric: lining-nums;
   }
 
   .vf-step-title {
-    font-size: 1.375rem;
+    font-size: min(1.375rem, 10vw);
     line-height: 1.25;
   }
 
@@ -2206,17 +2398,23 @@
     gap: 0.5rem;
   }
 
-  /* A sequence inside a step: the list's own numbers, smaller than the step's. */
+  /* A sequence inside a step: the list's own numbers, smaller than the step's. Its
+     margin stops growing with enlarged text on a narrow screen, where every pixel of it
+     would be taken from the words, and its numbers stop with it, so that they still fit. */
   .vf-reading ol.vf-substeps {
-    padding-left: 1.5em;
+    padding-left: min(1.5em, 9vw);
   }
 
   .vf-reading ol.vf-substeps > li + li {
     margin-top: 0.625em;
   }
 
+  /* A list's numbers do not inherit the page's figures: browsers set them tabular, and
+     Cormorant's old-style 11 would read as two capital I's. */
   .vf-substeps > li::marker {
     color: var(--ink-faint);
+    font-size: min(1em, 6vw);
+    font-variant-numeric: lining-nums tabular-nums;
   }
 
   .vf-substeps > li > * + * {
@@ -2233,7 +2431,7 @@
   /* Words to say aloud, set apart from the instructions around them: indented, in
      prayer type. The indent and the rule carry it, not colour. */
   .vf-spoken {
-    padding-left: 1rem;
+    padding-left: min(1rem, 5vw);
     border-left: 2px solid var(--rule-strong);
   }
 
@@ -2288,8 +2486,33 @@
     margin-top: var(--space-close);
   }
 
+  /* The four sets across while their names fit, two by two below that, and one above
+     another when enlarged text leaves no room for two; never three and one. The column
+     is asked in rem, so the answer follows the reader's text size, as a window's pixels
+     would not. */
+  .vf-mysteries {
+    container-type: inline-size;
+  }
+
   .vf-mysteries-picker {
+    grid-template-columns: minmax(0, 1fr);
     margin-top: 0.625rem;
+  }
+
+  .vf-mysteries-picker .vf-chip {
+    padding-inline: 0.5rem;
+  }
+
+  @container (min-width: 11rem) {
+    .vf-mysteries-picker {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @container (min-width: 30rem) {
+    .vf-mysteries-picker {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
   }
 
   .vf-mysteries-picker + div {
@@ -2298,14 +2521,6 @@
 
   .vf-mysteries .vf-steps {
     margin-top: var(--space-close);
-  }
-
-  /* Full-height figures, as in reading text: "Day 1", "Stations 1 to 3", "Luke 1:26". */
-  .vf-step-title,
-  .vf-substep-title,
-  .vf-disclosure-title,
-  .vf-mystery-facts {
-    font-variant-numeric: lining-nums;
   }
 
   .vf-mystery-facts {
@@ -2318,9 +2533,9 @@
 
   /* ---------- Prayer text ---------- */
   .vf-prayer {
-    /* The margin a marked line hangs in: wide enough for "V." and "10.", and no
+    /* The margin a marked line hangs in: wide enough for "V.", "10." and "Ant.", and no
        wider than a narrow screen can spare when the text is enlarged. */
-    --vf-prayer-hang: min(2.125rem, 15vw);
+    --vf-prayer-hang: min(2.125rem, 11vw);
     max-width: var(--measure-prayer);
     font-family: var(--font-serif);
     font-size: var(--fs-prayer);
@@ -2335,11 +2550,13 @@
     margin-top: 1em;
   }
 
-  /* A wrapped line hangs, so each verse still reads as one line. */
+  /* A wrapped line hangs, so each verse still reads as one line. On a narrow screen
+     with enlarged text the hang keeps to what the width can spare, so that a word
+     like "communion" still fits on the line. */
   .vf-prayer-line {
     display: block;
-    padding-left: 1.25em;
-    text-indent: -1.25em;
+    padding-left: min(1.25em, 7vw);
+    text-indent: calc(-1 * min(1.25em, 7vw));
   }
 
   /* A paragraph of prayer, not a verse: it wraps flush. */
@@ -2364,14 +2581,15 @@
     text-indent: 0;
   }
 
-  /* `pre` keeps the space inside the marker, so copied text stays "V. Lord". */
+  /* `pre` keeps the space inside the marker, so copied text stays "V. Lord". It fills the
+     margin and may outgrow it: a word never runs into a marker wider than the margin. */
   .vf-prayer-marker {
     display: inline-block;
-    width: var(--vf-prayer-hang);
+    min-width: var(--vf-prayer-hang);
     white-space: pre;
     text-indent: 0;
     font-family: var(--font-sans);
-    font-size: 0.8125rem;
+    font-size: min(0.8125rem, 5vw);
     font-style: normal;
     font-weight: 600;
     color: var(--ink-faint);
@@ -2501,6 +2719,23 @@
     border-radius: 2px;
   }
 
+  /* The punctuation around a name belongs to the sentence: it sits in the button so that
+     no line starts with it, in the sentence's colour and not underlined. The chevron and
+     what follows it stay on one line. */
+  .vf-inline-prayer-end {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  .vf-inline-prayer-mark {
+    display: inline-block;
+    color: var(--ink);
+  }
+
+  .vf-prayer-response .vf-inline-prayer-mark {
+    color: inherit;
+  }
+
   .vf-inline-prayer-toggle:focus-visible {
     outline-offset: 1px;
   }
@@ -2534,7 +2769,7 @@
     justify-content: space-between;
     gap: 0.5rem 1rem;
     min-height: 3.25rem;
-    padding: 0.625rem 1.125rem;
+    padding: 0.625rem min(1.125rem, 5vw);
   }
 
   /* ---------- Parish directory ----------
@@ -2547,7 +2782,6 @@
     font-size: min(1.125rem, 8.5vw);
     font-style: normal;
     font-weight: 500;
-    font-variant-numeric: lining-nums;
     line-height: 1.45;
     text-align: left;
     color: var(--ink-soft);
@@ -2568,29 +2802,27 @@
     border-block: 1px solid var(--rule);
   }
 
-  /* An ordinary word stays whole even in the largest text on a narrow phone. */
   .vf-parish-name {
-    font-variant-numeric: lining-nums;
     text-wrap: balance;
   }
 
-  .vf-entry-title.vf-parish-name {
-    font-size: min(var(--fs-card-title), 10.5vw);
-  }
-
-  .vf-detail-title.vf-parish-name {
-    font-size: min(var(--fs-page-title), 13vw);
-  }
-
   /* Get directions stays whole and inside its card in the largest text on the
-     narrowest phone, where the card is narrower than the word at its full size. */
+     narrowest phone, where the card is narrower than the word at its full size: the
+     type is capped by the width, and the word runs into the padding before it breaks. */
   .vf-entry-action > .vf-btn,
   .vf-detail-actions > .vf-btn {
     max-width: 100%;
     gap: min(0.5rem, 2vw);
     padding-inline: min(0.875rem, 4.4vw);
-    font-size: min(0.75rem, 4.6vw);
-    overflow-wrap: anywhere;
+    font-size: min(0.875rem, 4.6vw);
+  }
+
+  /* Share and Favorite stand in wrappers of their own, at the size of any button's
+     words. At enlarged text on a phone a long word goes under its icon rather than push
+     the page sideways: "Compartilhar" at 250% on a 320 screen. A row this wide holds
+     every button whole at ordinary sizes, so nothing moves there. */
+  .vf-detail-actions .vf-btn {
+    flex-wrap: wrap;
   }
 
   /* Cormorant has no Hangul, kana or Han, and a browser left to itself sets them
@@ -2653,8 +2885,7 @@
     max-width: 100%;
     gap: min(0.5rem, 2vw);
     padding-inline: min(1.25rem, 4.4vw);
-    font-size: min(0.8125rem, 5vw);
-    overflow-wrap: anywhere;
+    font-size: min(0.875rem, 5vw);
   }
 
   .vf-locator-actions .vf-menu {
@@ -2690,7 +2921,6 @@
     background: var(--surface-card);
     border: 1px solid var(--rule-strong);
     border-radius: var(--radius-control);
-    font-variant-numeric: lining-nums;
   }
 
   /* ---------- The homepage ----------
@@ -2706,22 +2936,28 @@
     text-align: center;
   }
 
+  /* Capped, like the title under it, for the longest word any language has here
+     ("Pananampalataya") on a phone with enlarged text. */
   .vf-home-tagline {
     font-family: var(--font-display);
-    font-size: clamp(1.5rem, 1.4rem + 0.5vw, 1.875rem);
+    font-size: min(clamp(1.5rem, 1.4rem + 0.5vw, 1.875rem), 13vw);
     font-style: italic;
     font-weight: 500;
     line-height: 1.2;
     color: var(--ink-soft);
+    overflow-wrap: break-word;
   }
 
   .vf-home-hero .vf-rule {
     margin: 0.75rem auto;
   }
 
+  /* Capped on a phone with enlarged text, where the longest word any language has
+     here ("apprendre,") would otherwise run off the screen. */
   .vf-home-title {
-    font-size: var(--fs-display);
+    font-size: min(var(--fs-display), 18.5vw);
     line-height: 1.06;
+    overflow-wrap: break-word;
     text-wrap: balance;
   }
 
@@ -2752,15 +2988,17 @@
     border-top: 1px solid var(--rule);
   }
 
+  /* Enlarged text on a phone caps the size and the gap to the arrow, so that a name
+     wraps between its words. */
   .vf-link-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: min(1rem, 3vw);
     min-height: 3.25rem;
     padding-block: 0.5rem;
     font-family: var(--font-display);
-    font-size: 1.3125rem;
+    font-size: min(1.3125rem, 9.5vw);
     font-weight: 500;
     line-height: 1.25;
     color: var(--ink);
@@ -2790,7 +3028,7 @@
   .vf-link-rows--compact .vf-link-row {
     min-height: 2.8125rem;
     padding-block: 0.375rem;
-    font-size: 1.1875rem;
+    font-size: min(1.1875rem, 8.5vw);
   }
 
   /* I. Begin here: the welcome beside the first five links. */
@@ -2799,12 +3037,13 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* Side padding as on a card: enlarged text on a phone keeps it small. */
   .vf-home-begin-intro {
-    padding: 1.5rem 1.375rem;
+    padding: 1.5rem min(1.375rem, 6vw);
   }
 
   .vf-home-begin-links {
-    padding: 0.375rem 1.375rem;
+    padding: 0.375rem min(1.375rem, 6vw);
     border-top: 1px solid var(--rule);
   }
 
@@ -2883,7 +3122,7 @@
   .vf-home-part {
     display: flex;
     flex-direction: column;
-    padding: 1.25rem 1.375rem 1.375rem;
+    padding: 1.25rem min(1.375rem, 6vw) 1.375rem;
   }
 
   .vf-home-part > .vf-subhead {
@@ -2927,7 +3166,7 @@
   }
 
   .vf-home-part .vf-facts dd {
-    font-size: 1.125rem;
+    font-size: min(1.125rem, 9.5vw);
     overflow-wrap: break-word;
   }
 
@@ -3102,7 +3341,7 @@
   }
 
   .vf-home-panel {
-    padding: 1.25rem 1.375rem 1.375rem;
+    padding: 1.25rem min(1.375rem, 6vw) 1.375rem;
   }
 
   @container vf-home (min-width: 44rem) {
@@ -3131,8 +3370,10 @@
     text-align: center;
   }
 
+  /* Capped by the width as a section title is, so "Connexion" and "Forgot password" stay
+     on the page at enlarged text on a phone. Nothing changes from 320 wide at 100%. */
   .vf-account-title {
-    font-size: var(--fs-section);
+    font-size: min(var(--fs-section), 10.5vw);
     text-wrap: balance;
   }
 
@@ -3300,7 +3541,7 @@
   }
 
   html[data-theme="dark"] .vf-input:hover {
-    border-color: rgba(251, 248, 241, 0.42);
+    border-color: rgba(251, 248, 241, 0.72);
   }
 
   html[data-theme="dark"] .vf-input:focus {
@@ -3342,6 +3583,8 @@
   .vf-results,
   .vf-list-controls .vf-fineprint {
     overflow-wrap: anywhere;
+    /* As a card's details are, so a long name typed stays whole at enlarged text. */
+    font-size: min(0.875rem, 7vw);
   }
 
   .vf-results {
@@ -3398,7 +3641,12 @@
   }
 
   .vf-result-title {
-    font-size: 1.3125rem;
+    /* An ordinary word stays whole in the largest text on a narrow phone, even
+       marked, and a marked word is the widest there is. The row is about 80vw wide
+       there, which at this size holds 8.8em: "Dreifaltigkeitskapelle" is 8.4em.
+       About 1 production parish in 3,300 has a word wider than that, and only that
+       word breaks. */
+    font-size: min(1.3125rem, 9vw);
     line-height: 1.25;
     overflow-wrap: break-word;
     text-wrap: pretty;
@@ -3413,8 +3661,10 @@
   }
 
   /* The header search's suggestion panel: its list scrolls, and the way to the
-     full results stays in view beneath it. */
+     full results stays in view beneath it. Its gutter gives way on a narrow phone
+     at enlarged text, where a long word needs the room. */
   .vf-suggest {
+    --suggest-gutter: min(1rem, 5vw);
     position: absolute;
     top: 100%;
     right: 0;
@@ -3424,7 +3674,8 @@
     width: 28rem;
     max-width: calc(100vw - 2rem);
     max-height: calc(100dvh - var(--header-h) - 3.5rem);
-    margin-top: 0.375rem;
+    /* Clear of the crucifix's foot, which it can reach beside a long account link. */
+    margin-top: 0.6875rem;
     padding: 0;
     overflow: hidden;
   }
@@ -3433,6 +3684,7 @@
     left: 0;
     width: auto;
     max-width: none;
+    margin-top: 0.375rem;
   }
 
   .vf-suggest-scroll {
@@ -3451,13 +3703,13 @@
   }
 
   .vf-suggest-label {
-    padding: 0.5rem 1rem 0.125rem;
+    padding: 0.5rem var(--suggest-gutter) 0.125rem;
   }
 
   .vf-suggest-option {
     display: block;
     width: 100%;
-    padding: 0.4375rem 1rem 0.5rem;
+    padding: 0.4375rem var(--suggest-gutter) 0.5rem;
     text-align: left;
     cursor: pointer;
     transition: background-color 120ms ease;
@@ -3471,7 +3723,8 @@
   .vf-suggest-title {
     display: block;
     font-family: var(--font-display);
-    font-size: 1.1875rem;
+    /* The same room as a row of results: see .vf-result-title. */
+    font-size: min(1.1875rem, 9vw);
     font-weight: 500;
     line-height: 1.25;
     color: var(--ink);
@@ -3488,7 +3741,7 @@
   }
 
   .vf-suggest-status {
-    padding: 0.75rem 1rem;
+    padding: 0.75rem var(--suggest-gutter);
     font-family: var(--font-sans);
     font-size: 0.875rem;
     line-height: 1.45;
@@ -3504,7 +3757,7 @@
   .vf-suggest-all {
     display: block;
     width: 100%;
-    padding: 0.5625rem 1rem;
+    padding: 0.5625rem var(--suggest-gutter);
     text-align: left;
     overflow-wrap: anywhere;
     cursor: pointer;
@@ -3516,14 +3769,16 @@
 
   .vf-suggest-hint {
     display: none;
-    padding: 0 1rem 0.5rem;
+    padding: 0 var(--suggest-gutter) 0.5rem;
     font-family: var(--font-sans);
     font-size: 0.8125rem;
     line-height: 1.4;
     color: var(--ink-faint);
   }
 
-  @media (min-width: 900px) and (min-height: 32rem) {
+  /* Where there are keys to press, whichever of the header's layouts is showing. The
+     same query decides whether they are spoken, in HeaderSearchClient. */
+  @media (pointer: fine) and (min-height: 32rem) {
     .vf-suggest-hint {
       display: block;
     }
@@ -3537,24 +3792,39 @@
     cursor: pointer;
   }
 
-  /* The field beside the masthead's centred wordmark: it never reaches the mark,
+  /* The field beside the masthead's centred wordmark. It takes what the account
+     link leaves of the masthead's outer column, so it cannot reach the mark,
      whatever the window or the reader's text size. */
   .vf-header-search-field {
-    width: min(20rem, calc(50vw - 14rem));
-    min-width: 8rem;
+    flex: 0 1 20rem;
+    min-width: 0;
   }
 
-  /* The phone's field, in its row under the bar. */
+  /* It stays within the height of the mark beside it, at any text size, so opening
+     it moves nothing: the mark is 60px tall, or 1.5rem where that is more, and the
+     field's one line is never taller. */
+  .vf-header-search-field .vf-header-search {
+    min-height: 41px;
+    padding-block: 0;
+  }
+
+  .vf-header-search-field .vf-header-search-input {
+    align-self: stretch;
+    padding-block: 0;
+    line-height: 1.2;
+  }
+
+  /* The phone's field, in its row under the bar. Its gutter is the page's. */
   .vf-header-search-row {
     position: absolute;
     inset-inline: 0;
     top: 100%;
-    padding: 0.625rem 1rem;
+    padding: 0.625rem min(1rem, 5vw);
     background: var(--paper-bright);
     border-bottom: 1px solid var(--rule-strong);
   }
 
-  @media (min-width: 40rem) {
+  @media (min-width: 640px) {
     .vf-header-search-row {
       padding-inline: 1.5rem;
     }
@@ -3563,9 +3833,10 @@
   /* ---------- Dialogs ---------- */
   .vf-modal {
     position: relative;
-    max-height: calc(100dvh - 2rem);
+    max-height: calc(100dvh - 2 * min(1rem, 5vw));
     overflow-y: auto;
-    padding: 1.5rem;
+    /* As the backdrop's does: "Create account" stays whole at 300% text on a phone. */
+    padding: 1.5rem min(1.5rem, 7.5vw);
     border-color: var(--rule-strong);
     border-radius: var(--radius-control);
   }
@@ -3658,6 +3929,26 @@
 
   .vf-message .vf-page-hero {
     padding-bottom: 1.25rem;
+  }
+
+  /* The way back. Enlarged text on a phone caps its padding and, on the narrowest
+     screens, its size, so that the longest word of a label ("Kirchenlehrern") fits
+     inside. A longer one breaks rather than push the page sideways. */
+  .vf-message > .vf-btn {
+    max-width: 100%;
+    padding-inline: min(1.25rem, 6.25vw);
+    font-size: min(0.875rem, 6.5vw);
+  }
+
+  /* Hangul has to be told to keep its words whole. Only Hangul: in Safari this also lets
+     a line break after the apostrophe of "l'Église". */
+  .vf-message > .vf-btn:lang(ko) {
+    word-break: keep-all;
+  }
+
+  /* The room the button's own gap gives its parts, now the arrow runs with the words. */
+  .vf-message > .vf-btn [aria-hidden="true"] {
+    margin-inline-end: 0.3em;
   }
 
   /* ---------- The profile ---------- */
@@ -4178,20 +4469,18 @@
     }
   }
 
+  /* Side by side only while each field has room for its longest value. The width is
+     in rem, so enlarged text stacks them. */
   .vf-calendar-controls {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
     gap: var(--space-close) 1rem;
   }
 
-  @media (min-width: 30rem) {
-    .vf-calendar-controls {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
   /* A date field's own controls give it a wide minimum, which on a phone would
-     push the whole page sideways unless the field is told it may shrink. */
+     push the whole page sideways unless the field is told it may shrink. A select
+     cannot wrap its value, so on a phone with enlarged text the type stops growing
+     at the size where the longest rite still fits. */
   .vf-calendar-controls .vf-input {
     display: block;
     min-width: 0;
@@ -4199,6 +4488,7 @@
     min-height: var(--control-h);
     height: auto;
     padding-inline: min(0.875rem, 3vw);
+    font-size: min(1rem, 7.4vw);
     appearance: none;
     -webkit-appearance: none;
   }
@@ -4209,6 +4499,16 @@
     background-repeat: no-repeat;
     background-position: right min(0.875rem, 3vw) center;
     background-size: 0.75rem;
+  }
+
+  /* The chevron is the only sign the field opens. An image cannot take the text's
+     colour, so the dark theme has its own: --ink-faint, written out. */
+  html[data-theme="dark"] .vf-calendar-controls select.vf-input {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' stroke='%23b9b4a8' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  }
+
+  .vf-calendar-date-hint:not(:empty) {
+    margin-top: 0.25rem;
   }
 
   .vf-calendar-result {
@@ -4251,17 +4551,8 @@
     margin-top: var(--space-related);
   }
 
-  .vf-calendar-links-title {
-    margin-bottom: 0.5rem;
-  }
-
-  .vf-calendar-links-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
+  .vf-calendar-note {
+    margin-top: var(--space-close);
   }
 
   .vf-calendar-rite-note {
@@ -4309,7 +4600,6 @@
   html[data-theme="dark"] .vf-nav-link[aria-current="page"] {
     background: transparent;
     border-color: transparent;
-    text-decoration-color: var(--accent-purple-link);
   }
 
   html[data-theme="dark"] .vf-menu {
@@ -4322,10 +4612,38 @@
     color: var(--text-main);
   }
 
+  /* On a charcoal panel the blue alone is under 3:1, so the selected row also has a
+     light edge. It is the same selected row in the phone menu. */
   html[data-theme="dark"] .vf-menu-item[aria-current],
   html[data-theme="dark"] .vf-menu-item[aria-selected="true"],
-  html[data-theme="dark"] .vf-menu-item-active {
+  html[data-theme="dark"] .vf-menu-item-active,
+  html[data-theme="dark"] .vf-mobile-menu-link[aria-current] {
     color: #ffffff;
+    box-shadow: inset 0 0 0 1px var(--link);
+  }
+
+  /* Forced colours take the fill and the edge away and leave a chosen row or control
+     looking like its neighbours, so there it takes the system's own selected colours,
+     whatever the theme or the pointer would otherwise ask of it. forced-color-adjust
+     has to go with them: the browser otherwise paints a plate of the page's colour
+     behind the words, and selected text on that plate cannot be read. Which also
+     leaves the theme's edge and focus ring unforced, so those are set here too. */
+  @media (forced-colors: active) {
+    .vf-menu-item[aria-current],
+    .vf-menu-item[aria-selected="true"],
+    .vf-menu-item-active,
+    .vf-mobile-menu-link[aria-current],
+    .vf-filter-active,
+    .vf-btn-ghost[aria-pressed="true"],
+    .vf-btn-ghost[aria-current="true"],
+    .vf-btn-ghost[aria-current="page"] {
+      forced-color-adjust: none;
+      background: Highlight !important;
+      color: HighlightText !important;
+      border-color: Highlight !important;
+      box-shadow: none !important;
+      outline-color: CanvasText;
+    }
   }
 
   /* ================================================================
@@ -4337,18 +4655,33 @@
   .vf-history {
     /* The card surface as a solid color, for what must hide the rows beneath it. */
     --sheet: #fffdf7;
+    /* The slider's thumb and the track behind it. */
+    --slider-fill: var(--accent-fill);
     --zone-x: clamp(0.875rem, 2.2vw, 1.25rem);
     /* The opening stays short, so the events appear on the first screen. */
     margin-top: -0.75rem;
     /* Cormorant's old-style 1 reads as a small capital I: "1,529" as "I,529", "1st"
        as "Ist". On a page this full of dates, every figure stands at full height. */
     font-variant-numeric: lining-nums;
+    /* The slider keeps its own place when the panel above it changes height. The
+       browser's own correction, in those that have one, would come on top of that. */
+    overflow-anchor: none;
   }
 
   html[data-theme="dark"] .vf-history {
     --sheet: #363636;
+    /* The buttons' blue is only 2.4:1 against this panel, too faint for the one mark
+       that says where the slider stands. */
+    --slider-fill: var(--focus-ring);
   }
 
+  /* The light theme's fade would leave this just under 4.5:1 on the charcoal, and a
+     cell under the pointer has less to spare still. */
+  html[data-theme="dark"] .vf-history .vf-history-era-count {
+    opacity: 0.9;
+  }
+
+  html[data-theme="dark"] .vf-history a.vf-history-era:hover .vf-history-era-count,
   html[data-theme="dark"] .vf-history .vf-filter-active .vf-history-era-count {
     opacity: 1;
   }
@@ -4372,11 +4705,47 @@
   /* ---------- The control panel ---------- */
   .vf-history-panel {
     /* Above the list, because its menus open over it. */
+    position: relative;
     z-index: 5;
     container: history-panel / inline-size;
     background: var(--surface-card);
     border: 1px solid var(--rule);
     border-radius: var(--radius-control);
+  }
+
+  /* Two boxes that read as one: the year sits under the rest, its top edge the rule
+     between them, and the rest's menus open over it. */
+  .vf-history-find {
+    z-index: 6;
+    border-bottom: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+
+  .vf-history-when {
+    border-top-right-radius: 0;
+    border-top-left-radius: 0;
+  }
+
+  /* The slider in use: it stays in view under the header, down the whole list, and
+     the list moves below it. Sticky, so nothing shifts when it starts or stops. */
+  .vf-history-docked {
+    position: sticky;
+    top: var(--header-h);
+    background: var(--sheet);
+    box-shadow: var(--card-lift);
+  }
+
+  /* The readout names the era meanwhile, and the room is the list's. */
+  .vf-history:has(.vf-history-docked) .vf-timeline-era-head {
+    position: static;
+  }
+
+  /* The box's own controls sit right under the header, closer than the page's rule for
+     what counts as clear of it: the page jumps a few pixels as the focus moves among
+     them. This takes back the rule's one rem. */
+  .vf-history-docked :is(input, button) {
+    scroll-margin-top: -1rem;
   }
 
   .vf-history-zone {
@@ -4457,6 +4826,13 @@
     list-style: none;
   }
 
+  /* A long word and its count: where the two will not fit, the count drops below
+     rather than run into the word. */
+  .vf-history-menu .vf-menu-item {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
   /* Two labelled choices, joined: both are always in view and the blue one is
      the order in effect. */
   .vf-history-order {
@@ -4506,6 +4882,19 @@
   @container history-panel (max-width: 20rem) {
     .vf-history-zone {
       padding-inline: 0.5rem;
+    }
+
+    .vf-history-menu > .vf-menu {
+      width: calc(100cqw - 1rem);
+      max-width: none;
+    }
+
+    .vf-history-menu .vf-menu-item {
+      padding-inline: 0.375rem;
+    }
+
+    .vf-history-era {
+      column-gap: 0.25rem;
     }
 
     .vf-history-order {
@@ -4569,7 +4958,7 @@
   .vf-history-era-name {
     grid-column: 1 / -1;
     font-family: var(--font-display);
-    font-size: 1.1875rem;
+    font-size: min(1.1875rem, 9vw);
     font-weight: 600;
     line-height: 1.15;
   }
@@ -4577,18 +4966,17 @@
   .vf-history-era-years,
   .vf-history-era-count {
     font-family: var(--font-sans);
+    font-size: 0.875rem;
     line-height: 1.35;
     font-variant-numeric: tabular-nums;
   }
 
   .vf-history-era-years {
-    font-size: 0.8125rem;
     color: var(--ink-faint);
   }
 
   /* The count is the quietest thing in the cell. */
   .vf-history-era-count {
-    font-size: 0.75rem;
     font-weight: 400;
     color: var(--ink-faint);
     opacity: 0.82;
@@ -4691,12 +5079,26 @@
 
   .vf-history-readout {
     grid-area: readout;
+    display: grid;
+    align-items: center;
     min-width: 0;
     font-family: var(--font-display);
     font-size: 1.125rem;
     font-weight: 500;
     line-height: 1.2;
     color: var(--ink-soft);
+  }
+
+  /* Every era's name sits unseen in the one cell with the name showing, which gives
+     the cell the height of the longest. Nothing moves, under the thumb or down the
+     list below, as the name changes and wraps. */
+  .vf-history-readout > * {
+    grid-area: 1 / 1;
+    min-width: 0;
+  }
+
+  .vf-history-readout-room {
+    visibility: hidden;
   }
 
   .vf-history-readout-year {
@@ -4738,6 +5140,22 @@
         "readout"
         "slider"
         "goto";
+    }
+
+    /* A short name's spare line goes above it, so that it stays beside the slider. */
+    .vf-history-readout {
+      align-items: end;
+    }
+  }
+
+  /* Two lines at most for the longest era, so a short name leaves no hole in the box. */
+  @container history-panel (max-width: 21rem) {
+    .vf-history-readout {
+      font-size: 1rem;
+    }
+
+    .vf-history-readout-year {
+      font-size: 1.375rem;
     }
   }
 
@@ -4786,9 +5204,30 @@
     touch-action: pan-y;
   }
 
+  /* The focus ring goes round the thumb. Round the whole input, it would cut through
+     the years printed under the track. */
   .vf-history-slider:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
+    outline: none;
+  }
+
+  .vf-history-slider:focus-visible::-webkit-slider-thumb {
+    box-shadow:
+      0 0 0 2px var(--paper-bright),
+      0 0 0 4px var(--focus-ring);
+  }
+
+  .vf-history-slider:focus-visible::-moz-range-thumb {
+    box-shadow:
+      0 0 0 2px var(--paper-bright),
+      0 0 0 4px var(--focus-ring);
+  }
+
+  /* Forced colors take away shadows, so there the outline has to come back. */
+  @media (forced-colors: active) {
+    .vf-history-slider:focus-visible {
+      outline: 2px solid Highlight;
+      outline-offset: 2px;
+    }
   }
 
   .vf-history-slider::-webkit-slider-runnable-track {
@@ -4796,7 +5235,7 @@
     border-radius: 2px;
     background: linear-gradient(
       to right,
-      var(--accent-fill) calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p)),
+      var(--slider-fill) calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p)),
       var(--rule-control) 0
     );
   }
@@ -4810,7 +5249,7 @@
   .vf-history-slider::-moz-range-progress {
     height: 0.1875rem;
     border-radius: 2px;
-    background: var(--accent-fill);
+    background: var(--slider-fill);
   }
 
   .vf-history-slider::-webkit-slider-thumb {
@@ -4819,11 +5258,11 @@
     width: var(--thumb);
     height: var(--thumb);
     margin-top: calc((0.1875rem - var(--thumb)) / 2);
-    background: var(--accent-fill);
+    background: var(--slider-fill);
     border: 3px solid var(--paper-bright);
     border-radius: 50%;
     box-shadow:
-      0 0 0 1px var(--accent-fill),
+      0 0 0 1px var(--slider-fill),
       0 1px 4px rgb(var(--ink-rgb) / 0.3);
     cursor: grab;
   }
@@ -4832,11 +5271,11 @@
     box-sizing: border-box;
     width: var(--thumb);
     height: var(--thumb);
-    background: var(--accent-fill);
+    background: var(--slider-fill);
     border: 3px solid var(--paper-bright);
     border-radius: 50%;
     box-shadow:
-      0 0 0 1px var(--accent-fill),
+      0 0 0 1px var(--slider-fill),
       0 1px 4px rgb(var(--ink-rgb) / 0.3);
     cursor: grab;
   }
@@ -4869,10 +5308,11 @@
 
   .vf-history-anchor {
     position: absolute;
-    top: 0.5625rem;
+    /* Clear of the focus ring when the thumb stands right above a label. */
+    top: 0.6875rem;
     left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p));
     font-family: var(--font-sans);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     line-height: 1.2;
     font-variant-numeric: tabular-nums;
     color: var(--ink-faint);
@@ -4882,10 +5322,10 @@
   .vf-history-anchor::before {
     content: "";
     position: absolute;
-    top: -0.5625rem;
+    top: -0.6875rem;
     left: 50%;
     width: 1px;
-    height: 0.4375rem;
+    height: 0.5rem;
     background: var(--ink-faint);
   }
 
@@ -4980,7 +5420,9 @@
   }
 
   .vf-timeline-era-title {
-    font-size: clamp(1.625rem, 1.5rem + 0.5vw, 1.875rem);
+    /* Capped like a row's title, for "Enlightenment" on a phone with enlarged text, and
+       below the page title's cap, so that an era never outgrows the page. */
+    font-size: min(clamp(1.625rem, 1.5rem + 0.5vw, 1.875rem), 11vw);
     overflow-wrap: break-word;
     text-wrap: balance;
   }
@@ -4995,6 +5437,14 @@
     line-height: var(--lh-meta);
     font-variant-numeric: tabular-nums;
     color: var(--ink-faint);
+  }
+
+  /* A voice's whole phrase ("from 1965 to today"), at the very start of a line that can sit
+     under the era's name. Even at one pixel it would set the line in from the name's edge, so
+     it gives its room back, in ems for a reader who has set a smallest font size. */
+  .vf-timeline-era-meta .vf-sr-inline {
+    letter-spacing: -0.5em;
+    white-space: nowrap;
   }
 
   .vf-timeline-century {
@@ -5015,7 +5465,7 @@
     align-items: center;
     gap: 0.75rem;
     padding-left: var(--tl-title-x);
-    font-size: 1.25rem;
+    font-size: min(1.25rem, 10vw);
     font-style: italic;
     line-height: 1.25;
     color: var(--ink-soft);
@@ -5069,30 +5519,37 @@
     scroll-margin-top: var(--tl-stick);
   }
 
-  .vf-timeline-event {
+  /* Focus scrolls whatever takes it: going back up through an open row, that is a
+     link in its details as much as the row's own summary. */
+  .vf-timeline-event,
+  .vf-timeline-summary,
+  .vf-timeline-body a {
     scroll-margin-top: var(--tl-stick);
   }
 
   /* Where the browser can animate a disclosure's height, a row opens rather than
-     jumps. Everywhere else it simply opens, and Reduce Motion stops the transition. */
-  @supports selector(::details-content) and (interpolate-size: allow-keywords) {
-    .vf-timeline-event {
-      interpolate-size: allow-keywords;
-    }
+     jumps. Everywhere else it simply opens, and so it does under Reduce Motion: the
+     site-wide reset cannot reach ::details-content, so this asks first. */
+  @media (prefers-reduced-motion: no-preference) {
+    @supports selector(::details-content) and (interpolate-size: allow-keywords) {
+      .vf-timeline-event {
+        interpolate-size: allow-keywords;
+      }
 
-    .vf-timeline-event::details-content {
-      block-size: 0;
-      overflow: clip;
-      opacity: 0;
-      transition:
-        block-size 200ms ease,
-        opacity 200ms ease,
-        content-visibility 200ms allow-discrete;
-    }
+      .vf-timeline-event::details-content {
+        block-size: 0;
+        overflow: clip;
+        opacity: 0;
+        transition:
+          block-size 200ms ease,
+          opacity 200ms ease,
+          content-visibility 200ms allow-discrete;
+      }
 
-    .vf-timeline-event[open]::details-content {
-      block-size: auto;
-      opacity: 1;
+      .vf-timeline-event[open]::details-content {
+        block-size: auto;
+        opacity: 1;
+      }
     }
   }
 
@@ -5187,7 +5644,9 @@
     grid-area: title;
     min-width: 0;
     font-family: var(--font-display);
-    font-size: 1.3125rem;
+    /* Capped on a phone with enlarged text, where the longest word in any title
+       ("Premonstratensians") would otherwise break in the middle. */
+    font-size: min(1.3125rem, 9.7vw);
     font-weight: 500;
     line-height: 1.25;
     color: var(--ink);
@@ -5204,7 +5663,7 @@
     grid-area: kind;
     align-self: baseline;
     font-family: var(--font-sans);
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     line-height: var(--lh-meta);
     color: var(--ink-faint);
   }
@@ -5218,10 +5677,11 @@
   .vf-timeline-body {
     padding: 0.125rem 0.75rem 1.125rem calc(var(--tl-title-x) + 0.625rem);
     font-family: var(--font-serif);
-    font-size: 1.1875rem;
+    font-size: min(1.1875rem, 10vw);
     font-weight: 500;
     line-height: 1.5;
     color: var(--ink-soft);
+    overflow-wrap: break-word;
   }
 
   .vf-timeline-body > * {
@@ -5231,7 +5691,7 @@
   .vf-timeline-body h4 {
     margin-top: 0.75rem;
     font-family: var(--font-sans);
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-weight: 600;
     line-height: 1.4;
     letter-spacing: 0;
@@ -5250,7 +5710,7 @@
   .vf-timeline-fact > span {
     margin-right: 0.375rem;
     font-family: var(--font-sans);
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-weight: 600;
     color: var(--ink-faint);
   }
@@ -5292,6 +5752,48 @@
     .vf-timeline-body {
       padding-right: 0;
       padding-left: calc(var(--tl-title-x) + 0.375rem);
+    }
+  }
+
+  /* Below this the longest date and the longest word of a kind no longer fit on one
+     line, and that word would run out of the row. Each gets a line of its own, in
+     the order they are read. */
+  @container history-list (max-width: 18.5rem) {
+    .vf-timeline-summary {
+      grid-template-columns: var(--tl-rail) minmax(0, 1fr) 1.25rem;
+      grid-template-areas:
+        "marker date chevron"
+        "marker title title"
+        "marker kind kind";
+    }
+  }
+
+  /* Text enlarged this far on a phone: a title's words stay whole only with the row's
+     whole width. The rail gives its room up; the markers stay beside the dates. */
+  @container history-list (max-width: 12.5rem) {
+    .vf-timeline-era {
+      padding-inline: 0.25rem;
+    }
+
+    .vf-timeline-century {
+      --tl-title-x: 0rem;
+    }
+
+    .vf-timeline-list > li::before {
+      display: none;
+    }
+
+    .vf-timeline-summary {
+      grid-template-columns: var(--tl-rail) minmax(0, 1fr) 1rem;
+      grid-template-areas:
+        "marker date chevron"
+        "title title title"
+        "kind kind kind";
+      column-gap: 0.25rem;
+    }
+
+    .vf-timeline-body {
+      padding-left: 0;
     }
   }
 
@@ -5346,15 +5848,19 @@
         z-index: 2;
       }
 
+      /* Enough to clear the heading with a row's century label above the row. */
       .vf-timeline-century {
-        --tl-stick: 2.75rem;
+        --tl-stick: 3.5rem;
       }
     }
   }
 
+  /* The side padding gives way on a phone, where "Clear search" and "All of Apostolic
+     Age" need the room to keep their words whole at enlarged text: "Suche zurücksetzen"
+     at 200% on a 320 screen. Only the narrowest phones see less of it at ordinary sizes. */
   .vf-timeline-empty {
     margin-top: var(--space-close);
-    padding: 2rem 1.5rem;
+    padding: 2rem min(1.5rem, 5vw);
     text-align: center;
     background: var(--surface-card);
     border: 1px solid var(--rule);
@@ -5387,17 +5893,15 @@
   }
 
   .vf-history-pager {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 0.375rem;
     margin-top: var(--space-related);
   }
 
-  .vf-history-pager ol {
+  /* The arrows and the numbers wrap together, as words do, so the order on the
+     screen is the one the keyboard goes through them, however enlarged the text. */
+  .vf-history-pager ul {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     justify-content: center;
     gap: 0.375rem;
     margin: 0;
@@ -5410,17 +5914,9 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .vf-history-pager li .vf-chip {
+  /* The numbers: only the arrows, with their words, have a rel. */
+  .vf-history-pager a:not([rel]) {
     padding-inline: 0.5rem;
-  }
-
-  /* Where the row will not hold them all: the numbers on one line, Previous and
-     Next below them, so each stays where the thumb expects it. */
-  @container history-list (max-width: 34rem) {
-    .vf-history-pager ol {
-      order: -1;
-      flex-basis: 100%;
-    }
   }
 
   .vf-history-pager-gap {
@@ -5431,12 +5927,56 @@
     color: var(--ink-faint);
   }
 
+  /* Where the row will not hold the words, the arrows stand for them, and the names
+     stay for a screen reader. */
+  @container history-list (max-width: 30rem) {
+    .vf-history-pager ul {
+      gap: 0.25rem;
+    }
+
+    .vf-history-pager .vf-chip {
+      min-width: 2.25rem;
+      padding-inline: 0.25rem;
+    }
+
+    .vf-history-pager-gap {
+      padding-inline: 0.125rem;
+    }
+
+    .vf-history-pager-word {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  /* Enlarged text on a phone: two short rows rather than three, with one arrow alone. */
+  @container history-list (max-width: 12rem) {
+    .vf-history-pager .vf-chip {
+      min-width: 1.875rem;
+    }
+
+    .vf-history-pager a:not([rel]) {
+      padding-inline: 0.25rem;
+    }
+  }
+
   /* The eras on either side, at the foot of an era's list. */
   .vf-history-era-steps {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
     margin-top: var(--space-related);
+  }
+
+  /* An era's long name needs the row to itself once there is no room for two. */
+  @container history-list (max-width: 21rem) {
+    .vf-history-era-steps {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 
   .vf-history-era-step {
@@ -5464,9 +6004,14 @@
   .vf-history-era-step-label,
   .vf-history-era-step-years {
     font-family: var(--font-sans);
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     line-height: 1.4;
     color: var(--ink-faint);
+  }
+
+  .vf-history-era-step-label {
+    display: flex;
+    gap: 0.25em;
   }
 
   .vf-history-era-step-years {
@@ -5476,7 +6021,7 @@
   .vf-history-era-step-name {
     margin-block: 0.125rem;
     font-family: var(--font-display);
-    font-size: 1.3125rem;
+    font-size: min(1.3125rem, 10vw);
     font-weight: 500;
     line-height: 1.2;
     color: var(--link);

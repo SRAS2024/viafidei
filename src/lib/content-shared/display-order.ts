@@ -755,6 +755,34 @@ const POPE_PLACE: ReadonlyMap<string, { index: number; year: number }> = new Map
   POPE_SUCCESSION.map(([slug, year], index) => [slug, { index, year }]),
 );
 
+/** A place in the line by the pope's name alone: "pius-xii", "john-paul-ii". */
+const POPE_NAME_PLACE: ReadonlyMap<string, number> = new Map(
+  POPE_SUCCESSION.map(([slug], index) => [
+    slug.replace(/^pope-(?:(?:saint|blessed|venerable)-)?/, ""),
+    index,
+  ]),
+);
+
+/**
+ * Whether a named pope was reigning in a year, by the line above: from the year his
+ * reign began to the year the next one's did. A pope is found however a text styles
+ * him ("Pope Pius XI", "Pope Saint Pius V", "Pope John-Paul II"), and a name the line
+ * does not hold, such as a Coptic pope's, did not reign.
+ */
+export function popeReignedIn(name: string, year: number): boolean {
+  const key = name
+    .trim()
+    .toLowerCase()
+    .replace(/^pope\s+/, "")
+    .replace(/^(?:saint|st\.?|blessed|bl\.?|venerable)\s+/, "")
+    .replace(/[^a-z]+/g, "-");
+  const index = POPE_NAME_PLACE.get(key);
+  if (index == null) return false;
+  const begins = POPE_SUCCESSION[index]![1];
+  const ends = POPE_SUCCESSION[index + 1]?.[1] ?? Number.POSITIVE_INFINITY;
+  return year >= begins && year <= ends;
+}
+
 const MONTH_NUMBER: Readonly<Record<string, number>> = {
   jan: 1,
   feb: 2,

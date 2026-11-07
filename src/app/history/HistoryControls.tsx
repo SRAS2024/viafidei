@@ -2,7 +2,7 @@ import { ListSearch } from "@/components/ui/ListSearch";
 import type { Translator } from "@/lib/i18n/translator";
 
 import { HistoryYearSlider } from "./HistoryYearSlider";
-import { HISTORY_PATH, historyHref, type HistoryLinkState } from "./historyUrl";
+import { HISTORY_PATH, SLIDER_KEY_STEP, historyHref, type HistoryLinkState } from "./historyUrl";
 import {
   FILTER_KEYS,
   FILTER_LABELS,
@@ -59,7 +59,7 @@ function EraCell({ choice }: { choice: EraChoice }) {
 
 function EraList({ choices }: { choices: EraChoice[] }) {
   return (
-    <ul className="vf-history-eras">
+    <ul role="list" className="vf-history-eras">
       {choices.map((choice) => (
         <li key={choice.key}>
           <EraCell choice={choice} />
@@ -153,7 +153,8 @@ function ThemeMenu({ view, base }: { view: HistoryView; base: HistoryLinkState }
           <span aria-hidden="true">Filter</span>
         )}
       </summary>
-      <ul className="vf-menu">
+      {/* role="list": Safari drops the role from a list with no markers. */}
+      <ul role="list" className="vf-menu">
         {FILTER_KEYS.map((key) => {
           const active = key === view.theme;
           return (
@@ -201,7 +202,9 @@ function OrderChoice({ view, base }: { view: HistoryView; base: HistoryLinkState
 
 /**
  * The control area, one composition: finding and filtering on one row, then the
- * eras in aligned rows, then the year.
+ * eras in aligned rows, then the year. The year joins the box above without being
+ * inside it, because it has to be able to stay in view all the way down the list
+ * while the slider is in use, and a sticky box goes no further than its parent.
  */
 export function HistoryControls({
   view,
@@ -218,38 +221,42 @@ export function HistoryControls({
   const order = view.params.order;
   const base: HistoryLinkState = { era: view.era?.key, theme, q, order };
   return (
-    <section aria-label="Find and filter events" className="vf-history-panel">
-      <div className="vf-history-zone vf-history-tools">
-        <ListSearch
-          action={HISTORY_PATH}
-          query={q}
-          label="Find an event"
-          keep={{
-            era: view.era?.key,
-            theme: theme === "all" ? null : theme,
-            order: order === "newest" ? order : null,
-          }}
-          t={t}
-          locale={locale}
-        />
-        <div className="vf-history-tools-end">
-          <ThemeMenu view={view} base={base} />
-          <OrderChoice view={view} base={base} />
+    <>
+      <section aria-label="Find and filter events" className="vf-history-panel vf-history-find">
+        <div className="vf-history-zone vf-history-tools">
+          <ListSearch
+            action={HISTORY_PATH}
+            query={q}
+            label="Find an event"
+            keep={{
+              era: view.era?.key,
+              theme: theme === "all" ? null : theme,
+              order: order === "newest" ? order : null,
+            }}
+            t={t}
+            locale={locale}
+          />
+          <div className="vf-history-tools-end">
+            <ThemeMenu view={view} base={base} />
+            <OrderChoice view={view} base={base} />
+          </div>
         </div>
-      </div>
-      <div className="vf-history-zone">
-        <EraChoices view={view} base={base} firstLabel={firstLabel} />
-      </div>
-      <div className="vf-history-zone">
-        <HistoryYearSlider
-          min={view.sliderMin}
-          max={view.sliderMax}
-          value={view.sliderYear}
-          valueEraLabel={view.sliderEraLabel}
-          eras={view.eraList.map(({ key, label, from, to }) => ({ key, label, from, to }))}
-          keep={{ theme, q, order }}
-        />
-      </div>
-    </section>
+        <div className="vf-history-zone">
+          <EraChoices view={view} base={base} firstLabel={firstLabel} />
+        </div>
+      </section>
+      <HistoryYearSlider
+        min={view.sliderMin}
+        max={view.sliderMax}
+        value={view.sliderYear}
+        valueEraLabel={view.sliderEraLabel}
+        eras={view.eraList.map(({ key, label, from, to }) => ({ key, label, from, to }))}
+        keep={{ theme, q, order }}
+        labels={{
+          box: t("history.yearBox"),
+          hint: t("history.sliderHint", { years: SLIDER_KEY_STEP }),
+        }}
+      />
+    </>
   );
 }

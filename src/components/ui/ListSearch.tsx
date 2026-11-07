@@ -1,10 +1,11 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { SearchIcon } from "@/components/icons/SearchIcon";
-import { MAX_QUERY_LENGTH, listHref } from "@/lib/content-shared/list-search";
+import { listHref } from "@/lib/content-shared/list-search";
 import { tPlural } from "@/lib/i18n/plural";
 import type { Translator } from "@/lib/i18n/translator";
+
+import { ClearSearchLink, ListSearchField } from "./ListSearchField";
 
 /** Parameters a search keeps from the page it was made on (the active filter). */
 export type ListSearchKeep = Readonly<Record<string, string | null | undefined>>;
@@ -30,6 +31,19 @@ type ListSearchProps = {
 };
 
 /**
+ * Holds a list page's search and filter together, on one row where they fit: the
+ * two are one control area, and the list follows at a related distance.
+ */
+export function ListControls({ children }: { children: ReactNode }) {
+  return <div className="vf-list-controls">{children}</div>;
+}
+
+/** The field's id, which "Clear search" sends focus to from wherever it sits. */
+function fieldIdFor(action: string): string {
+  return `list-search${action.replace(/[^a-z0-9]+/gi, "-").replace(/-+$/, "")}`;
+}
+
+/**
  * The search bar of a content list page (/prayers, /saints, /parishes, …).
  *
  * A plain GET form that submits back to the page as `?q=`, so a search is a
@@ -43,14 +57,6 @@ type ListSearchProps = {
  * matched and offers to clear the search. A search that matches nothing is
  * shown by `ListSearchNoResults` in place of the list.
  */
-/**
- * Holds a list page's search and filter together, on one row where they fit: the
- * two are one control area, and the list follows at a related distance.
- */
-export function ListControls({ children }: { children: ReactNode }) {
-  return <div className="vf-list-controls">{children}</div>;
-}
-
 export function ListSearch({
   action,
   query,
@@ -61,7 +67,7 @@ export function ListSearch({
   t,
   locale,
 }: ListSearchProps) {
-  const inputId = `list-search${action.replace(/[^a-z0-9]+/gi, "-").replace(/-+$/, "")}`;
+  const inputId = fieldIdFor(action);
   return (
     <div className="min-w-0 max-w-xl flex-1 basis-[22rem]">
       <form
@@ -77,22 +83,7 @@ export function ListSearch({
         <label htmlFor={inputId} className="sr-only">
           {label}
         </label>
-        {/* 16px text: anything smaller makes iOS zoom the page on focus.
-            Keyed on the query because chips, page links and "Clear search"
-            navigate in the browser, and an uncontrolled field reads its
-            default only when it mounts. */}
-        <input
-          key={query}
-          id={inputId}
-          type="search"
-          name="q"
-          defaultValue={query}
-          placeholder={placeholder ?? label}
-          maxLength={MAX_QUERY_LENGTH}
-          autoComplete="off"
-          enterKeyHint="search"
-          className="vf-input min-w-0 flex-1"
-        />
+        <ListSearchField id={inputId} query={query} placeholder={placeholder ?? label} />
         {/* The word shows from the small breakpoint up; on a phone the icon
             alone leaves the field room, and the word stays its name. */}
         <button type="submit" className="vf-btn vf-btn-primary shrink-0 !px-3.5 sm:!px-5">
@@ -101,12 +92,12 @@ export function ListSearch({
         </button>
       </form>
       {query && typeof resultCount === "number" && resultCount > 0 ? (
-        <p className="vf-fineprint mt-2 text-center">
+        <p className="vf-fineprint mt-2 text-center [overflow-wrap:anywhere]">
           {tPlural(t, locale, "listSearch.results", resultCount, { query })}{" "}
           <span aria-hidden="true">·</span>{" "}
-          <Link href={listHref(action, keep)} className="vf-link">
+          <ClearSearchLink href={listHref(action, keep)} fieldId={inputId} className="vf-link">
             {t("listSearch.clear")}
-          </Link>
+          </ClearSearchLink>
         </p>
       ) : null}
     </div>
@@ -130,12 +121,19 @@ export function ListSearchNoResults({
   t: Translator;
 }) {
   return (
-    <div className="vf-card rounded-sm px-6 py-8 text-center font-serif text-ink-soft">
-      <p className="text-[1.1875rem]">{t("listSearch.none", { query })}</p>
+    // The side padding gives way on a phone, so that "Clear search" keeps its words whole at
+    // enlarged text: "Suche zurücksetzen" did not fit inside 1.5rem either side at 200%.
+    <div className="vf-card rounded-sm px-[min(1.5rem,5vw)] py-8 text-center font-serif text-ink-soft">
+      {/* A long query with no spaces wraps inside the card: a reader can type anything. */}
+      <p className="text-[1.1875rem] [overflow-wrap:anywhere]">{t("listSearch.none", { query })}</p>
       <p className="vf-fineprint mt-1">{t("listSearch.noneHint")}</p>
-      <Link href={listHref(action, keep)} className="vf-btn vf-btn-ghost mt-4">
+      <ClearSearchLink
+        href={listHref(action, keep)}
+        fieldId={fieldIdFor(action)}
+        className="vf-btn vf-btn-ghost mt-4"
+      >
         {t("listSearch.clear")}
-      </Link>
+      </ClearSearchLink>
     </div>
   );
 }

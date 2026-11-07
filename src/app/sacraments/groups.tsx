@@ -10,6 +10,7 @@ import {
   HolyOrdersBadge,
   MatrimonyBadge,
 } from "@/components/icons/SacramentBadges";
+import type { Translator } from "@/lib/i18n/translator";
 import {
   SEVEN_SACRAMENTS,
   type CanonicalSacrament,
@@ -53,6 +54,15 @@ export const SACRAMENT_GROUPS = [
     sacraments: ["HOLY_ORDERS", "MATRIMONY"],
   },
 ] as const;
+
+/** A group's name through the dictionaries, in English until a dictionary carries it. */
+export function sacramentGroupTitle(
+  t: Translator,
+  group: (typeof SACRAMENT_GROUPS)[number],
+): string {
+  const text = t(group.titleKey);
+  return text === group.titleKey ? group.title : text;
+}
 
 /** A group's cards, each with the canonical sacrament it shows, in the group's order. */
 export function sacramentsOf(group: (typeof SACRAMENT_GROUPS)[number]): CanonicalSacrament[] {

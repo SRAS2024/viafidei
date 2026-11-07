@@ -1,43 +1,27 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 
+import { MassChoice } from "@/app/liturgy/readings/MassChoice";
 import { FactList } from "@/components/ui/FactList";
+import { MetaSeparator } from "@/components/ui/MetaSeparator";
+import { useLocalToday } from "@/components/ui/useLocalToday";
+import { WeekdayCycle } from "@/components/ui/WeekdayCycle";
 import {
-  eveningMass,
+  ascensionNote,
+  civilDate,
+  FIRST_CALENDAR_DATE,
+  LAST_CALENDAR_DATE,
   liturgicalColorLabel,
   liturgicalObligationLabel,
   liturgicalRankLabel,
+  massHref,
+  massOptions,
+  parseCivilDate,
   resolveLiturgicalDay,
 } from "@/lib/content-shared/liturgical-calendar";
 
 import { CalendarPanelSkeleton } from "./CalendarPanelSkeleton";
-
-/**
- * Interactive liturgical calendar.
- *
- * Defaults to the visitor's local date (device timezone) and lets them pick
- * any day to see its season, liturgical colour, lectionary cycles, and a
- * link to that day's official Mass readings. The computed calendar is the
- * General Roman Calendar; when the visitor's selected rite differs, an
- * honest note points them to its proper calendar.
- *
- * A date with an evening Mass (a Saturday, or the eve of a holy day) links to both
- * Masses. Nothing here guesses from the clock which one a visitor means.
- */
-function todayIso(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function toCivilDate(isoDate: string): Date {
-  const [y, m, d] = isoDate.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d));
-}
 
 function longDate(date: Date): string {
   return new Intl.DateTimeFormat("en", {
@@ -64,33 +48,60 @@ function persistRiteCookie(rite: string) {
   document.cookie = `vf_rite=${rite}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
 }
 
+/**
+ * Interactive liturgical calendar.
+ *
+ * Defaults to the visitor's local date (device timezone) and lets them pick
+ * any day to see its season, liturgical colour, lectionary cycles, and a
+ * link to that day's official Mass readings. The computed calendar is the
+ * Roman Rite's for the Dioceses of the United States; when the visitor's
+ * selected rite differs, an honest note points them to its proper calendar.
+ *
+ * A date with an evening Mass (a Saturday, or the eve of a holy day) links to both
+ * Masses. Nothing here guesses from the clock which one a visitor means.
+ */
 export function LiturgicalCalendarBrowser({
   rites,
   initialRite,
+  loadingLabel,
 }: {
   rites: { value: string; label: string }[];
   initialRite: string;
+  /** What a screen reader is told until the device's date has been read. */
+  loadingLabel: string;
 }) {
-  // Empty until mounted so server and client render the same initial markup.
-  const [iso, setIso] = useState("");
+  // Null until mounted, so server and client render the same initial markup, and
+  // the calendar follows the day until the visitor picks one of their own.
+  const today = useLocalToday();
+  const [picked, setPicked] = useState<string | null>(null);
+  // What the field holds while it is being edited, which is not yet a date to show:
+  // a typed year passes through 0002, 0020 and 0202 on its way to 2027. The result
+  // and its announcement wait for a whole date, and the field keeps what was typed.
+  const [typed, setTyped] = useState<string | null>(null);
   const [rite, setRite] = useState(initialRite);
   const dateId = useId();
+  const dateHintId = useId();
   const riteId = useId();
-  useEffect(() => setIso(todayIso()), []);
 
-  if (!iso) return <CalendarPanelSkeleton />;
+  const iso = picked ?? today;
+  if (!iso) return <CalendarPanelSkeleton loadingLabel={loadingLabel} />;
 
-  const date = toCivilDate(iso);
+  const date = civilDate(iso);
   // The full resolver (not `liturgicalDay`): the browser names the celebration
   // actually observed that day and its rank, which is what the readings are
   // keyed on.
   const day = resolveLiturgicalDay(date);
-  const evening = eveningMass(date);
   const isRoman = rite === "roman";
   const riteLabel = rites.find((r) => r.value === rite)?.label ?? rite;
   const dateLine = longDate(date);
   const colors = liturgicalColorLabel(day);
+  const rank = liturgicalRankLabel(day);
   const obligation = liturgicalObligationLabel(day);
+  const ascension = ascensionNote(date);
+  const masses = massOptions(date);
+  // A whole year, not a year on its way, that the calendar does not cover. Safari's year
+  // takes six digits and stays where it is, so 2027 and one digit more reads 20271.
+  const outOfRange = typed !== null && /^[1-9]\d{3,}-/.test(typed) && !parseCivilDate(typed);
 
   return (
     <div className="vf-calendar-panel">
@@ -102,10 +113,28 @@ export function LiturgicalCalendarBrowser({
           <input
             id={dateId}
             type="date"
-            value={iso}
-            onChange={(e) => setIso(e.target.value || todayIso())}
+            value={typed ?? iso}
+            min={FIRST_CALENDAR_DATE}
+            max={LAST_CALENDAR_DATE}
+            aria-invalid={outOfRange || undefined}
+            aria-describedby={outOfRange ? dateHintId : undefined}
+            onChange={(e) => {
+              setTyped(e.target.value);
+              if (parseCivilDate(e.target.value)) setPicked(e.target.value);
+            }}
+            onBlur={() => {
+              // The field goes back to the date the result shows. Emptied, it goes
+              // back to today.
+              if (typed === "") setPicked(null);
+              setTyped(null);
+            }}
             className="vf-input"
           />
+          <p id={dateHintId} role="status" className="vf-fineprint vf-calendar-date-hint">
+            {outOfRange
+              ? `This calendar covers the years ${FIRST_CALENDAR_DATE.slice(0, 4)} to ${LAST_CALENDAR_DATE.slice(0, 4)}.`
+              : ""}
+          </p>
         </div>
         <div>
           <label htmlFor={riteId} className="vf-label">
@@ -133,6 +162,7 @@ export function LiturgicalCalendarBrowser({
         {/* Changing the date replaces everything below; this says what it became. */}
         <p className="sr-only" role="status">
           {dateLine}: {day.celebration}. {day.seasonLabel}. Liturgical colour {colors}.
+          {ascension ? ` ${ascension}` : ""}
         </p>
         <div className="vf-calendar-season">
           <span
@@ -149,13 +179,26 @@ export function LiturgicalCalendarBrowser({
           items={[
             {
               label: "Rank",
-              value: obligation
-                ? `${liturgicalRankLabel(day)} · ${obligation}`
-                : liturgicalRankLabel(day),
+              value: obligation ? (
+                <>
+                  {rank}
+                  <MetaSeparator />
+                  {obligation}
+                </>
+              ) : (
+                rank
+              ),
             },
             { label: "Liturgical colour", value: colors },
             { label: "Sunday cycle", value: `Year ${day.sundayCycle}` },
-            { label: "Weekday cycle", value: `Year ${day.weekdayCycle}` },
+            {
+              label: "Weekday cycle",
+              value: (
+                <>
+                  Year <WeekdayCycle cycle={day.weekdayCycle} />
+                </>
+              ),
+            },
             day.isJubileeYear ? { label: "Holy Year", value: "Jubilee Year" } : null,
           ]}
         />
@@ -163,39 +206,31 @@ export function LiturgicalCalendarBrowser({
         {/* Route to the INTERNAL daily-readings page for the selected day, which
             computes that day's readings from the Lectionary tables and links out
             to the official source modestly at the bottom. */}
-        <nav aria-label={`Mass readings for ${dateLine}`} className="vf-calendar-links">
-          <p className="vf-label vf-calendar-links-title" aria-hidden="true">
-            Mass readings
-          </p>
-          {/* Without markers Safari drops a list's role, so it is said out loud. */}
-          <ul className="vf-calendar-links-row" role="list">
-            <li>
-              <Link
-                href={`/liturgy/readings?date=${iso}`}
-                className="vf-btn vf-btn-sm vf-btn-primary"
-              >
-                {evening ? evening.dayLabel : "Readings for this day"}
-              </Link>
-            </li>
-            {evening ? (
-              <li>
-                <Link
-                  href={`/liturgy/readings?date=${iso}&mass=vigil`}
-                  className="vf-btn vf-btn-sm vf-btn-ghost"
-                >
-                  {evening.label}
-                </Link>
-              </li>
-            ) : null}
-          </ul>
-        </nav>
+        <div className="vf-calendar-links">
+          <MassChoice
+            label="Mass readings"
+            navLabel={`Mass readings for ${dateLine}`}
+            options={masses.map((mass) => ({
+              label: masses.length > 1 ? mass.label : "Readings for this day",
+              href: massHref(iso, mass),
+              isActive: false,
+            }))}
+          />
+          {ascension ? <p className="vf-fineprint vf-calendar-note">{ascension}</p> : null}
+        </div>
 
-        {!isRoman ? (
-          <p className="vf-fineprint vf-calendar-rite-note">
-            This calendar follows the General Roman Calendar. The {riteLabel} observes its own
-            proper calendar, which may differ in its seasons and feasts.
-          </p>
-        ) : null}
+        {/* Always there, so that a rite chosen later is announced when its note appears:
+            picking one changes nothing else on the page, and the result is still this
+            calendar. */}
+        <div role="status">
+          {!isRoman ? (
+            <p className="vf-fineprint vf-calendar-rite-note">
+              This is the Roman Rite&apos;s calendar for the Dioceses of the United States. The{" "}
+              {riteLabel} Rite observes its own proper calendar, which may differ in its seasons and
+              feasts.
+            </p>
+          ) : null}
+        </div>
       </div>
     </div>
   );

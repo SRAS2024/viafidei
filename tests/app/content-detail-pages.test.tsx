@@ -13,9 +13,10 @@
  * source" links.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { PublishedItem } from "@/lib/data/published";
 import { createTranslator } from "@/lib/i18n/translator";
+import { attachDisplay } from "@/lib/translation/display";
 
 const published = new Map<string, PublishedItem>();
 
@@ -150,7 +151,7 @@ describe("/saints/[slug]", () => {
     ]);
   });
 
-  it("gives the canonization its own fact, when the record states one", async () => {
+  it("has no canonization row, even when the record states one", async () => {
     put("SAINT", "saint-john-jones", "Saint John Jones", {
       canonizationStatus: "canonized",
       feastDay: "07-12",
@@ -160,11 +161,8 @@ describe("/saints/[slug]", () => {
       biography: "A Franciscan martyr of the English Reformation.",
     });
     render(await SaintDetailPage(params("saint-john-jones")));
-    expect(facts()).toEqual([
-      "Feast day: July 12",
-      "Died: 1598",
-      "Canonized: 25 October 1970, by Pope Paul VI",
-    ]);
+    expect(facts()).toEqual(["Feast day: July 12", "Died: 1598"]);
+    expectAbsent("Canoniz", "Pope Paul VI");
   });
 
   it("leaves the facts area out altogether when the record holds none", async () => {
@@ -516,6 +514,124 @@ describe("the other content types keep their content and drop the filler", () =>
     expectAbsent("n/a", "Kind", "triduum", "liturgical_season", "Movable", "Season of");
   });
 
+  it("liturgical entry: the parts of the Mass are numbered steps, each named", async () => {
+    put(
+      "LITURGICAL",
+      "structure-roman-rite-mass",
+      "The Structure of the Roman Rite Mass",
+      {
+        body: "Introductory Rites: Entrance, Greeting, Collect. Liturgy of the Word: First Reading, Gospel, Homily. Liturgy of the Eucharist: Preparation of the Gifts, Eucharistic Prayer, Communion Rite. Concluding Rites: Blessing, Dismissal.",
+        kind: "mass_structure",
+      },
+      "Order of Mass",
+    );
+    const { container } = render(
+      await LiturgyHistoryDetailPage(params("structure-roman-rite-mass")),
+    );
+    expect(container.querySelectorAll("ol.vf-steps > li")).toHaveLength(4);
+    // There is no heading over the text, so its parts come straight under the title.
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
+      "Part 1: Introductory Rites",
+      "Part 2: Liturgy of the Word",
+      "Part 3: Liturgy of the Eucharist",
+      "Part 4: Concluding Rites",
+    ]);
+    expect(pageText()).toContain("Entrance, Greeting, Collect.");
+  });
+
+  it.each([
+    [
+      "holy-days-of-obligation",
+      "The Code states the obligation. In the dioceses of the United States six days are observed: Mary, the Holy Mother of God on January 1; the Ascension of the Lord; the Assumption of the Blessed Virgin Mary on August 15; All Saints on November 1; the Immaculate Conception on December 8; and the Nativity of the Lord on December 25. The Epiphany is transferred.",
+      6,
+      "Mary, the Holy Mother of God on January 1",
+    ],
+    [
+      "palm-sunday-of-the-passion-of-the-lord",
+      'The Missal gives three forms for the commemoration of the Lord\'s entrance: the Procession, in which all move to the church singing the antiphon "Hosanna to the Son of David"; the Solemn Entrance; and the Simple Entrance at other Masses. Red vestments are worn.',
+      3,
+      'The Procession, in which all move to the church singing the antiphon "Hosanna to the Son of David"',
+    ],
+  ])("liturgical entry: %s is a list, not steps", async (slug, body, count, first) => {
+    put("LITURGICAL", slug, "A day", { body, kind: "liturgical_season" }, "A day");
+    const { container } = render(await LiturgyHistoryDetailPage(params(slug)));
+    expect(container.querySelector("ol")).toBeNull();
+    const items = container.querySelectorAll(".vf-reading ul[role='list'] > li");
+    expect(items).toHaveLength(count);
+    expect(items[0]).toHaveTextContent(first);
+    expect(container.querySelector(".vf-step-number")).toBeNull();
+    expect(pageText()).not.toMatch(/\bStep \d/);
+  });
+
+  it("liturgical entry: a rite is not called the Order of Mass, whatever the record files it under", async () => {
+    put(
+      "LITURGICAL",
+      "rite-of-baptism-for-children",
+      "The Rite of Baptism for Children",
+      { body: "The order of celebration.", kind: "mass_structure" },
+      "Order of Mass",
+    );
+    const { container } = render(
+      await LiturgyHistoryDetailPage(params("rite-of-baptism-for-children")),
+    );
+    expect(container.querySelector(".vf-eyebrow")).toHaveTextContent("Liturgical rite");
+    expectAbsent("Order of Mass");
+  });
+
+  it("liturgical entry: a stored line that no longer holds does not come back translated", async () => {
+    put(
+      "LITURGICAL",
+      "rite-of-confirmation",
+      "The Rite of Confirmation",
+      { body: "The rite.", kind: "mass_structure" },
+      "Order of Mass",
+    );
+    put(
+      "LITURGICAL",
+      "order-of-christian-funerals",
+      "The Order of Christian Funerals",
+      { body: "The rite.", kind: "funeral_rite" },
+      "Liturgical rite",
+    );
+    const translate = (slug: string, subtitle: string) => {
+      const item = published.get(`LITURGICAL:${slug}`)!;
+      attachDisplay(item, { locale: "es", title: item.title, subtitle });
+    };
+    translate("rite-of-confirmation", "Ordinario de la Misa");
+    translate("order-of-christian-funerals", "Rito litúrgico");
+
+    const confirmation = render(await LiturgyHistoryDetailPage(params("rite-of-confirmation")));
+    expect(confirmation.container.querySelector(".vf-eyebrow")).toHaveTextContent(
+      "Liturgical rite",
+    );
+    expectAbsent("Ordinario de la Misa");
+    cleanup();
+
+    // A line that still says what the page says keeps its translation.
+    render(await LiturgyHistoryDetailPage(params("order-of-christian-funerals")));
+    expect(screen.getByText("Rito litúrgico")).toBeInTheDocument();
+  });
+
+  it("church document: a long summary is reading text, in paragraphs, with every word", async () => {
+    const summary = [
+      "The apostolic constitution sets out the place of music in the worship of the Church, and asks that the people take part in it with understanding and with devotion, as the liturgy itself intends.",
+      "It recalls that the sacred chant has long been the glory of the Roman Rite, and it gives the bishops and the seminaries particular duties for teaching it to those who will lead the faithful in song.",
+      "Finally it orders that the choirs and schools be kept up in the cathedrals and the great churches, so that what has been handed down may be sung well for many generations to come.",
+      "Many of its provisions were taken up again in the later instructions on sacred music, which cite it at length and which extend its care for the chant to the whole of the Latin Church.",
+    ].join(" ");
+    put("CHURCH_DOCUMENT", "divini-cultus", "Divini Cultus", {
+      summary,
+      documentType: "apostolic_constitution",
+      keyThemes: ["Sacred music"],
+    });
+    const { container } = render(await LiturgyHistoryDetailPage(params("divini-cultus")));
+    expect(container.querySelector(".vf-lede")).toBeNull();
+    const first = container.querySelector("article > .vf-detail-section .vf-reading")!;
+    const paragraphs = Array.from(first.querySelectorAll("p")).map((p) => p.textContent);
+    expect(paragraphs.length).toBeGreaterThan(1);
+    expect(paragraphs.join(" ")).toBe(summary);
+  });
+
   it("liturgical entry: rank, date and season as facts, and the day's saint as a real link", async () => {
     put("SAINT", "saint-james-the-greater", "Saint James the Greater", {});
     put(
@@ -601,6 +717,20 @@ describe("the other content types keep their content and drop the filler", () =>
     expect(screen.getByRole("link", { name: /Apparition of Our Lady of Lourdes/ })).toHaveClass(
       "vf-link",
     );
+  });
+
+  it("Marian title: a paragraph its record holds twice is read once, as its origin", async () => {
+    // The worker fills both fields from one article; two published titles came out so.
+    const paragraph =
+      "Our Lady of the Atonement is a title of the Blessed Virgin Mary first invoked by the founders of the Society of the Atonement.";
+    put("MARIAN_TITLE", "our-lady-of-the-atonement", "Our Lady of the Atonement", {
+      summary: paragraph,
+      origin: paragraph,
+      theologicalSignificance: paragraph,
+    });
+    const { container } = render(await OurLadyDetailPage(params("our-lady-of-the-atonement")));
+    expect(sections()).toEqual(["Origin"]);
+    expect(container.textContent?.split(paragraph).length).toBe(2);
   });
 
   it("apparition: status, place, year, feast and visionaries are facts — no 'Official source'", async () => {
@@ -705,6 +835,78 @@ describe("the other content types keep their content and drop the filler", () =>
     ]);
     expect(sections()).toEqual(["Days", "Background"]);
     expectAbsent("nine_days", "Structure", "Intention", "Duration", "Nine-day novena to Saint");
+  });
+
+  it("novena: the background says nothing of day meditations, which are not on the page", async () => {
+    put("NOVENA", "novena-saint-dominic", "Novena to Saint Dominic", {
+      summary: "Nine days of prayer to Saint Dominic.",
+      background:
+        "He founded the Order of Preachers. The day-by-day subjects above are editorial. The day meditations are editorial. It is a private devotion.",
+      days: [
+        {
+          day: 1,
+          title: "Preaching",
+          meditation: "A meditation the page does not show.",
+          intentionPrompt: "A prompt the page does not show.",
+          prayerText: "O holy father Dominic.",
+        },
+      ],
+    });
+    render(await NovenaDetailPage(params("novena-saint-dominic")));
+    expect(pageText()).toContain(
+      "He founded the Order of Preachers. The day-by-day subjects above are editorial. It is a private devotion.",
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Preaching/ }));
+    expect(screen.getByText("O holy father Dominic.")).toBeInTheDocument();
+    expectAbsent("day meditations", "A meditation the page does not show", "A prompt");
+  });
+
+  it("devotion: instructions from 'Begin' to 'Conclude' are numbered steps", async () => {
+    put("DEVOTION", "holy-rosary", "The Holy Rosary", {
+      summary: "The great Marian psalter.",
+      practiceInstructions:
+        "Begin with the Sign of the Cross. Pray one Our Father. Then meditate on each of the five mysteries. Conclude with the Hail Holy Queen.",
+    });
+    const { container } = render(await DevotionDetailPage(params("holy-rosary")));
+    const steps = [...container.querySelectorAll("ol.vf-steps > li.vf-step")];
+    expect(steps.map((step) => step.querySelector(".vf-step-body")?.textContent)).toEqual([
+      "Begin with the Sign of the Cross.",
+      "Pray one Our Father.",
+      "Then meditate on each of the five mysteries.",
+      "Conclude with the Hail Holy Queen.",
+    ]);
+    expect(container.querySelector("ol.vf-steps")).toHaveAttribute("role", "list");
+  });
+
+  it("devotion: the same words with no sequence in them stay paragraphs", async () => {
+    put("DEVOTION", "green-scapular", "The Green Scapular", {
+      summary: "A sacramental.",
+      practiceInstructions: "Have it blessed by a priest. Wear it, or carry it in your clothing.",
+    });
+    const { container } = render(await DevotionDetailPage(params("green-scapular")));
+    expect(container.querySelector("ol.vf-steps")).toBeNull();
+    expect(pageText()).toContain("Have it blessed by a priest.");
+  });
+
+  it("devotion: the sequence words of a counsel do not make it a list", async () => {
+    put("DEVOTION", "chant", "Chant", {
+      summary: "Sung prayer.",
+      practiceInstructions:
+        "Begin in the liturgy and learn the parts by heart. Then learn a small common repertoire. Sing at home.",
+    });
+    const { container } = render(await DevotionDetailPage(params("chant")));
+    expect(container.querySelector("ol.vf-steps")).toBeNull();
+  });
+
+  it("devotion: the words to say stay set apart inside a step", async () => {
+    put("DEVOTION", "divine-mercy-chaplet", "The Divine Mercy Chaplet", {
+      summary: "A chaplet.",
+      practiceInstructions:
+        "Begin with the Sign of the Cross. On the Our Father beads pray: 'Eternal Father, I offer You the Body and Blood.' Conclude by praying three times: 'Holy God, Holy Mighty One.'",
+    });
+    const { container } = render(await DevotionDetailPage(params("divine-mercy-chaplet")));
+    expect(container.querySelectorAll("ol.vf-steps > li")).toHaveLength(3);
+    expect(container.querySelectorAll(".vf-step-body blockquote.vf-spoken")).toHaveLength(2);
   });
 
   it("devotion: the duration line instead of the subtitle, no related-saint row", async () => {

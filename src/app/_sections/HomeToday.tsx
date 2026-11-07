@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { useLocalToday } from "@/components/ui/useLocalToday";
+
 import { SkeletonLine } from "./SkeletonLine";
 
 type SaintSummary = {
@@ -19,8 +21,8 @@ type DataState =
 /**
  * Homepage "Today's Feast Day Saints" block.
  *
- * Reads the current date in the user's device timezone (computed via
- * `new Date()` on the client, so it follows the user wherever they are) and
+ * Reads the current date in the user's device timezone (useLocalToday, so it
+ * follows the user wherever they are, and across midnight) and
  * lists up to five saints whose feast falls on that date. Saints are linked to
  * their detail page; a "See more" link below the fifth saint takes the user
  * to /saints/today with the complete feast list. Saints are returned
@@ -28,13 +30,21 @@ type DataState =
  * recognised figures land first — the ranking is not surfaced as a
  * label on the page per the spec.
  */
-export function HomeToday() {
+export function HomeToday({
+  loadingLabel,
+  errorLabel,
+}: {
+  loadingLabel: string;
+  /** What the same live region says, and the part shows, when the list cannot load. */
+  errorLabel: string;
+}) {
   const [state, setState] = useState<DataState>({ kind: "loading" });
+  const today = useLocalToday();
 
   useEffect(() => {
-    const today = new Date();
-    const month = today.getMonth() + 1;
-    const day = today.getDate();
+    if (!today) return;
+    const month = Number(today.slice(5, 7));
+    const day = Number(today.slice(8, 10));
     let cancelled = false;
     (async () => {
       try {
@@ -67,7 +77,7 @@ export function HomeToday() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [today]);
 
   return (
     <div className="vf-card vf-home-part">
@@ -76,11 +86,7 @@ export function HomeToday() {
       </h3>
       {/* One live region: it says it is loading, and says so if the list fails. */}
       <p role="status" className={state.kind === "error" ? "font-serif text-ink-soft" : "sr-only"}>
-        {state.kind === "loading"
-          ? "Loading the day's saints…"
-          : state.kind === "error"
-            ? "Could not load today's feast list."
-            : ""}
+        {state.kind === "loading" ? loadingLabel : state.kind === "error" ? errorLabel : ""}
       </p>
       {state.kind === "loading" ? (
         <SaintsPlaceholder />
@@ -97,7 +103,11 @@ export function HomeToday() {
       ) : (
         <>
           <div className="vf-home-part-body">
-            <ul className="vf-link-rows vf-link-rows--compact" aria-labelledby="home-saints-title">
+            <ul
+              className="vf-link-rows vf-link-rows--compact"
+              role="list"
+              aria-labelledby="home-saints-title"
+            >
               {state.items.map((s) => (
                 <li key={s.slug}>
                   <Link href={`/saints/${s.slug}`} className="vf-link-row">

@@ -264,7 +264,6 @@ export const SAINT_DISPLAY_ORDER: readonly string[] = [
   "saint-simon-stock",
   "saint-nicodemus",
   "saint-joseph-of-arimathea",
-  "saint-penitent-thief",
   "saint-longinus",
   "saint-salome",
   "saint-mary-of-clopas",
@@ -419,6 +418,8 @@ export const SAINT_DUPLICATE_OF: Readonly<Record<string, string>> = {
   "saint-theodoric-balat": "saint-teodoryk-balat",
   // Not the New Testament Archippus: its record describes an Athenian comic poet.
   "saint-archippus-q276575": "saint-archippus",
+  // The Good Thief, published again under his description.
+  "saint-penitent-thief": "saint-dismas",
 };
 
 /** Slug → place in the head of the list. A hidden duplicate holds its canonical's place. */
@@ -827,9 +828,35 @@ export function saintLifeDates(payload: Record<string, unknown>): string | null 
 const COMPOSED_SOURCE_POINTER =
   /\s*A fuller biography is recorded in the \S+-language Wikipedia article and on Wikidata\.\s*$/;
 
-/** A saint's biography as its page shows it: the stored text, minus a source pointer. */
+/**
+ * A reference left behind by an encyclopedia article: the "[6:86]" of "the
+ * Quran,[6:86][38:48] Elisha is venerated". A reader's page shows no sources. It sits
+ * hard against the text before it and is a short number or a chapter and verse, which
+ * tells it from an editor's own bracket: the year in "born in [1582], he" is a word.
+ */
+const LEFTOVER_REFERENCE = /(?<=\S)\[\s*(?:\d{1,3}|\d+:\d+)\s*\]/g;
+
+/**
+ * The punctuation left where a bracket was stripped from a stored article:
+ * "Plechelm,, is honoured", "Goedele or Goule;. Her name", "Gemma Galgani, , also
+ * known as", "John Nepomucene , was". Only marks and the spaces around them go. A
+ * mark must be followed by a space or the end, so "..." and "1,000" are left alone,
+ * and a full stop with another beside it is an ellipsis: "He said . . . and left."
+ */
+function collapseStrayPunctuation(text: string): string {
+  return text
+    .replace(LEFTOVER_REFERENCE, "")
+    .replace(/[,;](?:[ \t]*,)+(?=\s|$)/g, ",")
+    .replace(/[,;][ \t]*\.(?=\s|$)(?![ \t]*\.)/g, ".")
+    .replace(/(?<=[^\s.])[ \t]+([,;.])(?=\s|$)(?![ \t]*\.)/g, "$1");
+}
+
+/**
+ * A saint's biography as its page shows it: the stored text, minus a source pointer
+ * and the stray punctuation of its source. Every word is left as it is stored.
+ */
 export function saintBiographyForDisplay(biography: string): string {
-  return biography.replace(COMPOSED_SOURCE_POINTER, "");
+  return collapseStrayPunctuation(biography.replace(COMPOSED_SOURCE_POINTER, ""));
 }
 
 /** "Saint", "Blessed", "Venerable" or "Servant of God", from `canonizationStatus`. */
@@ -873,30 +900,48 @@ export function saintDetailEyebrow(
 }
 
 /**
- * The lines a saint's catalogue card shows beneath the name, in order: the
- * patronage ("Patron of the papacy, fishermen, Rome"), then the feast day
- * ("Feast day: June 29"). A line is left out when that fact is not recorded.
- */
-/**
- * A saint's patronage as a phrase. The label already says "Patron of", so a stored
- * "Patron saint of" does not repeat it, and a note that none is recorded is not a
- * patronage. A line never breaks between "St." and the name.
+ * A saint's patronage as a phrase, whatever words the source wrapped it in. The
+ * label already says "Patron of", so a stored "Patron saint of" does not repeat it,
+ * nor does the name of the saint ("Epipodius is the patron saint of bachelors"). A
+ * note that none is recorded, and the heading "Patronage list", are not a patronage.
+ * A line never breaks between "St." and the name.
  */
 export function saintPatronage(patronages: readonly string[]): string | null {
   const phrase = patronages
     .join(", ")
-    .replace(/^patron(?:ess)?(?: saint)? of /i, "")
-    .replace(/^The /, "the ")
+    .replace(/^\p{Lu}[\p{L}' -]* is (?=(?:the |a )?patron|invoked)/u, "")
+    .replace(/^(?:(?:the|a) )?patron(?:ess)?(?: saint)? of /i, "")
+    .replace(/^patron (?=against\b)/i, "")
+    .replace(/^saint of /i, "")
+    .replace(/\s*\(see [^)]*\)/gi, "")
+    .replace(/^(The|Against|Invoked)\b/, (word) => word.toLowerCase())
     .replace(/\.$/, "")
     .replace(/\bSt\. /g, "St.\u00a0");
-  return !phrase || /\bnot recorded\b/i.test(phrase) ? null : phrase;
+  return !phrase || /\bnot recorded\b|^patronage list$/i.test(phrase) ? null : phrase;
 }
 
-/** "Against rabies" follows "Patron", not "Patron of". */
+/**
+ * A phrase that cannot follow "Patron of", because it says for itself how the saint
+ * is called on: "against rabies" follows "Patron" alone, and "invoked against
+ * drought", "co-patron of Messina" and "protectress of trees" need no word before them.
+ */
 export function patronageIsAgainst(phrase: string): boolean {
-  return /^against\b/i.test(phrase);
+  return /^(?:against|invoked|prayed to|co-patron(?:ess)?|protect(?:or|ress))\b/i.test(phrase);
 }
 
+/** The card's line for a patronage phrase. */
+function patronageLine(phrase: string, t: Translator): string {
+  if (!patronageIsAgainst(phrase)) return t("saints.card.patronOf", { patronages: phrase });
+  return /^against\b/i.test(phrase)
+    ? `Patron ${phrase}`
+    : phrase.charAt(0).toUpperCase() + phrase.slice(1);
+}
+
+/**
+ * The lines a saint's catalogue card shows beneath the name, in order: the
+ * patronage ("Patron of the papacy, fishermen, Rome"), then the feast day
+ * ("Feast day: June 29"). A line is left out when that fact is not recorded.
+ */
 export function saintCardDetailLines(
   details: SaintCardDetails | undefined,
   t: Translator,
@@ -904,13 +949,7 @@ export function saintCardDetailLines(
   if (!details) return [];
   const lines: string[] = [];
   const patronage = saintPatronage(details.patronages);
-  if (patronage) {
-    lines.push(
-      patronageIsAgainst(patronage)
-        ? `Patron ${patronage}`
-        : t("saints.card.patronOf", { patronages: patronage }),
-    );
-  }
+  if (patronage) lines.push(patronageLine(patronage, t));
   if (details.feast) lines.push(`${t("saints.feastDay")}: ${details.feast}`);
   return lines;
 }

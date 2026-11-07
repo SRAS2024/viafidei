@@ -19,6 +19,7 @@ const LABELS = {
   notFound: "No account found for that email.",
   rateLimited: "Try again in {minutes} minutes.",
   rateLimitedFallback: "Too many requests. Try again later.",
+  invalidAddress: "Check the address.",
   error: "Unexpected error.",
   deliveryFailed: "We could not send the reset email. Please contact support.",
 };
@@ -42,6 +43,20 @@ async function submit(email: string) {
 }
 
 describe("ForgotPasswordForm", () => {
+  // The browser's own check passes "maria@localhost". Trying again would change nothing, so
+  // the reader is told what to look at, and put there.
+  it("says what is wrong with an address the server refuses, and goes back to it", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: false, error: "invalid" }), { status: 400 }),
+    );
+    await submit("maria@localhost");
+    expect(await screen.findByRole("alert")).toHaveTextContent(LABELS.invalidAddress);
+    const field = screen.getByLabelText(LABELS.email);
+    expect(field).toHaveFocus();
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(field).toHaveAccessibleDescription(LABELS.invalidAddress);
+  });
+
   it("shows success ONLY on { ok:true, sent:true }", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true, sent: true, email: "u@x.test" }), { status: 200 }),

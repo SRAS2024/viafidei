@@ -15,6 +15,7 @@ import {
   buildPublishedMetadata,
 } from "@/lib/data/published";
 import { loadPrayerSet } from "@/lib/data/prayer-sets";
+import { getTranslator } from "@/lib/i18n/server";
 import { displayItem } from "@/lib/translation/display";
 import { localizeItem, localizePrayers } from "@/lib/translation/localize";
 
@@ -89,6 +90,7 @@ function visionariesFact(value: unknown) {
  */
 export default async function SpiritualGuidanceDetailPage({ params }: Props) {
   const { slug } = await params;
+  const { t } = await getTranslator();
   const marian = await localizeItem(await getPublishedBySlug("MARIAN_TITLE", slug));
   if (marian) {
     // The apparition cross-reference is a slug, resolved here into a titled
@@ -107,6 +109,7 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
     return (
       <>
         <PublishedDetail
+          t={t}
           item={marian}
           eyebrow={marianEyebrow(marian.payload)}
           showSubtitle={false}
@@ -134,6 +137,7 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
     );
     return (
       <PublishedDetail
+        t={t}
         item={apparition}
         // "Apparition" over "Apparition of Our Lady of Fatima" says nothing.
         eyebrow={/^apparitions?\b/i.test(apparition.title) ? null : undefined}

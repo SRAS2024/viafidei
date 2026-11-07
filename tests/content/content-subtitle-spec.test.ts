@@ -203,6 +203,17 @@ describe("generateContentSubtitle — per-type spec", () => {
     );
     expect(sub("LITURGICAL", { kind: "liturgical_season" })).toBe("Season of the liturgical year");
     expect(sub("LITURGICAL", { kind: "mass_structure" })).toBe("Order of Mass");
+    // The filing takes in more than the Mass, so the title decides.
+    expect(sub("LITURGICAL", { kind: "mass_structure", title: "The Rite of Confirmation" })).toBe(
+      "Liturgical rite",
+    );
+    expect(
+      generateContentSubtitle({
+        contentType: "LITURGICAL",
+        title: "The Roman Missal, Third Edition",
+        fields: { kind: "mass_structure" },
+      }),
+    ).toBe("Liturgical book");
     expect(sub("LITURGICAL", { kind: "funeral_rite" })).toBe("Liturgical rite");
     expect(sub("LITURGICAL", { kind: "glossary_term" })).toBe("Liturgical glossary");
     // The subtype (stamped from `kind` at publish) is honoured when kind is absent.
@@ -367,6 +378,13 @@ describe("generateContentSubtitle over the curated registry", () => {
         fields: find("structure-roman-rite-mass").payload,
       }),
     ).toBe("Order of Mass");
+    // Filed beside it, and not called it.
+    expect(
+      generateContentSubtitle({
+        contentType: "LITURGICAL",
+        fields: find("rite-of-baptism-for-children").payload,
+      }),
+    ).toBe("Liturgical rite");
     expect(
       generateContentSubtitle({
         contentType: "LITURGICAL",

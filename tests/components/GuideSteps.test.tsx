@@ -2,10 +2,11 @@
  * @vitest-environment jsdom
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
-import { GuideSteps, InstructionText, ReadingText } from "@/components/ui/GuideSteps";
+import { GuideSteps, InstructionText, ListedText, ReadingText } from "@/components/ui/GuideSteps";
 import type { GuidePrayerData } from "@/components/ui/GuidePrayers";
+import { createTranslator } from "@/lib/i18n/translator";
 
 afterEach(() => cleanup());
 
@@ -25,6 +26,14 @@ const PRAYERS: GuidePrayerData[] = [
     ],
   },
 ];
+
+const HAIL_MARY: GuidePrayerData = {
+  slug: "hail-mary",
+  title: "Hail Mary",
+  variants: [
+    { code: "en", label: "English", text: "Hail Mary, full of grace...", preserve: false },
+  ],
+};
 
 describe("GuideSteps", () => {
   it("renders an ordered list — a how-to is a sequence, not a set", () => {
@@ -94,6 +103,29 @@ describe("GuideSteps", () => {
     expect(screen.getByText("Become aware of God's presence.")).toBeVisible();
   });
 
+  it("breaks a step's long text into paragraphs sooner than a page's", () => {
+    const sentence =
+      "This is an ordinary sentence of a step, written out at about ordinary length.";
+    const body = Array.from({ length: 7 }, () => sentence).join(" ");
+    expect(body.length).toBeGreaterThan(450);
+    expect(body.length).toBeLessThan(600);
+
+    const step = render(<GuideSteps steps={[{ order: 1, title: "A long step", body }]} />);
+    expect(step.container.querySelectorAll(".vf-step-body > p").length).toBeGreaterThan(1);
+    step.unmount();
+
+    const page = render(<ReadingText text={body} />);
+    expect(page.container.querySelectorAll("p")).toHaveLength(1);
+  });
+
+  it("titles its steps one level under the heading the list sits under", () => {
+    const { rerender } = render(<GuideSteps steps={STEPS} />);
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(3);
+    rerender(<GuideSteps steps={STEPS} titleLevel={2} />);
+    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(3);
+    expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+  });
+
   it("sets the words to say apart from the instruction, in order and in full", () => {
     const { container } = render(
       <GuideSteps
@@ -135,6 +167,58 @@ describe("GuideSteps", () => {
     ).toEqual(["Jesus is condemned.", "He takes up his Cross.", "He falls."]);
     expect(screen.getByText("They run in order:")).toBeVisible();
     expect(screen.getByText("Walk slowly.")).toBeVisible();
+  });
+
+  it("lets a prayer named as a part open from its name, as from the words under it", () => {
+    render(
+      <GuideSteps
+        steps={[
+          {
+            order: 3,
+            title: "The split",
+            body: 'The leader prays the first half. Our Father: leader to "on earth," people from "Give us." Hail Mary: leader to "Jesus," people from "Holy Mary." Glory Be: leader "Glory be," people "as it was."',
+          },
+        ]}
+        prayers={[...PRAYERS, HAIL_MARY]}
+      />,
+    );
+    const name = screen.getByRole("button", { name: "Our Father" });
+    expect(name.closest("p")).toHaveClass("vf-substep-title");
+    expect(screen.getByRole("button", { name: "Hail Mary" }).closest("p")).toHaveClass(
+      "vf-substep-title",
+    );
+    // A part that names no prayer the guide has is set just as a part.
+    expect(screen.getByText("Glory Be")).toHaveClass("vf-substep-title");
+    fireEvent.click(name);
+    expect(screen.getByText(/who art in heaven/)).toBeVisible();
+  });
+
+  it("sets a part's name as plain text when no prayers are supplied", () => {
+    render(
+      <GuideSteps
+        steps={[
+          {
+            order: 1,
+            title: "The split",
+            body: 'Our Father: leader to "earth." Hail Mary: leader to "Jesus." Glory Be: leader "Glory."',
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText("Our Father")).toHaveClass("vf-substep-title");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("says the step's number in the reader's language", () => {
+    render(<GuideSteps steps={STEPS.slice(0, 1)} itemName="Part" t={createTranslator("es")} />);
+    expect(screen.getByRole("heading", { level: 3 }).textContent).toBe(
+      "Parte 1: Begin with the Sign of the Cross",
+    );
+    cleanup();
+    render(<GuideSteps steps={STEPS.slice(0, 1)} t={createTranslator("es")} />);
+    expect(screen.getByRole("heading", { level: 3 }).textContent).toBe(
+      "Paso 1: Begin with the Sign of the Cross",
+    );
   });
 
   it("carries a nested count on from an earlier step", () => {
@@ -193,6 +277,40 @@ describe("InstructionText", () => {
       "aria-expanded",
       "false",
     );
+  });
+});
+
+describe("ListedText", () => {
+  const DAYS =
+    "Six days are kept. In the dioceses six days are observed: Mary on January 1; the Ascension; the Assumption on August 15; All Saints on November 1; the Immaculate Conception on December 8; and the Nativity on December 25. The Epiphany is transferred.";
+
+  it("sets an article's list as a list, with no number and no step", () => {
+    const { container } = render(
+      <div className="vf-reading">
+        <ListedText text={DAYS} />
+      </div>,
+    );
+    const items = within(container.querySelector<HTMLElement>("ul")!).getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual([
+      "Mary on January 1",
+      "The Ascension",
+      "The Assumption on August 15",
+      "All Saints on November 1",
+      "The Immaculate Conception on December 8; and",
+      "The Nativity on December 25",
+    ]);
+    expect(container.querySelector("ul")).toHaveAttribute("role", "list");
+    expect(container.querySelector("ol")).toBeNull();
+    expect(container.textContent).not.toMatch(/\bStep\b/);
+    expect(container.querySelector(".vf-step-number")).toBeNull();
+    expect(screen.getByText(/^Six days are kept/)).toBeVisible();
+    expect(screen.getByText("The Epiphany is transferred.")).toBeVisible();
+  });
+
+  it("is plain paragraphs when the text holds no list", () => {
+    const { container } = render(<ListedText text="The Ascension is kept on Thursday." />);
+    expect(container.querySelector("ul")).toBeNull();
+    expect(screen.getByText("The Ascension is kept on Thursday.")).toBeVisible();
   });
 });
 

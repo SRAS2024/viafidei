@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 
 import type { PublishedItem, PublishedListItem } from "@/lib/data/published";
@@ -42,6 +42,12 @@ vi.mock("@/lib/translation/localize", () => ({
   localizeItems: async (items: unknown[]) => items,
 }));
 vi.mock("@/lib/i18n/rite-cookie", () => ({ getRiteCookieValue: async () => "roman" }));
+
+// React's request-scoped cache exists only in the server runtime Next.js brings.
+vi.mock("react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react")>()),
+  cache: <T,>(fn: T) => fn,
+}));
 
 // A sort anyone can recognise: the page shows the rows backwards.
 vi.mock("@/lib/content-shared/display-order", () => {
@@ -80,6 +86,7 @@ import ChurchDocumentsPage from "@/app/church-documents/page";
 import ChurchDocumentsLoading from "@/app/church-documents/loading";
 import LiturgyPage from "@/app/liturgy/(list)/page";
 import LiturgyLoading from "@/app/liturgy/(list)/loading";
+import { popeFactItems } from "@/app/popes/[slug]/facts";
 
 type ContentType = PublishedItem["contentType"];
 type Page = (props: { searchParams: Promise<Record<string, string>> }) => Promise<ReactElement>;
@@ -137,6 +144,10 @@ const CATALOGUE: Partial<Record<ContentType, PublishedItem[]>> = {
       doctorTitle: "Angelic Doctor",
       summary: "The Summa.",
     }),
+    published("DOCTOR", "Saint Ambrose of Milan", {
+      doctorTitle: "Doctor of the Church",
+      summary: "Bishop of Milan.",
+    }),
   ],
   NOVENA: [
     published("NOVENA", "Novena to St. Jude", {
@@ -169,7 +180,7 @@ const CATALOGUE: Partial<Record<ContentType, PublishedItem[]>> = {
     }),
   ],
   LITURGICAL: [
-    published("LITURGICAL", "Solemnity of the Nativity", {
+    published("LITURGICAL", "The Nativity of the Lord", {
       slug: "solemnity-christmas",
       kind: "solemnity",
       feastDate: "12-25",
@@ -224,15 +235,20 @@ async function show(page: unknown, params: Record<string, string> = {}) {
   return render(await (page as Page)({ searchParams: Promise.resolve(params) }));
 }
 
+/** The space that keeps a pope's numeral with his name reads as any other space. */
+const spaced = (text: string) => text.replace(/\u00a0/g, " ");
+
 /** A card's lines in reading order, title first. */
 function cardLines(title: string): Array<string | null> {
-  const card = screen.getByRole("link", { name: title }).closest("article")!;
-  return [...card.querySelectorAll("h2, h3, p")].map((el) => el.textContent);
+  const card = screen
+    .getByRole("link", { name: (name) => spaced(name) === title })
+    .closest("article")!;
+  return [...card.querySelectorAll("h2, h3, p")].map((el) => spaced(el.textContent ?? ""));
 }
 
 /** The titles of the cards on the page, in order. */
 function cardTitles(): string[] {
-  return [...document.querySelectorAll(".vf-entry-link")].map((el) => el.textContent ?? "");
+  return [...document.querySelectorAll(".vf-entry-link")].map((el) => spaced(el.textContent ?? ""));
 }
 
 describe("every collection card puts its title first", () => {
@@ -257,12 +273,27 @@ describe("every collection card puts its title first", () => {
     await show(DoctorsPage);
     // The clipped biography stays off: the name and epithet are the whole card.
     expect(cardLines("Saint Thomas Aquinas")).toEqual(["Saint Thomas Aquinas", "Angelic Doctor"]);
+    // The page's own title says what every card on it is.
+    expect(cardLines("Saint Ambrose of Milan")).toEqual(["Saint Ambrose of Milan"]);
     cleanup();
     await show(PopesPage);
-    expect(cardLines("Pope Saint Peter")).toEqual(["Pope Saint Peter", "30–64"]);
-    expect(cardLines("Pope Leo XIV")).toEqual(["Pope Leo XIV", "2025–Present"]);
-    // A reign within one year is one year, not "336–336".
+    // Written as his own page writes it, so the card and the page never differ.
+    expect(cardLines("Pope Saint Peter")).toEqual(["Pope Saint Peter", "30 – 64"]);
+    expect(cardLines("Pope Leo XIV")).toEqual(["Pope Leo XIV", "Since 2025"]);
+    // A reign within one year is one year, not "336 – 336".
     expect(cardLines("Pope Mark")).toEqual(["Pope Mark", "336"]);
+  });
+
+  it("writes a pope's reign the same on his card and in his facts", async () => {
+    await show(PopesPage);
+    const reign = (title: string, payload: Record<string, unknown>) => [
+      cardLines(title)[1],
+      popeFactItems(title, payload)[0]?.value,
+    ];
+    const peter = reign("Pope Saint Peter", { papacyStart: 30, papacyEnd: 64 });
+    expect(peter[0]).toBe(peter[1]);
+    const leo = reign("Pope Leo XIV", { papacyStart: 2025, papacyEnd: null });
+    expect(leo[0]).toBe(leo[1]);
   });
 
   it("marks the reader's rite with a line under its name", async () => {
@@ -278,8 +309,32 @@ describe("every collection card puts its title first", () => {
     expect(cardLines("A Plain Devotion")).not.toContain("General");
     cleanup();
     await show(SpiritualLifePage);
-    expect(cardLines("Lectio Divina")[1]).toBe("Lectio divina");
     expect(cardLines("A Rule of Life")).not.toContain("Other");
+  });
+
+  it("shows no label that only repeats the title", async () => {
+    listPublished.mockImplementation(async (type: ContentType) =>
+      type === "SPIRITUAL_PRACTICE"
+        ? [
+            published(type, "Almsgiving", { practiceKind: "almsgiving", summary: "Giving." }),
+            published(type, "Friday Penance", { practiceKind: "penance", summary: "Fridays." }),
+            published(type, "A Rule of Life", { practiceKind: "fasting", summary: "Daily." }),
+          ]
+        : [],
+    );
+    await show(SpiritualLifePage);
+    expect(cardLines("Almsgiving")).toEqual(["Almsgiving", "Giving.", "Open →"]);
+    expect(cardLines("Friday Penance")).toEqual(["Friday Penance", "Fridays.", "Open →"]);
+    // A label that adds something stays.
+    expect(cardLines("A Rule of Life")[1]).toBe("Fasting");
+  });
+
+  it('leaves "Litany" off the cards of the litanies', async () => {
+    listPublishedPage.mockResolvedValue(
+      onePage([projected("PRAYER", "Litany of Humility", "litany")]),
+    );
+    await show(LitaniesPage);
+    expect(cardLines("Litany of Humility")).toEqual(["Litany of Humility"]);
   });
 });
 
@@ -527,10 +582,10 @@ describe("/liturgy reads as one page", () => {
     expect(
       screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent),
     ).toEqual(["Seasons", "Feasts & Solemnities"]);
-    expect(cardTitles()).toEqual(["Season of Advent", "Solemnity of the Nativity"]);
+    expect(cardTitles()).toEqual(["Season of Advent", "The Nativity of the Lord"]);
     expect(screen.getByRole("heading", { level: 3, name: "Season of Advent" })).toBeInTheDocument();
     // "Solemnity" is true of the entry; "Liturgical season" would not be, on a day.
-    expect(cardLines("Solemnity of the Nativity")[1]).toBe("Solemnity");
+    expect(cardLines("The Nativity of the Lord")[1]).toBe("Solemnity");
     expect(cardLines("Season of Advent")[1]).toBe("Four weeks.");
   });
 
@@ -545,7 +600,7 @@ describe("/liturgy reads as one page", () => {
     await show(LiturgyPage, { q: "christmas" });
     expect(
       screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(["Solemnity of the Nativity"]);
+    ).toEqual(["The Nativity of the Lord"]);
   });
 
   it("offers its filters in the order of its sections", async () => {
@@ -585,8 +640,13 @@ describe("no page says what its order is", () => {
 describe("a loading placeholder reserves the page that replaces it", () => {
   const gridOf = (root: HTMLElement) => root.querySelector("ul.vf-grid")?.className;
   const titleOf = (root: HTMLElement) => root.querySelector("h1")?.textContent;
+  /** A placeholder is a server component: it awaits the reader's language first. */
+  const showPlaceholder = async (Loading: () => ReactElement | Promise<ReactElement>) => {
+    const { type: Skeleton, props } = await Loading();
+    return render(await (Skeleton as (p: object) => Promise<ReactElement>)(props as object));
+  };
 
-  it.each<[string, unknown, () => ReactElement, Record<string, string>]>([
+  it.each<[string, unknown, () => ReactElement | Promise<ReactElement>, Record<string, string>]>([
     ["prayers", PrayersPage, PrayersLoading, {}],
     ["litanies", LitaniesPage, LitaniesLoading, {}],
     ["saints", SaintsPage, SaintsLoading, {}],
@@ -609,19 +669,63 @@ describe("a loading placeholder reserves the page that replaces it", () => {
     const title = titleOf(loaded.container);
     const hasSummary = loaded.container.querySelector(".vf-entry-summary") != null;
     const hasControls = loaded.container.querySelector(".vf-list-controls") != null;
+    const hasFilter = loaded.container.querySelector(".vf-list-controls .vf-chip") != null;
     cleanup();
 
-    const { container } = render(<Loading />);
+    const { container } = await showPlaceholder(Loading);
     expect(gridOf(container)).toBe(grid);
     expect(titleOf(container)).toBe(title);
     expect(container.querySelector(".vf-list-controls") != null).toBe(hasControls);
+    // The search field stands where it will: the filter beside it has its room held.
+    expect(
+      container.querySelectorAll(".vf-list-controls > span.vf-skeleton, .vf-list-controls .vf-chip")
+        .length > 0,
+    ).toBe(hasFilter);
     // A row of cards with no description preview is a shorter row.
     const placeholder = screen.getAllByTestId("tab-loading-card")[0];
-    expect(placeholder.querySelectorAll(".vf-skeleton").length > 2).toBe(hasSummary);
+    expect(placeholder.querySelector(".vf-entry-summary") != null).toBe(hasSummary);
     // Twelve cards fill every row, in two, three or four columns.
     expect(screen.getAllByTestId("tab-loading-card")).toHaveLength(12);
-    // Loading is announced, and the placeholder cards themselves are not read out.
-    expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+    // Loading is announced from beside the busy wrapper, where nothing can hold it
+    // back, and the placeholder cards themselves are not read out.
+    const status = screen.getByRole("status");
+    await waitFor(() => expect(status).toHaveTextContent("Loading the latest published content"));
+    expect(status.closest('[aria-busy="true"]')).toBeNull();
+    expect(screen.getByTestId("tab-loading")).toHaveAttribute("aria-busy", "true");
     expect(screen.getByTestId("tab-loading-cards")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("holds the room of a saint's patronage and feast day", async () => {
+    await showPlaceholder(SaintsLoading);
+    const card = screen.getAllByTestId("tab-loading-card")[0];
+    expect(card.querySelectorAll(".vf-entry-meta")).toHaveLength(3);
+  });
+
+  it("holds the room of a novena's intention", async () => {
+    await showPlaceholder(NovenasLoading);
+    const card = screen.getAllByTestId("tab-loading-card")[0];
+    expect(card.querySelector(".vf-entry-theme")).not.toBeNull();
+  });
+
+  it("holds the room of /liturgy's first section heading", async () => {
+    listPublished.mockResolvedValue([
+      published("LITURGICAL", "The Order of Mass", {
+        kind: "mass_structure",
+        summary: "The parts of the Mass.",
+      }),
+    ]);
+    const loaded = await show(LiturgyPage);
+    const heading = loaded.container.querySelector(".vf-section-title")?.textContent;
+    cleanup();
+    const { container } = await showPlaceholder(LiturgyLoading);
+    expect(container.querySelector(".vf-section-title")?.textContent).toBe(heading);
+  });
+
+  it("holds the room of the line under the search on /devotions", async () => {
+    const loaded = await show(DevotionsPage);
+    const hasNote = loaded.container.querySelector(".vf-list-controls > p") != null;
+    cleanup();
+    const { container } = await showPlaceholder(DevotionsLoading);
+    expect(container.querySelector(".vf-list-controls > p") != null).toBe(hasNote);
   });
 });

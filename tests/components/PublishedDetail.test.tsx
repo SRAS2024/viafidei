@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 
 import { PublishedDetail } from "@/components/ui/PublishedDetail";
+import { createTranslator } from "@/lib/i18n/translator";
 import type { PublishedItem } from "@/lib/data/published";
+
+const t = createTranslator("en");
 
 afterEach(() => cleanup());
 
@@ -27,6 +30,7 @@ describe("PublishedDetail — stray metadata is never rendered as a section", ()
     // qid", "Content subtype" and "Structure: nine_days" reached readers.
     render(
       <PublishedDetail
+        t={t}
         item={makeItem({
           history: "A long and venerable history of the Roman Rite.",
           riteKey: "roman",
@@ -73,7 +77,10 @@ describe("PublishedDetail — stray metadata is never rendered as a section", ()
 
   it("does not render the summary as a body section (it belongs in the header)", () => {
     render(
-      <PublishedDetail item={makeItem({ summary: "Short summary.", history: "Full history." })} />,
+      <PublishedDetail
+        t={t}
+        item={makeItem({ summary: "Short summary.", history: "Full history." })}
+      />,
     );
     // Summary text appears once (the header), never as its own "Summary" section.
     expect(screen.queryByRole("heading", { name: /summary/i })).not.toBeInTheDocument();
@@ -86,6 +93,7 @@ describe("PublishedDetail — stray metadata is never rendered as a section", ()
     // fields; explicit requests bypass the catch-all metadata filter.
     render(
       <PublishedDetail
+        t={t}
         item={makeItem({ background: "A life of grace.", doctorTitle: "Angelic Doctor" })}
         primaryFields={["background"]}
         secondaryFields={["doctorTitle"]}
@@ -100,6 +108,7 @@ describe("PublishedDetail — stray metadata is never rendered as a section", ()
     // reconciliation" leak must not recur even when a page names them.
     render(
       <PublishedDetail
+        t={t}
         item={makeItem({ steps: ["Step one"], sacramentKey: "reconciliation", riteKey: "roman" })}
         primaryFields={["steps"]}
         secondaryFields={["sacramentKey", "riteKey"]}

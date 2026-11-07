@@ -11,6 +11,7 @@ import {
   buildHistoryView,
   centuryLabel,
   eventAtYear,
+  historyStatusSpeech,
   historyStatusText,
   parseHistoryParams,
   type HistoryParams,
@@ -339,6 +340,57 @@ describe("landing on a year", () => {
   it("eventAtYear handles an empty list", () => {
     expect(eventAtYear([], 1000, "oldest")).toBeNull();
     expect(eventAtYear([], 1000, "newest")).toBeNull();
+  });
+});
+
+describe("the sentence for the ear", () => {
+  const total = events.length.toLocaleString("en-US");
+
+  it("is the count alone in the plain view", () => {
+    expect(historyStatusSpeech(view())).toBe(`Showing 60 of ${total} events.`);
+  });
+
+  it("says when the list is reversed, though nothing visible does", () => {
+    expect(historyStatusSpeech(view({ order: "newest" }))).toBe(
+      `Showing 60 of ${total} events, newest first.`,
+    );
+    expect(historyStatusText(view({ order: "newest" }))).not.toContain("newest");
+    expect(historyStatusSpeech(view({ order: "newest" }))).not.toBe(historyStatusSpeech(view()));
+  });
+
+  it("names the era and theme, so that views of one length do not sound the same", () => {
+    expect(historyStatusSpeech(view({ era: "fathers" }))).toMatch(
+      /^Fathers & First Councils: showing \d+ of \d+ events\.$/,
+    );
+    expect(historyStatusSpeech(view({ era: "fathers", theme: "councils" }))).toMatch(
+      /^Fathers & First Councils, Councils: showing all \d+ events\.$/,
+    );
+    expect(historyStatusSpeech(view({ theme: "councils" }))).toMatch(/^Councils: showing /);
+  });
+
+  it("names what was searched for", () => {
+    expect(historyStatusSpeech(view({ q: "nicaea" }))).toMatch(/events? for “nicaea”\.$/);
+    expect(historyStatusSpeech(view({ q: "zzzzqx" }))).toBe("Showing no events for “zzzzqx”.");
+  });
+
+  it("gives the range past the first page", () => {
+    expect(historyStatusSpeech(view({ page: 2 }))).toBe(`Showing 61 to 120 of ${total} events.`);
+  });
+
+  it("leads with where a year or a link landed, since that is the news", () => {
+    expect(historyStatusSpeech(view({ year: 1054 }))).toMatch(
+      /^At 1054: The Great Schism\. High Middle Ages: showing \d+ of \d+ events\.$/,
+    );
+    expect(historyStatusSpeech(view({ event: "pentecost" }))).toMatch(
+      /^Opened: Pentecost — the Church is born\. Apostolic Age: showing all \d+ events\.$/,
+    );
+  });
+
+  it("keeps the visible sentence short: the page around it says the rest", () => {
+    expect(historyStatusText(view({ era: "fathers" }))).toMatch(/^Showing \d+ of \d+ events$/);
+    expect(historyStatusText(view({ year: 1054 }))).toMatch(
+      /^Showing \d+ of \d+ events\. At 1054: The Great Schism\.$/,
+    );
   });
 });
 

@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+
 import {
   LIST_PAGE_SIZE,
   ListControls,
@@ -11,6 +14,7 @@ import {
   parsePageParam,
 } from "@/components/ui";
 import { formatEnumValue } from "@/lib/content-shared/field-presenters";
+import { listPageTitleFor } from "@/lib/content-shared/list-page";
 import {
   parseSearchQuery,
   publishedSearchFields,
@@ -21,7 +25,6 @@ import { getTranslator } from "@/lib/i18n/server";
 import { localizeItems } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Novenas" };
 
 /**
  * A novena's intention as the sentence under its title. It is stored as a phrase
@@ -35,19 +38,44 @@ function intentionSentence(payload: Record<string, unknown>): string | undefined
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-export default async function NovenasPage({
+// Novena cards show the novena's summary from the payload, so the type is
+// read whole and paged here rather than through the projection. One read per
+// request: the tab's title and the page both need the answer.
+const loadNovenas = cache(async (pageNumber: number, query: string) => {
+  const items = await listPublished("NOVENA");
+  const visible = query ? rankBySearch(items, query, (n) => publishedSearchFields(n)) : items;
+  return { visible, page: pageSlice(visible, pageNumber, LIST_PAGE_SIZE) };
+});
+
+type SearchParams = Promise<{ page?: string; q?: string | string[] }>;
+
+export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; q?: string | string[] }>;
-}) {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const { t, locale } = await getTranslator();
+  const { page, q } = await searchParams;
+  const query = parseSearchQuery(q);
+  const pageNumber = parsePageParam(page);
+  const inDictionary = t("nav.novenas");
+  return {
+    title: await listPageTitleFor(
+      { name: inDictionary === "nav.novenas" ? "Novenas" : inDictionary, query, t, locale },
+      pageNumber > 1,
+      async () => {
+        const data = await loadNovenas(pageNumber, query);
+        return { pages: [data.page], total: data.visible.length };
+      },
+    ),
+  };
+}
+
+export default async function NovenasPage({ searchParams }: { searchParams: SearchParams }) {
   const { t, locale } = await getTranslator();
   const { page: pageParam, q: rawQuery } = await searchParams;
   const query = parseSearchQuery(rawQuery);
-  // Novena cards show the novena's summary from the payload, so the type is
-  // read whole and paged here rather than through the projection.
-  const items = await listPublished("NOVENA");
-  const visible = query ? rankBySearch(items, query, (n) => publishedSearchFields(n)) : items;
-  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  const { visible, page } = await loadNovenas(parsePageParam(pageParam), query);
   return (
     <div>
       <PageHero
@@ -76,6 +104,7 @@ export default async function NovenasPage({
             action={t("common.open")}
           />
           <Pagination
+            t={t}
             basePath="/novenas"
             page={page.page}
             totalPages={page.pageCount}

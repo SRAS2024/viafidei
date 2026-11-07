@@ -10,8 +10,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 
 import { PublishedDetail } from "@/components/ui/PublishedDetail";
+import { createTranslator } from "@/lib/i18n/translator";
 import { WikipediaAttribution } from "@/components/ui/WikipediaAttribution";
 import type { PublishedItem } from "@/lib/data/published";
+
+const t = createTranslator("en");
 
 afterEach(() => cleanup());
 
@@ -53,6 +56,8 @@ describe("WikipediaAttribution", () => {
     expect(line.textContent?.replaceAll(" (opens in a new tab)", "")).toBe(
       "Text from Wikipedia (Hildegard Burjan), CC BY-SA 4.0",
     );
+    // A voice goes from one link to the next, with no stop on the comma between them.
+    expect(line.querySelector('[aria-hidden="true"]')).toHaveTextContent(/^,$/);
     expect(
       screen.getByRole("link", { name: "Wikipedia (Hildegard Burjan) (opens in a new tab)" }),
     ).toHaveAttribute("href", EN);
@@ -74,6 +79,7 @@ describe("PublishedDetail on a structured saint", () => {
   it("credits Wikipedia once, at the foot of the page", () => {
     render(
       <PublishedDetail
+        t={t}
         item={saint(BURJAN)}
         primaryFields={["biography"]}
         secondaryFields={["feastDay"]}
@@ -86,7 +92,7 @@ describe("PublishedDetail on a structured saint", () => {
   });
 
   it("never prints the feast month / day-of-month split or the Wikidata id", () => {
-    render(<PublishedDetail item={saint(BURJAN)} primaryFields={["biography"]} />);
+    render(<PublishedDetail t={t} item={saint(BURJAN)} primaryFields={["biography"]} />);
     expect(screen.queryByText(/feast month/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/day of month/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/wikidata qid/i)).not.toBeInTheDocument();

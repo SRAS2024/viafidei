@@ -29,6 +29,7 @@ vi.mock("@/lib/data/homepage", () => ({
 vi.mock("@/lib/i18n/server", () => ({
   getTranslator: async () => ({ t: (key: string) => key }),
 }));
+vi.mock("@/lib/auth/session", () => ({ getSession: async () => ({}) }));
 // The other homepage blocks read the database or the network of their own
 // accord; this file is about the featured rail, so they are stubbed out.
 vi.mock("@/app/_sections", async (importOriginal) => ({

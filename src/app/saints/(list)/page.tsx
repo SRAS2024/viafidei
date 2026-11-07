@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+
 import {
   FilterChips,
   LIST_PAGE_SIZE,
@@ -9,12 +12,9 @@ import {
   PublishedList,
   parsePageParam,
 } from "@/components/ui";
+import { listPageTitleFor } from "@/lib/content-shared/list-page";
 import { listHref, parseSearchQuery } from "@/lib/content-shared/list-search";
-import {
-  SAINT_FILTERS,
-  SAINT_FILTER_SUBTYPES,
-  saintSubtypeLabel,
-} from "@/lib/content-shared/saint-categories";
+import { SAINT_FILTERS, SAINT_FILTER_SUBTYPES } from "@/lib/content-shared/saint-categories";
 import { resolvePayloadFilter } from "@/lib/content-shared/payload-filter";
 import { saintCardDetailLines, type SaintCardDetails } from "@/lib/content-shared/saints";
 import { getTranslator } from "@/lib/i18n/server";
@@ -26,32 +26,61 @@ import {
 import { localizeItems } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Saints" };
 
-export default async function SaintsPage({
+type SearchParams = Promise<{ filter?: string; page?: string; q?: string | string[] }>;
+
+// One indexed page of saints, in the site's saint order, in SQL. The catalogue
+// is heading for 10,000 rows, so the page must never load the whole type:
+// `listPublishedPage` projects away the payload and takes exactly the rows
+// this page shows. A search runs in SQL as well — name, patronage and the rest
+// of the search index — best match first, inside the chosen category. One read per
+// request: the tab's title and the page both need the answer.
+const loadSaints = cache((filterKey: string, page: number, query: string) =>
+  listPublishedPage("SAINT", {
+    page,
+    pageSize: LIST_PAGE_SIZE,
+    subtype: filterKey === "all" ? null : (SAINT_FILTER_SUBTYPES[filterKey] ?? null),
+    order: "saints",
+    ...(query ? { q: query } : {}),
+  }),
+);
+
+export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; page?: string; q?: string | string[] }>;
-}) {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const { t, locale } = await getTranslator();
+  const { filter, page, q } = await searchParams;
+  const query = parseSearchQuery(q);
+  const selected = resolvePayloadFilter(SAINT_FILTERS, filter);
+  const pageNumber = parsePageParam(page);
+  return {
+    title: await listPageTitleFor(
+      {
+        name: t("nav.saintsTab"),
+        filter: selected.key === "all" ? null : selected.label,
+        query,
+        t,
+        locale,
+      },
+      pageNumber > 1,
+      async () => {
+        const result = await loadSaints(selected.key, pageNumber, query);
+        return { pages: [result], total: result.total };
+      },
+    ),
+  };
+}
+
+export default async function SaintsPage({ searchParams }: { searchParams: SearchParams }) {
   const { t, locale } = await getTranslator();
   const { filter, page: pageParam, q: rawQuery } = await searchParams;
   const query = parseSearchQuery(rawQuery);
   const selected = resolvePayloadFilter(SAINT_FILTERS, filter);
-  const subtypes = selected.key === "all" ? null : (SAINT_FILTER_SUBTYPES[selected.key] ?? null);
 
-  // One indexed page of saints, in the site's saint order, in SQL. The catalogue
-  // is heading for 10,000 rows, so the page must never load the whole type:
-  // `listPublishedPage` projects away the payload and takes exactly the rows
-  // this page shows. A search runs in SQL as well — name, patronage and the rest
-  // of the search index — best match first, inside the chosen category.
   const [result, counts] = await Promise.all([
-    listPublishedPage("SAINT", {
-      page: parsePageParam(pageParam),
-      pageSize: LIST_PAGE_SIZE,
-      subtype: subtypes,
-      order: "saints",
-      ...(query ? { q: query } : {}),
-    }),
+    loadSaints(selected.key, parsePageParam(pageParam), query),
     countPublishedBySubtype("SAINT").catch(() => ({}) as Record<string, number>),
   ]);
 
@@ -106,16 +135,15 @@ export default async function SaintsPage({
         )
       ) : (
         <>
-          {/* A name is short and its facts are brief, so four cards fit a row.
-              Each card carries the one title label the spec permits for its type. */}
+          {/* A card reads name, patronage, feast day, and a patronage runs long, so
+              three cards fit a row without cutting it short. */}
           <PublishedList
             items={await localizeItems(result.items, { depth: "card" })}
             baseHref="/saints"
-            columns={4}
-            eyebrowFor={(item) => saintSubtypeLabel("subtype" in item ? item.subtype : null)}
             detailLinesFor={(item) => saintCardDetailLines(details.get(item.id), t)}
           />
           <Pagination
+            t={t}
             basePath="/saints"
             page={result.page}
             totalPages={result.pageCount}

@@ -15,7 +15,7 @@ import { prismaMock, resetPrismaMock } from "../helpers/prisma-mock";
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 
-import { saveItem, unsaveItem, isSaved } from "@/lib/data/saved";
+import { listSavedParishes, saveItem, unsaveItem, isSaved } from "@/lib/data/saved";
 
 beforeEach(() => {
   resetPrismaMock();
@@ -51,6 +51,19 @@ describe("saveItem — refuses to save unpublished content", () => {
       ok: false,
       reason: "not_found",
     });
+  });
+});
+
+describe("a saved church", () => {
+  it("reads as the directory shows it, with no raw semicolon", async () => {
+    prismaMock.userSavedContent.findMany.mockResolvedValue([
+      { id: "s1", contentSlug: "rose", contentType: "PARISH", createdAt: new Date() },
+    ]);
+    prismaMock.publishedContent.findMany.mockResolvedValue([
+      { slug: "rose", title: "St. Rose;Santa Rosa", payload: {}, publishedAt: null },
+    ]);
+    const [saved] = await listSavedParishes("user-A");
+    expect(saved!.title).toBe("St. Rose (Santa Rosa)");
   });
 });
 

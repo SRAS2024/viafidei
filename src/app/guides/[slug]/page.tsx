@@ -1,14 +1,19 @@
+import { Fragment } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { GuidePrayers, GuideSteps, RosaryMysteries, ShareButton } from "@/components/ui";
+import { eyebrowClass } from "@/components/ui/eyebrow";
 import { ReadingText } from "@/components/ui/GuideSteps";
+import { MetaSeparator } from "@/components/ui/MetaSeparator";
 import { isRosaryGuide } from "@/lib/content-shared/rosary";
+import { translateDetailLabel } from "@/lib/content-shared/detail-labels";
 import { guideEyebrow } from "@/lib/content-shared/guide-categories";
 import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
 import { toGuideSteps } from "@/lib/content-shared/structured-content";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { loadPrayerSet } from "@/lib/data/prayer-sets";
+import { getTranslator } from "@/lib/i18n/server";
 import { displayItem } from "@/lib/translation/display";
 import { localizeItem, localizePrayers } from "@/lib/translation/localize";
 
@@ -57,6 +62,9 @@ export default async function GuideDetailPage({ params }: Props) {
   // Latin / Greek chips, and so prayer names inside the steps become
   // inline-expandable. Titles and texts in the reader's language, like the steps.
   const prayers = await localizePrayers(await loadPrayerSet(payload.relatedPrayers));
+  const { t } = await getTranslator();
+  // The guide's kind, from the stored record, in the reader's language.
+  const eyebrow = translateDetailLabel(guideEyebrow(payload), t);
 
   const steps = toGuideSteps(shown.steps) ?? [];
   const summary = stringField(shown, "summary");
@@ -76,9 +84,18 @@ export default async function GuideDetailPage({ params }: Props) {
   return (
     <article className="vf-detail">
       <header className="vf-detail-header">
-        <p className="vf-eyebrow">{guideEyebrow(payload)}</p>
+        {eyebrow ? <p className={eyebrowClass(eyebrow)}>{eyebrow}</p> : null}
         <h1 className="vf-detail-title text-ink">{shownGuide.title}</h1>
-        {meta.length > 0 ? <p className="vf-detail-meta">{meta.join(" · ")}</p> : null}
+        {meta.length > 0 ? (
+          <p className="vf-detail-meta">
+            {meta.map((part, i) => (
+              <Fragment key={part}>
+                {i > 0 ? <MetaSeparator /> : null}
+                {part}
+              </Fragment>
+            ))}
+          </p>
+        ) : null}
         <div className="vf-detail-actions">
           <ShareButton title={shownGuide.title} text={summary ?? shownGuide.title} />
         </div>
@@ -121,7 +138,7 @@ export default async function GuideDetailPage({ params }: Props) {
           <h2 id="guide-steps" className="vf-subhead">
             Steps
           </h2>
-          <GuideSteps steps={steps} prayers={prayers} headingId="guide-steps" />
+          <GuideSteps steps={steps} prayers={prayers} headingId="guide-steps" t={t} />
         </section>
       ) : null}
 
@@ -138,7 +155,7 @@ export default async function GuideDetailPage({ params }: Props) {
         </section>
       ) : null}
 
-      {isRosaryGuide(payload) ? <RosaryMysteries /> : null}
+      {isRosaryGuide(payload) ? <RosaryMysteries todayChip={t("rosary.todayChip")} /> : null}
       <GuidePrayers prayers={prayers} />
     </article>
   );

@@ -28,7 +28,8 @@ export function WikipediaAttribution({
         {wikipediaEditionName(source.lang)} ({source.title})
         <span className="sr-only"> (opens in a new tab)</span>
       </a>
-      ,{" "}
+      {/* Between two links, a screen reader would stop on the comma alone. */}
+      <span aria-hidden="true">, </span>
       <a
         href={WIKIPEDIA_LICENSE.url}
         target="_blank"

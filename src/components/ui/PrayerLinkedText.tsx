@@ -87,14 +87,23 @@ function InlinePrayerPanel({
   );
 }
 
-/** The link that opens a prayer: a real button, named by the words in the text. */
+/**
+ * The link that opens a prayer: a real button, named by the words in the text. A button
+ * is a box on the line, and a line may break on either side of one, which used to leave a
+ * comma or a full stop at the start of the next line. So the punctuation around a name
+ * sits in the box with it, out of the button's name and out of its underline.
+ */
 function PrayerToggle({
   label,
+  before,
+  after,
   expanded,
   controls,
   onToggle,
 }: {
   label: string;
+  before: string;
+  after: string;
   expanded: boolean;
   controls: string;
   onToggle: () => void;
@@ -107,26 +116,44 @@ function PrayerToggle({
       aria-controls={controls}
       className="vf-link vf-inline-prayer-toggle"
     >
+      {before ? (
+        <span aria-hidden="true" className="vf-inline-prayer-mark">
+          {before}
+        </span>
+      ) : null}
       {label}
-      <svg
-        aria-hidden="true"
-        width="10"
-        height="10"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="vf-inline-prayer-chevron"
-      >
-        <polyline points="6 9 12 15 18 9" />
-      </svg>
+      <span className="vf-inline-prayer-end">
+        <svg
+          aria-hidden="true"
+          width="10"
+          height="10"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="vf-inline-prayer-chevron"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+        {after ? (
+          <span aria-hidden="true" className="vf-inline-prayer-mark">
+            {after}
+          </span>
+        ) : null}
+      </span>
     </button>
   );
 }
 
 const ONLY_PUNCTUATION = /^[\s\p{P}]+$/u;
+/** The rest of the word when a name is possessive: the Magnificat's first words. */
+const POSSESSIVE = /^['’]s\b/;
+/** What closes on a prayer's name: the comma or bracket after it. */
+const CLOSES_ON_NAME = /^[,.;:!?)\]”’"'—–]*/u;
+/** What opens on a prayer's name: a bracket or a quotation mark. */
+const OPENS_ON_NAME = /[(\[“‘"']*$/u;
 
 interface OpenedPrayer {
   slug: string;
@@ -150,6 +177,7 @@ export function PrayerLinkedText({
   headingLevel = 3,
   lang,
   preserve = false,
+  className = "",
 }: {
   text: string;
   prayers: GuidePrayerData[];
@@ -161,6 +189,8 @@ export function PrayerLinkedText({
   lang?: string;
   /** When the text is itself prayer: it must stay verbatim (Latin / Greek). */
   preserve?: boolean;
+  /** For instructions: how the paragraph is set, when it is not an ordinary one. */
+  className?: string;
 }) {
   // The prayers opened so far, by panel. `place` tells panels of one prayer apart:
   // the stanza that opened it when the text is itself prayer.
@@ -182,25 +212,40 @@ export function PrayerLinkedText({
   /** A stretch of the text, with the prayers it names as links. */
   const linkedWords = (words: string, place: number | null, kind?: PrayerLineKind): ReactNode => {
     const { segments } = tokenizePrayerMentions(words, prayers, { matchCase });
+    const isLink = (i: number) =>
+      !!segments[i]?.prayer && !(i === 0 && kind && saysTheWords(words, kind, segments[1]?.text));
+    const possessive = (i: number) =>
+      isLink(i - 1) ? (POSSESSIVE.exec(segments[i]!.text)?.[0] ?? "") : "";
+    const closing = (i: number) =>
+      isLink(i - 1)
+        ? (CLOSES_ON_NAME.exec(segments[i]!.text.slice(possessive(i).length))?.[0] ?? "")
+        : "";
+    // What is left of the words between two names, so that no mark is counted twice.
+    const between = (i: number) =>
+      segments[i]!.text.slice(possessive(i).length + closing(i).length);
+    const opening = (i: number) =>
+      isLink(i + 1) ? (OPENS_ON_NAME.exec(between(i))?.[0] ?? "") : "";
     return segments.map((segment, i) => {
-      const said = i === 0 && kind && saysTheWords(words, kind, segments[1]?.text);
-      if (!segment.prayer || said) {
+      if (!isLink(i)) {
+        const rest = between(i).slice(0, between(i).length - opening(i).length);
         // A link splits the text it sits in, and a screen reader would stop on what
-        // is left of it, so the "(" and ")." around a name are not read on their own.
-        return segments.length > 1 && ONLY_PUNCTUATION.test(segment.text) ? (
+        // is left of it, so what is left of "(" and ")." around a name is not read alone.
+        return segments.length > 1 && /\S/.test(rest) && ONLY_PUNCTUATION.test(rest) ? (
           <span key={i} aria-hidden="true">
-            {segment.text}
+            {rest}
           </span>
         ) : (
-          <Fragment key={i}>{segment.text}</Fragment>
+          <Fragment key={i}>{rest}</Fragment>
         );
       }
-      const { slug } = segment.prayer;
+      const { slug } = segment.prayer!;
       const key = panelKey(slug, place);
       return (
         <PrayerToggle
           key={i}
-          label={segment.text}
+          label={`${segment.text}${i + 1 < segments.length ? possessive(i + 1) : ""}`}
+          before={i > 0 ? opening(i - 1) : ""}
+          after={i + 1 < segments.length ? closing(i + 1) : ""}
           expanded={open.has(key)}
           controls={panelId(key)}
           onToggle={() => toggle(slug, place)}
@@ -252,12 +297,13 @@ export function PrayerLinkedText({
   }
 
   const named = tokenizePrayerMentions(text, prayers, { matchCase }).matched;
+  const paragraph = `whitespace-pre-line ${className}`.trim();
   if (named.length === 0) {
-    return <p className="whitespace-pre-line">{text}</p>;
+    return <p className={paragraph}>{text}</p>;
   }
   return (
     <>
-      <p className="whitespace-pre-line">{linkedWords(text, null)}</p>
+      <p className={paragraph}>{linkedWords(text, null)}</p>
       {panels(named, () => true)}
     </>
   );

@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushSync } from "react-dom";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -13,7 +14,27 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
 
-import { HeaderSearchClient } from "@/components/layout/HeaderSearchClient";
+import { suggestLabels } from "@/components/layout/HeaderSearch";
+import { HeaderSearchClient as Client } from "@/components/layout/HeaderSearchClient";
+import type { Locale } from "@/lib/i18n/locales";
+import { createTranslator } from "@/lib/i18n/translator";
+
+const labelsIn = (locale: Locale) => suggestLabels(createTranslator(locale), locale);
+
+/** The client component with its words, as the server gives them, in English. */
+function HeaderSearchClient(props: Omit<ComponentProps<typeof Client>, "labels">) {
+  return <Client labels={labelsIn("en")} {...props} />;
+}
+
+/** A browser whose main pointer is a finger, or a mouse. */
+function stubPointer(fine: boolean) {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(pointer: fine)" ? fine : false,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
+}
 
 const SUGGESTIONS = [
   {
@@ -54,6 +75,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 /** Clicks the collapsed search icon to reveal the input bar, then returns it. */
@@ -134,6 +156,83 @@ describe("HeaderSearchClient", () => {
     expect(optionByText("A prayer of thanksgiving after Communion")).toBeInTheDocument();
   });
 
+  it("heads each group with a label true of every row beneath it", async () => {
+    // One group key holds two kinds of thing, and the heading used to come from the
+    // first row: "Apparition" over three Marian titles, "Litany" over two prayers.
+    mockSuggestFetch([
+      { group: "prayers", id: "1", slug: "a", label: "Litany of Lourdes", typeLabel: "Litany" },
+      { group: "prayers", id: "2", slug: "b", label: "Prayer at Lourdes", typeLabel: "Prayer" },
+      { group: "prayers", id: "3", slug: "c", label: "Lourdes Prayer", typeLabel: "Prayer" },
+      { group: "apparitions", id: "4", slug: "d", label: "Apparition", typeLabel: "Apparition" },
+      { group: "apparitions", id: "5", slug: "e", label: "Our Lady", typeLabel: "Our Lady" },
+      { group: "saints", id: "6", slug: "f", label: "Bernadette", typeLabel: "Saint" },
+    ]);
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    await typeAndWait(userEvent.setup(), "lourdes");
+    const listbox = screen.getByRole("listbox");
+    const groups = within(listbox).getAllByRole("group");
+    const shape = groups.map((group) => [
+      group.querySelector(".vf-suggest-label")?.textContent,
+      within(group)
+        .getAllByRole("option")
+        .map((row) => row.querySelector(".vf-suggest-title")?.textContent),
+    ]);
+    // Grouped by what a row is, and still in the dropdown's order of groups.
+    expect(shape).toEqual([
+      ["Litany", ["Litany of Lourdes"]],
+      ["Prayer", ["Prayer at Lourdes", "Lourdes Prayer"]],
+      ["Saint", ["Bernadette"]],
+      ["Apparition", ["Apparition"]],
+      ["Our Lady", ["Our Lady"]],
+    ]);
+    // Every group has its own heading to point at, so the ids cannot collide.
+    const ids = groups.map((group) => group.getAttribute("aria-labelledby"));
+    expect(new Set(ids).size).toBe(groups.length);
+    for (const group of groups) {
+      const label = group.querySelector(".vf-suggest-label")?.textContent ?? "";
+      expect(within(listbox).getByRole("group", { name: label })).toBe(group);
+    }
+  });
+
+  it("keeps the arrow keys in step with the regrouped rows", async () => {
+    mockSuggestFetch([
+      { group: "prayers", id: "1", slug: "a", label: "Rosary A", typeLabel: "Prayer" },
+      { group: "prayers", id: "2", slug: "b", label: "Rosary B", typeLabel: "Litany" },
+      { group: "prayers", id: "3", slug: "c", label: "Rosary C", typeLabel: "Prayer" },
+    ]);
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    const user = userEvent.setup();
+    await typeAndWait(user, "rosary");
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+    // The second row on screen, under the one Prayer heading, is Rosary C.
+    expect(pushMock).toHaveBeenCalledWith("/prayers/c");
+  });
+
+  it("names a row by its whole text, so a line wrap or a mark cannot join two words", async () => {
+    // WebKit dropped the space where a line wrapped just before a <mark>, and read
+    // "the Most HolyRosary". The dots between a subtitle's parts are for the eye.
+    mockSuggestFetch([
+      {
+        group: "prayers",
+        id: "1",
+        slug: "queen",
+        label: "Prayer to the Most Holy Rosary",
+        subtitle: "Marian prayer · Latin text",
+        typeLabel: "Prayer",
+      },
+      { group: "prayers", id: "2", slug: "plain", label: "Rosary Prayer", typeLabel: "Prayer" },
+    ]);
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    await typeAndWait(userEvent.setup(), "rosary");
+    const [first, second] = screen.getAllByRole("option");
+    expect(first).toHaveAttribute(
+      "aria-label",
+      "Prayer to the Most Holy Rosary, Marian prayer, Latin text, Prayer",
+    );
+    expect(first.querySelector("mark")).toHaveTextContent("Rosary");
+    expect(second).toHaveAttribute("aria-label", "Rosary Prayer, Prayer");
+  });
+
   it("marks the matched part of a title so the reader sees why a row matched", async () => {
     mockSuggestFetch();
     const { container } = render(
@@ -172,6 +271,23 @@ describe("HeaderSearchClient", () => {
 
     await user.keyboard("{ArrowUp}");
     expect(options[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("points at no row while typing on has hidden the list", async () => {
+    // The list goes while the newer query loads. The field kept pointing at a row
+    // that was no longer in the page, which axe reported as a broken reference.
+    mockSuggestFetch();
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    const user = userEvent.setup();
+    const input = await typeAndWait(user, "ani");
+    await user.keyboard("{ArrowDown}");
+    expect(input).toHaveAttribute("aria-activedescendant");
+
+    vi.spyOn(globalThis, "fetch").mockReturnValue(new Promise(() => {}) as Promise<Response>);
+    await user.keyboard("m");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute("aria-activedescendant");
+    expect(input).toHaveAttribute("aria-expanded", "false");
   });
 
   it("Enter on the active option navigates to the href the server supplied", async () => {
@@ -238,6 +354,35 @@ describe("HeaderSearchClient", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Search the site" })).toHaveFocus();
+  });
+
+  it("moves focus straight between the icon and the field, never through the page", async () => {
+    // The icon and the field swap places. Taking away the control that holds focus
+    // drops it to the page, and the accessibility tree then reports the page as focused
+    // until the other control takes it. Focus arrives from the control it left, or from
+    // nowhere if it fell in between.
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    const user = userEvent.setup();
+    const cameFrom: Array<EventTarget | null> = [];
+    const onFocusIn = (e: FocusEvent) => cameFrom.push(e.relatedTarget);
+    document.addEventListener("focusin", onFocusIn);
+    try {
+      const icon = screen.getByRole("button", { name: "Search the site" });
+      icon.focus();
+      await user.keyboard("{Enter}");
+      const field = screen.getByRole("combobox", { name: "Search the site" });
+      expect(field).toHaveFocus();
+      expect(cameFrom.at(-1)).toBe(icon);
+      // The swap is over: the icon does not stay behind the field.
+      expect(screen.queryByRole("button", { name: "Search the site" })).not.toBeInTheDocument();
+
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Search the site" })).toHaveFocus();
+      expect(cameFrom.at(-1)).toBe(field);
+    } finally {
+      document.removeEventListener("focusin", onFocusIn);
+    }
   });
 
   it("shows a loading state while the request is in flight, and says it aloud", async () => {
@@ -436,7 +581,8 @@ describe("HeaderSearchClient — the phone's panel", () => {
     expect(screen.getByRole("combobox")).toHaveValue("");
   });
 
-  it("does not mention arrow keys on a touch screen's panel", async () => {
+  it("does not mention arrow keys on a touch screen", async () => {
+    stubPointer(false);
     mockSuggestFetch();
     render(panel());
     const user = userEvent.setup();
@@ -444,6 +590,19 @@ describe("HeaderSearchClient — the phone's panel", () => {
     await user.type(screen.getByRole("combobox"), "ani");
     await waitFor(() => expect(screen.getByRole("listbox")).toBeInTheDocument(), { timeout: 1000 });
     expect(screen.getByRole("status")).toHaveTextContent(/^3 suggestions\.$/);
+  });
+
+  it("tells of the arrow keys where there is a keyboard, on this layout too", async () => {
+    // Enlarged text and a narrow window on a Mac both bring the phone's bar, where the
+    // keys work just the same and the visible hint beside the status mentions them.
+    stubPointer(true);
+    mockSuggestFetch();
+    render(panel());
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Search the site" }));
+    await user.type(screen.getByRole("combobox"), "ani");
+    await waitFor(() => expect(screen.getByRole("listbox")).toBeInTheDocument(), { timeout: 1000 });
+    expect(screen.getByRole("status")).toHaveTextContent(/^3 suggestions\. .*arrow keys/);
   });
 
   it("has no obvious accessibility violations with the panel open", async () => {
@@ -455,6 +614,73 @@ describe("HeaderSearchClient — the phone's panel", () => {
     await waitFor(() => expect(screen.getByRole("listbox")).toBeInTheDocument(), { timeout: 1000 });
     const results = await axe(container);
     expect(results.violations).toEqual([]);
+  });
+});
+
+describe("HeaderSearchClient — in the reader's language", () => {
+  /** Opens the search in `locale` and waits for what `suggestions` make of `query`. */
+  async function searchIn(locale: Locale, query: string, suggestions: unknown[] = SUGGESTIONS) {
+    mockSuggestFetch(suggestions);
+    const labels = labelsIn(locale);
+    render(<Client placeholder="Search" ariaLabel="Search the site" labels={labels} />);
+    const user = userEvent.setup();
+    await user.type(await openSearch(user), query);
+    await waitFor(
+      () => {
+        if (suggestions.length > 0) expect(screen.getByRole("listbox")).toBeInTheDocument();
+        else expect(document.querySelector(".vf-suggest-status")).not.toBeNull();
+        expect(screen.getByRole("status")).not.toHaveTextContent(labels.searching);
+      },
+      { timeout: 1000 },
+    );
+  }
+
+  it("heads each group, and ends each row's name, with the type in that language", async () => {
+    // The API's labels are English, so its shared cache can answer every language.
+    await searchIn("es", "ani");
+    const listbox = screen.getByRole("listbox", { name: "Sugerencias de búsqueda" });
+    expect(within(listbox).getByRole("group", { name: "Oración" })).toBeInTheDocument();
+    expect(within(listbox).getByRole("group", { name: "Santo" })).toBeInTheDocument();
+    expect(within(listbox).queryByText("Prayer")).not.toBeInTheDocument();
+    expect(optionByText("Anima Christi")).toHaveAttribute(
+      "aria-label",
+      "Anima Christi, A prayer of thanksgiving after Communion, Oración",
+    );
+  });
+
+  it("names a row that came with no label by its group, in that language too", async () => {
+    await searchIn("de", "te", [{ group: "prayers", id: "2", slug: "te-deum", label: "Te Deum" }]);
+    expect(optionByText("Te Deum")).toHaveAttribute("aria-label", "Te Deum, Gebet");
+  });
+
+  it("says the status, the keys and the way to all results in that language", async () => {
+    stubPointer(true);
+    await searchIn("es", "ani");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "3 sugerencias. Usa las flechas arriba y abajo para revisarlas, e Intro para abrir.",
+    );
+    expect(screen.getByRole("button", { name: "Ver todos los resultados de «ani»" })).toBeTruthy();
+    expect(document.querySelector(".vf-suggest-hint")).toHaveTextContent(
+      "↑↓ navegar · ↵ abrir · esc cerrar",
+    );
+  });
+
+  it("agrees the count with its number in that language's grammar", async () => {
+    stubPointer(false);
+    await searchIn("pl", "ani", SUGGESTIONS.slice(0, 2));
+    expect(screen.getByRole("status")).toHaveTextContent(/^2 propozycje\.$/);
+    cleanup();
+    await searchIn("pl", "ani", SUGGESTIONS.slice(0, 1));
+    expect(screen.getByRole("status")).toHaveTextContent(/^1 propozycja\.$/);
+    cleanup();
+    await searchIn("ko", "ani", SUGGESTIONS);
+    expect(screen.getByRole("status")).toHaveTextContent(/^제안 3건\.$/);
+  });
+
+  it("repeats a query back as typed, whatever is in it", async () => {
+    await searchIn("en", "$& 100%", []);
+    expect(screen.getByRole("status")).toHaveTextContent("No matches for “$& 100%”.");
+    expect(screen.getByRole("button", { name: "See all results for “$& 100%”" })).toBeTruthy();
   });
 });
 

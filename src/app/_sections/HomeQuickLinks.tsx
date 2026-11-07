@@ -11,7 +11,10 @@ export const QUICK_LINKS: QuickLink[] = [
   { href: "/parishes", key: "home.ql.parish" },
 ];
 
-/** The first places to go: the second half of "Begin here". */
+/**
+ * The first places to go: the second half of "Begin here". Safari stops calling a
+ * list a list once its markers are gone, so the role is said out loud.
+ */
 export function HomeQuickLinks({
   t,
   links = QUICK_LINKS,
@@ -23,7 +26,7 @@ export function HomeQuickLinks({
   labelledBy?: string;
 }) {
   return (
-    <ul className="vf-link-rows vf-home-begin-links" aria-labelledby={labelledBy}>
+    <ul className="vf-link-rows vf-home-begin-links" role="list" aria-labelledby={labelledBy}>
       {links.map((link) => (
         <li key={link.href}>
           <Link href={link.href} className="vf-link-row">

@@ -2,12 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { NavSection } from "@/components/layout/NavSection";
 import { PublishedDetail, resolveRelatedLinks } from "@/components/ui";
+import { instructionField, listedField } from "@/components/ui/GuideSteps";
+import { parseSequence } from "@/lib/content-shared/structured-content";
 import {
   getPublishedBySlug,
   getAnyPublishedBySlug,
   buildPublishedMetadata,
 } from "@/lib/data/published";
+import { getTranslator } from "@/lib/i18n/server";
 import { localizeItem } from "@/lib/translation/localize";
 
 import { documentFactItems, documentLinkLabel, excerptIsReadable, liturgicalLine } from "./facts";
@@ -53,52 +57,75 @@ export default async function LiturgyHistoryDetailPage({ params }: Props) {
     // associatedSaintSlugs is a slug list, resolved to titled saint links, so a
     // saint of the day is a fact a reader can follow.
     const saints = await resolveRelatedLinks("SAINT", liturgy.payload.associatedSaintSlugs);
-    const { kind, facts } = liturgicalLine(liturgy.payload);
+    const { kind, facts } = liturgicalLine(liturgy.payload, liturgy.title);
+    // A translated line is only as true as the stored line it was made from, and a
+    // record may still carry "Order of Mass" over The Rite of Baptism.
+    const storedLineHolds = facts.length > 0 || liturgy.subtitle === kind;
+    const { t } = await getTranslator();
+    const sequence =
+      typeof liturgy.payload.body === "string" ? parseSequence(liturgy.payload.body) : null;
     return (
-      <PublishedDetail
-        item={liturgy}
-        eyebrow={kind || undefined}
-        showSubtitle={false}
-        factItems={[
-          ...facts,
-          saints.length > 0
-            ? {
-                label: saints.length === 1 ? "Saint of this day" : "Saints of this day",
-                value: (
-                  <ul className="vf-plain-list" role="list">
-                    {saints.map((saint) => (
-                      <li key={saint.slug}>
-                        <Link href={saint.href} className="vf-link">
-                          {saint.title}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ),
-              }
-            : null,
-        ]}
-        factsInSubtitle={["Rank", "Date", "Season"]}
-        primaryFields={["body", "associatedReadings"]}
-        headings={{ body: null, associatedReadings: "Readings" }}
-      />
+      <>
+        <NavSection href="/liturgy" />
+        <PublishedDetail
+          t={t}
+          item={liturgy}
+          eyebrow={kind || undefined}
+          showSubtitle={false}
+          factItems={[
+            ...facts,
+            saints.length > 0
+              ? {
+                  label: saints.length === 1 ? "Saint of this day" : "Saints of this day",
+                  value: (
+                    <ul className="vf-plain-list" role="list">
+                      {saints.map((saint) => (
+                        <li key={saint.slug}>
+                          <Link href={saint.href} className="vf-link">
+                            {saint.title}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ),
+                }
+              : null,
+          ]}
+          factsInSubtitle={storedLineHolds ? ["Rank", "Date", "Season"] : undefined}
+          primaryFields={["body", "associatedReadings"]}
+          headings={{ body: null, associatedReadings: "Readings" }}
+          // The parts of the Mass come in turn, each named, and are numbered as parts. The
+          // forms of Palm Sunday's entrance and the days of obligation are only a list:
+          // nobody does them one after another, so they are not called steps.
+          fieldRenderers={
+            sequence
+              ? { body: sequence.parts ? instructionField(undefined, 2, t) : listedField }
+              : undefined
+          }
+        />
+      </>
     );
   }
   const document = await localizeItem(await getPublishedBySlug("CHURCH_DOCUMENT", slug));
   if (document) {
+    const { t } = await getTranslator();
     return (
-      <PublishedDetail
-        item={document}
-        showSubtitle={false}
-        factItems={documentFactItems(document.payload)}
-        factsInSubtitle={["Date", "Type", "Issued by"]}
-        primaryFields={
-          excerptIsReadable(document.payload.bodyExcerpt)
-            ? ["bodyExcerpt", "keyThemes"]
-            : ["keyThemes"]
-        }
-        footer={fullTextLink(document.payload.canonicalUrl)}
-      />
+      <>
+        <NavSection href="/church-documents" />
+        <PublishedDetail
+          t={t}
+          item={document}
+          showSubtitle={false}
+          factItems={documentFactItems(document.payload)}
+          factsInSubtitle={["Date", "Type", "Issued by"]}
+          primaryFields={
+            excerptIsReadable(document.payload.bodyExcerpt)
+              ? ["bodyExcerpt", "keyThemes"]
+              : ["keyThemes"]
+          }
+          footer={fullTextLink(document.payload.canonicalUrl)}
+        />
+      </>
     );
   }
   notFound();

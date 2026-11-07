@@ -8,10 +8,16 @@ import { loadHistoryTimeline } from "@/lib/data/history-timeline";
 import { HistoryControls } from "./HistoryControls";
 import { HistoryResults, HistoryShell } from "./HistoryShell";
 import { HistoryEmpty, HistoryEraSteps, HistoryEventList, HistoryPager } from "./HistoryTimeline";
-import { HISTORY_STATUS_ID, historyHref, type HistoryLinkState } from "./historyUrl";
+import {
+  HISTORY_EVENT_ID_PREFIX,
+  HISTORY_STATUS_ID,
+  historyHref,
+  type HistoryLinkState,
+} from "./historyUrl";
 import {
   buildHistoryView,
   formatCount,
+  historyStatusSpeech,
   historyStatusText,
   parseHistoryParams,
 } from "./historyView";
@@ -30,6 +36,12 @@ const DESCRIPTION =
  * Each era and each page of it is a page in its own right, so search engines
  * can reach every event. A filter, a search or a year is another view of those
  * same pages and points back to them.
+ *
+ * The title is one for them all. A move between views happens on the page, and
+ * the live status above the list announces each one. Next's route announcer speaks
+ * whenever the title changes, and it is assertive, so an era in the title would
+ * speak over that sentence, and over the slider's as soon as it crosses into
+ * another era. The era's name goes in the description instead.
  */
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const params = parseHistoryParams((await searchParams) ?? {});
@@ -41,8 +53,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     params.year === null &&
     params.event === null;
   return {
-    title: era ? `${era.label} · ${TITLE}` : TITLE,
-    description: DESCRIPTION,
+    title: TITLE,
+    description: era ? `${era.label}: ${DESCRIPTION}` : DESCRIPTION,
     alternates: {
       canonical: historyHref({ era: params.era, page: isPlainPage ? params.page : null }),
     },
@@ -61,14 +73,14 @@ export default async function HistoryPage({ searchParams }: Props) {
   // The opening label comes from the first event itself ("c. 33"), so the
   // subtitle never asserts a precision the dataset does not claim.
   const firstLabel = events[0]?.dateLabel;
-  const subtitle = `${formatCount(events.length)} events from ${firstLabel ?? "the early Church"} to today, councils, saints and martyrs, schisms and reform, and the Magisterium`;
+  const subtitle = `${formatCount(events.length)} events from ${firstLabel ?? "the early Church"} to today: councils, saints and martyrs, schisms and reform, and the Magisterium.`;
 
   const { theme, q } = view;
   const order = view.params.order;
   const base: HistoryLinkState = { era: view.era?.key, theme, q, order };
-  // The two ways back are offered only when they lead to different places.
-  const withoutSearch = historyHref({ ...base, q: null, page: view.page });
-  const showAll = historyHref();
+  // "Show all events" is for when something is actually narrowed; a search alone
+  // has "Clear search" for that. The order is not a narrowing, and it stays.
+  const narrowed = view.era !== null || theme !== "all";
 
   return (
     <div className="vf-history">
@@ -77,7 +89,8 @@ export default async function HistoryPage({ searchParams }: Props) {
         <HistoryControls view={view} firstLabel={firstLabel ?? "33"} t={t} locale={locale} />
         <div className="vf-timeline-status-row">
           {/* A live region: the sentence is announced whenever the view changes.
-              It takes focus after a search, so it needs a tab stop of -1. */}
+              It takes focus after a search, so it needs a tab stop of -1. The ear
+              gets its own sentence; see historyStatusSpeech. */}
           <p
             id={HISTORY_STATUS_ID}
             role="status"
@@ -86,16 +99,34 @@ export default async function HistoryPage({ searchParams }: Props) {
             tabIndex={-1}
             className="vf-timeline-status"
           >
-            {historyStatusText(view)}
+            <span className="sr-only">{historyStatusSpeech(view)}</span>
+            <span aria-hidden="true">{historyStatusText(view)}</span>
           </p>
-          {/* An empty list offers these ways back itself. */}
+          {/* From the slider or the year field to the row it found, without
+              stepping through every row above it. */}
+          {view.target && view.year !== null ? (
+            <a
+              href={`#${HISTORY_EVENT_ID_PREFIX}${view.target.slug}`}
+              aria-label={`${t("history.goToEvent")}: ${view.target.title}`}
+              className="vf-link-action"
+            >
+              {t("history.goToEvent")}
+            </a>
+          ) : null}
+          {/* An empty list offers these ways back itself. Each is gone once
+              followed, so the focus goes to the sentence above: see data-landing
+              in HistoryShell. */}
           {q && view.total > 0 ? (
-            <a href={historyHref({ ...base, q: null })} className="vf-link-action">
+            <a
+              href={historyHref({ ...base, q: null })}
+              data-landing="status"
+              className="vf-link-action"
+            >
               {t("listSearch.clear")}
             </a>
           ) : null}
-          {withoutSearch !== showAll && view.total > 0 ? (
-            <a href={showAll} className="vf-link-action">
+          {narrowed && view.total > 0 ? (
+            <a href={historyHref({ order })} data-landing="status" className="vf-link-action">
               Show all events
             </a>
           ) : null}
@@ -111,9 +142,9 @@ export default async function HistoryPage({ searchParams }: Props) {
             />
           ) : (
             <>
-              <HistoryEventList view={view} />
-              <HistoryPager view={view} base={base} />
-              <HistoryEraSteps view={view} base={base} />
+              <HistoryEventList view={view} t={t} />
+              <HistoryPager view={view} base={base} t={t} />
+              <HistoryEraSteps view={view} base={base} t={t} />
             </>
           )}
         </HistoryResults>

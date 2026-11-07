@@ -11,7 +11,10 @@ import { cleanup, render, screen } from "@testing-library/react";
 
 import { PublicDomainAttribution } from "@/components/ui/PublicDomainAttribution";
 import { PublishedDetail } from "@/components/ui/PublishedDetail";
+import { createTranslator } from "@/lib/i18n/translator";
 import type { PublishedItem } from "@/lib/data/published";
+
+const t = createTranslator("en");
 
 afterEach(() => cleanup());
 
@@ -95,7 +98,7 @@ describe("PublishedDetail on a saint with an Encyclopedia biography", () => {
       publishedAt: null,
       payload: ITA,
     };
-    render(<PublishedDetail item={item} primaryFields={["biography"]} />);
+    render(<PublishedDetail t={t} item={item} primaryFields={["biography"]} />);
     expect(screen.getAllByText(/Text from/)).toHaveLength(1);
     expect(
       screen.getByRole("link", { name: /^the Catholic Encyclopedia \(1913\)/ }),

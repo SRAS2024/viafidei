@@ -144,6 +144,44 @@ describe('listPublishedPage order "saints"', () => {
     }
   });
 
+  it("lets a hidden record's name lead to the saint, ahead of the rest when named whole", async () => {
+    findMany.mockResolvedValue([
+      { slug: "saint-john-the-apostle", title: "John the Apostle" },
+      { slug: "saint-john-the-evangelist", title: "John the Evangelist" },
+    ]);
+    await listPublishedPage("SAINT", { order: "saints", q: "john the evangelist" });
+    for (const sql of [listQuery(), countQuery()]) {
+      expect(sql.values).toContainEqual(["saint-john-the-apostle"]);
+    }
+    expect(textOf(listQuery())).toMatch(/\+ CASE WHEN .*"slug" = ANY\(.*THEN 3 ELSE 0 END/s);
+  });
+
+  it("leaves a name out of it when a word typed is not in that name", async () => {
+    findMany.mockResolvedValue([
+      { slug: "saint-john-the-apostle", title: "John the Apostle" },
+      { slug: "saint-john-the-evangelist", title: "John the Evangelist" },
+    ]);
+    await listPublishedPage("SAINT", { order: "saints", q: "john of god" });
+    expect(countQuery().values).not.toContainEqual(["saint-john-the-apostle"]);
+  });
+
+  it.each(["st peter", "St. Peter", "saint peter"])(
+    "reads %s as Saint Peter when it puts the saints the list names first",
+    async (q) => {
+      await listPublishedPage("SAINT", { order: "saints", q });
+      const wanted = String.raw`\y(?:(?:saint|st\.?) )?peter\y`;
+      const patterns = values(listQuery()).filter((value) => typeof value === "string");
+      expect(patterns.map((value) => (value as string).toLowerCase())).toContain(wanted);
+    },
+  );
+
+  it("shows the last page of a saint list that ends before the page asked for", async () => {
+    database({ total: 40 });
+    const page = await listPublishedPage("SAINT", { order: "saints", page: 54, pageSize: 36 });
+    expect(page.page).toBe(2);
+    expect(values(queries().at(-1)!)).toContain(36);
+  });
+
   it("leaves the search of every other order as it was", async () => {
     await listPublishedPage("SAINT", { order: "title", q: "john" });
     const text = textOf(listQuery());

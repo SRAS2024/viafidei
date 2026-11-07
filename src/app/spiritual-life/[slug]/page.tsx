@@ -11,6 +11,7 @@ import {
 import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { loadPrayersForText } from "@/lib/data/prayer-sets";
+import { getTranslator } from "@/lib/i18n/server";
 import { displayItem } from "@/lib/translation/display";
 import { localizeItem, localizePrayers } from "@/lib/translation/localize";
 
@@ -52,13 +53,16 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
     );
     // Chosen from the stored instructions; shown in the reader's language.
     const prayers = await localizePrayers(named);
+    const { t } = await getTranslator();
     const minutes = practice.payload.durationMinutes;
     const shown = displayItem(practice);
     const { tradition, frequency } = shown.payload;
     return (
       <PublishedDetail
+        t={t}
         item={withPrayerList(practice, prayers)}
-        eyebrow={practiceKind(shown.subtitle)}
+        // From the stored English, put into the reader's language by the dictionaries.
+        eyebrow={practiceKind(practice.subtitle)}
         showSubtitle={false}
         factItems={[
           typeof tradition === "string" ? { label: "Tradition", value: tradition } : null,
@@ -70,7 +74,7 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
         primaryFields={["instructions", PRAYER_LIST_FIELD, "background"]}
         headings={{ instructions: "How to practice", [PRAYER_LIST_FIELD]: null }}
         fieldRenderers={{
-          instructions: instructionField(prayers),
+          instructions: instructionField(prayers, 3, t),
           background: readingField(prayers),
           [PRAYER_LIST_FIELD]: () => (
             <GuidePrayers prayers={prayers} heading="Prayers" ordered={ordered} />

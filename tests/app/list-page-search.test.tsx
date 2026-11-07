@@ -43,6 +43,12 @@ vi.mock("@/lib/translation/localize", () => ({
   localizeParishes: async (items: unknown[]) => items,
 }));
 vi.mock("@/lib/i18n/rite-cookie", () => ({ getRiteCookieValue: async () => "roman" }));
+
+// React's request-scoped cache exists only in the server runtime Next.js brings.
+vi.mock("react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react")>()),
+  cache: <T,>(fn: T) => fn,
+}));
 vi.mock("@/lib/data/history-timeline", async () => {
   const actual = await vi.importActual<typeof import("@/lib/data/history-timeline")>(
     "@/lib/data/history-timeline",
@@ -210,7 +216,9 @@ async function show(page: Page, params: Record<string, string> = {}) {
 
 // A card is an h2 under the page's h1, and an h3 under a section's h2.
 const titles = () =>
-  screen.queryAllByRole("heading").flatMap((h) => (h.tagName === "H1" ? [] : [h.textContent]));
+  screen
+    .queryAllByRole("heading")
+    .flatMap((h) => (h.tagName === "H1" ? [] : [h.textContent?.replace(/\u00a0/g, " ")]));
 const hrefs = () => screen.getAllByRole("link").map((a) => a.getAttribute("href"));
 const searchBar = () => screen.getByRole("search");
 

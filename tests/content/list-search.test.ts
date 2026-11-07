@@ -45,6 +45,12 @@ describe("parseSearchQuery", () => {
     expect(parseSearchQuery(undefined)).toBe("");
     expect(parseSearchQuery(42)).toBe("");
   });
+
+  it("drops a NUL, which Postgres refuses in any text", () => {
+    expect(parseSearchQuery("ro\0sary")).toBe("rosary");
+    expect(parseSearchQuery("\0rosary\0")).toBe("rosary");
+    expect(parseSearchQuery("\0")).toBe("");
+  });
 });
 
 describe("normalizeSearchText / searchWords", () => {

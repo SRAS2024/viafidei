@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+
 import {
   FilterChips,
   LIST_PAGE_SIZE,
@@ -16,6 +19,7 @@ import {
   GUIDE_FILTER_SUBTYPES,
   guideEyebrow,
 } from "@/lib/content-shared/guide-categories";
+import { listPageTitleFor } from "@/lib/content-shared/list-page";
 import {
   listHref,
   parseSearchQuery,
@@ -28,30 +32,64 @@ import { getTranslator } from "@/lib/i18n/server";
 import { localizeItems } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Guides" };
 
-export default async function GuidesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ filter?: string; page?: string; q?: string | string[] }>;
-}) {
-  const { t, locale } = await getTranslator();
-  const { filter, page: pageParam, q: rawQuery } = await searchParams;
-  const query = parseSearchQuery(rawQuery);
-  const selected = resolvePayloadFilter(GUIDE_FILTERS, filter);
-  // Guide cards show the guide's own `summary`, which the payload-free
-  // projection does not carry, so the catalogue (bounded at ~100 guides) is
-  // still read whole and paged here — only one page of cards is rendered.
+type SearchParams = Promise<{ filter?: string; page?: string; q?: string | string[] }>;
+
+// Guide cards show the guide's own `summary`, which the payload-free
+// projection does not carry, so the catalogue (bounded at ~100 guides) is
+// still read whole and paged here — only one page of cards is rendered. One read
+// per request: the tab's title and the page both need the answer.
+const loadGuides = cache(async (filterKey: string, pageNumber: number, query: string) => {
   const [all, counts] = await Promise.all([
     listPublished("GUIDE"),
     countPublishedBySubtype("GUIDE").catch(() => ({}) as Record<string, number>),
   ]);
-  const guides = applyPayloadFilter(GUIDE_FILTERS, all, selected.key);
+  const guides = applyPayloadFilter(GUIDE_FILTERS, all, filterKey);
   // Searched by title, the kind on the card ("Lent", "Confession") and the summary.
   const visible = query
     ? rankBySearch(guides, query, (g) => publishedSearchFields(g, [guideEyebrow(g.payload)]))
     : guides;
-  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  return { all, counts, visible, page: pageSlice(visible, pageNumber, LIST_PAGE_SIZE) };
+});
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const { t, locale } = await getTranslator();
+  const { filter, page, q } = await searchParams;
+  const query = parseSearchQuery(q);
+  const selected = resolvePayloadFilter(GUIDE_FILTERS, filter);
+  const pageNumber = parsePageParam(page);
+  return {
+    title: await listPageTitleFor(
+      {
+        name: t("nav.guides"),
+        filter: selected.key === "all" ? null : selected.label,
+        query,
+        t,
+        locale,
+      },
+      pageNumber > 1,
+      async () => {
+        const data = await loadGuides(selected.key, pageNumber, query);
+        return { pages: [data.page], total: data.visible.length };
+      },
+    ),
+  };
+}
+
+export default async function GuidesPage({ searchParams }: { searchParams: SearchParams }) {
+  const { t, locale } = await getTranslator();
+  const { filter, page: pageParam, q: rawQuery } = await searchParams;
+  const query = parseSearchQuery(rawQuery);
+  const selected = resolvePayloadFilter(GUIDE_FILTERS, filter);
+  const { all, counts, visible, page } = await loadGuides(
+    selected.key,
+    parsePageParam(pageParam),
+    query,
+  );
   const keep = { filter: selected.key === "all" ? undefined : selected.key };
 
   // Only offer a category chip when at least one guide falls under it. The
@@ -112,6 +150,7 @@ export default async function GuidesPage({
             action={t("common.open")}
           />
           <Pagination
+            t={t}
             basePath="/guides"
             page={page.page}
             totalPages={page.pageCount}

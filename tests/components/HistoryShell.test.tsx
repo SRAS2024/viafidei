@@ -7,7 +7,7 @@
  * page where it is, and leaves alone whatever is not its to handle.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 // The same object every time, as the real router is.
 const { push, replace, router } = vi.hoisted(() => {
@@ -17,7 +17,16 @@ const { push, replace, router } = vi.hoisted(() => {
 });
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
-import { HistoryResults, HistoryShell } from "@/app/history/HistoryShell";
+import { HistoryResults, HistoryShell, useHistoryNav } from "@/app/history/HistoryShell";
+
+function Nav({ href, landing }: { href: string; landing: "target" | "event" }) {
+  const { navigate } = useHistoryNav();
+  return (
+    <button type="button" onClick={() => navigate(href, { landing })}>
+      move
+    </button>
+  );
+}
 
 // jsdom cannot follow a link or a form, so whatever the shell leaves to the browser
 // stops here, after the shell has had its say.
@@ -27,6 +36,7 @@ beforeEach(() => {
   push.mockClear();
   replace.mockClear();
   Element.prototype.scrollIntoView = vi.fn();
+  window.scrollBy = vi.fn();
   window.history.replaceState(null, "", "/history");
   document.addEventListener("click", stopAtDocument);
   document.addEventListener("submit", stopAtDocument);
@@ -101,6 +111,41 @@ describe("HistoryShell forms", () => {
     expect(push).toHaveBeenCalledWith("/history?year=1054#history-year-target", { scroll: false });
   });
 
+  it("goes on from a typed year to the row it found, leaving the field behind", async () => {
+    render(
+      <HistoryShell>
+        <form method="get" action="/history#history-year-target" aria-label="year">
+          <input name="year" defaultValue="1054" />
+        </form>
+        <details id="history-event-great-schism-1054">
+          <summary className="vf-timeline-summary vf-timeline-current">The Great Schism</summary>
+        </details>
+      </HistoryShell>,
+    );
+    fireEvent.submit(screen.getByRole("form", { name: "year" }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(document.querySelector(".vf-timeline-current")),
+    );
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("says so on the status when a typed year found no row to go to", async () => {
+    render(
+      <HistoryShell>
+        <form method="get" action="/history#history-year-target" aria-label="year">
+          <input name="year" defaultValue="1054" />
+        </form>
+        <p id="history-status" tabIndex={-1}>
+          Showing no events
+        </p>
+      </HistoryShell>,
+    );
+    fireEvent.submit(screen.getByRole("form", { name: "year" }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(document.getElementById("history-status")),
+    );
+  });
+
   it("leaves a form for somewhere else to the browser", () => {
     submit("/search", { q: "rosary" });
     expect(push).not.toHaveBeenCalled();
@@ -165,6 +210,179 @@ describe("HistoryShell menus", () => {
     });
     expect(one.open).toBe(false);
   });
+
+  // Safari takes the focus off a press on a link to whatever is focusable around it,
+  // or to nothing. A menu that closed then hid the link before the click arrived, and
+  // the press landed on the panel behind: the page's theme filter did nothing.
+  it("stays open when the focus goes to nothing, or to something around it", () => {
+    const { one } = withMenus();
+    const link = screen.getByRole("link", { name: "Councils" });
+    fireEvent.blur(link, { relatedTarget: null });
+    expect(one.open).toBe(true);
+    fireEvent.blur(link, { relatedTarget: one.parentElement });
+    expect(one.open).toBe(true);
+  });
+
+  it("does not let a press on its own link move the focus, or on its button stop it", () => {
+    const { one } = withMenus();
+    // fireEvent returns false when the default was prevented.
+    expect(fireEvent.mouseDown(screen.getByRole("link", { name: "Councils" }))).toBe(false);
+    expect(fireEvent.mouseDown(one.querySelector("summary")!)).toBe(true);
+    expect(fireEvent.mouseDown(screen.getByRole("button", { name: "elsewhere" }))).toBe(true);
+  });
+
+  it("brings an opened menu into view", () => {
+    const { one } = withMenus();
+    const scroll = vi.mocked(Element.prototype.scrollIntoView);
+    scroll.mockClear();
+    fireEvent(one, new Event("toggle"));
+    expect(scroll).toHaveBeenCalledWith({ block: "nearest" });
+    expect(scroll.mock.contexts[0]).toBe(one.querySelector("a"));
+  });
+
+  it("starts from a menu's button when the menu is taller than the window", () => {
+    const { one } = withMenus();
+    const panel = one.querySelector("a")!;
+    vi.spyOn(panel, "getBoundingClientRect").mockReturnValue({
+      bottom: window.innerHeight * 2,
+    } as DOMRect);
+    const scroll = vi.mocked(Element.prototype.scrollIntoView);
+    scroll.mockClear();
+    fireEvent(one, new Event("toggle"));
+    expect(scroll).toHaveBeenCalledWith({ block: "start" });
+    expect(scroll.mock.contexts[0]).toBe(one.querySelector("summary"));
+  });
+
+  it("leaves the page alone when a menu closes, or a row opens", () => {
+    const { one } = withMenus();
+    render(
+      <HistoryShell>
+        <details className="vf-timeline-event" open data-testid="row">
+          <summary>Pentecost</summary>
+          <p>Details</p>
+        </details>
+      </HistoryShell>,
+    );
+    const scroll = vi.mocked(Element.prototype.scrollIntoView);
+    scroll.mockClear();
+    one.open = false;
+    fireEvent(one, new Event("toggle"));
+    fireEvent(screen.getByTestId("row"), new Event("toggle"));
+    expect(scroll).not.toHaveBeenCalled();
+  });
+});
+
+describe("HistoryShell landings", () => {
+  it("hands the focus to the status from a way back that is gone once followed", async () => {
+    render(
+      <HistoryShell>
+        <p id="history-status" tabIndex={-1}>
+          Showing all
+        </p>
+        <a href="/history" data-landing="status">
+          Clear search
+        </a>
+      </HistoryShell>,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Clear search" }));
+    expect(push).toHaveBeenCalledWith("/history", { scroll: false });
+    await waitFor(() =>
+      expect(document.activeElement).toBe(document.getElementById("history-status")),
+    );
+  });
+
+  it("goes to a row on this very view with nothing to fetch", () => {
+    window.history.replaceState(null, "", "/history?year=1054");
+    render(
+      <HistoryShell>
+        <a href="#history-event-great-schism-1054">Go to this event</a>
+        <details id="history-event-great-schism-1054">
+          <summary className="vf-timeline-summary vf-timeline-current">The Great Schism</summary>
+        </details>
+      </HistoryShell>,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Go to this event" }));
+    expect(push).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(document.querySelector(".vf-timeline-current"));
+  });
+
+  it("moves the list under the slider while it is held in view, keeping the focus on it", async () => {
+    render(
+      <HistoryShell>
+        <Nav href="/history?year=38#history-year-target" landing="target" />
+        <section className="vf-history-docked">
+          <input aria-label="slider" />
+        </section>
+        <span id="history-year-target" />
+      </HistoryShell>,
+    );
+    const docked = document.querySelector<HTMLElement>(".vf-history-docked")!;
+    vi.spyOn(docked, "getBoundingClientRect").mockReturnValue({ bottom: 190 } as DOMRect);
+    // Where a row comes to rest once the browser has scrolled it to the top.
+    const row = document.getElementById("history-year-target")!;
+    vi.spyOn(row, "getBoundingClientRect").mockReturnValue({ top: 150 } as DOMRect);
+    screen.getByRole("textbox", { name: "slider" }).focus();
+    fireEvent.click(screen.getByRole("button", { name: "move" }));
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
+    // Below the slider's foot, with two lines' room: 190 + 32 - 150.
+    expect(window.scrollBy).toHaveBeenCalledWith(0, -72);
+    expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "slider" }));
+  });
+
+  it("gives up the room above a row before it cuts off the row's foot", async () => {
+    render(
+      <HistoryShell>
+        <Nav href="/history?year=38#history-year-target" landing="target" />
+        <section className="vf-history-docked" />
+        <span id="history-year-target" />
+        <details data-testid="row">
+          <summary>A row of four lines at enlarged text</summary>
+        </details>
+      </HistoryShell>,
+    );
+    const docked = document.querySelector<HTMLElement>(".vf-history-docked")!;
+    vi.spyOn(docked, "getBoundingClientRect").mockReturnValue({ bottom: 400 } as DOMRect);
+    const row = document.getElementById("history-year-target")!;
+    vi.spyOn(row, "getBoundingClientRect").mockReturnValue({ top: 380 } as DOMRect);
+    // The window has 768 - 400 = 368 below the box, so a row of 360 leaves room for 8.
+    vi.spyOn(screen.getByTestId("row"), "getBoundingClientRect").mockReturnValue({
+      height: 360,
+    } as DOMRect);
+    fireEvent.click(screen.getByRole("button", { name: "move" }));
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
+    expect(window.scrollBy).toHaveBeenCalledWith(0, -28);
+  });
+
+  it("does not move it past where the foot of the page has already left it", async () => {
+    render(
+      <HistoryShell>
+        <Nav href="/history?year=2026#history-year-target" landing="target" />
+        <section className="vf-history-docked" />
+        <span id="history-year-target" />
+      </HistoryShell>,
+    );
+    const docked = document.querySelector<HTMLElement>(".vf-history-docked")!;
+    vi.spyOn(docked, "getBoundingClientRect").mockReturnValue({ bottom: 190 } as DOMRect);
+    const row = document.getElementById("history-year-target")!;
+    vi.spyOn(row, "getBoundingClientRect").mockReturnValue({ top: 700 } as DOMRect);
+    fireEvent.click(screen.getByRole("button", { name: "move" }));
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
+    expect(window.scrollBy).not.toHaveBeenCalled();
+  });
+
+  it("stays with the slider where it could not be held in view", async () => {
+    render(
+      <HistoryShell>
+        <Nav href="/history?year=38#history-year-target" landing="target" />
+        <span id="history-year-target" />
+      </HistoryShell>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "move" }));
+    await act(async () => {});
+    expect(push).toHaveBeenCalled();
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    expect(window.scrollBy).not.toHaveBeenCalled();
+  });
 });
 
 describe("HistoryShell deep links", () => {
@@ -191,6 +409,11 @@ describe("HistoryShell deep links", () => {
     expect(row.open).toBe(true);
     expect(document.activeElement).toBe(row.querySelector("summary"));
     expect(replace).not.toHaveBeenCalled();
+    // The row it scrolls is the one the focus goes to, whose margin clears the sticky
+    // era heading: the browser would scroll that one anyway.
+    expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts[0]).toBe(
+      row.querySelector("summary"),
+    );
   });
 
   it("lands on the row a query names, the server having opened it", () => {
@@ -211,6 +434,66 @@ describe("HistoryShell deep links", () => {
     render(<HistoryShell>{null}</HistoryShell>);
     expect(replace).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+// Safari gives a summary no press action, so VoiceOver's press on a closed row would do
+// nothing. The state is kept true by script because the role is only there with script.
+describe("HistoryShell disclosures", () => {
+  function rows(ids: string[], open: string[] = []) {
+    return (
+      <>
+        {ids.map((id) => (
+          <details key={id} id={id} open={open.includes(id)}>
+            <summary>{id}</summary>
+            <p>Inside {id}</p>
+          </details>
+        ))}
+      </>
+    );
+  }
+
+  it("names every summary a button, with its real state", () => {
+    render(<HistoryShell>{rows(["a", "b"], ["b"])}</HistoryShell>);
+    expect(screen.getByRole("button", { name: "a" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "b" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("keeps the state true however a row opens and closes", () => {
+    render(<HistoryShell>{rows(["a"])}</HistoryShell>);
+    const details = document.getElementById("a") as HTMLDetailsElement;
+    const summary = screen.getByRole("button", { name: "a" });
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+    details.open = false;
+    fireEvent(details, new Event("toggle"));
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("names the rows of a new view, and leaves alone a disclosure outside the page's list", () => {
+    const { rerender } = render(
+      <>
+        <details id="elsewhere">
+          <summary>elsewhere</summary>
+        </details>
+        <HistoryShell>{rows(["a"])}</HistoryShell>
+      </>,
+    );
+    rerender(
+      <>
+        <details id="elsewhere">
+          <summary>elsewhere</summary>
+        </details>
+        <HistoryShell>{rows(["a", "c"])}</HistoryShell>
+      </>,
+    );
+    expect(screen.getByRole("button", { name: "c" })).toHaveAttribute("aria-expanded", "false");
+    const outside = document.getElementById("elsewhere") as HTMLDetailsElement;
+    outside.open = true;
+    fireEvent(outside, new Event("toggle"));
+    expect(outside.querySelector("summary")).not.toHaveAttribute("aria-expanded");
+    expect(outside.querySelector("summary")).not.toHaveAttribute("role");
   });
 });
 

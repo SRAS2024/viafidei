@@ -4,6 +4,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
+import { createTranslator } from "@/lib/i18n/translator";
+
+vi.mock("@/lib/i18n/server", () => ({
+  getTranslator: async () => ({ t: createTranslator("en") }),
+}));
+
 import RootError from "@/app/error";
 import NotFound from "@/app/not-found";
 import PrayerNotFound from "@/app/prayers/[slug]/not-found";
@@ -14,16 +20,16 @@ afterEach(() => {
 });
 
 describe("the site's message pages", () => {
-  it("names a missing page in a heading and offers the way home", () => {
-    render(<NotFound />);
+  it("names a missing page in a heading and offers the way home", async () => {
+    render(await NotFound());
     expect(screen.getByRole("heading", { level: 1, name: "Page not found" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Return home" })).toHaveAttribute("href", "/");
   });
 
-  it("offers the way back to a collection, its arrow silent to a screen reader", () => {
-    render(<PrayerNotFound />);
+  it("offers the way back to a collection, its arrow silent to a screen reader", async () => {
+    render(await PrayerNotFound());
     expect(screen.getByRole("heading", { level: 1, name: "Prayer not found" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Back to prayers" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Back to Prayers" })).toHaveAttribute(
       "href",
       "/prayers",
     );

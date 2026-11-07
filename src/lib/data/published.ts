@@ -23,8 +23,14 @@ import {
   saintCardDetails,
   type SaintCardDetails,
 } from "@/lib/content-shared/saints";
+import { accentBlindPattern, parishDisplayName } from "@/lib/content-shared/parish";
 import { categorizePrayer, prayerCategoryLabel } from "@/lib/content-shared/prayer-categories";
-import { MAX_QUERY_WORDS, parseSearchQuery } from "@/lib/content-shared/list-search";
+import { MAX_PAGE_NUMBER } from "@/lib/content-shared/list-page";
+import {
+  MAX_QUERY_WORDS,
+  normalizeSearchText,
+  parseSearchQuery,
+} from "@/lib/content-shared/list-search";
 import { publicRouteFor } from "@/lib/admin-worker/public-routes";
 import { MEMO_TTL, memo } from "@/lib/cache/memo";
 
@@ -42,6 +48,11 @@ export interface PublishedItem {
   publishedAt: Date | null;
 }
 
+/** A row's title as a reader sees it: a church's may hold the raw list of its names. */
+function readerTitle(row: { contentType: ChecklistContentType; title: string }): string {
+  return row.contentType === "PARISH" ? parishDisplayName(row.title) : row.title;
+}
+
 function deserialize(
   row: Awaited<ReturnType<typeof prisma.publishedContent.findFirst>>,
 ): PublishedItem | null {
@@ -52,7 +63,7 @@ function deserialize(
     checklistItemId: row.checklistItemId,
     contentType: row.contentType,
     slug: row.slug,
-    title: row.title,
+    title: readerTitle(row),
     subtitle:
       (row as { subtitle?: string | null }).subtitle ??
       generateContentSubtitle({
@@ -208,8 +219,9 @@ export function shareImageUrl(title: string, typeLabel: string): string {
  * image (the crucifix mark with the item's title in it), and the site favicon /
  * Open Graph defaults inherited from the root layout — rather than the generic
  * site title and the browser's default page icon. A missing item is the page's
- * not-found state: metadata runs before the page streams, so this is what lets
- * the response be a real 404 rather than a 200 with a not-found message in it.
+ * not-found state: metadata goes out with the first bytes, so this is what gives the
+ * response a not-found title and noindex. It still answers 200, not 404, because the
+ * [slug]/loading.tsx boundary flushes before the not-found takes effect.
  */
 export function buildPublishedMetadata(item: PublishedItem | null): Metadata {
   if (!item) notFound();
@@ -337,7 +349,21 @@ const MAX_PAGE_SIZE = 100;
 
 function clampPage(page: number | undefined): number {
   const n = Math.trunc(Number(page ?? 1));
-  return Number.isFinite(n) && n > 0 ? n : 1;
+  return Number.isFinite(n) && n > 0 ? Math.min(n, MAX_PAGE_NUMBER) : 1;
+}
+
+/**
+ * A list read at the page a link asked for, or at its last page when the list ends
+ * before it. A stale or hand-made `?page=` then shows the last page, as the lists
+ * paged in memory do, and not an empty list saying there is nothing here at all.
+ * The second read happens only for a page past the end, so a normal page costs one.
+ */
+async function readUpToLastPage<T>(
+  page: number,
+  read: (page: number) => Promise<PublishedPage<T>>,
+): Promise<PublishedPage<T>> {
+  const result = await read(page);
+  return result.total > 0 && page > result.pageCount ? read(result.pageCount) : result;
 }
 
 function clampPageSize(size: number | undefined): number {
@@ -434,34 +460,36 @@ export async function listPublishedPage(
     q?: string | null;
   } = {},
 ): Promise<PublishedPage<PublishedListItem>> {
-  const page = clampPage(opts.page);
   const pageSize = clampPageSize(opts.pageSize);
   const order = opts.order ?? "title";
   const subtypes =
     opts.subtype == null ? null : Array.isArray(opts.subtype) ? [...opts.subtype] : [opts.subtype];
   const q = parseSearchQuery(opts.q);
-  if (q) return searchPublishedTypePage(contentType, { page, pageSize, subtypes, order, q });
-  if (order === "saints") return saintOrderPage(contentType, { page, pageSize, subtypes });
 
-  const where: Prisma.PublishedContentWhereInput = {
-    contentType,
-    isPublished: true,
-    ...(subtypes && subtypes.length > 0 ? { subtype: { in: subtypes as string[] } } : {}),
-  };
+  return readUpToLastPage(clampPage(opts.page), async (page) => {
+    if (q) return searchPublishedTypePage(contentType, { page, pageSize, subtypes, order, q });
+    if (order === "saints") return saintOrderPage(contentType, { page, pageSize, subtypes });
 
-  const [total, rows] = await Promise.all([
-    prisma.publishedContent.count({ where }),
-    prisma.publishedContent.findMany({
-      where,
-      select: LIST_SELECT,
-      orderBy: orderByFor(order),
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-  ]);
+    const where: Prisma.PublishedContentWhereInput = {
+      contentType,
+      isPublished: true,
+      ...(subtypes && subtypes.length > 0 ? { subtype: { in: subtypes as string[] } } : {}),
+    };
 
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  return { items: rows.map(toListItem), total, page, pageSize, pageCount };
+    const [total, rows] = await Promise.all([
+      prisma.publishedContent.count({ where }),
+      prisma.publishedContent.findMany({
+        where,
+        select: LIST_SELECT,
+        orderBy: orderByFor(order),
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    return { items: rows.map(toListItem), total, page, pageSize, pageCount };
+  });
 }
 
 /** `ORDER BY` text for a list order, for the raw-SQL search path. */
@@ -509,27 +537,85 @@ function saintRankJoin(): Prisma.Sql {
 }
 
 /**
- * The records the saint list leaves out because the same person has a better one
- * live. Only a duplicate whose canonical record is published is hidden, so a
- * saint can never vanish from the list. Fail-open: a failed read hides nothing.
+ * The records a reader is not shown because the same person has a better one live:
+ * not in the saint list, on a feast, in search or in the sitemap. Only a duplicate
+ * whose canonical record is published is hidden, so a saint can never vanish.
+ * Fail-open: a failed read hides nothing.
  */
-async function hiddenDuplicateSaints(): Promise<string[]> {
+function liveSaintDuplicates(): Promise<{
+  slugs: string[];
+  names: Array<{ name: string; canonical: string }>;
+}> {
   return memo("saints:hidden-duplicates", MEMO_TTL.list, async () => {
     try {
       const rows = await prisma.publishedContent.findMany({
         where: {
           contentType: "SAINT",
           isPublished: true,
-          slug: { in: [...new Set(Object.values(SAINT_DUPLICATE_OF))] },
+          slug: { in: [...Object.keys(SAINT_DUPLICATE_OF), ...Object.values(SAINT_DUPLICATE_OF)] },
         },
-        select: { slug: true },
+        select: { slug: true, title: true },
       });
       const live = new Set(rows.map((row) => row.slug));
-      return Object.keys(SAINT_DUPLICATE_OF).filter((slug) => live.has(SAINT_DUPLICATE_OF[slug]!));
+      return {
+        slugs: Object.keys(SAINT_DUPLICATE_OF).filter((slug) =>
+          live.has(SAINT_DUPLICATE_OF[slug]!),
+        ),
+        names: rows.flatMap(({ slug, title }) => {
+          const canonical = SAINT_DUPLICATE_OF[slug];
+          return canonical && live.has(canonical) ? [{ name: title, canonical }] : [];
+        }),
+      };
     } catch {
-      return [];
+      return { slugs: [], names: [] };
     }
   });
+}
+
+export async function hiddenDuplicateSaints(): Promise<string[]> {
+  return (await liveSaintDuplicates()).slugs;
+}
+
+/** Whether a name holds the words typed, the last perhaps still being typed. */
+function nameAnswers(name: string, query: string): boolean {
+  const nameWords = normalizeSearchText(name).split(" ");
+  const typed = normalizeSearchText(query).split(" ").filter(Boolean);
+  return (
+    typed.length > 0 &&
+    typed.every((word, i) =>
+      nameWords.some((w) => (i === typed.length - 1 ? w.startsWith(word) : w === word)),
+    )
+  );
+}
+
+/**
+ * What a search must know of the saints published twice. The hidden records stay out,
+ * but their names still lead to the saint: a reader who knows Saint Damien of Molokai as
+ * "Father Damien" must find him, though only the hidden record says so. A search for a
+ * hidden record's whole name leads with the saint, as it would have led with the record.
+ */
+async function saintDuplicatesFor(query: string): Promise<{
+  hidden: readonly string[];
+  named: readonly string[];
+  exactlyNamed: readonly string[];
+}> {
+  const { slugs, names } = await liveSaintDuplicates();
+  const answering = names.filter(({ name }) => nameAnswers(name, query));
+  const exact = normalizeSearchText(query);
+  return {
+    hidden: slugs,
+    named: answering.map(({ canonical }) => canonical),
+    exactlyNamed: answering
+      .filter(({ name }) => normalizeSearchText(name) === exact)
+      .map(({ canonical }) => canonical),
+  };
+}
+
+type SaintDuplicates = Awaited<ReturnType<typeof saintDuplicatesFor>>;
+
+/** The row is a saint, one of these. */
+function isSaintAmong(slugs: readonly string[]): Prisma.Sql {
+  return Prisma.sql`("contentType" = 'SAINT'::"ChecklistContentType" AND "slug" = ANY(${[...slugs]}::text[]))`;
 }
 
 /** One page of rows in the saint list's order, with the true count of the filter. */
@@ -610,6 +696,38 @@ export function toListTsQueryText(query: string): string {
     .join(" & ");
 }
 
+/** The same two words for a regular expression, with the full stop of "St.". */
+const SAINT_PATTERN: Readonly<Record<string, string>> = {
+  saint: String.raw`(?:saint|st\.?)`,
+  st: String.raw`(?:saint|st\.?)`,
+  saints: String.raw`(?:saints|sts\.?)`,
+  sts: String.raw`(?:saints|sts\.?)`,
+};
+
+/**
+ * A POSIX regular expression for a title holding the query's words together, as
+ * whole words, with "Saint" and "St." as one word, as the search itself reads them.
+ * A leading "Saint" is optional, because a name need not say it: "John the Apostle"
+ * answers "st john". Null when the query has no letters or digits. The rest of the
+ * pattern is built from letters, digits and spaces only, so there is nothing for a
+ * metacharacter to do.
+ */
+function titleWordsPattern(query: string): string | null {
+  const words = query
+    .replace(/[^\p{L}\p{N} ]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+  if (words.length === 0) return null;
+  const pattern = words.map((word) => SAINT_PATTERN[word.toLowerCase()] ?? word);
+  const leading = words.length > 1 && SAINT_PATTERN[words[0]!.toLowerCase()];
+  const body = leading ? `(?:${leading} )?${pattern.slice(1).join(" ")}` : pattern.join(" ");
+  // String.raw, because `\y` is not a JavaScript escape: in a plain template literal
+  // it collapses to a bare `y`. Postgres needs the backslash for its word boundary.
+  return String.raw`\y${body}\y`;
+}
+
 /**
  * The rows of one content type that match a list page's search, best first,
  * one page at a time.
@@ -643,33 +761,29 @@ async function searchPublishedTypePage(
     try {
       const tsquery = Prisma.sql`to_tsquery('english', ${toListTsQueryText(q)})`;
       const contains = `%${escapeLike(q)}%`;
+      // A search of the saint list shows each person once, as the list does.
+      const saints = order === "saints";
+      const duplicates = saints ? await saintDuplicatesFor(q) : null;
       const filters: Prisma.Sql[] = [
         Prisma.sql`"contentType" = ${contentType}::"ChecklistContentType"`,
         Prisma.sql`"isPublished"`,
         Prisma.sql`("searchVector" @@ ${tsquery} OR "title" ILIKE ${contains}${
           caps.trigram ? Prisma.sql` OR "title" % ${q}` : Prisma.empty
-        })`,
+        }${duplicates ? Prisma.sql` OR ${isSaintAmong(duplicates.named)}` : Prisma.empty})`,
       ];
       if (subtypes && subtypes.length > 0) filters.push(Prisma.sql`"subtype" = ANY(${subtypes})`);
-      // A search of the saint list shows each person once, as the list does.
-      const saints = order === "saints";
-      if (saints) {
-        filters.push(Prisma.sql`"slug" <> ALL(${await hiddenDuplicateSaints()}::text[])`);
-      }
+      if (duplicates) filters.push(Prisma.sql`"slug" <> ALL(${[...duplicates.hidden]}::text[])`);
       const where = Prisma.join(filters, " AND ");
-      const rank = Prisma.sql`(${searchRank(q, tsquery, caps)}
+      const rank = Prisma.sql`(${searchRank(q, tsquery, caps, duplicates)}
         + CASE WHEN "title" ILIKE ${contains} THEN 1 ELSE 0 END)`;
       // "Mary" means Our Lady before it means Mary of Clopas, and "John" the
       // Apostle before John I of Milan: a saint the list names, whose name has
       // the words typed, keeps her place in the list ahead of the closest match.
-      const wordSafe = q
-        .replace(/[^\p{L}\p{N} ]+/gu, " ")
-        .replace(/\s+/g, " ")
-        .trim();
+      const wholeWords = titleWordsPattern(q);
       const namedFirst =
-        saints && wordSafe
+        saints && wholeWords
           ? Prisma.sql`CASE WHEN "listRank" < ${OLD_TESTAMENT_RANK}
-                         AND "title" ~* ${String.raw`\y${wordSafe}\y`} THEN "listRank" END
+                         AND "title" ~* ${wholeWords} THEN "listRank" END
                        ASC NULLS LAST, `
           : Prisma.empty;
       const [countRows, rows] = await Promise.all([
@@ -705,10 +819,17 @@ async function searchPublishedTypePage(
       Prisma.sql`"isPublished"`,
     ];
     if (subtypes && subtypes.length > 0) filters.push(Prisma.sql`"subtype" = ANY(${subtypes})`);
-    if (words.length === 0) filters.push(Prisma.sql`FALSE`);
-    for (const word of words) {
-      const like = `%${escapeLike(word)}%`;
-      filters.push(Prisma.sql`("title" ILIKE ${like} OR "subtitle" ILIKE ${like})`);
+    if (words.length === 0) {
+      filters.push(Prisma.sql`FALSE`);
+    } else {
+      const everyWord = words.map((word) => {
+        const like = `%${escapeLike(word)}%`;
+        return Prisma.sql`("title" ILIKE ${like} OR "subtitle" ILIKE ${like})`;
+      });
+      const { named } = await saintDuplicatesFor(q);
+      filters.push(
+        Prisma.sql`((${Prisma.join(everyWord, " AND ")}) OR "slug" = ANY(${[...named]}::text[]))`,
+      );
     }
     return saintOrderRows(filters, { page, pageSize });
   }
@@ -905,7 +1026,7 @@ function toParishItem(row: ParishRow): ParishListItem {
   return {
     id: row.id,
     slug: row.slug,
-    title: row.title,
+    title: parishDisplayName(row.title),
     subtitle: projectedSubtitle({
       contentType: "PARISH",
       title: row.title,
@@ -941,6 +1062,20 @@ const PARISH_COLUMNS = Prisma.sql`
 `;
 
 /**
+ * The words of a directory search, whichever way the reader's keyboard wrote their
+ * accents. A mark stays with its word: Yoruba's "ẹ́" and the vowels of Hindi and Thai
+ * are a letter and a mark even when composed, and are not two words.
+ */
+function parishWords(q: string): string[] {
+  return (
+    q
+      .normalize("NFC")
+      .match(/[\p{L}\p{N}\p{M}]+/gu)
+      ?.slice(0, MAX_QUERY_WORDS) ?? []
+  );
+}
+
+/**
  * The parish directory's search predicate.
  *
  * Every word of the query must appear in the parish's name or in its place —
@@ -948,25 +1083,30 @@ const PARISH_COLUMNS = Prisma.sql`
  * keeps in step with the payload — so "st mary chicago" finds St. Mary's in
  * Chicago. A word with a digit in it may also begin the
  * postal code, and the whole query may be a postal code as typed ("SW1A 1AA",
- * "60614-1234"). "Saint" and "St." are one word. Matching is a plain ILIKE on
- * columns of the row, never on the payload except for the postal code, and the
- * postal code is read only for a query that has a digit in it.
+ * "60614-1234"). "Saint" and "St." are one word. Matching runs on columns of the
+ * row, never on the payload except for the postal code, and the postal code is read
+ * only for a query that has a digit in it. A word matches with or without its accents
+ * (`accentBlindPattern`). That is a regular expression where an ILIKE used to be: over
+ * 271,000 rows it takes as long as the ILIKE, within the noise of the measure (99 to 133
+ * ms against 105 to 127 ms, each the best of eleven), and only nonsense costs more (under
+ * a second for forty umlauts in a row). No index was helping, since the place column has
+ * none and a word may match either column.
  */
 function parishSearchSql(q: string): Prisma.Sql {
-  const words = q.match(/[\p{L}\p{N}]+/gu)?.slice(0, MAX_QUERY_WORDS) ?? [];
+  const words = parishWords(q);
   const postal = Prisma.sql`(payload->>'postalCode')`;
   const wordMatches = words.map((word) => {
     const lower = word.toLowerCase();
-    const like = `%${escapeLike(word)}%`;
+    const pattern = accentBlindPattern(word);
     const name =
       lower === "saint" || lower === "st"
         ? // A whole "St" / "Saint", not every name containing the letters s-t.
           Prisma.sql`("title" ILIKE '%saint%' OR "title" ~* '(^|[^[:alpha:]])st([^[:alpha:]]|$)')`
-        : Prisma.sql`"title" ILIKE ${like}`;
+        : Prisma.sql`"title" ~* ${pattern}`;
     const code = /\d/.test(word)
       ? Prisma.sql` OR ${postal} ILIKE ${`${escapeLike(word)}%`}`
       : Prisma.empty;
-    return Prisma.sql`(${name} OR "region" ILIKE ${like}${code})`;
+    return Prisma.sql`(${name} OR "region" ~* ${pattern}${code})`;
   });
   const allWords = wordMatches.length > 0 ? Prisma.join(wordMatches, " AND ") : Prisma.sql`FALSE`;
   if (!/\d/.test(q)) return Prisma.sql`(${allWords})`;
@@ -988,7 +1128,6 @@ export async function listParishPage(
     class?: string | ReadonlyArray<string> | null;
   } = {},
 ): Promise<PublishedPage<ParishListItem>> {
-  const page = clampPage(opts.page);
   const pageSize = clampPageSize(opts.pageSize);
   const q = parseSearchQuery(opts.q);
   const classes =
@@ -1003,29 +1142,34 @@ export async function listParishPage(
   const where = Prisma.join(filters, " AND ");
   // A search lists the parishes whose NAME matches first, then those that
   // matched on their place or postal code; each group alphabetically.
-  const order = q
-    ? Prisma.sql`CASE WHEN "title" ILIKE ${`%${escapeLike(q)}%`} THEN 0 ELSE 1 END, "title" ASC`
-    : Prisma.sql`"title" ASC`;
+  const nameMatch = parishWords(q).map(accentBlindPattern).join("[^[:alnum:]]+");
+  // Many parishes share a name, so the id settles a tie: each page's query orders
+  // ties its own way otherwise, and one parish shows on two pages and another on none.
+  const order = nameMatch
+    ? Prisma.sql`CASE WHEN "title" ~* ${nameMatch} THEN 0 ELSE 1 END, "title" ASC, "id" ASC`
+    : Prisma.sql`"title" ASC, "id" ASC`;
 
-  const [countRows, rows] = await Promise.all([
-    prisma.$queryRaw<Array<{ total: bigint }>>(
-      Prisma.sql`SELECT count(*)::bigint AS total FROM "PublishedContent" WHERE ${where}`,
-    ),
-    prisma.$queryRaw<ParishRow[]>(
-      Prisma.sql`SELECT ${PARISH_COLUMNS} FROM "PublishedContent" WHERE ${where}
-                 ORDER BY ${order}
-                 LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
-    ),
-  ]);
+  return readUpToLastPage(clampPage(opts.page), async (page) => {
+    const [countRows, rows] = await Promise.all([
+      prisma.$queryRaw<Array<{ total: bigint }>>(
+        Prisma.sql`SELECT count(*)::bigint AS total FROM "PublishedContent" WHERE ${where}`,
+      ),
+      prisma.$queryRaw<ParishRow[]>(
+        Prisma.sql`SELECT ${PARISH_COLUMNS} FROM "PublishedContent" WHERE ${where}
+                   ORDER BY ${order}
+                   LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
+      ),
+    ]);
 
-  const total = Number(countRows[0]?.total ?? 0);
-  return {
-    items: rows.map(toParishItem),
-    total,
-    page,
-    pageSize,
-    pageCount: Math.max(1, Math.ceil(total / pageSize)),
-  };
+    const total = Number(countRows[0]?.total ?? 0);
+    return {
+      items: rows.map(toParishItem),
+      total,
+      page,
+      pageSize,
+      pageCount: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  });
 }
 
 /** Miles per degree of latitude — used to size the bounding-box prefilter. */
@@ -1205,8 +1349,15 @@ export interface SearchHit {
 }
 
 export interface SearchResultGroup {
+  /** The content type of the group's best hit. */
   contentType: ChecklistContentType;
   label: string;
+  /**
+   * Every match under this label across all pages, where `items` holds only this
+   * page's. Null when that is not known: the unindexed path does not count by
+   * label, and its rows may run on to other pages.
+   */
+  total: number | null;
   items: SearchHit[];
 }
 
@@ -1215,7 +1366,7 @@ export interface SearchResults {
   /** Total matches in the database, not the number returned. */
   total: number;
   hits: SearchHit[];
-  /** The same hits grouped by content type, best group first. */
+  /** The same hits grouped by type label, best group first. */
   groups: SearchResultGroup[];
   page: number;
   pageSize: number;
@@ -1295,7 +1446,7 @@ function toSearchHit(row: SearchRow): SearchHit {
     id: row.id,
     contentType: row.contentType,
     slug: row.slug,
-    title: row.title,
+    title: readerTitle(row),
     subtitle: projectedSubtitle({
       contentType: row.contentType,
       title: row.title,
@@ -1320,6 +1471,7 @@ function toSearchHit(row: SearchRow): SearchHit {
 function searchSql(
   query: string,
   caps: SearchCapabilities,
+  saints: SaintDuplicates,
   opts: { prefixLastTerm?: boolean } = {},
 ) {
   // Prefix-expanding the last term is what makes the header dropdown answer
@@ -1327,15 +1479,16 @@ function searchSql(
   // is the wrong trade: the expansion matches every lexeme sharing the stem,
   // which floats obscure near-spellings above the thing that was asked for.
   const tsq = toTsQueryText(query, opts.prefixLastTerm ?? false);
-  const prefix = `${query.trim()}%`;
+  const prefix = `${escapeLike(query.trim())}%`;
   const tsquery = Prisma.sql`to_tsquery('english', ${tsq})`;
   const trigramMatch = caps.trigram ? Prisma.sql`OR "title" % ${query.trim()}` : Prisma.empty;
-  const rank = searchRank(query, tsquery, caps);
+  const rank = searchRank(query, tsquery, caps, saints);
   const where = Prisma.sql`"isPublished" AND (
     "searchVector" @@ ${tsquery}
     OR "title" ILIKE ${prefix}
     ${trigramMatch}
-  )`;
+    OR ${isSaintAmong(saints.named)}
+  ) AND NOT ${isSaintAmong(saints.hidden)}`;
   return { rank, where, hasTerms: tsq.length > 0 };
 }
 
@@ -1344,27 +1497,23 @@ function searchSql(
  * Shared by the site search and the per-type list search so the two order
  * their results the same way.
  */
-function searchRank(query: string, tsquery: Prisma.Sql, caps: SearchCapabilities): Prisma.Sql {
-  const prefix = `${query.trim()}%`;
+function searchRank(
+  query: string,
+  tsquery: Prisma.Sql,
+  caps: SearchCapabilities,
+  saints: SaintDuplicates | null,
+): Prisma.Sql {
+  const prefix = `${escapeLike(query.trim())}%`;
   const similarity = caps.trigram
     ? Prisma.sql`+ similarity("title", ${query.trim()})`
     : Prisma.empty;
   // A title that contains the typed words as WHOLE words outranks one that
   // merely shares a prefix — without it "mary" ranked "Marie-Catherine
   // Troiani" above "Hail Mary", because the trailing `:*` expansion matches
-  // many lexemes. The pattern is built from letters, digits and spaces only,
-  // so there is nothing for a regex metacharacter to do.
-  const wordSafe = query
-    .trim()
-    .replace(/[^\p{L}\p{N} ]+/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  const wordBoundary = wordSafe
-    ? // String.raw, because `\y` is not a JavaScript escape: in a plain template
-      // literal it collapses to a bare `y`, so this shipped as the pattern
-      // `ymaryy` and the +2 boost never fired for any row, ever. Postgres needs
-      // the backslashes to see its own word-boundary escape.
-      Prisma.sql`+ CASE WHEN "title" ~* ${String.raw`\y${wordSafe}\y`} THEN 2 ELSE 0 END`
+  // many lexemes.
+  const wholeWords = titleWordsPattern(query);
+  const wordBoundary = wholeWords
+    ? Prisma.sql`+ CASE WHEN "title" ~* ${wholeWords} THEN 2 ELSE 0 END`
     : Prisma.empty;
   return Prisma.sql`(
     ts_rank_cd("searchVector", ${tsquery})
@@ -1372,21 +1521,49 @@ function searchRank(query: string, tsquery: Prisma.Sql, caps: SearchCapabilities
     + CASE WHEN "title" ILIKE ${prefix} THEN 1 ELSE 0 END
     ${wordBoundary}
     ${similarity}
+    ${saints ? Prisma.sql`+ CASE WHEN ${isSaintAmong(saints.exactlyNamed)} THEN 3 ELSE 0 END` : Prisma.empty}
   )`;
 }
 
+/**
+ * A query with no letters or digits names nothing. "%" and "_" must not reach the
+ * patterns below as what they mean there, which is everything.
+ */
+function hasSearchableWords(query: string): boolean {
+  return /[\p{L}\p{N}]/u.test(query);
+}
+
+/** The row is a saint, one of these, in the fallback's terms. */
+function saintAmongWhere(slugs: readonly string[]): Prisma.PublishedContentWhereInput {
+  return { contentType: "SAINT", slug: { in: [...slugs] } };
+}
+
 /** The original unindexed predicate, kept as the fallback path. */
-async function searchFallback(query: string, limit: number, offset: number): Promise<SearchRow[]> {
+function fallbackWhere(query: string, saints: SaintDuplicates): Prisma.PublishedContentWhereInput {
+  // Prisma passes `contains` to LIKE as it stands, so what was typed is made literal.
+  const literal = escapeLike(query);
+  return {
+    isPublished: true,
+    NOT: saintAmongWhere(saints.hidden),
+    OR: [
+      { title: { contains: literal, mode: "insensitive" } },
+      { slug: { contains: literal.toLowerCase(), mode: "insensitive" } },
+      ...(saints.named.length > 0 ? [saintAmongWhere(saints.named)] : []),
+    ],
+  };
+}
+
+async function searchFallback(
+  query: string,
+  saints: SaintDuplicates,
+  limit: number,
+  offset: number,
+): Promise<SearchRow[]> {
   const rows = await prisma.publishedContent.findMany({
-    where: {
-      isPublished: true,
-      OR: [
-        { title: { contains: query, mode: "insensitive" } },
-        { slug: { contains: query.toLowerCase(), mode: "insensitive" } },
-      ],
-    },
+    where: fallbackWhere(query, saints),
     select: { ...LIST_SELECT },
-    orderBy: { title: "asc" },
+    // The id settles a tie, so an offset never repeats a row or skips one.
+    orderBy: [{ title: "asc" }, { id: "asc" }],
     skip: offset,
     take: limit,
   });
@@ -1395,7 +1572,7 @@ async function searchFallback(query: string, limit: number, offset: number): Pro
 
 /**
  * A page of search results, ranked, with the true total and a grouping by
- * content type. The results page used to report `hits.length` (capped at 50)
+ * type label. The results page used to report `hits.length` (capped at 50)
  * as the total and print raw enum names as labels.
  */
 export async function searchPublishedPage(
@@ -1416,29 +1593,43 @@ export async function searchPublishedPage(
     pageCount: 1,
     indexed: false,
   };
-  if (!q) return empty;
+  if (!hasSearchableWords(q)) return empty;
 
-  const caps = await searchCapabilities();
+  const [caps, saints] = await Promise.all([searchCapabilities(), saintDuplicatesFor(q)]);
   let rows: SearchRow[] = [];
   let total = 0;
   let indexed = false;
+  const totalsByLabel = new Map<string, number>();
 
   if (caps.vector) {
     try {
-      const { rank, where } = searchSql(q, caps);
+      const { rank, where } = searchSql(q, caps, saints);
+      // The id settles a tie on rank and title (two parishes of one name). Each page's
+      // query orders ties its own way otherwise, so one row shows on two pages and
+      // another on none, while the counts still add up.
       const [countRows, hitRows] = await Promise.all([
-        prisma.$queryRaw<Array<{ total: bigint }>>(
-          Prisma.sql`SELECT count(*)::bigint AS total FROM "PublishedContent" WHERE ${where}`,
+        prisma.$queryRaw<
+          Array<{ contentType: ChecklistContentType; subtype: string | null; total: bigint }>
+        >(
+          Prisma.sql`SELECT "contentType", "subtype", count(*)::bigint AS total
+                     FROM "PublishedContent"
+                     WHERE ${where}
+                     GROUP BY "contentType", "subtype"`,
         ),
         prisma.$queryRaw<SearchRow[]>(
           Prisma.sql`SELECT ${SEARCH_COLUMNS}, ${rank} AS "rank"
                      FROM "PublishedContent"
                      WHERE ${where}
-                     ORDER BY "rank" DESC, "title" ASC
+                     ORDER BY "rank" DESC, "title" ASC, "id" ASC
                      LIMIT ${pageSize} OFFSET ${offset}`,
         ),
       ]);
-      total = Number(countRows[0]?.total ?? 0);
+      for (const row of countRows) {
+        const count = Number(row.total);
+        const label = contentTypeLabel(row.contentType, row.subtype);
+        total += count;
+        totalsByLabel.set(label, (totalsByLabel.get(label) ?? 0) + count);
+      }
       rows = hitRows;
       indexed = true;
     } catch {
@@ -1448,17 +1639,9 @@ export async function searchPublishedPage(
   }
 
   if (!indexed) {
-    rows = await searchFallback(q, pageSize, offset);
+    rows = await searchFallback(q, saints, pageSize, offset);
     total = await prisma.publishedContent
-      .count({
-        where: {
-          isPublished: true,
-          OR: [
-            { title: { contains: q, mode: "insensitive" } },
-            { slug: { contains: q.toLowerCase(), mode: "insensitive" } },
-          ],
-        },
-      })
+      .count({ where: fallbackWhere(q, saints) })
       .catch(() => rows.length);
   }
 
@@ -1466,7 +1649,7 @@ export async function searchPublishedPage(
   // lookup — cheap, and it keeps "our-father" working as a query.
   if (rows.length === 0 && /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(q.toLowerCase())) {
     const exact = await prisma.publishedContent.findFirst({
-      where: { slug: q.toLowerCase(), isPublished: true },
+      where: { slug: q.toLowerCase(), isPublished: true, NOT: saintAmongWhere(saints.hidden) },
       select: { ...LIST_SELECT },
     });
     if (exact) {
@@ -1476,16 +1659,19 @@ export async function searchPublishedPage(
   }
 
   const hits = rows.map(toSearchHit);
-  const grouped = new Map<ChecklistContentType, SearchHit[]>();
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  // Grouped by what each hit is called, so a heading is true of every row under
+  // it: a Litany stands apart from the Prayers, as the header's suggestions show.
+  const grouped = new Map<string, SearchHit[]>();
   for (const hit of hits) {
-    const arr = grouped.get(hit.contentType) ?? [];
+    const arr = grouped.get(hit.typeLabel) ?? [];
     arr.push(hit);
-    grouped.set(hit.contentType, arr);
+    grouped.set(hit.typeLabel, arr);
   }
-  const groups: SearchResultGroup[] = [...grouped.entries()].map(([contentType, items]) => ({
-    contentType,
-    // The first hit's own label already accounts for its subtype (Litany).
-    label: items[0]?.typeLabel ?? contentTypeLabel(contentType),
+  const groups: SearchResultGroup[] = [...grouped.entries()].map(([label, items]) => ({
+    contentType: items[0].contentType,
+    label,
+    total: totalsByLabel.get(label) ?? (pageCount === 1 ? items.length : null),
     items,
   }));
 
@@ -1496,7 +1682,7 @@ export async function searchPublishedPage(
     groups,
     page,
     pageSize,
-    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+    pageCount,
     indexed,
   };
 }
@@ -1529,9 +1715,9 @@ const ALL_CONTENT_TYPES = Object.keys(CONTENT_TYPE_TO_SUGGEST_GROUP) as Checklis
  */
 export async function suggestPublished(query: string, perGroup = 3): Promise<SearchSuggestion[]> {
   const q = query.trim();
-  if (q.length < 2) return [];
+  if (q.length < 2 || !hasSearchableWords(q)) return [];
   const limit = Math.min(Math.max(Math.trunc(Number(perGroup)) || 3, 1), 10);
-  const caps = await searchCapabilities();
+  const [caps, saints] = await Promise.all([searchCapabilities(), saintDuplicatesFor(q)]);
 
   let rows: SearchRow[] = [];
   // Tracked explicitly rather than inferred from `rows.length === 0`, which
@@ -1542,7 +1728,7 @@ export async function suggestPublished(query: string, perGroup = 3): Promise<Sea
   let indexed = false;
   if (caps.vector) {
     try {
-      const { rank, where } = searchSql(q, caps, { prefixLastTerm: true });
+      const { rank, where } = searchSql(q, caps, saints, { prefixLastTerm: true });
       rows = await prisma.$queryRaw<SearchRow[]>(
         Prisma.sql`
           SELECT s.* FROM unnest(${ALL_CONTENT_TYPES}::text[]) AS t(ct)
@@ -1550,10 +1736,10 @@ export async function suggestPublished(query: string, perGroup = 3): Promise<Sea
             SELECT ${SEARCH_COLUMNS}, ${rank} AS "rank"
             FROM "PublishedContent"
             WHERE "contentType" = t.ct::"ChecklistContentType" AND ${where}
-            ORDER BY "rank" DESC, "title" ASC
+            ORDER BY "rank" DESC, "title" ASC, "id" ASC
             LIMIT ${limit}
           ) s
-          ORDER BY s."rank" DESC, s."title" ASC`,
+          ORDER BY s."rank" DESC, s."title" ASC, s."id" ASC`,
       );
       indexed = true;
     } catch {
@@ -1564,7 +1750,7 @@ export async function suggestPublished(query: string, perGroup = 3): Promise<Sea
   if (!indexed) {
     // Fallback: the original predicate, but capped per group in JS so small
     // groups still surface.
-    const fallback = await searchFallback(q, 200, 0);
+    const fallback = await searchFallback(q, saints, 200, 0);
     const seen = new Map<ChecklistContentType, number>();
     rows = fallback.filter((row) => {
       const n = seen.get(row.contentType) ?? 0;
@@ -1578,7 +1764,7 @@ export async function suggestPublished(query: string, perGroup = 3): Promise<Sea
     group: CONTENT_TYPE_TO_SUGGEST_GROUP[row.contentType] ?? "prayers",
     id: row.id,
     slug: row.slug,
-    label: row.title,
+    label: readerTitle(row),
     subtitle: projectedSubtitle({
       contentType: row.contentType,
       title: row.title,

@@ -1,10 +1,18 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useId, useRef } from "react";
+import { createContext, useContext, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { useModalDialog } from "./useModalDialog";
+
+/** The popup's words, when the control that opens it gives none of its own. */
+export type LoginRequiredLabels = {
+  message: string;
+  loginLabel: string;
+  registerLabel: string;
+  closeLabel: string;
+};
 
 type Props = {
   open: boolean;
@@ -15,27 +23,51 @@ type Props = {
   closeLabel?: string;
 };
 
-const DEFAULTS = {
+const LoginRequiredLabelsContext = createContext<LoginRequiredLabels>({
   message: "An account is required to use this feature.",
   loginLabel: "Log in",
   registerLabel: "Create account",
   closeLabel: "Close",
-};
+});
+
+/**
+ * The popup's words in the reader's language, given once by the root layout, as the
+ * Share button's are: the controls that open it are client components with no
+ * translator of their own.
+ */
+export function LoginRequiredLabelsProvider({
+  labels,
+  children,
+}: {
+  labels: LoginRequiredLabels;
+  children: ReactNode;
+}) {
+  return (
+    <LoginRequiredLabelsContext.Provider value={labels}>
+      {children}
+    </LoginRequiredLabelsContext.Provider>
+  );
+}
 
 export function LoginRequiredPopup({
   open,
   onClose,
-  message = DEFAULTS.message,
-  loginLabel = DEFAULTS.loginLabel,
-  registerLabel = DEFAULTS.registerLabel,
-  closeLabel = DEFAULTS.closeLabel,
+  message: givenMessage,
+  loginLabel: givenLoginLabel,
+  registerLabel: givenRegisterLabel,
+  closeLabel: givenCloseLabel,
 }: Props) {
+  const words = useContext(LoginRequiredLabelsContext);
+  const message = givenMessage ?? words.message;
+  const loginLabel = givenLoginLabel ?? words.loginLabel;
+  const registerLabel = givenRegisterLabel ?? words.registerLabel;
+  const closeLabel = givenCloseLabel ?? words.closeLabel;
   const pathname = usePathname();
-  const dialogRef = useRef<HTMLDivElement>(null);
   const loginRef = useRef<HTMLButtonElement>(null);
+  const pressedBackdrop = useRef(false);
   const messageId = useId();
 
-  useModalDialog({ open, onClose, dialogRef, initialFocusRef: loginRef });
+  const dialogRef = useModalDialog({ open, onClose, initialFocusRef: loginRef });
 
   if (!open || typeof document === "undefined") return null;
 
@@ -54,11 +86,26 @@ export function LoginRequiredPopup({
 
   // Portalled to <body> so it paints above the sticky header; see ConfirmDialog.
   return createPortal(
+    // Backdrop dismiss-on-click, as in ConfirmDialog, and not on the press: the press goes
+    // on to move focus to the page after this has handed it back to the control that
+    // opened the popup. Only a press that began out here counts, so a selection dragged
+    // out of the message does not dismiss it. Escape is the keyboard's way, in
+    // useModalDialog, however focus is placed.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="vf-modal-backdrop"
       role="presentation"
       onPointerDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        pressedBackdrop.current = e.target === e.currentTarget;
+      }}
+      onMouseDown={(e) => {
+        // Focus stays in the dialog while the press lasts, in case it ends elsewhere.
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget && pressedBackdrop.current) onClose();
+        pressedBackdrop.current = false;
       }}
     >
       <div
@@ -68,7 +115,10 @@ export function LoginRequiredPopup({
         aria-labelledby={messageId}
         tabIndex={-1}
         className="vf-modal vf-modal-narrow"
-        onPointerDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => {
+          pressedBackdrop.current = false;
+          e.stopPropagation();
+        }}
       >
         <button
           type="button"

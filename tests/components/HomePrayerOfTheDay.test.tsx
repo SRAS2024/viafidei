@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 
 import { HomePrayerOfTheDay } from "@/app/_sections/HomePrayerOfTheDay";
 
@@ -37,7 +37,7 @@ describe("HomePrayerOfTheDay — homepage 'Prayer of the Day' section", () => {
       excerpt: "Soul of Christ, sanctify me.",
     });
 
-    render(<HomePrayerOfTheDay />);
+    render(<HomePrayerOfTheDay loadingLabel="Choosing today's prayer…" />);
     // Placeholders for the eye, a live message for a screen reader.
     expect(screen.getByRole("status")).toHaveTextContent(/choosing today/i);
     expect(screen.getByRole("status")).toHaveClass("sr-only");
@@ -56,6 +56,37 @@ describe("HomePrayerOfTheDay — homepage 'Prayer of the Day' section", () => {
     expect(url).toMatch(/^\/api\/prayers\/today\?date=\d{4}-\d{2}-\d{2}$/);
   });
 
+  it("asks for the new day's prayer when the visitor comes back the next morning", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 7, 21, 0));
+    respondWith({
+      slug: "a",
+      title: "Saturday's Prayer",
+      subtitle: null,
+      category: "general",
+      excerpt: "",
+    });
+    render(<HomePrayerOfTheDay loadingLabel="Choosing today's prayer…" />);
+    expect(await screen.findByRole("link", { name: "Saturday's Prayer" })).toBeInTheDocument();
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/prayers/today?date=2026-11-07");
+
+    respondWith({
+      slug: "b",
+      title: "Sunday's Prayer",
+      subtitle: null,
+      category: "general",
+      excerpt: "",
+    });
+    act(() => {
+      vi.setSystemTime(new Date(2026, 10, 8, 9, 0));
+      window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+    });
+    expect(await screen.findByRole("link", { name: "Sunday's Prayer" })).toBeInTheDocument();
+    expect(String(fetchSpy.mock.calls[1]?.[0])).toBe("/api/prayers/today?date=2026-11-08");
+    expect(screen.queryByRole("link", { name: "Saturday's Prayer" })).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
   it("names no type for a general prayer", async () => {
     respondWith({
       slug: "evening-prayer",
@@ -65,7 +96,7 @@ describe("HomePrayerOfTheDay — homepage 'Prayer of the Day' section", () => {
       excerpt: "",
     });
 
-    render(<HomePrayerOfTheDay />);
+    render(<HomePrayerOfTheDay loadingLabel="Choosing today's prayer…" />);
     expect(await screen.findByText("An Evening Prayer")).toBeInTheDocument();
     expect(screen.queryByText("General")).not.toBeInTheDocument();
     expect(screen.queryByText("Prayer")).not.toBeInTheDocument();
@@ -73,7 +104,7 @@ describe("HomePrayerOfTheDay — homepage 'Prayer of the Day' section", () => {
 
   it("falls back to a library link when the API fails", async () => {
     fetchSpy.mockRejectedValue(new Error("offline"));
-    render(<HomePrayerOfTheDay />);
+    render(<HomePrayerOfTheDay loadingLabel="Choosing today's prayer…" />);
     expect(
       await screen.findByRole("link", { name: /browse the prayer library/i }),
     ).toBeInTheDocument();

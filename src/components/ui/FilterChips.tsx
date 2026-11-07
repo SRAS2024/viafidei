@@ -10,6 +10,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
+
+import { focusLeftMenu } from "./menuFocus";
 
 /**
  * One filter chip. A chip with `href` navigates (URL-driven filtering on a
@@ -184,18 +187,44 @@ function FilterMenu({ id, label, children }: { id: string; label: string; childr
     return () => window.removeEventListener("resize", place);
   }, []);
 
+  // Opened low on the screen, or at enlarged text, the panel would begin below the
+  // fold, and a press on the trigger would seem to do nothing. Its height leaves room
+  // for the trigger under the header, so both stay in view. A smooth move begun in the
+  // frame the panel first paints stops part of the way in WebKit, at a different place
+  // each time, so it waits for the next one.
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      ref.current?.scrollIntoView?.({ block: "nearest" });
+      return;
+    }
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        ref.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
   return (
+    // role="list": Safari drops a list's role where its markers are removed.
     <ul
       id={id}
       ref={ref}
+      role="list"
       aria-label={label}
       style={{ transform: `translateX(calc(-50% + ${shift}px))` }}
-      className="vf-menu absolute left-1/2 top-full z-30 mt-1.5 max-h-[min(24rem,70dvh)] w-64 max-w-[calc(100vw-2rem)] overflow-y-auto"
+      className="vf-menu vf-filter-panel absolute left-1/2 top-full z-30 mt-1.5 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto"
     >
       {children}
     </ul>
   );
 }
+
+/**
+ * How long a link's choice names the trigger with no sign of its page: longer than a
+ * slow server takes, and than the wait before a lost navigation is made a full page load.
+ */
+const CHOICE_PATIENCE_MS = 10_000;
 
 /**
  * The dropdown form of the filter row, used when there are more than three
@@ -222,40 +251,74 @@ function CollapsedFilter({
   triggerLabel: string;
 }) {
   const [open, setOpen] = useState(false);
+  // A link's choice, until the page it leads to arrives with the new activeKey.
+  const [chosenKey, setChosenKey] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelId = useId();
 
-  // The option holding focus is about to leave the page, and focus would fall to
-  // the top of the document, so a screen reader would start over. It goes back to
-  // the trigger, which now names the filter chosen.
-  const closeToTrigger = useCallback(() => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  }, []);
+  useEffect(() => setChosenKey(null), [activeKey]);
 
-  // Close on outside pointer, Escape, or focus moving elsewhere.
+  // A navigation can be lost, and the trigger must not go on naming a filter the list
+  // beneath it does not show.
+  useEffect(() => {
+    if (chosenKey === null) return;
+    const timer = setTimeout(() => setChosenKey(null), CHOICE_PATIENCE_MS);
+    return () => clearTimeout(timer);
+  }, [chosenKey]);
+
+  // In a very short window the open panel takes the room up to the header and pushes
+  // its trigger part way under it. Once the panel has gone there is room again, and
+  // focus should not be left half hidden.
   useEffect(() => {
     if (!open) return;
-    function onOutside(event: Event) {
+    const trigger = triggerRef.current;
+    return () => {
+      if (document.activeElement === trigger) trigger?.scrollIntoView?.({ block: "nearest" });
+    };
+  }, [open]);
+
+  // The option holding focus is about to leave the page, and focus would fall to
+  // the top of the document, so a screen reader would start over. It goes back to
+  // the trigger before the option goes.
+  const closeToTrigger = useCallback(() => {
+    triggerRef.current?.focus();
+    setOpen(false);
+  }, []);
+
+  // Choosing commits the trigger's new name first, whatever the new page's own
+  // timing, so what a screen reader reads as focus lands is the filter chosen.
+  const chooseThenClose = (choose: () => void) => {
+    flushSync(choose);
+    closeToTrigger();
+  };
+
+  // Close on a pointer outside, Escape, or focus really moving elsewhere.
+  useEffect(() => {
+    if (!open) return;
+    function onPointerOutside(event: Event) {
       const target = event.target as Node | null;
       if (ref.current && target && !ref.current.contains(target)) setOpen(false);
+    }
+    function onFocusMoved(event: Event) {
+      if (ref.current && focusLeftMenu(event.target, ref.current)) setOpen(false);
     }
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") closeToTrigger();
     }
-    document.addEventListener("pointerdown", onOutside);
-    document.addEventListener("focusin", onOutside);
+    document.addEventListener("pointerdown", onPointerOutside);
+    document.addEventListener("focusin", onFocusMoved);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("pointerdown", onOutside);
-      document.removeEventListener("focusin", onOutside);
+      document.removeEventListener("pointerdown", onPointerOutside);
+      document.removeEventListener("focusin", onFocusMoved);
       document.removeEventListener("keydown", onKey);
     };
   }, [open, closeToTrigger]);
 
-  const activeItem = items.find((i) => i.key === activeKey);
-  const isFiltered = activeKey !== resetKey && activeItem != null;
+  const shownKey = chosenKey ?? activeKey;
+  const activeItem = items.find((i) => i.key === shownKey);
+  const isFiltered = shownKey !== resetKey && activeItem != null;
   const resetItem = items.find((i) => i.key === resetKey);
 
   // Re-selecting the active filter deselects it (→ reset/all); anything else
@@ -297,10 +360,7 @@ function CollapsedFilter({
                     <button
                       type="button"
                       aria-pressed={active}
-                      onClick={() => {
-                        onSelect(selectKeyFor(item));
-                        closeToTrigger();
-                      }}
+                      onClick={() => chooseThenClose(() => onSelect(selectKeyFor(item)))}
                       className={`vf-menu-item ${active ? "vf-menu-item-active" : ""}`}
                     >
                       <ChipInner item={item} />
@@ -309,7 +369,14 @@ function CollapsedFilter({
                     <Link
                       href={hrefFor(item)}
                       aria-current={active ? "page" : undefined}
-                      onClick={closeToTrigger}
+                      onClick={(event) => {
+                        // A modified click opens another tab; this page stays as it is.
+                        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+                          closeToTrigger();
+                        } else {
+                          chooseThenClose(() => setChosenKey(selectKeyFor(item)));
+                        }
+                      }}
                       className="vf-menu-item"
                     >
                       <ChipInner item={item} />

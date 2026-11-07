@@ -27,6 +27,9 @@ export default defineConfig({
       name: "mobile-chromium",
       use: { ...devices["Pixel 5"] },
     },
+    // Safari's engine, where a press on a link focuses no link. CI installs only
+    // Chromium, so it is asked for by name: E2E_WEBKIT=1 ... --project=webkit
+    ...(process.env.E2E_WEBKIT ? [{ name: "webkit", use: { ...devices["Desktop Safari"] } }] : []),
   ],
   webServer: {
     // `next start` cannot serve an `output: "standalone"` build — it warns and

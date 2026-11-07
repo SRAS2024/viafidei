@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { focusLeftMenu } from "@/components/ui/menuFocus";
 import { CloseIcon, HamburgerIcon } from "../icons/HamburgerIcon";
+import { useNavSection } from "./NavSection";
 
 export type MobileMenuItem = { href: string; label: string; items?: MobileMenuItem[] };
 export type MobileMenuAction =
@@ -33,10 +35,18 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function groupActive(pathname: string, item: MobileMenuItem): boolean {
+function groupActive(pathname: string, item: MobileMenuItem, section: string | null): boolean {
   return (
-    isActive(pathname, item.href) || (item.items ?? []).some((sub) => isActive(pathname, sub.href))
+    isActive(pathname, item.href) ||
+    item.href === section ||
+    (item.items ?? []).some((sub) => isActive(pathname, sub.href) || sub.href === section)
   );
+}
+
+/** "page" only for the page itself; an entry under it is in the section, not on it. */
+function currentState(pathname: string, href: string, section: string | null) {
+  if (pathname === href) return "page" as const;
+  return isActive(pathname, href) || href === section ? ("true" as const) : undefined;
 }
 
 function Chevron({ open }: { open: boolean }) {
@@ -68,6 +78,7 @@ export function HeaderMobileMenu({
 }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname() ?? "/";
+  const section = useNavSection();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const toggleRef = useRef<HTMLButtonElement | null>(null);
   // Groups whose submenu is expanded. Seed with the group that contains the
@@ -75,7 +86,9 @@ export function HeaderMobileMenu({
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const seed = new Set<string>();
     for (const item of navItems) {
-      if (item.items && item.items.length > 0 && groupActive(pathname, item)) seed.add(item.href);
+      if (item.items && item.items.length > 0 && groupActive(pathname, item, null)) {
+        seed.add(item.href);
+      }
     }
     return seed;
   });
@@ -86,6 +99,27 @@ export function HeaderMobileMenu({
       else next.add(href);
       return next;
     });
+
+  // The header outlives the page. A move by any route but the menu's own links, Back
+  // or a redirect after logging out, must not leave the menu open over the new page.
+  useEffect(() => setOpen(false), [pathname]);
+
+  // And the next opening still shows where the reader is now.
+  useEffect(() => {
+    setExpanded((prev) => {
+      const here = navItems.filter(
+        (item) => item.items?.length && groupActive(pathname, item, section),
+      );
+      if (here.every((item) => prev.has(item.href))) return prev;
+      return new Set([...prev, ...here.map((item) => item.href)]);
+    });
+  }, [pathname, section, navItems]);
+
+  // Logging out takes the button away with the menu, so focus waits on the toggle.
+  const closeToToggle = () => {
+    toggleRef.current?.focus();
+    setOpen(false);
+  };
 
   useEffect(() => {
     function onPointer(event: PointerEvent | MouseEvent | TouchEvent) {
@@ -111,7 +145,16 @@ export function HeaderMobileMenu({
   }, []);
 
   return (
-    <div ref={wrapperRef} className="relative min-[900px]:hidden">
+    // Not a control: it only hears focus leaving the menu as a whole, so that a
+    // keyboard never moves on to something the open menu is covering.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div
+      ref={wrapperRef}
+      className="relative"
+      onBlur={(e) => {
+        if (focusLeftMenu(e.relatedTarget, e.currentTarget)) setOpen(false);
+      }}
+    >
       <button
         ref={toggleRef}
         type="button"
@@ -123,7 +166,7 @@ export function HeaderMobileMenu({
           setOpen((v) => !v);
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="vf-mobile-menu-toggle relative -mr-1.5 flex h-[44px] w-[44px] items-center justify-center rounded-sm text-ink"
+        className="vf-mobile-menu-toggle relative -mr-[6px] flex h-[44px] w-[44px] items-center justify-center rounded-sm text-ink"
       >
         {/* Visually centered icon, but a 48x48 hit target that doesn't move
             its visual position. The pointer-events catch on the button itself,
@@ -142,7 +185,6 @@ export function HeaderMobileMenu({
           <ul className="flex flex-col py-2">
             {navItems.map((item) => {
               const hasChildren = !!item.items && item.items.length > 0;
-              const active = isActive(pathname, item.href);
 
               if (!hasChildren) {
                 return (
@@ -150,10 +192,8 @@ export function HeaderMobileMenu({
                     <Link
                       href={item.href}
                       onClick={() => setOpen(false)}
-                      aria-current={active ? "page" : undefined}
-                      className={`vf-mobile-menu-link block px-4 py-3 ${
-                        active ? "vf-mobile-menu-link-active" : ""
-                      }`}
+                      aria-current={currentState(pathname, item.href, section)}
+                      className="vf-mobile-menu-link block px-4 py-3"
                     >
                       {item.label}
                     </Link>
@@ -166,7 +206,7 @@ export function HeaderMobileMenu({
               // first item inside). This is the standard mobile accordion — a
               // tap reveals the options instead of navigating away.
               const isExpanded = expanded.has(item.href);
-              const parentActive = groupActive(pathname, item);
+              const parentActive = groupActive(pathname, item, section);
               return (
                 <li key={item.href}>
                   <button
@@ -185,23 +225,18 @@ export function HeaderMobileMenu({
                       {/* The section's own page first, then its sub-tabs —
                           "Saints" expands to Saints · Our Lady · Doctors · Popes,
                           matching the desktop dropdown. */}
-                      {[{ href: item.href, label: item.label }, ...item.items!].map((sub) => {
-                        const subActive = isActive(pathname, sub.href);
-                        return (
-                          <li key={sub.href}>
-                            <Link
-                              href={sub.href}
-                              onClick={() => setOpen(false)}
-                              aria-current={subActive ? "page" : undefined}
-                              className={`vf-mobile-menu-link block py-2.5 pl-8 pr-4 text-sm ${
-                                subActive ? "vf-mobile-menu-link-active" : ""
-                              }`}
-                            >
-                              {sub.label}
-                            </Link>
-                          </li>
-                        );
-                      })}
+                      {[{ href: item.href, label: item.label }, ...item.items!].map((sub) => (
+                        <li key={sub.href}>
+                          <Link
+                            href={sub.href}
+                            onClick={() => setOpen(false)}
+                            aria-current={currentState(pathname, sub.href, section)}
+                            className="vf-mobile-menu-link block py-2.5 pl-8 pr-4 text-sm"
+                          >
+                            {sub.label}
+                          </Link>
+                        </li>
+                      ))}
                     </ul>
                   ) : null}
                 </li>
@@ -236,7 +271,12 @@ export function HeaderMobileMenu({
                     </li>
                   ) : typeof action.action === "string" ? (
                     <li key={action.action}>
-                      <form action={action.action} method="post" className="m-0">
+                      <form
+                        action={action.action}
+                        method="post"
+                        onSubmit={closeToToggle}
+                        className="m-0"
+                      >
                         <button
                           type="submit"
                           className="vf-mobile-menu-link block w-full px-4 py-3 text-left"
@@ -247,7 +287,7 @@ export function HeaderMobileMenu({
                     </li>
                   ) : (
                     <li key={action.label}>
-                      <form action={action.action} className="m-0">
+                      <form action={action.action} onSubmit={closeToToggle} className="m-0">
                         <button
                           type="submit"
                           className="vf-mobile-menu-link block w-full px-4 py-3 text-left"

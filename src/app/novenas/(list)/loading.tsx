@@ -7,6 +7,8 @@ export default function NovenasLoading() {
       title="Novenas"
       subtitle="Nine-day novenas — each day opens in its own dropdown with the full prayer."
       cards={12}
+      metaLines={0}
+      themeLines={2}
     />
   );
 }

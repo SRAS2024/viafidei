@@ -1,19 +1,18 @@
 import { PageHero } from "@/components/ui";
 import { getTranslator } from "@/lib/i18n/server";
-import type { Translator } from "@/lib/i18n/translator";
 import { listPublished } from "@/lib/data/published";
 import { matchSacrament } from "@/lib/content-shared/sacraments";
 
-import { SACRAMENT_GROUPS, SacramentCard, sacramentGridClass, sacramentsOf } from "../groups";
+import {
+  SACRAMENT_GROUPS,
+  SacramentCard,
+  sacramentGridClass,
+  sacramentGroupTitle,
+  sacramentsOf,
+} from "../groups";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sacraments" };
-
-/** A label through the dictionaries, in English until a dictionary carries it. */
-function label(t: Translator, key: string, english: string): string {
-  const text = t(key);
-  return text === key ? english : text;
-}
 
 export default async function SacramentsPage() {
   const { t } = await getTranslator();
@@ -43,10 +42,11 @@ export default async function SacramentsPage() {
           <section key={group.key} aria-labelledby={`sacraments-${group.key}`}>
             <div className="vf-section-head">
               <h2 id={`sacraments-${group.key}`} className="vf-section-title">
-                {label(t, group.titleKey, group.title)}
+                {sacramentGroupTitle(t, group)}
               </h2>
             </div>
-            <ul className={sacramentGridClass(group)}>
+            {/* Safari stops calling a list a list once its markers are gone. */}
+            <ul className={sacramentGridClass(group)} role="list">
               {sacramentsOf(group).map((sacrament) => (
                 <li key={sacrament.key}>
                   <SacramentCard sacrament={sacrament} slug={slugByKey.get(sacrament.key)} />

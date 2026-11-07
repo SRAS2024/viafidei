@@ -124,6 +124,42 @@ describe("listPublishedPage", () => {
     expect(page.page).toBe(1);
   });
 
+  it("answers a page past the end with the last page, not an empty list", async () => {
+    count.mockResolvedValue(61);
+    findMany.mockImplementation(async (args: { skip: number }) =>
+      args.skip === 60 ? [saintRow()] : [],
+    );
+    const page = await listPublishedPage("SAINT", { page: 54, pageSize: 30 });
+    expect(page.page).toBe(3);
+    expect(page.pageCount).toBe(3);
+    expect(page.items).toHaveLength(1);
+    expect((findMany.mock.calls.at(-1)![0] as { skip: number }).skip).toBe(60);
+  });
+
+  it("reads once when the page asked for is within the list", async () => {
+    count.mockResolvedValue(61);
+    findMany.mockResolvedValue([saintRow()]);
+    await listPublishedPage("SAINT", { page: 3, pageSize: 30 });
+    expect(findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays on page one when the list is empty, however far the link pointed", async () => {
+    count.mockResolvedValue(0);
+    findMany.mockResolvedValue([]);
+    const page = await listPublishedPage("SAINT", { page: 54, pageSize: 30 });
+    expect(page.total).toBe(0);
+    expect(findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("never hands the database an offset it would refuse", async () => {
+    count.mockResolvedValue(0);
+    findMany.mockResolvedValue([]);
+    await listPublishedPage("SAINT", { page: 99999999999999999999, pageSize: 100 });
+    const { skip } = findMany.mock.calls[0][0] as { skip: number };
+    expect(skip).toBeLessThan(2 ** 53);
+    expect(Number.isSafeInteger(skip)).toBe(true);
+  });
+
   it("defaults to thirty rows a page", async () => {
     count.mockResolvedValue(0);
     findMany.mockResolvedValue([]);

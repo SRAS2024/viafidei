@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+
 import {
   FilterChips,
   LIST_PAGE_SIZE,
@@ -19,6 +22,7 @@ import {
   groupLiturgySections,
   sortLiturgyForDisplay,
 } from "@/lib/content-shared/liturgy-order";
+import { listPageTitleFor } from "@/lib/content-shared/list-page";
 import {
   listHref,
   parseSearchQuery,
@@ -65,26 +69,60 @@ function kindLabel(payload: Record<string, unknown>): string | undefined {
 }
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Liturgy" };
 
-export default async function LiturgyPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ filter?: string; page?: string; q?: string | string[] }>;
-}) {
-  const { t, locale } = await getTranslator();
-  const { filter, page: pageParam, q: rawQuery } = await searchParams;
-  const query = parseSearchQuery(rawQuery);
-  const selected = resolvePayloadFilter(LITURGICAL_FILTERS, filter);
-  // Liturgy cards show the entry's summary from the payload, so the type is
-  // read whole and paged here.
+type SearchParams = Promise<{ filter?: string; page?: string; q?: string | string[] }>;
+
+// Liturgy cards show the entry's summary from the payload, so the type is
+// read whole and paged here. One read per request: the tab's title and the page
+// both need the answer.
+const loadLiturgy = cache(async (filterKey: string, pageNumber: number, query: string) => {
   const [all, counts] = await Promise.all([
     listPublished("LITURGICAL"),
     countPublishedBySubtype("LITURGICAL").catch(() => ({}) as Record<string, number>),
   ]);
-  const items = applyPayloadFilter(LITURGICAL_FILTERS, sortLiturgyForDisplay(all), selected.key);
+  const items = applyPayloadFilter(LITURGICAL_FILTERS, sortLiturgyForDisplay(all), filterKey);
   const visible = query ? rankBySearch(items, query, (i) => publishedSearchFields(i)) : items;
-  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  return { all, counts, visible, page: pageSlice(visible, pageNumber, LIST_PAGE_SIZE) };
+});
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const { t, locale } = await getTranslator();
+  const { filter, page, q } = await searchParams;
+  const query = parseSearchQuery(q);
+  const selected = resolvePayloadFilter(LITURGICAL_FILTERS, filter);
+  const pageNumber = parsePageParam(page);
+  return {
+    title: await listPageTitleFor(
+      {
+        name: t("nav.liturgy"),
+        filter: selected.key === "all" ? null : selected.label,
+        query,
+        t,
+        locale,
+      },
+      pageNumber > 1,
+      async () => {
+        const data = await loadLiturgy(selected.key, pageNumber, query);
+        return { pages: [data.page], total: data.visible.length };
+      },
+    ),
+  };
+}
+
+export default async function LiturgyPage({ searchParams }: { searchParams: SearchParams }) {
+  const { t, locale } = await getTranslator();
+  const { filter, page: pageParam, q: rawQuery } = await searchParams;
+  const query = parseSearchQuery(rawQuery);
+  const selected = resolvePayloadFilter(LITURGICAL_FILTERS, filter);
+  const { all, counts, visible, page } = await loadLiturgy(
+    selected.key,
+    parsePageParam(pageParam),
+    query,
+  );
   const keep = { filter: selected.key === "all" ? undefined : selected.key };
 
   // Only offer a category chip when at least one item falls under it — the
@@ -171,6 +209,7 @@ export default async function LiturgyPage({
             <PublishedList items={cards} {...listProps} />
           )}
           <Pagination
+            t={t}
             basePath="/liturgy"
             page={page.page}
             totalPages={page.pageCount}

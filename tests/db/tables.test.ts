@@ -78,6 +78,7 @@ const ALL_COLUMNS = [
   "role",
   "language",
   "emailVerifiedAt",
+  "credentialVersion",
   "createdAt",
   "updatedAt",
   "userId",

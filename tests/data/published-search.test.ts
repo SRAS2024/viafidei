@@ -8,6 +8,7 @@
  * enums, and that suggestions are balanced per group (the old implementation
  * took the alphabetically first 120 matches, so small groups never appeared).
  */
+import { ChecklistContentType } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findMany = vi.fn();
@@ -28,6 +29,11 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 import { memoClear } from "@/lib/cache/memo";
+import {
+  translateTypeLabel,
+  typeLabelTranslations,
+} from "@/lib/content-shared/content-type-labels";
+import { createTranslator } from "@/lib/i18n/translator";
 import {
   contentTypeLabel,
   searchPublished,
@@ -52,6 +58,13 @@ function rawValues(): unknown[] {
   return queryRaw.mock.calls.flatMap((c) => (c[0] as { values?: unknown[] })?.values ?? []);
 }
 
+/** The queries for rows to show, leaving out the lookup of which saints are duplicates. */
+function rowQueries(): Array<Record<string, unknown>> {
+  return findMany.mock.calls
+    .map(([args]) => args as Record<string, unknown>)
+    .filter((args) => "take" in args);
+}
+
 /** The SQL text of every raw query the data layer issued. */
 function rawSql(): string {
   return queryRaw.mock.calls
@@ -62,6 +75,184 @@ function rawSql(): string {
 beforeEach(() => {
   vi.clearAllMocks();
   memoClear();
+});
+
+describe("a search with no letters or digits in it", () => {
+  it.each(["%", "_", "%%", "__", "!!", "-", "%_%"])("finds nothing for %s", async (q) => {
+    withCapabilities(true);
+    const results = await searchPublishedPage(q);
+    expect(results.total).toBe(0);
+    expect(results.hits).toEqual([]);
+    // It never reaches a pattern, where these two mean "anything".
+    expect(queryRaw).not.toHaveBeenCalled();
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it("asks nothing of the database for suggestions either", async () => {
+    withCapabilities(true);
+    await expect(suggestPublished("%%")).resolves.toEqual([]);
+    expect(queryRaw).not.toHaveBeenCalled();
+  });
+});
+
+describe("LIKE wildcards in a search with words in it", () => {
+  it("are literal in the indexed path's title prefix", async () => {
+    withCapabilities(true);
+    await searchPublishedPage("50%_off");
+    expect(rawValues()).toContain("50\\%\\_off%");
+    expect(rawValues()).not.toContain("50%_off%");
+  });
+
+  it("are literal in the fallback, for the rows and the count alike", async () => {
+    withCapabilities(false);
+    findMany.mockResolvedValue([]);
+    count.mockResolvedValue(0);
+    await searchPublishedPage("50%_off");
+    for (const args of [rowQueries()[0]!, count.mock.calls[0]![0]]) {
+      expect((args as { where: { OR: unknown[] } }).where.OR).toEqual([
+        { title: { contains: "50\\%\\_off", mode: "insensitive" } },
+        { slug: { contains: "50\\%\\_off", mode: "insensitive" } },
+      ]);
+    }
+  });
+});
+
+describe("a saint published twice", () => {
+  /** The canonical records are live, so every duplicate of them is hidden. */
+  function withLiveCanonicals() {
+    findMany.mockImplementation(async (args: { take?: number }) =>
+      args.take === undefined
+        ? [
+            { slug: "saint-dismas", title: "Saint Dismas, the Good Thief" },
+            { slug: "saint-penitent-thief", title: "Penitent Thief" },
+            { slug: "saint-peter-liu", title: "Saint Peter Liu" },
+          ]
+        : [],
+    );
+  }
+
+  /** Every array of slugs handed to the SQL. */
+  const slugLists = () => rawValues().filter(Array.isArray) as string[][];
+
+  it("is left out of a search, its count and its groups", async () => {
+    withCapabilities(true);
+    withLiveCanonicals();
+    await searchPublishedPage("good thief");
+    expect(rawSql()).toContain("\"contentType\" = 'SAINT'");
+    expect(rawSql()).toContain('"slug" = ANY(');
+    // The filter and the rows use one predicate: a count that held him would lie.
+    const hidden = slugLists().filter((slugs) => slugs.includes("saint-penitent-thief"));
+    expect(hidden.length).toBeGreaterThanOrEqual(2);
+    for (const slugs of hidden) expect(slugs).toContain("saint-peter-lieou");
+  });
+
+  it("still leads a search for his name to the saint, first of all", async () => {
+    withCapabilities(true);
+    withLiveCanonicals();
+    await searchPublishedPage("Penitent Thief");
+    expect(slugLists().filter((slugs) => slugs.includes("saint-dismas")).length).toBeGreaterThan(0);
+    // Named whole, he leads: that is the third list, inside the ranking.
+    expect(rawSql()).toMatch(/\+ CASE WHEN .*"slug" = ANY\(.*THEN 3 ELSE 0 END/s);
+  });
+
+  it("is reached by part of his name, as it is typed", async () => {
+    withCapabilities(true);
+    withLiveCanonicals();
+    await suggestPublished("penitent th");
+    expect(slugLists().some((slugs) => slugs.includes("saint-dismas"))).toBe(true);
+  });
+
+  it("is not reached by a word that is not in his name", async () => {
+    withCapabilities(true);
+    withLiveCanonicals();
+    await searchPublishedPage("thieves");
+    expect(slugLists().some((slugs) => slugs.includes("saint-dismas"))).toBe(false);
+  });
+
+  it("leads the fallback to the saint too", async () => {
+    withCapabilities(false);
+    withLiveCanonicals();
+    count.mockResolvedValue(0);
+    await searchPublishedPage("Penitent Thief");
+    const { OR } = rowQueries()[0]!.where as { OR: Array<Record<string, unknown>> };
+    expect(OR).toContainEqual({ contentType: "SAINT", slug: { in: ["saint-dismas"] } });
+  });
+
+  it("is left out of the suggestions", async () => {
+    withCapabilities(true);
+    withLiveCanonicals();
+    await suggestPublished("penitent thief");
+    expect(slugLists().some((slugs) => slugs.includes("saint-penitent-thief"))).toBe(true);
+  });
+
+  it("is left out of the fallback, for the rows and the count alike", async () => {
+    withCapabilities(false);
+    withLiveCanonicals();
+    count.mockResolvedValue(0);
+    await searchPublishedPage("thief");
+    for (const args of [rowQueries()[0]!, count.mock.calls[0]![0]]) {
+      const { NOT } = (args as { where: { NOT: { contentType: string; slug: { in: string[] } } } })
+        .where;
+      expect(NOT.contentType).toBe("SAINT");
+      expect(NOT.slug.in).toContain("saint-penitent-thief");
+    }
+  });
+
+  it("is not found by a pasted slug either", async () => {
+    withCapabilities(false);
+    withLiveCanonicals();
+    count.mockResolvedValue(0);
+    findFirst.mockResolvedValue(null);
+    await searchPublishedPage("saint-penitent-thief");
+    const { NOT } = findFirst.mock.calls[0]![0].where as { NOT: { slug: { in: string[] } } };
+    expect(NOT.slug.in).toContain("saint-penitent-thief");
+  });
+
+  it("stays in search when its better record is withdrawn, so a saint can never vanish", async () => {
+    withCapabilities(true);
+    findMany.mockResolvedValue([{ slug: "saint-peter-liu", title: "Saint Peter Liu" }]);
+    await searchPublishedPage("good thief");
+    const hidden = slugLists().filter((slugs) => slugs.includes("saint-peter-lieou"));
+    expect(hidden.length).toBeGreaterThan(0);
+    for (const slugs of hidden) expect(slugs).not.toContain("saint-penitent-thief");
+  });
+});
+
+describe("a church's name in search", () => {
+  const church = {
+    id: "1",
+    contentType: "PARISH",
+    slug: "saint-rose",
+    title: "Saint Rose of Lima Catholic Church;Iglesia Católica Santa Rosa de Lima",
+    subtitle: null,
+    subtype: "parish",
+  };
+  const shown = "Saint Rose of Lima Catholic Church (Iglesia Católica Santa Rosa de Lima)";
+
+  it("reads as the directory shows it, in the results and the suggestions", async () => {
+    withCapabilities(false);
+    findMany.mockImplementation(async (args: { take?: number }) =>
+      args.take === undefined ? [] : [church],
+    );
+    count.mockResolvedValue(1);
+    expect((await searchPublishedPage("rose")).hits[0]!.title).toBe(shown);
+    memoClear();
+    expect((await suggestPublished("rose"))[0]!.label).toBe(shown);
+  });
+});
+
+describe("a title's whole words in the search's ranking", () => {
+  it("reads St. and Saint as one word, and does not require either", async () => {
+    withCapabilities(true);
+    await searchPublishedPage("st. peter");
+    expect(rawValues()).toContain(String.raw`\y(?:(?:saint|st\.?) )?peter\y`);
+  });
+
+  it("leaves other words as typed", async () => {
+    withCapabilities(true);
+    await searchPublishedPage("Hail Mary");
+    expect(rawValues()).toContain(String.raw`\yHail Mary\y`);
+  });
 });
 
 describe("toTsQueryText", () => {
@@ -160,7 +351,111 @@ describe("searchPublishedPage without the search column", () => {
     count.mockResolvedValue(1);
     const hits = await searchPublished("our father", 50);
     expect(hits.map((h) => h.slug)).toEqual(["our-father"]);
-    expect((findMany.mock.calls[0][0] as { take: number }).take).toBe(50);
+    expect(rowQueries()[0]!.take).toBe(50);
+  });
+});
+
+describe("searchPublishedPage's groups", () => {
+  /** A row of the indexed query, as the raw SQL returns it. */
+  const row = (id: string, contentType: string, subtype: string | null = null) => ({
+    id,
+    contentType,
+    slug: `slug-${id}`,
+    title: `Title ${id}`,
+    subtitle: null,
+    subtype,
+    rank: 1,
+  });
+
+  /** The capability probe, then the count by type, then the page of hits. */
+  function withIndexedResults(
+    counts: Array<{ contentType: string; subtype: string | null; total: bigint }>,
+    hits: unknown[],
+  ) {
+    queryRaw.mockImplementation((sql: { strings?: string[] }) => {
+      const text = (sql.strings ?? []).join(" ");
+      if (text.includes("information_schema.columns")) {
+        return Promise.resolve([{ vector: true, trigram: true }]);
+      }
+      return Promise.resolve(text.includes("GROUP BY") ? counts : hits);
+    });
+  }
+
+  it("says each group's total across all pages, not its rows on this page", async () => {
+    withIndexedResults(
+      [
+        { contentType: "PRAYER", subtype: "marian", total: 20n },
+        { contentType: "PRAYER", subtype: "devotional", total: 4n },
+        { contentType: "SAINT", subtype: null, total: 5n },
+      ],
+      [row("1", "PRAYER", "marian"), row("2", "PRAYER", "devotional"), row("3", "SAINT")],
+    );
+    const result = await searchPublishedPage("rosary", { pageSize: 3 });
+    expect(result.total).toBe(29);
+    expect(result.pageCount).toBe(10);
+    expect(result.groups.map((g) => [g.label, g.items.length, g.total])).toEqual([
+      ["Prayer", 2, 24],
+      ["Saint", 1, 5],
+    ]);
+  });
+
+  it("keeps a heading true of every row: a Litany is not filed under a Prayer", async () => {
+    // The heading was the first row's label, so whichever came first named them all.
+    withIndexedResults(
+      [
+        { contentType: "PRAYER", subtype: "litany", total: 1n },
+        { contentType: "PRAYER", subtype: "marian", total: 2n },
+        { contentType: "MARIAN_TITLE", subtype: null, total: 1n },
+        { contentType: "APPARITION", subtype: "approved", total: 1n },
+      ],
+      [
+        row("1", "PRAYER", "litany"),
+        row("2", "PRAYER", "marian"),
+        row("3", "MARIAN_TITLE"),
+        row("4", "APPARITION", "approved"),
+        row("5", "PRAYER", "marian"),
+      ],
+    );
+    const result = await searchPublishedPage("lourdes");
+    expect(
+      result.groups.map((g) => [g.label, g.total, g.items.map((item) => item.typeLabel)]),
+    ).toEqual([
+      ["Litany", 1, ["Litany"]],
+      ["Prayer", 2, ["Prayer", "Prayer"]],
+      ["Our Lady", 1, ["Our Lady"]],
+      ["Apparition", 1, ["Apparition"]],
+    ]);
+    for (const group of result.groups) {
+      for (const item of group.items) expect(item.typeLabel).toBe(group.label);
+    }
+  });
+
+  it("counts in the one query it already makes, with the same match as the rows", async () => {
+    withIndexedResults([], []);
+    await searchPublishedPage("rosary");
+    const sql = rawSql();
+    expect(sql.match(/GROUP BY/g)).toHaveLength(1);
+    expect(sql).not.toMatch(/SELECT count\(\*\)::bigint AS total FROM/);
+  });
+
+  it("does not claim a total the unindexed path has not counted", async () => {
+    withCapabilities(false);
+    findMany.mockResolvedValue([row("1", "SAINT"), row("2", "SAINT")]);
+    count.mockResolvedValue(40);
+    const many = await searchPublishedPage("mary", { pageSize: 2 });
+    expect(many.groups[0].total).toBeNull();
+
+    count.mockResolvedValue(2);
+    const few = await searchPublishedPage("mary", { pageSize: 25 });
+    expect(few.groups[0].total).toBe(2);
+  });
+
+  it("counts a pasted slug's one row", async () => {
+    withCapabilities(true);
+    findFirst.mockResolvedValue(row("9", "PRAYER"));
+    const result = await searchPublishedPage("our-father");
+    expect(result.total).toBe(1);
+    expect(result.groups[0].total).toBe(1);
   });
 });
 
@@ -278,7 +573,7 @@ describe("suggestPublished does not double-query on a genuine no-match", () => {
     findMany.mockResolvedValue([]);
     const none = await suggestPublished("zzzz", 2);
     expect(none).toEqual([]);
-    expect(findMany).not.toHaveBeenCalled();
+    expect(rowQueries()).toEqual([]);
 
     // …and a query that actually throws still falls back.
     queryRaw.mockImplementation((sql: { strings?: string[] }) => {
@@ -294,7 +589,45 @@ describe("suggestPublished does not double-query on a genuine no-match", () => {
   });
 });
 
+describe("rows tied on rank and title", () => {
+  // Two parishes of one name tie on both. Each page's query ordered them its own way,
+  // so one showed on two pages and the other on none, behind a count that added up.
+  it("are settled by the id in the indexed search", async () => {
+    withCapabilities(true);
+    await searchPublishedPage("baptism", { page: 2 });
+    expect(rawSql()).toMatch(/ORDER BY "rank" DESC, "title" ASC, "id" ASC\s+LIMIT/);
+  });
+
+  it("are settled by the id in the fallback", async () => {
+    withCapabilities(false);
+    findMany.mockResolvedValue([]);
+    count.mockResolvedValue(0);
+    await searchPublishedPage("baptism", { page: 2 });
+    expect(rowQueries()[0]!.orderBy).toEqual([{ title: "asc" }, { id: "asc" }]);
+  });
+
+  it("are settled by the id in the suggestions, per group and overall", async () => {
+    withCapabilities(true);
+    await suggestPublished("baptism");
+    const sql = rawSql();
+    expect(sql).toMatch(/ORDER BY "rank" DESC, "title" ASC, "id" ASC\s+LIMIT/);
+    expect(sql).toMatch(/ORDER BY s\."rank" DESC, s\."title" ASC, s\."id" ASC/);
+  });
+});
+
 describe("contentTypeLabel", () => {
+  it("has a translation for every label it can return", () => {
+    const es = typeLabelTranslations(createTranslator("es"));
+    const en = createTranslator("en");
+    for (const type of Object.values(ChecklistContentType)) {
+      const label = contentTypeLabel(type);
+      expect(es[label], type).toBeTruthy();
+      // In English it reads as the data layer has it, so nothing changes for this reader.
+      expect(translateTypeLabel(label, en), type).toBe(label);
+    }
+    expect(es[contentTypeLabel("PRAYER", "litany")]).toBe("Letanía");
+  });
+
   it("never returns a raw enum value", () => {
     expect(contentTypeLabel("CHURCH_DOCUMENT")).toBe("Church Document");
     expect(contentTypeLabel("SPIRITUAL_PRACTICE")).toBe("Spiritual Life");

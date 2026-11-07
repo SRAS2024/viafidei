@@ -48,6 +48,12 @@ vi.mock("@/lib/i18n/server", () => ({
   }),
 }));
 
+// React's request-scoped cache exists only in the server runtime Next.js brings.
+vi.mock("react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react")>()),
+  cache: <T,>(fn: T) => fn,
+}));
+
 import SaintsPage from "@/app/saints/(list)/page";
 import GuidesPage from "@/app/guides/(list)/page";
 import LitaniesPage from "@/app/litanies/page";
@@ -97,6 +103,7 @@ const hrefs = () => screen.getAllByRole("link").map((a) => a.getAttribute("href"
 
 describe("/saints", () => {
   it("asks for one SQL page in the saint order and links the next one", async () => {
+    translate.mockImplementation(createTranslator("en"));
     listPublishedPage.mockResolvedValue(
       page([projected({ id: "peter", title: "St. Peter", subtype: "apostle" })], {
         total: 1896,
@@ -117,8 +124,8 @@ describe("/saints", () => {
     // Real, crawlable page links — not client-side buttons.
     expect(hrefs()).toContain("/saints?page=3");
     expect(screen.getByRole("link", { name: "Page 2" })).toHaveAttribute("aria-current", "page");
-    // The one permitted title label, never the stored `apostle`.
-    expect(screen.getByText("Apostle")).toBeInTheDocument();
+    // A card names no kind of saint, in words or as the stored `apostle`.
+    expect(screen.queryByText("Apostle")).not.toBeInTheDocument();
     expect(screen.queryByText("apostle")).not.toBeInTheDocument();
   });
 
@@ -171,10 +178,9 @@ describe("/saints", () => {
       const text = [...card.querySelectorAll("h2, p")].map((el) => el.textContent);
       return text.slice(text.indexOf(name));
     };
-    // The Apostle's brief label sits under the name, above his facts.
+    // Name, patronage, feast day: no label for the kind of saint, an Apostle included.
     expect(linesOf("St. Peter")).toEqual([
       "St. Peter",
-      "Apostle",
       "Patron of the papacy, fishermen, Rome",
       "Feast day: June 29",
     ]);
@@ -245,7 +251,8 @@ describe("/litanies", () => {
     });
     expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(36);
     expect(listPublished).not.toHaveBeenCalled();
-    expect(screen.getAllByText("Litany")).toHaveLength(36);
+    // The page is the litanies: a card does not say so again.
+    expect(screen.queryByText("Litany")).not.toBeInTheDocument();
     // Cards link into the prayer detail route, which is where litanies live.
     expect(hrefs().filter((href) => href?.startsWith("/prayers/litany-"))).toHaveLength(36);
     expect(hrefs()).toContain("/litanies?page=2");

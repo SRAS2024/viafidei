@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+
 import { getTranslator } from "@/lib/i18n/server";
 import {
   ContentCard,
@@ -14,6 +17,7 @@ import {
 } from "@/components/ui";
 import { listPublished } from "@/lib/data/published";
 import { sortPrayersForDisplay } from "@/lib/content-shared/display-order";
+import { listPageTitleFor } from "@/lib/content-shared/list-page";
 import {
   listHref,
   parseSearchQuery,
@@ -27,19 +31,23 @@ import {
 } from "@/lib/content-shared/prayer-categories";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Prayers" };
 
 type Props = {
   searchParams: Promise<{ filter?: string; page?: string; q?: string | string[] }>;
 };
 
-export default async function PrayersPage({ searchParams }: Props) {
-  const { t, locale } = await getTranslator();
-  const { filter, page: pageParam, q: rawQuery } = await searchParams;
-  const query = parseSearchQuery(rawQuery);
-  // The category and the search read the prayer's own fields (its type, its
-  // words), which the payload-free projection does not carry, so the library is
-  // read whole and paged here. Only the current page of cards is rendered.
+/** The category a `?filter=` names, or null for the whole library. */
+function selectedCategory(filter: unknown): string | null {
+  return typeof filter === "string" && PRAYER_CATEGORIES.some((c) => c.value === filter)
+    ? filter
+    : null;
+}
+
+// The category and the search read the prayer's own fields (its type, its
+// words), which the payload-free projection does not carry, so the library is
+// read whole and paged here. Only the current page of cards is rendered. One read
+// per request: the tab's title and the page both need the answer.
+const loadPrayers = cache(async (selected: string | null, pageNumber: number, query: string) => {
   const prayers = sortPrayersForDisplay(await listPublished("PRAYER"));
 
   // Categorise each prayer (Marian / Angelic / Liturgical / …) so the filter
@@ -55,7 +63,50 @@ export default async function PrayersPage({ searchParams }: Props) {
   }));
 
   const present = new Set(annotated.map((a) => a.category));
-  const selected = filter && PRAYER_CATEGORIES.some((c) => c.value === filter) ? filter : null;
+  const inCategory = selected ? annotated.filter((a) => a.category === selected) : annotated;
+  // Searched by title, the category on the card, and the prayer's own words.
+  const visible = query
+    ? rankBySearch(inCategory, query, ({ prayer, category }) =>
+        publishedSearchFields(prayer, [prayerCategoryLabel(category)]),
+      )
+    : inCategory;
+  return { prayers, present, visible, page: pageSlice(visible, pageNumber, LIST_PAGE_SIZE) };
+});
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const { t, locale } = await getTranslator();
+  const { filter, page, q } = await searchParams;
+  const query = parseSearchQuery(q);
+  const selected = selectedCategory(filter);
+  const pageNumber = parsePageParam(page);
+  return {
+    title: await listPageTitleFor(
+      {
+        name: t("nav.prayers"),
+        filter: selected ? prayerCategoryLabel(selected) : null,
+        query,
+        t,
+        locale,
+      },
+      pageNumber > 1,
+      async () => {
+        const data = await loadPrayers(selected, pageNumber, query);
+        return { pages: [data.page], total: data.visible.length };
+      },
+    ),
+  };
+}
+
+export default async function PrayersPage({ searchParams }: Props) {
+  const { t, locale } = await getTranslator();
+  const { filter, page: pageParam, q: rawQuery } = await searchParams;
+  const query = parseSearchQuery(rawQuery);
+  const selected = selectedCategory(filter);
+  const { prayers, present, visible, page } = await loadPrayers(
+    selected,
+    parsePageParam(pageParam),
+    query,
+  );
   // The chips keep the search, so a reader can narrow a search by category.
   const filterChips = [
     { key: "__all__", label: "All", href: listHref("/prayers", { q: query }) },
@@ -65,14 +116,6 @@ export default async function PrayersPage({ searchParams }: Props) {
       href: listHref("/prayers", { filter: c.value, q: query }),
     })),
   ];
-  const inCategory = selected ? annotated.filter((a) => a.category === selected) : annotated;
-  // Searched by title, the category on the card, and the prayer's own words.
-  const visible = query
-    ? rankBySearch(inCategory, query, ({ prayer, category }) =>
-        publishedSearchFields(prayer, [prayerCategoryLabel(category)]),
-      )
-    : inCategory;
-  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
   const keep = { filter: selected ?? undefined };
 
   return (
@@ -125,6 +168,7 @@ export default async function PrayersPage({ searchParams }: Props) {
             ))}
           />
           <Pagination
+            t={t}
             basePath="/prayers"
             page={page.page}
             totalPages={page.pageCount}

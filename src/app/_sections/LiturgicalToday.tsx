@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 import { FactList } from "@/components/ui/FactList";
+import { MetaSeparator } from "@/components/ui/MetaSeparator";
+import { useLocalToday } from "@/components/ui/useLocalToday";
+import { WeekdayCycle } from "@/components/ui/WeekdayCycle";
 import {
-  eveningMass,
-  liturgicalDay,
-  type LiturgicalDay,
+  civilDate,
+  liturgicalColorLabel,
+  massHref,
+  massOptions,
+  resolveLiturgicalDay,
 } from "@/lib/content-shared/liturgical-calendar";
 
 import { SkeletonLine } from "./SkeletonLine";
@@ -23,40 +27,20 @@ import { SkeletonLine } from "./SkeletonLine";
  * server/client render in sync; until then only the day's own facts are
  * placeholders, since the rest of the block is the same every day.
  */
-function localCivilDate(): Date {
-  const now = new Date();
-  // Place the visitor's LOCAL Y-M-D at UTC midnight so the pure calendar
-  // helpers (which read UTC fields) return the correct civil day.
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-}
-
-/** Spoken as a number, which is how the cycle is said aloud: "cycle two". */
-function WeekdayCycle({ cycle }: { cycle: LiturgicalDay["weekdayCycle"] }) {
-  return (
-    <>
-      <span aria-hidden="true">{cycle}</span>
-      <span className="sr-only">{cycle === "I" ? 1 : 2}</span>
-    </>
-  );
-}
-
-export function LiturgicalToday() {
-  const [day, setDay] = useState<LiturgicalDay | null>(null);
+export function LiturgicalToday({ loadingLabel }: { loadingLabel: string }) {
+  const today = useLocalToday();
+  const date = today ? civilDate(today) : null;
+  const day = date ? resolveLiturgicalDay(date) : null;
   // This evening's anticipated Mass, when it has one: every Saturday but Holy
-  // Saturday, and the eve of a holy day.
-  const [evening, setEvening] = useState<ReturnType<typeof eveningMass>>(null);
-
-  useEffect(() => {
-    const today = localCivilDate();
-    setDay(liturgicalDay(today));
-    setEvening(eveningMass(today));
-  }, []);
+  // Saturday, and the eve of a holy day. On the Ascension's four dates, also what
+  // the provinces that keep it on Thursday read.
+  const others = date ? massOptions(date).slice(1) : [];
 
   return (
     <div className="vf-card vf-home-part vf-home-part--readings">
       <h3 className="vf-subhead">Today&apos;s Scripture Readings</h3>
       <p role="status" className="sr-only">
-        {day ? "" : "Loading today's liturgy…"}
+        {day ? "" : loadingLabel}
       </p>
       <div className="vf-home-part-body">
         <div className="vf-home-facts" aria-hidden={day ? undefined : true}>
@@ -65,7 +49,15 @@ export function LiturgicalToday() {
               {
                 label: "Season",
                 value: day ? (
-                  `${day.seasonLabel}${day.isJubileeYear ? " · Jubilee Year" : ""}`
+                  day.isJubileeYear ? (
+                    <>
+                      {day.seasonLabel}
+                      <MetaSeparator />
+                      Jubilee Year
+                    </>
+                  ) : (
+                    day.seasonLabel
+                  )
                 ) : (
                   <SkeletonLine className="w-4/5" />
                 ),
@@ -84,7 +76,7 @@ export function LiturgicalToday() {
               },
               {
                 label: "Liturgical colour",
-                value: day ? day.color : <SkeletonLine className="w-1/2" />,
+                value: day ? liturgicalColorLabel(day) : <SkeletonLine className="w-1/2" />,
               },
             ]}
           />
@@ -100,11 +92,13 @@ export function LiturgicalToday() {
           >
             Read today&apos;s Mass readings
           </Link>
-          {day && evening ? (
-            <Link href={`/liturgy/readings?date=${day.date}&mass=vigil`} className="vf-link-action">
-              {evening.label} <span aria-hidden="true">→</span>
-            </Link>
-          ) : null}
+          {day
+            ? others.map((mass) => (
+                <Link key={mass.label} href={massHref(day.date, mass)} className="vf-link-action">
+                  {mass.label} <span aria-hidden="true">→</span>
+                </Link>
+              ))
+            : null}
         </div>
       </div>
       <div className="vf-home-part-actions">

@@ -11,6 +11,18 @@ vi.mock("next/navigation", () => ({
 import { GoalManager } from "@/app/profile/goals/GoalManager";
 
 const labels = {
+  journalSave: {
+    titleTooLong: "Title is {count} of {max}.",
+    bodyTooLong: "Entry is {count} of {max}.",
+    signedOut: "Signed out.",
+    logInNewTab: "Log in",
+    rateLimited: "Too many saves.",
+    saveFailed: "Check your connection.",
+    serverFailed: "A problem on our side.",
+    draftBack: "Your unsaved writing is back.",
+    leaveWarning: "Leave now?",
+    locale: "en",
+  },
   newGoal: "New goal",
   title: "Title",
   description: "Description",

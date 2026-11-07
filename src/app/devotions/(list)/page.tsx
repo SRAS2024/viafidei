@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { cache } from "react";
 
 import {
   LIST_PAGE_SIZE,
@@ -13,6 +15,7 @@ import {
   parsePageParam,
 } from "@/components/ui";
 import { formatEnumValue } from "@/lib/content-shared/field-presenters";
+import { listPageTitleFor } from "@/lib/content-shared/list-page";
 import {
   parseSearchQuery,
   publishedSearchFields,
@@ -23,21 +26,44 @@ import { listPublished } from "@/lib/data/published";
 import { localizeItems } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Devotions" };
 
-export default async function DevotionsPage({
+// Devotion cards show the devotion's summary from the payload, so the type
+// is read whole and paged here rather than through the projection. One read per
+// request: the tab's title and the page both need the answer.
+const loadDevotions = cache(async (pageNumber: number, query: string) => {
+  const items = await listPublished("DEVOTION");
+  const visible = query ? rankBySearch(items, query, (d) => publishedSearchFields(d)) : items;
+  return { visible, page: pageSlice(visible, pageNumber, LIST_PAGE_SIZE) };
+});
+
+type SearchParams = Promise<{ page?: string; q?: string | string[] }>;
+
+export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; q?: string | string[] }>;
-}) {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const { t, locale } = await getTranslator();
+  const { page, q } = await searchParams;
+  const query = parseSearchQuery(q);
+  const pageNumber = parsePageParam(page);
+  return {
+    title: await listPageTitleFor(
+      { name: t("nav.devotions"), query, t, locale },
+      pageNumber > 1,
+      async () => {
+        const data = await loadDevotions(pageNumber, query);
+        return { pages: [data.page], total: data.visible.length };
+      },
+    ),
+  };
+}
+
+export default async function DevotionsPage({ searchParams }: { searchParams: SearchParams }) {
   const { t, locale } = await getTranslator();
   const { page: pageParam, q: rawQuery } = await searchParams;
   const query = parseSearchQuery(rawQuery);
-  // Devotion cards show the devotion's summary from the payload, so the type
-  // is read whole and paged here rather than through the projection.
-  const items = await listPublished("DEVOTION");
-  const visible = query ? rankBySearch(items, query, (d) => publishedSearchFields(d)) : items;
-  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  const { visible, page } = await loadDevotions(parsePageParam(pageParam), query);
   return (
     <div>
       <PageHero
@@ -79,6 +105,7 @@ export default async function DevotionsPage({
             action={t("common.open")}
           />
           <Pagination
+            t={t}
             basePath="/devotions"
             page={page.page}
             totalPages={page.pageCount}

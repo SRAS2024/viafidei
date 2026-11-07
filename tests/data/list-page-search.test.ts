@@ -27,6 +27,7 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 import { memoClear } from "@/lib/cache/memo";
+import { accentBlindPattern } from "@/lib/content-shared/parish";
 import { listParishPage, listPublishedPage, toListTsQueryText } from "@/lib/data/published";
 
 type Sql = { strings?: string[]; values: unknown[] };
@@ -138,6 +139,11 @@ describe("listPublishedPage with a search", () => {
     expect(searchCalls()[0]!.values).toContain("%100\\%\\_sure%");
   });
 
+  it("reads st and saint as one word, whichever the reader typed", () => {
+    expect(toListTsQueryText("st peter")).toBe("(saint | st) & peter:*");
+    expect(toListTsQueryText("saint peter")).toBe("(saint | st) & peter:*");
+  });
+
   it("falls back to a plain every-word predicate on a database without the vector", async () => {
     withCapabilities(false);
     count.mockResolvedValue(3);
@@ -183,9 +189,11 @@ describe("listParishPage with a search", () => {
     await listParishPage({ q: "st mary chicago" });
     const sql = countSql();
     const text = textOf(sql);
-    expect(text).toContain('"title" ILIKE');
-    expect(text).toContain('"region" ILIKE');
-    expect(sql.values).toEqual(expect.arrayContaining(["%mary%", "%chicago%"]));
+    expect(text).toContain('"title" ~*');
+    expect(text).toContain('"region" ~*');
+    expect(sql.values).toEqual(
+      expect.arrayContaining([accentBlindPattern("mary"), accentBlindPattern("chicago")]),
+    );
     // "St" is matched as a whole word (or "Saint"), not as any s-t in a name.
     expect(text).toContain("'%saint%'");
     expect(text).toContain("st([^[:alpha:]]|$)");
@@ -204,7 +212,30 @@ describe("listParishPage with a search", () => {
     await listParishPage({ q: "chicago" });
     const list = queryRaw.mock.calls[1]![0] as Sql;
     expect(textOf(list)).toMatch(
-      /ORDER BY CASE WHEN "title" ILIKE .* THEN 0 ELSE 1 END, "title" ASC/,
+      /ORDER BY CASE WHEN "title" ~\* .* THEN 0 ELSE 1 END, "title" ASC/,
+    );
+    expect(list.values).toContain(accentBlindPattern("chicago"));
+  });
+
+  it("reads the words of a name in a row, for that order", async () => {
+    await listParishPage({ q: "St. Mary's" });
+    const list = queryRaw.mock.calls[1]![0] as Sql;
+    expect(list.values).toContain(
+      ["St", "Mary", "s"].map(accentBlindPattern).join("[^[:alnum:]]+"),
+    );
+  });
+
+  it("matches a word with or without its accents, in the name and the place", async () => {
+    await listParishPage({ q: "Krakow" });
+    const sql = countSql();
+    expect(sql.values).toContain(accentBlindPattern("Krakow"));
+  });
+
+  it("keeps a word's accents with it, typed in either form, and its marks in one word", async () => {
+    await listParishPage({ q: "Ha\u0300 Ẹ̀kọ́" });
+    const sql = countSql();
+    expect(sql.values).toEqual(
+      expect.arrayContaining([accentBlindPattern("Hà"), accentBlindPattern("Ẹ̀kọ́")]),
     );
   });
 
@@ -212,7 +243,9 @@ describe("listParishPage with a search", () => {
     await listParishPage({ q: "john", class: ["chapel", "oratory"] });
     const sql = countSql();
     expect(textOf(sql)).toContain('"subtype" = ANY');
-    expect(sql.values).toEqual(expect.arrayContaining([["chapel", "oratory"], "%john%"]));
+    expect(sql.values).toEqual(
+      expect.arrayContaining([["chapel", "oratory"], accentBlindPattern("john")]),
+    );
   });
 
   it("orders by name alone when nothing is searched", async () => {
@@ -220,5 +253,16 @@ describe("listParishPage with a search", () => {
     const list = queryRaw.mock.calls[1]![0] as Sql;
     expect(textOf(list)).toMatch(/ORDER BY "title" ASC/);
     expect(textOf(countSql())).not.toContain("ILIKE");
+  });
+
+  it("settles a tie between parishes of one name, so an offset never repeats a row", async () => {
+    // Live, "sacred heart" repeated 12 rows in its first 180 and lost as many.
+    await listParishPage({});
+    expect(textOf(queryRaw.mock.calls[1]![0] as Sql)).toMatch(/ORDER BY "title" ASC, "id" ASC/);
+    queryRaw.mockClear();
+    await listParishPage({ q: "sacred heart" });
+    expect(textOf(queryRaw.mock.calls[1]![0] as Sql)).toMatch(
+      /ORDER BY CASE .* END, "title" ASC, "id" ASC/,
+    );
   });
 });

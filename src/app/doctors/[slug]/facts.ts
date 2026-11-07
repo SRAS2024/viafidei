@@ -1,6 +1,7 @@
 import { saintLifeEnds } from "@/app/saints/[slug]/facts";
 import type { FactItem } from "@/components/ui/FactList";
 import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
+import { popeReignedIn } from "@/lib/content-shared/display-order";
 import { saintCardDetails } from "@/lib/content-shared/saints";
 
 function clean(value: unknown): string {
@@ -45,16 +46,18 @@ export function doctorLifeEnds(payload: Record<string, unknown>): {
  * When and by whom a saint was made a Doctor, as the biography says it: "Declared
  * a Doctor of the Church by Pope Pius XI in 1931" gives "1931, by Pope Pius XI",
  * and "One of the four original Latin Doctors of the Church, confirmed by Pope
- * Boniface VIII in 1298" gives "1298, by Pope Boniface VIII". The bare year is used
- * when the record has one and the text does not say it; otherwise no line at all.
+ * Boniface VIII in 1298" gives "1298, by Pope Boniface VIII". The line is printed
+ * only when that pope was reigning that year, by the written-out line of popes. A
+ * date with no pope to hold it against, or a pope and year that disagree, leaves no
+ * line at all: a wrong-looking fact is worse than a missing one.
  */
 export function doctorDeclared(payload: Record<string, unknown>): string | null {
   const sentence =
-    /Doctors? of the Church[^.]*?\bby (Pope(?: Saint| Blessed)? [A-Z]\w+(?: [A-Z]\w*)*) (?:in|on) ((?:\d{1,2} [A-Z][a-z]+ )?\d{4})\b/.exec(
+    /Doctors? of the Church[^.]*?\bby (Pope(?: Saint| Blessed)? [A-Z]\w+(?: [A-Z]\w*)*) (?:in|on) ((?:\d{1,2} [A-Z][a-z]+ )?(\d{4}))\b/.exec(
       clean(payload.background),
     );
-  if (sentence) return `${sentence[2]}, by ${sentence[1]}`;
-  return typeof payload.declaredDoctorYear === "number" ? String(payload.declaredDoctorYear) : null;
+  if (!sentence || !popeReignedIn(sentence[1]!, Number(sentence[3]))) return null;
+  return `${sentence[2]}, by ${sentence[1]}`;
 }
 
 /**

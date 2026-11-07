@@ -11,7 +11,7 @@
  * between pages, so the choice is made in the browser from the current path.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { createTranslator } from "@/lib/i18n/translator";
 
@@ -36,7 +36,7 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 /** The site search's collapsed icon button, one per layout (desktop + mobile). */
-const searchToggles = () => screen.queryAllByRole("button", { name: "Search" });
+const searchToggles = () => screen.queryAllByRole("button", { name: "Search the site" });
 
 describe("HeaderSearchSlot", () => {
   it("is empty on the homepage", () => {
@@ -82,5 +82,17 @@ describe("Header", () => {
     render(await Header());
     // One toggle in the desktop row, one in the bar under the mobile header.
     expect(searchToggles()).toHaveLength(2);
+  });
+
+  it("names the site search apart from a page's own search and its button", async () => {
+    // Open on /search, both landmarks were "Search", and in a list of buttons the
+    // icon that opens this search could not be told from a form's submit button.
+    pathname = "/search";
+    render(await Header());
+    expect(screen.queryByRole("button", { name: "Search" })).not.toBeInTheDocument();
+    fireEvent.click(searchToggles()[0]);
+    expect(screen.getByRole("search", { name: "Search the site" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Search the site" })).toBeInTheDocument();
+    expect(screen.queryByRole("search", { name: "Search" })).not.toBeInTheDocument();
   });
 });

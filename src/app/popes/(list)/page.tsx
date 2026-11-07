@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+
 import {
   LIST_PAGE_SIZE,
   ListControls,
@@ -11,6 +14,7 @@ import {
   parsePageParam,
 } from "@/components/ui";
 import { sortPopesForDisplay } from "@/lib/content-shared/display-order";
+import { listPageTitleFor } from "@/lib/content-shared/list-page";
 import {
   parseSearchQuery,
   publishedSearchFields,
@@ -19,29 +23,20 @@ import {
 import { listPublished } from "@/lib/data/published";
 import { getTranslator } from "@/lib/i18n/server";
 
-export const dynamic = "force-dynamic";
-export const metadata = { title: "Popes" };
+import { popePontificate } from "../[slug]/facts";
 
-/** "1878–1903", "2025–Present", and one year alone for a reign within one year. */
+export const dynamic = "force-dynamic";
+
+/** The reign as the pope's own page writes it, so the card and the page agree. */
 function reignLabel(payload: Record<string, unknown>): string {
-  const start = String(payload.papacyStart ?? "").trim();
-  const end = String(payload.papacyEnd ?? "").trim();
-  if (!start) return "";
-  if (start === end) return start;
-  return `${start}–${end || "Present"}`;
+  return popePontificate(payload) ?? "";
 }
 
-export default async function PopesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ page?: string; q?: string | string[] }>;
-}) {
-  const { t, locale } = await getTranslator();
-  const { page: pageParam, q: rawQuery } = await searchParams;
-  const query = parseSearchQuery(rawQuery);
-  // A pope card shows the reign years, which live in the payload, so the list
-  // (bounded by the ~266 Roman Pontiffs) is read whole and paged here: only
-  // one page of cards is rendered and serialised into the response.
+// A pope card shows the reign years, which live in the payload, so the list
+// (bounded by the ~266 Roman Pontiffs) is read whole and paged here: only
+// one page of cards is rendered and serialised into the response. One read per
+// request: the tab's title and the page both need the answer.
+const loadPopes = cache(async (pageNumber: number, query: string) => {
   const popes = sortPopesForDisplay(await listPublished("POPE"));
   // Searched by regnal name, birth name and the years of the reign; equally
   // good matches keep the list's own order.
@@ -50,7 +45,37 @@ export default async function PopesPage({
         publishedSearchFields(p, [reignLabel(p.payload as Record<string, unknown>)]),
       )
     : popes;
-  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  return { popes, visible, page: pageSlice(visible, pageNumber, LIST_PAGE_SIZE) };
+});
+
+type SearchParams = Promise<{ page?: string; q?: string | string[] }>;
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const { t, locale } = await getTranslator();
+  const { page, q } = await searchParams;
+  const query = parseSearchQuery(q);
+  const pageNumber = parsePageParam(page);
+  return {
+    title: await listPageTitleFor(
+      { name: t("nav.popes"), query, t, locale },
+      pageNumber > 1,
+      async () => {
+        const data = await loadPopes(pageNumber, query);
+        return { pages: [data.page], total: data.visible.length };
+      },
+    ),
+  };
+}
+
+export default async function PopesPage({ searchParams }: { searchParams: SearchParams }) {
+  const { t, locale } = await getTranslator();
+  const { page: pageParam, q: rawQuery } = await searchParams;
+  const query = parseSearchQuery(rawQuery);
+  const { popes, visible, page } = await loadPopes(parsePageParam(pageParam), query);
 
   return (
     <div>
@@ -90,6 +115,7 @@ export default async function PopesPage({
             eyebrowFor={(item) => reignLabel(entryPayload(item))}
           />
           <Pagination
+            t={t}
             basePath="/popes"
             page={page.page}
             totalPages={page.pageCount}

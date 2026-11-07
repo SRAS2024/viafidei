@@ -16,10 +16,15 @@ import { describe, expect, it } from "vitest";
 
 import { resolveDayReadings } from "@/lib/content-shared/lectionary";
 import {
+  ascensionNote,
+  easterSunday,
   eveningMass,
   liturgicalColorLabel,
   liturgicalObligationLabel,
   liturgicalRankLabel,
+  massHref,
+  massOptions,
+  parseCivilDate,
   resolveLiturgicalDay,
 } from "@/lib/content-shared/liturgical-calendar";
 
@@ -148,7 +153,7 @@ describe("a Saturday evening anticipates Sunday", () => {
     expect(evening?.next.celebration).toBe(celebration);
     expect(evening?.title).toBe(title);
     expect(evening?.label).toBe(label);
-    expect(evening?.dayLabel).toBe("Saturday Mass");
+    expect(massOptions(D(iso))[0].label).toBe("Saturday Mass");
     expect(evening?.ownReadings).toBe(false);
     expect(vigilNumber(iso)).toBe(number);
   });
@@ -264,7 +269,7 @@ describe("a Vigil with readings of its own in the Lectionary uses them", () => {
     ],
   ])("%s", (iso, dayLabel, label, number, firstReading) => {
     const evening = eveningMass(D(iso));
-    expect(evening?.dayLabel).toBe(dayLabel);
+    expect(massOptions(D(iso))[0].label).toBe(dayLabel);
     expect(evening?.label).toBe(label);
     expect(evening?.ownReadings).toBe(true);
     const readings = resolveDayReadings(evening!.next, { variant: "vigil" });
@@ -407,5 +412,143 @@ describe("colours and ranks as the calendar prints them", () => {
     expect(rank("2026-11-08")).toBe("Sunday");
     expect(rank("2026-07-22")).toBe("Feast");
     expect(rank("2026-12-07")).toBe("Memorial");
+  });
+});
+
+describe("the Ascension's two observances", () => {
+  const THURSDAY = { ascensionOnThursday: true } as const;
+
+  // Each year's dates and readings from the printed USCCB calendar's two columns.
+  it.each([
+    [
+      "2026-05-14",
+      "2026-05-17",
+      "59",
+      "Saint Matthias, Apostle",
+      ["Acts 1:1-11", "Eph 1:17-23", "Mt 28:16-20"],
+      ["Acts 1:12-14", "1 Pt 4:13-16", "Jn 17:1-11a"],
+    ],
+    [
+      "2027-05-06",
+      "2027-05-09",
+      "60",
+      "Thursday of the 6th Week of Easter",
+      ["Acts 1:1-11", "Eph 1:17-23 or Eph 4:1-13 or Eph 4:1-7, 11-13", "Mk 16:15-20"],
+      ["Acts 1:15-17, 20a, 20c-26", "1 Jn 4:11-16", "Jn 17:11b-19"],
+    ],
+    [
+      "2028-05-25",
+      "2028-05-28",
+      "61",
+      "Thursday of the 6th Week of Easter",
+      ["Acts 1:1-11", "Eph 1:17-23 or Heb 9:24-28; 10:19-23", "Lk 24:46-53"],
+      ["Acts 7:55-60", "Rv 22:12-14, 16-17, 20", "Jn 17:20-26"],
+    ],
+  ])(
+    "%s and %s",
+    (thursday, sunday, seventhNumber, thursdayElsewhere, ascension, seventhSunday) => {
+      const printed = (day: ReturnType<typeof resolveLiturgicalDay>) =>
+        resolveDayReadings(day)
+          ?.sections.filter((s) => ["FIRST_READING", "SECOND_READING", "GOSPEL"].includes(s.kind))
+          .map((s) => s.citation);
+
+      expect(resolveLiturgicalDay(D(thursday)).celebration).toBe(thursdayElsewhere);
+      const kept = resolveLiturgicalDay(D(thursday), THURSDAY);
+      expect(kept.celebration).toBe("The Ascension of the Lord");
+      expect(kept.isHolyDayOfObligation).toBe(true);
+      expect(resolveDayReadings(kept)?.number).toBe("58");
+      expect(printed(kept)).toEqual(ascension);
+
+      const elsewhere = resolveLiturgicalDay(D(sunday));
+      expect(elsewhere.celebration).toBe("The Ascension of the Lord");
+      expect(printed(elsewhere)).toEqual(ascension);
+      const seventh = resolveLiturgicalDay(D(sunday), THURSDAY);
+      expect(seventh.celebration).toBe("7th Sunday of Easter");
+      expect(resolveDayReadings(seventh)?.number).toBe(seventhNumber);
+      expect(printed(seventh)).toEqual(seventhSunday);
+    },
+  );
+
+  it("names the provinces the USCCB prints, and not Newark", () => {
+    for (const iso of ["2027-05-05", "2027-05-06", "2027-05-08", "2027-05-09"]) {
+      expect(ascensionNote(D(iso)), iso).toBe(
+        "In the ecclesiastical provinces of Boston, Hartford, New York, Omaha and Philadelphia, the Ascension of the Lord is kept on Thursday, May 6, as a holy day of obligation. All other provinces of the United States keep it on Sunday, May 9.",
+      );
+    }
+    expect(ascensionNote(D("2027-05-07"))).toBeNull();
+    expect(ascensionNote(D("2027-05-10"))).toBeNull();
+  });
+
+  it("offers each Mass by its own address", () => {
+    const addresses = (iso: string) => massOptions(D(iso)).map((o) => massHref(iso, o));
+    expect(addresses("2027-05-05")).toEqual([
+      "/liturgy/readings?date=2027-05-05",
+      "/liturgy/readings?date=2027-05-05&mass=vigil&ascension=thursday",
+    ]);
+    expect(addresses("2027-05-06")).toEqual([
+      "/liturgy/readings?date=2027-05-06",
+      "/liturgy/readings?date=2027-05-06&ascension=thursday",
+    ]);
+    expect(addresses("2027-05-08")).toEqual([
+      "/liturgy/readings?date=2027-05-08",
+      "/liturgy/readings?date=2027-05-08&mass=vigil",
+      "/liturgy/readings?date=2027-05-08&mass=vigil&ascension=thursday",
+    ]);
+    expect(addresses("2027-05-09")).toEqual([
+      "/liturgy/readings?date=2027-05-09",
+      "/liturgy/readings?date=2027-05-09&ascension=thursday",
+    ]);
+    expect(addresses("2027-05-07")).toEqual(["/liturgy/readings?date=2027-05-07"]);
+  });
+
+  it("changes nothing else in any year: only those two days differ", () => {
+    for (let year = 2020; year <= 2050; year++) {
+      const { month, day } = easterSunday(year);
+      const easter = Date.UTC(year, month - 1, day);
+      const differ: number[] = [];
+      for (let t = Date.UTC(year, 0, 1); t <= Date.UTC(year, 11, 31); t += 86_400_000) {
+        const date = new Date(t);
+        const a = resolveLiturgicalDay(date);
+        const b = resolveLiturgicalDay(date, THURSDAY);
+        if (a.celebration !== b.celebration || a.lectionaryKey !== b.lectionaryKey) {
+          differ.push((t - easter) / 86_400_000);
+        }
+        // Whichever the evening anticipates, it is offered among the date's Masses.
+        const offered = massOptions(date).filter((o) => o.evening);
+        for (const calendar of [undefined, THURSDAY]) {
+          if (eveningMass(date, calendar)) {
+            expect(offered.length, date.toISOString()).toBeGreaterThan(0);
+          }
+        }
+      }
+      expect(differ, String(year)).toEqual([39, 42]);
+    }
+  });
+});
+
+describe("the dates a visitor can ask for", () => {
+  it("are real dates within the calendar's years", () => {
+    expect(parseCivilDate("2026-11-07")?.toISOString()).toBe("2026-11-07T00:00:00.000Z");
+    expect(parseCivilDate("1970-01-01")?.toISOString()).toBe("1970-01-01T00:00:00.000Z");
+    expect(parseCivilDate("2099-12-31")?.toISOString()).toBe("2099-12-31T00:00:00.000Z");
+    expect(parseCivilDate("2028-02-29")?.toISOString()).toBe("2028-02-29T00:00:00.000Z");
+  });
+
+  it.each([
+    ["no date", undefined],
+    ["an empty field", ""],
+    ["a year on its way", "0002-03-21"],
+    ["another on its way", "0202-03-21"],
+    ["before the calendar", "1969-12-31"],
+    ["after it", "2100-01-01"],
+    ["the very last day a Date can hold a Vigil past", "9999-12-31"],
+    ["a day that does not exist", "2026-02-30"],
+    ["a non-leap February", "2027-02-29"],
+    ["a month that does not exist", "2026-13-40"],
+    ["words", "garbage"],
+    ["a repeated parameter", ["2026-11-07", "2026-11-08"]],
+    ["a five-digit year", "20270-03-21"],
+  ])("refuses %s", (_what, raw) => {
+    expect(parseCivilDate(raw)).toBeNull();
   });
 });

@@ -436,22 +436,33 @@ describe("ParishLocator — one control group, one spot that says what is going 
     expect(buttons[0]!.parentElement).toBe(buttons[1]!.parentElement);
   });
 
-  it("says the directory's size in the live region, and nothing there during a search", () => {
+  it("says the directory's size under the controls, and nothing there during a search", () => {
     const { unmount } = renderLocator({ total: 271945 });
     expect(status()).toHaveAttribute("aria-live", "polite");
-    expect(status()).toHaveTextContent("271,945 parishes in the directory.");
+    expect(screen.getByText("271,945 parishes in the directory.")).toBeInTheDocument();
     unmount();
     // A search reports its own count; the page passes no total then.
     renderLocator();
+    expect(status()).toBeEmptyDOMElement();
+    expect(screen.queryByText(/parishes in the directory/)).not.toBeInTheDocument();
+  });
+
+  it("does not announce a size that a filter or page link changed", () => {
+    // The router announces the page's new title for those; a second voice would
+    // speak over it, and an unchanged region says nothing at all.
+    const { rerender } = renderLocator({ total: 1030 });
+    expect(status()).toBeEmptyDOMElement();
+    rerender(<ParishLocator parishes={PAGE} labels={LABELS} total={970} />);
+    expect(screen.getByText("970 parishes in the directory.")).toBeInTheDocument();
     expect(status()).toBeEmptyDOMElement();
   });
 
   it("writes the size in the site language's digits, on the server and in the browser alike", () => {
     renderLocator({ total: 271945, locale: "de" });
-    expect(status()).toHaveTextContent("271.945 parishes in the directory.");
+    expect(screen.getByText("271.945 parishes in the directory.")).toBeInTheDocument();
   });
 
-  it("speaks each change in the same place: size, then searching, then the answer", async () => {
+  it("speaks each change in the same place: searching, then the answer", async () => {
     const { pending } = stubDevice(["hang"]);
     vi.stubGlobal(
       "fetch",
@@ -464,7 +475,6 @@ describe("ParishLocator — one control group, one spot that says what is going 
     );
     renderLocator({ total: 1030 });
     const region = status();
-    expect(region).toHaveTextContent("1,030 parishes in the directory.");
 
     tapLocate();
     // The one region, never replaced, so a screen reader hears the change.
@@ -487,6 +497,27 @@ describe("ParishLocator — one control group, one spot that says what is going 
     // The control left with the sentence; focus must not fall to the page.
     expect(locateButton()).toHaveFocus();
     expect(status()).toHaveTextContent("1,030 parishes in the directory.");
+  });
+
+  it("stops announcing the size once a link has changed it", async () => {
+    stubGeolocation(HERE.latitude, HERE.longitude, ["en-US"]);
+    vi.stubGlobal(
+      "fetch",
+      nearResponse({
+        items: [parish({ id: "near", title: "Near Parish", ...HALF_A_MILE_EAST })],
+        requestedRadiusMiles: 50,
+        radiusMiles: 50,
+        widened: false,
+      }),
+    );
+    const { rerender } = renderLocator({ total: 1030 });
+    tapLocate();
+    fireEvent.click(await screen.findByRole("button", { name: /show the full directory/i }));
+    expect(status()).toHaveTextContent("1,030 parishes in the directory.");
+
+    rerender(<ParishLocator parishes={PAGE} labels={LABELS} total={970} />);
+    expect(status()).toBeEmptyDOMElement();
+    expect(screen.getByText("970 parishes in the directory.")).toBeInTheDocument();
   });
 
   it("takes the directory's page links away while the nearest parishes are showing", async () => {

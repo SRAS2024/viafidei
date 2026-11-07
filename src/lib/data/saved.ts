@@ -14,6 +14,8 @@
 
 import type { ChecklistContentType } from "@prisma/client";
 
+import { parishDisplayName } from "@/lib/content-shared/parish";
+
 import { prisma } from "../db/client";
 
 export type SavedKind = "prayer" | "saint" | "apparition" | "devotion" | "parish" | "novena";
@@ -110,7 +112,7 @@ async function listSavedForKind(kind: SavedKind, userId: string) {
         savedAt: save.createdAt,
         contentType: save.contentType,
         slug: save.contentSlug,
-        title: content.title,
+        title: contentType === "PARISH" ? parishDisplayName(content.title) : content.title,
         payload: content.payload,
         publishedAt: content.publishedAt,
       };

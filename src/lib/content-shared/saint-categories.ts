@@ -48,24 +48,3 @@ export const SAINT_FILTER_SUBTYPES: Readonly<Record<string, readonly string[]>> 
   virgins: ["virgin"],
   laity: ["lay"],
 };
-
-/**
- * The eyebrow for a saint card built from the indexed `subtype` alone.
- *
- * Mirrors `saintTitleLabel`'s discipline (spec — "Saint Titles"): only the
- * Apostles, the Evangelists and the Doctors of the Church carry a label.
- * Martyr, Virgin, Bishop and the rest deliberately show none rather than
- * printing the stored enum, and "other"/"confessor" never surface at all.
- */
-export function saintSubtypeLabel(subtype: string | null | undefined): string | undefined {
-  switch (subtype) {
-    case "apostle":
-      return "Apostle";
-    case "evangelist":
-      return "Evangelist";
-    case "doctor_of_the_church":
-      return "Doctor of the Church";
-    default:
-      return undefined;
-  }
-}

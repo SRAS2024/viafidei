@@ -12,8 +12,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import type { PublishedItem } from "@/lib/data/published";
+import { createTranslator } from "@/lib/i18n/translator";
 
 const published = new Map<string, PublishedItem>();
+
+vi.mock("@/lib/i18n/server", () => ({
+  getTranslator: async () => ({ t: createTranslator("en") }),
+}));
 
 vi.mock("next/navigation", () => ({
   notFound: () => {
@@ -132,8 +137,11 @@ describe("guide detail page", () => {
   });
 
   it("shows the duration as a header line, not a 'Duration Minutes' section", async () => {
-    await renderGuide();
-    expect(screen.getByText("2 steps · About 20 minutes")).toBeInTheDocument();
+    const { container } = await renderGuide();
+    const meta = container.querySelector(".vf-detail-meta");
+    expect(meta).toHaveTextContent(/^2 steps, · About 20 minutes$/);
+    // The dot is for the eye; a voice gets a comma's pause.
+    expect(meta?.querySelector('[aria-hidden="true"]')).toHaveTextContent("·");
     expect(screen.queryByRole("heading", { name: /duration/i })).not.toBeInTheDocument();
     expect(screen.queryByText("20")).not.toBeInTheDocument();
   });

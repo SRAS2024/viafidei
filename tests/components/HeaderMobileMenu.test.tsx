@@ -2,15 +2,18 @@
  * @vitest-environment jsdom
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
 
+const route = vi.hoisted(() => ({ path: "/prayers" }));
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/prayers",
+  usePathname: () => route.path,
 }));
 
 import { HeaderMobileMenu } from "@/components/layout/HeaderMobileMenu";
+import { NavSection } from "@/components/layout/NavSection";
 
 const LABELS = {
   open: "Open menu",
@@ -25,6 +28,7 @@ const NAV = [
 
 afterEach(() => {
   vi.restoreAllMocks();
+  route.path = "/prayers";
 });
 
 describe("HeaderMobileMenu", () => {
@@ -237,6 +241,141 @@ describe("HeaderMobileMenu", () => {
         "aria-expanded",
         "true",
       );
+    });
+  });
+
+  it("calls only the page itself the current page; a page under it is in its section", async () => {
+    const user = userEvent.setup();
+    route.path = "/prayers/our-father";
+    render(
+      <HeaderMobileMenu
+        navItems={NAV}
+        signInItem={null}
+        openLabel={LABELS.open}
+        closeLabel={LABELS.close}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: LABELS.open }));
+    expect(screen.getByRole("link", { name: "Prayers" })).toHaveAttribute("aria-current", "true");
+  });
+
+  it("lights and opens the group a page claims for itself, where its address cannot say", () => {
+    route.path = "/liturgy-history/ad-gentes";
+    render(
+      <>
+        <HeaderMobileMenu
+          navItems={[
+            { href: "/", label: "Home" },
+            {
+              href: "/history",
+              label: "History",
+              items: [{ href: "/church-documents", label: "Church Documents" }],
+            },
+          ]}
+          signInItem={null}
+          openLabel={LABELS.open}
+          closeLabel={LABELS.close}
+        />
+        <NavSection href="/church-documents" />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: LABELS.open }));
+    expect(screen.getByRole("button", { name: "History" })).toHaveClass(
+      "vf-mobile-menu-link-active",
+    );
+    expect(screen.getByRole("link", { name: "Church Documents" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+  });
+
+  describe("closing", () => {
+    function opened(extra: Partial<Parameters<typeof HeaderMobileMenu>[0]> = {}) {
+      const view = render(
+        <>
+          <HeaderMobileMenu
+            navItems={NAV}
+            signInItem={null}
+            openLabel={LABELS.open}
+            closeLabel={LABELS.close}
+            {...extra}
+          />
+          <button type="button">Outside</button>
+        </>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: LABELS.open }));
+      return view;
+    }
+    const menu = () => screen.queryByRole("navigation", { name: "Mobile navigation" });
+
+    it("closes when focus moves out of it, so a keyboard never lands behind it", () => {
+      opened();
+      fireEvent.blur(screen.getByRole("link", { name: "Saints" }), {
+        relatedTarget: screen.getByRole("button", { name: "Outside" }),
+      });
+      expect(menu()).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: LABELS.open })).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+    });
+
+    it("stays open when a press inside it moves focus to nothing, as in Safari", () => {
+      opened();
+      fireEvent.blur(screen.getByRole("link", { name: "Saints" }), { relatedTarget: null });
+      expect(menu()).toBeInTheDocument();
+    });
+
+    it("stays open while focus moves within it", () => {
+      opened();
+      fireEvent.blur(screen.getByRole("link", { name: "Saints" }), {
+        relatedTarget: screen.getByRole("link", { name: "Home" }),
+      });
+      expect(menu()).toBeInTheDocument();
+    });
+
+    it("closes on logging out, and leaves focus on the toggle", () => {
+      opened({ authedActions: [{ type: "form-button", action: () => {}, label: "Log out" }] });
+      const form = screen.getByRole("button", { name: "Log out" }).closest("form")!;
+      fireEvent.submit(form);
+      expect(menu()).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: LABELS.open })).toHaveFocus();
+    });
+
+    it("closes when the route changes by any means, such as a redirect or Back", () => {
+      const view = opened();
+      expect(menu()).toBeInTheDocument();
+      route.path = "/saints";
+      view.rerender(
+        <>
+          <HeaderMobileMenu
+            navItems={NAV}
+            signInItem={null}
+            openLabel={LABELS.open}
+            closeLabel={LABELS.close}
+          />
+          <button type="button">Outside</button>
+        </>,
+      );
+      expect(menu()).not.toBeInTheDocument();
+    });
+
+    it("opens on the group the reader has since moved to, not the first one", () => {
+      const nav = [
+        { href: "/", label: "Home" },
+        { href: "/a", label: "A", items: [{ href: "/a/1", label: "A one" }] },
+        { href: "/b", label: "B", items: [{ href: "/b/1", label: "B one" }] },
+      ];
+      route.path = "/a";
+      const view = render(
+        <HeaderMobileMenu navItems={nav} signInItem={null} openLabel="Open" closeLabel="Close" />,
+      );
+      route.path = "/b/1";
+      view.rerender(
+        <HeaderMobileMenu navItems={nav} signInItem={null} openLabel="Open" closeLabel="Close" />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      expect(screen.getByRole("link", { name: "B one" })).toHaveAttribute("aria-current", "page");
     });
   });
 

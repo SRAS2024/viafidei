@@ -15,6 +15,7 @@ import type { ChecklistContentType } from "@prisma/client";
 
 import { publicRouteFor } from "@/lib/admin-worker/public-routes";
 import { MEMO_TTL, memo } from "@/lib/cache/memo";
+import { hiddenDuplicateSaints } from "@/lib/data/published";
 import { prisma } from "@/lib/db/client";
 
 /** XML text escaping — slugs are URL-encoded already, but never assume it. */
@@ -55,7 +56,6 @@ export const PUBLIC_STATIC_PATHS: ReadonlyArray<{
   { path: "/rites", changeFrequency: "weekly", priority: 0.7 },
   { path: "/liturgy", changeFrequency: "weekly", priority: 0.7 },
   { path: "/liturgical-calendar", changeFrequency: "daily", priority: 0.7 },
-  { path: "/liturgy-history", changeFrequency: "weekly", priority: 0.7 },
   { path: "/history", changeFrequency: "weekly", priority: 0.7 },
   { path: "/church-documents", changeFrequency: "weekly", priority: 0.7 },
   { path: "/search", changeFrequency: "weekly", priority: 0.5 },
@@ -138,8 +138,14 @@ export async function listSitemapUrls(key: string, chunk: number): Promise<Sitem
 
   return memo(`sitemap:${key}:${index}`, MEMO_TTL.sitemap, async () => {
     try {
+      // A saint published twice is one saint to a crawler too. His page stays reachable.
+      const hidden = contentType === "SAINT" ? await hiddenDuplicateSaints() : [];
       const rows = await prisma.publishedContent.findMany({
-        where: { contentType, isPublished: true },
+        where: {
+          contentType,
+          isPublished: true,
+          ...(hidden.length ? { slug: { notIn: hidden } } : {}),
+        },
         select: { slug: true, updatedAt: true },
         // Ordering by id keeps the chunk boundaries stable between fetches, so
         // a crawler paging through them cannot see a URL twice or miss one.

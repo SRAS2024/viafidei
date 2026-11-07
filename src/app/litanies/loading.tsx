@@ -1,12 +1,16 @@
 import { TabLoadingSkeleton } from "@/components/ui/TabLoadingSkeleton";
+import { getTranslator } from "@/lib/i18n/server";
 
-export default function LitaniesLoading() {
+export default async function LitaniesLoading() {
+  const { t } = await getTranslator();
   return (
     <TabLoadingSkeleton
-      eyebrow="Prayers"
-      title="Litanies"
-      subtitle="The Church's litanies — sustained invocations and responses, from the Litany of the Saints to the Litany of Loreto and the Sacred Heart."
+      eyebrow={t("litanies.eyebrow")}
+      title={t("litanies.title")}
+      subtitle={t("litanies.subtitle")}
       cards={12}
+      titleLines={2}
+      metaLines={0}
       summary={false}
     />
   );

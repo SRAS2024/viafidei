@@ -28,7 +28,6 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: Props) {
-  const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
@@ -36,10 +35,9 @@ export function ConfirmDialog({
 
   // A destructive dialog opens on Cancel, so a stray Enter or a double tap cannot
   // destroy anything.
-  useModalDialog({
+  const dialogRef = useModalDialog({
     open,
     onClose: onCancel,
-    dialogRef,
     initialFocusRef: destructive ? cancelRef : confirmRef,
   });
 

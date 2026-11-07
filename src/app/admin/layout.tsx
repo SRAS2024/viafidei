@@ -4,8 +4,10 @@ import { getLocale, getTranslator } from "@/lib/i18n/server";
 import { SecurityTamperDetector } from "@/components/SecurityTamperDetector";
 import { isCurrentDeviceBanned } from "@/lib/security/banned-guard";
 
+// The root layout's title template adds the site's name, and its <main> holds this
+// whole layout, so neither is repeated here.
 export const metadata: Metadata = {
-  title: "Administrator · Via Fidei",
+  title: "Administrator",
   robots: { index: false, follow: false },
 };
 
@@ -16,7 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (await isCurrentDeviceBanned()) {
     return (
       <div lang="en" data-admin-banned className="min-h-screen">
-        <main
+        <div
           className="mx-auto max-w-2xl px-6 pt-32 pb-20 text-center"
           data-testid="admin-banned-block"
         >
@@ -24,7 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <p className="mt-4 font-serif text-ink-soft">
             This device has been banned by a Security Breach response. Bans are permanent.
           </p>
-        </main>
+        </div>
       </div>
     );
   }
@@ -38,7 +40,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <span className="vf-wordmark text-[1.1rem] text-ink">{t("admin.brand")}</span>
         <div className="vf-rule mt-5" />
       </div>
-      <main className="mx-auto max-w-5xl px-6 pb-20">{children}</main>
+      <div className="mx-auto max-w-5xl px-6 pb-20">{children}</div>
     </div>
   );
 }

@@ -50,11 +50,13 @@ export function listHref(
 /**
  * `?q=` as the page receives it → the query: the first value when the
  * parameter repeats, whitespace collapsed, trimmed and capped. "" when absent.
+ * A NUL goes first: nothing types one, and Postgres refuses any text holding it,
+ * which would make a search for "ro%00sary" say the search is unavailable.
  */
 export function parseSearchQuery(raw: unknown): string {
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (typeof value !== "string") return "";
-  return value.replace(/\s+/g, " ").trim().slice(0, MAX_QUERY_LENGTH).trim();
+  return value.replaceAll("\0", "").replace(/\s+/g, " ").trim().slice(0, MAX_QUERY_LENGTH).trim();
 }
 
 /**

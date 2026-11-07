@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   compareSaintsChronologically,
   formatFeastDay,
+  SAINT_DUPLICATE_OF,
   saintBiographyForDisplay,
   parseYear,
   saintCardDetails,
@@ -231,6 +232,12 @@ describe("saintEyebrow", () => {
   });
 });
 
+describe("the saints the list shows once", () => {
+  it("files the Penitent Thief under Saint Dismas, the Good Thief", () => {
+    expect(SAINT_DUPLICATE_OF["saint-penitent-thief"]).toBe("saint-dismas");
+  });
+});
+
 describe("saintBiographyForDisplay", () => {
   // The live shape of the 462 biographies the structured ingest composed from
   // Wikidata facts for saints with no English article.
@@ -251,6 +258,41 @@ describe("saintBiographyForDisplay", () => {
     expect(saintBiographyForDisplay(quoted)).toBe(quoted);
     const prose = "Her life is told on Wikipedia and on Wikidata. She died in 1179.";
     expect(saintBiographyForDisplay(prose)).toBe(prose);
+  });
+
+  it.each([
+    ["Plechelm,, is honoured in both.", "Plechelm, is honoured in both."],
+    ["called Goedele or Goule;. Her name is", "called Goedele or Goule. Her name is"],
+    ["Petković;, was the founder", "Petković, was the founder"],
+    ["Gemma Galgani, , also known as", "Gemma Galgani, also known as"],
+    ["John Nepomucene , was a saint", "John Nepomucene, was a saint"],
+    ["of Poor Ladies . Agnes established", "of Poor Ladies. Agnes established"],
+    ["County Kildare .", "County Kildare."],
+    ["Judas Cyriacus ; Spanish: Quirico", "Judas Cyriacus; Spanish: Quirico"],
+    ["and the Quran,[6:86][38:48] Elisha is", "and the Quran, Elisha is"],
+    ["was venerated.[12] His feast", "was venerated. His feast"],
+  ])("collapses the punctuation left by a stripped bracket: %s", (stored, shown) => {
+    expect(saintBiographyForDisplay(stored)).toBe(shown);
+  });
+
+  it("changes no word, and keeps what only looks like stray punctuation", () => {
+    for (const text of [
+      "He wrote 1,000 letters, and more...",
+      "It waited ... and then it came.",
+      "First paragraph.\n\nSecond paragraph, with a comma.",
+      "F.P.M., C.F.C. was a Catholic missionary.",
+      "See Psalm 23:1, which he loved.",
+      "He said . . . and left.",
+      "a. . . b",
+      "and then , . . . he left",
+      "born in [1582], he entered",
+      "the year [1582] and the verse [6:86] in the text",
+    ]) {
+      expect(saintBiographyForDisplay(text)).toBe(text);
+    }
+    const stored = "Mildthryth, Mildryth and Mildred,, was a saint ; her feast is here .";
+    const words = (text: string) => text.match(/\p{L}+/gu);
+    expect(words(saintBiographyForDisplay(stored))).toEqual(words(stored));
   });
 });
 

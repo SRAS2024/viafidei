@@ -38,14 +38,17 @@ export interface LiturgicalCalendarOptions {
   /** Defaults to "roman-us": the site's readings source (USCCB) follows it. */
   calendar?: LiturgicalCalendarId;
   /**
-   * "roman-us" only: keep the Ascension on Thursday (the ecclesiastical
-   * provinces of Boston, Hartford, New York, Newark, Omaha and Philadelphia).
+   * "roman-us" only: keep the Ascension on Thursday, as the ecclesiastical provinces
+   * in `ASCENSION_THURSDAY_PROVINCES` do.
    */
   ascensionOnThursday?: boolean;
 }
 
 /** Default calendar for the whole site (the readings source is the USCCB). */
 export const DEFAULT_LITURGICAL_CALENDAR: LiturgicalCalendarId = "roman-us";
+
+/** The provinces that keep the Ascension on Thursday, as the USCCB calendars of 2026-2028 print them. */
+const ASCENSION_THURSDAY_PROVINCES = "Boston, Hartford, New York, Omaha and Philadelphia";
 
 export interface LiturgicalDay {
   /** Normalised ISO date (YYYY-MM-DD). */
@@ -79,6 +82,35 @@ function addDays(date: Date, n: number): Date {
 /** Strips any time-of-day, keeping the UTC calendar date. */
 function startOfUtcDay(date: Date): Date {
   return utc(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+}
+
+/**
+ * The dates a visitor can ask for. The revised General Roman Calendar took effect in
+ * 1970, so these rules say nothing true of an earlier year; and the USCCB's reading
+ * pages are addressed by a two-digit year, which a later century would point at the
+ * wrong year's page.
+ */
+export const FIRST_CALENDAR_DATE = "1970-01-01";
+export const LAST_CALENDAR_DATE = "2099-12-31";
+
+/** A device's YYYY-MM-DD at UTC midnight, which is what the helpers here read. */
+export function civilDate(isoDate: string): Date {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return utc(year, month, day);
+}
+
+/**
+ * A date a visitor asked for by hand, in a URL or a date field: the day itself, or
+ * null when it is not a real YYYY-MM-DD within the calendar's years.
+ */
+export function parseCivilDate(raw: unknown): Date | null {
+  if (typeof raw !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  // The format sorts as the dates do. Inside these years Date.UTC needs no care
+  // either: it reads the years 0 to 99 as 1900 to 1999.
+  if (raw < FIRST_CALENDAR_DATE || raw > LAST_CALENDAR_DATE) return null;
+  const date = civilDate(raw);
+  // February 30 rolls over into March, and is caught by coming back different.
+  return iso(date) === raw ? date : null;
 }
 
 function iso(date: Date): string {
@@ -1411,8 +1443,6 @@ export interface EveningMass {
   title: string;
   /** The choice as a reader sees it: "Sunday Vigil (Saturday evening)". */
   label: string;
-  /** The choice it stands beside: "Saturday Mass". */
-  dayLabel: string;
 }
 
 /**
@@ -1464,7 +1494,6 @@ export function eveningMass(input: Date, opts?: LiturgicalCalendarOptions): Even
     ownReadings,
     title: vigilTitle(next.celebration),
     label: `${VIGIL_SHORT_NAMES[key] ?? "Sunday"} Vigil (${weekday} evening)`,
-    dayLabel: `${weekday} Mass`,
   };
 }
 
@@ -1473,4 +1502,87 @@ function observedPrecedence(date: Date, options: Required<LiturgicalCalendarOpti
   const ctx = yearContext(date.getUTCFullYear(), options);
   const s = ctx.sanctoral.get(iso(date));
   return s ? sanctoralPrecedence(s) : temporalCelebration(date, ctx).precedence;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The Masses of a date, and the Ascension's two observances
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LONG_DAY = new Intl.DateTimeFormat("en", {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  timeZone: "UTC",
+});
+
+/**
+ * What the USCCB's calendar notes for the four dates the two observances differ, or
+ * null on any other date. Most of the country keeps the Ascension on the Seventh
+ * Sunday of Easter, which is what the site shows first, so someone in the provinces
+ * that keep Thursday must be told, or would miss a holy day of obligation.
+ */
+export function ascensionNote(input: Date): string | null {
+  const date = startOfUtcDay(input);
+  const easter = easterDate(date.getUTCFullYear());
+  if (![38, 39, 41, 42].includes(dayDiff(date, easter))) return null;
+  const thursday = LONG_DAY.format(addDays(easter, 39));
+  const sunday = LONG_DAY.format(addDays(easter, 42));
+  return `In the ecclesiastical provinces of ${ASCENSION_THURSDAY_PROVINCES}, the Ascension of the Lord is kept on ${thursday}, as a holy day of obligation. All other provinces of the United States keep it on ${sunday}.`;
+}
+
+/** One Mass a date offers, as the choice of Masses calls it. */
+export interface MassOption {
+  label: string;
+  /** True when this is the date's evening Mass (?mass=vigil). */
+  evening: boolean;
+  /** True when this is what the provinces that keep the Ascension on Thursday read. */
+  ascensionOnThursday: boolean;
+}
+
+/**
+ * Every Mass a date offers, the day's own first: its evening Mass when it has one,
+ * and on the four dates the Ascension's observances differ, what the provinces that
+ * keep Thursday read, as the USCCB's two columns for those dates do.
+ */
+export function massOptions(input: Date): MassOption[] {
+  const date = startOfUtcDay(input);
+  const weekday = WEEKDAY_LABELS[date.getUTCDay()];
+  const evening = eveningMass(date);
+  const options: MassOption[] = [
+    { label: `${weekday} Mass`, evening: false, ascensionOnThursday: false },
+  ];
+  if (evening) options.push({ label: evening.label, evening: true, ascensionOnThursday: false });
+  const thursday = (label: string, isEvening: boolean) =>
+    options.push({ label, evening: isEvening, ascensionOnThursday: true });
+  switch (dayDiff(date, easterDate(date.getUTCFullYear()))) {
+    case 38:
+      thursday("Ascension Vigil (Wednesday evening), where kept on Thursday", true);
+      break;
+    case 39:
+      thursday("The Ascension, where kept on Thursday", false);
+      break;
+    case 41:
+      thursday(
+        "7th Sunday of Easter Vigil (Saturday evening), where the Ascension was on Thursday",
+        true,
+      );
+      break;
+    case 42:
+      options[0].label = "The Ascension of the Lord";
+      thursday("7th Sunday of Easter, where the Ascension was on Thursday", false);
+      break;
+  }
+  return options;
+}
+
+/** The readings page's address for a date and one of the Masses it offers. */
+export function massHref(
+  isoDate: string,
+  option: { evening?: boolean; ascensionOnThursday?: boolean; variant?: string | null },
+): string {
+  const parts = [`date=${isoDate}`];
+  if (option.evening) parts.push("mass=vigil");
+  if (option.ascensionOnThursday) parts.push("ascension=thursday");
+  if (option.variant) parts.push(`variant=${option.variant}`);
+  return `/liturgy/readings?${parts.join("&")}`;
 }

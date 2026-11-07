@@ -1,12 +1,18 @@
 import { TabLoadingSkeleton } from "@/components/ui/TabLoadingSkeleton";
+import { LITURGY_SECTIONS } from "@/lib/content-shared/liturgy-order";
+import { getTranslator } from "@/lib/i18n/server";
 
-export default function LiturgyLoading() {
+export default async function LiturgyLoading() {
+  const { t } = await getTranslator();
   return (
     <TabLoadingSkeleton
-      eyebrow="Liturgy"
-      title="Liturgy &amp; History"
-      subtitle="Formation through the structure, symbolism, and historical continuity of the Church."
+      eyebrow={t("nav.liturgy")}
+      title={t("liturgy.title")}
+      subtitle={t("liturgy.subtitle")}
       cards={12}
+      filterWidth="5.125rem"
+      heading={LITURGY_SECTIONS[0]?.label}
+      metaLines={0}
     />
   );
 }

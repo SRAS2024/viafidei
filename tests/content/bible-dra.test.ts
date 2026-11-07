@@ -16,8 +16,13 @@ import { douayChapterLength, douayText, resolveDouayPassage } from "@/lib/conten
 import { DRA_BOOKS } from "@/lib/content-shared/bible/dra/index";
 import { MODERN_VERSES } from "@/lib/content-shared/bible/modern-verses";
 import draPassages from "@/lib/content-shared/dra-passages.json";
+import byNumber from "@/lib/content-shared/lectionary/tables/by-number.json";
 
 const FIXTURE = draPassages as Record<string, { translation: string; text: string }>;
+const BY_NUMBER = byNumber as unknown as Record<
+  string,
+  { sections: { kind: string; citation: string }[] }
+>;
 
 const normalise = (s: string) =>
   s.replace(/[‘’ʼ]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim();
@@ -144,6 +149,51 @@ describe("psalm remapping (Vulgate numbering)", () => {
     expect(r.verses).toEqual(["113:9"]);
     expect(r.text).toMatch(/^Not to us, O Lord, not to us/);
     expect(verse("Ps 115:18").verses).toEqual(["113:26"]);
+  });
+
+  it("names the psalm the verses are really in, where the Vulgate splits a modern one", () => {
+    // 'What shall I render to the Lord' is Douay Psalm 115, not 114.
+    const render = verse("Ps 116:12-13, 15-16, 17-18");
+    expect(render.note).toBe(
+      "Psalm 116 of the lectionary is Psalm 115 in the Douay-Rheims (Vulgate) numbering.",
+    );
+    expect(verse("Ps 116:10 and 15, 16-17, 18-19").note).toMatch(/is Psalm 115 in/);
+    // 'I have loved, because the Lord will hear' is Douay Psalm 114.
+    expect(verse("Ps 116:1-2, 3-4, 5-6, 8-9").note).toMatch(/is Psalm 114 in/);
+    // A citation across the split names both.
+    expect(verse("Ps 116:8-9, 10-11").note).toMatch(
+      /Psalm 116 of the lectionary is Psalms 114 and 115 in/,
+    );
+    // 'Praise the Lord, O Jerusalem' keeps its number, and only its verses move.
+    expect(verse("Ps 147:12-13, 14-15, 19-20").note).toBe(
+      "Verse numbers follow the Douay-Rheims: Psalm 147:1-4, 8-9 (Vulgate numbering).",
+    );
+    expect(verse("Ps 147:1-2, 3-4, 5-6").note).toMatch(
+      /Psalm 147 of the lectionary is Psalm 146 in/,
+    );
+    // Two modern psalms in one citation.
+    expect(verse("Ps 42:2-3; 43:3, 4").note).toMatch(
+      /^Psalms 42 and 43 of the lectionary are Psalms 41 and 42 in /,
+    );
+  });
+
+  it("on every psalm the Lectionary reads, the note names the psalm the text is taken from", () => {
+    const named = /of the lectionary (?:is|are) Psalms? ([\d and]+) in/;
+    let checked = 0;
+    for (const entry of Object.values(BY_NUMBER)) {
+      for (const section of entry.sections) {
+        if (section.kind !== "PSALM" || !section.citation.startsWith("Ps ")) continue;
+        for (const citation of section.citation.split(/\s+or\s+/)) {
+          const passage = verse(citation);
+          const match = passage.note?.match(named);
+          if (!match) continue;
+          const chapters = [...new Set(passage.verses.map((v) => v.split(":")[0]))];
+          expect(match[1].split(" and "), citation).toEqual(chapters);
+          checked++;
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
   });
 
   it("splits 116 → 114 (1-9) + 115 (10-19)", () => {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cache } from "react";
 
+import { parseSearchQuery } from "@/lib/content-shared/list-search";
 import { tPlural } from "@/lib/i18n/plural";
 import { getTranslator } from "@/lib/i18n/server";
 import {
@@ -9,6 +10,7 @@ import {
   ListSearchNoResults,
   PageHero,
   Pagination,
+  parsePageParam,
 } from "@/components/ui";
 import { searchPublishedPage } from "@/lib/data/published";
 import { SearchResultGroup } from "./_components";
@@ -16,11 +18,6 @@ import { SearchResultGroup } from "./_components";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
-
-function pageNumber(raw: string | undefined): number {
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 1 ? Math.trunc(n) : 1;
-}
 
 // One search per request: the page's title and its body both need the answer. A
 // failed search must not 500 the page — an empty result set with the box still
@@ -37,7 +34,8 @@ const runSearch = cache(async (q: string, page: number) => {
   }
 });
 
-type SearchParams = Promise<{ q?: string; page?: string }>;
+// A parameter that repeats in the URL (?q=a&q=b) arrives as an array.
+type SearchParams = Promise<{ q?: string | string[]; page?: string | string[] }>;
 
 /**
  * The tab title carries the outcome, because a search reloads the page and the
@@ -49,17 +47,17 @@ export async function generateMetadata({
   searchParams: SearchParams;
 }): Promise<Metadata> {
   const { q: rawQ, page: rawPage } = await searchParams;
-  const q = (rawQ ?? "").trim();
+  const q = parseSearchQuery(rawQ);
   const { t, locale } = await getTranslator();
   const fallback = { title: t("search.title") };
   if (!q) return fallback;
-  const results = await runSearch(q, pageNumber(rawPage));
+  const results = await runSearch(q, parsePageParam(rawPage));
   if (!results) return fallback;
   const outcome = tPlural(t, locale, "listSearch.results", results.total, { query: q });
   return {
     title:
       results.pageCount > 1 && results.page > 1
-        ? `${outcome} · page ${results.page} of ${results.pageCount}`
+        ? `${outcome} · ${t("listSearch.pageOf", { page: results.page, count: results.pageCount })}`
         : outcome,
   };
 }
@@ -73,8 +71,8 @@ export async function generateMetadata({
 export default async function SearchPage({ searchParams }: { searchParams: SearchParams }) {
   const { t, locale } = await getTranslator();
   const { q: rawQ, page: rawPage } = await searchParams;
-  const q = (rawQ ?? "").trim();
-  const page = pageNumber(rawPage);
+  const q = parseSearchQuery(rawQ);
+  const page = parsePageParam(rawPage);
 
   const results = q ? await runSearch(q, page) : null;
 
@@ -96,21 +94,20 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
 
       <div className="vf-results">
         {!q ? (
-          <p className="vf-section-lede text-center">
-            Search prayers, saints, guides, devotions, parishes and Church documents.
-          </p>
+          <p className="vf-section-lede text-center">{t("search.prompt")}</p>
         ) : results == null ? (
           <p role="alert" className="vf-notice vf-notice-error">
-            Search is unavailable right now. Please try again in a moment.
+            {t("search.unavailable")}
           </p>
         ) : results.total === 0 ? (
           <ListSearchNoResults action="/search" query={q} t={t} />
         ) : (
           <>
             {results.groups.map((group) => (
-              <SearchResultGroup key={group.contentType} group={group} query={q} />
+              <SearchResultGroup key={group.label} group={group} query={q} t={t} locale={locale} />
             ))}
             <Pagination
+              t={t}
               basePath="/search"
               page={results.page}
               totalPages={results.pageCount}

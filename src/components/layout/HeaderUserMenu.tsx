@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { focusLeftMenu } from "@/components/ui/menuFocus";
+
 import { UserSilhouetteIcon } from "../icons/UserSilhouetteIcon";
 
 type AuthedLabels = {
@@ -25,14 +27,21 @@ type Props =
     }
   | { isAuthed: false; labels: AnonLabels };
 
+const MENU_ID = "vf-user-menu";
+
 /**
  * Header account control. Signed out, it's a single "Log in" link. Signed in,
  * the avatar opens a dropdown with Profile, Settings, and — just below — Log
  * out, matching the mobile menu's account actions.
+ *
+ * A plain disclosure, as the header's other menus are: a button that says whether it
+ * is open, then a list of a link, a link and a button, reached by Tab or a screen
+ * reader's next item. Called a menu, it would promise the arrow keys a menu has.
  */
 export function HeaderUserMenu(props: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -40,7 +49,10 @@ export function HeaderUserMenu(props: Props) {
       if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      // The item holding focus is about to go, and focus with it.
+      if (ref.current?.contains(document.activeElement)) toggleRef.current?.focus();
+      setOpen(false);
     }
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -62,11 +74,20 @@ export function HeaderUserMenu(props: Props) {
 
   const { labels, avatarSrc } = props;
   return (
-    <div ref={ref} className="relative">
+    // Not a control: it only hears focus leaving the menu as a whole.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div
+      ref={ref}
+      className="relative"
+      onBlur={(e) => {
+        if (focusLeftMenu(e.relatedTarget, e.currentTarget)) setOpen(false);
+      }}
+    >
       <button
+        ref={toggleRef}
         type="button"
-        aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls={MENU_ID}
         aria-label={labels.profile}
         onClick={() => setOpen((v) => !v)}
         className="vf-header-avatar flex items-center justify-center rounded-full"
@@ -79,33 +100,30 @@ export function HeaderUserMenu(props: Props) {
         )}
       </button>
       {open ? (
-        <div
-          role="menu"
+        <ul
+          id={MENU_ID}
+          role="list"
           aria-label={labels.profile}
           className="vf-menu absolute right-0 top-full z-50 mt-2 w-48"
         >
-          <Link
-            href="/profile"
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className="vf-menu-item"
-          >
-            {labels.profile}
-          </Link>
-          <Link
-            href="/profile/settings"
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className="vf-menu-item"
-          >
-            {labels.settings}
-          </Link>
-          <form action={props.logoutAction} className="m-0">
-            <button type="submit" role="menuitem" className="vf-menu-item">
-              {labels.logout}
-            </button>
-          </form>
-        </div>
+          <li>
+            <Link href="/profile" onClick={() => setOpen(false)} className="vf-menu-item">
+              {labels.profile}
+            </Link>
+          </li>
+          <li>
+            <Link href="/profile/settings" onClick={() => setOpen(false)} className="vf-menu-item">
+              {labels.settings}
+            </Link>
+          </li>
+          <li>
+            <form action={props.logoutAction} className="m-0">
+              <button type="submit" className="vf-menu-item">
+                {labels.logout}
+              </button>
+            </form>
+          </li>
+        </ul>
       ) : null}
     </div>
   );

@@ -13,15 +13,20 @@
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
 
+const findUnique = vi.hoisted(() => vi.fn(async () => null));
+vi.mock("@/lib/db/client", () => ({ prisma: { dailyReading: { findUnique } } }));
+
+import DailyReadingsPage, { generateMetadata } from "@/app/liturgy/readings/page";
 import { ReadingSections } from "@/app/liturgy/readings/ReadingSections";
 import { TodayDateSync } from "@/app/liturgy/readings/TodayDateSync";
 import {
   buildReadingsView,
+  calendarFromParam,
   parseDateParam,
   storedRowDate,
   type StoredReadingRow,
@@ -35,10 +40,22 @@ import { eveningMass } from "@/lib/content-shared/liturgical-calendar";
 
 const D = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
+/**
+ * A line of text as Safari's accessibility tree joins it into one item: without what is
+ * hidden from it, and without what is absolutely positioned, which it leaves out of the
+ * line. Spaces count, because nothing else keeps the line's words apart in that tree.
+ */
+function spoken(element: Element): string {
+  const copy = element.cloneNode(true) as Element;
+  copy.querySelectorAll('[aria-hidden="true"], .sr-only').forEach((gone) => gone.remove());
+  return copy.textContent ?? "";
+}
+
 afterEach(() => {
   cleanup();
   replace.mockClear();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("buildReadingsView — the page always computes from the tables", () => {
@@ -112,6 +129,31 @@ describe("buildReadingsView — the page always computes from the tables", () =>
     expect(psalm.overlaid).toBe(false);
     expect(psalm.citation).toBe("Ps 112:1b-2, 5-6, 8a and 9");
     expect(psalm.body).not.toBe("Old.");
+  });
+
+  it("the worker's own copy of a reading does not undo a correction to the Scripture", () => {
+    // What a row written before the Douay-Rheims store was corrected still says: the
+    // same citation, under the name the worker stores every row with.
+    const computed = buildReadingsView(D("2026-12-09")).sections.find((s) => s.kind === "PSALM")!;
+    expect(computed.body).toContain("The Lord is compassionate");
+    const row: StoredReadingRow = {
+      status: "PUBLISHED",
+      sourceName: "USCCB",
+      sections: [
+        {
+          kind: "PSALM",
+          label: "Responsorial Psalm",
+          citation: computed.citation,
+          body: computed.body!.replace("The Lord is", "The ford is"),
+        },
+      ],
+    };
+    const psalm = buildReadingsView(D("2026-12-09"), { row }).sections.find(
+      (s) => s.kind === "PSALM",
+    )!;
+    expect(psalm.overlaid).toBe(false);
+    expect(psalm.body).toContain("The Lord is compassionate");
+    expect(psalm.body).not.toContain("The ford");
   });
 
   it("passes the Sunday cycle through, so cycle-keyed Sundays resolve", () => {
@@ -386,6 +428,179 @@ describe("buildReadingsView — the Saturday Vigil", () => {
   });
 });
 
+describe("buildReadingsView — the Ascension's two observances", () => {
+  const THURSDAY = { ascensionOnThursday: true } as const;
+  const options = (view: ReturnType<typeof buildReadingsView>) =>
+    view.masses.map((m) => [m.label, m.href, m.isActive]);
+  // As the printed USCCB calendar for 2027 has them, note 6b and the May columns.
+  const WHERE_THURSDAY =
+    "In the ecclesiastical provinces of Boston, Hartford, New York, Omaha and Philadelphia, the Ascension of the Lord is kept on Thursday, May 6, as a holy day of obligation. All other provinces of the United States keep it on Sunday, May 9.";
+
+  it("the Thursday: the weekday first, the Ascension where it is kept", () => {
+    const weekday = buildReadingsView(D("2027-05-06"));
+    expect(weekday.title).toBe("Thursday of the 6th Week of Easter");
+    expect(weekday.lectionaryNumber).toBe("294");
+    expect(weekday.massNote).toBe(WHERE_THURSDAY);
+    expect(options(weekday)).toEqual([
+      ["Thursday Mass", "/liturgy/readings?date=2027-05-06", true],
+      [
+        "The Ascension, where kept on Thursday",
+        "/liturgy/readings?date=2027-05-06&ascension=thursday",
+        false,
+      ],
+    ]);
+
+    const ascension = buildReadingsView(D("2027-05-06"), { calendar: THURSDAY });
+    expect(ascension.title).toBe("The Ascension of the Lord");
+    expect(ascension.lectionaryNumber).toBe("58");
+    expect(ascension.massNote).toBe(WHERE_THURSDAY);
+    expect(ascension.sections.map((s) => s.citation)).toEqual([
+      "Acts 1:1-11",
+      "Ps 47:2-3, 6-7, 8-9",
+      "Eph 1:17-23 or Eph 4:1-13 or Eph 4:1-7, 11-13",
+      "Mt 28:19a and 20b",
+      "Mk 16:15-20",
+    ]);
+    expect(ascension.masses.map((m) => m.isActive)).toEqual([false, true]);
+  });
+
+  it("the Sunday: the Ascension first, the Seventh Sunday where it was kept on Thursday", () => {
+    const ascension = buildReadingsView(D("2027-05-09"));
+    expect(ascension.title).toBe("The Ascension of the Lord");
+    expect(ascension.lectionaryNumber).toBe("58");
+    expect(options(ascension)).toEqual([
+      ["The Ascension of the Lord", "/liturgy/readings?date=2027-05-09", true],
+      [
+        "7th Sunday of Easter, where the Ascension was on Thursday",
+        "/liturgy/readings?date=2027-05-09&ascension=thursday",
+        false,
+      ],
+    ]);
+
+    const sunday = buildReadingsView(D("2027-05-09"), { calendar: THURSDAY });
+    expect(sunday.title).toBe("7th Sunday of Easter");
+    expect(sunday.lectionaryNumber).toBe("60");
+    expect(sunday.sections.map((s) => s.citation)).toEqual([
+      "Acts 1:15-17, 20a, 20c-26",
+      "Ps 103:1-2, 11-12, 19-20",
+      "1 Jn 4:11-16",
+      "cf. Jn 14:18",
+      "Jn 17:11b-19",
+    ]);
+    expect(sunday.masses.map((m) => m.isActive)).toEqual([false, true]);
+    expect(sunday.massNote).toBe(WHERE_THURSDAY);
+  });
+
+  it("the evening before the Thursday: its Mass, and the Vigil where it is kept", () => {
+    const wednesday = buildReadingsView(D("2027-05-05"));
+    expect(wednesday.title).toBe("Wednesday of the 6th Week of Easter");
+    expect(wednesday.massNote).toBe(WHERE_THURSDAY);
+    expect(options(wednesday)).toEqual([
+      ["Wednesday Mass", "/liturgy/readings?date=2027-05-05", true],
+      [
+        "Ascension Vigil (Wednesday evening), where kept on Thursday",
+        "/liturgy/readings?date=2027-05-05&mass=vigil&ascension=thursday",
+        false,
+      ],
+    ]);
+
+    const vigil = buildReadingsView(D("2027-05-05"), { mass: "vigil", calendar: THURSDAY });
+    expect(vigil.title).toBe("Vigil of the Ascension of the Lord");
+    expect(vigil.dateLine).toBe("Wednesday, May 5, 2027, evening");
+    expect(vigil.lectionaryNumber).toBe("58");
+    expect(vigil.massNote).toBe(WHERE_THURSDAY);
+    expect(vigil.masses.map((m) => m.isActive)).toEqual([false, true]);
+
+    // The Wednesday's own Mass is the same everywhere, whichever is asked for.
+    const asked = buildReadingsView(D("2027-05-05"), { calendar: THURSDAY });
+    expect(asked.title).toBe("Wednesday of the 6th Week of Easter");
+    expect(asked.masses.map((m) => m.isActive)).toEqual([true, false]);
+    // With no province named, there is no Vigil on this evening to give.
+    const noneNamed = buildReadingsView(D("2027-05-05"), { mass: "vigil" });
+    expect(noneNamed.isVigil).toBe(false);
+    expect(noneNamed.masses.map((m) => m.isActive)).toEqual([true, false]);
+  });
+
+  it("the evening before the Sunday: both Vigils stand beside the Saturday's Mass", () => {
+    const saturday = buildReadingsView(D("2027-05-08"));
+    expect(options(saturday)).toEqual([
+      ["Saturday Mass", "/liturgy/readings?date=2027-05-08", true],
+      ["Ascension Vigil (Saturday evening)", "/liturgy/readings?date=2027-05-08&mass=vigil", false],
+      [
+        "7th Sunday of Easter Vigil (Saturday evening), where the Ascension was on Thursday",
+        "/liturgy/readings?date=2027-05-08&mass=vigil&ascension=thursday",
+        false,
+      ],
+    ]);
+
+    const vigil = buildReadingsView(D("2027-05-08"), { mass: "vigil" });
+    expect(vigil.title).toBe("Vigil of the Ascension of the Lord");
+    expect(vigil.lectionaryNumber).toBe("58");
+    expect(vigil.masses.map((m) => m.isActive)).toEqual([false, true, false]);
+
+    const seventh = buildReadingsView(D("2027-05-08"), { mass: "vigil", calendar: THURSDAY });
+    expect(seventh.title).toBe("Vigil of the 7th Sunday of Easter");
+    expect(seventh.lectionaryNumber).toBe("60");
+    expect(seventh.masses.map((m) => m.isActive)).toEqual([false, false, true]);
+    expect(seventh.massNote).toBe(WHERE_THURSDAY);
+  });
+
+  it("a feast on the Thursday is the day's Mass where the Ascension is on Sunday", () => {
+    // The 2026 calendar's note: 'on Thursday, May 14, the Feast of Saint Matthias'.
+    const view = buildReadingsView(D("2026-05-14"));
+    expect(view.title).toBe("Saint Matthias, Apostle");
+    expect(view.masses.map((m) => m.label)).toEqual([
+      "Thursday Mass",
+      "The Ascension, where kept on Thursday",
+    ]);
+    expect(view.massNote).toMatch(/kept on Thursday, May 14.*keep it on Sunday, May 17\./);
+    expect(buildReadingsView(D("2026-05-14"), { calendar: THURSDAY }).lectionaryNumber).toBe("58");
+  });
+
+  it("says nothing of it on the dates around them, and ignores the choice there", () => {
+    for (const iso of ["2027-05-04", "2027-05-07", "2027-05-10", "2027-05-12"]) {
+      const view = buildReadingsView(D(iso));
+      expect(view.massNote, iso).toBeNull();
+      expect(view.masses, iso).toEqual([]);
+      expect(buildReadingsView(D(iso), { calendar: THURSDAY }).sections, iso).toEqual(
+        view.sections,
+      );
+    }
+  });
+
+  it("reads ?ascension=thursday and nothing else as the choice", () => {
+    expect(calendarFromParam("thursday")).toEqual({ ascensionOnThursday: true });
+    expect(calendarFromParam("sunday")).toBeUndefined();
+    expect(calendarFromParam(undefined)).toBeUndefined();
+  });
+
+  it("names the row of the day the evening anticipates, in that observance", () => {
+    const thursdayVigil = storedRowDate(D("2027-05-05"), "vigil", THURSDAY);
+    expect(thursdayVigil?.toISOString().slice(0, 10)).toBe("2027-05-06");
+    expect(storedRowDate(D("2027-05-05"), "vigil")?.toISOString().slice(0, 10)).toBe("2027-05-05");
+  });
+
+  it("does not let a stored row of the other observance stand in for the readings", () => {
+    const row: StoredReadingRow = {
+      status: "PUBLISHED",
+      sections: [{ kind: "GOSPEL", label: "Gospel", citation: "Mk 16:15-20", body: "The Sunday." }],
+    };
+    const sunday = buildReadingsView(D("2027-05-09"), { row, calendar: THURSDAY });
+    expect(sunday.sections.find((s) => s.kind === "GOSPEL")!.overlaid).toBe(false);
+    expect(buildReadingsView(D("2027-05-09"), { row }).sections.at(-1)!.overlaid).toBe(true);
+  });
+
+  it("gives the Sixth Sunday's option, at its Mass and at its Vigil", () => {
+    // The USCCB calendars' footnote: 'may be read on the Sixth Sunday of Easter'.
+    const note = /Seventh Sunday of Easter \(Lectionary 60\) may be read at this Mass/;
+    expect(buildReadingsView(D("2027-05-02")).massNote).toMatch(note);
+    expect(buildReadingsView(D("2027-05-01"), { mass: "vigil" }).massNote).toMatch(note);
+    expect(buildReadingsView(D("2027-05-01")).massNote).toBeNull();
+    expect(buildReadingsView(D("2026-05-10")).massNote).toMatch(/Lectionary 59/);
+    expect(buildReadingsView(D("2028-05-21")).massNote).toMatch(/Lectionary 61/);
+  });
+});
+
 describe("the text keeps its structure and its words", () => {
   const words = (text: string) => text.replace(/\s+/g, " ").trim();
 
@@ -475,6 +690,24 @@ describe("parseDateParam", () => {
     expect(parseDateParam("not-a-date").getTime()).not.toBeNaN();
     expect(parseDateParam(undefined).getUTCHours()).toBe(0);
   });
+
+  it("treats a date outside the calendar's years as no date at all", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-07T12:00:00Z"));
+    for (const raw of ["0002-03-21", "1969-12-31", "2100-01-01", "9999-12-31"]) {
+      expect(parseDateParam(raw).toISOString().slice(0, 10), raw).toBe("2026-11-07");
+    }
+    expect(parseDateParam("1970-01-01").toISOString().slice(0, 10)).toBe("1970-01-01");
+    expect(parseDateParam("2099-12-31").toISOString().slice(0, 10)).toBe("2099-12-31");
+  });
+
+  it("the last day it accepts still has an evening Mass that can be read", () => {
+    const view = buildReadingsView(parseDateParam("2099-12-31"), { mass: "vigil" });
+    expect(view.isVigil).toBe(true);
+    expect(view.title).toBe("Vigil of Mary, the Holy Mother of God");
+    expect(view.dateLine).toBe("Thursday, December 31, 2099, evening");
+    expect(view.sections.length).toBeGreaterThan(0);
+  });
 });
 
 describe("TodayDateSync — 'today' is the visitor's date, not the server's", () => {
@@ -494,11 +727,28 @@ describe("TodayDateSync — 'today' is the visitor's date, not the server's", ()
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("keeps the Vigil the Vigil when it corrects the date", () => {
+  /** The address bar, which the sync reads and, as a last resort, replaces. */
+  function stubLocation(search = "") {
+    const location = { pathname: "/liturgy/readings", search, replace: vi.fn() };
+    vi.stubGlobal("location", location);
+    return location;
+  }
+
+  it("keeps whatever else was asked for when it corrects the date", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-11-07T20:30:00"));
-    render(<TodayDateSync renderedDate="2026-11-08" enabled mass="vigil" />);
+    stubLocation("?mass=vigil");
+    render(<TodayDateSync renderedDate="2026-11-08" enabled />);
     expect(replace).toHaveBeenCalledWith("/liturgy/readings?date=2026-11-07&mass=vigil");
+    cleanup();
+    replace.mockClear();
+
+    // A date that could not be read is replaced, and the rest stays.
+    stubLocation("?date=2026-02-30&mass=vigil&ascension=thursday");
+    render(<TodayDateSync renderedDate="2026-11-08" enabled />);
+    expect(replace).toHaveBeenCalledWith(
+      "/liturgy/readings?date=2026-11-07&mass=vigil&ascension=thursday",
+    );
   });
 
   it("never rewrites an explicitly requested date", () => {
@@ -506,6 +756,428 @@ describe("TodayDateSync — 'today' is the visitor's date, not the server's", ()
     vi.setSystemTime(new Date("2026-09-05T12:00:00"));
     render(<TodayDateSync renderedDate="2025-12-25" enabled={false} />);
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("loads the page at the right address when the router never commits", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-05T20:30:00"));
+    const location = stubLocation();
+    render(<TodayDateSync renderedDate="2026-09-06" enabled />);
+    expect(replace).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(1999);
+    expect(location.replace).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(location.replace).toHaveBeenCalledWith("/liturgy/readings?date=2026-09-05");
+    expect(location.replace).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not load it again when the router has got there", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-05T20:30:00"));
+    const location = stubLocation();
+    render(<TodayDateSync renderedDate="2026-09-06" enabled />);
+    // The router commits a beat late: the address has changed, the page has not yet.
+    location.search = "?date=2026-09-05";
+    vi.advanceTimersByTime(5000);
+    expect(location.replace).not.toHaveBeenCalled();
+  });
+
+  it("does not pull the visitor back from a page they have left for", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-05T20:30:00"));
+    const location = stubLocation();
+    const { unmount } = render(<TodayDateSync renderedDate="2026-09-06" enabled />);
+    unmount();
+    vi.advanceTimersByTime(5000);
+    expect(location.replace).not.toHaveBeenCalled();
+  });
+
+  it("stands down once the page it asked for has rendered", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-05T20:30:00"));
+    const location = stubLocation();
+    const { rerender } = render(<TodayDateSync renderedDate="2026-09-06" enabled />);
+    rerender(<TodayDateSync renderedDate="2026-09-05" enabled={false} />);
+    vi.advanceTimersByTime(5000);
+    expect(location.replace).not.toHaveBeenCalled();
+  });
+
+  it("cannot reload for ever on a device set outside the calendar's years", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("1960-06-15T12:00:00"));
+    const location = stubLocation("?date=1960-06-15");
+    render(<TodayDateSync renderedDate="2026-11-07" enabled />);
+    vi.advanceTimersByTime(5000);
+    expect(replace).not.toHaveBeenCalled();
+    expect(location.replace).not.toHaveBeenCalled();
+  });
+
+  it("corrects a tab left open overnight when the visitor comes back to it", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-05T23:59:00"));
+    stubLocation();
+    render(<TodayDateSync renderedDate="2026-09-05" enabled />);
+    expect(replace).not.toHaveBeenCalled();
+    act(() => {
+      vi.setSystemTime(new Date("2026-09-06T08:00:00"));
+      window.dispatchEvent(new Event("focus"));
+    });
+    expect(replace).toHaveBeenCalledWith("/liturgy/readings?date=2026-09-06");
+  });
+
+  describe("does not move under someone who is still reading", () => {
+    /** The tab's own state, which outlives one render as it does one page. */
+    afterEach(() => {
+      window.sessionStorage.clear();
+      window.history.replaceState(null, "");
+    });
+
+    function setHidden(hidden: boolean) {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        get: () => (hidden ? "hidden" : "visible"),
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    }
+
+    afterEach(() => {
+      Reflect.deleteProperty(document, "visibilityState");
+    });
+
+    it("at midnight", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-05T23:59:00"));
+      stubLocation();
+      render(<TodayDateSync renderedDate="2026-09-05" enabled />);
+      act(() => {
+        vi.advanceTimersByTime(3 * 60_000);
+      });
+      expect(new Date().getDate()).toBe(6);
+      expect(replace).not.toHaveBeenCalled();
+    });
+
+    it("after a moment in another app, past midnight", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-05T23:50:00"));
+      stubLocation();
+      render(<TodayDateSync renderedDate="2026-09-05" enabled />);
+      act(() => {
+        vi.setSystemTime(new Date("2026-09-06T00:05:00"));
+        window.dispatchEvent(new Event("blur"));
+        vi.setSystemTime(new Date("2026-09-06T00:07:00"));
+        window.dispatchEvent(new Event("focus"));
+      });
+      expect(replace).not.toHaveBeenCalled();
+    });
+
+    it("after a moment on another tab, whichever of a return's events comes last", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-05T23:50:00"));
+      stubLocation();
+      render(<TodayDateSync renderedDate="2026-09-05" enabled />);
+      act(() => {
+        vi.setSystemTime(new Date("2026-09-06T00:05:00"));
+        setHidden(true);
+        window.dispatchEvent(new Event("blur"));
+        vi.setSystemTime(new Date("2026-09-06T00:07:00"));
+        setHidden(false);
+        window.dispatchEvent(new Event("focus"));
+        window.dispatchEvent(new Event("pageshow"));
+      });
+      expect(replace).not.toHaveBeenCalled();
+    });
+
+    it("but moves on when the visitor has been away a while", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-05T23:50:00"));
+      stubLocation();
+      render(<TodayDateSync renderedDate="2026-09-05" enabled />);
+      act(() => {
+        // Reading past midnight first, and only then putting the phone down.
+        vi.setSystemTime(new Date("2026-09-06T00:30:00"));
+        setHidden(true);
+        vi.setSystemTime(new Date("2026-09-06T07:30:00"));
+        setHidden(false);
+      });
+      expect(replace).toHaveBeenCalledWith("/liturgy/readings?date=2026-09-06");
+    });
+  });
+
+  describe("goes on following the day, whatever the hour the tab was opened", () => {
+    afterEach(() => {
+      window.sessionStorage.clear();
+      window.history.replaceState(null, "");
+    });
+
+    /** Friday 20:30 on the device, when the server has rendered Saturday. */
+    function openOnFridayEvening() {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-04T20:30:00"));
+      const location = stubLocation();
+      const view = render(<TodayDateSync renderedDate="2026-09-05" enabled />);
+      expect(replace).toHaveBeenLastCalledWith("/liturgy/readings?date=2026-09-04");
+      return { location, ...view };
+    }
+
+    function comeBackOn(when: string) {
+      act(() => {
+        vi.setSystemTime(new Date(when));
+        window.dispatchEvent(new Event("focus"));
+      });
+    }
+
+    it("after the router has corrected it", () => {
+      const { location, rerender } = openOnFridayEvening();
+      location.search = "?date=2026-09-04";
+      rerender(<TodayDateSync renderedDate="2026-09-04" enabled={false} />);
+      replace.mockClear();
+
+      comeBackOn("2026-09-05T08:00:00");
+      expect(replace).toHaveBeenCalledWith("/liturgy/readings?date=2026-09-05");
+      location.search = "?date=2026-09-05";
+      // The router clears the history entry's state each time it commits.
+      window.history.replaceState(null, "");
+      rerender(<TodayDateSync renderedDate="2026-09-05" enabled={false} />);
+      replace.mockClear();
+
+      comeBackOn("2026-09-06T08:00:00");
+      expect(replace).toHaveBeenCalledWith("/liturgy/readings?date=2026-09-06");
+    });
+
+    it("after the page has been loaded at the right address", () => {
+      const { location, unmount } = openOnFridayEvening();
+      vi.advanceTimersByTime(2000);
+      expect(location.replace).toHaveBeenCalledWith("/liturgy/readings?date=2026-09-04");
+      // A new document: nothing of this render is left but the tab's own storage.
+      unmount();
+      location.search = "?date=2026-09-04";
+      replace.mockClear();
+      render(<TodayDateSync renderedDate="2026-09-04" enabled={false} />);
+
+      comeBackOn("2026-09-05T08:00:00");
+      expect(replace).toHaveBeenCalledWith("/liturgy/readings?date=2026-09-05");
+    });
+
+    it("but not a date the visitor opened for themselves", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-04T20:30:00"));
+      stubLocation("?date=2026-09-04");
+      render(<TodayDateSync renderedDate="2026-09-04" enabled={false} />);
+      comeBackOn("2026-09-05T08:00:00");
+      expect(replace).not.toHaveBeenCalled();
+    });
+
+    it("nor the same date, opened from a link after leaving for another page", () => {
+      const { location, rerender, unmount } = openOnFridayEvening();
+      location.search = "?date=2026-09-04";
+      rerender(<TodayDateSync renderedDate="2026-09-04" enabled={false} />);
+      // Gone to the calendar, a new history entry, and back by its link to the same date.
+      location.pathname = "/liturgical-calendar";
+      location.search = "";
+      unmount();
+      window.history.replaceState(null, "");
+      location.pathname = "/liturgy/readings";
+      location.search = "?date=2026-09-04";
+      replace.mockClear();
+      render(<TodayDateSync renderedDate="2026-09-04" enabled={false} />);
+
+      comeBackOn("2026-09-05T08:00:00");
+      expect(replace).not.toHaveBeenCalled();
+    });
+
+    it("nor a correction overtaken by leaving, whose address is opened later", () => {
+      const { location, unmount } = openOnFridayEvening();
+      location.pathname = "/saints";
+      location.search = "";
+      unmount();
+      location.pathname = "/liturgy/readings";
+      location.search = "?date=2026-09-04";
+      replace.mockClear();
+      render(<TodayDateSync renderedDate="2026-09-04" enabled={false} />);
+
+      comeBackOn("2026-09-05T08:00:00");
+      expect(replace).not.toHaveBeenCalled();
+    });
+
+    it("still cannot reload for ever on a device outside the calendar's years", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("1960-06-15T12:00:00"));
+      const location = stubLocation();
+      const { rerender } = render(<TodayDateSync renderedDate="2026-11-07" enabled />);
+      expect(replace).toHaveBeenCalledTimes(1);
+      location.search = "?date=1960-06-15";
+      rerender(<TodayDateSync renderedDate="2026-11-08" enabled />);
+      vi.advanceTimersByTime(5000);
+      expect(replace).toHaveBeenCalledTimes(1);
+      expect(location.replace).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("leaves what the visitor has pressed alone", () => {
+    afterEach(() => {
+      window.sessionStorage.clear();
+    });
+
+    it.each([
+      [
+        "a link, whose page is still on its way",
+        () => {
+          const link = document.createElement("a");
+          link.href = "/saints";
+          // As next/link does, so that the browser does not follow it as well.
+          link.addEventListener("click", (event) => event.preventDefault());
+          document.body.append(link);
+          fireEvent.click(link);
+          link.remove();
+        },
+      ],
+      [
+        "a control, whose menu has just opened",
+        () => {
+          const button = document.createElement("button");
+          document.body.append(button);
+          fireEvent.click(button);
+          button.remove();
+        },
+      ],
+      [
+        "a form, sent with the return key",
+        () => {
+          const form = document.createElement("form");
+          form.addEventListener("submit", (event) => event.preventDefault());
+          document.body.append(form);
+          fireEvent.submit(form);
+          form.remove();
+        },
+      ],
+      ["the Back button", () => window.dispatchEvent(new PopStateEvent("popstate"))],
+    ])("%s", (_what, press) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-05T20:30:00"));
+      const location = stubLocation();
+      render(<TodayDateSync renderedDate="2026-09-06" enabled />);
+      vi.advanceTimersByTime(1200);
+      press();
+      vi.advanceTimersByTime(10_000);
+      expect(location.replace).not.toHaveBeenCalled();
+    });
+
+    it("but the visitor's own day still comes, if the press has led nowhere", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-05T20:30:00"));
+      const location = stubLocation();
+      render(<TodayDateSync renderedDate="2026-09-06" enabled />);
+      vi.advanceTimersByTime(1200);
+      fireEvent.click(document.body);
+      vi.advanceTimersByTime(29_999);
+      expect(location.replace).not.toHaveBeenCalled();
+      // Another press, and it waits as long again.
+      fireEvent.click(document.body);
+      vi.advanceTimersByTime(29_999);
+      expect(location.replace).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      expect(location.replace).toHaveBeenCalledWith("/liturgy/readings?date=2026-09-05");
+      expect(location.replace).toHaveBeenCalledTimes(1);
+    });
+
+    it("and nothing is left waiting once the visitor has gone", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-05T20:30:00"));
+      const location = stubLocation();
+      const { unmount } = render(<TodayDateSync renderedDate="2026-09-06" enabled />);
+      fireEvent.click(document.body);
+      location.pathname = "/saints";
+      unmount();
+      fireEvent.click(document.body);
+      vi.advanceTimersByTime(60_000);
+      expect(location.replace).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+  });
+});
+
+describe("the page, as a screen reader gets it", () => {
+  const page = async (search: Record<string, string>) =>
+    render(await DailyReadingsPage({ searchParams: Promise.resolve(search) }));
+
+  it("speaks the weekday cycle as a number, and hides the separators from it", async () => {
+    const { container } = await page({ date: "2026-11-07" });
+    const meta = container.querySelectorAll(".vf-reading-meta");
+    expect(spoken(meta[0])).toBe("Ordinary Time, Sunday Cycle A, Weekday Cycle 2");
+    expect(spoken(meta[1])).toBe("Liturgical colour: Green, Lectionary: 490");
+    // The eye still gets the dots and the numeral, and nothing else that was spoken.
+    const seen = [...meta[0].querySelectorAll('[aria-hidden="true"]')].map((e) => e.textContent);
+    expect(seen).toEqual(["· ", "· ", "II"]);
+    meta[0].querySelectorAll(".vf-sr-inline").forEach((voice) => voice.remove());
+    expect(meta[0].textContent).toBe("Ordinary Time · Sunday Cycle A · Weekday Cycle II");
+  });
+
+  it("keeps the Jubilee Year in the same line", async () => {
+    const { container } = await page({ date: "2025-06-15" });
+    expect(spoken(container.querySelector(".vf-reading-meta")!)).toBe(
+      "Ordinary Time, Sunday Cycle C, Weekday Cycle 1, Jubilee Year",
+    );
+  });
+
+  it("names its links without their arrows, and says which leaves the site", async () => {
+    await page({ date: "2026-11-07" });
+    expect(screen.getByRole("link", { name: "Open the liturgical calendar" })).toHaveAttribute(
+      "href",
+      "/liturgical-calendar",
+    );
+    const source = screen.getByRole("link", { name: "USCCB (opens in a new tab)" });
+    expect(source).toHaveAttribute("target", "_blank");
+  });
+
+  it("offers the Ascension's choice, by link, on the dates it differs", async () => {
+    await page({ date: "2027-05-06", ascension: "thursday" });
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "The Ascension of the Lord",
+    );
+    const nav = screen.getByRole("navigation", { name: "Masses on this date" });
+    expect(nav).toHaveTextContent("Thursday Mass");
+    expect(screen.getByRole("link", { name: /^The Ascension, where kept/ })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    expect(screen.getByText(/ecclesiastical provinces of Boston/)).toBeInTheDocument();
+    const meta = await generateMetadata({
+      searchParams: Promise.resolve({ date: "2027-05-06", ascension: "thursday" }),
+    });
+    expect(String(meta.title)).toMatch(/^The Ascension of the Lord/);
+  });
+
+  it.each(["2026-02-30", "garbage", "0002-03-21", "9999-12-31"])(
+    "finds the visitor's own day for the unusable date %s",
+    async (date) => {
+      vi.useFakeTimers();
+      vi.stubGlobal("location", { pathname: "/liturgy/readings", search: `?date=${date}` });
+      // The server renders its own UTC day; this device's is two days on.
+      vi.setSystemTime(new Date("2026-11-07T12:00:00Z"));
+      const rendered = await DailyReadingsPage({ searchParams: Promise.resolve({ date }) });
+      vi.setSystemTime(new Date(2026, 10, 9, 12, 0));
+      render(rendered);
+      expect(replace).toHaveBeenCalledWith("/liturgy/readings?date=2026-11-09");
+    },
+  );
+
+  it("leaves a date it can read alone", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 10, 9, 1, 0));
+    await page({ date: "2026-11-07" });
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("renders the last day of the calendar's years with its Vigil, and past them today", async () => {
+    await page({ date: "2099-12-26", mass: "vigil" });
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Vigil of/);
+    cleanup();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-07T12:00:00Z"));
+    // The Vigil of a day in the year 10000 is what used to bring the page down.
+    await page({ date: "9999-12-31", mass: "vigil" });
+    expect(screen.getByText("Saturday, November 7, 2026, evening")).toBeInTheDocument();
   });
 });
 
@@ -602,10 +1274,9 @@ describe("ReadingSections", () => {
       />,
     );
     expect(screen.getByText(/numbers this passage differently/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Read it at USCCB" })).toHaveAttribute(
-      "href",
-      "https://bible.usccb.org/bible/readings/122726.cfm",
-    );
+    expect(
+      screen.getByRole("link", { name: "Read it at USCCB (opens in a new tab)" }),
+    ).toHaveAttribute("href", "https://bible.usccb.org/bible/readings/122726.cfm");
   });
 
   it("keeps the choice when the first reading offered has no text but another does", () => {

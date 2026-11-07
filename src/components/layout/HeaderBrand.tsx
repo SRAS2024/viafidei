@@ -32,9 +32,13 @@ export function HeaderBrand({ brandName, locale, centered = false }: Props) {
         height={h}
         className="shrink-0"
       />
+      {/* In the phone's bar the name keeps to one line and leaves room for the two
+          buttons beside it, however large the reader's text. */}
       <span
         className={`vf-wordmark leading-none text-ink ${
-          centered ? "text-[1.5rem]" : "text-[1.125rem] sm:text-[1.25rem]"
+          centered
+            ? "text-[1.5rem]"
+            : "[font-size:min(1.125rem,6vw)] sm:[font-size:min(1.25rem,6vw)]"
         }`}
       >
         {brandName}

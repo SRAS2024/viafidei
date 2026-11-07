@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+
 import {
   ContentCard,
   FilterChips,
@@ -17,6 +20,7 @@ import {
   documentTypeLabel,
   filterDocuments,
 } from "@/lib/content-shared/church-documents";
+import { listPageTitleFor } from "@/lib/content-shared/list-page";
 import {
   listHref,
   parseSearchQuery,
@@ -27,27 +31,22 @@ import { listPublished } from "@/lib/data/published";
 import { getTranslator } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
-export const metadata = {
-  title: "Church Documents",
-  description:
-    "Encyclicals, council documents, the Catechism, Canon Law, and other magisterial texts, with links to the official source.",
-};
+
+const DESCRIPTION =
+  "Encyclicals, council documents, the Catechism, Canon Law, and other magisterial texts, with links to the official source.";
 
 type Props = {
   searchParams: Promise<{ filter?: string; page?: string; q?: string | string[] }>;
 };
 
-export default async function ChurchDocumentsPage({ searchParams }: Props) {
-  const { t, locale } = await getTranslator();
-  const { filter, page: pageParam, q: rawQuery } = await searchParams;
-  const query = parseSearchQuery(rawQuery);
-  const selected = documentCategory(filter);
-  // Each card shows the document's title, kind and summary (the summary is in
-  // the payload), so the magisterial corpus is read whole and paged here. The
-  // card has no "Read on vatican.va" line: that named the source, and the
-  // document's own page has "Read the full document".
+// Each card shows the document's title, kind and summary (the summary is in
+// the payload), so the magisterial corpus is read whole and paged here. The
+// card has no "Read on vatican.va" line: that named the source, and the
+// document's own page has "Read the full document". One read per request: the
+// tab's title and the page both need the answer.
+const loadDocuments = cache(async (filterKey: string, pageNumber: number, query: string) => {
   const all = await listPublished("CHURCH_DOCUMENT");
-  const documents = filterDocuments(all, selected.key);
+  const documents = filterDocuments(all, filterKey);
   // Searched by title, the kind on the card ("Encyclical"), the issuing pope
   // or council, the year, the key themes, and the summary.
   const visible = query
@@ -55,7 +54,44 @@ export default async function ChurchDocumentsPage({ searchParams }: Props) {
         publishedSearchFields(doc, [documentTypeLabel(doc.payload.documentType)]),
       )
     : documents;
-  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  return { all, visible, page: pageSlice(visible, pageNumber, LIST_PAGE_SIZE) };
+});
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const { t, locale } = await getTranslator();
+  const { filter, page, q } = await searchParams;
+  const query = parseSearchQuery(q);
+  const selected = documentCategory(filter);
+  const pageNumber = parsePageParam(page);
+  return {
+    title: await listPageTitleFor(
+      {
+        name: t("nav.churchDocuments"),
+        filter: selected.key === "all" ? null : selected.label,
+        query,
+        t,
+        locale,
+      },
+      pageNumber > 1,
+      async () => {
+        const data = await loadDocuments(selected.key, pageNumber, query);
+        return { pages: [data.page], total: data.visible.length };
+      },
+    ),
+    description: DESCRIPTION,
+  };
+}
+
+export default async function ChurchDocumentsPage({ searchParams }: Props) {
+  const { t, locale } = await getTranslator();
+  const { filter, page: pageParam, q: rawQuery } = await searchParams;
+  const query = parseSearchQuery(rawQuery);
+  const selected = documentCategory(filter);
+  const { all, visible, page } = await loadDocuments(
+    selected.key,
+    parsePageParam(pageParam),
+    query,
+  );
   const keep = { filter: selected.key === "all" ? undefined : selected.key };
 
   // Only offer a category chip when at least one document falls under it.
@@ -122,6 +158,7 @@ export default async function ChurchDocumentsPage({ searchParams }: Props) {
         <>
           <PaginatedGrid items={cards} />
           <Pagination
+            t={t}
             basePath="/church-documents"
             page={page.page}
             totalPages={page.pageCount}

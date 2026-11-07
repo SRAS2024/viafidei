@@ -12,6 +12,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 
+import { DICTIONARIES } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locales";
 import { createTranslator } from "@/lib/i18n/translator";
 
 vi.mock("next/navigation", () => ({
@@ -30,7 +32,20 @@ vi.mock("@/lib/data/history-timeline", async () => {
       actual.timelineFromInputs(
         {
           documents: [],
-          publishedSlugs: { popes: [], saints: ["saint-peter"], doctors: [], apparitions: [] },
+          publishedSlugs: {
+            popes: [],
+            saints: ["saint-peter", "saint-augustine-of-hippo", "saint-monica"],
+            doctors: ["doctor-augustine-of-hippo"],
+            apparitions: [],
+          },
+          relatedTitles: {
+            saints: {
+              "saint-peter": "Saint Peter the Apostle",
+              "saint-augustine-of-hippo": "Saint Augustine of Hippo",
+              "saint-monica": "Saint Monica",
+            },
+            doctors: { "doctor-augustine-of-hippo": "Saint Augustine of Hippo" },
+          },
         },
         2026,
       ),
@@ -63,10 +78,9 @@ describe("/history", () => {
     expect(first.textContent).toContain("Historical context");
     expect(first.textContent).toContain("Significance");
     expect(first.textContent).toContain("Jerusalem");
-    expect(within(first).getByRole("link", { hidden: true, name: "Saint Peter" })).toHaveAttribute(
-      "href",
-      "/saints/saint-peter",
-    );
+    expect(
+      within(first).getByRole("link", { hidden: true, name: "Saint Peter the Apostle" }),
+    ).toHaveAttribute("href", "/saints/saint-peter");
   });
 
   it("gives the page one h1, era h2s and century h3s", async () => {
@@ -80,11 +94,46 @@ describe("/history", () => {
     expect(h3.slice(0, 2)).toEqual(["1st century", "2nd century"]);
   });
 
+  it("gives a voice each era's years and count, as one line it can read", async () => {
+    const { container } = await show();
+    const lines = Array.from(container.querySelectorAll(".vf-timeline-era-meta"));
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      // Safari's accessibility tree loses the rest of a line of text that begins with
+      // something hidden from it (it used to lose the count), and takes .sr-only out of
+      // the line as a stop of its own.
+      expect(line.firstElementChild).toHaveClass("vf-sr-inline");
+      expect(line.querySelector(".sr-only")).toBeNull();
+    }
+    const heard = lines.map((line) => {
+      const copy = line.cloneNode(true) as Element;
+      copy.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove());
+      return copy.textContent?.replace(/\s+/g, " ").trim();
+    });
+    expect(heard[0]).toMatch(/^from 30 to 100, \d+ events?$/);
+    for (const words of heard) expect(words).toMatch(/^from \S+ to \S+, [\d,]+ events?$/);
+    // And what the eye reads is what it always was, the words given no room of their own.
+    const seen = lines[0]!.querySelectorAll('[aria-hidden="true"]');
+    expect(seen[0]).toHaveTextContent(/^30–100$/);
+    expect(seen[1]).toHaveTextContent(/^·$/);
+  });
+
+  it("keeps a neighboring era's label a line of its own beside its arrow", async () => {
+    await show({ era: "persecution" });
+    const steps = screen.getByRole("navigation", { name: "Neighboring eras" });
+    expect(within(steps).getByRole("link", { name: /^Previous era Apostolic Age/ })).toBeVisible();
+    expect(within(steps).getByRole("link", { name: /^Next era Fathers/ })).toBeVisible();
+    for (const label of steps.querySelectorAll(".vf-history-era-step-label")) {
+      for (const node of label.childNodes) expect(node.nodeType).toBe(Node.ELEMENT_NODE);
+      expect(label.querySelectorAll('[aria-hidden="true"]')).toHaveLength(1);
+    }
+  });
+
   it("opens with a short subtitle and a thousands separator", async () => {
     await show();
     expect(
       screen.getByText(
-        `${TOTAL} events from c. 33 to today, councils, saints and martyrs, schisms and reform, and the Magisterium`,
+        `${TOTAL} events from c. 33 to today: councils, saints and martyrs, schisms and reform, and the Magisterium.`,
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Scroll the timeline/)).not.toBeInTheDocument();
@@ -95,6 +144,44 @@ describe("/history", () => {
     expect(screen.getByRole("status")).toHaveTextContent(`Showing 60 of ${TOTAL} events`);
     expect(screen.getByRole("status").closest("[aria-busy]")).toBeNull();
     expect(document.getElementById("history-results")).toHaveAttribute("aria-busy", "false");
+  });
+
+  it("gives the ear its own sentence, and shows no label for the order", async () => {
+    await show({ order: "newest", era: "fathers", theme: "councils" });
+    const status = screen.getByRole("status");
+    const spoken = status.querySelector(".sr-only");
+    const seen = status.querySelector('[aria-hidden="true"]');
+    expect(spoken).toHaveTextContent(
+      /^Fathers & First Councils, Councils: showing .*, newest first\.$/,
+    );
+    expect(seen).toHaveTextContent(/^Showing .* events$/);
+    expect(seen).not.toHaveTextContent("newest");
+  });
+
+  it("keeps the list role on every list, which Safari drops from a list with no markers", async () => {
+    const { container } = await show({ theme: "saints", page: "2" });
+    const lists = Array.from(container.querySelectorAll("ul, ol"));
+    expect(lists.length).toBeGreaterThan(3);
+    for (const list of lists) expect(list).toHaveAttribute("role", "list");
+  });
+
+  it("has no era in the title, so that nothing speaks over the status on a move", async () => {
+    const title = async (params: Record<string, string>) =>
+      (await generateMetadata({ searchParams: Promise.resolve(params) })).title;
+    expect(await title({})).toBe("Church History");
+    expect(await title({ era: "fathers" })).toBe("Church History");
+    expect(await title({ year: "1054" })).toBe("Church History");
+    expect(await title({ theme: "councils", page: "2" })).toBe("Church History");
+  });
+
+  it("offers the way on from a year to the row it found", async () => {
+    await show({ year: "1054" });
+    const link = screen.getByRole("link", { name: /^Go to this event/ });
+    expect(link).toHaveAccessibleName("Go to this event: The Great Schism");
+    expect(link).toHaveAttribute("href", "#history-event-great-schism-1054");
+    cleanup();
+    await show({ era: "fathers" });
+    expect(screen.queryByRole("link", { name: /^Go to this event/ })).toBeNull();
   });
 
   it("offers twelve eras in a grid, the current one marked, with years and counts spoken", async () => {
@@ -239,6 +326,34 @@ describe("/history", () => {
     );
   });
 
+  it("keeps Previous, the numbers and Next in one order, the keyboard's", async () => {
+    await show({ page: "2" });
+    const pager = screen.getByRole("navigation", { name: "Pages of events" });
+    const names = within(pager)
+      .getAllByRole("link")
+      .map((a) => a.getAttribute("aria-label") ?? a.textContent?.trim());
+    expect(names[0]).toMatch(/Previous/);
+    expect(names.at(-1)).toMatch(/Next/);
+    // The narrow layout hides the words, not the names: see the stylesheet's pager.
+    expect(pager.querySelectorAll(".vf-history-pager-word")).toHaveLength(2);
+    // One list, so they wrap as one line of words does: the numbers used to stack up
+    // in their own column between the arrows once the text was enlarged.
+    expect(within(pager).getAllByRole("list")).toHaveLength(1);
+    expect(within(pager).getAllByRole("listitem").at(0)).toContainElement(
+      within(pager).getByRole("link", { name: /Previous/ }),
+    );
+    expect(within(pager).getAllByRole("listitem").at(-1)).toContainElement(
+      within(pager).getByRole("link", { name: /Next/ }),
+    );
+    const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+    const block = css.slice(
+      css.indexOf(".vf-history-pager {"),
+      css.indexOf(".vf-history-era-steps {"),
+    );
+    expect(block).not.toMatch(/order:\s*-?\d/);
+    expect(block).not.toMatch(/flex-wrap: nowrap/);
+  });
+
   it("has no pager when one page holds everything", async () => {
     await show({ era: "apostolic" });
     expect(screen.queryByRole("navigation", { name: "Pages of events" })).toBeNull();
@@ -300,8 +415,152 @@ describe("/history", () => {
     expect(screen.queryByRole("link", { name: "Show all events" })).toBeNull();
   });
 
+  it("does not offer show-all for what narrows nothing, and keeps the order when it does", async () => {
+    await show({ order: "newest" });
+    expect(screen.queryByRole("link", { name: "Show all events" })).toBeNull();
+    cleanup();
+    await show({ page: "2" });
+    expect(screen.queryByRole("link", { name: "Show all events" })).toBeNull();
+    cleanup();
+    await show({ era: "fathers", order: "newest" });
+    expect(screen.getByRole("link", { name: "Show all events" })).toHaveAttribute(
+      "href",
+      "/history?order=newest",
+    );
+    cleanup();
+    const { container } = await show({ era: "apostolic", theme: "modern", order: "newest" });
+    const back = within(container.querySelector<HTMLElement>(".vf-timeline-empty")!).getByRole(
+      "link",
+      { name: "Show all events" },
+    );
+    expect(back).toHaveAttribute("href", "/history?order=newest");
+  });
+
+  it("marks the ways back that are gone once followed, for the focus to go on", async () => {
+    await show({ q: "nicaea", theme: "councils" });
+    expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute(
+      "data-landing",
+      "status",
+    );
+    expect(screen.getByRole("link", { name: "Show all events" })).toHaveAttribute(
+      "data-landing",
+      "status",
+    );
+    cleanup();
+    const { container } = await show({ q: "zzzzqx", theme: "councils" });
+    for (const link of container.querySelectorAll(".vf-timeline-empty a")) {
+      expect(link).toHaveAttribute("data-landing", "status");
+    }
+  });
+
+  it("reads each related link from its page's own title, and tells two apart", async () => {
+    const { container } = await show({ event: "baptism-of-saint-augustine" });
+    const row = container.querySelector("#history-event-baptism-of-saint-augustine")!;
+    expect(
+      within(row as HTMLElement)
+        .getAllByRole("link")
+        .map((a) => a.textContent),
+    ).toEqual([
+      "Saint Augustine of Hippo",
+      "Saint Monica",
+      "Saint Augustine of Hippo, Doctor of the Church",
+    ]);
+  });
+
   it("has no loading boundary: its fallback would stay on screen with JavaScript off", () => {
     expect(() => readFileSync(join(process.cwd(), "src/app/history/loading.tsx"))).toThrow();
+  });
+});
+
+// What a browser would show, guarded here because e2e runs apart from this suite.
+describe("/history's stylesheet", () => {
+  const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+
+  it("only animates a row's opening for a reader who has not asked for less motion", () => {
+    // The site-wide reset names *, *::before and *::after, which do not reach this.
+    const media = css.lastIndexOf("@media", css.indexOf("::details-content {"));
+    expect(css.slice(media, css.indexOf("::details-content {"))).toContain(
+      "@media (prefers-reduced-motion: no-preference)",
+    );
+  });
+
+  it("clears a focused row or link of the sticky era heading: focus scrolls what it lands on", () => {
+    expect(css).toMatch(
+      /\.vf-timeline-event,\s*\.vf-timeline-summary,\s*\.vf-timeline-body a \{\s*scroll-margin-top/,
+    );
+  });
+
+  it("does not jump the page as the focus moves among the held box's own controls", () => {
+    expect(css).toMatch(/\.vf-history-docked :is\(input, button\) \{\s*scroll-margin-top: -1rem;/);
+  });
+
+  it("leaves the slider's place to the page, with no browser's own correction on top", () => {
+    expect(css).toMatch(/\.vf-history \{[^}]*overflow-anchor: none;/);
+  });
+
+  it("keeps the readout's height whichever era's name it shows", () => {
+    expect(css).toMatch(/\.vf-history-readout > \* \{\s*grid-area: 1 \/ 1;/);
+    expect(css).toMatch(/\.vf-history-readout-room \{\s*visibility: hidden;/);
+  });
+
+  it("breaks a word too long for a phone's line at 200% rather than letting it run out", () => {
+    expect(css).toMatch(/\.vf-timeline-body \{[^}]*overflow-wrap: break-word;/);
+  });
+
+  it("rings the slider's thumb, not the input whose box runs through the year labels", () => {
+    expect(css).toMatch(/\.vf-history-slider:focus-visible \{\s*outline: none;/);
+    expect(css).toMatch(/\.vf-history-slider:focus-visible::-webkit-slider-thumb \{\s*box-shadow/);
+    expect(css).toMatch(/\.vf-history-slider:focus-visible::-moz-range-thumb \{\s*box-shadow/);
+  });
+
+  it("keeps the slider's mark and the era counts readable on the dark panel", () => {
+    expect(css).toMatch(
+      /html\[data-theme="dark"\] \.vf-history \{[^}]*--slider-fill: var\(--focus-ring\);/,
+    );
+    expect(css).toMatch(
+      /html\[data-theme="dark"\] \.vf-history \.vf-history-era-count \{\s*opacity: 0\.9;/,
+    );
+    expect(css).toContain(
+      'html[data-theme="dark"] .vf-history a.vf-history-era:hover .vf-history-era-count',
+    );
+  });
+
+  it("sets no supporting text on this page below 14 pixels", () => {
+    const start = css.indexOf("Church history: the control panel");
+    const block = css.slice(start, css.indexOf("@layer utilities", start));
+    const sizes = [...block.matchAll(/font-size: (?:min\()?([\d.]+)rem/g)].map((m) => Number(m[1]));
+    expect(sizes.length).toBeGreaterThan(5);
+    expect(sizes.filter((size) => size < 0.875)).toEqual([]);
+  });
+
+  it("gives a row's kind a line of its own before its one long word can run out of the row", () => {
+    expect(css).toMatch(
+      /@container history-list \(max-width: 18\.5rem\) \{\s*\.vf-timeline-summary \{[^}]*"marker date chevron"\s*"marker title title"\s*"marker kind kind"/,
+    );
+  });
+});
+
+describe("/history in the reader's language", () => {
+  const LOCALES = Object.keys(DICTIONARIES) as Locale[];
+
+  it("has its own words for what this page added, in every language", () => {
+    expect(LOCALES).toHaveLength(12);
+    for (const locale of LOCALES.filter((l) => l !== "en")) {
+      const t = createTranslator(locale);
+      const en = createTranslator("en");
+      for (const key of ["history.goToEvent", "history.yearBox"]) {
+        expect(t(key), `${locale} ${key}`).not.toBe(en(key));
+      }
+      expect(t("history.doctorOfTheChurch", { name: "X" }), locale).toMatch(/^X[,，] ?\S/);
+      expect(t("history.doctorOfTheChurch", { name: "X" }), locale).not.toBe(
+        en("history.doctorOfTheChurch", { name: "X" }),
+      );
+      expect(t("history.sliderHint", { years: 5 }), locale).toMatch(/5/);
+      expect(t("history.sliderHint", { years: 5 }), locale).not.toContain("{years}");
+      expect(t("history.sliderHint", { years: 5 }), locale).not.toBe(
+        en("history.sliderHint", { years: 5 }),
+      );
+    }
   });
 });
 
@@ -314,7 +573,7 @@ describe("/history metadata", () => {
     expect((await meta({ page: "3" })).alternates?.canonical).toBe("/history?page=3");
     const era = await meta({ era: "twentieth", page: "2" });
     expect(era.alternates?.canonical).toBe("/history?era=twentieth&page=2");
-    expect(era.title).toBe("Twentieth Century · Church History");
+    expect(era.description).toMatch(/^Twentieth Century: A timeline/);
   });
 
   it("points a filter or a year back to the page it is a view of", async () => {

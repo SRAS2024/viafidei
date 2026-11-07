@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+
 import {
   ListControls,
   ListSearch,
@@ -6,6 +9,7 @@ import {
   PublishedList,
   entryPayload,
 } from "@/components/ui";
+import { listPageTitleFor } from "@/lib/content-shared/list-page";
 import {
   parseSearchQuery,
   publishedSearchFields,
@@ -15,27 +19,52 @@ import { listPublished } from "@/lib/data/published";
 import { getTranslator } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Doctors of the Church" };
 
-/** The name the Church knows a Doctor by ("Angelic Doctor"), for the card's line. */
+/**
+ * The name the Church knows a Doctor by ("Angelic Doctor"), for the card's line. Some
+ * records say only "Doctor of the Church", which the page's own title has already said.
+ */
 function doctorEpithet(payload: Record<string, unknown>): string | undefined {
-  return typeof payload.doctorTitle === "string" ? payload.doctorTitle : undefined;
+  const epithet = typeof payload.doctorTitle === "string" ? payload.doctorTitle.trim() : "";
+  return epithet && !/^doctor of the church$/i.test(epithet) ? epithet : undefined;
 }
 
-export default async function DoctorsPage({
+// A closed list (37 Doctors), and each card shows the Doctor's epithet from
+// the payload, so the type is read whole. It runs only just past one page of
+// cards, so it stays on one: a second page would hold two Doctors and nothing
+// else. A search reads the name and the epithet ("Angelic Doctor") first. One read
+// per request: the tab's title and the page both need the answer.
+const loadDoctors = cache(async (query: string) => {
+  const doctors = await listPublished("DOCTOR");
+  const visible = query ? rankBySearch(doctors, query, (d) => publishedSearchFields(d)) : doctors;
+  return { doctors, visible };
+});
+
+type SearchParams = Promise<{ q?: string | string[] }>;
+
+export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string | string[] }>;
-}) {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const { t, locale } = await getTranslator();
+  const query = parseSearchQuery((await searchParams).q);
+  return {
+    title: await listPageTitleFor(
+      { name: t("nav.doctors"), query, t, locale },
+      false,
+      async () => ({
+        total: (await loadDoctors(query)).visible.length,
+      }),
+    ),
+  };
+}
+
+export default async function DoctorsPage({ searchParams }: { searchParams: SearchParams }) {
   const { t, locale } = await getTranslator();
   const { q: rawQuery } = await searchParams;
   const query = parseSearchQuery(rawQuery);
-  // A closed list (37 Doctors), and each card shows the Doctor's epithet from
-  // the payload, so the type is read whole. It runs only just past one page of
-  // cards, so it stays on one: a second page would hold two Doctors and nothing
-  // else. A search reads the name and the epithet ("Angelic Doctor") first.
-  const doctors = await listPublished("DOCTOR");
-  const visible = query ? rankBySearch(doctors, query, (d) => publishedSearchFields(d)) : doctors;
+  const { doctors, visible } = await loadDoctors(query);
 
   return (
     <div>

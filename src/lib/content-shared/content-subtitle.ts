@@ -443,7 +443,24 @@ const SEASON_LABELS: Record<string, string> = {
   easter: "Easter season",
 };
 
-function liturgicalSubtitle(f: Fields, subtype: string | null): string {
+/**
+ * `mass_structure` is a filing term. The catalogue files the liturgy's books and its
+ * other rites under it as well as the Mass, and "Order of Mass" over The Rite of
+ * Baptism is simply untrue, so the title decides what the entry is called. A record
+ * with no title to go on is taken at its word.
+ */
+function massStructureSubtitle(title: string): string {
+  if (!title || /\bMass\b/i.test(title)) return "Order of Mass";
+  if (/\bEucharistic Prayers?\b/i.test(title)) return "Part of the Mass";
+  if (/\b(?:Missal|Lectionary)\b/i.test(title)) return "Liturgical book";
+  if (/\bLiturgy of the Hours\b/i.test(title)) return "Prayer of the Church";
+  if (/\b(?:Rite|Order of Christian Initiation|Benediction)\b/i.test(title)) {
+    return "Liturgical rite";
+  }
+  return "Liturgy";
+}
+
+function liturgicalSubtitle(f: Fields, subtype: string | null, title: string): string {
   const kind = str(f.kind) || subtype || "";
   const rank = LITURGICAL_RANK_LABELS[kind];
   if (rank) {
@@ -458,7 +475,7 @@ function liturgicalSubtitle(f: Fields, subtype: string | null): string {
     case "liturgical_year":
       return "The liturgical year";
     case "mass_structure":
-      return "Order of Mass";
+      return massStructureSubtitle(title);
     case "marriage_rite":
     case "funeral_rite":
     case "ordination_rite":
@@ -727,7 +744,7 @@ export function generateContentSubtitle(input: SubtitleInput): string {
     case "LITURGICAL_CALENDAR_DAY":
     case "FEAST_DAY":
     case "HOLY_DAY":
-      return liturgicalSubtitle(f, sub);
+      return liturgicalSubtitle(f, sub, title);
     case "RITE":
       return riteSubtitle(f);
     case "PARISH":

@@ -1,12 +1,16 @@
 import { TabLoadingSkeleton } from "@/components/ui/TabLoadingSkeleton";
+import { getTranslator } from "@/lib/i18n/server";
 
-export default function SaintsLoading() {
+export default async function SaintsLoading() {
+  const { t } = await getTranslator();
   return (
     <TabLoadingSkeleton
-      title="Saints &amp; Our Lady"
-      subtitle="Canonized saints, approved Marian apparitions, feast days, and patronage references."
+      eyebrow={t("nav.saints")}
+      title={t("saints.title")}
+      subtitle={t("saints.subtitle")}
       cards={12}
-      columns={4}
+      filterWidth="5.125rem"
+      metaLines={3}
       summary={false}
     />
   );

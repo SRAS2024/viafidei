@@ -51,11 +51,12 @@ export type ParishCardProps = {
  * A church's name in its own language and direction. A name in another script
  * is shown beside its transliteration ("Dae Seongdang (대성당)"); the original is
  * marked on its own, so the transliteration is read in the page's voice and the
- * original in its language's.
+ * original in its language's. The original may itself hold a second name in
+ * brackets (`parishDisplayName`).
  */
 function ParishName({ name, countryCode }: { name: string; countryCode?: string | null }) {
   const language = parishTextLanguage(name, countryCode);
-  const beside = language ? null : /^(.+ \()([^()]+)\)$/.exec(name);
+  const beside = language ? null : /^(.+ \()((?:[^()]|\([^()]*\))+)\)$/.exec(name);
   const originalLanguage = beside ? parishTextLanguage(beside[2], countryCode) : undefined;
   return (
     <span dir="auto" lang={language}>

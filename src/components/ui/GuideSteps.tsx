@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 
 import {
+  LONG_STEP_PARAGRAPH,
   parseSequence,
   readingBlocks,
   type SequenceStep,
 } from "@/lib/content-shared/structured-content";
+import { createTranslator, type Translator } from "@/lib/i18n/translator";
 import { displayOverlay, attachDisplay } from "@/lib/translation/display";
 
 import { PrayerLinkedText } from "./PrayerLinkedText";
@@ -12,6 +14,9 @@ import { PrayerText } from "./PrayerText";
 
 type LinkedPrayers = React.ComponentProps<typeof PrayerLinkedText>["prayers"];
 type PanelLevel = 2 | 3 | 4;
+
+/** Until a page says who is reading. A page passes the reader's own (`getTranslator`). */
+const ENGLISH = createTranslator("en");
 
 /**
  * Running text as a reader should meet it: instructions in paragraphs of a
@@ -24,16 +29,19 @@ export function ReadingText({
   text,
   prayers,
   headingLevel = 3,
+  paragraphLimit,
 }: {
   text: string;
   prayers?: LinkedPrayers;
   /** Heading level of an opened prayer's title: one below the text's own heading. */
   headingLevel?: PanelLevel;
+  /** Where a paragraph is broken, when not at the usual length. */
+  paragraphLimit?: number;
 }) {
   const linked = prayers && prayers.length > 0 ? prayers : null;
   return (
     <>
-      {readingBlocks(text).map((block, i) =>
+      {readingBlocks(text, paragraphLimit).map((block, i) =>
         block.kind === "spoken" ? (
           <blockquote key={i} className="vf-spoken">
             <PrayerText text={block.lines.join("\n")} />
@@ -60,7 +68,8 @@ export function ReadingText({
  * the three doors in choosing a Confirmation saint). Its numbers are the list's
  * own, smaller than the step's, so the step stays the unit a reader follows. A
  * guide that spreads nine salutations over three steps keeps counting: "Fourth:"
- * starts at 4.
+ * starts at 4. A part's name may be a prayer's ("Our Father: leader to ..."), which
+ * opens from there like any other prayer the text names.
  */
 function NestedSteps({
   steps,
@@ -72,12 +81,27 @@ function NestedSteps({
   headingLevel: PanelLevel;
 }) {
   const first = steps[0]?.order ?? 1;
+  const linked = prayers && prayers.length > 0 ? prayers : null;
   return (
     <ol className="vf-substeps" start={first === 1 ? undefined : first}>
       {steps.map((step) => (
         <li key={step.order}>
-          {step.title ? <p className="vf-substep-title">{step.title}</p> : null}
-          <ReadingText text={step.body} prayers={prayers} headingLevel={headingLevel} />
+          {step.title && linked ? (
+            <PrayerLinkedText
+              text={step.title}
+              prayers={linked}
+              headingLevel={headingLevel}
+              className="vf-substep-title"
+            />
+          ) : step.title ? (
+            <p className="vf-substep-title">{step.title}</p>
+          ) : null}
+          <ReadingText
+            text={step.body}
+            prayers={prayers}
+            headingLevel={headingLevel}
+            paragraphLimit={LONG_STEP_PARAGRAPH}
+          />
         </li>
       ))}
     </ol>
@@ -95,16 +119,20 @@ function StepBody({
   headingLevel: PanelLevel;
 }) {
   const nested = parseSequence(body);
-  if (!nested) return <ReadingText text={body} prayers={prayers} headingLevel={headingLevel} />;
+  const words = (text: string) => (
+    <ReadingText
+      text={text}
+      prayers={prayers}
+      headingLevel={headingLevel}
+      paragraphLimit={LONG_STEP_PARAGRAPH}
+    />
+  );
+  if (!nested) return words(body);
   return (
     <>
-      {nested.lead ? (
-        <ReadingText text={nested.lead} prayers={prayers} headingLevel={headingLevel} />
-      ) : null}
+      {nested.lead ? words(nested.lead) : null}
       <NestedSteps steps={nested.steps} prayers={prayers} headingLevel={headingLevel} />
-      {nested.trailing ? (
-        <ReadingText text={nested.trailing} prayers={prayers} headingLevel={headingLevel} />
-      ) : null}
+      {nested.trailing ? words(nested.trailing) : null}
     </>
   );
 }
@@ -119,6 +147,10 @@ export interface StepItem {
 /** A list of short items with no names of their own (the sorrows, the stations). */
 const SHORT_ITEM = 90;
 
+type StepTitleLevel = 2 | 3;
+
+const nextLevel = (level: StepTitleLevel): PanelLevel => (level === 2 ? 3 : 4);
+
 /**
  * The steps of a how-to, as a numbered ordered list that is OPEN.
  *
@@ -129,23 +161,34 @@ const SHORT_ITEM = 90;
  * page from the first paint, in order, with its number.
  *
  * VoiceOver stops calling a list a list once its markers are gone, so the role is
- * said out loud, and the number it cannot see is said as "Step 1:". Prayer names
- * inside a step stay inline-expandable when the guide's prayers are supplied;
- * without them the body is plain text.
+ * said out loud, and the number it cannot see is said as "Step 1:", in the reader's
+ * language. Prayer names inside a step stay inline-expandable when the guide's
+ * prayers are supplied; without them the body is plain text.
  */
 export function GuideSteps({
   steps,
   prayers,
   headingId,
+  titleLevel = 3,
+  itemName = "Step",
+  t = ENGLISH,
 }: {
   steps: StepItem[];
   prayers?: LinkedPrayers;
   /** Id of the "Steps" heading, so the list is labelled by it. */
   headingId?: string;
+  /** Heading level of a step's title: one below the heading the list sits under. */
+  titleLevel?: StepTitleLevel;
+  /** What a screen reader calls each number: the parts of the Mass are not steps. */
+  itemName?: "Step" | "Part";
+  t?: Translator;
 }) {
   if (steps.length === 0) return null;
   const tight = steps.every((step) => !step.title && step.body.length <= SHORT_ITEM);
   const first = steps[0]?.order ?? 1;
+  const StepTitle = `h${titleLevel}` as const;
+  const said = (n: number) =>
+    `${itemName === "Part" ? t("steps.part", { n }) : t("steps.step", { n })} `;
   return (
     // VoiceOver stops calling a list a list once its markers are gone.
     <ol
@@ -160,16 +203,20 @@ export function GuideSteps({
             {step.order}
           </span>
           {step.title ? (
-            <h3 className="vf-step-title text-ink">
-              <span className="sr-only">{`Step ${step.order}: `}</span>
+            <StepTitle className="vf-step-title text-ink">
+              <span className="sr-only">{said(step.order)}</span>
               {step.title}
-            </h3>
+            </StepTitle>
           ) : (
-            <span className="sr-only">{`Step ${step.order}: `}</span>
+            <span className="sr-only">{said(step.order)}</span>
           )}
           <div className="vf-step-body vf-reading">
-            {/* A titled step is an h3, so a prayer opened in it is an h4. */}
-            <StepBody body={step.body} prayers={prayers} headingLevel={step.title ? 4 : 3} />
+            {/* A prayer opened in a titled step sits one level under its title. */}
+            <StepBody
+              body={step.body}
+              prayers={prayers}
+              headingLevel={step.title ? nextLevel(titleLevel) : titleLevel}
+            />
           </div>
         </li>
       ))}
@@ -183,14 +230,54 @@ export function GuideSteps({
  * Lectio Divina's four movements and every other practice and devotion read this
  * way, in the same steps as a guide.
  */
-export function InstructionText({ text, prayers }: { text: string; prayers?: LinkedPrayers }) {
+export function InstructionText({
+  text,
+  prayers,
+  titleLevel = 3,
+  t,
+}: {
+  text: string;
+  prayers?: LinkedPrayers;
+  /** Heading level of a step's title: 2 when the text has no heading of its own. */
+  titleLevel?: StepTitleLevel;
+  t?: Translator;
+}) {
   const sequence = parseSequence(text);
   if (!sequence) return <ReadingText text={text} prayers={prayers} />;
   return (
     <>
       {sequence.lead ? <ReadingText text={sequence.lead} prayers={prayers} /> : null}
-      <GuideSteps steps={sequence.steps} prayers={prayers} />
+      <GuideSteps
+        steps={sequence.steps}
+        prayers={prayers}
+        titleLevel={titleLevel}
+        itemName={sequence.parts ? "Part" : "Step"}
+        t={t}
+      />
       {sequence.trailing ? <ReadingText text={sequence.trailing} prayers={prayers} /> : null}
+    </>
+  );
+}
+
+/**
+ * A list in an article's running text, which is not a how-to: the six holy days of
+ * obligation, the three forms of Palm Sunday's entrance. Nobody does those in turn, so
+ * they have no numbers and no "Step 1", only the list, which a screen reader counts for
+ * itself. Words in quotation marks stay in the item's sentence.
+ */
+export function ListedText({ text }: { text: string }) {
+  const sequence = parseSequence(text);
+  if (!sequence) return <ReadingText text={text} />;
+  return (
+    <>
+      {sequence.lead ? <ReadingText text={sequence.lead} /> : null}
+      {/* VoiceOver stops calling a list a list once its markers are gone. */}
+      <ul role="list">
+        {sequence.steps.map((item) => (
+          <li key={item.order}>{item.body}</li>
+        ))}
+      </ul>
+      {sequence.trailing ? <ReadingText text={sequence.trailing} /> : null}
     </>
   );
 }
@@ -208,10 +295,21 @@ export function readingField(prayers?: LinkedPrayers, headingLevel: PanelLevel =
 }
 
 /** A stored field that holds how-to text, as a `PublishedDetail` field renderer. */
-export function instructionField(prayers?: LinkedPrayers) {
+export function instructionField(
+  prayers?: LinkedPrayers,
+  titleLevel: StepTitleLevel = 3,
+  t?: Translator,
+) {
   return function renderInstructionField(value: unknown): ReactNode {
-    return typeof value === "string" ? <InstructionText text={value} prayers={prayers} /> : null;
+    return typeof value === "string" ? (
+      <InstructionText text={value} prayers={prayers} titleLevel={titleLevel} t={t} />
+    ) : null;
   };
+}
+
+/** A stored field that holds an article with a list in it, as a `PublishedDetail` field renderer. */
+export function listedField(value: unknown): ReactNode {
+  return typeof value === "string" ? <ListedText text={value} /> : null;
 }
 
 /** The field the prayer list rides in (`withPrayerList`). */

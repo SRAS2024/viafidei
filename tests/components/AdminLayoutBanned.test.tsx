@@ -8,7 +8,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 
 const isCurrentDeviceBannedMock = vi.fn();
 
@@ -23,7 +23,7 @@ vi.mock("@/components/SecurityTamperDetector", () => ({
   SecurityTamperDetector: () => null,
 }));
 
-import AdminLayout from "@/app/admin/layout";
+import AdminLayout, { metadata } from "@/app/admin/layout";
 
 beforeEach(() => {
   isCurrentDeviceBannedMock.mockReset();
@@ -47,6 +47,22 @@ describe("admin layout — banned device gate", () => {
     await renderLayout();
     expect(screen.getByTestId("admin-banned-block")).toBeInTheDocument();
     expect(screen.queryByTestId("child")).not.toBeInTheDocument();
+  });
+
+  // The root layout already holds everything in one <main> and adds the site's name
+  // to every title: a second of either is a doubled landmark and a doubled name.
+  it("adds no second main landmark, banned or not", async () => {
+    isCurrentDeviceBannedMock.mockResolvedValue(false);
+    await renderLayout();
+    expect(screen.queryByRole("main")).not.toBeInTheDocument();
+    cleanup();
+    isCurrentDeviceBannedMock.mockResolvedValue(true);
+    await renderLayout();
+    expect(screen.queryByRole("main")).not.toBeInTheDocument();
+  });
+
+  it("leaves the site's name in its title to the root layout", () => {
+    expect(metadata.title).toBe("Administrator");
   });
 
   it("the banned block names bans as permanent (no unban affordance)", async () => {

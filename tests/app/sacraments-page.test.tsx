@@ -6,7 +6,7 @@
  * Catechism's order, and its loading placeholder is that same composition.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import type { PublishedItem } from "@/lib/data/published";
 import { createTranslator } from "@/lib/i18n/translator";
 
@@ -99,6 +99,13 @@ describe("/sacraments", () => {
     ]);
   });
 
+  it("calls each group a list out loud, since Safari drops the role with the markers", async () => {
+    const { container } = render(await SacramentsPage());
+    const grids = Array.from(container.querySelectorAll("ul.vf-sacrament-grid"));
+    expect(grids).toHaveLength(3);
+    for (const grid of grids) expect(grid).toHaveAttribute("role", "list");
+  });
+
   it("keeps the badges out of what a screen reader hears", async () => {
     const { container } = render(await SacramentsPage());
     const badges = container.querySelectorAll("svg.vf-sacrament-badge");
@@ -116,9 +123,13 @@ describe("/sacraments", () => {
 });
 
 describe("/sacraments while it loads", () => {
-  it("holds the finished composition, with nothing to follow yet", () => {
-    const { container } = render(<SacramentsLoading />);
-    expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+  it("holds the finished composition, with nothing to follow yet", async () => {
+    const { container } = render(await SacramentsLoading());
+    const status = screen.getByRole("status");
+    await waitFor(() => expect(status).toHaveTextContent("Loading the latest published content"));
+    // Beside the busy wrapper, not in it, where a screen reader may hold it back.
+    expect(status.closest('[aria-busy="true"]')).toBeNull();
+    expect(screen.getByTestId("tab-loading")).toHaveAttribute("aria-busy", "true");
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("The Seven Sacraments");
     const grids = Array.from(container.querySelectorAll("ul.vf-sacrament-grid"));
     expect(grids.map((grid) => grid.querySelectorAll("li").length)).toEqual([3, 2, 2]);

@@ -9,11 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { GUIDE_KINDS } from "@/lib/checklist/schemas/guide";
 import { GUIDE_FILTERS, GUIDE_FILTER_SUBTYPES } from "@/lib/content-shared/guide-categories";
-import {
-  SAINT_FILTERS,
-  SAINT_FILTER_SUBTYPES,
-  saintSubtypeLabel,
-} from "@/lib/content-shared/saint-categories";
+import { SAINT_FILTERS, SAINT_FILTER_SUBTYPES } from "@/lib/content-shared/saint-categories";
 
 /** Every `saintType` the published catalogue actually stores. */
 const STORED_SAINT_TYPES = [
@@ -58,29 +54,6 @@ describe("SAINT_FILTER_SUBTYPES", () => {
     expect(claimed.has("confessor")).toBe(false);
     // Doctors have their own tab and must not become a Saints chip.
     expect(claimed.has("doctor_of_the_church")).toBe(false);
-  });
-});
-
-describe("saintSubtypeLabel", () => {
-  it("labels only the types the spec permits a title for", () => {
-    expect(saintSubtypeLabel("apostle")).toBe("Apostle");
-    expect(saintSubtypeLabel("doctor_of_the_church")).toBe("Doctor of the Church");
-    expect(saintSubtypeLabel("evangelist")).toBe("Evangelist");
-  });
-
-  it("returns nothing rather than printing a stored enum", () => {
-    for (const t of ["martyr", "virgin", "bishop", "religious", "other", "confessor", "lay"]) {
-      expect(saintSubtypeLabel(t), t).toBeUndefined();
-    }
-    expect(saintSubtypeLabel(null)).toBeUndefined();
-    expect(saintSubtypeLabel(undefined)).toBeUndefined();
-  });
-
-  it("never emits a machine-shaped token", () => {
-    for (const t of STORED_SAINT_TYPES) {
-      const label = saintSubtypeLabel(t);
-      if (label) expect(label).not.toMatch(/[_-]/);
-    }
   });
 });
 

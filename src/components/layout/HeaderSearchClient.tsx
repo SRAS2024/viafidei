@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 
 // Import the leaf components directly, NOT through "@/components/ui".
@@ -10,7 +11,8 @@ import { useRouter } from "next/navigation";
 // the barrel drags the Prisma client into the browser bundle and every
 // page dies at hydration with "sqltag is unable to run in this browser
 // environment". Caught by the e2e smoke suite.
-import { SearchHighlight } from "@/components/ui/SearchHighlight";
+import { SearchHighlight, spokenLine } from "@/components/ui/SearchHighlight";
+import { pluralCategory } from "@/lib/i18n/plural";
 import { SearchIcon } from "../icons/SearchIcon";
 
 type SuggestionGroup =
@@ -58,9 +60,9 @@ const GROUP_LABEL: Record<SuggestionGroup, string> = {
   guides: "Guide",
   sacraments: "Sacrament",
   liturgy: "Liturgy",
-  documents: "Church document",
+  documents: "Church Document",
   rites: "Rite",
-  spiritualLife: "Spiritual life",
+  spiritualLife: "Spiritual Life",
 };
 
 const GROUP_ORDER: SuggestionGroup[] = [
@@ -127,9 +129,29 @@ function hrefFor(s: Suggestion): string {
   return s.href && s.href.startsWith("/") ? s.href : pathForSuggestion(s);
 }
 
+/** The words of the suggestions, in the reader's language. */
+export type SuggestLabels = {
+  locale: string;
+  /** What each kind of content is called, by the server's English label for it. */
+  types: Record<string, string>;
+  searching: string;
+  unavailable: string;
+  /** Holds {query}. */
+  none: string;
+  /** How many suggestions, by plural form. Each holds {count}. */
+  count: Partial<Record<Intl.LDMLPluralRule, string>>;
+  /** The list's name. */
+  list: string;
+  keysSpoken: string;
+  keysShown: string;
+  /** Holds {query}. */
+  all: string;
+};
+
 type Props = {
   placeholder: string;
   ariaLabel: string;
+  labels: SuggestLabels;
   /**
    * "inline" expands in place beside the account link. "panel" is the phone's:
    * the icon stays in the bar and the field opens in a full-width row beneath it.
@@ -189,7 +211,27 @@ function useSuggestionLimit(): number {
   return limit;
 }
 
-export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" }: Props) {
+/**
+ * Whether the reader has a keyboard to speak of, judged by a fine pointer. The arrow
+ * keys are told of by this and not by the header's layout: enlarged text and a narrow
+ * window on a Mac both bring the phone's bar, and the keys work there just the same.
+ * Nothing on a touch screen should send a reader looking for them. The visible hint
+ * follows the same media query in the stylesheet.
+ */
+function useFinePointer(): boolean {
+  const [fine, setFine] = useState(true);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mql = window.matchMedia("(pointer: fine)");
+    const sync = () => setFine(mql.matches);
+    sync();
+    mql.addEventListener?.("change", sync);
+    return () => mql.removeEventListener?.("change", sync);
+  }, []);
+  return fine;
+}
+
+export function HeaderSearchClient({ placeholder, ariaLabel, labels, variant = "inline" }: Props) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -197,19 +239,20 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
   const [open, setOpen] = useState(false);
   // The search is a single icon by default; clicking it expands the bar.
   const [expanded, setExpanded] = useState(false);
+  // Beside the masthead the field takes the icon's place. For the length of the swap
+  // both are in the page; see openField.
+  const [swapping, setSwapping] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const toggleRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  // Set when the search closes by keyboard, so focus goes back to the icon rather
-  // than falling to the top of the page with the field it was in.
-  const refocusToggle = useRef(false);
   // Focus returning to the field from the panel must not reopen the panel.
   const keepPanelShut = useRef(false);
   // Only the arrow keys scroll the list: a row under a resting mouse must not.
   const movedByKey = useRef(false);
   const limit = useSuggestionLimit();
+  const finePointer = useFinePointer();
   const listboxId = useId();
   const rowId = useId();
 
@@ -268,16 +311,21 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
     return () => window.removeEventListener("click", onClick);
   }, [q]);
 
-  // Focus the field as soon as the search expands, and return to the icon when
-  // the keyboard closes it.
-  useEffect(() => {
-    if (expanded) {
-      inputRef.current?.focus();
-    } else if (refocusToggle.current) {
-      refocusToggle.current = false;
-      toggleRef.current?.focus();
-    }
-  }, [expanded]);
+  /**
+   * Shows the field and puts focus in it. Focus moves while the icon is still there,
+   * and only then does the icon go. Taking away the control that holds focus drops it
+   * to the page, and in that gap the accessibility tree reports the whole page as
+   * focused, which a screen reader can stop to announce.
+   */
+  function openField() {
+    flushSync(() => {
+      setSwapping(true);
+      setExpanded(true);
+      setOpen(true);
+    });
+    inputRef.current?.focus();
+    setSwapping(false);
+  }
 
   function pick(suggestion: Suggestion) {
     setOpen(false);
@@ -296,37 +344,46 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
     router.push(`/search?q=${encodeURIComponent(trimmed)}`);
   }
 
-  /** Puts the search away altogether, back to the icon. */
+  /** Puts the search away altogether, with focus on the icon, as openField in reverse. */
   function closeSearch() {
+    flushSync(() => setSwapping(true));
+    toggleRef.current?.focus();
     setOpen(false);
     setQ("");
     setActiveIndex(-1);
-    refocusToggle.current = true;
     setExpanded(false);
+    setSwapping(false);
   }
 
   // Group suggestions for the dropdown — prayers / saints / devotions
   // first, then spiritual life, then liturgy and history, then parishes
   // last. Within each group, the server already returns them ordered by
   // relevance.
+  //
+  // Rows gather under what each one is called, so a heading is true of every row
+  // beneath it, as on the /search page: one group key can hold two kinds of thing
+  // (Marian titles and apparitions; prayers and litanies), and a heading taken
+  // from the first row would mislabel the rest.
   const grouped = useMemo(() => {
-    const byGroup = new Map<SuggestionGroup, Suggestion[]>();
+    const byLabel = new Map<
+      string,
+      { group: SuggestionGroup; label: string; items: Suggestion[] }
+    >();
     for (const s of suggestions) {
-      const arr = byGroup.get(s.group) ?? [];
-      arr.push(s);
-      byGroup.set(s.group, arr);
-    }
-    return GROUP_ORDER.filter((g) => byGroup.has(g)).map((g) => {
-      const items = byGroup.get(g) ?? [];
-      return {
-        group: g,
-        // The server's own label wins — it accounts for subtypes a group key
-        // cannot express (a PRAYER whose prayerType is "litany" is a Litany).
-        label: items[0]?.typeLabel ?? GROUP_LABEL[g],
-        items,
+      // The server's own label wins — it accounts for subtypes a group key
+      // cannot express (a PRAYER whose prayerType is "litany" is a Litany). It is
+      // English, so the shared cache can hold one reply for every language.
+      const label = s.typeLabel ?? GROUP_LABEL[s.group];
+      const entry = byLabel.get(label) ?? {
+        group: s.group,
+        label: labels.types[label] ?? label,
+        items: [],
       };
-    });
-  }, [suggestions]);
+      entry.items.push(s);
+      byLabel.set(label, entry);
+    }
+    return GROUP_ORDER.flatMap((g) => [...byLabel.values()].filter((e) => e.group === g));
+  }, [suggestions, labels.types]);
 
   // Flat list in render-order so the keyboard arrow keys can step through
   // every visible suggestion regardless of which group it sits in.
@@ -335,7 +392,9 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
   const showPanel = open && expanded && trimmed.length >= MIN_QUERY_LENGTH;
   const showList = showPanel && status === "ready" && flat.length > 0;
   const optionId = (index: number) => `${listboxId}-option-${index}`;
-  const activeId = activeIndex >= 0 && flat[activeIndex] ? optionId(activeIndex) : undefined;
+  // Only while the list is there to point into: typing on hides it until the reply.
+  const activeId =
+    showList && activeIndex >= 0 && flat[activeIndex] ? optionId(activeIndex) : undefined;
 
   // The panel ends above the bottom of what can be seen, which on a phone means
   // above the keyboard, and never reaches past the window's left edge: its right
@@ -403,6 +462,11 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
   }
 
   const panelVariant = variant === "panel";
+  // A function, so a "$" in what was typed stays a "$".
+  const withQuery = (text: string) => text.replace("{query}", () => trimmed);
+  const noMatches = withQuery(labels.none);
+  const countForm = labels.count[pluralCategory(labels.locale, flat.length)] ?? labels.count.other;
+  const countText = (countForm ?? "").replace("{count}", String(flat.length));
 
   // A status region is only announced when its text changes, so it stays on the
   // page, empty, from the start. The rows themselves are reached with the arrow
@@ -410,15 +474,15 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
   const announcement = !showPanel
     ? ""
     : status === "loading"
-      ? "Searching…"
+      ? labels.searching
       : status === "error"
-        ? "Search is unavailable right now."
+        ? labels.unavailable
         : status === "ready" && flat.length === 0
-          ? `No matches for “${trimmed}”.`
+          ? noMatches
           : status === "ready"
-            ? `${flat.length} ${flat.length === 1 ? "suggestion" : "suggestions"}.${
-                panelVariant ? "" : " Use the up and down arrow keys to review, and Enter to open."
-              }`
+            ? finePointer
+              ? `${countText} ${labels.keysSpoken}`
+              : countText
             : "";
 
   const toggle = (
@@ -432,8 +496,7 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
         if (expanded) {
           closeSearch();
         } else {
-          setExpanded(true);
-          setOpen(true);
+          openField();
         }
       }}
       className="vf-header-search-toggle flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-sm text-ink-soft transition hover:bg-ink/5 hover:text-ink aria-expanded:bg-ink/5 aria-expanded:text-ink"
@@ -448,7 +511,7 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
     <div
       ref={wrapperRef}
       className={
-        panelVariant ? "flex items-center" : "relative flex min-w-0 items-center justify-end"
+        panelVariant ? "flex items-center" : "relative flex min-w-0 flex-1 items-center justify-end"
       }
       onBlur={(e) => {
         // Tabbing out closes the panel; a click elsewhere has its own listener
@@ -460,7 +523,7 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
         }
       }}
     >
-      {panelVariant || !expanded ? toggle : null}
+      {panelVariant || !expanded || swapping ? toggle : null}
       <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {announcement}
       </p>
@@ -518,32 +581,32 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
               >
                 {status === "loading" ? (
                   <p aria-hidden="true" className="vf-suggest-status">
-                    Searching…
+                    {labels.searching}
                   </p>
                 ) : null}
                 {status === "error" ? (
                   <p aria-hidden="true" className="vf-suggest-status">
-                    Search is unavailable right now.
+                    {labels.unavailable}
                   </p>
                 ) : null}
                 {status === "ready" && flat.length === 0 ? (
                   <p aria-hidden="true" className="vf-suggest-status">
-                    No matches for &ldquo;{trimmed}&rdquo;.
+                    {noMatches}
                   </p>
                 ) : null}
                 {showList ? (
                   <div
                     id={listboxId}
                     role="listbox"
-                    aria-label="Search suggestions"
+                    aria-label={labels.list}
                     tabIndex={-1}
                     className="vf-suggest-scroll"
                   >
-                    {grouped.map(({ group, label, items }) => {
-                      const groupId = `${listboxId}-group-${group}`;
+                    {grouped.map(({ label, items }, groupIndex) => {
+                      const groupId = `${listboxId}-group-${groupIndex}`;
                       return (
                         <div
-                          key={group}
+                          key={label}
                           role="group"
                           aria-labelledby={groupId}
                           className="vf-suggest-group"
@@ -566,6 +629,17 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
                                 aria-selected={flatIndex === activeIndex}
                                 aria-posinset={flatIndex + 1}
                                 aria-setsize={flat.length}
+                                // Written out rather than left to the row's text.
+                                // VoiceOver reads a row alone, not its group's
+                                // name, and where a line wraps just before a
+                                // <mark> WebKit drops the space ("of theRosary").
+                                aria-label={[
+                                  s.label,
+                                  s.subtitle ? spokenLine(s.subtitle) : null,
+                                  label,
+                                ]
+                                  .filter(Boolean)
+                                  .join(", ")}
                                 tabIndex={-1}
                                 onMouseEnter={() => setActiveIndex(flatIndex)}
                                 onClick={() => pick(s)}
@@ -574,14 +648,11 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
                                 <span className="vf-suggest-title">
                                   <SearchHighlight text={s.label} query={trimmed} />
                                 </span>
-                                {s.subtitle ? <span className="sr-only">, </span> : null}
                                 {s.subtitle ? (
                                   <span className="vf-suggest-meta vf-clamp [--clamp:2]">
                                     <SearchHighlight text={s.subtitle} query={trimmed} />
                                   </span>
                                 ) : null}
-                                {/* VoiceOver reads a row alone, not its group's name. */}
-                                <span className="sr-only">, {s.typeLabel ?? label}</span>
                               </button>
                             );
                           })}
@@ -605,11 +676,11 @@ export function HeaderSearchClient({ placeholder, ariaLabel, variant = "inline" 
                     }}
                     className="vf-link-action vf-suggest-all"
                   >
-                    See all results for &ldquo;{trimmed}&rdquo;
+                    {withQuery(labels.all)}
                   </button>
                   {showList ? (
                     <p aria-hidden="true" className="vf-suggest-hint">
-                      ↑↓ navigate &middot; ↵ open &middot; esc close
+                      {labels.keysShown}
                     </p>
                   ) : null}
                 </div>

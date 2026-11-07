@@ -378,23 +378,46 @@ export function buildHistoryView(timeline: HistoryTimeline, params: HistoryParam
   };
 }
 
-/**
- * The sentence announced after every change of view. Spelled "61 to 120" rather
- * than with a dash so a screen reader reads it as a range.
- */
-export function historyStatusText(view: HistoryView): string {
-  const { total, rangeStart, rangeEnd, target, year } = view;
+/** Spelled "61 to 120" rather than with a dash so a screen reader reads it as a range. */
+function countText({ total, rangeStart, rangeEnd }: HistoryView): string {
   if (total === 0) return "Showing no events";
   const shown = rangeEnd - rangeStart + 1;
-  const count =
-    total === 1
-      ? "Showing 1 event"
-      : rangeStart > 1
-        ? `Showing ${formatCount(rangeStart)} to ${formatCount(rangeEnd)} of ${formatCount(total)} events`
-        : shown === total
-          ? `Showing all ${formatCount(total)} events`
-          : `Showing ${formatCount(shown)} of ${formatCount(total)} events`;
+  if (total === 1) return "Showing 1 event";
+  if (rangeStart > 1) {
+    return `Showing ${formatCount(rangeStart)} to ${formatCount(rangeEnd)} of ${formatCount(total)} events`;
+  }
+  return shown === total
+    ? `Showing all ${formatCount(total)} events`
+    : `Showing ${formatCount(shown)} of ${formatCount(total)} events`;
+}
+
+/** The count above the list, as a sighted reader sees it beside its era and filter. */
+export function historyStatusText(view: HistoryView): string {
+  const { target, year } = view;
+  const count = countText(view);
   if (target && year !== null) return `${count}. At ${year}: ${target.title}.`;
   if (target) return `${count}. Opened: ${target.title}.`;
   return count;
+}
+
+/**
+ * The sentence announced after every change of view, and the only thing announced:
+ * the page's title stays the same through these moves, so nothing speaks over it.
+ * It has to say by itself what the eye gets from the rest of the page: which era
+ * and theme it counts, and the order, or two views of the same length would sound
+ * identical and reversing the list would not be heard at all. Where a year or link
+ * landed comes first, since that is the news and the slider's reader may move on.
+ */
+export function historyStatusSpeech(view: HistoryView): string {
+  const { era, theme, q, target, year } = view;
+  let count = countText(view);
+  if (q) count += ` for “${q}”`;
+  if (view.params.order === "newest") count += ", newest first";
+  const scope = [era?.label, theme === "all" ? null : FILTER_LABELS[theme]]
+    .filter(Boolean)
+    .join(", ");
+  const sentence = scope ? `${scope}: ${count[0]!.toLowerCase()}${count.slice(1)}.` : `${count}.`;
+  if (target && year !== null) return `At ${year}: ${target.title}. ${sentence}`;
+  if (target) return `Opened: ${target.title}. ${sentence}`;
+  return sentence;
 }

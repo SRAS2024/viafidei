@@ -12,7 +12,7 @@
  * sits under its title in a word, as on its card, and "General" names no type.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { PublishedItem } from "@/lib/data/published";
 
 const published = new Map<string, PublishedItem>();
@@ -26,6 +26,11 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/components/profile", () => ({
   SaveContentButton: () => null,
 }));
+
+vi.mock("@/lib/i18n/server", async () => {
+  const { createTranslator } = await import("@/lib/i18n/translator");
+  return { getTranslator: async () => ({ t: createTranslator("en") }) };
+});
 
 vi.mock("@/lib/data/published", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/data/published")>();
@@ -189,9 +194,12 @@ describe("prayer detail page", () => {
     );
   });
 
-  it("loads in the shape of the page it is loading, not the list above it", () => {
-    render(<PrayerLoading />);
+  it("loads in the shape of the page it is loading, not the list above it", async () => {
+    // A server component: the placeholder awaits the reader's language.
+    const { type: Skeleton, props } = PrayerLoading();
+    render(await (Skeleton as (p: object) => Promise<React.ReactElement>)(props));
     expect(screen.getByTestId("detail-loading")).toHaveClass("vf-detail");
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Loading"));
   });
 
   it("sets the page in the reading column: title, actions, then the prayer", async () => {

@@ -29,7 +29,9 @@ import {
 } from "@/app/our-lady/[slug]/facts";
 import { popeBirthName, popeFactItems, popePontificate } from "@/app/popes/[slug]/facts";
 import { riteFactItems, riteSummaryIsFiller } from "@/app/rites/[slug]/facts";
-import { saintCanonized, saintFactItems, saintLifeEnds } from "@/app/saints/[slug]/facts";
+import { saintFactItems, saintLifeEnds } from "@/app/saints/[slug]/facts";
+import { doctorKnowledge } from "@/lib/checklist/knowledge/doctors";
+import { popeReignedIn } from "@/lib/content-shared/display-order";
 import { saintCardDetailLines, saintPatronage } from "@/lib/content-shared/saints";
 import { createTranslator } from "@/lib/i18n/translator";
 
@@ -55,106 +57,54 @@ describe("a saint's patronage on a card", () => {
     expect(lines(["His specific patronages are not recorded"])).toEqual([]);
   });
 
+  it("leaves out a heading that came through instead of a patronage", () => {
+    expect(lines(["Patronage list"])).toEqual([]);
+  });
+
+  it("reads every way a source writes against, with a small letter", () => {
+    expect(lines(["patron against disorders of the bladder", "genitals"])).toEqual([
+      "Patron against disorders of the bladder, genitals",
+    ]);
+    expect(lines(["Against temptation"])).toEqual(["Patron against temptation"]);
+  });
+
+  it("never says Patron of before a phrase that says for itself how the saint is called on", () => {
+    expect(lines(["co-patron of Messina"])).toEqual(["Co-patron of Messina"]);
+    expect(lines(["invoked against drought"])).toEqual(["Invoked against drought"]);
+    expect(lines(["Invoked by pregnant women for a safe delivery"])).toEqual([
+      "Invoked by pregnant women for a safe delivery",
+    ]);
+    expect(lines(["Protectress of trees", "invoked against cattle diseases"])).toEqual([
+      "Protectress of trees, invoked against cattle diseases",
+    ]);
+    expect(lines(["Prayed to for family happiness."])).toEqual(["Prayed to for family happiness"]);
+  });
+
+  it("leaves off the saint's own name, and a pointer to the source's section", () => {
+    expect(lines(["Epipodius is the patron saint of bachelors", "victims of torture."])).toEqual([
+      "Patron of bachelors, victims of torture",
+    ]);
+    expect(lines(["Basilissa is invoked against chilblains"])).toEqual([
+      "Invoked against chilblains",
+    ]);
+    expect(lines(["various comuni in Italy (see Patronage)"])).toEqual([
+      "Patron of various comuni in Italy",
+    ]);
+    expect(lines(["Saint of husbands unhappily married", "tanners"])).toEqual([
+      "Patron of husbands unhappily married, tanners",
+    ]);
+  });
+
+  it("still reads an ordinary list with such a phrase later in it", () => {
+    expect(lines(["Patron of Monteprandone", "co-patron of Naples"])).toEqual([
+      "Patron of Monteprandone, co-patron of Naples",
+    ]);
+    expect(lines(["Naples (co-patron)"])).toEqual(["Patron of Naples (co-patron)"]);
+  });
+
   it("labels the facts area the same way", () => {
     const [fact] = saintFactItems({ patronages: ["against rabies"] }, t);
     expect(fact).toEqual({ label: "Patron", value: "against rabies" });
-  });
-});
-
-describe("a saint's canonization", () => {
-  const canonized = (date?: string, by?: string, extra: Record<string, unknown> = {}) =>
-    saintCanonized({
-      canonizationStatus: "canonized",
-      canonizationDate: date,
-      canonizedBy: by,
-      ...extra,
-    });
-
-  it("reads a date and a pope, whichever way the record wrote the date", () => {
-    expect(canonized("25 October 1970", "Pope Paul VI")).toBe("25 October 1970, by Pope Paul VI");
-    expect(canonized("May 16, 1988", "Pope John Paul II")).toBe(
-      "16 May 1988, by Pope John Paul II",
-    );
-    expect(canonized("October 15, 2006,", "Pope Benedict XVI")).toBe(
-      "15 October 2006, by Pope Benedict XVI",
-    );
-    expect(canonized("1078", "Pope Gregory VII")).toBe("1078, by Pope Gregory VII");
-    expect(canonized("June 1347", "Pope Clement VI")).toBe("June 1347, by Pope Clement VI");
-    expect(canonized("ca. 1170", "Pope Alexander III")).toBe("c. 1170, by Pope Alexander III");
-  });
-
-  it("finds the pope folded into the date, and names him as a pope", () => {
-    expect(canonized("25 October 1970 by Pope Paul VI")).toBe("25 October 1970, by Pope Paul VI");
-    expect(canonized("21 November 1999, Italy by Pope John Paul II")).toBe(
-      "21 November 1999, by Pope John Paul II",
-    );
-    expect(canonized("25 October 1970", "Paul VI")).toBe("25 October 1970, by Pope Paul VI");
-    expect(canonized("19 June 1988", "Pope John-Paul II")).toBe(
-      "19 June 1988, by Pope John Paul II",
-    );
-    expect(canonized("1123", "Pope Callixtus II (officially recognised)")).toBe(
-      "1123, by Pope Callixtus II",
-    );
-    expect(canonized("1 October 2000", "Pope John Paul&nbsp;II")).toBe(
-      "1 October 2000, by Pope John Paul II",
-    );
-  });
-
-  it("names the pope alone when that is all the record has", () => {
-    expect(canonized(undefined, "Pope Pius XII")).toBe("by Pope Pius XII");
-  });
-
-  it("keeps the date when a note beside it adds nothing to the fact", () => {
-    expect(canonized("3 April 2014 (equivalent canonization)", "Pope Francis")).toBe(
-      "3 April 2014, by Pope Francis",
-    );
-    expect(canonized("28 August 1221 (pre-Congregation)")).toBe("28 August 1221");
-  });
-
-  it("says nothing of a saint the record does not call canonized", () => {
-    expect(
-      saintCanonized({
-        canonizationStatus: "beatified",
-        canonizationDate: "19 October 2025",
-        canonizedBy: "Pope Leo XIV",
-      }),
-    ).toBeNull();
-  });
-
-  it("is not a confirmed cult", () => {
-    expect(canonized("1484 (cultus confirmed)", "Innocent VIII")).toBeNull();
-    expect(canonized("Cultus confirmed in 1893", "Pope Leo XIII")).toBeNull();
-    expect(canonized("cult was confirmed on August 26, 1727", "Pope Benedict XIII")).toBeNull();
-    expect(canonized("1517", "Cultus confirmed by Pope Leo X")).toBeNull();
-  });
-
-  it("is not an Orthodox or local act", () => {
-    expect(canonized("13 October 1994", "Russian Orthodox Church")).toBeNull();
-    expect(canonized("20 October 2019", "Bartholomew I of Constantinople")).toBeNull();
-    expect(canonized("1130", "Paio Mendes, Archbishop of Braga")).toBeNull();
-    expect(canonized("1987", "Ignatius Zakka I Iwas")).toBeNull();
-    expect(canonized(undefined, "Eastern Orthodox Church Roman Catholic Church")).toBeNull();
-  });
-
-  it("needs a pope from 1234, when canonizing became the pope's alone", () => {
-    expect(canonized("1986")).toBeNull();
-    expect(canonized("1029")).toBe("1029");
-  });
-
-  it("drops a date from before canonizations were recorded, or before the saint died", () => {
-    expect(canonized("304")).toBeNull();
-    expect(canonized("860", "Pope Nicholas I")).toBeNull();
-    expect(canonized("1100", "Pope Paschal II", { deathDate: "1140" })).toBeNull();
-  });
-
-  it("will not guess at what it cannot read", () => {
-    expect(canonized("1553 and 1621")).toBeNull();
-    expect(canonized("after 968")).toBeNull();
-    expect(canonized("3 were canonized by Pope Paul VI on 25 October 1970")).toBeNull();
-    expect(canonized("officially inscribed in the canon of saints in 1753.")).toBeNull();
-    expect(canonized(undefined, "Pre-Congregation")).toBeNull();
-    expect(canonized(undefined, "q")).toBeNull();
-    expect(canonized()).toBeNull();
   });
 });
 
@@ -209,8 +159,21 @@ describe("a saint's facts", () => {
       "Feast day: September 17",
       "Born: 1542",
       "Died: 1621",
-      "Canonized: 29 June 1930, by Pope Pius XI",
     ]);
+  });
+
+  it("have no canonization row, whatever the record holds", () => {
+    // Gertrude of Nivelles and the Copts of Libya, as the records word them: the
+    // pope did not reign that year, and the second is the Coptic pope.
+    for (const record of [
+      { canonizationDate: "1677", canonizedBy: "Pope Clement XII", feastDay: "03-17" },
+      { canonizationDate: "21 February 2015", canonizedBy: "Pope Tawadros II", feastDay: "02-15" },
+    ]) {
+      const labels = saintFactItems({ canonizationStatus: "canonized", ...record }, t).map(
+        (item) => item.label,
+      );
+      expect(labels).toEqual(["Feast day"]);
+    }
   });
 
   it("leave out what the record lacks", () => {
@@ -308,11 +271,24 @@ describe("a Doctor's facts", () => {
     ).toBe("1997, by Pope John Paul II");
   });
 
-  it("fall back on a recorded year, and otherwise say nothing", () => {
-    expect(doctorDeclared({ background: "A great teacher.", declaredDoctorYear: 1931 })).toBe(
-      "1931",
-    );
+  it("say nothing when the biography names no pope", () => {
     expect(doctorDeclared({ background: "A great teacher." })).toBeNull();
+    expect(doctorDeclared({ background: "A great teacher.", declaredDoctorYear: 1931 })).toBeNull();
+  });
+
+  it("hold the pope and the year to the written-out line of popes", () => {
+    expect(declared("Declared a Doctor of the Church by Pope Pius XI in 1677.")).toBeNull();
+    expect(declared("Declared a Doctor of the Church by Pope Clement XII in 1677.")).toBeNull();
+    expect(declared("Declared a Doctor of the Church by Pope Tawadros II in 2015.")).toBeNull();
+    expect(declared("Declared a Doctor of the Church by Pope Clement XII in 1735.")).toBe(
+      "1735, by Pope Clement XII",
+    );
+  });
+
+  it("keep the declaration of every Doctor in the catalogue, and each one's pope reigned", () => {
+    const lines = doctorKnowledge.map((entry) => doctorDeclared(entry.payload));
+    expect(lines).toHaveLength(38);
+    expect(lines.filter((line) => line == null)).toEqual([]);
   });
 
   it("do not take another pope's act for the declaration", () => {
@@ -359,6 +335,29 @@ describe("a Doctor's facts", () => {
       "Title: Doctor of Grace",
       "Feast day: August 28",
     ]);
+  });
+});
+
+describe("the line of popes", () => {
+  it("knows who reigned when, however a text styles him", () => {
+    expect(popeReignedIn("Pope Pius XI", 1931)).toBe(true);
+    expect(popeReignedIn("Pope Saint Pius V", 1568)).toBe(true);
+    expect(popeReignedIn("Pope Pius XII", 1946)).toBe(true);
+    expect(popeReignedIn("Pope Venerable Pius XII", 1946)).toBe(true);
+    expect(popeReignedIn("Pope John-Paul II", 1997)).toBe(true);
+    expect(popeReignedIn("Pope John Paul II", 2005)).toBe(true);
+    expect(popeReignedIn("Pope Leo XIV", 2025)).toBe(true);
+  });
+
+  it("does not stretch a reign", () => {
+    expect(popeReignedIn("Pope Clement XII", 1677)).toBe(false);
+    expect(popeReignedIn("Pope Clement XII", 1741)).toBe(false);
+    expect(popeReignedIn("Pope Leo XIV", 2024)).toBe(false);
+  });
+
+  it("does not know a name outside the Roman line", () => {
+    expect(popeReignedIn("Pope Tawadros II", 2015)).toBe(false);
+    expect(popeReignedIn("Pope Boniface XXX", 1298)).toBe(false);
   });
 });
 
@@ -513,6 +512,30 @@ describe("a liturgical entry's line", () => {
       kind: "Season of the liturgical year",
       facts: [],
     });
+  });
+
+  it("calls only the Mass the Order of Mass, whatever the record files under it", () => {
+    const kindOf = (title: string) => liturgicalLine({ kind: "mass_structure", title }).kind;
+    expect(kindOf("The Structure of the Roman Rite Mass")).toBe("Order of Mass");
+    expect(kindOf("The Eucharistic Prayers of the Roman Missal")).toBe("Part of the Mass");
+    expect(kindOf("The Roman Missal, Third Edition")).toBe("Liturgical book");
+    expect(kindOf("The Lectionary: Sunday Cycles A, B, C and Weekday Cycles I and II")).toBe(
+      "Liturgical book",
+    );
+    expect(kindOf("The Rite of Baptism for Children")).toBe("Liturgical rite");
+    expect(kindOf("The Rite of Confirmation")).toBe("Liturgical rite");
+    expect(kindOf("Exposition and Benediction of the Blessed Sacrament")).toBe("Liturgical rite");
+    expect(
+      kindOf("The Order of Christian Initiation of Adults: Scrutinies and the Easter Vigil"),
+    ).toBe("Liturgical rite");
+    expect(kindOf("The Structure of the Liturgy of the Hours")).toBe("Prayer of the Church");
+    expect(kindOf("Something the worker filed here")).toBe("Liturgy");
+  });
+
+  it("takes the page's title over the record's", () => {
+    expect(
+      liturgicalLine({ kind: "mass_structure" }, "The Rite of Baptism for Children").kind,
+    ).toBe("Liturgical rite");
   });
 
   it("does not call a day a season, whatever the record files it under", () => {

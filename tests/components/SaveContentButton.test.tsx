@@ -27,8 +27,15 @@ const server = vi.hoisted(() => ({
 vi.mock("@/lib/auth", () => ({ requireUser: async () => server.user }));
 vi.mock("@/lib/data/saved", () => ({ isSaved: async () => server.saved }));
 
+const reader = vi.hoisted(() => ({ locale: "en" as Locale }));
+vi.mock("@/lib/i18n/server", async () => {
+  const { createTranslator } = await import("@/lib/i18n/translator");
+  return { getTranslator: async () => ({ t: createTranslator(reader.locale) }) };
+});
+
 import { SaveButton } from "@/components/profile/SaveButton";
 import { SAVEABLE_CONTENT, SaveContentButton } from "@/components/profile/SaveContentButton";
+import type { Locale } from "@/lib/i18n/locales";
 
 /** A real 80-character parish slug shape — the worker's slugify cap. */
 const LONG_PARISH_SLUG =
@@ -40,6 +47,7 @@ let realLocation: Location;
 beforeEach(() => {
   server.user = null;
   server.saved = false;
+  reader.locale = "en";
   nav.path = "/parishes/cathedral-basilica-of-the-immaculate-conception";
   assign = vi.fn();
   // jsdom's own location.assign is "not implemented" and throws; the popup
@@ -225,5 +233,38 @@ describe("a signed-in tap on a parish Favorite", () => {
     render(<SaveButton kind="parishes" entityId={LONG_PARISH_SLUG} initiallySaved={false} />);
     fireEvent.click(screen.getByRole("button", { name: "Favorite" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not save. Please try again.");
+  });
+});
+
+describe("the Favorite control and its popup, in the reader's language", () => {
+  it.each([
+    ["de", "Favorit", "Für diese Aktion brauchen Sie ein Konto.", "Anmelden", "Konto erstellen"],
+    ["pl", "Do ulubionych", "Do tej czynności potrzebujesz konta.", "Zaloguj się", "Utwórz konto"],
+    ["tl", "Paborito", "Kailangan mo ng account para rito.", "Mag-sign in", "Gumawa ng account"],
+  ] as const)(
+    "speaks %s, with no English left",
+    async (locale, favorite, needed, logIn, create) => {
+      reader.locale = locale;
+      render(await SaveContentButton({ contentType: "PARISH", slug: LONG_PARISH_SLUG }));
+      fireEvent.click(screen.getByRole("button", { name: favorite }));
+      const dialog = await screen.findByRole("dialog", { name: needed });
+      expect(within(dialog).getByRole("button", { name: logIn })).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: create })).toBeInTheDocument();
+      expect(dialog).not.toHaveTextContent(/log in|create account|account is required/i);
+      expect(
+        within(dialog).getByRole("button", { name: /schließen|zamknij|isara/i }),
+      ).toBeVisible();
+    },
+  );
+
+  it("is what it always said in English", async () => {
+    render(await SaveContentButton({ contentType: "PARISH", slug: LONG_PARISH_SLUG }));
+    fireEvent.click(screen.getByRole("button", { name: "Favorite" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "You must have an account for this action.",
+    });
+    expect(within(dialog).getByRole("button", { name: /^log in$/i })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /^create account$/i })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Close" })).toBeInTheDocument();
   });
 });

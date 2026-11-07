@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   ROSARY_MYSTERY_SETS,
@@ -11,6 +11,16 @@ import {
 } from "@/lib/content-shared/rosary";
 
 import { FilterChips } from "./FilterChips";
+import { useLocalToday, useVisitDay } from "./useLocalToday";
+
+/** Noon on that date, by the device's clock, which no clock change moves to another day. */
+function atNoon(isoDate: string): Date {
+  return new Date(`${isoDate}T12:00:00`);
+}
+
+function setForDay(isoDate: string): MysterySetKey {
+  return mysterySetForWeekday(atNoon(isoDate).getDay());
+}
 
 /**
  * The Rosary's four mystery sets with an auto-by-weekday default.
@@ -22,41 +32,52 @@ import { FilterChips } from "./FilterChips";
  * switch to any other set. The picker is the site's filter chips, selected in
  * blue. A mystery's fruit and reading are facts, so they are set as plain text.
  * The set's name is live, so a screen reader hears which set has come up.
+ *
+ * What "today" says moves with the day. The set on show does not move at midnight
+ * under someone praying from it: it moves when the visitor comes back to the tab, and
+ * not at all once they have chosen one for themselves.
  */
-export function RosaryMysteries() {
-  const [today, setToday] = useState<{ set: MysterySetKey; weekday: string } | null>(null);
-  const [selected, setSelected] = useState<MysterySetKey | null>(null);
+export function RosaryMysteries({
+  todayChip = "{label} (today)",
+}: {
+  /** The chip of today's set, in the reader's language: "{label} (today)". */
+  todayChip?: string;
+}) {
+  const today = useLocalToday();
+  const visitDay = useVisitDay();
+  const [picked, setPicked] = useState<MysterySetKey | null>(null);
 
-  useEffect(() => {
-    const now = new Date();
-    const set = mysterySetForWeekday(now.getDay());
-    setToday({ set, weekday: now.toLocaleDateString("en-US", { weekday: "long" }) });
-    setSelected(set);
-  }, []);
-
+  const todaySet = today ? setForDay(today) : null;
+  const selected = picked ?? (visitDay ? setForDay(visitDay) : todaySet);
   const active = selected ? mysterySet(selected) : null;
 
   return (
     <section className="vf-detail-section vf-mysteries">
       <h2 className="vf-subhead">The Mysteries of the Rosary</h2>
-      {today ? (
+      {today && todaySet ? (
         <p className="vf-detail-note">
-          Today ({today.weekday}) the {mysterySet(today.set).label} are prayed.
+          Today ({atNoon(today).toLocaleDateString("en-US", { weekday: "long" })}) the{" "}
+          {mysterySet(todaySet).label} are prayed.
         </p>
       ) : null}
 
       <FilterChips
         ariaLabel="Mystery set"
-        items={ROSARY_MYSTERY_SETS.map((set) => ({
-          key: set.key,
-          label: `${set.label.replace(" Mysteries", "")}${set.key === today?.set ? " · Today" : ""}`,
-        }))}
+        items={ROSARY_MYSTERY_SETS.map((set) => {
+          const name = set.label.replace(" Mysteries", "");
+          return {
+            key: set.key,
+            // Words alone, since a chip's label is one string and a voice would read a dot.
+            label: set.key === todaySet ? todayChip.replace("{label}", name) : name,
+          };
+        })}
         activeKey={selected ?? ""}
-        onSelect={(key) => setSelected(key as MysterySetKey)}
+        onSelect={(key) => setPicked(key as MysterySetKey)}
         collapseAfter={ROSARY_MYSTERY_SETS.length}
-        // The four sets fill the column evenly, two by two on a phone, so that
-        // none is left alone on a row.
-        className="vf-mysteries-picker !grid grid-cols-2 sm:grid-cols-4"
+        // The four sets fill the column evenly, so that none is left alone on a row.
+        // How many go across is the column's to say, in the stylesheet: it follows
+        // the reader's text size, as the window's width would not.
+        className="vf-mysteries-picker !grid"
       />
 
       {active ? (

@@ -17,7 +17,11 @@ export default async function LiturgicalCalendarPage() {
   return (
     <div>
       <PageHero {...CALENDAR_HERO} />
-      <LiturgicalCalendarBrowser rites={rites} initialRite={rite} />
+      <LiturgicalCalendarBrowser
+        rites={rites}
+        initialRite={rite}
+        loadingLabel={t("common.loadingCalendar")}
+      />
     </div>
   );
 }

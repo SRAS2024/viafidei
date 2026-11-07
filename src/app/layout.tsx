@@ -4,6 +4,9 @@ import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
 import { Header, Footer } from "@/components/layout";
 import { SkipLink } from "@/components/layout/SkipLink";
+import { TitleKeeper } from "@/components/layout/TitleKeeper";
+import { LoginRequiredLabelsProvider } from "@/components/ui/LoginRequiredPopup";
+import { ShareLabelsProvider } from "@/components/ui/ShareButton";
 import { appConfig } from "@/lib/config";
 import { getLocale, getTranslator } from "@/lib/i18n/server";
 import { getThemeCookieValue } from "@/lib/i18n/theme-cookie";
@@ -101,6 +104,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} data-theme={theme} className={`${cormorant.variable} ${inter.variable}`}>
       <body className="flex min-h-screen flex-col">
+        <TitleKeeper />
         {isAdminRoute ? null : <SkipLink label={t("common.skipToContent")} />}
         {isAdminRoute ? null : <Header />}
         <main
@@ -108,10 +112,29 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           className={
             isAdminRoute
               ? "mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6"
-              : "mx-auto w-full max-w-6xl flex-1 px-4 pb-8 pt-6 sm:px-6 sm:pt-8"
+              : // The gutter gives way at enlarged text on a phone, where the words need the room.
+                "mx-auto w-full max-w-6xl flex-1 px-[min(1rem,5vw)] pb-8 pt-6 sm:px-6 sm:pt-8"
           }
         >
-          {children}
+          <ShareLabelsProvider
+            labels={{
+              share: t("share.action"),
+              shareItem: t("share.item"),
+              copied: t("share.copied"),
+              failed: t("share.failed"),
+            }}
+          >
+            <LoginRequiredLabelsProvider
+              labels={{
+                message: t("loginRequired.message"),
+                loginLabel: t("nav.login"),
+                registerLabel: t("loginRequired.createAccount"),
+                closeLabel: t("loginRequired.close"),
+              }}
+            >
+              {children}
+            </LoginRequiredLabelsProvider>
+          </ShareLabelsProvider>
         </main>
         {isAdminRoute ? null : <Footer />}
       </body>

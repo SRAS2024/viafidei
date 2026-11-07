@@ -23,6 +23,7 @@ import {
   type PublishedItem,
 } from "@/lib/data/published";
 import { loadPrayersForText } from "@/lib/data/prayer-sets";
+import { getTranslator } from "@/lib/i18n/server";
 import { localizeItem, localizePrayers } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
@@ -106,11 +107,13 @@ export default async function DevotionDetailPage({ params }: Props) {
     const value = item.payload[key];
     return typeof value === "string" && value.trim() !== background;
   });
-  const renderInstructions = instructionField(prayers);
+  const { t } = await getTranslator();
+  const renderInstructions = instructionField(prayers, 3, t);
   // A description shown once, with nothing above it, is the page's own prose.
   const backgroundLeads = howToPray.length === 0 && prayers.length === 0;
   return (
     <PublishedDetail
+      t={t}
       item={withPrayerList(item, prayers)}
       // "Devotion to Christ" / "Marian devotion · 20 min" says less than the
       // eyebrow and the duration line.

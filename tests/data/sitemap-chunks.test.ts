@@ -6,6 +6,8 @@
  * stops discovering new content — so the index/chunk split is a correctness
  * requirement, not an optimisation.
  */
+import { existsSync, readFileSync } from "node:fs";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findMany = vi.fn();
@@ -62,15 +64,47 @@ describe("listSitemapUrls", () => {
     expect(findMany).not.toHaveBeenCalled();
   });
 
+  it("lists no address that only redirects somewhere else", async () => {
+    const urls = await listSitemapUrls("pages", 0);
+    // /liturgy-history answers with a redirect to /history, so /history is the page.
+    expect(urls.some((u) => u.loc === "/liturgy-history")).toBe(false);
+    for (const { loc } of urls) {
+      const page = [`src/app${loc}/page.tsx`, `src/app${loc}/(list)/page.tsx`].find((path) =>
+        existsSync(path),
+      );
+      expect(page, `${loc || "/"} has a page`).toBeDefined();
+      expect(readFileSync(page!, "utf8"), `${loc || "/"} is a page of its own`).not.toMatch(
+        /\): never \{/,
+      );
+    }
+  });
+
   it("selects only slug + updatedAt, ordered by id so chunk edges stay stable", async () => {
     findMany.mockResolvedValue([{ slug: "agnes-of-rome", updatedAt: new Date("2026-01-01") }]);
     const urls = await listSitemapUrls("saint", 2);
-    const args = findMany.mock.calls[0][0] as Record<string, unknown>;
+    const args = findMany.mock.calls.at(-1)![0] as Record<string, unknown>;
     expect(args.select).toEqual({ slug: true, updatedAt: true });
     expect(args.orderBy).toEqual({ id: "asc" });
     expect(args.skip).toBe(2 * SITEMAP_CHUNK_SIZE);
     expect(args.take).toBe(SITEMAP_CHUNK_SIZE);
     expect(urls[0].loc).toBe("/saints/agnes-of-rome");
+  });
+
+  it("leaves out a saint published twice, whose better record is live", async () => {
+    findMany.mockImplementation(async (args: { select: Record<string, unknown> }) =>
+      "updatedAt" in args.select ? [] : [{ slug: "saint-dismas", title: "Saint Dismas" }],
+    );
+    await listSitemapUrls("saint", 0);
+    const { where } = findMany.mock.calls.at(-1)![0] as { where: { slug: { notIn: string[] } } };
+    expect(where.slug.notIn).toContain("saint-penitent-thief");
+    expect(where.slug.notIn).not.toContain("saint-peter-lieou");
+  });
+
+  it("asks nothing about duplicates of any other type", async () => {
+    findMany.mockResolvedValue([]);
+    await listSitemapUrls("parish", 0);
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(findMany.mock.calls[0]![0].where).toEqual({ contentType: "PARISH", isPublished: true });
   });
 
   it("answers an unknown or guessed segment with an empty list, not an error", async () => {
@@ -82,7 +116,8 @@ describe("listSitemapUrls", () => {
   it("memoises a chunk — crawlers re-fetch far more often than we publish", async () => {
     findMany.mockResolvedValue([]);
     await listSitemapUrls("saint", 0);
+    const calls = findMany.mock.calls.length;
     await listSitemapUrls("saint", 0);
-    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(findMany).toHaveBeenCalledTimes(calls);
   });
 });

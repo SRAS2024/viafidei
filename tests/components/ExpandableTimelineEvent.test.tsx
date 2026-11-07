@@ -38,6 +38,29 @@ describe("ExpandableTimelineEvent", () => {
     expect(summary.querySelectorAll("button")).toHaveLength(0);
   });
 
+  it("keeps each comma a voice pauses on in the words it follows", () => {
+    // Out of the line, in .sr-only, Safari's accessibility tree makes a comma a stop of
+    // its own: the first thing on /history did this 122 times on a page of 60 rows.
+    const { container } = render(nicaea);
+    const summary = container.querySelector("summary")!;
+    expect(summary.querySelector(".sr-only")).toBeNull();
+    expect(summary.querySelector(".vf-timeline-date")).toHaveTextContent(/^20 May 325,$/);
+    expect(summary.querySelector(".vf-timeline-title")).toHaveTextContent(
+      /^First Council of Nicaea,$/,
+    );
+    expect(summary.querySelector(".vf-timeline-kind")).toHaveTextContent(/^Council$/);
+    for (const comma of summary.querySelectorAll(".vf-sr-inline")) {
+      expect(comma).toHaveTextContent(/^,$/);
+    }
+    expect(summary.querySelectorAll(".vf-sr-inline")).toHaveLength(2);
+  });
+
+  it("has no comma to pause on where nothing follows it", () => {
+    const { container } = render(<ExpandableTimelineEvent title="Pentecost" />);
+    expect(container.querySelector(".vf-timeline-title")).toHaveTextContent(/^Pentecost$/);
+    expect(container.querySelector(".vf-sr-inline")).toBeNull();
+  });
+
   it("holds its full details whether open or closed, in their existing order", () => {
     const { container } = render(nicaea);
     const body = container.querySelector(".vf-timeline-body")!;
@@ -74,6 +97,8 @@ describe("ExpandableTimelineEvent", () => {
     expect(anchors[1]).toHaveAttribute("rel", "noopener noreferrer");
     expect(anchors[1]).toHaveAccessibleName(/Official text.*opens in a new tab/);
     expect(anchors[2]).toHaveAttribute("href", "/popes/pope-saint-sylvester-i");
+    // Safari drops the list role from a list with no markers unless it is spelled out.
+    expect(related).toHaveAttribute("role", "list");
   });
 
   it("shows no source: a reader's page shows no sources", () => {

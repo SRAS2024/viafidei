@@ -2,11 +2,11 @@
  * Cached loader for the /history timeline (audit HIST-09/HIST-10).
  *
  * The timeline is the static event spine merged with the published
- * CHURCH_DOCUMENT rows, plus the slug sets that tell the merge which related
- * pages (popes, saints, doctors, apparitions) actually exist so it never
- * renders a dead chip. Historical facts do not change and documents publish
- * rarely, so the built timeline is cached for an hour under the same
- * `content-type:*` tags the worker revalidates after a publish
+ * CHURCH_DOCUMENT rows, plus the slugs and titles of the related pages (popes,
+ * saints, doctors, apparitions) its events name, so that it never renders a dead
+ * link and each link reads what its page reads. Historical facts do not change
+ * and documents publish rarely, so the built timeline is cached for an hour under
+ * the same `content-type:*` tags the worker revalidates after a publish
  * (`revalidateContentType(input.contentType)` in post-publish-probe) — a new
  * document appears on the next request, not an hour later.
  *
@@ -24,6 +24,7 @@ import type { ChecklistContentType } from "@prisma/client";
 import { withCacheTags } from "@/lib/cache/cached-data";
 import { contentTypeTag, tabTag } from "@/lib/cache/tags";
 import { prisma } from "@/lib/db/client";
+import { CHURCH_HISTORY_EVENTS } from "@/lib/content-shared/church-history-events";
 import {
   buildTimeline,
   timelineDocumentFromPayload,
@@ -51,6 +52,13 @@ const RELATED_TYPES: Record<RelatedLinkType, ChecklistContentType> = {
 export interface HistoryTimelineInputs {
   documents: TimelineDocument[];
   publishedSlugs: Record<RelatedLinkType, string[]>;
+  /** Each of those pages' own titles, by slug. */
+  relatedTitles?: Partial<Record<RelatedLinkType, Record<string, string>>>;
+}
+
+/** The pages the timeline's events name, out of the thousands of each type. */
+function namedSlugs(type: RelatedLinkType): string[] {
+  return [...new Set(CHURCH_HISTORY_EVENTS.flatMap((event) => event.links?.[type] ?? []))];
 }
 
 export async function readHistoryTimelineInputs(): Promise<HistoryTimelineInputs> {
@@ -73,16 +81,20 @@ export async function readHistoryTimelineInputs(): Promise<HistoryTimelineInputs
     RelatedLinkType,
     string[]
   >;
+  const relatedTitles: NonNullable<HistoryTimelineInputs["relatedTitles"]> = {};
   for (const [key, contentType] of Object.entries(RELATED_TYPES) as Array<
     [RelatedLinkType, ChecklistContentType]
   >) {
     const slugRows = await prisma.publishedContent.findMany({
-      where: { contentType, isPublished: true },
-      select: { slug: true },
+      where: { contentType, isPublished: true, slug: { in: namedSlugs(key) } },
+      select: { slug: true, title: true },
     });
     publishedSlugs[key] = slugRows.map((r) => r.slug);
+    relatedTitles[key] = Object.fromEntries(
+      slugRows.filter((r) => r.title).map((r) => [r.slug, r.title]),
+    );
   }
-  return { documents, publishedSlugs };
+  return { documents, publishedSlugs, relatedTitles };
 }
 
 export function timelineFromInputs(
@@ -97,6 +109,12 @@ export function timelineFromInputs(
       doctors: new Set(inputs.publishedSlugs.doctors),
       apparitions: new Set(inputs.publishedSlugs.apparitions),
     },
+    relatedTitles: {
+      popes: new Map(Object.entries(inputs.relatedTitles?.popes ?? {})),
+      saints: new Map(Object.entries(inputs.relatedTitles?.saints ?? {})),
+      doctors: new Map(Object.entries(inputs.relatedTitles?.doctors ?? {})),
+      apparitions: new Map(Object.entries(inputs.relatedTitles?.apparitions ?? {})),
+    },
   });
 }
 
@@ -109,7 +127,8 @@ export const HISTORY_TIMELINE_CACHE_TAGS: string[] = [
 /** The merged, cached timeline for the /history page. */
 export async function loadHistoryTimeline(): Promise<HistoryTimeline> {
   const read = await withCacheTags({
-    keyParts: ["history-timeline-inputs", "v1"],
+    // v2 carries the related pages' titles; a v1 entry has none to give.
+    keyParts: ["history-timeline-inputs", "v2"],
     tags: HISTORY_TIMELINE_CACHE_TAGS,
     revalidateSeconds: HISTORY_TIMELINE_REVALIDATE_SECONDS,
     fn: readHistoryTimelineInputs,

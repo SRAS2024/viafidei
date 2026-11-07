@@ -36,3 +36,45 @@ export function SearchHighlight({ text, query }: { text: string; query: string }
     </>
   );
 }
+
+/** What separates the parts of a stored subtitle: "Memorial · October 7". */
+const LINE_SEPARATOR = /\s+·\s+/;
+
+/**
+ * A line of metadata as it should be spoken: a comma, which a screen reader
+ * voices as a pause, where the eye gets a dot.
+ */
+export function spokenLine(text: string): string {
+  return text.split(LINE_SEPARATOR).join(", ");
+}
+
+/**
+ * A result's line of metadata, "Memorial · October 7 · Ordinary Time", with the
+ * matched text marked.
+ *
+ * What is drawn and what is read are kept apart, because each dot and each mark
+ * cuts the line into pieces that VoiceOver stops at one by one, and a word cut
+ * by a mark is read in halves ("Mary", then "land"). So a screen reader gets the
+ * whole line at once and the drawn line is hidden from it. A line with nothing
+ * to cut is left as plain text.
+ */
+export function SearchMetaLine({ text, query }: { text: string; query: string }) {
+  const parts = text.split(LINE_SEPARATOR);
+  const needle = query.trim().toLowerCase();
+  if (parts.length === 1 && (!needle || !text.toLowerCase().includes(needle))) {
+    return <>{text}</>;
+  }
+  return (
+    <>
+      <span className="sr-only">{spokenLine(text)}</span>
+      <span aria-hidden="true">
+        {parts.map((part, i) => (
+          <Fragment key={i}>
+            {i > 0 ? " · " : null}
+            <SearchHighlight text={part} query={query} />
+          </Fragment>
+        ))}
+      </span>
+    </>
+  );
+}

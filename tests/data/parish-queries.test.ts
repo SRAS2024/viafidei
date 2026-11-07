@@ -19,6 +19,7 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 import { memoClear } from "@/lib/cache/memo";
+import { accentBlindPattern } from "@/lib/content-shared/parish";
 import { listParishPage, listParishesNear } from "@/lib/data/published";
 
 type Sql = { strings?: string[]; values: unknown[] };
@@ -73,8 +74,23 @@ describe("listParishPage", () => {
     await listParishPage({ q: "john", class: "shrine" });
     const sql = queryRaw.mock.calls[0][0] as Sql;
     expect(textOf(sql)).toContain('"subtype" = ANY');
-    expect(sql.values).toContain("%john%");
+    expect(sql.values).toContain(accentBlindPattern("john"));
     expect(sql.values).toEqual(expect.arrayContaining([["shrine"]]));
+  });
+});
+
+describe("a church with two names", () => {
+  const twoNames = "Saint Rose of Lima Catholic Church;Iglesia Católica Santa Rosa de Lima";
+  const shown = "Saint Rose of Lima Catholic Church (Iglesia Católica Santa Rosa de Lima)";
+
+  it("reads the same in the directory and near the reader, with no raw semicolon", async () => {
+    queryRaw
+      .mockResolvedValueOnce([{ total: 1n }])
+      .mockResolvedValueOnce([row({ title: twoNames })]);
+    expect((await listParishPage({})).items[0]!.title).toBe(shown);
+    queryRaw.mockResolvedValueOnce([row({ title: twoNames, distance_miles: 1 })]);
+    const [near] = await listParishesNear({ latitude: 1, longitude: 1, take: 1 });
+    expect(near!.title).toBe(shown);
   });
 });
 

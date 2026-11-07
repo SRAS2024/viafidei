@@ -14,7 +14,8 @@
  *     fabricated 1 January.
  *   - Related links (popes, saints, doctors, apparitions) are kept only when
  *     the referenced slug is published; when a slug set is not supplied at
- *     all the curated links are trusted as-is.
+ *     all the curated links are trusted as-is. Each reads its page's own title;
+ *     only a page whose title is not known falls back to words from its slug.
  *   - Order is chronological (sort key, then title). Static events carry
  *     no body: context + significance suffice for the list, and the document
  *     page holds the excerpt.
@@ -71,7 +72,16 @@ export function timelineDocumentFromPayload(
   };
 }
 
-export type HistoryLink = { href: string; label: string; external?: boolean };
+export type HistoryLink = {
+  href: string;
+  label: string;
+  external?: boolean;
+  /**
+   * The person's page among the Doctors, beside a page of the same name among the
+   * saints. The page says so in the reader's language: this builder is cached for all.
+   */
+  asDoctor?: boolean;
+};
 
 export interface HistoryEvent {
   slug: string;
@@ -132,6 +142,8 @@ export interface BuildTimelineOptions {
    * curated links to published pages; an absent type keeps them all.
    */
   publishedSlugs?: Partial<Record<RelatedLinkType, ReadonlySet<string>>>;
+  /** The titles those pages go by, so a link reads what its page reads. */
+  relatedTitles?: Partial<Record<RelatedLinkType, ReadonlyMap<string, string>>>;
   /** Override "today" (tests). */
   currentYear?: number;
 }
@@ -170,13 +182,24 @@ export function historyKindLabel(kind: HistoryKind, documentType?: string): stri
   return KIND_LABELS[kind];
 }
 
-/** Slug → readable chip label: "pope-saint-paul-vi" → "Pope Saint Paul VI". */
+const ROMAN_NUMERAL = /^(x[cl]|l?x{0,3})(i[xv]|v?i{0,3})$/i;
+const SLUG_PARTICLES = new Set(["and", "at", "de", "del", "di", "du", "in", "la", "of", "the"]);
+
+/**
+ * Words for a page whose title is not known: "pope-saint-paul-vi" reads "Pope
+ * Saint Paul VI". The prefixes that only file a page under its route are dropped,
+ * so "doctor-augustine-of-hippo" reads "Augustine of Hippo".
+ */
 export function relatedLinkLabel(slug: string): string {
-  const roman = /^(i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv|xvi)$/i;
   return slug
+    .replace(/^(doctor|apparition)-/, "")
     .split("-")
     .filter(Boolean)
-    .map((part) => (roman.test(part) ? part.toUpperCase() : part[0]!.toUpperCase() + part.slice(1)))
+    .map((part, i) => {
+      if (ROMAN_NUMERAL.test(part)) return part.toUpperCase();
+      if (i > 0 && SLUG_PARTICLES.has(part)) return part;
+      return part[0]!.toUpperCase() + part.slice(1);
+    })
     .join(" ");
 }
 
@@ -225,6 +248,7 @@ function tagsForDocumentType(documentType?: string): string[] {
 function relatedLinks(
   links: ChurchHistoryEvent["links"],
   published: BuildTimelineOptions["publishedSlugs"],
+  titles: BuildTimelineOptions["relatedTitles"],
 ): HistoryLink[] {
   const out: HistoryLink[] = [];
   if (!links) return out;
@@ -234,7 +258,13 @@ function relatedLinks(
     const allowed = published?.[type];
     for (const slug of slugs) {
       if (allowed && !allowed.has(slug)) continue; // unpublished page → no dead link
-      out.push({ href: `${RELATED_ROUTE_BASE[type]}/${slug}`, label: relatedLinkLabel(slug) });
+      const title = titles?.[type]?.get(slug)?.trim() || relatedLinkLabel(slug);
+      const link: HistoryLink = { href: `${RELATED_ROUTE_BASE[type]}/${slug}`, label: title };
+      // A Doctor has a page among the saints too, under the same name. Two links
+      // that read alike and go to different pages are no use to anyone, least of
+      // all to a screen reader's list of links.
+      if (type === "doctors" && out.some((other) => other.label === title)) link.asDoctor = true;
+      out.push(link);
     }
   }
   return out;
@@ -249,7 +279,7 @@ function fromStatic(
   if (doc) links.push({ href: `${DOCUMENT_ROUTE_BASE}/${doc.slug}`, label: "Read the document" });
   const canonicalUrl = doc?.canonicalUrl;
   if (canonicalUrl) links.push({ href: canonicalUrl, label: "Official text", external: true });
-  links.push(...relatedLinks(e.links, opts.publishedSlugs));
+  links.push(...relatedLinks(e.links, opts.publishedSlugs, opts.relatedTitles));
   return {
     slug: e.slug,
     title: e.title,

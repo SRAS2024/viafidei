@@ -26,9 +26,13 @@ describe("Privacy policy page", () => {
     expect(screen.getByText("privacy.title")).toBeInTheDocument();
   });
 
-  it("includes the cross logo", async () => {
+  it("has the masthead's mark only, and the shared left-aligned reading header", async () => {
     const ui = await PrivacyPolicyPage();
     const { container } = render(ui);
-    expect(container.querySelector('svg[aria-label="Via Fidei"]')).toBeInTheDocument();
+    expect(container.querySelector("svg, img")).toBeNull();
+    const header = container.querySelector(".vf-detail-header")!;
+    expect(header.tagName).toBe("HEADER");
+    expect(header).not.toHaveClass("text-center");
+    expect(header.querySelector("h1")).toHaveClass("vf-detail-title");
   });
 });

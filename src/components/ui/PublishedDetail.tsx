@@ -13,11 +13,13 @@
  * until a page decides it matters.
  */
 
+import { translateDetailLabel } from "@/lib/content-shared/detail-labels";
 import { contentTypeLabel, type PublishedItem } from "@/lib/data/published";
+import type { Translator } from "@/lib/i18n/translator";
 import { displayItem, displayOverlay } from "@/lib/translation/display";
 import { documentDatePrecision } from "@/lib/content-shared/church-history/timeline";
 import { formatHistoryDate } from "@/lib/content-shared/church-history/types";
-import { toDisclosureItems } from "@/lib/content-shared/structured-content";
+import { splitParagraphs, toDisclosureItems } from "@/lib/content-shared/structured-content";
 import {
   fieldLabel,
   isChipList,
@@ -30,12 +32,15 @@ import { FactList, type FactItem } from "./FactList";
 import { PrayerLinkedText } from "./PrayerLinkedText";
 import { PrayerText } from "./PrayerText";
 import { PublicDomainAttribution } from "./PublicDomainAttribution";
+import { eyebrowClass } from "./eyebrow";
 import { ShareButton } from "./ShareButton";
 import { WikipediaAttribution } from "./WikipediaAttribution";
 import type { GuidePrayerData } from "./GuidePrayers";
 
 export interface PublishedDetailProps {
   item: PublishedItem;
+  /** The reader's language, for the word over the title. */
+  t: Translator;
   /** The payload fields to show, in order. Nothing else in the payload is shown. */
   primaryFields?: string[];
   /** More fields to show after `primaryFields`, in order. */
@@ -66,8 +71,9 @@ export interface PublishedDetailProps {
    * Overrides the eyebrow above the title. Defaults to the human content-type
    * label ("Our Lady", "Church Document") — never the raw enum. Pages with a
    * more specific word for the item (a saint's "Doctor of the Church", a
-   * guide's "Rosary") pass it here, and `null` shows none: "Saint" over
-   * "Saint Godeberta" only repeats the name.
+   * guide's "Rosary") pass it here, in English as the record has it, and it is
+   * shown in the reader's language (detail-labels). `null` shows none: "Saint"
+   * over "Saint Godeberta" only repeats the name.
    */
   eyebrow?: string | null;
   /**
@@ -95,9 +101,10 @@ export interface PublishedDetailProps {
    */
   factsInSubtitle?: readonly string[];
   /**
-   * Show the payload's `summary` as a lede under the title (default). It is
-   * left out anyway when a shown field already contains it, so a sacrament's
-   * overview is not printed twice.
+   * Show the payload's `summary` as a lede under the title (default), or as the
+   * page's first paragraphs when it is too long to be a lede. It is left out anyway
+   * when a shown field already contains it, so a sacrament's overview is not printed
+   * twice.
    */
   lede?: boolean;
   /**
@@ -221,6 +228,13 @@ export function formatIssuedDate(value: unknown, documentType: unknown): string 
   return placed ? formatHistoryDate(placed) : null;
 }
 
+/**
+ * A lede is a short opener in a larger size, about five lines at most. A summary
+ * longer than this is the page's opening text (a Church document's can run to twenty
+ * lines), so it is set as reading text and broken into paragraphs.
+ */
+const LONGEST_LEDE = 300;
+
 /** Letters and digits only, for "does this field already say the summary?". */
 function foldProse(value: string): string {
   return value
@@ -229,8 +243,12 @@ function foldProse(value: string): string {
     .trim();
 }
 
+/** Below this, two fields can honestly give one answer ("A bishop"); above it, one repeats. */
+const SHORTEST_PARAGRAPH = 60;
+
 export function PublishedDetail({
   item,
+  t,
   primaryFields,
   secondaryFields,
   action,
@@ -266,13 +284,16 @@ export function PublishedDetail({
     : factItems;
   // The eyebrow is a word, not an enum: "MARIAN_TITLE" used to print here.
   // `subtype` refines it (a PRAYER whose prayerType is "litany" reads "Litany").
-  const eyebrowLabel =
+  // The data layer's word is English, for what else reads it; a reader hears their own,
+  // or none where their language has no word true of everyone it may stand over.
+  const storedLabel =
     eyebrow === undefined || (keepsTranslatedLine && eyebrow !== null)
       ? contentTypeLabel(
           item.contentType,
           typeof payload.prayerType === "string" ? payload.prayerType : null,
         )
       : eyebrow;
+  const eyebrowLabel = storedLabel ? translateDetailLabel(storedLabel, t) : storedLabel;
 
   const primary = primaryFields ?? [];
   const secondary = secondaryFields ?? [];
@@ -290,9 +311,13 @@ export function PublishedDetail({
     )
       ? shownSummary
       : null;
+  // Judged on the stored text, like the rest of the layout: a translation that runs
+  // a little longer does not restyle the page for that reader.
+  const summaryIsReadingText = !!summary && summary.length > LONGEST_LEDE;
 
   const linked = linkedPrayers && linkedPrayers.length > 0 ? linkedPrayers : null;
   const keysShown = new Set<string>();
+  const proseShown = new Set<string>();
 
   /** A field's section heading, or null when the page shows it unheaded. */
   const headingFor = (key: string) =>
@@ -324,6 +349,13 @@ export function PublishedDetail({
     if (stored == null) return null;
     if (typeof stored === "string" && !stored.trim()) return null;
     if (Array.isArray(stored) && stored.length === 0) return null;
+    // A record can hold one paragraph in two fields (the worker fills a Marian title's
+    // origin and significance from the same article). It is read once, under the first.
+    if (typeof stored === "string" && stored.length >= SHORTEST_PARAGRAPH) {
+      const prose = foldProse(stored);
+      if (proseShown.has(prose)) return null;
+      proseShown.add(prose);
+    }
     // The reader's text, in the stored shape (the stored value when untranslated).
     const value = shownPayload[key] ?? stored;
     // Caller-supplied renderer for this field (e.g. address → Maps link).
@@ -388,7 +420,7 @@ export function PublishedDetail({
   return (
     <article className="vf-detail">
       <header className="vf-detail-header">
-        {eyebrowLabel ? <p className="vf-eyebrow">{eyebrowLabel}</p> : null}
+        {eyebrowLabel ? <p className={eyebrowClass(eyebrowLabel)}>{eyebrowLabel}</p> : null}
         {/* "Our Lady" is one name: a title wraps around it, never through it. */}
         <h1 className="vf-detail-title text-ink">
           {shown.title.replace(/\bOur Lady\b/g, "Our Lady")}
@@ -414,9 +446,20 @@ export function PublishedDetail({
           {action}
         </div>
         {/* After the actions, so the summary runs straight on into the sections. */}
-        {ledeText ? <p className="vf-lede">{ledeText}</p> : null}
+        {ledeText && !summaryIsReadingText ? <p className="vf-lede">{ledeText}</p> : null}
       </header>
 
+      {ledeText && summaryIsReadingText ? (
+        <section className="vf-detail-section">
+          <div className="vf-reading">
+            {splitParagraphs(ledeText).map((paragraph, i) => (
+              <p key={i} className="whitespace-pre-line">
+                {paragraph}
+              </p>
+            ))}
+          </div>
+        </section>
+      ) : null}
       {primary.map(renderField)}
       {secondary.map(renderField)}
 

@@ -82,6 +82,18 @@ describe("FavoritesBrowser", () => {
     expect(screen.getByRole("status")).toHaveTextContent("1 favorite");
   });
 
+  it("lands focus only on a trigger that already names the choice, and only once", () => {
+    render(<FavoritesBrowser items={ITEMS} />);
+    const trigger = filterTrigger();
+    fireEvent.click(trigger);
+    const namesWhenFocused: Array<string | null> = [];
+    trigger.addEventListener("focus", () => {
+      namesWhenFocused.push(trigger.getAttribute("aria-label"));
+    });
+    fireEvent.click(filterOption(/^Prayers/));
+    expect(namesWhenFocused).toEqual(["Filter favorites by type: Prayers"]);
+  });
+
   it("gives every card its title as a heading, its link, and its type", () => {
     render(<FavoritesBrowser items={ITEMS} />);
     const heading = screen.getByRole("heading", { name: "The Memorare" });

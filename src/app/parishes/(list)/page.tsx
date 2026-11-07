@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+
 import {
   FilterChips,
   LIST_PAGE_SIZE,
@@ -8,8 +11,13 @@ import {
 } from "@/components/ui";
 import { countPublishedBySubtype, listParishPage } from "@/lib/data/published";
 import { localizeParishes } from "@/lib/translation/localize";
+import { listPageTitleFor } from "@/lib/content-shared/list-page";
 import { listHref, parseSearchQuery } from "@/lib/content-shared/list-search";
-import { PARISH_FILTERS, resolveParishFilter } from "@/lib/content-shared/parish";
+import {
+  PARISH_FILTERS,
+  resolveParishFilter,
+  type ParishFilter,
+} from "@/lib/content-shared/parish";
 import { getTranslator } from "@/lib/i18n/server";
 
 import { ParishLocator } from "../ParishLocator";
@@ -17,7 +25,6 @@ import { ParishesHero } from "../ParishesHero";
 import { parishLocatorLabels } from "../locator-labels";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Parishes" };
 
 /**
  * The stored `designation` values behind each classification chip. The
@@ -35,11 +42,52 @@ const PARISH_FILTER_SUBTYPES: Readonly<Record<string, readonly string[]>> = {
   chapel: ["chapel", "oratory"],
 };
 
-export default async function ParishesPage({
+type SearchParams = Promise<{ class?: string; q?: string | string[]; page?: string }>;
+
+// One page of the directory, filtered and counted in SQL. The page used to
+// load every published parish and hand the whole array to a client
+// component; the directory is heading for 200,000 records, so it now ships
+// one page of projected rows and nothing else. A search matches the parish's
+// name, its city, state or country, and its postal code. One read per request:
+// the tab's title and the page both need the answer.
+const loadParishes = cache((active: ParishFilter, page: number, query: string) =>
+  listParishPage({
+    page,
+    pageSize: LIST_PAGE_SIZE,
+    q: query || null,
+    class: active === "all" ? null : (PARISH_FILTER_SUBTYPES[active] ?? null),
+  }),
+);
+
+export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: Promise<{ class?: string; q?: string | string[]; page?: string }>;
-}) {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const { t, locale } = await getTranslator();
+  const { class: classParam, q, page } = await searchParams;
+  const active = resolveParishFilter(classParam);
+  const query = parseSearchQuery(q);
+  const pageNumber = parsePageParam(page);
+  return {
+    title: await listPageTitleFor(
+      {
+        name: t("nav.parishes"),
+        filter: active === "all" ? null : PARISH_FILTERS.find((f) => f.key === active)?.label,
+        query,
+        t,
+        locale,
+      },
+      pageNumber > 1,
+      async () => {
+        const result = await loadParishes(active, pageNumber, query);
+        return { pages: [result], total: result.total };
+      },
+    ),
+  };
+}
+
+export default async function ParishesPage({ searchParams }: { searchParams: SearchParams }) {
   const { class: classParam, q: rawQuery, page: pageParam } = await searchParams;
   const active = resolveParishFilter(classParam);
   const query = parseSearchQuery(rawQuery);
@@ -47,18 +95,8 @@ export default async function ParishesPage({
   // that language alone settles the units; the browser's region does the rest.
   const { t, locale } = await getTranslator();
 
-  // One page of the directory, filtered and counted in SQL. The page used to
-  // load every published parish and hand the whole array to a client
-  // component; the directory is heading for 200,000 records, so it now ships
-  // one page of projected rows and nothing else. A search matches the parish's
-  // name, its city, state or country, and its postal code.
   const [result, counts] = await Promise.all([
-    listParishPage({
-      page: parsePageParam(pageParam),
-      pageSize: LIST_PAGE_SIZE,
-      q: query || null,
-      class: active === "all" ? null : (PARISH_FILTER_SUBTYPES[active] ?? null),
-    }),
+    loadParishes(active, parsePageParam(pageParam), query),
     countPublishedBySubtype("PARISH").catch(() => ({}) as Record<string, number>),
   ]);
 
@@ -124,6 +162,7 @@ export default async function ParishesPage({
         pagination={
           result.items.length > 0 ? (
             <Pagination
+              t={t}
               basePath="/parishes"
               page={result.page}
               totalPages={result.pageCount}

@@ -4,7 +4,8 @@ import type { ReadingsMassOption } from "./readings-view";
 
 /**
  * One choice of Mass: the same control whether it offers the day's own formularies,
- * the evening Mass beside them, or the readings inside the Vigil. Links rather than
+ * the evening Mass beside them, the readings inside the Vigil, or, on the calendar,
+ * the Masses of the date it shows, where none is chosen yet. Links rather than
  * buttons, so each Mass has its own URL, and the chosen one says so with
  * aria-current instead of by colour alone.
  */
@@ -15,7 +16,7 @@ export function MassChoice({
 }: {
   label: string;
   navLabel: string;
-  options: readonly ReadingsMassOption[];
+  options: ReadonlyArray<Pick<ReadingsMassOption, "label" | "href" | "isActive">>;
 }) {
   return (
     <nav aria-label={navLabel} className="vf-choice">

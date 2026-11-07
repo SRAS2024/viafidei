@@ -54,19 +54,19 @@ export function ExpandableTimelineEvent({
         className={current ? "vf-timeline-summary vf-timeline-current" : "vf-timeline-summary"}
         aria-current={current ? "true" : undefined}
       >
+        {/* Each comma is a voice's pause, in the words it follows. In .sr-only it comes out
+            of the line, as a stop of its own wherever the row is not read as one control. */}
         {date ? (
           <span className="vf-timeline-date">
             {date}
-            <span className="sr-only">, </span>
+            <span className="vf-sr-inline">,</span>
           </span>
         ) : null}
-        <span className="vf-timeline-title">{title}</span>
-        {eyebrow ? (
-          <span className="vf-timeline-kind">
-            <span className="sr-only">, </span>
-            {eyebrow}
-          </span>
-        ) : null}
+        <span className="vf-timeline-title">
+          {title}
+          {eyebrow ? <span className="vf-sr-inline">,</span> : null}
+        </span>
+        {eyebrow ? <span className="vf-timeline-kind">{eyebrow}</span> : null}
       </summary>
       <div className="vf-timeline-body">
         {location ? (
@@ -97,7 +97,8 @@ export function ExpandableTimelineEvent({
         {links && links.length > 0 ? (
           <>
             <h4>Related</h4>
-            <ul>
+            {/* role="list": Safari drops the role from a list with no markers. */}
+            <ul role="list">
               {links.map((link) => (
                 <li key={`${link.href}:${link.label}`}>
                   {link.external ? (

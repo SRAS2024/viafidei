@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+
 import {
   ContentCard,
   FilterChips,
@@ -7,6 +10,7 @@ import {
   PageHero,
   PaginatedGrid,
 } from "@/components/ui";
+import { listPageTitleFor } from "@/lib/content-shared/list-page";
 import {
   listHref,
   parseSearchQuery,
@@ -20,24 +24,54 @@ import { getTranslator } from "@/lib/i18n/server";
 import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Rites" };
 
-export default async function RitesPage({
+type SearchParams = Promise<{ filter?: string; q?: string | string[] }>;
+
+// Rite cards show the rite's history paragraph from the payload, and the rites
+// are a short closed list that runs only just past one page of cards, so the
+// type is read whole and stays on one page rather than strand a card on a second.
+// One read per request: the tab's title and the page both need the answer.
+const loadRites = cache(async (filterKey: string, query: string) => {
+  const all = await listPublished("RITE");
+  const rites = applyPayloadFilter(RITE_FILTERS, all, filterKey);
+  // Searched by name, family and region, then the history on the card.
+  const visible = query ? rankBySearch(rites, query, (r) => publishedSearchFields(r)) : rites;
+  return { all, rites, visible };
+});
+
+export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; q?: string | string[] }>;
-}) {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const { t, locale } = await getTranslator();
+  const { filter, q } = await searchParams;
+  const query = parseSearchQuery(q);
+  const selected = resolvePayloadFilter(RITE_FILTERS, filter);
+  return {
+    title: await listPageTitleFor(
+      {
+        name: t("nav.rites"),
+        filter: selected.key === "all" ? null : selected.label,
+        query,
+        t,
+        locale,
+      },
+      false,
+      async () => ({ total: (await loadRites(selected.key, query)).visible.length }),
+    ),
+  };
+}
+
+export default async function RitesPage({ searchParams }: { searchParams: SearchParams }) {
   const { t, locale } = await getTranslator();
   const { filter, q: rawQuery } = await searchParams;
   const query = parseSearchQuery(rawQuery);
   const selected = resolvePayloadFilter(RITE_FILTERS, filter);
-  const [all, selectedRite] = await Promise.all([listPublished("RITE"), getRiteCookieValue()]);
-  const rites = applyPayloadFilter(RITE_FILTERS, all, selected.key);
-  // Searched by name, family and region, then the history on the card.
-  const visible = query ? rankBySearch(rites, query, (r) => publishedSearchFields(r)) : rites;
-  // Rite cards show the rite's history paragraph from the payload, and the rites
-  // are a short closed list that runs only just past one page of cards, so the
-  // type is read whole and stays on one page rather than strand a card on a second.
+  const [{ all, rites, visible }, selectedRite] = await Promise.all([
+    loadRites(selected.key, query),
+    getRiteCookieValue(),
+  ]);
   const keep = { filter: selected.key === "all" ? undefined : selected.key };
 
   // Only offer a family chip when at least one rite falls under it.

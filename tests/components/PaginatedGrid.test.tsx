@@ -35,6 +35,11 @@ describe("PaginatedGrid", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(120);
   });
 
+  it("names its list role, which Safari drops where the markers are removed", () => {
+    render(<PaginatedGrid items={items(2)} />);
+    expect(screen.getByRole("list")).toHaveAttribute("role", "list");
+  });
+
   it("renders an empty grid without crashing", () => {
     render(<PaginatedGrid items={[]} />);
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
