@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
 import { Header, Footer } from "@/components/layout";
+import { SkipLink } from "@/components/layout/SkipLink";
 import { appConfig } from "@/lib/config";
 import { getLocale, getTranslator } from "@/lib/i18n/server";
 import { getThemeCookieValue } from "@/lib/i18n/theme-cookie";
@@ -100,15 +101,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} data-theme={theme} className={`${cormorant.variable} ${inter.variable}`}>
       <body className="flex min-h-screen flex-col">
-        {isAdminRoute ? null : (
-          <a href="#main-content" className="vf-skip-link">
-            {t("common.skipToContent")}
-          </a>
-        )}
+        {isAdminRoute ? null : <SkipLink label={t("common.skipToContent")} />}
         {isAdminRoute ? null : <Header />}
         <main
           id="main-content"
-          tabIndex={-1}
           className={
             isAdminRoute
               ? "mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6"

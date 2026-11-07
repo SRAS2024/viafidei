@@ -27,9 +27,14 @@ const REQUIRED_LOADING_TABS = [
 
 describe("Public tab loading.tsx presence (spec §19)", () => {
   for (const tab of REQUIRED_LOADING_TABS) {
-    it(`/${tab}/loading.tsx exists`, () => {
-      const p = join(APP_ROOT, tab, "loading.tsx");
-      expect(existsSync(p), `Missing ${p}`).toBe(true);
+    it(`/${tab} has a loading.tsx`, () => {
+      // A list with detail pages keeps its own in a route group, so that its
+      // placeholder does not stand in for a detail page.
+      const candidates = [
+        join(APP_ROOT, tab, "loading.tsx"),
+        join(APP_ROOT, tab, "(list)", "loading.tsx"),
+      ];
+      expect(candidates.some(existsSync), `Missing ${candidates[0]}`).toBe(true);
     });
   }
 

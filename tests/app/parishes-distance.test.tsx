@@ -43,7 +43,7 @@ vi.mock("@/lib/i18n/server", () => ({
   getTranslator: async () => ({ t: createTranslator(siteLocale), locale: siteLocale }),
 }));
 
-import ParishesPage from "@/app/parishes/page";
+import ParishesPage from "@/app/parishes/(list)/page";
 
 afterEach(() => {
   cleanup();

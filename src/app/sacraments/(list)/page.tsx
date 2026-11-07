@@ -4,7 +4,7 @@ import type { Translator } from "@/lib/i18n/translator";
 import { listPublished } from "@/lib/data/published";
 import { matchSacrament } from "@/lib/content-shared/sacraments";
 
-import { SACRAMENT_GROUPS, SacramentCard, sacramentGridClass, sacramentsOf } from "./groups";
+import { SACRAMENT_GROUPS, SacramentCard, sacramentGridClass, sacramentsOf } from "../groups";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sacraments" };

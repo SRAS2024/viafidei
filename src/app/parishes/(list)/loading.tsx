@@ -1,7 +1,7 @@
 import { gridClass } from "@/components/ui/PaginatedGrid";
 
-import { LoadingLine } from "./LoadingLine";
-import { ParishesHero } from "./ParishesHero";
+import { LoadingLine } from "../LoadingLine";
+import { ParishesHero } from "../ParishesHero";
 
 /** A card whose name runs to two lines, which is most rows of the directory. */
 const TWO_LINE_NAMES: ReadonlySet<number> = new Set([1, 3, 4, 8]);

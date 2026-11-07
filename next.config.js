@@ -3,6 +3,12 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   output: "standalone",
+  // Send every page's <title> with its first bytes, not streamed in after them. A
+  // screen reader says the title first, and Next's route announcer reads it on every
+  // client navigation: with streamed metadata the title was blank for a moment on
+  // each move, so the announcer spoke over the page's own status messages. It also
+  // lets a detail page answer a missing item with a real 404 rather than a 200.
+  htmlLimitedBots: /.*/,
   // Next 15 promoted `outputFileTracingIncludes` out of `experimental`
   // and the file-based `instrumentation.ts` no longer needs an
   // `experimental.instrumentationHook` flag (the runtime picks it up

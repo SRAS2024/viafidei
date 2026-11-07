@@ -12,9 +12,9 @@ import { listHref, parseSearchQuery } from "@/lib/content-shared/list-search";
 import { PARISH_FILTERS, resolveParishFilter } from "@/lib/content-shared/parish";
 import { getTranslator } from "@/lib/i18n/server";
 
-import { ParishLocator } from "./ParishLocator";
-import { ParishesHero } from "./ParishesHero";
-import { parishLocatorLabels } from "./locator-labels";
+import { ParishLocator } from "../ParishLocator";
+import { ParishesHero } from "../ParishesHero";
+import { parishLocatorLabels } from "../locator-labels";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Parishes" };

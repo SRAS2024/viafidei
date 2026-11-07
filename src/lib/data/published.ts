@@ -6,6 +6,7 @@
  * other path from the database to the public site.
  */
 
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { ChecklistContentType } from "@prisma/client";
 
@@ -206,11 +207,12 @@ export function shareImageUrl(title: string, typeLabel: string): string {
  * shared link unfurls with the card's own title and summary, a branded share
  * image (the crucifix mark with the item's title in it), and the site favicon /
  * Open Graph defaults inherited from the root layout — rather than the generic
- * site title and the browser's default page icon. Returns empty metadata for a
- * missing item, letting the page fall through to notFound().
+ * site title and the browser's default page icon. A missing item is the page's
+ * not-found state: metadata runs before the page streams, so this is what lets
+ * the response be a real 404 rather than a 200 with a not-found message in it.
  */
 export function buildPublishedMetadata(item: PublishedItem | null): Metadata {
-  if (!item) return {};
+  if (!item) notFound();
   const rawSummary =
     typeof item.payload.summary === "string" && item.payload.summary.trim()
       ? item.payload.summary.trim()

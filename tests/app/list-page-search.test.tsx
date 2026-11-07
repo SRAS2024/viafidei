@@ -57,21 +57,21 @@ vi.mock("@/lib/data/history-timeline", async () => {
   };
 });
 
-import PrayersPage from "@/app/prayers/page";
+import PrayersPage from "@/app/prayers/(list)/page";
 import LitaniesPage from "@/app/litanies/page";
-import SaintsPage from "@/app/saints/page";
-import OurLadyPage from "@/app/our-lady/page";
-import DoctorsPage from "@/app/doctors/page";
-import PopesPage from "@/app/popes/page";
-import ParishesPage from "@/app/parishes/page";
-import SpiritualLifePage from "@/app/spiritual-life/page";
-import GuidesPage from "@/app/guides/page";
-import LiturgyPage from "@/app/liturgy/page";
-import RitesPage from "@/app/rites/page";
+import SaintsPage from "@/app/saints/(list)/page";
+import OurLadyPage from "@/app/our-lady/(list)/page";
+import DoctorsPage from "@/app/doctors/(list)/page";
+import PopesPage from "@/app/popes/(list)/page";
+import ParishesPage from "@/app/parishes/(list)/page";
+import SpiritualLifePage from "@/app/spiritual-life/(list)/page";
+import GuidesPage from "@/app/guides/(list)/page";
+import LiturgyPage from "@/app/liturgy/(list)/page";
+import RitesPage from "@/app/rites/(list)/page";
 import ChurchDocumentsPage from "@/app/church-documents/page";
-import DevotionsPage from "@/app/devotions/page";
-import NovenasPage from "@/app/novenas/page";
-import SacramentsPage from "@/app/sacraments/page";
+import DevotionsPage from "@/app/devotions/(list)/page";
+import NovenasPage from "@/app/novenas/(list)/page";
+import SacramentsPage from "@/app/sacraments/(list)/page";
 import HistoryPage from "@/app/history/page";
 import LiturgicalCalendarPage from "@/app/liturgical-calendar/page";
 

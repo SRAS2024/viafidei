@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 
 import ParishLoading from "@/app/parishes/[slug]/loading";
-import ParishesLoading from "@/app/parishes/loading";
+import ParishesLoading from "@/app/parishes/(list)/loading";
 
 afterEach(() => cleanup());
 

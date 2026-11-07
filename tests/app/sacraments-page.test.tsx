@@ -21,8 +21,8 @@ vi.mock("@/lib/data/published", async (importOriginal) => {
   return { ...actual, listPublished: async () => published };
 });
 
-import SacramentsPage from "@/app/sacraments/page";
-import SacramentsLoading from "@/app/sacraments/loading";
+import SacramentsPage from "@/app/sacraments/(list)/page";
+import SacramentsLoading from "@/app/sacraments/(list)/loading";
 
 function sacrament(slug: string, title: string, sacramentKey: string): PublishedItem {
   return {

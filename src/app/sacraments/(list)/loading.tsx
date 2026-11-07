@@ -1,4 +1,4 @@
-import { SACRAMENT_GROUPS, SacramentCard, sacramentGridClass, sacramentsOf } from "./groups";
+import { SACRAMENT_GROUPS, SacramentCard, sacramentGridClass, sacramentsOf } from "../groups";
 
 /**
  * The seven sacraments never change, so the placeholder is the finished page with

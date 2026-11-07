@@ -48,11 +48,11 @@ vi.mock("@/lib/i18n/server", () => ({
   }),
 }));
 
-import SaintsPage from "@/app/saints/page";
-import GuidesPage from "@/app/guides/page";
+import SaintsPage from "@/app/saints/(list)/page";
+import GuidesPage from "@/app/guides/(list)/page";
 import LitaniesPage from "@/app/litanies/page";
-import ParishesPage from "@/app/parishes/page";
-import LiturgyPage from "@/app/liturgy/page";
+import ParishesPage from "@/app/parishes/(list)/page";
+import LiturgyPage from "@/app/liturgy/(list)/page";
 import ChurchDocumentsPage from "@/app/church-documents/page";
 
 function projected(over: Partial<PublishedListItem> & { id: string }): PublishedListItem {
