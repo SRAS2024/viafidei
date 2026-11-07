@@ -111,10 +111,13 @@ export async function consumePasswordResetToken(
   // Atomically: rotate the password hash, mark this token consumed,
   // invalidate all reset tokens (so a previously issued one cannot be
   // replayed by a different actor), and revoke every session for the user.
+  // Readers sign in with a sealed cookie rather than a Session row, so what
+  // actually ends their sessions is the new credential version: requireUser
+  // refuses every cookie issued under an earlier one.
   await prisma.$transaction([
     prisma.user.update({
       where: { id: record.userId },
-      data: { passwordHash },
+      data: { passwordHash, credentialVersion: generateRawToken() },
     }),
     prisma.passwordResetToken.update({
       where: { id: record.id },

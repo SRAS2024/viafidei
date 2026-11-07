@@ -75,6 +75,18 @@ export default async function GoalsPage() {
           deleteBody: t("profile.goals.deleteBody"),
           checklist: t("profile.goals.checklist"),
           remove: t("common.remove"),
+          journalSave: {
+            titleTooLong: t("profile.journal.titleTooLong"),
+            bodyTooLong: t("profile.journal.bodyTooLong"),
+            signedOut: t("profile.journal.signedOut"),
+            logInNewTab: t("profile.journal.logInNewTab"),
+            rateLimited: t("profile.journal.rateLimited"),
+            saveFailed: t("profile.journal.saveFailed"),
+            serverFailed: t("profile.journal.serverFailed"),
+            draftBack: t("profile.journal.draftBack"),
+            leaveWarning: t("profile.journal.leaveWarning"),
+            locale,
+          },
         }}
       />
     </div>

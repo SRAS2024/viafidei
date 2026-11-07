@@ -36,11 +36,14 @@ const SERVER_ERROR_ID = "register-error";
 export function RegisterForm({
   labels,
   next,
+  values,
   error,
   errorField,
 }: {
   labels: RegisterFormLabels;
   next?: string;
+  /** What the reader typed, apart from the passwords, when a failure sent them back. */
+  values?: { firstName?: string; lastName?: string; email?: string };
   /** A failure the server sent the reader back with. */
   error?: string | null;
   /** The field that failure belongs to, when it belongs to one. */
@@ -57,6 +60,14 @@ export function RegisterForm({
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLInputElement>(null);
+
+  // These two fields have no value prop, so hydration cannot wipe what a reader or a
+  // password manager put in them while the page's script was still on its way. This
+  // picks that up, since the checks below read the state.
+  useEffect(() => {
+    if (passwordRef.current?.value) setPassword(passwordRef.current.value);
+    if (confirmRef.current?.value) setPasswordConfirm(confirmRef.current.value);
+  }, []);
 
   // The server redirects back with the failure in the URL, so the message is on
   // the page from first paint and a live region stays silent. Focusing the field
@@ -128,6 +139,7 @@ export function RegisterForm({
             autoComplete="given-name"
             autoCapitalize="words"
             maxLength={80}
+            defaultValue={values?.firstName}
           />
         </div>
         <div>
@@ -143,6 +155,7 @@ export function RegisterForm({
             autoComplete="family-name"
             autoCapitalize="words"
             maxLength={80}
+            defaultValue={values?.lastName}
           />
         </div>
       </div>
@@ -162,6 +175,7 @@ export function RegisterForm({
           autoCapitalize="none"
           spellCheck={false}
           maxLength={200}
+          defaultValue={values?.email}
           {...serverInvalid("email")}
         />
       </div>
@@ -181,7 +195,6 @@ export function RegisterForm({
           aria-invalid={validation === "weak"}
           className="vf-input"
           autoComplete="new-password"
-          value={password}
           onChange={(e) => setPassword(e.target.value)}
           onBlur={() => setTouched(true)}
           {...serverInvalid("password")}
@@ -215,7 +228,6 @@ export function RegisterForm({
           aria-invalid={validation === "mismatch"}
           className="vf-input"
           autoComplete="new-password"
-          value={passwordConfirm}
           onChange={(e) => setPasswordConfirm(e.target.value)}
           onBlur={() => setTouched(true)}
           {...serverInvalid("passwordConfirm")}

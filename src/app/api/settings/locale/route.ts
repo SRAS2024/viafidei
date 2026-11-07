@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { isSupportedLocale } from "@/lib/i18n/locales";
 import { LOCALE_COOKIE_NAME, LOCALE_COOKIE_OPTIONS } from "@/lib/i18n/cookie";
-import { getSession } from "@/lib/auth/session";
+import { requireUser } from "@/lib/auth/user";
 import { redirectTo } from "@/lib/security/request";
 import { prisma } from "@/lib/db";
 
@@ -19,15 +19,16 @@ export async function POST(req: NextRequest) {
   // For signed-in users, save the explicit language to the database so
   // future emails go out in the user's preferred language. An "automatic"
   // selection (no `raw`) leaves the existing saved language untouched.
-  const session = await getSession();
-  if (session.userId && session.role === "USER" && raw && isSupportedLocale(raw)) {
+  // Through requireUser, so a sign-in a password reset has ended cannot write here.
+  const user = raw && isSupportedLocale(raw) ? await requireUser().catch(() => null) : null;
+  if (user) {
     try {
       await prisma.$transaction([
-        prisma.user.update({ where: { id: session.userId }, data: { language: raw } }),
+        prisma.user.update({ where: { id: user.id }, data: { language: raw } }),
         prisma.profile.upsert({
-          where: { userId: session.userId },
+          where: { userId: user.id },
           update: { languageOverride: raw },
-          create: { userId: session.userId, languageOverride: raw },
+          create: { userId: user.id, languageOverride: raw },
         }),
       ]);
     } catch {

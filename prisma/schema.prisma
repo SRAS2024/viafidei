@@ -100,6 +100,10 @@ model User {
   nameEncrypted           String?
   emailVerifiedAt         DateTime?
   language                String                   @default("en")
+  /// A new random value at each password reset, copied into the session cookie at
+  /// sign-in. A cookie carrying any other value no longer counts as signed in. NULL
+  /// (no reset since the column arrived) accepts every cookie.
+  credentialVersion       String?
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   profile                 Profile?

@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { isSaved, type SavedKind } from "@/lib/data/saved";
+import { getTranslator } from "@/lib/i18n/server";
 
 import { SaveButton, type SaveKind } from "./SaveButton";
 
@@ -38,6 +39,7 @@ export async function SaveContentButton({
   if (!entry) return null;
   const user = await requireUser();
   const initiallySaved = user ? await isSaved(entry.savedKind, user.id, slug) : false;
+  const { t } = await getTranslator();
   return (
     <SaveButton
       kind={entry.kind}
@@ -45,6 +47,21 @@ export async function SaveContentButton({
       initiallySaved={initiallySaved}
       isAuthed={Boolean(user)}
       className={className}
+      // The button, the question before a removal, and the sign-in popup a signed-out
+      // reader gets from it, all in the reader's language.
+      labels={{
+        save: t("save.favorite"),
+        saved: t("save.favorited"),
+        remove: t("save.remove"),
+        cancel: t("save.cancel"),
+        confirmRemove: t("save.confirmRemove"),
+        loginRequired: t("save.loginRequired"),
+        loginCta: t("nav.login"),
+        registerCta: t("loginRequired.createAccount"),
+        close: t("loginRequired.close"),
+        failed: t("save.failed"),
+        removeFailed: t("save.removeFailed"),
+      }}
     />
   );
 }

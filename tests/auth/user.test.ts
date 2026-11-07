@@ -10,7 +10,13 @@ vi.mock("next/headers", () => ({
   cookies: () => cookieJar,
 }));
 
-import { authenticate, createUser, findUserByEmail, requireUser } from "@/lib/auth/user";
+import {
+  authenticate,
+  createUser,
+  findUserByEmail,
+  requireUser,
+  sessionCredentialsCurrent,
+} from "@/lib/auth/user";
 import { hashPassword } from "@/lib/auth/password";
 
 beforeEach(() => {
@@ -178,5 +184,84 @@ describe("requireUser", () => {
     expect(result).toMatchObject({ id: "u1" });
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { id: "u1" } });
     sessionSpy.mockRestore();
+  });
+
+  // Readers sign in with a sealed cookie, so deleting Session rows at a password reset
+  // ended nothing. These are what actually ends a sign-in now.
+  describe("the credential version", () => {
+    async function withCookie(cookie: { credentialVersion?: string }) {
+      const sessionModule = await import("@/lib/auth/session");
+      return vi.spyOn(sessionModule, "getSession").mockResolvedValue({
+        userId: "u1",
+        role: "USER",
+        ...cookie,
+      } as unknown as Awaited<ReturnType<typeof sessionModule.getSession>>);
+    }
+
+    it("accepts any cookie while the account's version is NULL, so the deploy signs nobody out", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ id: "u1", credentialVersion: null });
+      for (const cookie of [{}, { credentialVersion: "from-an-older-reset" }]) {
+        const spy = await withCookie(cookie);
+        expect(await requireUser()).toMatchObject({ id: "u1" });
+        spy.mockRestore();
+      }
+    });
+
+    it("refuses a cookie from before the reset", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ id: "u1", credentialVersion: "after-reset" });
+      for (const cookie of [{}, { credentialVersion: "before-reset" }]) {
+        const spy = await withCookie(cookie);
+        expect(await requireUser()).toBeNull();
+        spy.mockRestore();
+      }
+    });
+
+    it("accepts a cookie issued since the reset", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ id: "u1", credentialVersion: "after-reset" });
+      const spy = await withCookie({ credentialVersion: "after-reset" });
+      expect(await requireUser()).toMatchObject({ id: "u1" });
+      spy.mockRestore();
+    });
+
+    it("gives the header the same answer, reading only the version", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({ credentialVersion: "after-reset" });
+      expect(
+        await sessionCredentialsCurrent({ userId: "u1", credentialVersion: "after-reset" }),
+      ).toBe(true);
+      expect(await sessionCredentialsCurrent({ userId: "u1" })).toBe(false);
+      expect(prismaMock.user.findUnique).toHaveBeenLastCalledWith({
+        where: { id: "u1" },
+        select: { credentialVersion: true },
+      });
+      prismaMock.user.findUnique.mockResolvedValue({ credentialVersion: null });
+      expect(await sessionCredentialsCurrent({ userId: "u1" })).toBe(true);
+      prismaMock.user.findUnique.mockResolvedValue(null);
+      expect(await sessionCredentialsCurrent({ userId: "u1" })).toBe(false);
+      expect(await sessionCredentialsCurrent({})).toBe(false);
+    });
+  });
+});
+
+describe("recordUserSignIn", () => {
+  const user = { id: "u1", email: "u@example.com", firstName: "Pio", lastName: "P" };
+
+  it("copies the account's version into the cookie", async () => {
+    const { recordUserSignIn } = await import("@/lib/auth/session");
+    const session: Record<string, unknown> = {};
+    recordUserSignIn(session, { ...user, credentialVersion: "v2" });
+    expect(session).toMatchObject({
+      userId: "u1",
+      userEmail: "u@example.com",
+      userName: "Pio P",
+      role: "USER",
+      credentialVersion: "v2",
+    });
+  });
+
+  it("clears what an earlier account left in this browser's cookie", async () => {
+    const { recordUserSignIn } = await import("@/lib/auth/session");
+    const session: Record<string, unknown> = { credentialVersion: "someone-elses" };
+    recordUserSignIn(session, { ...user, credentialVersion: null });
+    expect(session.credentialVersion).toBeUndefined();
   });
 });

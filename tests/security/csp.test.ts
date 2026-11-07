@@ -56,6 +56,11 @@ describe("production CSP — script-src is nonce-based, never 'unsafe-inline'", 
     expect(csp).not.toContain("'unsafe-inline' 'unsafe-eval'");
   });
 
+  it("allows the site's own script files, which the journal's print page relies on", () => {
+    setNodeEnv("production");
+    expect(directive(cspOf(), "script-src").split(/\s+/)).toContain("'self'");
+  });
+
   it("carries a nonce in the exact source form Next.js parses", () => {
     setNodeEnv("production");
     const sources = directive(cspOf(), "script-src").split(/\s+/).slice(1);

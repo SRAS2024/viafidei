@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Disclosure } from "@/components/ui/Disclosure";
-import { GoalJournalPanel } from "./GoalJournalPanel";
+import { readJournalDraft, type JournalSaveLabels } from "../journal/journal-save";
+import { GoalJournalPanel, goalDraftKey } from "./GoalJournalPanel";
 
 type ChecklistItem = {
   id: string;
@@ -42,6 +43,8 @@ type Labels = {
   checklist: string;
   /** The name of a checklist step's remove control; "Remove" when absent. */
   remove?: string;
+  /** What each goal's journal panel says about saving, as the journal page says it. */
+  journalSave: JournalSaveLabels;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -223,6 +226,11 @@ function GoalCard({
   const stepId = `${uid}-step`;
   const headingId = `${uid}-heading`;
   const journalId = `${uid}-journal`;
+
+  // A journal left unsaved in this goal's panel opens again with its words.
+  useEffect(() => {
+    if (readJournalDraft(goalDraftKey(goal.id))) setJournalOpen(true);
+  }, [goal.id]);
 
   // Editing swaps the card's text for its fields and back; focus goes with it.
   useEffect(() => {
@@ -561,7 +569,7 @@ function GoalCard({
       ) : null}
 
       <div id={journalId}>
-        <GoalJournalPanel goalId={goal.id} open={journalOpen} />
+        <GoalJournalPanel goalId={goal.id} open={journalOpen} labels={labels.journalSave} />
       </div>
 
       <ConfirmDialog

@@ -165,6 +165,32 @@ describe("consumePasswordResetToken", () => {
     // All four writes happen inside a single transaction.
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
   });
+
+  it("gives the account a new credential version, which is what ends cookie sign-ins", async () => {
+    prismaMock.passwordResetToken.findUnique.mockResolvedValue({
+      id: "t1",
+      userId: "u1",
+      tokenHash: "h",
+      expiresAt: new Date(Date.now() + 60_000),
+      usedAt: null,
+    });
+    prismaMock.user.update.mockResolvedValue({});
+    prismaMock.passwordResetToken.update.mockResolvedValue({});
+    prismaMock.passwordResetToken.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.session.deleteMany.mockResolvedValue({ count: 0 });
+
+    await consumePasswordResetToken("first", "rotated-password-1234");
+    await consumePasswordResetToken("second", "rotated-password-5678");
+
+    const versions = prismaMock.user.update.mock.calls.map(
+      (call) => (call[0] as { data: { credentialVersion: string } }).data.credentialVersion,
+    );
+    // A plain value and not `{ increment: 1 }`: NULL + 1 is NULL in SQL, so an account
+    // that has never been reset would never get a version at all.
+    expect(typeof versions[0]).toBe("string");
+    expect(versions[0]!.length).toBeGreaterThanOrEqual(32);
+    expect(versions[1]).not.toBe(versions[0]);
+  });
 });
 
 describe("issueEmailVerificationToken", () => {

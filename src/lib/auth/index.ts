@@ -1,6 +1,7 @@
 export {
   getSession,
   sessionOptions,
+  recordUserSignIn,
   SESSION_COOKIE_NAME,
   type SessionData,
   type UserRole,
@@ -24,6 +25,7 @@ export {
   findUserByEmail,
   authenticate,
   requireUser,
+  sessionCredentialsCurrent,
   type CreateUserInput,
 } from "./user";
 export { verifyAdminCredentials, requireAdmin, type AdminPrincipal } from "./admin";

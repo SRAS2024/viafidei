@@ -88,6 +88,7 @@ const REQUIRED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
     "role",
     "language",
     "emailVerifiedAt",
+    "credentialVersion",
     "createdAt",
     "updatedAt",
   ],

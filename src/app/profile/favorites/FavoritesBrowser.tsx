@@ -122,11 +122,7 @@ export function FavoritesBrowser({
           ariaLabel="Filter favorites by type"
           activeKey={filter}
           resetKey="ALL"
-          onSelect={(k) => {
-            setFilter(k as Filter);
-            // The chosen option leaves with the menu; focus goes back to what opened it.
-            frameRef.current?.querySelector<HTMLElement>("button[aria-expanded]")?.focus();
-          }}
+          onSelect={(k) => setFilter(k as Filter)}
           items={FILTERS.map((f) => ({ key: f.key, label: f.label, count: counts[f.key] }))}
         />
       </ListControls>

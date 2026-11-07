@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 
+import { parseSearchQuery } from "@/lib/content-shared/list-search";
 import { suggestPublished } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
-  const q = params.get("q") ?? "";
+  const q = parseSearchQuery(params.get("q"));
   const limitRaw = Number(params.get("limit") ?? "3");
   const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(1, Math.trunc(limitRaw)), 5) : 3;
   try {

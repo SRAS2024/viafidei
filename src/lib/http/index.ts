@@ -4,6 +4,7 @@ export { getDefaultTimeoutMs, withAbortTimeout } from "./timeout";
 export {
   readJsonBody,
   readFormBody,
+  isFormPost,
   DEFAULT_JSON_BODY_LIMIT_BYTES,
   DEFAULT_FORM_BODY_LIMIT_BYTES,
   type ReadJsonResult,

@@ -40,7 +40,32 @@ export type SessionData = {
   adminSessionId?: string;
   adminAuthStage?: AdminAuthStage;
   locale?: string;
+  /**
+   * The account's credential version when this cookie was issued. A password reset
+   * changes the account's version, and a cookie carrying any other value stops
+   * counting as signed in (see `sessionCredentialsCurrent` in ./user.ts). The cookie is
+   * sealed, so a browser cannot rewrite it.
+   */
+  credentialVersion?: string;
 };
+
+/** What a successful sign-in writes into a reader's session cookie. */
+export function recordUserSignIn(
+  session: SessionData,
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    credentialVersion?: string | null;
+  },
+): void {
+  session.userId = user.id;
+  session.userEmail = user.email;
+  session.userName = `${user.firstName} ${user.lastName}`;
+  session.role = "USER";
+  session.credentialVersion = user.credentialVersion ?? undefined;
+}
 
 function isBuildPhase(): boolean {
   return process.env.NEXT_PHASE === "phase-production-build";

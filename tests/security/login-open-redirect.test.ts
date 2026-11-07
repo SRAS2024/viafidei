@@ -39,7 +39,7 @@ vi.mock("@/lib/data/profile", () => ({
   getProfileForUser: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("next/headers", () => ({
-  cookies: vi.fn().mockResolvedValue({ set: vi.fn() }),
+  cookies: vi.fn().mockResolvedValue({ set: vi.fn(), delete: vi.fn() }),
 }));
 
 import type { NextRequest } from "next/server";
@@ -82,6 +82,13 @@ describe("login `next=` cannot redirect off-site", () => {
     ["absolute URL", "https://evil.com"],
     ["scheme-only", "evil.com"],
     ["javascript URL", "javascript:alert(1)"],
+    // The URL parser drops these wherever they fall, which turns the value into "//evil.com".
+    ["a tab between the slashes", "/\t/evil.com"],
+    ["a newline between the slashes", "/\n/evil.com"],
+    ["a carriage return between the slashes", "/\r/evil.com"],
+    // Dot segments resolve to the path "//evil.com".
+    ["a dot segment before the slashes", "/.//evil.com"],
+    ["a parent segment before the slashes", "/..//evil.com"],
   ])("refuses %s and falls back to /profile", async (_label, hostile) => {
     const location = await login(hostile);
     expect(location).not.toContain("evil.com");
@@ -91,4 +98,54 @@ describe("login `next=` cannot redirect off-site", () => {
     expect(new URL(location, "http://localhost").origin).toBe("http://localhost");
     expect(location).toContain("/profile");
   });
+});
+
+describe("a failed login goes back to the form with the page the visitor wanted", () => {
+  async function failedLogin(next: string): Promise<string> {
+    authenticateMock.mockResolvedValue(null);
+    return login(next);
+  }
+
+  it("carries a safe `next`", async () => {
+    const location = new URL(await failedLogin("/prayers/hail-mary"));
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("error")).toBe("invalid");
+    expect(location.searchParams.get("next")).toBe("/prayers/hail-mary");
+  });
+
+  it("drops a hostile one", async () => {
+    const location = await failedLogin("//evil.com");
+    expect(location).not.toContain("evil.com");
+    expect(location).not.toContain("next=");
+  });
+
+  it("never puts the typed address in the URL", async () => {
+    expect(await failedLogin("/prayers/hail-mary")).not.toContain("example.com");
+  });
+});
+
+describe("`next=` on /api/settings/rite cannot redirect off-site", () => {
+  async function postRite(next: string): Promise<string> {
+    const { POST } = await import("@/app/api/settings/rite/route");
+    const req = new Request("http://localhost/api/settings/rite", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ rite: "", next }).toString(),
+    }) as unknown as NextRequest;
+    const res = await POST(req);
+    return res.headers.get("location") ?? "";
+  }
+
+  it("keeps a same-site path", async () => {
+    expect(new URL(await postRite("/liturgical-calendar")).pathname).toBe("/liturgical-calendar");
+  });
+
+  it.each(["//evil.com", "/\\evil.com", "/\t/evil.com", "/.//evil.com", "https://evil.com"])(
+    "refuses %j and falls back to the settings page",
+    async (hostile) => {
+      const location = new URL(await postRite(hostile));
+      expect(location.origin).toBe("http://localhost");
+      expect(location.pathname).toBe("/profile/settings");
+    },
+  );
 });

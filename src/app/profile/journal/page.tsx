@@ -9,6 +9,7 @@ import { JournalEditor } from "./JournalEditor";
 import { JournalDeleteButton } from "./JournalDeleteButton";
 import { JournalEditButton } from "./JournalEditButton";
 import { JournalFavoriteButton } from "./JournalFavoriteButton";
+import { JOURNAL_BODY_MAX, JOURNAL_TITLE_MAX, formatJournalCount } from "./limits";
 import { logPageError } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export async function generateMetadata() {
 export default async function JournalPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams: Promise<{ filter?: string; error?: string }>;
 }) {
   let user: Awaited<ReturnType<typeof requireUser>> = null;
   try {
@@ -31,9 +32,21 @@ export default async function JournalPage({
   }
   if (!user) redirect("/login?next=/profile/journal");
   const { t, locale } = await getTranslator();
-  const { filter } = await searchParams;
+  const { filter, error } = await searchParams;
 
   const favoritesOnly = filter === "favorites";
+  const saveLabels = {
+    titleTooLong: t("profile.journal.titleTooLong"),
+    bodyTooLong: t("profile.journal.bodyTooLong"),
+    signedOut: t("profile.journal.signedOut"),
+    logInNewTab: t("profile.journal.logInNewTab"),
+    rateLimited: t("profile.journal.rateLimited"),
+    saveFailed: t("profile.journal.saveFailed"),
+    serverFailed: t("profile.journal.serverFailed"),
+    draftBack: t("profile.journal.draftBack"),
+    leaveWarning: t("profile.journal.leaveWarning"),
+    locale,
+  };
   let entries: Awaited<ReturnType<typeof listJournalEntries>> = [];
   try {
     entries = await listJournalEntries(user.id, { favoritesOnly });
@@ -45,14 +58,28 @@ export default async function JournalPage({
     <div className="vf-column">
       <ProfileBackLink label={t("common.back")} />
       <PageHero eyebrow={t("profile.title")} title={t("profile.tab.journal")} />
+      {/* The form saves by fetch and stays open when that fails. This is for a plain
+          post, which only a client without script can send: all that is left to do for
+          it is to say what happened. */}
+      {error === "not_saved" ? (
+        <p role="alert" className="vf-notice vf-notice-error mb-4">
+          {t("profile.journal.notSaved", {
+            titleMax: formatJournalCount(JOURNAL_TITLE_MAX, locale),
+            bodyMax: formatJournalCount(JOURNAL_BODY_MAX, locale),
+          })}
+        </p>
+      ) : null}
       <div className="vf-toolbar">
         <JournalEditor
+          draftKey={`new:${user.id}`}
           labels={{
             title: t("profile.journal.title"),
             body: t("profile.journal.body"),
             save: t("profile.journal.save"),
             cancel: t("profile.journal.cancel"),
             newEntry: t("profile.journal.newEntry"),
+            saved: t("profile.journal.saved"),
+            ...saveLabels,
           }}
         />
         {/* The dashboard links straight to the favorites view, so the page has to
@@ -71,7 +98,9 @@ export default async function JournalPage({
         />
       </div>
       {entries.length === 0 ? (
-        <p className="vf-section-lede text-center">Your entries will appear here.</p>
+        <p className="vf-section-lede text-center">
+          {favoritesOnly ? t("profile.journal.emptyFavorites") : t("profile.journal.empty")}
+        </p>
       ) : (
         <div className="vf-panel-list">
           {entries.map((e) => (
@@ -96,6 +125,7 @@ export default async function JournalPage({
                     body: t("profile.journal.body"),
                     save: t("profile.journal.save"),
                     cancel: t("profile.journal.cancel"),
+                    ...saveLabels,
                   }}
                 />
                 <JournalFavoriteButton
@@ -109,7 +139,8 @@ export default async function JournalPage({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="vf-btn vf-btn-sm vf-btn-ghost"
-                  aria-label={`Download ${e.title} as a PDF`}
+                  // A function, so a "$" in the reader's title stays a plain character.
+                  aria-label={t("profile.journal.pdfLabel").replace("{title}", () => e.title)}
                 >
                   PDF
                 </a>

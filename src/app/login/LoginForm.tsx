@@ -7,6 +7,7 @@ const ERROR_ID = "login-error";
 export function LoginForm({
   labels,
   next,
+  email,
   error,
 }: {
   labels: {
@@ -17,6 +18,8 @@ export function LoginForm({
     hide: string;
   };
   next?: string;
+  /** The address the reader typed, when the server sent them back after a failed attempt. */
+  email?: string;
   /** Set when the server sent the reader back here after a failed attempt. */
   error?: string;
 }) {
@@ -54,6 +57,7 @@ export function LoginForm({
           spellCheck={false}
           required
           className="vf-input"
+          defaultValue={email}
           {...invalid}
         />
       </div>

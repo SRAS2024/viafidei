@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { AccountPage } from "@/components/profile/AccountPage";
+import { readKeptFields } from "@/lib/auth/form-flash";
+import { safeNextPath } from "@/lib/auth/safe-next";
 import { getTranslator } from "@/lib/i18n/server";
 import { LoginForm } from "./LoginForm";
 
@@ -10,13 +12,17 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{
     error?: string;
-    next?: string;
+    next?: string | string[];
     notice?: string;
     registered?: string;
   }>;
 }) {
   const { t } = await getTranslator();
   const sp = await searchParams;
+  // A value that could leave the site never reaches the form or its links.
+  const next = safeNextPath(sp.next) ?? undefined;
+  const failed = sp.error === "invalid";
+  const kept = failed ? await readKeptFields() : {};
   return (
     <AccountPage
       title={t("auth.signIn")}
@@ -29,7 +35,7 @@ export default async function LoginPage({
           {/* The page a gated control sent the visitor from comes along, so
               creating an account lands them back on it too. */}
           <Link
-            href={sp.next ? `/register?next=${encodeURIComponent(sp.next)}` : "/register"}
+            href={next ? `/register?next=${encodeURIComponent(next)}` : "/register"}
             className="vf-link-action"
           >
             {t("auth.toRegister")}
@@ -56,8 +62,9 @@ export default async function LoginPage({
           show: t("auth.showPassword"),
           hide: t("auth.hidePassword"),
         }}
-        next={sp.next}
-        error={sp.error === "invalid" ? t("auth.invalid") : undefined}
+        next={next}
+        email={kept.email}
+        error={failed ? t("auth.invalid") : undefined}
       />
     </AccountPage>
   );

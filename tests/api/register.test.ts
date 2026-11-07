@@ -205,6 +205,82 @@ describe("POST /api/auth/register", () => {
     }
   });
 
+  it("refuses a `next` the URL parser would turn into another site", async () => {
+    for (const hostile of ["/\t/evil.com", "/\n/evil.com", "/\r/evil.com", "/.//evil.com"]) {
+      const res = await POST(buildRequest({ ...validBody, next: hostile }));
+      const location = new URL(res.headers.get("location") ?? "");
+      expect(location.origin).toBe("http://localhost");
+      expect(location.pathname).toBe("/profile");
+    }
+  });
+
+  describe("a failed attempt", () => {
+    const FLASH = "vf_form_flash";
+
+    it("goes back with the page the visitor was on their way to", async () => {
+      findUserByEmailMock.mockResolvedValue({ id: "taken" });
+      const res = await POST(buildRequest({ ...validBody, next: "/prayers/hail-mary" }));
+      const location = new URL(res.headers.get("location") ?? "");
+      expect(location.pathname).toBe("/register");
+      expect(location.searchParams.get("error")).toBe("exists");
+      expect(location.searchParams.get("next")).toBe("/prayers/hail-mary");
+    });
+
+    it("never carries a hostile `next` back", async () => {
+      const res = await POST(
+        buildRequest({
+          ...validBody,
+          password: "weak",
+          passwordConfirm: "weak",
+          next: "//evil.com",
+        }),
+      );
+      expect(res.headers.get("location")).not.toContain("evil.com");
+      expect(res.headers.get("location")).not.toContain("next=");
+    });
+
+    it("keeps the typed names and address out of the URL, in a sealed short-lived cookie", async () => {
+      findUserByEmailMock.mockResolvedValue({ id: "taken" });
+      const res = await POST(buildRequest(validBody));
+      const location = res.headers.get("location") ?? "";
+      for (const typed of ["Pio", "Pietrelcina", "user", "example.com"]) {
+        expect(location).not.toContain(typed);
+      }
+      const flash = cookieJar.set.mock.calls.find((call) => call[0] === FLASH);
+      expect(flash).toBeDefined();
+      const [, sealed, options] = flash as [string, string, Record<string, unknown>];
+      expect(sealed).not.toContain("Pietrelcina");
+      expect(sealed).not.toContain("example.com");
+      expect(options).toMatchObject({ path: "/register", httpOnly: true, sameSite: "lax" });
+      expect(options.maxAge).toBeLessThanOrEqual(60);
+
+      const { readKeptFields } = await import("@/lib/auth/form-flash");
+      expect(await readKeptFields()).toEqual({
+        firstName: "Pio",
+        lastName: "Pietrelcina",
+        email: "user@example.com",
+      });
+    });
+
+    it("never keeps a password, whatever the failure", async () => {
+      findUserByEmailMock.mockResolvedValue({ id: "taken" });
+      await POST(buildRequest(validBody));
+      const { readKeptFields } = await import("@/lib/auth/form-flash");
+      expect(Object.keys(await readKeptFields()).sort()).toEqual([
+        "email",
+        "firstName",
+        "lastName",
+      ]);
+    });
+
+    it("clears what was kept once the account is made", async () => {
+      await POST(buildRequest(validBody));
+      const clear = cookieJar.set.mock.calls.find((call) => call[0] === FLASH);
+      expect(clear?.[1]).toBe("");
+      expect((clear?.[2] as { maxAge: number }).maxAge).toBe(0);
+    });
+  });
+
   it("creates the user, sends a single welcome email carrying the verify token, and redirects to /profile", async () => {
     const res = await POST(buildRequest(validBody));
     expect(res.status).toBe(303);

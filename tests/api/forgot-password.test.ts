@@ -1,4 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createCookieJar, type FakeCookieJar } from "../helpers/cookies-mock";
+
+let cookieJar: FakeCookieJar;
+vi.mock("next/headers", () => ({
+  cookies: () => cookieJar,
+}));
 
 const rateLimitMock = vi.fn();
 const findUserByEmailMock = vi.fn();
@@ -32,6 +38,7 @@ vi.mock("@/lib/security/auth-storage", () => ({
 }));
 
 import { POST } from "@/app/api/auth/forgot-password/route";
+import { readKeptFields } from "@/lib/auth/form-flash";
 import type { NextRequest } from "next/server";
 
 function buildRequest(body: unknown): NextRequest {
@@ -42,7 +49,19 @@ function buildRequest(body: unknown): NextRequest {
   }) as unknown as NextRequest;
 }
 
+function buildFormPost(fields: Record<string, string>): NextRequest {
+  return new Request("http://localhost/api/auth/forgot-password", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "x-forwarded-for": "203.0.113.1",
+    },
+    body: new URLSearchParams(fields).toString(),
+  }) as unknown as NextRequest;
+}
+
 beforeEach(() => {
+  cookieJar = createCookieJar();
   rateLimitMock.mockReset();
   findUserByEmailMock.mockReset();
   issuePasswordResetTokenMock.mockReset();
@@ -52,6 +71,61 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+// Pressed before its script has run, or where script never runs, the form is a plain post.
+// It used to reach nothing: the fields emptied, nothing was sent and nothing was said.
+describe("POST /api/auth/forgot-password, as a plain form post", () => {
+  it("lands on the form's page with the address kept out of the URL", async () => {
+    findUserByEmailMock.mockResolvedValue(null);
+    const res = await POST(buildFormPost({ email: "maria@example.test" }));
+    expect(res.status).toBe(303);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/forgot-password");
+    expect(new URL(res.headers.get("location")!).search).toBe("?sent=1");
+    expect(await readKeptFields()).toEqual({ email: "maria@example.test" });
+  });
+
+  it("does the same work a script's request does", async () => {
+    findUserByEmailMock.mockResolvedValue({ id: "u1", email: "maria@example.test" });
+    issuePasswordResetTokenMock.mockResolvedValue({
+      token: "raw-token-123",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    sendPasswordResetEmailMock.mockResolvedValue({ ok: true, delivery: "sent" });
+    await POST(buildFormPost({ email: "maria@example.test" }));
+    await vi.waitFor(() => expect(sendPasswordResetEmailMock).toHaveBeenCalledTimes(1));
+    expect(findUserByEmailMock).toHaveBeenCalledWith("maria@example.test");
+  });
+
+  it("answers the same whether or not the account exists", async () => {
+    findUserByEmailMock.mockResolvedValueOnce(null);
+    const unknown = await POST(buildFormPost({ email: "maria@example.test" }));
+    findUserByEmailMock.mockResolvedValueOnce({ id: "u1", email: "maria@example.test" });
+    issuePasswordResetTokenMock.mockResolvedValue({
+      token: "raw-token-123",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    sendPasswordResetEmailMock.mockResolvedValue({ ok: true, delivery: "sent" });
+    const known = await POST(buildFormPost({ email: "maria@example.test" }));
+    expect(known.status).toBe(unknown.status);
+    expect(known.headers.get("location")).toBe(unknown.headers.get("location"));
+  });
+
+  it("goes back to the form with a reason, and the address, when it is malformed", async () => {
+    const res = await POST(buildFormPost({ email: "not-an-email" }));
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toMatch(/\/forgot-password\?error=invalid$/);
+    expect(findUserByEmailMock).not.toHaveBeenCalled();
+    expect(await readKeptFields()).toEqual({ email: "not-an-email" });
+  });
+
+  it("goes back to the form with a reason when rate limited", async () => {
+    rateLimitMock.mockResolvedValue({ ok: false, remaining: 0, resetAt: Date.now() + 60_000 });
+    const res = await POST(buildFormPost({ email: "maria@example.test" }));
+    expect(res.headers.get("location")).toMatch(/\/forgot-password\?error=rate_limited$/);
+    expect(findUserByEmailMock).not.toHaveBeenCalled();
+    expect(await readKeptFields()).toEqual({ email: "maria@example.test" });
+  });
 });
 
 describe("POST /api/auth/forgot-password", () => {

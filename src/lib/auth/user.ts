@@ -63,8 +63,42 @@ export async function authenticate(email: string, password: string) {
   return user;
 }
 
+/**
+ * Does a session cookie still speak for this account? A password reset gives the account
+ * a new credential version, which no cookie issued earlier carries, so every earlier
+ * sign-in ends there. NULL means the account's password has not been reset since the
+ * column arrived: such an account accepts any cookie, so that adding the column signed
+ * nobody out.
+ */
+function credentialsMatch(
+  session: { credentialVersion?: string },
+  account: { credentialVersion?: string | null },
+): boolean {
+  return (
+    account.credentialVersion == null || session.credentialVersion === account.credentialVersion
+  );
+}
+
 export async function requireUser() {
   const session = await getSession();
   if (!session.userId || session.role !== "USER") return null;
-  return prisma.user.findUnique({ where: { id: session.userId } });
+  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  if (!user || !credentialsMatch(session, user)) return null;
+  return user;
+}
+
+/**
+ * The same question for code that has a session in hand and needs nothing else of the
+ * account: the header, deciding whether to say "signed in" on every page.
+ */
+export async function sessionCredentialsCurrent(session: {
+  userId?: string;
+  credentialVersion?: string;
+}): Promise<boolean> {
+  if (!session.userId) return false;
+  const account = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { credentialVersion: true },
+  });
+  return account != null && credentialsMatch(session, account);
 }

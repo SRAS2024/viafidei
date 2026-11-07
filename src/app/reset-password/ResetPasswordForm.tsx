@@ -24,6 +24,8 @@ type Labels = {
 type Props = {
   token: string;
   labels: Labels;
+  /** Why a plain post of this form came back refused. */
+  failure?: string;
 };
 
 type Status =
@@ -40,8 +42,10 @@ function isStrongPassword(value: string): boolean {
 
 type FieldValidation = "weak" | "mismatch" | null;
 
-export function ResetPasswordForm({ token, labels }: Props) {
-  const [status, setStatus] = useState<Status>({ kind: "idle" });
+export function ResetPasswordForm({ token, labels, failure }: Props) {
+  const [status, setStatus] = useState<Status>(
+    failure ? { kind: "server_error", message: failure } : { kind: "idle" },
+  );
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [touched, setTouched] = useState(false);
@@ -50,6 +54,15 @@ export function ResetPasswordForm({ token, labels }: Props) {
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLInputElement>(null);
   const successRef = useRef<HTMLParagraphElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+
+  // These two fields have no value prop, so hydration cannot wipe what a reader or a
+  // password manager put in them while the page's script was still on its way. This
+  // picks that up, since the checks below read the state.
+  useEffect(() => {
+    if (passwordRef.current?.value) setPassword(passwordRef.current.value);
+    if (confirmRef.current?.value) setPasswordConfirm(confirmRef.current.value);
+  }, []);
 
   // Inline validation mirrors the register form: hidden until the user has
   // typed and either left a field or attempted to submit, and clears
@@ -65,11 +78,29 @@ export function ResetPasswordForm({ token, labels }: Props) {
     return null;
   })();
 
+  // A refusal of what was typed goes as soon as the reader types again. One of the link
+  // itself still stands whatever they type.
+  function clearTypingRefusal() {
+    if (
+      status.kind === "server_error" &&
+      (status.message === labels.weakPassword || status.message === labels.mismatch)
+    ) {
+      setStatus({ kind: "idle" });
+    }
+  }
+
   // The form leaves the page on success; focus moves to what replaces it.
   const succeeded = status.kind === "success";
   useEffect(() => {
     if (succeeded) successRef.current?.focus();
   }, [succeeded]);
+
+  // A plain post's answer is already on the page at first paint, where a live region stays
+  // silent. Focus on it is what makes a screen reader say it.
+  const arrivedRefused = Boolean(failure);
+  useEffect(() => {
+    if (arrivedRefused) errorRef.current?.focus();
+  }, [arrivedRefused]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -147,7 +178,24 @@ export function ResetPasswordForm({ token, labels }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="vf-form" noValidate>
+    // This form saves by fetch once the page's script has run. Pressed before that, a form's
+    // default GET would put the passwords in the address bar, and with no action it would
+    // reach nothing, so it has a real method and action, whose answer is a page.
+    <form
+      method="post"
+      action="/api/auth/reset-password"
+      onSubmit={handleSubmit}
+      className="vf-form"
+      noValidate
+    >
+      <input type="hidden" name="token" value={token} />
+      {/* Above the fields, as on the log in form: having heard it, the next stop is the
+          first thing to fill in again. */}
+      {status.kind === "server_error" ? (
+        <p ref={errorRef} tabIndex={-1} role="alert" className="vf-notice vf-notice-error">
+          {status.message}
+        </p>
+      ) : null}
       <div className="vf-field-split">
         <label htmlFor="password" className="vf-label">
           {labels.newPassword}
@@ -161,8 +209,10 @@ export function ResetPasswordForm({ token, labels }: Props) {
           required
           autoComplete="new-password"
           className="vf-input"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            clearTypingRefusal();
+          }}
           onBlur={() => setTouched(true)}
           aria-invalid={validation === "weak"}
           aria-describedby={validation === "weak" ? "reset-password-error" : undefined}
@@ -193,8 +243,10 @@ export function ResetPasswordForm({ token, labels }: Props) {
           required
           autoComplete="new-password"
           className="vf-input"
-          value={passwordConfirm}
-          onChange={(e) => setPasswordConfirm(e.target.value)}
+          onChange={(e) => {
+            setPasswordConfirm(e.target.value);
+            clearTypingRefusal();
+          }}
           onBlur={() => setTouched(true)}
           aria-invalid={validation === "mismatch"}
           aria-describedby={validation === "mismatch" ? "reset-confirm-error" : undefined}
@@ -205,11 +257,6 @@ export function ResetPasswordForm({ token, labels }: Props) {
           </p>
         ) : null}
       </div>
-      {status.kind === "server_error" ? (
-        <p role="alert" className="vf-notice vf-notice-error">
-          {status.message}
-        </p>
-      ) : null}
       <button
         type="submit"
         className="vf-btn vf-btn-primary vf-btn-block"

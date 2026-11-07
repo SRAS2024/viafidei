@@ -1,6 +1,9 @@
 import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { authenticate, loginSchema, getSession } from "@/lib/auth";
+import { clearKeptFields, keepFormFields } from "@/lib/auth/form-flash";
+import { safeNextPath } from "@/lib/auth/safe-next";
+import { recordUserSignIn } from "@/lib/auth/session";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp, getUserAgent, redirectTo } from "@/lib/security/request";
 import { reportSecurityBreach, reportSuspiciousActivity } from "@/lib/security/security-events";
@@ -28,15 +31,6 @@ export const runtime = "nodejs";
 const LOGIN_INVALID = "/login?error=invalid";
 const DEFAULT_NEXT = "/profile";
 
-function safeNext(raw: string | null): string {
-  if (!raw || !raw.startsWith("/")) return DEFAULT_NEXT;
-  // Protocol-relative ("//evil.com") and backslash ("/\\evil.com") forms still
-  // start with "/" but resolve to a THIRD-PARTY origin through
-  // new URL(path, origin) inside redirectTo(). Same-site paths only.
-  if (raw.startsWith("//") || raw.startsWith("/\\")) return DEFAULT_NEXT;
-  return raw;
-}
-
 async function readLoginForm(req: NextRequest): Promise<FormData | null> {
   // formData() throws on a mistyped Content-Type (e.g. application/json).
   // Returning null here lets the caller respond with the same generic
@@ -50,20 +44,32 @@ async function readLoginForm(req: NextRequest): Promise<FormData | null> {
 
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
+  let next: string | null = null;
+  let typedEmail: FormDataEntryValue | null = null;
+  // Every failure goes back to the form with the page the reader was on their way to
+  // and the address they typed, so that one wrong password costs one password.
+  const failed = async () => {
+    await keepFormFields("/login", { email: typedEmail });
+    return redirectTo(
+      req,
+      next ? `${LOGIN_INVALID}&next=${encodeURIComponent(next)}` : LOGIN_INVALID,
+    );
+  };
   try {
     const form = await readLoginForm(req);
     if (!form) {
       logger.warn("auth.login.bad_body", { requestId });
       return redirectTo(req, LOGIN_INVALID);
     }
+    typedEmail = form.get("email");
+    next = safeNextPath(form.get("next"));
     const parsed = loginSchema.safeParse({
       email: form.get("email"),
       password: form.get("password"),
     });
-    const next = safeNext((form.get("next") as string | null) ?? null);
 
     if (!parsed.success) {
-      return redirectTo(req, LOGIN_INVALID);
+      return await failed();
     }
 
     const ip = getClientIp(req);
@@ -75,7 +81,7 @@ export async function POST(req: NextRequest) {
       { ipAddress: ip },
     );
     if (!limit.ok) {
-      return redirectTo(req, LOGIN_INVALID);
+      return await failed();
     }
 
     const user = await authenticate(parsed.data.email, parsed.data.password);
@@ -110,7 +116,7 @@ export async function POST(req: NextRequest) {
             "Verify whether the legitimate account holder is signing in; if not, treat as suspected credential stuffing.",
         });
       }
-      return redirectTo(req, LOGIN_INVALID);
+      return await failed();
     }
 
     // Reset the consecutive-failure counter on a successful login.
@@ -121,10 +127,7 @@ export async function POST(req: NextRequest) {
     });
 
     const session = await getSession();
-    session.userId = user.id;
-    session.userEmail = user.email;
-    session.userName = `${user.firstName} ${user.lastName}`;
-    session.role = "USER";
+    recordUserSignIn(session, user);
     if (user.language && isSupportedLocale(user.language)) {
       session.locale = user.language;
     }
@@ -147,12 +150,13 @@ export async function POST(req: NextRequest) {
       cookieStore.set(THEME_COOKIE_NAME, profile.theme, THEME_COOKIE_OPTIONS);
     }
 
-    return redirectTo(req, next);
+    await clearKeptFields("/login");
+    return redirectTo(req, next ?? DEFAULT_NEXT);
   } catch (error) {
     logger.error("auth.login.unhandled", {
       requestId,
       message: error instanceof Error ? error.message : "unknown_error",
     });
-    return redirectTo(req, LOGIN_INVALID);
+    return failed();
   }
 }

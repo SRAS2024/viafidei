@@ -1,10 +1,11 @@
 import { after, type NextRequest } from "next/server";
 import { z } from "zod";
 import { findUserByEmail, issuePasswordResetToken } from "@/lib/auth";
+import { keepFormFields } from "@/lib/auth/form-flash";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
-import { getClientIp } from "@/lib/security/request";
+import { getClientIp, redirectTo } from "@/lib/security/request";
 import { checkAuthTokenStorage } from "@/lib/security/auth-storage";
-import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
+import { isFormPost, jsonError, jsonOk, readFormBody, readJsonBody } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 import { sendPasswordResetEmail } from "@/lib/email";
 
@@ -23,8 +24,8 @@ type RecoveryUser = NonNullable<Awaited<ReturnType<typeof findUserByEmail>>>;
  * healthy or broken.
  *
  * `sent: true` is deliberately unconditional: the client renders
- * "If an account exists for this email address, password reset instructions
- * have been sent." from it, which is true in both cases and reveals nothing.
+ * "If an account exists for {email}, we have sent a password reset link to that
+ * address." from it, which is true in both cases and reveals nothing.
  */
 const OPAQUE_ACCEPTED_BODY = { sent: true } as const;
 
@@ -160,15 +161,29 @@ async function deliverPasswordReset(user: RecoveryUser, requestId: string | unde
  * *request*, not of the account: 400 for a malformed email, 429 for the
  * per-IP rate limit. Neither one varies with whether the account exists.
  *
+ * The form sends JSON once its script has run. Pressed before that, or where
+ * script never runs, it is a plain post, which gets the same answers as a
+ * redirect back to the form's page, with the address in a cookie rather than
+ * the URL. That redirect does not vary with the account either.
+ *
  * Every downstream protection is unchanged — 32 random bytes per token,
  * SHA-256 hashed at rest, 15-minute expiry, single use, sibling tokens
  * invalidated on consume, and all sessions torn down after the password
  * rotates (see @/lib/auth/tokens).
  */
 export async function POST(req: NextRequest) {
+  const plainPost = isFormPost(req);
+  const posted = plainPost ? await readFormBody(req) : null;
+  const typedEmail = posted?.ok ? posted.form.get("email") : null;
+  const refusePlainPost = async (error: "rate_limited" | "invalid") => {
+    await keepFormFields("/forgot-password", { email: typedEmail });
+    return redirectTo(req, `/forgot-password?error=${error}`);
+  };
+
   const ip = getClientIp(req);
   const limit = await rateLimit(`forgot:${ip}`, RATE_POLICIES.passwordReset, { ipAddress: ip });
   if (!limit.ok) {
+    if (plainPost) return refusePlainPost("rate_limited");
     // Tell the caller how long they have to wait so the form can render
     // a precise message ("try again in N minutes") instead of an opaque
     // "too many requests". Independent of account existence.
@@ -178,10 +193,17 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const body = await readJsonBody(req);
-  if (!body.ok) return jsonError("invalid");
-  const parsed = schema.safeParse(body.data);
-  if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
+  let input: unknown = { email: typedEmail };
+  if (!plainPost) {
+    const body = await readJsonBody(req);
+    if (!body.ok) return jsonError("invalid");
+    input = body.data;
+  }
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) {
+    if (plainPost) return refusePlainPost("invalid");
+    return jsonError("invalid", { details: parsed.error.flatten() });
+  }
 
   const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
   let user: RecoveryUser | null = null;
@@ -206,5 +228,9 @@ export async function POST(req: NextRequest) {
     logger.info("auth.password_reset.no_account", { requestId });
   }
 
+  if (plainPost) {
+    await keepFormFields("/forgot-password", { email: parsed.data.email });
+    return redirectTo(req, "/forgot-password?sent=1");
+  }
   return jsonOk(OPAQUE_ACCEPTED_BODY);
 }

@@ -23,6 +23,9 @@ type Props = {
     loginRequired?: string;
     loginCta?: string;
     registerCta?: string;
+    close?: string;
+    failed?: string;
+    removeFailed?: string;
   };
   className?: string;
 };
@@ -36,6 +39,9 @@ const DEFAULT_LABELS = {
   loginRequired: "You must have an account for this action.",
   loginCta: "Log In",
   registerCta: "Create Account",
+  close: "Close",
+  failed: "Could not save. Please try again.",
+  removeFailed: "Could not remove. Please try again.",
 };
 
 export function SaveButton({
@@ -65,7 +71,7 @@ export function SaveButton({
         if (!res.ok) throw new Error("save failed");
         setSaved(true);
       } catch {
-        setError("Could not save. Please try again.");
+        setError(merged.failed);
       }
     });
   }
@@ -81,7 +87,7 @@ export function SaveButton({
         if (!res.ok) throw new Error("remove failed");
         setSaved(false);
       } catch {
-        setError("Could not remove. Please try again.");
+        setError(merged.removeFailed);
       }
     });
   }
@@ -119,6 +125,7 @@ export function SaveButton({
         message={merged.loginRequired}
         loginLabel={merged.loginCta}
         registerLabel={merged.registerCta}
+        closeLabel={merged.close}
       />
       <ConfirmDialog
         open={confirmingRemoval}

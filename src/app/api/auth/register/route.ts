@@ -7,6 +7,9 @@ import {
   getSession,
   issueEmailVerificationToken,
 } from "@/lib/auth";
+import { clearKeptFields, keepFormFields, type KeptFields } from "@/lib/auth/form-flash";
+import { safeNextPath } from "@/lib/auth/safe-next";
+import { recordUserSignIn } from "@/lib/auth/session";
 import { checkAuthTokenStorage } from "@/lib/security/auth-storage";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp, redirectTo } from "@/lib/security/request";
@@ -39,22 +42,7 @@ async function resolveLocaleFromRequest(
   return negotiateLocale(req.headers.get("accept-language"));
 }
 
-function redirectWithError(req: NextRequest, code: string) {
-  return redirectTo(req, `/register?error=${code}`);
-}
-
 const DEFAULT_NEXT = "/profile";
-
-// Same-site paths only: a bare "/" prefix is not enough, because
-// new URL("//evil.com", origin) resolves to https://evil.com. Mirrors
-// safeNext() in src/app/api/auth/login/route.ts.
-function safeNext(raw: FormDataEntryValue | null): string {
-  const value = typeof raw === "string" ? raw : null;
-  if (!value) return DEFAULT_NEXT;
-  if (!value.startsWith("/")) return DEFAULT_NEXT;
-  if (value.startsWith("//") || value.startsWith("/\\")) return DEFAULT_NEXT;
-  return value;
-}
 
 /**
  * Re-classify a Prisma write error so account-creation failures land in the
@@ -128,7 +116,31 @@ async function readRegisterPayload(req: NextRequest): Promise<
 
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
+  // Where to land after registering — set when an account-gated control
+  // (e.g. Favorite on a parish) sent the visitor to /register.
+  let next: string | null = null;
+  let typed: Partial<Record<keyof KeptFields, unknown>> = {};
+  // Every failure goes back to the form with that page and the fields the reader typed,
+  // apart from the passwords, so that one mistake costs one correction.
+  const redirectWithError = async (code: string) => {
+    await keepFormFields("/register", typed);
+    const query = new URLSearchParams({ error: code });
+    if (next) query.set("next", next);
+    return redirectTo(req, `/register?${query.toString()}`);
+  };
   try {
+    const payload = await readRegisterPayload(req);
+    if (!payload.ok) {
+      logger.warn("auth.register.bad_body", { requestId });
+      return await redirectWithError("invalid");
+    }
+    next = safeNextPath(payload.data.next);
+    typed = {
+      firstName: payload.data.firstName,
+      lastName: payload.data.lastName,
+      email: payload.data.email,
+    };
+
     // Confirm — read-only — that the account email schema is present. This
     // used to CREATE the tables mid-request; DDL on an unauthenticated POST
     // is not resilience, it is a schema-mutation primitive reachable by
@@ -151,18 +163,10 @@ export async function POST(req: NextRequest) {
           : { detail: storage.detail }),
       });
       if (process.env.NODE_ENV === "production") {
-        return redirectWithError(req, "server");
+        return await redirectWithError("server");
       }
     }
 
-    const payload = await readRegisterPayload(req);
-    if (!payload.ok) {
-      logger.warn("auth.register.bad_body", { requestId });
-      return redirectWithError(req, "invalid");
-    }
-    // Where to land after registering — set when an account-gated control
-    // (e.g. Favorite on a parish) sent the visitor to /register.
-    const next = safeNext(payload.data.next);
     const parsed = registerSchema.safeParse({
       firstName: payload.data.firstName,
       lastName: payload.data.lastName,
@@ -173,12 +177,12 @@ export async function POST(req: NextRequest) {
     });
 
     if (!parsed.success) {
-      return redirectWithError(req, classifyError(parsed));
+      return await redirectWithError(classifyError(parsed));
     }
 
     const ip = getClientIp(req);
     const limit = await rateLimit(`register:${ip}`, RATE_POLICIES.register, { ipAddress: ip });
-    if (!limit.ok) return redirectWithError(req, "rate_limited");
+    if (!limit.ok) return await redirectWithError("rate_limited");
 
     let existing;
     try {
@@ -198,9 +202,9 @@ export async function POST(req: NextRequest) {
         table: detail.table,
         message: detail.message,
       });
-      return redirectWithError(req, "server");
+      return await redirectWithError("server");
     }
-    if (existing) return redirectWithError(req, "exists");
+    if (existing) return await redirectWithError("exists");
 
     const language = await resolveLocaleFromRequest(req, parsed.data.language);
 
@@ -226,12 +230,12 @@ export async function POST(req: NextRequest) {
       // surface it as the user-facing "exists" case so the form gets a useful
       // message rather than a generic server error.
       if (detail.kind === "unique_violation") {
-        return redirectWithError(req, "exists");
+        return await redirectWithError("exists");
       }
       // missing_table / missing_column are operator-fixable (run migrations)
       // but the user can do nothing about them; show the generic server
       // error and let the structured log carry the diagnosis.
-      return redirectWithError(req, "server");
+      return await redirectWithError("server");
     }
 
     // One onboarding email that welcomes the user AND carries the
@@ -300,10 +304,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const session = await getSession();
-      session.userId = user.id;
-      session.userEmail = user.email;
-      session.userName = `${user.firstName} ${user.lastName}`;
-      session.role = "USER";
+      recordUserSignIn(session, user);
       session.locale = language;
       await session.save();
     } catch (error) {
@@ -321,9 +322,7 @@ export async function POST(req: NextRequest) {
       // login route, so the visitor still lands where they started.
       return redirectTo(
         req,
-        next === DEFAULT_NEXT
-          ? "/login?registered=1"
-          : `/login?registered=1&next=${encodeURIComponent(next)}`,
+        next ? `/login?registered=1&next=${encodeURIComponent(next)}` : "/login?registered=1",
       );
     }
 
@@ -331,7 +330,8 @@ export async function POST(req: NextRequest) {
     const cookieStore = await cookies();
     cookieStore.set(LOCALE_COOKIE_NAME, language, LOCALE_COOKIE_OPTIONS);
 
-    return redirectTo(req, next);
+    await clearKeptFields("/register");
+    return redirectTo(req, next ?? DEFAULT_NEXT);
   } catch (error) {
     logApiError({
       method: "POST",
@@ -342,6 +342,6 @@ export async function POST(req: NextRequest) {
       requestId,
       message: error instanceof Error ? error.message : "unknown_error",
     });
-    return redirectWithError(req, "server");
+    return redirectWithError("server");
   }
 }

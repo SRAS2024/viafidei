@@ -103,6 +103,7 @@ const REQUIRED_COLUMNS = {
     "role",
     "language",
     "emailVerifiedAt",
+    "credentialVersion",
     "createdAt",
     "updatedAt",
   ],

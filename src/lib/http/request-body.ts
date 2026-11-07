@@ -7,6 +7,19 @@ export type ReadJsonResult<T> =
   | { ok: true; data: T }
   | { ok: false; reason: "too_large" | "invalid_json" | "missing" };
 
+/**
+ * A real form post, not a script's JSON. A form that saves by fetch still sends one when it
+ * is pressed before its script has run, or where script never runs, and the answer it needs
+ * is a page to land on rather than JSON to show the reader.
+ */
+export function isFormPost(req: NextRequest): boolean {
+  const contentType = req.headers.get("content-type") ?? "";
+  return (
+    contentType.includes("application/x-www-form-urlencoded") ||
+    contentType.includes("multipart/form-data")
+  );
+}
+
 function declaredContentLengthExceeds(req: NextRequest, limit: number): boolean {
   const raw = req.headers.get("content-length");
   if (!raw) return false;
