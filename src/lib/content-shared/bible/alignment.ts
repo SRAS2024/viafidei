@@ -1402,7 +1402,9 @@ export const UNALIGNABLE_BOOKS: ReadonlySet<BookCode> = new Set<BookCode>(["SIR"
 /**
  * Modern (Masoretic) psalm number → Douay-Rheims (Vulgate) psalm number.
  * Vulgate 9 = modern 9–10, Vulgate 113 = modern 114–115, modern 116 = Vulgate
- * 114–115, modern 147 = Vulgate 146–147; 1–8 and 148–150 coincide.
+ * 114–115, modern 147 = Vulgate 146–147; 1–8 and 148–150 coincide. A modern psalm
+ * the Vulgate splits answers with its first half, so the psalm a passage is really
+ * in comes from its verses (see `ALIGNMENT`), never from this number alone.
  */
 export function vulgatePsalmNumber(masoretic: number): number {
   if (masoretic <= 8) return masoretic;

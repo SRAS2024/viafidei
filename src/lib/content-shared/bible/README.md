@@ -50,6 +50,106 @@ douayText("JER", 9, 1); // "Who will give water to my head, …" (Douay numberin
   renumbered in the data; all mapping happens at resolve time.
 - **Modern verse counts:** the original-language (Hebrew/Greek) versification
   the NAB and the USCCB lectionary follow (see `modern-verses.ts`).
+- **Corrections:** the words are the printed Challoner text; see below. Do not
+  regenerate the store from `engDRA`, which would bring the errors back.
+
+## Corrections to the text
+
+`engDRA` is a scan, and its errors came through to the readings page, where a
+screen reader reads them aloud: "The ford is compassionate", "sound of comet",
+a Psalm 127:3 with no olive plants. In November 2026 every verse the Lectionary
+tables can display was checked: all 724 formularies, all cycles, every
+alternative, 10,424 verses in 684 chapters.
+
+Three witnesses were read against the store, word by word and mark by mark:
+
+1. **Printed editions**, the authority. The OCR text of 13 scanned printings at
+   archive.org, read together so that a slip in one scan is outvoted by the
+   others, and read at each verse's own place in a scan, found by the words only
+   that verse has and by the verses around it. Searching a scan for a verse's words
+   will not do: 2 Thessalonians 1:2 has the words of 2 Corinthians 1:2 with other
+   marks, Hebrews 2:12 those of Psalm 21:23, and "be cast into hell" stands in the
+   verse before Matthew 5:30, where the printings have "go into hell". The scans:
+   `holybibletransla00denv` (New York: Benziger, 1899);
+   `holybible00balt` (Rockford: TAN, 1971); `holybibletransla00balt` and
+   `holybibletransl00balt` (Baltimore: John Murphy, 1914);
+   `holybibletransla00newy`, `TheHolyBible1914` and
+   `theholybibletran00unknuoft` (New York: Kenedy, 1914);
+   `holybibletransla00soui` (Sioux City: Fitzgibbon, 1912);
+   `holybibletransla01unse` (St. Louis: Herder, 1906);
+   `holybibletransla00bost` (Boston: Donahue, 1858);
+   `holybibletransla00dubl` (Dublin: Duffy, 1857);
+   `TheHolyBibleTranslatedFrom` (New York: Dunigan, 1844);
+   `holybibletransla00chalrich` (Philadelphia: Kelly, 1821).
+2. **drbo.org**, chapter by chapter. It agrees with the store in almost every
+   mark, as if the two share an ancestor, so it catches what was damaged in the
+   store alone and cannot see what was damaged in both.
+3. **Project Gutenberg #1581**, a further reading. It has slips of its own and
+   never decided anything by itself.
+
+**The rule.** A reading is corrected when no printing holds it and the printings
+agree on another, whatever drbo.org says; a lone scan that has it through its own
+OCR slip does not count, such as "fire brands" broken at a line's end, or a comma
+read as a full stop. A reading a printing really holds is an edition's reading,
+and stays. Agreeing with drbo.org proves nothing by itself: it shares "exulted"
+(Ps 117:16), "Median" (Is 9:4), "shirt" (Zec 8:23), "be cast" (Mt 5:30), the lost
+"a" of Isaias 54:6 and Numbers 14:34, the lost "I" of 2 Samuel 18:14, and the loss
+of whole clauses (Is 5:4, Eph 1:18) with the store, and has its own departures from
+print: "cast lots" (Jn 19:24), "calves" (Mt 22:4), "convict" (Jn 16:8), "ask for
+Barabbas, and take Jesus away" (Mt 27:20). Nothing was passed over for being small: a
+single letter, a word split or joined, an apostrophe and a capital were read like any
+other word.
+
+**What changed.** 853 places in 786 verses, each listed in
+`tests/content/fixtures/douay-corrections.json` with its old and new words,
+whether drbo.org has the new reading, and how many of the 13 scans have it at that
+verse's own place, marks and capitals included. Of these, 514 are in the 477 verses
+a reader can reach: 382 of words (195 where drbo.org has the printed reading, 187
+where it shares the error) and 132 of marks and capitals, such as a full stop in
+mid-sentence, which a screen reader pauses at. The other 339 are in verses no
+reading displays today, in chapters that were compared anyway or that the prayer
+library quotes, whose psalms and canticles were read against the printings too.
+
+**What was kept on purpose.** Spellings of this edition: neighbor, show, shown,
+judgement, every where and everywhere, any thing and anything, today, tomorrow,
+fullness, harkened, thrashingfloor, fulfill, mayest, naught, honor, labored,
+skillful, Cesarea. The capital of a quoted saying ("How sayest thou, Shew us the
+Father?"). The Hebrew letters that head the sections of Psalm 118. Psalm titles this
+store leaves out of verse 1 and the printings have, such as those of Psalms 109,
+137, 138 and 144, "Alleluia" on most of Psalms 110–118, 134, 135 and 146–150, and "A
+gradual canticle" on most of Psalms 119–133, since the readings are better without
+them.
+
+Readings the printings themselves divide on stay too, by the rule, though most
+printings can be against them. The ledger's `divided` list names those places on
+displayable verses, with how many scans hold each side, such as "upon earth" (Mt
+16:19) and "a good and just man" (Lk 23:50), which the 1821 and 1858 printings hold
+and the others do not. Mark 8:6 is in that list because the store lacks a clause the
+Latin has: three of the 1914 printings (`TheHolyBible1914`,
+`holybibletransla00balt`, `theholybibletran00unknuoft`) open the verse "And he
+commanded the multitude to sit down upon the ground", the 1821 and 1858 printings
+"And he commanded the people to sit down on the ground", and the other eight scans
+lack the clause, as the store does: 1844, 1857, 1899, 1906, 1912, the two other 1914
+scans, and 1971.
+
+**What was not done.** Verses outside the displayable set were corrected only
+where their chapter was compared with drbo.org. Nothing shows the rest today,
+but the printed editions disagree with about 1,060 more places in them, so if the
+tables ever reach further, check those verses first.
+
+**Checking again.** `tests/content/bible-dra-text.test.ts` pins the corrections,
+the kept readings, the store's format and the displayable verses.
+`npx tsx scripts/lectionary/check-douay-text.ts --strict` compares the displayable
+verses with drbo.org again, five seconds a chapter as its robots.txt asks, and
+fails on any difference the ledger does not account for. It accounts by place: a
+ledger entry excuses its own words, and a new error elsewhere in the same verse is
+still reported. It cannot see what the store and drbo.org share, which is what the
+printed editions and the test's pins are for.
+
+A correction here reaches the page on deploy. The worker's `DailyReading` rows
+hold copies of this text from when they were written, and the readings page
+ignores them in favour of what it computes; the worker's backfill rewrites them
+on its next run.
 
 ## Numbering conventions
 

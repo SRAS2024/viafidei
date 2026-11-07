@@ -368,10 +368,15 @@ export function resolveDouayPassage(citation: string): DouayPassage {
       if (renumbered) {
         part += " (Vulgate numbering)";
         const modern = [...new Set(run.segments.map((s) => s.chapter))];
+        // The psalms actually read, not the number the modern psalm starts at: the
+        // Vulgate splits modern 116 into 114 and 115, and modern 147 into 146 and 147.
+        const douay = [...new Set(resolved.refs.map(([chapter]) => chapter))];
+        const psalms = (numbers: readonly unknown[]) =>
+          `${numbers.length > 1 ? "Psalms" : "Psalm"} ${numbers.join(" and ")}`;
         notes.push(
-          `Psalm ${modern.join(", ")} of the lectionary is Psalm ${modern
-            .map((c) => (typeof c === "number" ? vulgatePsalmNumber(c) : c))
-            .join(", ")} in the Douay-Rheims (Vulgate) numbering.`,
+          douay.join() === modern.join()
+            ? `Verse numbers follow the Douay-Rheims: ${part}.`
+            : `${psalms(modern)} of the lectionary ${modern.length > 1 ? "are" : "is"} ${psalms(douay)} in the Douay-Rheims (Vulgate) numbering.`,
         );
       }
     } else if (!resolved.identity) {
