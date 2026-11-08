@@ -1499,7 +1499,8 @@ server-side state rather than only clearing a cookie. Both are described under
 unaffected by all of it.
 
 The public **daily readings** page lives at `/liturgy/readings?date=…` (the
-homepage + liturgical calendar link to it), and the worker owns it end to end —
+homepage links to it, and the liturgical calendar shows the same readings under
+the day it describes, from `/api/readings`), and the worker owns it end to end —
 the calendar engine, the committed lectionary tables, the Douay-Rheims store and
 the rolling backfill are all described under [Liturgy](#liturgy).
 
@@ -5978,10 +5979,21 @@ lectionary:coverage`) fails on any unresolved key.
 `/liturgy/readings?date=…` shows the exact celebration, the readings in
 proclamation order with the Douay-Rheims text wherever it aligns, the Lectionary
 number, the alternatives the Lectionary offers as a choice rather than silently
-dropping one, and the attribution above. It is the **internal** page the
-Liturgical Calendar's "Official Mass readings for this day" button links to, not
-an external site, and it keeps a modest "Source: …" link so a reader can always
-reach the official text.
+dropping one, and the attribution above. The Liturgical Calendar shows the same
+readings under the day it describes (it asks `/api/readings`, which reads through
+the same `loadReadingsView`, so the two never differ), with a link to this page,
+which keeps a modest "Source: …" link so a reader can always reach the official
+text.
+
+**Which Mass a date opens on.** A date with an evening Mass (a Saturday, the eve
+of a holy day) offers both, and so do the days with several Masses of their own
+(Christmas, Holy Thursday, Palm Sunday). An address that names a Mass shows it
+(`?mass=vigil`, `?mass=day`, `?variant=…`); one that names none shows the day's own,
+except on the visitor's current day from noon on their device, when the readings
+page and the calendar open on the evening's (`prefersEveningMass` in
+`content-shared/mass-default.ts`). Another date, ahead or behind, opens on its own
+Mass. The moment is the visit's (`useVisitMoment`): it is read on arrival and when
+the visitor comes back after a while away, never under someone reading.
 
 The worker keeps it current from the `readings` lane:
 
@@ -6456,9 +6468,9 @@ blue and closes the panel, and re-selecting the active one deselects it (back to
 "All"). It works in both link mode (server pages) and client mode (favorites,
 history); the reset/all key is excluded from the count via `resetKey`.
 
-**Daily readings.** The Liturgical Calendar's "Official Mass readings for this
-day" button links to the **internal** `/liturgy/readings?date=…` page, not an
-external site. The page shows the exact celebration, the readings in
+**Daily readings.** The Liturgical Calendar shows the day's readings in place,
+and links to the **internal** `/liturgy/readings?date=…` page, not an external
+site. The page shows the exact celebration, the readings in
 proclamation order (public-domain Douay-Rheims wherever the citation aligns with
 certainty), the required lectionary credits, and a modest source link at the
 bottom. The worker keeps it current with `maybeRefreshDailyReadings` (today) and

@@ -18,7 +18,7 @@ export const es: Dict = {
   "nav.settings": "Ajustes",
   "home.title": "Un lugar sereno para orar, aprender y volver.",
   "home.lede":
-    "Via Fidei es un compañero católico multilingüe — una biblioteca cuidada de oraciones, santos, guía sacramental, formación litúrgica y búsqueda de parroquias.",
+    "Via Fidei es un compañero católico — una biblioteca cuidada de oraciones, santos, guía sacramental, formación litúrgica y búsqueda de parroquias.",
   "home.ctaExplore": "Explorar oraciones",
   "home.ctaJoin": "Crear perfil",
   "home.ctaProfile": "Ir a tu perfil",

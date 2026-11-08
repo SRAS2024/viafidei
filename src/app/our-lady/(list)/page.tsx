@@ -155,7 +155,7 @@ export default async function OurLadyPage({ searchParams }: { searchParams: Sear
       <PageHero
         eyebrow="The Blessed Virgin Mary"
         title="Our Lady"
-        subtitle="Marian titles and the Church-approved apparitions of the Blessed Virgin Mary."
+        subtitle="The different titles of Mary, the Mother of God."
       />
 
       <ListControls>

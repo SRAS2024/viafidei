@@ -13,7 +13,10 @@
  * (Christmas during the Night, the Year A scrutiny readings); the other is its
  * evening Mass, the Vigil of the next day, which reads the next day's readings
  * under this date (?mass=vigil). Which Masses a date has is decided by
- * `massOptions` in the calendar engine and by the tables, never by the clock.
+ * `massOptions` in the calendar engine and by the tables, never by the clock. Which
+ * one is shown first is the address's to say (?mass=vigil, or ?mass=day for the day's
+ * own); an address that names none is the day's own Mass here, and on the visitor's
+ * current day the page moves it to the evening Mass from noon (TodayDateSync).
  *
  * On the four dates the Ascension's observances differ, the page shows what most of
  * the United States keeps, and offers what the provinces that keep the Ascension on
@@ -85,6 +88,10 @@ export interface ReadingsView {
   masses: ReadingsMassOption[];
   /** The formularies inside the Vigil view (Palm Sunday's Procession and Mass). */
   formularies: ReadingsMassOption[];
+  /** The readings page's address for exactly this Mass, as its own choice names it. */
+  href: string;
+  /** The address of this date's evening Mass when it offers one beside its own; else null. */
+  eveningHref: string | null;
   activeVariant: string | null;
   /** True when this view is the evening Mass of the next day. */
   isVigil: boolean;
@@ -311,6 +318,19 @@ export function buildReadingsView(
     overlaySection(section, byKind.get(section.kind)),
   );
 
+  // The other Masses stand beside the day's own: the evening's, unless its readings are
+  // the day's own, when there is nothing to choose between; and on the Ascension's four
+  // dates, what the provinces that keep Thursday read.
+  const onThursday = opts.calendar?.ascensionOnThursday === true;
+  const [ownOption, ...otherOptions] = massOptions(date);
+  const others = otherOptions.filter(
+    (option) =>
+      option.ascensionOnThursday || (evening !== null && !sameCitations(principal, evening)),
+  );
+  // With an evening Mass beside it, the day's own Mass is named when chosen (?mass=day):
+  // an address without one lets the current day's afternoon open on the evening's.
+  const day = others.some((o) => o.evening && !o.ascensionOnThursday);
+
   // The day's own Masses, in the order they are celebrated.
   const activeDayVariant = !isVigil ? (dayResolved?.variant ?? null) : undefined;
   const ownMasses = (principal?.masses ?? []).length > 1 ? (principal?.masses ?? []) : [];
@@ -319,19 +339,10 @@ export function buildReadingsView(
     .map((mass) => ({
       variant: mass.variant,
       label: massLabel(mass.variant, today.lectionaryKey, today.sundayCycle),
-      href: massHref(iso, { variant: mass.variant }),
+      href: massHref(iso, { variant: mass.variant, day: day && !mass.variant }),
       isActive: mass.variant === activeDayVariant,
     }));
 
-  // The other Masses stand beside them: the evening's, unless its readings are the
-  // day's own, when there is nothing to choose between; and on the Ascension's four
-  // dates, what the provinces that keep Thursday read.
-  const onThursday = opts.calendar?.ascensionOnThursday === true;
-  const [ownOption, ...otherOptions] = massOptions(date);
-  const others = otherOptions.filter(
-    (option) =>
-      option.ascensionOnThursday || (evening !== null && !sameCitations(principal, evening)),
-  );
   // ?ascension=thursday on a Wednesday's or a Saturday's own Mass changes nothing,
   // so the day's own option is the chosen one there.
   const chosen =
@@ -343,7 +354,7 @@ export function buildReadingsView(
       masses.push({
         variant: null,
         label: ownOption.label,
-        href: massHref(iso, {}),
+        href: massHref(iso, { day }),
         isActive: chosen === null,
       });
     }
@@ -377,6 +388,14 @@ export function buildReadingsView(
       : [];
 
   const holySaturday = today.temporalKey === "easter-vigil";
+  const href =
+    formularies.find((f) => f.isActive)?.href ??
+    masses.find((m) => m.isActive)?.href ??
+    massHref(iso, {
+      evening: isVigil,
+      ascensionOnThursday: onThursday,
+      variant: resolved?.variant ?? null,
+    });
   return {
     date: iso,
     framing,
@@ -394,6 +413,8 @@ export function buildReadingsView(
     sections,
     masses,
     formularies,
+    href,
+    eveningHref: masses.find((m) => m.variant === "evening")?.href ?? null,
     activeVariant: resolved?.variant ?? null,
     isVigil,
     hasText: sections.some((s) => typeof s.body === "string" && s.body.length > 0),

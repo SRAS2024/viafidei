@@ -16,7 +16,6 @@ import {
 } from "./historyUrl";
 import {
   buildHistoryView,
-  formatCount,
   historyStatusSpeech,
   historyStatusText,
   parseHistoryParams,
@@ -70,10 +69,9 @@ export default async function HistoryPage({ searchParams }: Props) {
   const timeline = await loadHistoryTimeline();
   const { events } = timeline;
   const view = buildHistoryView(timeline, parseHistoryParams((await searchParams) ?? {}));
-  // The opening label comes from the first event itself ("c. 33"), so the
-  // subtitle never asserts a precision the dataset does not claim.
+  // The opening label comes from the first event itself ("c. 33"), so the era
+  // controls never assert a precision the dataset does not claim.
   const firstLabel = events[0]?.dateLabel;
-  const subtitle = `${formatCount(events.length)} events from ${firstLabel ?? "the early Church"} to today: councils, saints and martyrs, schisms and reform, and the Magisterium.`;
 
   const { theme, q } = view;
   const order = view.params.order;
@@ -84,7 +82,8 @@ export default async function HistoryPage({ searchParams }: Props) {
 
   return (
     <div className="vf-history">
-      <PageHero title={TITLE} subtitle={subtitle} />
+      {/* No line under the title: a page called Church History says what it is. */}
+      <PageHero title={TITLE} />
       <HistoryShell>
         <HistoryControls view={view} firstLabel={firstLabel ?? "33"} t={t} locale={locale} />
         <div className="vf-timeline-status-row">

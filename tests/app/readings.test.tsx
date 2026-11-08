@@ -258,8 +258,10 @@ describe("buildReadingsView — the Saturday Vigil", () => {
     expect(view.masses).toEqual([
       {
         variant: null,
+        // Chosen by name: an address without a Mass is the site's to choose, and on the
+        // visitor's own Saturday afternoon that is the evening's.
         label: "Saturday Mass",
-        href: "/liturgy/readings?date=2026-11-07",
+        href: "/liturgy/readings?date=2026-11-07&mass=day",
         isActive: true,
       },
       {
@@ -269,6 +271,22 @@ describe("buildReadingsView — the Saturday Vigil", () => {
         isActive: false,
       },
     ]);
+    expect(view.href).toBe("/liturgy/readings?date=2026-11-07&mass=day");
+    expect(view.eveningHref).toBe("/liturgy/readings?date=2026-11-07&mass=vigil");
+  });
+
+  it("reads ?mass=day as the day's own Mass", () => {
+    const view = buildReadingsView(D("2026-11-07"), { mass: "day" });
+    expect(view.isVigil).toBe(false);
+    expect(view.lectionaryNumber).toBe("490");
+    expect(view.masses.map((m) => m.isActive)).toEqual([true, false]);
+  });
+
+  it("names no Mass where a date has only one, and gives its own address", () => {
+    const view = buildReadingsView(D("2026-11-05"));
+    expect(view.masses).toEqual([]);
+    expect(view.href).toBe("/liturgy/readings?date=2026-11-05");
+    expect(view.eveningHref).toBeNull();
   });
 
   it("shows the next day's celebration, cycle and readings under this date", () => {
@@ -536,7 +554,7 @@ describe("buildReadingsView — the Ascension's two observances", () => {
   it("the evening before the Sunday: both Vigils stand beside the Saturday's Mass", () => {
     const saturday = buildReadingsView(D("2027-05-08"));
     expect(options(saturday)).toEqual([
-      ["Saturday Mass", "/liturgy/readings?date=2027-05-08", true],
+      ["Saturday Mass", "/liturgy/readings?date=2027-05-08&mass=day", true],
       ["Ascension Vigil (Saturday evening)", "/liturgy/readings?date=2027-05-08&mass=vigil", false],
       [
         "7th Sunday of Easter Vigil (Saturday evening), where the Ascension was on Thursday",

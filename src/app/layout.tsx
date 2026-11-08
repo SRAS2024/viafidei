@@ -34,11 +34,10 @@ export const metadata: Metadata = {
     template: "%s · Via Fidei",
   },
   description:
-    "A multilingual Catholic platform — prayers, saints, sacramental guidance, liturgy, and parish discovery — presented with reverence and clarity.",
+    "A Catholic platform — prayers, saints, sacramental guidance, liturgy, and parish discovery — presented with reverence and clarity.",
   openGraph: {
     title: "Via Fidei",
-    description:
-      "A multilingual Catholic companion — prayers, saints, liturgy, and parish discovery.",
+    description: "A Catholic companion — prayers, saints, liturgy, and parish discovery.",
     url: appConfig.canonicalUrl,
     siteName: "Via Fidei",
     type: "website",
@@ -57,8 +56,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Via Fidei",
-    description:
-      "A multilingual Catholic companion — prayers, saints, liturgy, and parish discovery.",
+    description: "A Catholic companion — prayers, saints, liturgy, and parish discovery.",
     images: ["/api/og?title=Via+Fidei&type=The+Way+of+Faith"],
   },
   // The crucifix logo is the universal favicon EVERYWHERE — browser tab + address

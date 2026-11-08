@@ -28,12 +28,39 @@ function visitorWhoseDateDiffers(serverZone = "UTC"): { timezoneId: string; date
   return { timezoneId, date: dateIn(timezoneId) };
 }
 
+/**
+ * The moment `date` reaches `hour` in `timeZone`. On the visitor's own day the readings
+ * open on the evening's Mass from noon, so a test about the date alone runs in the
+ * morning, whatever hour it is where the tests run.
+ */
+function atHour(date: string, timeZone: string, hour: number): Date {
+  const noonUtc = Date.parse(`${date}T12:00:00Z`);
+  const local = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+  });
+  for (let h = -36; h <= 36; h++) {
+    const moment = new Date(noonUtc + h * 3_600_000);
+    const part = (type: string) => local.formatToParts(moment).find((p) => p.type === type)?.value;
+    if (`${part("year")}-${part("month")}-${part("day")}` === date && Number(part("hour")) === hour)
+      return moment;
+  }
+  throw new Error(`${date} has no ${hour}:00 in ${timeZone}`);
+}
+
 test.describe("the readings page finds the visitor's own date", () => {
   const { timezoneId, date } = visitorWhoseDateDiffers();
   test.use({ timezoneId });
   // Hydration and the router's request, then the fallback's two seconds if it comes to that.
   test.setTimeout(45_000);
   const arrival = { timeout: 15_000 };
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(atHour(date, timezoneId, 9));
+  });
 
   test("by the router, in the ordinary way", async ({ page }) => {
     await page.goto("/liturgy/readings");
@@ -65,6 +92,94 @@ test.describe("the readings page finds the visitor's own date", () => {
   }
 });
 
+test.describe("the readings of the visitor's Saturday, by the hour on their device", () => {
+  test.use({ timezoneId: "America/Los_Angeles" });
+  test.setTimeout(45_000);
+  const arrival = { timeout: 15_000 };
+  const MORNING = new Date("2026-11-07T17:00:00Z"); // 09:00 on Saturday, November 7
+  const AFTERNOON = new Date("2026-11-07T21:00:00Z"); // 13:00
+
+  test("open on the day's own Mass in the morning", async ({ page }) => {
+    await page.clock.setFixedTime(MORNING);
+    await page.goto("/liturgy/readings?date=2026-11-07");
+    await page.waitForTimeout(2500);
+    await expect(page).toHaveURL(/\?date=2026-11-07$/);
+    await expect(page.locator("article h1")).toHaveText(
+      "Saturday of the 31st Week in Ordinary Time",
+    );
+  });
+
+  test("open on Sunday's Vigil from noon", async ({ page }) => {
+    await page.clock.setFixedTime(AFTERNOON);
+    await page.goto("/liturgy/readings?date=2026-11-07");
+    await expect(page).toHaveURL(/\?date=2026-11-07&mass=vigil$/, arrival);
+    await expect(page.locator("article h1")).toHaveText(
+      "Vigil of the 32nd Sunday in Ordinary Time",
+    );
+    // Both are still offered, the Vigil chosen.
+    await expect(page.getByRole("link", { name: "Saturday Mass" })).toHaveAttribute(
+      "href",
+      "/liturgy/readings?date=2026-11-07&mass=day",
+    );
+  });
+
+  test("but give the day's own Mass to a visitor who chose it", async ({ page }) => {
+    await page.clock.setFixedTime(AFTERNOON);
+    await page.goto("/liturgy/readings?date=2026-11-07&mass=day");
+    await page.waitForTimeout(2500);
+    await expect(page).toHaveURL(/\?date=2026-11-07&mass=day$/);
+    await expect(page.locator("article h1")).toHaveText(
+      "Saturday of the 31st Week in Ordinary Time",
+    );
+  });
+
+  test("and leave another Saturday on its own Mass", async ({ page }) => {
+    await page.clock.setFixedTime(AFTERNOON);
+    await page.goto("/liturgy/readings?date=2026-11-14");
+    await page.waitForTimeout(2500);
+    await expect(page).toHaveURL(/\?date=2026-11-14$/);
+  });
+
+  test("and on the calendar, are there under the day, the Vigil chosen from noon", async ({
+    page,
+  }) => {
+    await page.clock.setFixedTime(AFTERNOON);
+    await page.goto("/liturgical-calendar");
+    const vigil = page.getByRole("button", { name: "Sunday Vigil (Saturday evening)" });
+    await expect(vigil).toHaveAttribute("aria-pressed", "true", arrival);
+    await expect(page.locator(".vf-calendar-readings-title")).toContainText(
+      "Vigil of the 32nd Sunday in Ordinary Time",
+    );
+    await expect(
+      page.getByRole("heading", { level: 3, name: "Gospel", exact: true }),
+    ).toBeVisible();
+
+    // Another Saturday opens on its own Mass.
+    await page.getByLabel("Choose a date").fill("2026-11-14");
+    await expect(page.getByRole("button", { name: "Saturday Mass" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+      arrival,
+    );
+  });
+
+  test("and on the calendar in the morning, the day's own", async ({ page }) => {
+    await page.clock.setFixedTime(MORNING);
+    await page.goto("/liturgical-calendar");
+    const own = page.getByRole("button", { name: "Saturday Mass" });
+    await expect(own).toHaveAttribute("aria-pressed", "true", arrival);
+    await expect(page.locator(".vf-calendar-readings-title")).toContainText(
+      "Saturday of the 31st Week in Ordinary Time",
+    );
+    // A press shows the other Mass's readings in place.
+    await page.getByRole("button", { name: "Sunday Vigil (Saturday evening)" }).click();
+    await expect(page.locator(".vf-calendar-readings-title")).toContainText(
+      "Vigil of the 32nd Sunday in Ordinary Time",
+    );
+    await expect(own).toHaveAttribute("aria-pressed", "false");
+  });
+});
+
 test("the last day of the calendar's years opens with its Vigil", async ({ page }) => {
   await page.goto("/liturgy/readings?date=2099-12-31&mass=vigil");
   await expect(page.locator("article h1")).toHaveText("Vigil of Mary, the Holy Mother of God");
@@ -89,16 +204,23 @@ test.describe("a tab left open across midnight", () => {
     await expect(page.getByRole("link", { name: /Sunday Vigil/ })).toHaveCount(0);
   });
 
-  test("the calendar follows, until the visitor picks a day", async ({ page }) => {
+  test("the calendar keeps a reader's day, and follows when they come back", async ({ page }) => {
     await page.clock.install({ time: SATURDAY_NIGHT });
     await page.goto("/liturgical-calendar");
     const field = page.getByLabel("Choose a date");
     await expect(field).toHaveValue("2026-11-07");
+    // Its readings are on the page now, so midnight does not change them under a reader.
     await page.clock.fastForward("02:00");
+    await expect(field).toHaveValue("2026-11-07");
+    await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+    await page.clock.fastForward("40:00");
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(field).toHaveValue("2026-11-08");
 
     await field.fill("2026-12-25");
+    await page.evaluate(() => window.dispatchEvent(new Event("blur")));
     await page.clock.fastForward("24:00:00");
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(field).toHaveValue("2026-12-25");
   });
 });
@@ -112,7 +234,11 @@ test.describe("a readings tab left open across midnight, in a timezone with the 
     .toISOString()
     .slice(0, 10);
 
-  /** Opened late, and read down to the last reading with focus on a link, as a voice would be. */
+  /**
+   * Opened late, and read down to the last reading with focus on a link, as a voice would
+   * be. Late is the afternoon, so on a Saturday or a holy day's eve the page has gone to
+   * the evening's Mass as it opened; the address it settled on is returned with the place.
+   */
   async function readDownThePage(page: Page) {
     await page.clock.install({ time: new Date(`${today}T23:50:00Z`) });
     await page.goto("/liturgy/readings");
@@ -121,29 +247,31 @@ test.describe("a readings tab left open across midnight, in a timezone with the 
     // The date is read as the page comes to life, so it must have, before the clock jumps.
     await expect.poll(() => page.evaluate(() => history.state?.__NA)).toBe(true);
     await page.waitForTimeout(500);
-    await expect(page).toHaveURL(/\/liturgy\/readings$/);
-    return page.evaluate(() => {
+    await expect(page).toHaveURL(new RegExp(`/liturgy/readings(\\?date=${today}&mass=vigil)?$`));
+    const address = page.url();
+    const y = await page.evaluate(() => {
       document.querySelector(".vf-reading-section:last-of-type")?.scrollIntoView();
       document.querySelector<HTMLElement>('a[href="/liturgical-calendar"]')?.focus({
         preventScroll: true,
       });
       return window.scrollY;
     });
+    return { y, address };
   }
 
   test("stays where the reader is at midnight", async ({ page }) => {
-    const y = await readDownThePage(page);
+    const { y, address } = await readDownThePage(page);
     const subtitle = await page.locator(".vf-detail-subtitle").textContent();
     await page.clock.fastForward("15:00");
     await page.waitForTimeout(2500);
-    await expect(page).toHaveURL(/\/liturgy\/readings$/);
+    await expect(page).toHaveURL(address);
     await expect(page.locator(".vf-detail-subtitle")).toHaveText(subtitle!);
     expect(await page.evaluate(() => window.scrollY)).toBe(y);
     await expect(page.locator('a[href="/liturgical-calendar"]')).toBeFocused();
   });
 
   test("stays there after a moment in another app", async ({ page }) => {
-    const y = await readDownThePage(page);
+    const { y, address } = await readDownThePage(page);
     await page.clock.fastForward("15:00");
     await page.evaluate(() => window.dispatchEvent(new Event("blur")));
     await page.clock.fastForward("02:00");
@@ -152,7 +280,7 @@ test.describe("a readings tab left open across midnight, in a timezone with the 
       window.dispatchEvent(new Event("focus"));
     });
     await page.waitForTimeout(2500);
-    await expect(page).toHaveURL(/\/liturgy\/readings$/);
+    await expect(page).toHaveURL(address);
     expect(await page.evaluate(() => window.scrollY)).toBe(y);
   });
 
@@ -183,8 +311,11 @@ test.describe("a readings tab opened on another date than the server's", () => {
     });
   };
 
+  // Mornings, so that every day is told by its date alone, not by its evening Mass.
+  const morning = atHour(date, timezoneId, 9);
+
   test("follows the day too, however many days it stays open", async ({ page }) => {
-    await page.clock.install({ time: new Date() });
+    await page.clock.install({ time: morning });
     await page.goto("/liturgy/readings");
     await expect(page).toHaveURL(new RegExp(`\\?date=${date}$`), arrival);
     await comeBackTomorrow(page);
@@ -194,7 +325,7 @@ test.describe("a readings tab opened on another date than the server's", () => {
   });
 
   test("follows it after a reload, and after the page was loaded afresh", async ({ page }) => {
-    await page.clock.install({ time: new Date() });
+    await page.clock.install({ time: morning });
     // The router never answers, so the page gets there by a full load.
     let withheld = true;
     await page.route("**/liturgy/readings?date=*", async (route) => {
@@ -226,7 +357,7 @@ test.describe("a readings tab opened on another date than the server's", () => {
   });
 
   test("but a date the visitor opened stays that date", async ({ page }) => {
-    await page.clock.install({ time: new Date() });
+    await page.clock.install({ time: morning });
     await page.goto(`/liturgy/readings?date=${date}`);
     await page.clock.runFor(1000);
     await expect(page.locator(".vf-detail-subtitle")).toBeVisible();
@@ -391,9 +522,13 @@ test.describe("today's saints find the visitor's own date", () => {
 });
 
 test.describe("a link pressed while the date is being corrected", () => {
-  const { timezoneId } = visitorWhoseDateDiffers();
+  const { timezoneId, date } = visitorWhoseDateDiffers();
   test.use({ timezoneId });
   test.setTimeout(60_000);
+  // A morning: the date is the only correction there is to overtake.
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(atHour(date, timezoneId, 9));
+  });
 
   const isRsc = (url: string) => url.includes("_rsc=");
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

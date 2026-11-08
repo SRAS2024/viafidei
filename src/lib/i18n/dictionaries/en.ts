@@ -47,7 +47,7 @@ const home: Dict = {
   "home.eyebrow": "Est. MMXXVI · Canonical",
   "home.title": "A quiet place to pray, to learn, and to return.",
   "home.lede":
-    "Via Fidei is a multilingual Catholic companion — a curated library of prayers, saints, sacramental guidance, liturgical formation, and parish discovery, presented with reverence and clarity.",
+    "Via Fidei is a Catholic companion — a curated library of prayers, saints, sacramental guidance, liturgical formation, and parish discovery, presented with reverence and clarity.",
   "home.ctaExplore": "Explore prayers",
   "home.ctaJoin": "Create your profile",
   "home.ctaProfile": "Go to your profile",
@@ -75,8 +75,6 @@ const home: Dict = {
 
 const prayers: Dict = {
   "prayers.title": "Prayers",
-  "prayers.subtitle":
-    "A curated library of Catholic prayers — Marian, Christocentric, angelic, sacramental, seasonal, and daily devotions.",
   "litanies.eyebrow": "Prayers",
   "litanies.title": "Litanies",
   "litanies.subtitle":
@@ -166,7 +164,7 @@ const parishes: Dict = {
 const liturgy: Dict = {
   "liturgy.title": "Liturgy & History",
   "liturgy.subtitle":
-    "Formation through the structure, symbolism, and historical continuity of the Church.",
+    "The liturgy is the public worship of the Church: the Mass, the sacraments and the Liturgy of the Hours. Here are its rites, the seasons and feasts of the Church's year, and the meaning of its signs.",
   "liturgy.massOrder": "Order of the Mass",
   "liturgy.year": "The Liturgical Year",
   "liturgy.rites": "Rites",

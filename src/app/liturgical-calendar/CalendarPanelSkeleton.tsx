@@ -39,9 +39,12 @@ export function CalendarPanelSkeleton({ loadingLabel }: { loadingLabel: string }
                 </div>
               ))}
             </dl>
-            <div className="vf-calendar-links vf-choice">
-              <span className="vf-skeleton h-5 w-24" />
-              <span className="vf-skeleton h-10 w-40" />
+            {/* The day's readings follow: the name of the Mass, then its first reading. */}
+            <div className="vf-calendar-readings vf-calendar-readings-loading">
+              <span className="vf-skeleton h-6 w-3/5" />
+              <span className="vf-skeleton h-7 w-40" />
+              <span className="vf-skeleton h-5 w-32" />
+              <span className="vf-skeleton h-24 w-full" />
             </div>
           </div>
         </div>

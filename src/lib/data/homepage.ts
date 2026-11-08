@@ -23,7 +23,7 @@ const DEFAULT_BLOCKS = [
     configJson: {
       eyebrow: "Est. MMXXVI · Canonical",
       title: "A quiet place to pray, to learn, and to return.",
-      lede: "Via Fidei is a multilingual Catholic companion — a curated library of prayers, saints, sacramental guidance, liturgical formation, and parish discovery.",
+      lede: "Via Fidei is a Catholic companion — a curated library of prayers, saints, sacramental guidance, liturgical formation, and parish discovery.",
     },
   },
   {

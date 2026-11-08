@@ -6,7 +6,7 @@ export default function OurLadyLoading() {
     <TabLoadingSkeleton
       eyebrow="The Blessed Virgin Mary"
       title="Our Lady"
-      subtitle="Marian titles and the Church-approved apparitions of the Blessed Virgin Mary."
+      subtitle="The different titles of Mary, the Mother of God."
       cards={12}
       filterLabels={OUR_LADY_FILTERS.map((filter) => filter.label)}
       metaLines={0}

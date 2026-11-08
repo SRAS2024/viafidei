@@ -120,11 +120,9 @@ export default async function PrayersPage({ searchParams }: Props) {
 
   return (
     <div>
-      <PageHero
-        eyebrow={t("nav.prayers")}
-        title={t("prayers.title")}
-        subtitle={t("prayers.subtitle")}
-      />
+      {/* No line under the title: that this is a library of Catholic prayers goes
+          without saying. */}
+      <PageHero eyebrow={t("nav.prayers")} title={t("prayers.title")} />
 
       <ListControls>
         <ListSearch

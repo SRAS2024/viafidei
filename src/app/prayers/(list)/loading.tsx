@@ -7,7 +7,7 @@ export default async function PrayersLoading() {
     <TabLoadingSkeleton
       eyebrow={t("nav.prayers")}
       title={t("prayers.title")}
-      subtitle={t("prayers.subtitle")}
+      lede={false}
       cards={12}
       filterWidth="5.125rem"
       summary={false}

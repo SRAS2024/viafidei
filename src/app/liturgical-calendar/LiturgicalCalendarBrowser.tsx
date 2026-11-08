@@ -2,10 +2,9 @@
 
 import { useId, useState } from "react";
 
-import { MassChoice } from "@/app/liturgy/readings/MassChoice";
 import { FactList } from "@/components/ui/FactList";
 import { MetaSeparator } from "@/components/ui/MetaSeparator";
-import { useLocalToday } from "@/components/ui/useLocalToday";
+import { useVisitMoment } from "@/components/ui/useLocalToday";
 import { WeekdayCycle } from "@/components/ui/WeekdayCycle";
 import {
   ascensionNote,
@@ -15,13 +14,13 @@ import {
   liturgicalColorLabel,
   liturgicalObligationLabel,
   liturgicalRankLabel,
-  massHref,
-  massOptions,
   parseCivilDate,
   resolveLiturgicalDay,
 } from "@/lib/content-shared/liturgical-calendar";
+import { prefersEveningMass } from "@/lib/content-shared/mass-default";
 
 import { CalendarPanelSkeleton } from "./CalendarPanelSkeleton";
+import { CalendarReadings } from "./CalendarReadings";
 
 function longDate(date: Date): string {
   return new Intl.DateTimeFormat("en", {
@@ -52,13 +51,15 @@ function persistRiteCookie(rite: string) {
  * Interactive liturgical calendar.
  *
  * Defaults to the visitor's local date (device timezone) and lets them pick
- * any day to see its season, liturgical colour, lectionary cycles, and a
- * link to that day's official Mass readings. The computed calendar is the
+ * any day to see its season, liturgical colour, lectionary cycles, and that
+ * day's Mass readings, shown under it. The computed calendar is the
  * Roman Rite's for the Dioceses of the United States; when the visitor's
  * selected rite differs, an honest note points them to its proper calendar.
  *
- * A date with an evening Mass (a Saturday, or the eve of a holy day) links to both
- * Masses. Nothing here guesses from the clock which one a visitor means.
+ * A date with an evening Mass (a Saturday, or the eve of a holy day) offers both
+ * Masses and shows the readings of its own, except on the visitor's current day from
+ * noon, when it opens on the evening's (CalendarReadings). The day is the visit's: it
+ * moves on when the visitor comes back to the page, never under someone reading it.
  */
 export function LiturgicalCalendarBrowser({
   rites,
@@ -75,7 +76,8 @@ export function LiturgicalCalendarBrowser({
 }) {
   // Null until mounted, so server and client render the same initial markup, and
   // the calendar follows the day until the visitor picks one of their own.
-  const today = useLocalToday();
+  const visit = useVisitMoment();
+  const today = visit?.day ?? null;
   const [picked, setPicked] = useState<string | null>(null);
   // What the field holds while it is being edited, which is not yet a date to show:
   // a typed year passes through 0002, 0020 and 0202 on its way to 2027. The result
@@ -101,7 +103,6 @@ export function LiturgicalCalendarBrowser({
   const rank = liturgicalRankLabel(day);
   const obligation = liturgicalObligationLabel(day);
   const ascension = ascensionNote(date);
-  const masses = massOptions(date);
   // A whole year, not a year on its way, that the calendar does not cover. Safari's year
   // takes six digits and stays where it is, so 2027 and one digit more reads 20271.
   const outOfRange = typed !== null && /^[1-9]\d{3,}-/.test(typed) && !parseCivilDate(typed);
@@ -208,21 +209,16 @@ export function LiturgicalCalendarBrowser({
           ]}
         />
 
-        {/* Route to the INTERNAL daily-readings page for the selected day, which
-            computes that day's readings from the Lectionary tables and links out
-            to the official source modestly at the bottom. */}
-        <div className="vf-calendar-links">
-          <MassChoice
-            label="Mass readings"
-            navLabel={`Mass readings for ${dateLine}`}
-            options={masses.map((mass) => ({
-              label: masses.length > 1 ? mass.label : "Readings for this day",
-              href: massHref(iso, mass),
-              isActive: false,
-            }))}
-          />
-          {ascension ? <p className="vf-fineprint vf-calendar-note">{ascension}</p> : null}
-        </div>
+        {ascension ? <p className="vf-fineprint vf-calendar-note">{ascension}</p> : null}
+
+        {/* The day's Mass readings, computed on the server from the Lectionary tables as
+            its readings page computes them, with the official source on that page. */}
+        <CalendarReadings
+          date={iso}
+          dateLine={dateLine}
+          preferEvening={prefersEveningMass(iso, visit)}
+          calendarNote={ascension}
+        />
 
         {/* Always there, so that a rite chosen later is announced when its note appears:
             picking one changes nothing else on the page, and the result is still this

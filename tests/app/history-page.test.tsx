@@ -129,13 +129,11 @@ describe("/history", () => {
     }
   });
 
-  it("opens with a short subtitle and a thousands separator", async () => {
-    await show();
-    expect(
-      screen.getByText(
-        `${TOTAL} events from c. 33 to today: councils, saints and martyrs, schisms and reform, and the Magisterium.`,
-      ),
-    ).toBeInTheDocument();
+  it("opens on its title alone, which says what the page is", async () => {
+    const { container } = await show();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Church History");
+    expect(container.querySelector(".vf-page-hero-lede")).toBeNull();
+    expect(screen.queryByText(/events from c\. 33 to today/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Scroll the timeline/)).not.toBeInTheDocument();
   });
 

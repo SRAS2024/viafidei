@@ -47,7 +47,8 @@ async function show(Loading: () => Promise<ReactElement>) {
 
 const LISTS: Array<[string, () => Promise<ReactElement>, string, string, string | null]> = [
   ["saints", SaintsLoading, "nav.saints", "saints.title", "saints.subtitle"],
-  ["prayers", PrayersLoading, "nav.prayers", "prayers.title", "prayers.subtitle"],
+  // A library of Catholic prayers goes without saying: no line under the title.
+  ["prayers", PrayersLoading, "nav.prayers", "prayers.title", null],
   ["litanies", LitaniesLoading, "litanies.eyebrow", "litanies.title", "litanies.subtitle"],
   ["devotions", DevotionsLoading, "nav.devotions", "devotions.title", "devotions.subtitle"],
   [
@@ -79,6 +80,11 @@ describe("a list placeholder in the reader's language", () => {
       );
     },
   );
+
+  it("the prayers open on their title alone", async () => {
+    const { container } = await show(PrayersLoading);
+    expect(container.querySelector(".vf-page-hero-lede")).toBeNull();
+  });
 
   it("the sacraments read as their finished page does", async () => {
     const t = createTranslator("es");

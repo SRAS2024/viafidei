@@ -53,19 +53,39 @@ export function useLocalToday(): string | null {
 /** Less time away than this is a moment's interruption, not leaving. */
 const MOMENT_AWAY_MS = 30 * 60_000;
 
+/** The device's date and hour at one moment of a visit. */
+export interface VisitMoment {
+  /** YYYY-MM-DD, the device's own calendar date. */
+  day: string;
+  /** 0–23, the device's own hour. */
+  hour: number;
+}
+
+function readVisitMoment(now: Date = new Date()): VisitMoment {
+  return { day: localIsoDate(now), hour: now.getHours() };
+}
+
 /**
- * "Today" for what must not change under someone who is reading it: the date as of this
- * visit. Someone praying past midnight, or a voice part-way down the page, keeps their
- * place, so midnight does not move it and nor does a moment in another app. It is read on
- * arrival and again when the visitor comes back from being away a while, which is how a
- * tab left open overnight moves on the next time it is looked at.
+ * "Today" for what must not change under someone who is reading it: the date and hour
+ * as of this visit. Someone praying past midnight, or a voice part-way down the page,
+ * keeps their place, so neither midnight nor noon moves it, and nor does a moment in
+ * another app. It is read on arrival and again when the visitor comes back from being
+ * away a while, which is how a tab left open overnight moves on the next time it is
+ * looked at, and how one left open since the morning offers the evening's Mass once it
+ * is the afternoon.
  *
  * Null on the server and during hydration, as useLocalToday is.
  */
-export function useVisitDay(): string | null {
-  const [day, setDay] = useState<string | null>(null);
+export function useVisitMoment(): VisitMoment | null {
+  const [visit, setVisit] = useState<VisitMoment | null>(null);
   useEffect(() => {
-    setDay(localIsoDate());
+    // The same date and hour is the same moment: nothing that reads it need render again.
+    const read = () =>
+      setVisit((prev) => {
+        const next = readVisitMoment();
+        return prev && prev.day === next.day && prev.hour === next.hour ? prev : next;
+      });
+    read();
     // When the visitor left, or when the page opened if they have not been seen to. A
     // visitor leaves by more than one event at once, and only the first is the moment.
     let leftAt = Date.now();
@@ -77,7 +97,7 @@ export function useVisitDay(): string | null {
     const cameBack = () => {
       if (document.visibilityState === "hidden") return left();
       away = false;
-      if (Date.now() - leftAt >= MOMENT_AWAY_MS) setDay(localIsoDate());
+      if (Date.now() - leftAt >= MOMENT_AWAY_MS) read();
     };
     document.addEventListener("visibilitychange", cameBack);
     window.addEventListener("blur", left);
@@ -93,5 +113,10 @@ export function useVisitDay(): string | null {
       window.removeEventListener("pageshow", cameBack);
     };
   }, []);
-  return day;
+  return visit;
+}
+
+/** The date of useVisitMoment: what this visit calls today. */
+export function useVisitDay(): string | null {
+  return useVisitMoment()?.day ?? null;
 }

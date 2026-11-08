@@ -4588,6 +4588,38 @@
     margin-top: var(--space-close);
   }
 
+  /* The day's readings, under the day: the choice of Mass, the name of the one
+     shown, then its readings. */
+  .vf-calendar-readings {
+    margin-top: var(--space-related);
+  }
+
+  .vf-calendar-readings-title {
+    margin-bottom: var(--space-related);
+    font-family: var(--font-serif);
+    font-size: var(--fs-note);
+    font-style: italic;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ink-soft);
+  }
+
+  .vf-calendar-readings-note {
+    margin-bottom: var(--space-related);
+  }
+
+  .vf-calendar-readings-credit {
+    margin-top: var(--space-related);
+  }
+
+  .vf-calendar-readings-page {
+    margin-top: var(--space-close);
+  }
+
+  .vf-calendar-readings-loading .vf-skeleton + .vf-skeleton {
+    margin-top: 0.75rem;
+  }
+
   .vf-calendar-rite-note {
     margin-top: var(--space-related);
     padding-top: var(--space-close);

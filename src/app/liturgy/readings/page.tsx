@@ -4,21 +4,14 @@ import Link from "next/link";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { MetaSeparator } from "@/components/ui/MetaSeparator";
 import { WeekdayCycle } from "@/components/ui/WeekdayCycle";
-import { prisma } from "@/lib/db/client";
 import { parseCivilDate } from "@/lib/content-shared/liturgical-calendar";
 import { getTranslator } from "@/lib/i18n/server";
 
+import { loadReadingsView } from "./load-readings";
 import { MassChoice } from "./MassChoice";
 import { ReadingSections } from "./ReadingSections";
 import { TodayDateSync } from "./TodayDateSync";
-import {
-  buildReadingsView,
-  calendarFromParam,
-  longDate,
-  parseDateParam,
-  storedRowDate,
-  type StoredReadingRow,
-} from "./readings-view";
+import { buildReadingsView, calendarFromParam, longDate, parseDateParam } from "./readings-view";
 
 export const dynamic = "force-dynamic";
 
@@ -63,25 +56,12 @@ export default async function DailyReadingsPage({
 }) {
   const { date: dateParam, variant, mass, ascension } = await searchParams;
   const date = parseDateParam(dateParam);
-  const calendar = calendarFromParam(ascension);
   const { t } = await getTranslator();
 
-  const rowDate = storedRowDate(date, mass, calendar);
-  const row = rowDate
-    ? ((await prisma.dailyReading
-        .findUnique({
-          where: {
-            date_calendar_locale: { date: rowDate, calendar: "roman-ordinary", locale: "en" },
-          },
-        })
-        .catch(() => null)) as StoredReadingRow | null)
-    : null;
-
-  const view = buildReadingsView(date, {
+  const view = await loadReadingsView(date, {
     variant: variant ?? null,
     mass: mass ?? null,
-    row,
-    calendar,
+    calendar: calendarFromParam(ascension),
   });
   const { framing } = view;
   const catholicResources = view.attribution.find((a) => a.source === "catholic-resources");
@@ -89,8 +69,14 @@ export default async function DailyReadingsPage({
   return (
     <article className="vf-detail">
       {/* A visitor who named no usable date gets their OWN calendar date, not the
-          server's UTC one. */}
-      <TodayDateSync renderedDate={view.date} enabled={parseCivilDate(dateParam) === null} />
+          server's UTC one, and on that day, from noon, the evening's Mass when no
+          Mass was chosen. */}
+      <TodayDateSync
+        renderedDate={view.date}
+        enabled={parseCivilDate(dateParam) === null}
+        eveningHref={view.isVigil ? null : view.eveningHref}
+        massChosen={Boolean(mass || variant || ascension)}
+      />
 
       <header className="vf-detail-header">
         <p className="vf-eyebrow">Daily Readings</p>

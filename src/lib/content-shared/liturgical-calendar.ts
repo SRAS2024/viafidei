@@ -1580,13 +1580,25 @@ export function massOptions(input: Date): MassOption[] {
   return options;
 }
 
-/** The readings page's address for a date and one of the Masses it offers. */
+/**
+ * The readings page's address for a date and one of the Masses it offers. `day` says
+ * the day's own Mass was chosen (?mass=day) on a date that also has an evening Mass:
+ * an address that names no Mass leaves the choice to the site, which for the current
+ * day is the evening Mass from noon (`prefersEveningMass` in mass-default.ts), so a
+ * visitor who picked the day's own Mass in the afternoon must be able to say so.
+ */
 export function massHref(
   isoDate: string,
-  option: { evening?: boolean; ascensionOnThursday?: boolean; variant?: string | null },
+  option: {
+    evening?: boolean;
+    ascensionOnThursday?: boolean;
+    variant?: string | null;
+    day?: boolean;
+  },
 ): string {
   const parts = [`date=${isoDate}`];
   if (option.evening) parts.push("mass=vigil");
+  else if (option.day) parts.push("mass=day");
   if (option.ascensionOnThursday) parts.push("ascension=thursday");
   if (option.variant) parts.push(`variant=${option.variant}`);
   return `/liturgy/readings?${parts.join("&")}`;

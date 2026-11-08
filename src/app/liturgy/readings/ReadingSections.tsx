@@ -38,11 +38,14 @@ export function ReadingSections({
   sourceUrl,
   sourceName,
   words = ENGLISH_WORDS,
+  headingLevel = 2,
 }: {
   sections: ReadingsViewSection[];
   sourceUrl?: string;
   sourceName?: string;
   words?: ReadingSectionWords;
+  /** Each reading's heading: 2 on its own page, 3 under the day the calendar heads. */
+  headingLevel?: 2 | 3;
 }) {
   if (sections.length === 0) return null;
   return (
@@ -56,6 +59,7 @@ export function ReadingSections({
           sourceUrl={sourceUrl}
           sourceName={sourceName}
           words={words}
+          headingLevel={headingLevel}
         />
       ))}
     </div>
@@ -109,12 +113,15 @@ function ReadingSectionView({
   sourceUrl,
   sourceName,
   words,
+  headingLevel,
 }: {
   section: ReadingsViewSection;
   sourceUrl?: string;
   sourceName?: string;
   words: ReadingSectionWords;
+  headingLevel: 2 | 3;
 }) {
+  const Heading = headingLevel === 3 ? "h3" : "h2";
   const [index, setIndex] = useState(0);
   const alternatives = section.alternatives;
   const chosen = alternatives[index] ?? alternatives[0] ?? null;
@@ -127,9 +134,9 @@ function ReadingSectionView({
 
   return (
     <section className="vf-detail-section vf-reading-section">
-      <h2 className={`${body || hasChoice ? "vf-subhead" : "vf-subhead-sm"} text-ink`}>
+      <Heading className={`${body || hasChoice ? "vf-subhead" : "vf-subhead-sm"} text-ink`}>
         {section.label}
-      </h2>
+      </Heading>
       {/* Choosing another reading changes this line, so a screen reader says which. */}
       <p className="vf-reading-ref" aria-live={hasChoice ? "polite" : undefined}>
         {reference}

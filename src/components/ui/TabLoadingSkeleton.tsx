@@ -44,11 +44,14 @@ export async function TabLoadingSkeleton({
   metaLines = 1,
   themeLines = 0,
   summary = true,
+  lede = true,
 }: {
   title: string;
   /** The loaded page's label and sentence, so its heading takes the same height. */
   eyebrow?: string;
   subtitle?: string;
+  /** False when the loaded page has no sentence under its title, so none is held for it. */
+  lede?: boolean;
   cards?: number;
   /** The loaded page's grid. */
   columns?: GridColumns;
@@ -84,11 +87,11 @@ export async function TabLoadingSkeleton({
           {/* Holds the place of a sentence the page has no text for yet. The status has said it. */}
           {subtitle ? (
             <p className="vf-page-hero-lede">{subtitle}</p>
-          ) : (
+          ) : lede ? (
             <p className="vf-page-hero-lede" aria-hidden="true">
               {loading}
             </p>
-          )}
+          ) : null}
         </div>
         {controls ? (
           <div className="vf-list-controls" aria-hidden="true">

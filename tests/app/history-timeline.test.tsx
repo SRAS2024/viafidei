@@ -175,8 +175,7 @@ describe("history timeline loader", () => {
     const page = fs.readFileSync(path.join(process.cwd(), "src/app/history/page.tsx"), "utf8");
     expect(page).toContain("loadHistoryTimeline");
     expect(page).not.toContain("listPublished");
-    // Count and opening label are derived from the merged list, server-side.
-    expect(page).toContain("events.length");
+    // The opening label is derived from the merged list, server-side.
     expect(page).toContain("dateLabel");
   });
 });
