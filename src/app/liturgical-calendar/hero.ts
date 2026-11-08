@@ -2,6 +2,5 @@
 export const CALENDAR_HERO = {
   eyebrow: "The Church's Year",
   title: "Liturgical Calendar",
-  subtitle:
-    "The season, liturgical colour and Mass readings of any day, as the Dioceses of the United States keep it.",
+  subtitle: "The annual cycle of seasons and days observed in Christian tradition.",
 };

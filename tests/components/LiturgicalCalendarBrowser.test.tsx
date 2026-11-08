@@ -231,10 +231,10 @@ describe("LiturgicalCalendarBrowser", () => {
     );
   });
 
-  it("says plainly which calendar it is, and that its readings are there", () => {
-    expect(CALENDAR_HERO.subtitle).toMatch(/Dioceses of the United States/);
-    expect(CALENDAR_HERO.subtitle).toMatch(/Mass readings/);
-    expect(CALENDAR_HERO.subtitle).not.toMatch(/link/);
+  it("says what the liturgical calendar is, in the owner's words", () => {
+    expect(CALENDAR_HERO.subtitle).toBe(
+      "The annual cycle of seasons and days observed in Christian tradition.",
+    );
   });
 
   it("speaks the weekday cycle as a number, as the homepage and readings page do", () => {
