@@ -47,11 +47,6 @@ function makePrisma() {
       findMany: vi.fn(async () => []),
     },
     humanReviewQueue: { count: vi.fn(async () => 0) },
-    homepageWorkerDraft: {
-      findFirst: vi.fn(async () => null),
-      findMany: vi.fn(async () => []),
-    },
-    homepageQualityScore: { findFirst: vi.fn(async () => null) },
     securityEvent: { count: vi.fn(async () => 0) },
     contentValidationEvidence: { count: vi.fn(async () => 0) },
     contentQualityScore: {

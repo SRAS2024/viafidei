@@ -212,7 +212,6 @@ function minimalSnapshot() {
     strictQA: [],
     rollbacks: [],
     security: [],
-    homepageDrafts: [],
     publishing: [],
     readingsCoverage: null,
     contentCatalogTotal: 3412,

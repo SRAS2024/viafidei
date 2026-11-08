@@ -6,9 +6,9 @@
  * coverage, pipeline state, current task, recent passes and decisions, brain
  * reasoning and ranked alternatives, source reputation and coverage, memory
  * and knowledge, logs, rules, skills, repair plans, the review queue, package
- * artifacts, quality scores, strict QA, rollbacks, security activity, homepage
- * drafts, diagnostics, intelligence status, current source activity,
- * publishing activity and content growth.
+ * artifacts, quality scores, strict QA, rollbacks, security activity,
+ * diagnostics, intelligence status, current source activity, publishing
+ * activity and content growth.
  *
  * The browser admin no longer renders this: the command center moved into the
  * native Via Fidei application, which reads this snapshot from the local
@@ -85,7 +85,6 @@ export interface CommandCenterSnapshot {
   strictQA: unknown[];
   rollbacks: unknown[];
   security: unknown[];
-  homepageDrafts: unknown[];
   publishing: unknown[];
   readingsCoverage: unknown | null;
   contentCatalogTotal: number;
@@ -123,7 +122,6 @@ export async function loadCommandCenterSnapshot(
     qualityScores,
     strictQA,
     rollbacks,
-    homepageDrafts,
     sourceReputation,
     sourceActivity,
     logs,
@@ -218,10 +216,6 @@ export async function loadCommandCenterSnapshot(
     ),
     safe(
       prisma.adminWorkerRollbackLedger.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
-      [] as unknown[],
-    ),
-    safe(
-      prisma.homepageWorkerDraft.findMany({ orderBy: { createdAt: "desc" }, take: 8 }),
       [] as unknown[],
     ),
     safe(
@@ -380,7 +374,6 @@ export async function loadCommandCenterSnapshot(
     strictQA: strictQA as unknown[],
     rollbacks: rollbacks as unknown[],
     security: security as unknown[],
-    homepageDrafts: homepageDrafts as unknown[],
     publishing: publishing as unknown[],
     readingsCoverage,
     contentCatalogTotal: catalogTotal as number,

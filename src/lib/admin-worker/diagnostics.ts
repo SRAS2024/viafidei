@@ -501,29 +501,6 @@ async function ratingMonthlyReport(prisma: PrismaClient): Promise<HealthRating> 
   };
 }
 
-async function ratingHomepage(prisma: PrismaClient): Promise<HealthRating> {
-  const recent = await prisma.homepageQualityScore.findFirst({
-    orderBy: { createdAt: "desc" },
-  });
-  const score = recent?.finalScore ?? 0;
-  const status: HealthStatus = !recent
-    ? "warn"
-    : score >= 0.8
-      ? "pass"
-      : score >= 0.6
-        ? "warn"
-        : "fail";
-  return {
-    key: "admin_worker_homepage",
-    label: "Homepage redesign",
-    status,
-    score,
-    lastCheckedAt: new Date(),
-    dataSource: "HomepageQualityScore",
-    summary: recent ? `Homepage score ${score.toFixed(2)}.` : "Homepage has not been scored yet.",
-  };
-}
-
 async function ratingContentGoals(
   prisma: PrismaClient,
   ctx?: DiagnosticsContext,
@@ -2198,7 +2175,6 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingSearchVisibility,
   ratingSitemapVisibility,
   ratingCacheFreshness,
-  ratingHomepage,
   ratingCleanupCustodian,
   ratingHumanReview,
   ratingSecurity,

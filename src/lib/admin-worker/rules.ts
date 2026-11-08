@@ -17,7 +17,6 @@ export type RuleCategory =
   | "cross_source_validation"
   | "publish"
   | "deletion"
-  | "homepage_design"
   | "security"
   | "report";
 
@@ -79,24 +78,6 @@ registerRule({
   evaluate(input: { confidence: number }) {
     const pass = (input?.confidence ?? 0) >= 0.9;
     return { pass, reason: pass ? "confidence >= 0.9" : `confidence ${input.confidence} < 0.9` };
-  },
-});
-
-registerRule({
-  id: "homepage_design.preserve_major_sections",
-  category: "homepage_design",
-  version: 1,
-  description: "Major section deletion requires high confidence or human review.",
-  evaluate(input: { sectionsRemoved: number; confidence: number }) {
-    const removed = input?.sectionsRemoved ?? 0;
-    const conf = input?.confidence ?? 0;
-    const pass = removed === 0 || conf >= 0.95;
-    return {
-      pass,
-      reason: pass
-        ? "no risky section removal"
-        : `removed ${removed} sections at confidence ${conf}`,
-    };
   },
 });
 

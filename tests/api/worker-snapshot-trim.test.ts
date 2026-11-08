@@ -10,9 +10,9 @@
  *      goal refresh (which is a WRITE).
  *
  *   2. The untrimmed JSON is hundreds of kilobytes and goes over mobile data.
- *      These tests pin the row caps, the string truncation, the two heavy
- *      fields that are dropped outright, and the `total` counts that keep a
- *      trimmed list honest about what it left behind.
+ *      These tests pin the row caps, the string truncation, the heavy field
+ *      that is dropped outright, and the `total` counts that keep a trimmed
+ *      list honest about what it left behind.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -172,12 +172,6 @@ function fullSnapshot(overrides: Partial<CommandCenterSnapshot> = {}): CommandCe
     strictQA: rows(40, () => ({ contentType: "prayer", finalScore: 0.9, status: "PASS" })),
     rollbacks: rows(40, (i) => ({ slug: `s${i}`, rollbackAction: "UNPUBLISH" })),
     security: rows(40, (i) => ({ actionType: `act-${i}`, severity: "LOW" })),
-    homepageDrafts: rows(20, (i) => ({
-      id: `d${i}`,
-      status: "PENDING",
-      reasonSummary: "why",
-      draftPayload: { html: "H".repeat(40_000) },
-    })),
     publishing: rows(40, (i) => ({ title: `t${i}`, contentType: "prayer", slug: `s${i}` })),
     readingsCoverage: { days: 30, missing: 0, complete: true },
     contentCatalogTotal: 3412,
@@ -202,20 +196,16 @@ describe("trimSnapshotForMobile — payload size", () => {
     expect(t.diagnostics.ratings.total).toBe(60);
     expect(t.brain.rankedAlternatives.items).toHaveLength(TRIM_LIMITS.alternatives);
     expect(t.brain.reasoning.items).toHaveLength(TRIM_LIMITS.reasoning);
-    expect(t.homepageDrafts.items).toHaveLength(TRIM_LIMITS.homepageDrafts);
     expect(t.publishing.items).toHaveLength(TRIM_LIMITS.publishing);
     expect(t.knowledge.recentNodes.items).toHaveLength(TRIM_LIMITS.knowledgeNodes);
   });
 
-  it("drops the two unbounded fields the dashboard never renders", () => {
+  it("drops the unbounded field the dashboard never renders", () => {
     const serialized = JSON.stringify(trimSnapshotForMobile(fullSnapshot()));
     // brain.latestDecision — the raw AdminWorkerLog row; its safeMetadata is
     // already mined for latestFinalBrain + rankedAlternatives.
     expect(serialized).not.toContain("Q".repeat(100));
     expect(serialized).not.toContain("latestDecision");
-    // homepage draft page payloads.
-    expect(serialized).not.toContain("H".repeat(100));
-    expect(serialized).not.toContain("draftPayload");
   });
 
   it("truncates long free text instead of shipping it", () => {
@@ -226,11 +216,13 @@ describe("trimSnapshotForMobile — payload size", () => {
     expect(t.coverage.items[0]!.blockReason!.length).toBeLessThanOrEqual(100);
   });
 
-  it("is an order of magnitude smaller than the untrimmed snapshot", () => {
+  it("is several times smaller than the untrimmed snapshot", () => {
     const full = fullSnapshot();
     const fullBytes = JSON.stringify(full).length;
     const trimmedBytes = JSON.stringify(trimSnapshotForMobile(full)).length;
-    expect(trimmedBytes).toBeLessThan(fullBytes / 10);
+    // The ratio guards against an unbounded field slipping back in; the
+    // ceiling below is what the phone actually depends on.
+    expect(trimmedBytes).toBeLessThan(fullBytes / 5);
     // Hard ceiling: a payload a phone can pull over cellular without thinking.
     expect(trimmedBytes).toBeLessThan(60_000);
   });

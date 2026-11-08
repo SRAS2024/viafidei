@@ -40,7 +40,6 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     strictQaCount,
     postPublishCount,
     securityActionCount,
-    homepageScoreCount,
     recentDeveloperReport,
     growthSnapshotCount,
     coverageCount,
@@ -57,7 +56,6 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     prisma.adminWorkerStrictQAResult.count(),
     prisma.postPublishVerification.count(),
     prisma.adminWorkerSecurityAction.count(),
-    prisma.homepageQualityScore.count(),
     prisma.adminDeveloperReportLog.findFirst({
       where: { status: "GENERATED" },
       orderBy: { generatedAt: "desc" },
@@ -174,14 +172,6 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     detail: `${securityActionCount} AdminWorkerSecurityAction row(s).`,
     repair:
       "Defender activates on the next SecurityEvent. To verify, hit a protected admin route without auth.",
-  });
-
-  checks.push({
-    key: "homepage_score",
-    label: "Homepage scoring active",
-    status: homepageScoreCount > 0 ? "pass" : "fail",
-    detail: `${homepageScoreCount} HomepageQualityScore row(s).`,
-    repair: "Command Center → Run homepage pass.",
   });
 
   checks.push({

@@ -4,8 +4,8 @@
  * Two PDFs ship from here:
  *   1. Developer Audit — operator-triggered from the diagnostics card.
  *      Sections: Diagnostics Results, Worker Logs, System Logs,
- *      Security Logs, Content Growth and Publishing, Homepage Actions,
- *      Recommended Repairs. First page is a table of contents.
+ *      Security Logs, Content Growth and Publishing, Recommended
+ *      Repairs. First page is a table of contents.
  *
  *   2. Monthly Admin Worker Report — sent on the last day of every
  *      month to ADMIN_EMAIL. Daily sections + monthly summary.
@@ -362,35 +362,7 @@ export async function generateAdminWorkerDeveloperAuditPdf(
       }
     }
 
-    // ─── Section 6: Homepage Actions ───────────────────────────────────
-    if (sectionsToInclude.has("Homepage Actions")) {
-      builder.section("Homepage Actions");
-      const drafts = await prisma.homepageWorkerDraft.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      });
-      builder.paragraph(`${drafts.length} homepage drafts (most recent first).`);
-      if (drafts.length > 0) {
-        builder.table(
-          [
-            { header: "Created", weight: 130 },
-            { header: "Mode", weight: 110 },
-            { header: "Status", weight: 110 },
-            { header: "Conf.", weight: 50, align: "right" },
-            { header: "Reason", weight: 100 },
-          ],
-          drafts.map((d) => [
-            fmtTime(d.createdAt),
-            d.mode,
-            d.status,
-            d.confidence.toFixed(2),
-            (d.reasonSummary ?? "").slice(0, 60),
-          ]),
-        );
-      }
-    }
-
-    // ─── Section 7: Recommended Repairs ────────────────────────────────
+    // ─── Section 6: Recommended Repairs ────────────────────────────────
     if (sectionsToInclude.has("Recommended Repairs")) {
       builder.section("Recommended Repairs");
       const failed = data.diagnosticsResults.filter(
@@ -977,8 +949,6 @@ export async function generateAdminWorkerDeveloperAuditPdf(
         data.workerLogs.filter((l) => l.category === "POST_PUBLISH" && /cache/i.test(l.eventName)),
         "No cache logs in this period.",
       );
-    if (has("Homepage Logs"))
-      renderLogs("Homepage Logs", inCat("HOMEPAGE"), "No homepage logs in this period.");
 
     // ─── Content Goal Progress ────────────────────────────────────────
     if (has("Content Goal Progress")) {
@@ -1341,9 +1311,6 @@ export async function generateMonthlyAdminWorkerReportPdf(
     where: { createdAt: { gte: monthStart, lte: monthEnd } },
     orderBy: { createdAt: "asc" },
   });
-  const homepageDrafts = await prisma.homepageWorkerDraft.count({
-    where: { createdAt: { gte: monthStart, lte: monthEnd } },
-  });
   const security = await prisma.adminWorkerSecurityAction.count({
     where: { createdAt: { gte: monthStart, lte: monthEnd } },
   });
@@ -1380,7 +1347,6 @@ export async function generateMonthlyAdminWorkerReportPdf(
     { label: "Total passes", value: String(totals.total) },
     { label: "Worker failures", value: String(totals.failures) },
     { label: "Worker uptime", value: `${Math.round(uptime * 100)}%` },
-    { label: "Homepage changes", value: String(homepageDrafts) },
     { label: "Security actions", value: String(security) },
     { label: "Total sources tracked", value: String(reputations.length) },
   ]);
@@ -1458,7 +1424,6 @@ export async function generateMonthlyAdminWorkerReportPdf(
     const built = dayPasses.reduce((s, p) => s + p.contentBuilt, 0);
     const published = dayPasses.reduce((s, p) => s + p.contentPublished, 0);
     const rejected = dayPasses.reduce((s, p) => s + p.contentRejected, 0);
-    const homepageActions = dayPasses.reduce((s, p) => s + p.homepageActions, 0);
     const failures = dayPasses.filter((p) => p.status === "FAILED").length;
     const blockers = dayPasses
       .filter((p) => p.errorMessage)
@@ -1472,7 +1437,6 @@ export async function generateMonthlyAdminWorkerReportPdf(
       { label: "Content built", value: String(built) },
       { label: "Content published", value: String(published) },
       { label: "Content rejected", value: String(rejected) },
-      { label: "Homepage actions", value: String(homepageActions) },
       { label: "Security events", value: String(securityToday) },
       { label: "Errors", value: String(errors) },
       { label: "Warnings", value: String(warnings) },

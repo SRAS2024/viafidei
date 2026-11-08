@@ -18,7 +18,6 @@
  *   - per-content-type extractors            (extractors)
  *   - field provenance + cross-source verify (provenance, cross-source-verifier)
  *   - publishing gate + post-publish probe   (publisher, post-publish*)
- *   - homepage designer + mutator            (homepage-*)
  *   - security defender                      (security-defender, security-detectors)
  *   - durable repair plans                   (repair, repair-plans)
  *   - memory + source reputation             (memory, source-reputation)
@@ -304,13 +303,6 @@ export {
 } from "./publish-orchestrator";
 
 export {
-  runHomepagePublishOrchestrator,
-  inspectHomepage,
-  type HomepageInspection,
-  type HomepageOrchestrationResult,
-} from "./homepage-publish-orchestrator";
-
-export {
   runChecklistAndCitationOrchestrator,
   type ChecklistCitationOutcome,
 } from "./checklist-citation-orchestrator";
@@ -405,27 +397,6 @@ export {
   rollbackPlan,
   type VerificationChecks,
 } from "./post-publish";
-
-export {
-  HOMEPAGE_REDESIGN_THRESHOLD,
-  REVIEWABLE_DRAFT_STATUSES,
-  isReviewableDraftStatus,
-  computeHomepageFinalScore,
-  recordHomepageScore,
-  decideDraftStatus,
-  createHomepageDraft,
-  getHomepageDraft,
-  saveHomepageDraftEdits,
-  applyHomepageDraft,
-  discardHomepageDraft,
-  readSnapshotBlocks,
-  type HomepageScoreInputs,
-  type CreateDraftInput,
-  type HomepageBlockSnapshot,
-  type SaveDraftEditsResult,
-  type ApplyDraftResult,
-  type DiscardDraftResult,
-} from "./homepage-designer";
 
 export {
   DEFENDER_RULES,
@@ -535,16 +506,6 @@ export {
   type ApiAdapter,
   type ApiDiscoveryOutcome,
 } from "./source-apis";
-
-export {
-  computeLiturgicalContext,
-  gregorianEaster,
-  seasonalRelevance,
-  type LiturgicalSeason,
-  type LiturgicalContext,
-} from "./liturgical-calendar";
-
-export { redesignHomepage, type RedesignResult } from "./homepage-mutator";
 
 export { loadCommandCenterMetrics, type CommandCenterMetrics } from "./metrics";
 

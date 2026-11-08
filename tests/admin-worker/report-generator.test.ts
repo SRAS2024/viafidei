@@ -101,8 +101,8 @@ describe("Developer Audit section list (spec §19)", () => {
     // classification logs, extraction logs, verification logs,
     // QA logs, publishing logs, post-publish verification logs,
     // search/sitemap logs, cache logs, repair logs, security logs,
-    // homepage logs, source reputation changes, memory changes,
-    // current blockers, recommended repairs.
+    // source reputation changes, memory changes, current blockers,
+    // recommended repairs.
     const required = [
       "Table of Contents",
       "Executive Summary",
@@ -131,7 +131,6 @@ describe("Developer Audit section list (spec §19)", () => {
       "Cache Logs",
       "Repair Logs",
       "Security Logs",
-      "Homepage Logs",
       "Source Reputation Changes",
       "Memory Changes",
       "Why No Content Growth",

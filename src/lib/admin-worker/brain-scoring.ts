@@ -239,14 +239,6 @@ export function scoreAction(action: BrainAction, world: WorldState): BrainAction
         rejection = "All published content already verified.";
       }
       break;
-    case "HOMEPAGE_WORK":
-      urgency = world.homepageScore < 0.65 ? 15 : 0;
-      quality = 0.65;
-      if (world.homepageScore >= 0.65) {
-        safe = false;
-        rejection = `Homepage score ${world.homepageScore.toFixed(2)} already above threshold.`;
-      }
-      break;
     case "REPORTING":
       urgency = world.lastSuccessAgeMs == null ? 25 : world.lastSuccessAgeMs > 60 * 60_000 ? 15 : 0;
       quality = 0.5;

@@ -80,8 +80,8 @@ export default async function DiagnosticsPage() {
 
       {/*
         Execution status — READ ONLY. The Admin Worker's controls (activation,
-        passes, homepage makeover, reports, file ingestion) live in the native
-        Via Fidei application, which runs the worker on the operator's MacBook.
+        passes, reports, file ingestion) live in the native Via Fidei
+        application, which runs the worker on the operator's MacBook.
         The browser admin deliberately exposes no way to start worker work on
         the production web service.
       */}
@@ -160,7 +160,6 @@ export default async function DiagnosticsPage() {
                 <th className="text-right">Pub</th>
                 <th className="text-right">Rej</th>
                 <th className="text-right">Sec</th>
-                <th className="text-right">Home</th>
                 <th>Logs</th>
               </tr>
             </thead>
@@ -178,7 +177,6 @@ export default async function DiagnosticsPage() {
                   <td className="text-right">{p.contentPublished}</td>
                   <td className="text-right">{p.contentRejected}</td>
                   <td className="text-right">{p.securityActions}</td>
-                  <td className="text-right">{p.homepageActions}</td>
                   <td>
                     <Link
                       className="text-indigo-600 underline"

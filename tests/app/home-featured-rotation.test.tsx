@@ -10,6 +10,10 @@
  * rail read "Act of Contrition, Act of Faith, …" forever. It now asks for six
  * prayers keyed to the day, and it prints the category LABEL, which is what
  * kept "theological-virtue" and "dominical" off the page.
+ *
+ * The rail is always the day's prayers. A removed homepage makeover could once
+ * publish rails of its own onto the HomePage record, and production may still
+ * hold them; the page never reads that record.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
@@ -21,10 +25,24 @@ vi.mock("@/lib/data/published", () => ({
   listFeaturedPrayers: (...args: unknown[]) => listFeaturedPrayers(...args),
   listPublished: (...args: unknown[]) => listPublished(...args),
 }));
-const getPublishedFeaturedBlocks = vi.fn();
-vi.mock("@/lib/data/homepage", () => ({
-  getPublishedFeaturedBlocks: () => getPublishedFeaturedBlocks(),
-  featuredHrefFor: (type: string, slug: string) => `/${type}/${slug}`,
+// What a published makeover left behind: a PUBLISHED HomePage with a rail on it.
+const homePageFindUnique = vi.fn(async () => ({
+  slug: "homepage",
+  status: "PUBLISHED",
+  blocks: [
+    {
+      blockKey: "featured-saints",
+      blockType: "featured-saints",
+      sortOrder: 2,
+      configJson: {
+        heading: "Featured Saints",
+        items: [{ slug: "saint-hyginus", title: "Saint Hyginus" }],
+      },
+    },
+  ],
+}));
+vi.mock("@/lib/db/client", () => ({
+  prisma: { homePage: { findUnique: (...args: unknown[]) => homePageFindUnique(...args) } },
 }));
 vi.mock("@/lib/i18n/server", () => ({
   getTranslator: async () => ({ t: (key: string) => key }),
@@ -42,8 +60,7 @@ import HomePage from "@/app/page";
 beforeEach(() => {
   listFeaturedPrayers.mockReset();
   listPublished.mockReset();
-  getPublishedFeaturedBlocks.mockReset();
-  getPublishedFeaturedBlocks.mockResolvedValue([]);
+  homePageFindUnique.mockClear();
 });
 afterEach(() => cleanup());
 
@@ -60,19 +77,23 @@ describe("homepage featured prayers", () => {
     expect(dayKey).toBe(new Date().toISOString().slice(0, 10));
   });
 
-  it("does not ask for them when the worker's rails take their place", async () => {
-    getPublishedFeaturedBlocks.mockResolvedValue([
+  it("shows the day's prayers whatever the HomePage record holds", async () => {
+    listFeaturedPrayers.mockResolvedValue([
       {
-        blockKey: "featured-prayers",
-        blockType: "featured-prayers",
-        heading: "Featured Prayers",
-        items: [{ slug: "de-profundis", title: "De Profundis", meta: ["Penitential"] }],
+        id: "profundis",
+        slug: "de-profundis",
+        title: "De Profundis",
+        category: "penitential",
+        categoryLabel: "Penitential",
+        href: "/prayers/de-profundis",
       },
     ]);
     render(await HomePage());
 
-    expect(listFeaturedPrayers).not.toHaveBeenCalled();
-    expect(screen.getByRole("link", { name: "De Profundis" })).toBeInTheDocument();
+    expect(listFeaturedPrayers).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("link", { name: /De Profundis/ })).toBeInTheDocument();
+    expect(screen.queryByText("Saint Hyginus")).not.toBeInTheDocument();
+    expect(homePageFindUnique).not.toHaveBeenCalled();
   });
 
   it("renders the category LABEL as the card's line, never the stored value", async () => {

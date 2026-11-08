@@ -75,7 +75,6 @@ function makePrisma(opts: { paused?: boolean; stateDelayMs?: number; goalRows?: 
     adminWorkerSourceReputation: { count: vi.fn(async () => 0), findMany: vi.fn(async () => []) },
     humanReviewQueue: { count: vi.fn(async () => 0) },
     securityEvent: { count: vi.fn(async () => 0) },
-    homepageQualityScore: { findFirst: vi.fn(async () => ({ finalScore: 0.9 })) },
     candidateSourceUrl: {
       count: vi.fn(async () => 0),
       findFirst: vi.fn(async () => null),

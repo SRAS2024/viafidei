@@ -10,8 +10,8 @@
  *   - it supervises the real worker loop as a child process — the same
  *     `scripts/run-worker.ts` that used to run on Railway, now running here,
  *     with the Python brain, headless browser and every existing capability,
- *   - it executes operator-triggered work (manual passes, homepage makeover,
- *     file ingestion, reports) IN THIS PROCESS, on local CPU (spec §12),
+ *   - it executes operator-triggered work (manual passes, file ingestion,
+ *     reports) IN THIS PROCESS, on local CPU (spec §12),
  *   - it serves the Admin Worker command center + a JSON control API on
  *     127.0.0.1 only, authenticated with a per-launch token.
  *
@@ -1074,9 +1074,9 @@ async function reconcileSwitchOnce(): Promise<void> {
 
 /**
  * Stop the resident Python intelligence brain this process holds. The host runs
- * operator-triggered work in-process (file ingestion, manual passes, homepage
- * makeovers), which brings the brain online here as well as in the worker
- * child — so switching the Admin Worker off has to close both.
+ * operator-triggered work in-process (file ingestion, manual passes), which
+ * brings the brain online here as well as in the worker child — so switching
+ * the Admin Worker off has to close both.
  */
 async function shutdownLocalBrain(): Promise<void> {
   try {
@@ -1618,8 +1618,8 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           host.offNotRecorded = true;
           await stopWorkerChild("master switch OFF");
           // The host itself keeps a resident Python brain while it runs
-          // operator work (ingestion, manual passes, makeovers). OFF means OFF:
-          // shut that down too, so no intelligence process survives the switch.
+          // operator work (ingestion, manual passes). OFF means OFF: shut that
+          // down too, so no intelligence process survives the switch.
           await shutdownLocalBrain();
           host.failureReason = null;
           host.degraded = false;
@@ -1683,23 +1683,6 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
         return;
       }
 
-      case "POST /api/homepage-makeover": {
-        if (!(await requireSwitchOn(res))) return;
-        const { redesignHomepage } = await import("../src/lib/admin-worker/homepage-mutator");
-        const { createTask } = await import("../src/lib/admin-worker/tasks");
-        const task = await createTask(prisma, {
-          taskType: "UPDATE_HOMEPAGE",
-          priority: "HOMEPAGE",
-          plannedAction: "Homepage makeover requested from the local command center",
-          metadata: { requestedFrom: "swift-app", runtimeId: RUNTIME_ID },
-        }).catch(() => null);
-        const result = await withJob("homepage-makeover", () =>
-          redesignHomepage(prisma, { mode: "ADMIN_REQUESTED", force: true }),
-        );
-        json(res, 200, { taskId: task?.id ?? null, ...result });
-        return;
-      }
-
       case "POST /api/ingest": {
         if (!(await requireSwitchOn(res))) return;
         const filename = String(req.headers["x-filename"] ?? "upload.bin");
@@ -1754,21 +1737,6 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     }
 
     // Parameterised routes.
-    const draftMatch = /^\/api\/homepage-draft\/([\w-]+)$/.exec(route);
-    if (draftMatch && req.method === "POST") {
-      if (!(await requireSwitchOn(res))) return;
-      const body = await readJson<{ action?: string }>(req);
-      const id = draftMatch[1];
-      const { applyHomepageDraft, discardHomepageDraft } =
-        await import("../src/lib/admin-worker/homepage-designer");
-      const result =
-        body.action === "publish"
-          ? await withJob(`homepage-draft:publish`, () => applyHomepageDraft(prisma, id))
-          : await withJob(`homepage-draft:discard`, () => discardHomepageDraft(prisma, id));
-      json(res, 200, result);
-      return;
-    }
-
     const reviewMatch = /^\/api\/review\/([\w-]+)$/.exec(route);
     if (reviewMatch && req.method === "POST") {
       if (!(await requireSwitchOn(res))) return;

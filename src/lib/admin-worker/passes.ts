@@ -32,7 +32,6 @@ export interface CompletePassInput {
   contentBuilt?: number;
   contentPublished?: number;
   contentRejected?: number;
-  homepageActions?: number;
   securityActions?: number;
   diagnosticsResults?: Record<string, unknown>;
   summary?: string;
@@ -58,7 +57,6 @@ export async function completePass(prisma: PrismaClient, input: CompletePassInpu
       contentBuilt: input.contentBuilt,
       contentPublished: input.contentPublished,
       contentRejected: input.contentRejected,
-      homepageActions: input.homepageActions,
       securityActions: input.securityActions,
       diagnosticsResults: input.diagnosticsResults
         ? (input.diagnosticsResults as object)

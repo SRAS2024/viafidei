@@ -96,8 +96,8 @@ export class WorkerExecutionForbiddenError extends Error {
 
 /**
  * Hard guard placed at the top of every entry point that performs Admin Worker
- * computation (the loop, a pass, the mission dispatcher, an operator pass, the
- * homepage makeover, file ingestion, the Python brain bridge).
+ * computation (the loop, a pass, the mission dispatcher, an operator pass, file
+ * ingestion, the Python brain bridge).
  *
  * Throwing — rather than quietly returning — is deliberate: an accidental
  * server-side worker invocation must be loud and visible, not a silent

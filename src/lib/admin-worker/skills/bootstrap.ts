@@ -3,8 +3,8 @@
  * worker calls ensureSkillsRegistered() at boot; the capability matrix, planner,
  * and dashboard all read the resulting registry.
  *
- * As new packs are added (source, verification, publishing, repair, homepage,
- * reporting, security, maintenance) they are registered here.
+ * As new packs are added (source, verification, publishing, repair, daily
+ * readings, reporting, security, maintenance) they are registered here.
  */
 
 import { registerSkills, clearRegistry } from "./registry";
@@ -16,7 +16,7 @@ import { pdfSkills } from "./pdf-skills";
 import { publishingSkills } from "./publishing-skills";
 import { subtitleSkills } from "./subtitle-skills";
 import { repairSkills } from "./repair-skills";
-import { homepageSkills } from "./homepage-skills";
+import { readingsReportingSkills } from "./readings-reporting-skills";
 import { securitySkills } from "./security-skills";
 import { namedSkills } from "./named-skills";
 import type { CertifiedSkill } from "./types";
@@ -36,7 +36,7 @@ export function ensureSkillsRegistered(): void {
   registerSkills(publishingSkills);
   registerSkills(subtitleSkills);
   registerSkills(repairSkills);
-  registerSkills(homepageSkills);
+  registerSkills(readingsReportingSkills);
   registerSkills(securitySkills);
   registerSkills(namedSkills);
   registered = true;

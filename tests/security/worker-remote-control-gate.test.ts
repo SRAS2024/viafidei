@@ -228,7 +228,6 @@ beforeEach(() => {
     strictQA: [],
     rollbacks: [],
     security: [],
-    homepageDrafts: [],
     publishing: [],
     readingsCoverage: null,
     contentCatalogTotal: 0,

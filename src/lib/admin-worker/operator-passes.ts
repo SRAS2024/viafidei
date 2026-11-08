@@ -19,11 +19,8 @@
  * Because it is a plain function that forces one stage, the same forced-stage
  * dispatch is what the worker already SELF-RUNS autonomously every loop, not
  * only when a human clicks a button. None of the forced stages (reporting /
- * security / repair / homepage / discovery) create new public `PublishedContent`,
- * so they never introduce a new autonomous content-publishing path. (HOMEPAGE_WORK
- * can flip a homepage draft live, but that only reorders already-published
- * content and is itself verification-gated + rollback-protected — the same
- * behaviour as the autonomous loop's homepage stage.)
+ * security / repair / discovery) create new public `PublishedContent`, so they
+ * never introduce a new autonomous content-publishing path.
  */
 
 import type { PrismaClient } from "@prisma/client";
@@ -45,7 +42,6 @@ export type OperatorPassType =
   | "diagnostics"
   | "content_goal"
   | "source_discovery"
-  | "homepage"
   | "source_repair"
   | "report"
   | "cleanup"
@@ -98,14 +94,6 @@ const FORCED_STAGE: Partial<Record<OperatorPassType, StageMapping>> = {
     priority: "SOURCE_REPAIR",
     taskType: "REPAIR",
     label: "source repair",
-  },
-  homepage: {
-    stage: "HOMEPAGE_WORK",
-    passType: "HOMEPAGE",
-    mode: "HOMEPAGE",
-    priority: "HOMEPAGE",
-    taskType: "UPDATE_HOMEPAGE",
-    label: "homepage",
   },
   source_discovery: {
     stage: "DISCOVERY",
@@ -197,6 +185,8 @@ export async function runOperatorPass(
 ): Promise<OperatorPassResult> {
   assertWorkerExecutionAllowed(`run the ${passType} operator pass`);
   const mapping = FORCED_STAGE[passType];
+  // A pass type with no forced stage (the removed "homepage" pass among them) is
+  // refused before a pass row is opened, so nothing is left RUNNING or retried.
   if (!mapping) {
     return { ok: false, passType, stage: "MAINTENANCE", outcome: null, error: "no forced stage" };
   }
@@ -227,7 +217,6 @@ export async function runOperatorPass(
       tasksFailed: failed ? 1 : 0,
       contentBuilt: outcome.built ?? 0,
       contentPublished: outcome.published ?? 0,
-      homepageActions: mapping.stage === "HOMEPAGE_WORK" ? 1 : 0,
       securityActions: mapping.stage === "SECURITY_DEFENSE" ? 1 : 0,
       summary: `${mapping.label}: ${outcome.summary}`,
     });

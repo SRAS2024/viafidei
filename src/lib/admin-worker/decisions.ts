@@ -1,8 +1,8 @@
 /**
  * Decision log. Every major Admin Worker decision (mode selection,
- * task generation, publish gate, deletion gate, homepage redesign)
- * writes one row here so the operator can audit "why did the worker
- * do that?" without re-running the cycle.
+ * task generation, publish gate, deletion gate) writes one row here so
+ * the operator can audit "why did the worker do that?" without
+ * re-running the cycle.
  *
  * The decisions are deterministic — given the same `rulesEvaluated`
  * payload the engine always picks the same `chosenAction`.
@@ -69,8 +69,8 @@ export async function recordDecision(
 
 /**
  * Confidence helpers. These are the deterministic thresholds the
- * publishing gate, deletion gate, and homepage gate use. They are
- * exported here so tests can assert against them without re-deriving.
+ * publishing gate and deletion gate use. They are exported here so
+ * tests can assert against them without re-deriving.
  */
 export const CONFIDENCE_THRESHOLDS = {
   /** Minimum overall quality score required to publish automatically. */
@@ -80,8 +80,6 @@ export const CONFIDENCE_THRESHOLDS = {
   publishDoctrinal: 0.95,
   /** Minimum confidence to delete content without human review. */
   delete: 0.9,
-  /** Minimum confidence to auto-publish a homepage change. */
-  homepageAutoPublish: 0.85,
   /** Below this, route to human review. */
   humanReview: 0.5,
 } as const;

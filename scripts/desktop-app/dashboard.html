@@ -174,10 +174,6 @@
         opacity: 0.45;
         cursor: not-allowed;
       }
-      button.primary {
-        background: rgba(182, 141, 64, 0.18);
-        border-color: rgba(182, 141, 64, 0.55);
-      }
 
       #drop {
         border: 1px dashed rgba(251, 248, 241, 0.25);
@@ -546,7 +542,6 @@
         ["content_goal", "Run full pass"],
         ["diagnostics", "Diagnostics"],
         ["source_discovery", "Source discovery"],
-        ["homepage", "Homepage pass"],
         ["source_repair", "Source repair"],
         ["security", "Security pass"],
         ["report", "Report"],
@@ -556,22 +551,15 @@
       function renderActions() {
         const bar = document.getElementById("actions");
         const buttons = PASSES.map(([type, label]) => el("button", { "data-pass": type }, label));
-        const makeover = el(
-          "button",
-          { class: "primary", id: "makeover" },
-          "Request homepage makeover",
-        );
         const report = el("button", { id: "audit" }, "Developer audit PDF");
         bar.replaceChildren(
           el("span", { class: "eyebrow" }, "Local operations"),
           ...buttons,
-          makeover,
           report,
         );
         bar
           .querySelectorAll("button[data-pass]")
           .forEach((b) => b.addEventListener("click", () => runPass(b.dataset.pass, b)));
-        makeover.addEventListener("click", () => runMakeover(makeover));
         report.addEventListener("click", () => downloadAudit(report));
       }
 
@@ -597,31 +585,6 @@
         } finally {
           button.disabled = false;
           button.textContent = original;
-        }
-      }
-
-      async function runMakeover(button) {
-        button.disabled = true;
-        button.textContent = "Analysing homepage locally…";
-        try {
-          const res = await api("/api/homepage-makeover", { method: "POST" });
-          const data = await res.json();
-          toast(
-            res.ok
-              ? "Homepage makeover computed on this Mac. Draft " +
-                  (data.draftId || "—") +
-                  " · status " +
-                  (data.status || "—") +
-                  " · score " +
-                  (data.finalScore ?? "—")
-              : "Makeover failed: " + (data.detail || res.status),
-          );
-          loadSnapshot();
-        } catch (err) {
-          toast("Makeover failed: " + err.message);
-        } finally {
-          button.disabled = false;
-          button.textContent = "Request homepage makeover";
         }
       }
 
@@ -1226,64 +1189,6 @@
           ),
         );
 
-        // Homepage drafts with actions
-        const draftRows = (s.homepageDrafts || [])
-          .slice(0, 8)
-          .map((d) =>
-            el(
-              "tr",
-              {},
-              el("td", { class: "mono" }, short(d.id, 12)),
-              el("td", {}, el("span", { class: statusClass(d.status) }, String(d.status))),
-              el("td", {}, short(d.reasonSummary, 44)),
-              el(
-                "td",
-                {},
-                el(
-                  "button",
-                  { "data-draft": d.id, "data-action": "publish", style: "padding:2px 7px" },
-                  "Publish",
-                ),
-                " ",
-                el(
-                  "button",
-                  { "data-draft": d.id, "data-action": "discard", style: "padding:2px 7px" },
-                  "Discard",
-                ),
-              ),
-            ),
-          );
-        cards.push(
-          card(
-            "Homepage drafts",
-            s.homepageDrafts?.length,
-            draftRows.length
-              ? el(
-                  "div",
-                  { class: "scroll" },
-                  el(
-                    "table",
-                    {},
-                    el(
-                      "thead",
-                      {},
-                      el(
-                        "tr",
-                        {},
-                        ...["Draft", "Status", "Reason", ""].map((h) => el("th", {}, h)),
-                      ),
-                    ),
-                    el("tbody", {}, ...draftRows),
-                  ),
-                )
-              : el(
-                  "div",
-                  { class: "empty" },
-                  "No drafts. Use “Request homepage makeover” — it runs on this Mac.",
-                ),
-          ),
-        );
-
         cards.push(
           card(
             "Publishing activity",
@@ -1373,19 +1278,6 @@
             });
             const data = await res.json().catch(() => ({}));
             toast("Review " + b.dataset.action + ": " + (data.detail || res.status));
-            loadSnapshot();
-          }),
-        );
-        grid.querySelectorAll("button[data-draft]").forEach((b) =>
-          b.addEventListener("click", async () => {
-            b.disabled = true;
-            const res = await api("/api/homepage-draft/" + b.dataset.draft, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: b.dataset.action }),
-            });
-            const data = await res.json().catch(() => ({}));
-            toast("Homepage draft " + b.dataset.action + ": " + JSON.stringify(data).slice(0, 220));
             loadSnapshot();
           }),
         );

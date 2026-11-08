@@ -39,7 +39,6 @@ const STAGE_HANDLERS = [
   "runSitemapVerify",
   "runCacheRefresh",
   "runRepair",
-  "runHomepageWork",
   "runReporting",
   "runMaintenance",
 ];
@@ -54,7 +53,6 @@ const WORK_SIGNALS = [
   "recordStrictQA",
   "runDiscoveryOrchestrator",
   "runRepairOrchestrator",
-  "runHomepagePublishOrchestrator",
   "runIndependentVerifiers",
   "verifyPublished",
   "recoverStuckQueue",

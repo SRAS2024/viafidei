@@ -64,10 +64,6 @@ const home: Dict = {
   "home.ql.confession": "A guide to Confession",
   "home.ql.parish": "Find a parish",
   "home.featured.title": "Featured prayers",
-  "home.featured.section": "Featured",
-  "home.featured.saints": "Saints",
-  "home.featured.devotions": "Devotions",
-  "home.featured.novenas": "Novenas",
   "home.newcomer.title": "New to the faith?",
   "home.newcomer.body":
     "A calm, step-by-step introduction to prayer, the sacraments, and the life of grace.",

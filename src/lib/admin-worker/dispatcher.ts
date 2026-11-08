@@ -8,9 +8,8 @@
  *
  * Each stage handler is small and delegates to the existing modules
  * (web-navigator, source-reader, classifier, extractors,
- * cross-source-verifier, publisher, post-publish-probe, homepage
- * mutator, repair orchestrator, etc.). The dispatcher's value is
- * twofold:
+ * cross-source-verifier, publisher, post-publish-probe, repair
+ * orchestrator, etc.). The dispatcher's value is twofold:
  *   1. The brain's mission stage maps to one place, not one place per
  *      mode handler.
  *   2. Every dispatch records its outcome (advanced / rejected /
@@ -113,8 +112,8 @@ export interface DispatchOutcome {
 
 /**
  * Spec §3.4: the next mission stage in the artifact chain. Side
- * missions (repair / homepage / reporting / security / maintenance)
- * loop back to discovery.
+ * missions (repair / reporting / security / maintenance) loop back to
+ * discovery.
  */
 const NEXT_STAGE: Partial<Record<BrainMissionStage, BrainMissionStage | null>> = {
   DISCOVERY: "CANDIDATE_PRIORITIZATION",
@@ -135,7 +134,6 @@ const NEXT_STAGE: Partial<Record<BrainMissionStage, BrainMissionStage | null>> =
   SITEMAP_VERIFY: "CACHE_REFRESH",
   CACHE_REFRESH: null,
   REPAIR: "DISCOVERY",
-  HOMEPAGE_WORK: "DISCOVERY",
   REPORTING: "DISCOVERY",
   SECURITY_DEFENSE: "DISCOVERY",
   MAINTENANCE: "DISCOVERY",
@@ -147,7 +145,7 @@ const NEXT_STAGE: Partial<Record<BrainMissionStage, BrainMissionStage | null>> =
  * (actionTaken, input/output entity, advanced/rejected/repaired
  * counts, blocker, nextStage, logsCreated). Fields the handler already
  * set are preserved; the rest are derived from kind + metadata so
- * every stage return is uniform without editing all 19 handlers.
+ * every stage return is uniform without editing all 18 handlers.
  */
 function enrichOutcome(outcome: DispatchOutcome, decision: BrainDecision): DispatchOutcome {
   const meta = (outcome.metadata ?? {}) as Record<string, unknown>;
@@ -323,13 +321,15 @@ async function runStageHandler(
       return await runCacheRefresh(prisma, passId);
     case "REPAIR":
       return await runRepair(prisma, passId);
-    case "HOMEPAGE_WORK":
-      return await runHomepageWork(prisma, passId);
     case "REPORTING":
       return await runReporting(prisma, passId);
     case "MAINTENANCE":
       return await runMaintenance(prisma, passId, decision);
     default:
+      // A stage with no handler closes out idle: nothing runs, the pass
+      // completes, and the next pass decides afresh, so nothing retries it.
+      // HOMEPAGE_WORK lands here too. The homepage makeover it ran has been
+      // removed, and production may still hold rows that name it.
       return idle(stage, `No dispatcher registered for ${stage}.`);
   }
 }
@@ -3834,42 +3834,6 @@ async function runRepair(prisma: PrismaClient, passId: string): Promise<Dispatch
     kind: "advanced",
     summary: `Repair orchestrator + stuck-queue: ${orchestrator.plansSucceeded}/${orchestrator.plansConsidered} plan(s) succeeded; stuck-queue ${recovery.attempted ? "attempted" : "skipped"}.`,
     repairsPlanned: orchestrator.plansExecuted + (recovery.attempted ? 1 : 0),
-  };
-}
-
-async function runHomepageWork(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
-  // Spec §20: homepage makeover is a real worker mission. Delegate
-  // to the HomepagePublishOrchestrator which inspects, mutates,
-  // verifies, and rolls back when needed.
-  const { runHomepagePublishOrchestrator } = await import("./homepage-publish-orchestrator");
-  const result = await runHomepagePublishOrchestrator(prisma, { passId });
-  await writeAdminWorkerLog(prisma, {
-    passId,
-    category: "HOMEPAGE",
-    severity: result.kind === "rolled-back" ? "WARN" : "INFO",
-    eventName: "homepage_dispatch",
-    message: `Homepage orchestrator: ${result.kind} (composite=${result.inspection.composite.toFixed(2)}).`,
-    safeMetadata: {
-      kind: result.kind,
-      draftId: result.draftId,
-      composite: result.inspection.composite,
-      verificationPassed: result.verificationPassed,
-    },
-  });
-  return {
-    stage: "HOMEPAGE_WORK",
-    kind:
-      result.kind === "auto-published" || result.kind === "review-draft"
-        ? "advanced"
-        : result.kind === "rolled-back"
-          ? "rejected"
-          : "idle",
-    summary: result.reason,
-    metadata: {
-      kind: result.kind,
-      draftId: result.draftId,
-      composite: result.inspection.composite,
-    },
   };
 }
 

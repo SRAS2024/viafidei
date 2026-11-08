@@ -18,7 +18,6 @@ const HEALTHY: WorldState = {
   trustedSources: 1,
   reviewQueuePending: 0,
   recentSecurityBreaches24h: 0,
-  homepageScore: 0.9,
   isPaused: false,
   pausedReason: null,
   heartbeatAgeMs: 1000,
@@ -188,10 +187,26 @@ describe("AdminWorkerBrain.decide", () => {
     expect(d.chosenMode).toBe("MAINTENANCE");
   });
 
-  it("refreshes the homepage when the score is low", () => {
-    const d = decide({ ...HEALTHY, homepageScore: 0.4 });
-    expect(d.chosenMode).toBe("HOMEPAGE");
-    expect(d.chosenPriority).toBe("HOMEPAGE");
+  it("never offers homepage work, whatever the world looks like", () => {
+    // The homepage makeover HOMEPAGE_WORK ran has been removed, so no world can
+    // put it among the candidates — and the Python brain may only choose one.
+    const worlds: WorldState[] = [
+      HEALTHY,
+      { ...HEALTHY, recentSecurityBreaches24h: 1 },
+      { ...HEALTHY, pendingRepairPlans: 3, lastSuccessAgeMs: null },
+      {
+        ...HEALTHY,
+        contentGoalGap: 5,
+        contentGoalContentType: "PRAYER",
+        candidateUrlsAvailable: 10,
+        artifactsAwaitingPublish: 2,
+      },
+    ];
+    for (const world of worlds) {
+      const offered = rankActions(world);
+      expect(offered.map((a) => a.missionStage as string)).not.toContain("HOMEPAGE_WORK");
+      expect(offered.map((a) => a.actionType as string)).not.toContain("UPDATE_HOMEPAGE");
+    }
   });
 
   it("runs maintenance when everything is healthy", () => {
@@ -289,11 +304,11 @@ describe("AdminWorkerBrain.rankActions — ranked alternatives (spec §1)", () =
     expect(d.chosenMode).toBe("PAUSED");
   });
 
-  it("urgency dominates score — security breach beats homepage with low score", () => {
+  it("urgency dominates score — a security breach beats routine diagnostics", () => {
     const d = decide({
       ...HEALTHY,
       recentSecurityBreaches24h: 1,
-      homepageScore: 0.2,
+      lastSuccessAgeMs: null,
     });
     expect(d.missionStage).toBe("SECURITY_DEFENSE");
   });

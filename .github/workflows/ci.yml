@@ -96,8 +96,6 @@ jobs:
             tests/admin-worker/defender-ban.test.ts \
             tests/admin-worker/post-publish.test.ts \
             tests/admin-worker/post-publish-probe.test.ts \
-            tests/admin-worker/homepage-designer.test.ts \
-            tests/admin-worker/homepage-mutator.test.ts \
             tests/admin-worker/source-reputation.test.ts \
             tests/admin-worker/pdf.test.ts \
             tests/admin-worker/monthly-report-job.test.ts \

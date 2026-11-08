@@ -77,7 +77,6 @@ export type BrainMissionStage =
   | "SITEMAP_VERIFY"
   | "CACHE_REFRESH"
   | "REPAIR"
-  | "HOMEPAGE_WORK"
   | "REPORTING"
   | "SECURITY_DEFENSE"
   | "MAINTENANCE"
@@ -240,7 +239,6 @@ export interface WorldState {
   trustedSources: number;
   reviewQueuePending: number;
   recentSecurityBreaches24h: number;
-  homepageScore: number;
   isPaused: boolean;
   pausedReason: string | null;
   heartbeatAgeMs: number;
@@ -293,7 +291,6 @@ export async function sampleWorld(
     trustedSources,
     reviewQueuePending,
     recentSecurityBreaches24h,
-    recentHomepageScore,
     candidateUrlsAvailable,
     candidatesNeedingPrioritization,
     pendingRepairPlans,
@@ -328,7 +325,6 @@ export async function sampleWorld(
         createdAt: { gte: since24h },
       },
     }),
-    prisma.homepageQualityScore.findFirst({ orderBy: { createdAt: "desc" } }),
     prisma.candidateSourceUrl.count({ where: { status: { in: ["DISCOVERED", "PRIORITIZED"] } } }),
     // Candidates that still need the scorer to run (never scored). Drives the
     // CANDIDATE_PRIORITIZATION action so discovered URLs actually get a
@@ -433,7 +429,6 @@ export async function sampleWorld(
     trustedSources,
     reviewQueuePending,
     recentSecurityBreaches24h,
-    homepageScore: recentHomepageScore?.finalScore ?? 1,
     isPaused: state.paused,
     pausedReason: state.pausedReason,
     heartbeatAgeMs: state.lastHeartbeatAt ? now - state.lastHeartbeatAt.getTime() : Infinity,

@@ -1098,7 +1098,6 @@ export interface AdminWorkerMonthlyReportInput {
   workerUptimePct: number;
   workerFailures: number;
   securityEvents: number;
-  homepageChanges: number;
   pdfBase64: string;
 }
 
@@ -1133,7 +1132,6 @@ export async function sendAdminWorkerMonthlyReport(
           },
           { metric: "Worker failures", value: String(input.workerFailures) },
           { metric: "Security events", value: String(input.securityEvents) },
-          { metric: "Homepage changes", value: String(input.homepageChanges) },
         ],
       },
     },

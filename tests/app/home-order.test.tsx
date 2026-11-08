@@ -3,19 +3,13 @@
  */
 /**
  * The homepage's order: welcome, Begin Here with New to the Faith, the day's
- * readings and prayer and saints, the featured collections, then the mission.
- * Roman numerals run I to IV with nothing missing, on both forms of section III.
+ * readings and prayer and saints, the featured prayers, then the mission.
+ * Roman numerals run I to IV with nothing missing.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 
-const getPublishedFeaturedBlocks = vi.fn();
-
 vi.mock("@/lib/data/published", () => ({ listFeaturedPrayers: async () => [] }));
-vi.mock("@/lib/data/homepage", () => ({
-  getPublishedFeaturedBlocks: () => getPublishedFeaturedBlocks(),
-  featuredHrefFor: (type: string, slug: string) => `/${type}/${slug}`,
-}));
 vi.mock("@/lib/i18n/server", () => ({
   getTranslator: async () => ({ t: (key: string) => key }),
 }));
@@ -31,8 +25,6 @@ import HomePage from "@/app/page";
 beforeEach(() => {
   // The parts of "Today" fetch after mount; the order does not depend on them.
   globalThis.fetch = vi.fn(async () => new Response("{}", { status: 500 })) as typeof fetch;
-  getPublishedFeaturedBlocks.mockReset();
-  getPublishedFeaturedBlocks.mockResolvedValue([]);
   getSession.mockReset();
   getSession.mockResolvedValue({});
   sessionCredentialsCurrent.mockReset();
@@ -82,27 +74,7 @@ describe("the homepage's sections", () => {
     for (const head of heads) expect(head.querySelector("h2")).not.toBeNull();
   });
 
-  it("number I to IV with nothing missing, with the fallback prayers", async () => {
-    const { container } = render(await HomePage());
-    expect(numerals(container)).toEqual(["I.", "II.", "III.", "IV."]);
-  });
-
-  it("number I to IV with nothing missing, with the worker's rails", async () => {
-    getPublishedFeaturedBlocks.mockResolvedValue([
-      {
-        blockKey: "featured-prayers",
-        blockType: "featured-prayers",
-        heading: "Featured Prayers",
-        items: [{ slug: "de-profundis", title: "De Profundis" }],
-      },
-      {
-        blockKey: "featured-saints",
-        blockType: "featured-saints",
-        heading: "Featured Saints",
-        items: [{ slug: "saint-hyginus", title: "Saint Hyginus" }],
-      },
-    ]);
-
+  it("number I to IV with nothing missing", async () => {
     const { container } = render(await HomePage());
     expect(numerals(container)).toEqual(["I.", "II.", "III.", "IV."]);
   });

@@ -43,7 +43,6 @@ function makePrisma(
     adminWorkerLog: { findMany: vi.fn(async () => []), create: vi.fn(async () => ({})) },
     adminWorkerSourceReputation: { findMany: vi.fn(async () => []) },
     contentGoal: { findMany: vi.fn(async () => []) },
-    homepageWorkerDraft: { count: vi.fn(async () => 0) },
     securityEvent: { count: vi.fn(async () => 0) },
     adminWorkerSecurityAction: { count: vi.fn(async () => 0) },
     adminDeveloperReportLog: {

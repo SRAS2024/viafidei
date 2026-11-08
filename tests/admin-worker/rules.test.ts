@@ -11,7 +11,6 @@ describe("Built-in rules", () => {
     const categories = new Set(listRules().map((r) => r.category));
     expect(categories.has("publish")).toBe(true);
     expect(categories.has("deletion")).toBe(true);
-    expect(categories.has("homepage_design")).toBe(true);
     expect(categories.has("security")).toBe(true);
     expect(categories.has("catholic_correctness")).toBe(true);
     expect(categories.has("source_selection")).toBe(true);

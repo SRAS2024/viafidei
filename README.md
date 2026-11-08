@@ -87,15 +87,15 @@ Orchestrator.
    │                  Admin Worker engine — the ONLY                    │
    │              active content path (src/lib/admin-worker/)           │
    │                                                                    │
-   │   ranked-action brain → mission dispatcher (22 stages)             │
+   │   ranked-action brain → mission dispatcher (21 stages)             │
    │                                                                    │
    │     DISCOVERY → CANDIDATE_PRIORITIZATION → SOURCE_FETCH →          │
    │     SOURCE_READ → CLASSIFICATION → EXTRACTION →                    │
    │     CHECKLIST_CREATION → CITATION_CREATION → PACKAGE_BUILD →       │
    │     CROSS_SOURCE_VERIFICATION → STRICT_QA → PERSISTENCE →          │
    │     PUBLIC_PUBLISH → POST_PUBLISH_VERIFY → SEARCH_VERIFY →         │
-   │     SITEMAP_VERIFY → CACHE_REFRESH → REPAIR → HOMEPAGE_WORK →      │
-   │     REPORTING → SECURITY_DEFENSE → MAINTENANCE                     │
+   │     SITEMAP_VERIFY → CACHE_REFRESH → REPAIR → REPORTING →          │
+   │     SECURITY_DEFENSE → MAINTENANCE                                 │
    │                                                                    │
    │   AdminWorkerPackageArtifact → ChecklistItem + ChecklistCitation   │
    │            → runPublishOrchestrator() → PublishedContent (public)  │
@@ -198,16 +198,16 @@ readiness, and growth surfaces all read those live tables.
 | `AdminWorkerCrossSourceVerification` | Per-field validation evidence with conflict status                                                   |
 | `AdminWorkerSourceCoverage`          | Per-type primary/validation/enrichment + active/recent counts                                        |
 | `AdminWorkerGrowthSnapshot`          | Per-content-type 24h/7d growth status                                                                |
-| `AdminWorkerPipelineStage`           | One row per item moving through the 22-stage chain                                                   |
+| `AdminWorkerPipelineStage`           | One row per item moving through the 21-stage chain                                                   |
 | `AdminWorkerRepairPlan`              | Durable repair plans with exponential-backoff retry                                                  |
 | `CandidateSourceUrl`                 | URLs the discovery orchestrator has found (with scoring)                                             |
 | `ContentGoal`                        | Per-content-type minimum + desired targets                                                           |
 | `HumanReviewQueue`                   | Rare items needing human review                                                                      |
-| `HomepageWorkerDraft`                | Proposed homepage edits with before/after snapshots                                                  |
+| `HomepageWorkerDraft`                | No longer written: drafts left by the removed homepage makeover                                      |
 | `AdminDeveloperReportLog`            | Audit trail of every Developer Audit PDF generated                                                   |
 | `PostPublishVerification`            | Public-page load + cache + sitemap + search check                                                    |
 | `ContentQualityScore`                | Full per-package quality model — 10 dimensions + threshold + pass/fail + failed-dimension list       |
-| `HomepageQualityScore`               | Deterministic homepage score (8 dimensions)                                                          |
+| `HomepageQualityScore`               | No longer written: scores left by the removed homepage makeover                                      |
 
 **User + site:**
 
@@ -447,8 +447,8 @@ operator's Mac, through the native **"Via Fidei.app"**:
   authentication, sessions, user data and the lightweight APIs, and it keeps
   every request-time protection (auth, CSRF, headers, validation, rate limits,
   banned devices, the request defender). It does **not** run the autonomous
-  loop, the Python brain, Chromium, discovery, verification, homepage analysis,
-  worker reports or worker email.
+  loop, the Python brain, Chromium, discovery, verification, worker reports or
+  worker email.
 - **The Mac runs the worker.** Discovery, crawling, rendering, parsing,
   reasoning, extraction, verification, classification, comparison, formatting,
   security analysis, document processing and report generation all consume this
@@ -809,13 +809,11 @@ wakes.
   passes and decisions, brain reasoning and ranked alternatives, source
   reputation and coverage, knowledge and memory, logs, rules, skills, repair
   plans, review queue, package artifacts, quality scores, strict QA, rollbacks,
-  security activity, homepage drafts, diagnostics, intelligence status, current
-  source activity, publishing activity, content growth, self-maintenance, and
-  live local resource usage (`scripts/desktop-app/dashboard.html`, served by the
-  local runtime).
-- **Manual passes and the homepage makeover run locally.** A button in the app
-  starts a local operation; it never calls a server endpoint that would do the
-  work on Railway.
+  security activity, diagnostics, intelligence status, current source activity,
+  publishing activity, content growth, self-maintenance, and live local resource
+  usage (`scripts/desktop-app/dashboard.html`, served by the local runtime).
+- **Manual passes run locally.** A button in the app starts a local operation;
+  it never calls a server endpoint that would do the work on Railway.
 - **File ingestion.** Drag a file anywhere onto the window, use ⌘I, or click
   "choose a file" in the command center, and the local worker reads it — see
   [Operator file ingestion](#operator-file-ingestion).
@@ -1242,10 +1240,10 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 
 ### What the phone deliberately cannot do
 
-- **No worker actions.** The desktop console can also trigger a pass, approve a
-  review item and act on a homepage draft over its loopback API. Those
-  endpoints are not exposed to the phone by the server at all, so this app
-  observes and toggles; approving is done on the Admin Site tab.
+- **No worker actions.** The desktop console can also trigger a pass and approve
+  a review item over its loopback API. Those endpoints are not exposed to the
+  phone by the server at all, so this app observes and toggles; approving is
+  done on the Admin Site tab.
 - **No push notifications.** Nothing here wakes the phone. It polls while you
   are looking at it and stops the moment you are not.
 
@@ -1531,12 +1529,11 @@ publishing are handled autonomously by the Admin Worker.
 
 **Site surfaces:**
 
-| Card             | Route                               | Purpose                                          |
-| ---------------- | ----------------------------------- | ------------------------------------------------ |
-| Homepage editor  | `/admin/homepage`                   | Public homepage mirror                           |
-| Makeover preview | `/admin/homepage/preview/[draftId]` | Editable full-screen preview of a makeover draft |
-| Search index     | `/admin/search`                     | Search                                           |
-| Media library    | `/admin/media`                      | Image assets                                     |
+| Card            | Route             | Purpose                |
+| --------------- | ----------------- | ---------------------- |
+| Homepage editor | `/admin/homepage` | Public homepage mirror |
+| Search index    | `/admin/search`   | Search                 |
+| Media library   | `/admin/media`    | Image assets           |
 
 **Admin operations:**
 
@@ -2615,10 +2612,10 @@ falling back to a TypeScript final brain. Concretely:
 
 - **Ranks the next safest action.** `brain.ts` samples world state on
   every pass (content goals, source reputation, pending + failed build
-  jobs, homepage score, security events, heartbeat age, candidate
-  URLs, open repair plans, blocked pipeline stages, growth snapshots,
-  source coverage) and _scores every candidate action_. The output is
-  a `BrainDecision` with the chosen action **plus a ranked list of
+  jobs, security events, heartbeat age, candidate URLs, open repair
+  plans, blocked pipeline stages, growth snapshots, source coverage)
+  and _scores every candidate action_. The output is a
+  `BrainDecision` with the chosen action **plus a ranked list of
   rejected alternatives**, confidence, risk, urgency, source score,
   quality expectation, repair likelihood, fallback action, stop
   condition, the rules evaluated, and the memory + reputation rows
@@ -2633,15 +2630,17 @@ falling back to a TypeScript final brain. Concretely:
   `AdminWorkerDecision` (including memory + reputation used) so the
   operator can audit _"why this and not that?"_ without re-running.
 
-- **Executes 22 mission stages.** `dispatcher.ts` runs the chosen
+- **Executes 21 mission stages.** `dispatcher.ts` runs the chosen
   action against the real pipeline — _no "logged intent" stubs_ (a
   test statically scans every handler and fails if one only logs). The
-  22 stages span DISCOVERY → CANDIDATE_PRIORITIZATION → SOURCE_FETCH
+  21 stages span DISCOVERY → CANDIDATE_PRIORITIZATION → SOURCE_FETCH
   → SOURCE_READ → CLASSIFICATION → EXTRACTION → CHECKLIST_CREATION →
   CITATION_CREATION → PACKAGE_BUILD → CROSS_SOURCE_VERIFICATION →
   STRICT_QA → PERSISTENCE → PUBLIC_PUBLISH → POST_PUBLISH_VERIFY →
-  SEARCH_VERIFY → SITEMAP_VERIFY → CACHE_REFRESH → REPAIR →
-  HOMEPAGE_WORK → REPORTING → SECURITY_DEFENSE → MAINTENANCE. SOURCE_FETCH
+  SEARCH_VERIFY → SITEMAP_VERIFY → CACHE_REFRESH → REPAIR → REPORTING
+  → SECURITY_DEFENSE → MAINTENANCE. A stage with no handler (such as
+  HOMEPAGE_WORK, from the removed homepage makeover, if an old row
+  still names it) closes out idle without running anything. SOURCE_FETCH
   actually calls `adminWorkerFetch`; SOURCE_READ actually calls
   `readSource`; POST_PUBLISH_VERIFY actually hits the public route
   (no `skipNetwork: true` in the production path). Every stage returns
@@ -3174,42 +3173,6 @@ falling back to a TypeScript final brain. Concretely:
   to fallback paths when one content type or source is repeatedly
   blocked.
 
-- **Maintains the homepage.**
-  `homepage-publish-orchestrator.ts` runs a 10-axis homepage
-  inspection (featured links work, no unpublished content featured,
-  no section accidentally empty, mobile layout valid, accessibility
-  checks pass, seasonal content appropriate, …) with snapshot,
-  mutate, verify, and rollback. Small high-confidence changes
-  auto-publish; major redesigns route to human review; section
-  deletion always routes to review.
-  - **Request Homepage Makeover (preview → edit → publish/discard).**
-    The Command Center has a **Request Homepage Makeover** button.
-    Running it always files an `AWAITING_REVIEW`
-    `HomepageWorkerDraft` (a proposed set of `featured-*` rails built
-    from currently published content). While a reviewable draft
-    exists, three actions appear just below the completion message —
-    **Preview** (grey), **Discard** (red), **Publish** (green) — and
-    disappear once the draft is resolved. **Preview** opens a
-    full-screen, faithful render of the proposed homepage at
-    `/admin/homepage/preview/[draftId]` where the admin can make small
-    edits inline (rail headings, item titles, remove items), then use
-    the sticky **Back** control (which saves edits) or the fixed
-    bottom-right **Discard** / **Publish** buttons to act from inside
-    the preview itself. Publishing applies only the `featured-*` rails
-    to the live `HomePage` record (non-destructive: the static
-    hero/mission sections are preserved) in a transaction, flips the
-    page to `PUBLISHED`, and marks the draft `APPROVED`; discarding
-    marks it `REJECTED`. The live homepage renders the published rails
-    when present and falls back to its static featured section
-    otherwise, so there is **zero visual change until a makeover is
-    explicitly published**. Every edit/publish/discard is
-    admin-guarded and written to the audit log; terminal drafts are
-    refused (409) so a stale tab cannot double-apply. Review actions
-    live in `homepage-designer.ts`
-    (`getHomepageDraft` / `saveHomepageDraftEdits` /
-    `applyHomepageDraft` / `discardHomepageDraft`), driven from the local
-    command center (`POST /api/homepage-draft/[id]` on 127.0.0.1).
-
 - **Defends the admin site without harassing the admin.** The
   defender runs at three layers: (1) the security defender pipeline
   (`security-defender.ts` + ten deterministic detectors —
@@ -3331,17 +3294,16 @@ falling back to a TypeScript final brain. Concretely:
   source-read / structured-block / classification / extraction /
   package-artifact / checklist+citation / validation / strict-QA /
   quality-score / publishing / post-publish / search / sitemap /
-  cache / repair / security / homepage logs, memory +
-  source-reputation changes, why-no-growth, current blockers,
-  recommended repairs. All secrets redacted; useful debugging
-  fields visible.
+  cache / repair / security logs, memory + source-reputation
+  changes, why-no-growth, current blockers, recommended repairs. All
+  secrets redacted; useful debugging fields visible.
 
 - **Sends a monthly PDF report** to `ADMIN_EMAIL` on the last calendar
   day of each month. Daily sections + monthly summary (total content
   growth, best / weakest content type growth, best / worst sources, QA
-  pass rate, publish rate, worker uptime, security events, homepage
-  improvements, remaining blockers). The due-check runs from the always-on
-  **reporting lane on every pass** (plus a best-effort check at startup) —
+  pass rate, publish rate, worker uptime, security events, remaining
+  blockers). The due-check runs from the always-on **reporting lane
+  on every pass** (plus a best-effort check at startup) —
   originally it ran ONLY at process startup, so the report fired only if the
   worker container happened to restart on the last day of the month, and a
   continuously-running worker silently skipped month-end (the June 2026
@@ -4080,7 +4042,7 @@ SOURCE_FETCH→EXTRACTION` → `worker_stuck: SOURCE_FETCH 10/10 passes`). It is
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | **`brain.ts`**                           | Candidate generator + sub-scoring + safe-degraded selector (no longer the final brain)                    |
 | **`final-brain.ts`**                     | Python is the FINAL action selector: validates `select_action`, enforces the safety gate, degrades safely |
-| **`dispatcher.ts`**                      | 22-stage mission dispatcher (real execution, no stubs)                                                    |
+| **`dispatcher.ts`**                      | 21-stage mission dispatcher (real execution, no stubs)                                                    |
 | `mission-planner.ts`                     | Chain-aware mission planner                                                                               |
 | `loop.ts`                                | Central decision loop + mode dispatch                                                                     |
 | `passes.ts`                              | Pass lifecycle                                                                                            |
@@ -4124,10 +4086,6 @@ SOURCE_FETCH→EXTRACTION` → `worker_stuck: SOURCE_FETCH 10/10 passes`). It is
 | **`search-sitemap-cache-verifiers.ts`**  | Independent search + sitemap + cache verification                                                         |
 | `post-publish.ts`                        | Aggregation + decision                                                                                    |
 | **`post-publish-rollback.ts`**           | REPAIR → UNPUBLISH → DELETED → HUMAN_REVIEW decision tree                                                 |
-| `homepage-designer.ts`                   | Homepage scoring + draft decision + preview/edit/publish/discard actions                                  |
-| `homepage-mutator.ts`                    | Builds proposed homepage snapshots (`force` for admin makeovers)                                          |
-| **`homepage-publish-orchestrator.ts`**   | 10-axis inspect + snapshot + verify + rollback                                                            |
-| `liturgical-calendar.ts`                 | Meeus-based liturgical calendar engine (homepage seasonal scorer)                                         |
 | `daily-readings.ts`                      | Daily Mass readings: resolve + store + autonomous backfill/self-correct                                   |
 | **`readings-source.ts`**                 | Readings-source registry — one adapter: the committed lectionary tables                                   |
 | **`self-maintenance.ts`**                | Sense → diagnose → repair → verify on the worker's own health (the `maint-self-heal` lane)                |
@@ -4943,7 +4901,7 @@ The Command Center — in the native application, executing on the operator's
 Mac — exposes one-click actions for every named pass. Each button starts a
 **local** operation; none of them calls a server endpoint that would do the work
 on Railway. Each is **also run autonomously** by the loop on its own cadence —
-the buttons only let the operator drive one on demand. The six single-stage
+the buttons only let the operator drive one on demand. The five single-stage
 buttons **force the exact requested stage** (they do not route through the
 brain's scoring, so "Run diagnostics" always runs diagnostics rather than
 whatever the brain would have scored highest), via `runOperatorPass`
@@ -4953,7 +4911,6 @@ correctly in Recent Passes with their real type and are liveness-safe:
 
 - **Run diagnostic pass** → forces `REPORTING` (diagnostics + growth + coverage)
 - **Run source discovery pass** → forces `DISCOVERY` (the discovery orchestrator)
-- **Run homepage pass** → forces `HOMEPAGE_WORK` (homepage publish orchestrator)
 - **Run source repair pass** → forces `REPAIR` (drains durable repair plans)
 - **Run report generation** → forces `REPORTING` (report on demand)
 - **Run security defense pass** → forces `SECURITY_DEFENSE` (even when paused)
@@ -4961,9 +4918,6 @@ correctly in Recent Passes with their real type and are liveness-safe:
   advancing content toward its goals _is_ the whole brain-driven pass, not one
   stage
 - **Run cleanup pass** — runs the custodian directly (`runCleanupPass`)
-- **Request Homepage Makeover** — operator-triggered redesign that
-  files a reviewable draft, then offers Preview / Discard / Publish
-  (with an editable full-screen preview)
 - **Download Developer Audit** — last 24 h / 7 d / 30 d PDF, generated on this
   Mac (the server-side `/api/admin/developer-audit` route is gone)
 - **Give the worker a file** — drag-and-drop anywhere on the window, ⌘I, or the
@@ -4981,7 +4935,6 @@ The loop runs in exactly one mode at a time:
 - `CONSTANT_FILL` — build content until goals are met
 - `MAINTENANCE` — keep content fresh
 - `REPAIR` — fix pipeline failures (runs `repair-orchestrator.ts`)
-- `HOMEPAGE` — improve the homepage
 - `DIAGNOSTICS` — audit the system
 - `SECURITY_DEFENSE` — protect the site
 - `REPORTING` — generate scheduled reports
@@ -5619,8 +5572,8 @@ so the full content build plan runs end to end through certified skills:
   `verify_public_route` / `verify_search_index` / `verify_sitemap` /
   `verify_cache`, and `rollback_publish`.
 
-The **repair, homepage, reporting, security, and maintenance packs are also
-certified** — **114 certified skills** across all nine categories (including the
+The **repair, daily readings, reporting, security, and maintenance packs are also
+certified** — **111 certified skills** across all nine categories (including the
 **discovery** pack — `discover_from_sitemap` / `_rss` / `_internal_links` /
 `_configured_urls` / `_directory_page` / `_search_page` + `request_dynamic_
 fetcher_upgrade` + **`discover_parishes_via_maps`** (Google Maps parish discovery
@@ -5635,11 +5588,9 @@ request):
 - **Repair** (`repair-skills.ts`): infra repairs flag a real cache / sitemap /
   search refresh; content-field repairs file a durable, targeted repair plan the
   orchestrator executes.
-- **Homepage + reporting** (`homepage-skills.ts`): `create_homepage_draft` runs
-  a real makeover and files an AWAITING_REVIEW draft to preview / publish /
-  discard (the live homepage is never mutated autonomously); refresh + verify
-  daily readings; `generate_developer_report` / `generate_monthly_report` /
-  `run_diagnostics`.
+- **Daily readings + reporting** (`readings-reporting-skills.ts`): refresh +
+  verify daily readings; `generate_developer_report` /
+  `generate_monthly_report` / `run_diagnostics`.
 - **Security + maintenance** (`security-skills.ts`, `named-skills.ts`):
   `run_security_defense` plus database / brain / public-site / admin-surface
   health checks, stale-job cleanup, repair-plan closure, capability-matrix
@@ -6783,7 +6734,7 @@ prints the resulting reasoning chain.
 The unit + component suite covers:
 
 - **Admin Worker engine** — ranked-action brain + execution feedback,
-  22-stage dispatcher (real pipeline + skip-network variant), mission
+  21-stage dispatcher (real pipeline + skip-network variant), mission
   planner, classifier + `classifyDetailed`, 11 extractors, content
   builder + per-content-type chain proof, confusion detector, structured source
   reader, fetcher (host allow-list, login/binary rejection, checksum),
@@ -6793,9 +6744,8 @@ The unit + component suite covers:
   search/sitemap/cache verifiers, post-publish rollback decision tree, repair
   orchestrator (real per-kind handlers), memory decay (30-day half-life),
   per-stage source-reputation hooks, growth orchestrator, source coverage,
-  homepage publish orchestrator (snapshot + verify + rollback), pipeline resume
-  by checksum, why-no-growth chain walk, developer audit data + sections,
-  packaging, publish safety, post-publish probe, homepage designer + mutator.
+  pipeline resume by checksum, why-no-growth chain walk, developer audit data +
+  sections, packaging, publish safety, post-publish probe.
 - **Execution host** — the launcher's configuration precedence, the Railway
   resolver's JSON contract, the loopback-database refusal and its
   `VIAFIDEI_ALLOW_LOCAL_DB` escape hatch, worker exit-code classification, and

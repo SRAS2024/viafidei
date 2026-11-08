@@ -76,7 +76,6 @@ const CONTENT_BUILD_STAGES = new Set([
 const STAGE_SKILL: Record<string, string> = {
   DISCOVERY: "discover_from_sitemap",
   REPAIR: "repair_failed_public_route",
-  HOMEPAGE_WORK: "create_homepage_draft",
   REPORTING: "generate_developer_report",
   SECURITY_DEFENSE: "run_security_defense",
   MAINTENANCE: "clean_stale_jobs",

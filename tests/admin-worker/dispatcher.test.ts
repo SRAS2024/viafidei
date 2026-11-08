@@ -66,17 +66,6 @@ vi.mock("@/lib/admin-worker/repair-plans", () => ({
   filePlan: vi.fn(async () => ({ id: "rp1" })),
 }));
 
-vi.mock("@/lib/admin-worker/homepage-mutator", () => ({
-  redesignHomepage: vi.fn(async () => ({
-    draftId: "d1",
-    status: "AUTO_PUBLISHED",
-    finalScore: 0.7,
-    qualityScoreId: "q1",
-    sectionsChanged: ["updated:hero"],
-    reasonSummary: "test",
-  })),
-}));
-
 vi.mock("@/lib/admin-worker/cleanup", () => ({
   runCleanupPass: vi.fn(async () => ({
     staleCandidatesRemoved: 3,
@@ -188,19 +177,6 @@ vi.mock("@/lib/admin-worker/repair-orchestrator", () => ({
 
 vi.mock("@/lib/admin-worker/memory", () => ({
   decayMemory: vi.fn(async () => ({ decayed: 0, pruned: 0 })),
-}));
-
-vi.mock("@/lib/admin-worker/homepage-publish-orchestrator", () => ({
-  runHomepagePublishOrchestrator: vi.fn(async () => ({
-    kind: "auto-published" as const,
-    draftId: "d1",
-    beforeSnapshotId: null,
-    afterSnapshotId: "d1",
-    inspection: { composite: 0.5 },
-    reason: "mocked auto-publish",
-    verificationPassed: true,
-  })),
-  inspectHomepage: vi.fn(async () => ({ composite: 0.5 })),
 }));
 
 import { executeMissionStage } from "@/lib/admin-worker/dispatcher";
@@ -413,19 +389,34 @@ describe("executeMissionStage — concrete stage handlers (spec §2)", () => {
     expect(vi.mocked(flagCacheRefresh)).toHaveBeenCalledTimes(1);
   });
 
-  it("HOMEPAGE_WORK calls the homepage publish orchestrator (spec §20)", async () => {
-    const prisma = makePrismaForDispatch();
-    const { runHomepagePublishOrchestrator } =
-      await import("@/lib/admin-worker/homepage-publish-orchestrator");
-    vi.mocked(runHomepagePublishOrchestrator).mockClear();
+  it("closes out a leftover HOMEPAGE_WORK decision idle, running nothing", async () => {
+    // The homepage makeover is gone, but production may still hold rows that
+    // name its stage. Whatever still hands one to the dispatcher gets an idle
+    // close-out: no handler, no throw, no next stage to chain into, and a
+    // no-op ledger row rather than a failure the stall detectors would count.
+    const stageOutcomeCreate = vi.fn(async () => ({ id: "so1" }));
+    const prisma = {
+      ...makePrismaForDispatch(),
+      adminWorkerStageOutcome: { create: stageOutcomeCreate },
+    } as unknown as Parameters<typeof executeMissionStage>[0]["prisma"];
     const out = await executeMissionStage({
       prisma,
       workerId: "w1",
       passId: "p1",
-      decision: makeDecision("HOMEPAGE_WORK"),
+      decision: makeDecision("HOMEPAGE_WORK" as BrainAction["missionStage"]),
     });
-    expect(out.kind).toBe("advanced");
-    expect(vi.mocked(runHomepagePublishOrchestrator)).toHaveBeenCalledTimes(1);
+    expect(out.stage).toBe("HOMEPAGE_WORK");
+    expect(out.kind).toBe("idle");
+    expect(out.summary).toBe("No dispatcher registered for HOMEPAGE_WORK.");
+    expect(out.nextStage).toBeNull();
+    expect(stageOutcomeCreate).toHaveBeenCalledTimes(1);
+    expect(stageOutcomeCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        stage: "HOMEPAGE_WORK",
+        result: "idle",
+        resultType: "no_op",
+      }),
+    });
   });
 
   it("REPAIR calls recoverStuckQueue", async () => {
