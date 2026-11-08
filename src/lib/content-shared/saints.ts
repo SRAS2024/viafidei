@@ -420,6 +420,8 @@ export const SAINT_DUPLICATE_OF: Readonly<Record<string, string>> = {
   "saint-archippus-q276575": "saint-archippus",
   // The Good Thief, published again under his description.
   "saint-penitent-thief": "saint-dismas",
+  // Acts' John Mark, whom tradition holds to be the Evangelist (his own record says so).
+  "saint-john-mark": "saint-mark-the-evangelist",
 };
 
 /** Slug → place in the head of the list. A hidden duplicate holds its canonical's place. */
