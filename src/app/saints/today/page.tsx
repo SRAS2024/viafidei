@@ -48,7 +48,17 @@ export default async function SaintsTodayPage({ searchParams }: Props) {
           baseHref="/saints"
           showSummary={false}
           emptyMessage="No published feast day saints for today."
-          detailLinesFor={(item) => saintCardDetailLines(saintCardDetails(entryPayload(item)), t)}
+          detailLinesFor={(item) =>
+            saintCardDetailLines(
+              saintCardDetails({
+                ...entryPayload(item),
+                // The day this list is for, from the indexed columns, as on /saints.
+                feastMonth: "feastMonth" in item ? item.feastMonth : undefined,
+                feastDayOfMonth: "feastDayOfMonth" in item ? item.feastDayOfMonth : undefined,
+              }),
+              t,
+            )
+          }
         />
       </div>
     </div>

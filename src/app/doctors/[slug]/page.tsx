@@ -37,7 +37,14 @@ export default async function DoctorDetailPage({ params }: Props) {
       eyebrow={doctorEyebrow(item.payload)}
       showSubtitle={false}
       lede={false}
-      factItems={translateFacts(doctorFactItems(item.payload), t)}
+      factItems={translateFacts(
+        doctorFactItems({
+          ...item.payload,
+          feastMonth: item.feastMonth,
+          feastDayOfMonth: item.feastDayOfMonth,
+        }),
+        t,
+      )}
       factsInSubtitle={["Title", "Feast day"].map((label) => factLabel(label, t))}
       primaryFields={["background"]}
       headings={{ background: null }}

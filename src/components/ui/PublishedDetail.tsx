@@ -16,7 +16,7 @@
 import { translateDetailLabel } from "@/lib/content-shared/detail-labels";
 import { contentTypeLabel, type PublishedItem } from "@/lib/data/published";
 import type { Translator } from "@/lib/i18n/translator";
-import { displayItem, displayOverlay } from "@/lib/translation/display";
+import { displayItem } from "@/lib/translation/display";
 import { documentDatePrecision } from "@/lib/content-shared/church-history/timeline";
 import { formatHistoryDate } from "@/lib/content-shared/church-history/types";
 import { splitParagraphs, toDisclosureItems } from "@/lib/content-shared/structured-content";
@@ -95,10 +95,9 @@ export interface PublishedDetailProps {
    */
   factItems?: ReadonlyArray<FactItem | null | undefined>;
   /**
-   * The labels of the `factItems` the stored subtitle also says, for a page that
-   * shows facts in place of it. Facts are read from the stored English and the
-   * subtitle is machine-translated, so a reader in another language keeps that
-   * translated line, under the plain type label, and these facts give way to it.
+   * The labels of the `factItems` the stored subtitle also says. Kept so the pages can
+   * still say it, but nothing gives way to the translated subtitle any more: the facts
+   * are shown in every language, with their labels in the reader's own.
    */
   factsInSubtitle?: readonly string[];
   /**
@@ -260,7 +259,6 @@ export function PublishedDetail({
   showSubtitle = true,
   facts,
   factItems,
-  factsInSubtitle,
   lede = true,
   headings,
 }: PublishedDetailProps) {
@@ -277,18 +275,17 @@ export function PublishedDetail({
     typeof shownPayload.summary === "string" && shownPayload.summary.trim()
       ? shownPayload.summary
       : summary;
-  const translatedLine = displayOverlay(item)?.subtitle;
-  const keepsTranslatedLine =
-    !!factsInSubtitle && !!translatedLine && translatedLine !== item.subtitle;
-  const shownFacts = keepsTranslatedLine
-    ? factItems?.filter((fact) => fact && !factsInSubtitle.includes(fact.label))
-    : factItems;
+  // The facts stand in every language, their labels in the reader's own. The stored line
+  // that joins them with "·" came back from the machine translator garbled ("Religiosos ?
+  // Doctor de la Iglesia? Doctor angelical"), with marks a screen reader reads aloud, and
+  // in words wrong for its subject, so it no longer takes their place.
+  const shownFacts = factItems;
   // The eyebrow is a word, not an enum: "MARIAN_TITLE" used to print here.
   // `subtype` refines it (a PRAYER whose prayerType is "litany" reads "Litany").
   // The data layer's word is English, for what else reads it; a reader hears their own,
   // or none where their language has no word true of everyone it may stand over.
   const storedLabel =
-    eyebrow === undefined || (keepsTranslatedLine && eyebrow !== null)
+    eyebrow === undefined
       ? contentTypeLabel(
           item.contentType,
           typeof payload.prayerType === "string" ? payload.prayerType : null,
@@ -431,7 +428,7 @@ export function PublishedDetail({
         <h1 className="vf-detail-title text-ink">
           {shown.title.replace(/\bOur Lady\b/g, "Our Lady")}
         </h1>
-        {(showSubtitle || keepsTranslatedLine) && shown.subtitle ? (
+        {showSubtitle && shown.subtitle ? (
           <p className="vf-detail-subtitle">{shown.subtitle}</p>
         ) : null}
         {shownFacts ? <FactList items={shownFacts} /> : null}

@@ -46,6 +46,13 @@ export interface PublishedItem {
   authorityLevel: string;
   version: number;
   publishedAt: Date | null;
+  /**
+   * The indexed feast columns, which the lists, the feast-day pages and search read. A
+   * page shows the feast from these too, so it cannot disagree with the list that led
+   * to it when an older payload still holds another date.
+   */
+  feastMonth?: number | null;
+  feastDayOfMonth?: number | null;
 }
 
 /** A row's title as a reader sees it: a church's may hold the raw list of its names. */
@@ -76,6 +83,8 @@ function deserialize(
     authorityLevel: row.authorityLevel,
     version: row.version,
     publishedAt: row.publishedAt,
+    feastMonth: (row as { feastMonth?: number | null }).feastMonth ?? null,
+    feastDayOfMonth: (row as { feastDayOfMonth?: number | null }).feastDayOfMonth ?? null,
   };
 }
 
@@ -1147,9 +1156,12 @@ export async function listParishPage(
   const nameMatch = parishWords(q).map(accentBlindPattern).join("[^[:alnum:]]+");
   // Many parishes share a name, so the id settles a tie: each page's query orders
   // ties its own way otherwise, and one parish shows on two pages and another on none.
+  // The plain directory opens on names in the Latin alphabet, which most readers can
+  // read, and every other script follows in its own order: by stored title alone it
+  // opened on 36 Korean records, whose names the cards show romanized out of order.
   const order = nameMatch
     ? Prisma.sql`CASE WHEN "title" ~* ${nameMatch} THEN 0 ELSE 1 END, "title" ASC, "id" ASC`
-    : Prisma.sql`"title" ASC, "id" ASC`;
+    : Prisma.sql`CASE WHEN "title" ~ '^[A-Za-z]' THEN 0 ELSE 1 END, "title" ASC, "id" ASC`;
 
   return readUpToLastPage(clampPage(opts.page), async (page) => {
     const [countRows, rows] = await Promise.all([
@@ -1635,11 +1647,16 @@ export async function searchPublishedPage(
                      WHERE ${where}
                      GROUP BY "contentType", "subtype"`,
         ),
+        // The site's own pages lead, and the churches named after them follow: "fatima"
+        // opens on the apparition and its prayer, not on 24 parishes called Fatima. The
+        // parish directory has 270,000 names to the site's 6,000 pages, so by rank alone
+        // they filled the first page of every devotion's search.
         prisma.$queryRaw<SearchRow[]>(
           Prisma.sql`SELECT ${SEARCH_COLUMNS}, ${rank} AS "rank"
                      FROM "PublishedContent"
                      WHERE ${where}
-                     ORDER BY "rank" DESC, "title" ASC, "id" ASC
+                     ORDER BY CASE WHEN "contentType" = 'PARISH'::"ChecklistContentType" THEN 1 ELSE 0 END,
+                              "rank" DESC, "title" ASC, "id" ASC
                      LIMIT ${pageSize} OFFSET ${offset}`,
         ),
       ]);

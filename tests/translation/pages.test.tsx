@@ -396,7 +396,7 @@ describe("a Church document in Spanish", () => {
 });
 
 describe("a page that opens on facts, in Spanish", () => {
-  it("keeps the translated subtitle in place of the English facts it restates", async () => {
+  it("keeps the facts, in Spanish, rather than a translated line that restates them", async () => {
     const encyclical = put(
       "CHURCH_DOCUMENT",
       "rerum-novarum",
@@ -414,12 +414,11 @@ describe("a page that opens on facts, in Spanish", () => {
       [encyclical, "On capital and labor.", "Sobre el capital y el trabajo."],
     ]);
     const { container } = render(await LiturgyHistoryDetailPage(params("rerum-novarum")));
-    expect(screen.getByText("Encíclica del Papa León XIII (1891)")).toHaveClass(
-      "vf-detail-subtitle",
-    );
-    expect(container.querySelector(".vf-facts")).toBeNull();
-    // The plain type label, in the reader's language like the line under it.
-    expect(container.querySelector(".vf-eyebrow")).toHaveTextContent(/^Documento de la Iglesia$/);
+    // A line joining facts with "·" came back from the translator garbled, so the facts
+    // stand, with their labels in the reader's language.
+    expect(screen.queryByText("Encíclica del Papa León XIII (1891)")).toBeNull();
+    expect(container.querySelector(".vf-facts")).not.toBeNull();
+    expect(container.querySelector(".vf-facts")).toHaveTextContent("Fecha");
   });
 
   it("keeps the facts while the subtitle is still waiting for the translator", async () => {

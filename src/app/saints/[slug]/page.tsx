@@ -48,7 +48,11 @@ export default async function SaintDetailPage({ params }: Props) {
   // From the stored record, as on the card. The labels are the dictionaries'
   // (English until a dictionary carries them), so a machine-translated patronage
   // would put two languages in one fact.
-  const factItems = saintFactItems(stored.payload, t);
+  // The feast comes from the indexed columns, as on the list and the feast-day pages.
+  const factItems = saintFactItems(
+    { ...stored.payload, feastMonth: stored.feastMonth, feastDayOfMonth: stored.feastDayOfMonth },
+    t,
+  );
   // Rendering only: the stored biography (and its record) is untouched.
   const biography = stored.payload.biography;
   const shown = typeof biography === "string" ? saintBiographyForDisplay(biography) : biography;

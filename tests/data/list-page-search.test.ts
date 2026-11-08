@@ -248,17 +248,19 @@ describe("listParishPage with a search", () => {
     );
   });
 
-  it("orders by name alone when nothing is searched", async () => {
+  it("orders by name when nothing is searched, names in the Latin alphabet first", async () => {
     await listParishPage({});
     const list = queryRaw.mock.calls[1]![0] as Sql;
-    expect(textOf(list)).toMatch(/ORDER BY "title" ASC/);
+    expect(textOf(list)).toMatch(
+      /ORDER BY CASE WHEN "title" ~ '\^\[A-Za-z\]' THEN 0 ELSE 1 END, "title" ASC/,
+    );
     expect(textOf(countSql())).not.toContain("ILIKE");
   });
 
   it("settles a tie between parishes of one name, so an offset never repeats a row", async () => {
     // Live, "sacred heart" repeated 12 rows in its first 180 and lost as many.
     await listParishPage({});
-    expect(textOf(queryRaw.mock.calls[1]![0] as Sql)).toMatch(/ORDER BY "title" ASC, "id" ASC/);
+    expect(textOf(queryRaw.mock.calls[1]![0] as Sql)).toMatch(/END, "title" ASC, "id" ASC/);
     queryRaw.mockClear();
     await listParishPage({ q: "sacred heart" });
     expect(textOf(queryRaw.mock.calls[1]![0] as Sql)).toMatch(

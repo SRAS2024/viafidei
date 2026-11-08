@@ -1160,6 +1160,22 @@ describe("the page, as a screen reader gets it", () => {
     expect(String(meta.title)).toMatch(/^The Ascension of the Lord/);
   });
 
+  it("names the chosen Mass in the title on a day of several, so choosing one is heard", async () => {
+    const title = async (variant?: string) =>
+      String(
+        (
+          await generateMetadata({
+            searchParams: Promise.resolve({ date: "2026-12-25", ...(variant ? { variant } : {}) }),
+          })
+        ).title,
+      );
+    const dawn = await title("dawn");
+    const night = await title("night");
+    expect(dawn).toMatch(/^The Nativity of the Lord, Mass at Dawn — Mass Readings$/);
+    expect(night).not.toBe(dawn);
+    expect(night).toContain("The Nativity of the Lord, ");
+  });
+
   it.each(["2026-02-30", "garbage", "0002-03-21", "9999-12-31"])(
     "finds the visitor's own day for the unusable date %s",
     async (date) => {

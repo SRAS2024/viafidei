@@ -29,6 +29,7 @@ import { fetchArticleSource } from "./wikipedia-infobox";
 import { parseWikipediaArticleUrl } from "./wikipedia-url";
 import { fetchDocumentExcerpt } from "./document-excerpt";
 import { isRejection, reject, type MapRejection, type MapResult } from "./reject";
+import { isSuppressedCult } from "@/lib/content-shared/suppressed-cults";
 import {
   feastMentionIndexLocalized,
   feastStatedWithWording,
@@ -832,6 +833,11 @@ LIMIT ${limit} OFFSET ${offset}`,
     // saint; the MARIAN_TITLE ingestor owns it.
     if (MARIAN_TITLE_SUBJECT_RE.test(facts.label)) {
       return reject("owned_by_other_ingestor", `MARIAN_TITLE owns "${facts.label}"`);
+    }
+    // A cult the Church suppressed or never allowed is no saint, whatever the source
+    // records: the child "martyrs" of the blood libel were invented to accuse Jews.
+    if (isSuppressedCult(facts.label)) {
+      return reject("not_catholic_status", `${facts.label}: a suppressed cult`);
     }
 
     // Accuracy guard 1 — status by QID. A generic/Orthodox-only record cannot

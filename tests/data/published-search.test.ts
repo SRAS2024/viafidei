@@ -260,6 +260,14 @@ describe("a title's whole words in the search's ranking", () => {
     expect(rawValues()).toContain(String.raw`\yHail Mary\y`);
   });
 
+  it("puts the site's own pages before the parishes named after them", async () => {
+    withCapabilities(true);
+    await searchPublishedPage("fatima");
+    expect(rawSql()).toMatch(
+      /ORDER BY CASE WHEN "contentType" = 'PARISH'::"ChecklistContentType" THEN 1 ELSE 0 END,\s+"rank" DESC/,
+    );
+  });
+
   it("answers a bare name with the saint the site calls Saint", async () => {
     // Migration 0070 named "Nicodemus" "Saint Nicodemus": an exact or leading match must
     // still count, or a lesser Nicodemus outranks him.
@@ -620,7 +628,8 @@ describe("rows tied on rank and title", () => {
   it("are settled by the id in the indexed search", async () => {
     withCapabilities(true);
     await searchPublishedPage("baptism", { page: 2 });
-    expect(rawSql()).toMatch(/ORDER BY "rank" DESC, "title" ASC, "id" ASC\s+LIMIT/);
+    // After the parishes are put last, rank, title and then the id settle the order.
+    expect(rawSql()).toMatch(/"rank" DESC, "title" ASC, "id" ASC\s+LIMIT/);
   });
 
   it("are settled by the id in the fallback", async () => {

@@ -129,6 +129,21 @@ describe("/saints/[slug]", () => {
     );
   });
 
+  it("shows the feast the list shows, from the indexed columns, when an old payload disagrees", async () => {
+    put("SAINT", "saint-joachim", "Saint Joachim", {
+      saintType: "other",
+      canonizationStatus: "canonized",
+      feastDay: "09-09",
+      canonicalName: "Saint Joachim",
+    });
+    const stored = published.get("SAINT:saint-joachim") as unknown as Record<string, unknown>;
+    stored.feastMonth = 7;
+    stored.feastDayOfMonth = 26;
+    render(await SaintDetailPage(params("saint-joachim")));
+    expect(pageText()).toContain("July 26");
+    expect(pageText()).not.toContain("September 9");
+  });
+
   it("reads name, patronage, feast day, dates lived, then the biography — in that order", async () => {
     const { container } = render(await SaintDetailPage(params("saint-godeberta")));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Saint Godeberta");
@@ -607,9 +622,10 @@ describe("the other content types keep their content and drop the filler", () =>
     expectAbsent("Ordinario de la Misa");
     cleanup();
 
-    // A line that still says what the page says keeps its translation.
+    // Nor does a line that still says what the page says: the facts stand in every
+    // language, and a machine-translated line no longer takes their place.
     render(await LiturgyHistoryDetailPage(params("order-of-christian-funerals")));
-    expect(screen.getByText("Rito litúrgico")).toBeInTheDocument();
+    expectAbsent("Rito litúrgico");
   });
 
   it("church document: a long summary is reading text, in paragraphs, with every word", async () => {

@@ -111,9 +111,14 @@ const HOUSE_NUMBER = /^\d[\d\s/-]*[a-z]?$/i;
  * ("14-18;18 Belvidere Street"), so the first number keeps the street it leads to:
  * "14-18 Belvidere Street".
  */
+/** A note a mapper left in the address field: "( 전체 편집자 : SATO )", "FIXME". */
+const MAPPER_NOTE = /편집자|\beditor\b|\bfixme\b|\btodo\b/i;
+
 function firstStreet(value: unknown): string {
   const values = listValues(trimmed(value));
   const first = values[0] ?? "";
+  // A mapper's note is not an address: the card shows the place without it.
+  if (MAPPER_NOTE.test(first)) return "";
   if (values.length < 2 || !HOUSE_NUMBER.test(first)) return first;
   const street = values[values.length - 1]!.replace(/^\d\S*\s+/, "");
   return HOUSE_NUMBER.test(street) ? first : `${first} ${street}`;

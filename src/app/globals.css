@@ -4929,6 +4929,19 @@
     .vf-history-order .vf-chip {
       flex: 1 1 50%;
     }
+
+    /* A longer language's pair ("Más recientes primero") keeps to the panel: each choice
+       may take a second line rather than push the page sideways. */
+    .vf-history-order {
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    .vf-history-order .vf-chip {
+      min-width: 0;
+      white-space: normal;
+      text-wrap: balance;
+    }
   }
 
   /* Enlarged text on a phone: the two choices wrap rather than push the page wide,

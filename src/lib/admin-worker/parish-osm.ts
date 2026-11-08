@@ -206,7 +206,8 @@ export type ParishExclusionReason =
   | "stations-of-the-cross"
   | "funerary-chapel"
   | "private"
-  | "generic-name";
+  | "generic-name"
+  | "not-catholic";
 
 export interface ParishExclusion {
   reason: ParishExclusionReason;
@@ -329,8 +330,22 @@ export function parishExclusionFor(
     return { reason: "funerary-chapel", evidence: `name "${trimmed}"` };
   if (GENERIC_PLACE_NAMES.has(trimmed.toLowerCase()))
     return { reason: "generic-name", evidence: `name "${trimmed}"` };
+  // A map can tag a Protestant church denomination=catholic; its own name says otherwise.
+  if (PROTESTANT_NAME_RE.test(trimmed))
+    return { reason: "not-catholic", evidence: `name "${trimmed}"` };
   return null;
 }
+
+/**
+ * Names that say a church belongs to another communion, whatever its denomination tag:
+ * the Korean Methodist (감리교회), Presbyterian (장로교회), Baptist (침례교회), Holiness
+ * (성결교회), Full Gospel (순복음), Lutheran (루터교회) and Anglican (성공회) churches and
+ * the Salvation Army (구세군), and the few English words that never name a Catholic
+ * church. Not "Baptist" or "Church of Christ": St. John the Baptist and Christ the King
+ * are Catholic parishes everywhere.
+ */
+export const PROTESTANT_NAME_RE =
+  /감리교회|장로교회|침례교회|성결교회|순복음|루터교회|성공회|구세군|\b(?:methodist|presbyterian|lutheran|pentecostal|seventh-day adventist)\b/i;
 
 /** How long discovery stays away from a row kept down as not a parish. */
 export const EXCLUDED_SKIP_MS = 365 * DAY_MS;

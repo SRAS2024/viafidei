@@ -29,14 +29,19 @@ export async function generateMetadata({
 }: {
   searchParams: Promise<SearchParams>;
 }): Promise<Metadata> {
-  const { date: dateParam, mass, ascension } = await searchParams;
+  const { date: dateParam, variant, mass, ascension } = await searchParams;
   const date = parseDateParam(dateParam);
   const view = buildReadingsView(date, {
+    variant: variant ?? null,
     mass: mass ?? null,
     calendar: calendarFromParam(ascension),
   });
+  // On a day of several Masses of its own (Christmas, Holy Thursday), the title names the
+  // one shown: choosing another changes the readings, and a title that stayed the same
+  // would leave the route announcer silent for a reader who cannot see the change.
+  const active = view.masses.length > 1 ? view.masses.find((m) => m.isActive) : undefined;
   return {
-    title: `${view.title} — Mass Readings`,
+    title: `${view.title}${active ? `, ${active.label}` : ""} — Mass Readings`,
     description: `The Scripture readings of Holy Mass for ${longDate(date)}: ${view.title}.`,
   };
 }
