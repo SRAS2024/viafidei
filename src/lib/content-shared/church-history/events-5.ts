@@ -216,7 +216,7 @@ export const EVENTS_5: ChurchHistoryEvent[] = [
     significance:
       "The leader who gave the decisive judgment at the Council of Jerusalem is honoured as the city's first bishop; Catholic tradition identifies him with the Apostle James the Less.",
     citation: `${W}James,_brother_of_Jesus`,
-    links: { saints: ["saints-philip-and-james"] },
+    links: { saints: ["saint-james-the-less"] },
   },
   {
     slug: "gospel-of-mark-written",

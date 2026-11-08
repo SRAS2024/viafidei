@@ -155,9 +155,24 @@ describe("deriveSaintType (structured first, prose only for martyr / doctor)", (
           'Saint Patrick was a Christian missionary and bishop known as the "Apostle of Ireland".',
       }),
     ).toBe("bishop");
-    // Even the apostle POSITION needs an apostolic-age death year.
+    // Even the apostle POSITION is not enough: Francis Xavier holds it as an honorific.
     expect(deriveSaintType(facts({ positions: ["Q43412"], deathYear: 1552 }))).toBe("other");
-    expect(deriveSaintType(facts({ positions: ["Q43412"], deathYear: 64 }))).toBe("apostle");
+    // Nor in the first century: Wikidata gives it to the Seventy (Crescens, Prochorus,
+    // Apollos), whom the Church calls disciples. Only the Apostles' own items count.
+    expect(deriveSaintType(facts({ positions: ["Q43412"], deathYear: 100 }))).toBe("other");
+    expect(deriveSaintType(facts({ qid: "Q33923", positions: ["Q43412"], deathYear: 64 }))).toBe(
+      "apostle",
+    );
+    expect(deriveSaintType(facts({ qid: "Q185856", deathYear: 61 }))).toBe("apostle");
+    expect(deriveSaintType(facts({ qid: "Q128538", deathYear: 84 }))).toBe("evangelist");
+  });
+
+  it("reads a see from the infobox when Wikidata names none", () => {
+    // Dubricius: only a "priest" on Wikidata, an "Archbishop" in his article.
+    expect(
+      deriveSaintType(facts({ occupations: ["Q42603"] }), { infoboxTitles: "Archbishop" }),
+    ).toBe("bishop");
+    expect(deriveSaintType(facts({ occupations: ["Q42603"] }))).toBe("religious");
   });
 
   it("derives 'pope' from the position held, never from 'canonized by Pope …'", () => {
@@ -227,6 +242,17 @@ describe("saintDisplayTitle", () => {
     expect(saintDisplayTitle("Dorothy Day", "servant_of_god")).toBe("Servant of God Dorothy Day");
     expect(saintDisplayTitle("St. Patrick", "canonized")).toBe("St. Patrick");
     expect(saintDisplayTitle("Pope Pius X", "canonized")).toBe("Pope Pius X");
+    // "Saint" in another language is not doubled, and a Coptic "Pope" of Alexandria is
+    // the bishop of Alexandria the Roman Martyrology names.
+    expect(saintDisplayTitle("Sankt Villehad af Danmark", "canonized")).toBe(
+      "Saint Villehad af Danmark",
+    );
+    expect(saintDisplayTitle("San Juan Diego", "canonized")).toBe("Saint Juan Diego");
+    // A name that only begins with those letters keeps them.
+    expect(saintDisplayTitle("Sancha of Portugal", "beatified")).toBe("Blessed Sancha of Portugal");
+    expect(saintDisplayTitle("Pope Dionysius of Alexandria", "canonized")).toBe(
+      "Saint Dionysius of Alexandria",
+    );
   });
 
   it("titles a group of saints by its own name, never with a singular Saint", () => {

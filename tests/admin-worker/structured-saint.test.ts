@@ -229,7 +229,8 @@ describe("SAINT ingestor — infobox corroboration + enrichment", () => {
     const entry = await saintMap(row(FULL));
 
     expect(entry).not.toBeNull();
-    expect(entry!.payload.patronages).toEqual(["Lima", "Peru", "embroiderers", "gardeners"]);
+    // The semicolon list keeps the place with its country, and splits the trades.
+    expect(entry!.payload.patronages).toEqual(["Lima, Peru", "embroiderers", "gardeners"]);
     expect(entry!.payload.birthDate).toBe("1586-04-20");
     expect(entry!.payload.deathDate).toBe("1617-08-24");
     expect(entry!.payload.canonizationDate).toBe("12 April 1671");

@@ -133,6 +133,30 @@ describe("a saint's patronage", () => {
     expect(saintPatronage(["His specific patronages are not recorded"])).toBeNull();
     expect(saintPatronage([])).toBeNull();
   });
+
+  it("takes the label off any entry, and leaves out a title", () => {
+    // Mary of Bethany's and Saint Michael's records, as they were stored.
+    expect(saintPatronage(["Lectors", "Patroness of Spiritual Studies"])).toBe(
+      "Lectors, Spiritual Studies",
+    );
+    expect(saintPatronage(["Guardian of the Catholic Church", "Vatican City", "Rome"])).toBe(
+      "Vatican City, Rome",
+    );
+    expect(saintPatronage(["Apostle of the Frisians"])).toBeNull();
+  });
+
+  it("splits a stored run, and names a place once", () => {
+    expect(saintPatronage(["Convulsions; epilepsy"])).toBe("Convulsions, epilepsy");
+    expect(
+      saintPatronage(["Luxembourg", "Netherlands", "Archdiocese of Utrecht", "the Netherlands"]),
+    ).toBe("Luxembourg, Netherlands, Archdiocese of Utrecht");
+  });
+
+  it("divides a list by semicolons when a place keeps its country", () => {
+    expect(
+      saintPatronage(["fathers", "grandparents", "Adjuntas, Puerto Rico", "Fasnia, Tenerife"]),
+    ).toBe("fathers; grandparents; Adjuntas, Puerto Rico; Fasnia, Tenerife");
+  });
 });
 
 describe("a saint's facts", () => {

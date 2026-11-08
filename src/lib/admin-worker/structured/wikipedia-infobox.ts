@@ -221,12 +221,18 @@ function resolveTemplates(text: string, unwrapAll = false): string {
  * dropping the unrecognised ones — the fallback for a feast parameter that
  * would otherwise clean to nothing (see `parseInfoboxBlock`).
  */
-export function cleanInfoboxValue(raw: string, opts: { unwrapAll?: boolean } = {}): string {
+export function cleanInfoboxValue(
+  raw: string,
+  opts: { unwrapAll?: boolean; list?: boolean } = {},
+): string {
   let v = raw;
   // Drop references and HTML comments entirely.
   v = v.replace(/<ref[^>]*\/>/gi, "");
   v = v.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, "");
   v = v.replace(/<!--[\s\S]*?-->/g, "");
+  // Two links with nothing but a space between them are two items of a list: a
+  // reference removed from "[[Israel]]<ref>…</ref> [[Normandy]]" left them joined.
+  if (opts.list) v = v.replace(/\]\]\s+\[\[/g, "]], [[");
   // Date templates → ISO-ish "YYYY-MM-DD" from their numeric arguments.
   // `start`/`end` are here as well as on the unwrap list so a full
   // `{{start date|1997|10|19}}` reads as a date rather than "1997; 10; 19";
@@ -237,6 +243,9 @@ export function cleanInfoboxValue(raw: string, opts: { unwrapAll?: boolean } = {
   );
   // Wrapper templates hold the value; anything unrecognised is dropped.
   v = resolveTemplates(v, opts.unwrapAll === true);
+  // In a list, a line break separates items as a semicolon does: Saint Joachim's
+  // "Fathers<br/>grandparents<br/>[[Adjuntas, Puerto Rico]]" read as one run of words.
+  if (opts.list) v = debullet(v.replace(/<br\s*\/?>/gi, "\n"));
   // Links: [[target|label]] → label, [[target]] → target.
   v = v.replace(/\[\[(?:[^\]|]*\|)?([^\]|]*)\]\]/g, "$1");
   // External links: [url label] → label.
@@ -267,7 +276,7 @@ function parseInfoboxBlock(block: string): Record<string, string> {
       .replace(/[\s-]+/g, "_");
     if (!key) continue;
     const raw = part.slice(eq + 1);
-    let value = cleanInfoboxValue(raw);
+    let value = cleanInfoboxValue(raw, { list: LIST_KEYS.has(key) });
     // A feast parameter must never vanish because it sits in a wrapper we do
     // not know: an absent infobox feast sends the ingest to the prose rule,
     // which is the weaker one. Read its template arguments instead.
@@ -278,6 +287,13 @@ function parseInfoboxBlock(block: string): Record<string, string> {
   }
   return out;
 }
+
+/**
+ * Infobox parameters that hold a list of items rather than one value. Only these read a
+ * line break as a separator: a date written over two lines ("c. 1170<br>Caleruega")
+ * stays one date, as the life-dates reader expects.
+ */
+const LIST_KEYS: ReadonlySet<string> = new Set(["patronage"]);
 
 /** Infobox parameters that state a feast day, across the editions we read. */
 const FEAST_KEYS: ReadonlySet<string> = new Set([

@@ -786,7 +786,7 @@ export const devotionGroupTwo: CuratedEntry[] = [
       practiceInstructions:
         "Bring the situation itself into the prayer rather than leaving it vague. Pray the novena to St Jude — nine consecutive days, using an approved text, each day with an Our Father, Hail Mary and Glory Be — and if you can, go to confession and receive Holy Communion during those days, since the sacraments, not the novena, are where God's help chiefly comes. Ask for what you need plainly, and add the petition that God's will be done in the matter. Keep his feast on 28 October, and when the prayer is answered, say so to someone.",
       relatedPrayers: ["our-father", "hail-mary", "glory-be", "memorare"],
-      relatedSaints: ["saint-jude-thaddeus", "saints-philip-and-james"],
+      relatedSaints: ["saint-jude-thaddeus", "saint-james-the-less"],
       citations: ST_JUDE_CITATIONS,
     },
   },

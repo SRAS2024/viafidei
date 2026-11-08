@@ -15,6 +15,8 @@
  *   St Peter's Basilica   -> "Major basilica · Vatican City, Vatican City State · Diocese of Rome"
  */
 
+import { patronageIsAgainst, saintPatronageList } from "./saints";
+
 export interface SubtitleInput {
   contentType: string;
   contentSubtype?: string | null;
@@ -72,12 +74,15 @@ function yearOf(value: unknown): string {
   return String(parseInt(m[1], 10));
 }
 
-/** "saint-faustina-kowalska" -> "Saint Faustina Kowalska". */
+/** Words a name keeps in small letters after its first: "Saints Philip and James". */
+const NAME_SMALL_WORDS = new Set(["of", "the", "and", "de", "la", "del", "di", "da", "du"]);
+
+/** "saints-philip-and-james" -> "Saints Philip and James". */
 function humanizeSlug(slug: string): string {
   return slug
     .split("-")
     .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .map((w, i) => (i > 0 && NAME_SMALL_WORDS.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(" ");
 }
 
@@ -122,10 +127,27 @@ const CANONIZATION_PREFIX: Record<string, string> = {
   servant_of_god: "Servant of God",
 };
 
+/**
+ * The first patronage as the subtitle says it: ", patron of the papacy", or the phrase as
+ * it stands when it says for itself how the saint is called on (", patron against
+ * rabies", ", co-patron of Naples"). The patronage is read as the saint's page reads it,
+ * so the subtitle never says "patron of Patroness of Spiritual Studies".
+ */
+function patronClause(patronages: unknown): string {
+  const strings = arr(patronages).filter((p): p is string => typeof p === "string");
+  const first = saintPatronageList(strings)[0];
+  if (!first) return "";
+  const phrase = first.replace(/^(The|Against|Invoked|Co-patron|Protect)/, (word) =>
+    word.toLowerCase(),
+  );
+  if (/^against\b/i.test(phrase)) return `, patron ${phrase}`;
+  return patronageIsAgainst(phrase) ? `, ${phrase}` : `, patron of ${phrase}`;
+}
+
 function saintSubtitle(f: Fields): string {
   const typeLabel = SAINT_TYPE_LABELS[str(f.saintType)];
   const prefix = CANONIZATION_PREFIX[str(f.canonizationStatus)] ?? "";
-  const patron = str(arr(f.patronages)[0]);
+  const patron = patronClause(f.patronages);
   const feast = formatFeastDate(f.feastDay);
   if (!typeLabel && !patron && !feast) {
     // Legacy payloads (role / patronage) and the bare fallback.
@@ -133,7 +155,7 @@ function saintSubtitle(f: Fields): string {
     return legacy ? `Saint — ${legacy}` : "A saint of the Catholic Church";
   }
   const head = `${prefix ? `${prefix} · ` : ""}${typeLabel ?? "Saint"}`;
-  return `${head}${patron ? `, patron of ${patron}` : ""}${feast ? ` · Feast ${feast}` : ""}`;
+  return `${head}${patron}${feast ? ` · Feast ${feast}` : ""}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -329,6 +351,28 @@ function prayerSubtitle(f: Fields, subtype: string | null, title: string): strin
 // NOVENA
 // ---------------------------------------------------------------------------
 
+/** A start that names a day: "16 December", "December 4", "Late June". */
+const NAMED_DAY_START = new RegExp(
+  `^(?:\\d|(?:late|early|mid)\\b|(?:${MONTHS.join("|")})\\b)`,
+  "i",
+);
+
+/**
+ * When a novena is prayed, after its head: "begins 16 December, ending on Christmas Eve"
+ * for a start that names a day, otherwise the record's words with a small first letter
+ * ("the nine days before …", "any time of need"), never "begins Any time".
+ */
+function novenaWhen(start: string): string {
+  const phrase = start.replace(/^(The|Any|Nine|Late|Early|Mid)\b/, (word) => word.toLowerCase());
+  return NAMED_DAY_START.test(start) ? `begins ${phrase}` : phrase;
+}
+
+/**
+ * The novena's length and when it is prayed. It names no saint: `associatedSaintSlug`
+ * links the saint a novena belongs with, who is not always the one it prays to (the
+ * Divine Mercy Novena is Saint Faustina's, Guadalupe's is Saint Juan Diego's, Saint
+ * Alphonsus wrote the Christmas Novena), and the title already names whom it honours.
+ */
 function novenaSubtitle(f: Fields): string {
   const duration = num(f.durationDays);
   const days = arr(f.days).length;
@@ -338,18 +382,14 @@ function novenaSubtitle(f: Fields): string {
       : days > 9
         ? `${days}-day novena`
         : "Nine-day novena";
-  const saintSlug = str(f.associatedSaintSlug);
-  const saint = saintSlug ? humanizeSlug(saintSlug) : "";
   const start = str(f.typicalStartDate);
   const feastSlug = str(f.relatedFeastSlug);
   const feast = feastSlug
     ? humanizeSlug(feastSlug.replace(/^(solemnity|feast|memorial|optional-memorial)-/, ""))
     : "";
   const theme = str(f.intentionTheme);
-  const to = saint ? ` to ${saint}` : "";
-  if (start) return `${head}${to} · begins ${start}`;
-  if (feast) return `${head}${to} · before ${feast}`;
-  if (saint) return `${head}${to}`;
+  if (start) return `${head} · ${novenaWhen(start)}`;
+  if (feast) return `${head} · before ${feast}`;
   return theme ? `${head} for ${theme}` : "A nine-day Catholic devotion";
 }
 

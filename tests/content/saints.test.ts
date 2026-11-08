@@ -99,10 +99,12 @@ describe("parseYear", () => {
 });
 
 describe("saintSortYear", () => {
-  it("prefers death, then birth, then canonization", () => {
+  it("prefers death, then birth, and never reads the canonization", () => {
     expect(saintSortYear({ deathDate: "1897", birthDate: "1873" })).toBe(1897);
     expect(saintSortYear({ birthDate: "1873" })).toBe(1873);
-    expect(saintSortYear({ canonizationDate: "1997" })).toBe(1997);
+    // A canonization is not a date of the saint's life.
+    expect(saintSortYear({ canonizationDate: "1997" })).toBeNull();
+    expect(saintSortYear({ birthDate: "unknown", canonizationDate: "1588" })).toBeNull();
     expect(saintSortYear({})).toBeNull();
   });
 });
