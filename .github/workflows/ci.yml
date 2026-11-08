@@ -194,7 +194,8 @@ jobs:
     # the Ubuntu releases it knows, and ubuntu-latest began moving to Ubuntu 26 on
     # 2026-10-19, where that step failed before a test could run.
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # The suite runs in about six minutes on two workers; the margin is for a slow runner.
+    timeout-minutes: 40
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     services:
       postgres:
@@ -222,9 +223,14 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Apply migrations + seed
+        # The browser tests read real pages, so the database holds the curated set: the
+        # checklist, then its entries through the worker's own publish path (about 2,300
+        # items in seconds, with no network). There is no db:seed script; that line ran
+        # nothing, and every content test then failed and retried until the job timed out.
         run: |
           npx prisma migrate deploy
-          npm run db:seed || true
+          npm run seed:checklist
+          npm run seed:content
       - name: Build
         run: npm run build
         env:

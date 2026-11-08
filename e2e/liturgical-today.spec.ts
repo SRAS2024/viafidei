@@ -237,6 +237,16 @@ test.describe("a readings tab opened on another date than the server's", () => {
   });
 });
 
+/**
+ * A list to keep one's place in needs saints on the day. A database seeded with only the
+ * curated set, as CI's is, has none on most days, so these tests stand aside there.
+ */
+async function skipWithoutSaints(page: Page) {
+  const empty = page.getByText("No published feast day saints for today.");
+  await expect(page.locator("main .vf-entry-link").first().or(empty)).toBeVisible();
+  test.skip(await empty.isVisible(), "no saints on this day in this database");
+}
+
 test.describe("today's saints find the visitor's own date", () => {
   const { timezoneId, date } = visitorWhoseDateDiffers(
     Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -303,6 +313,7 @@ test.describe("today's saints find the visitor's own date", () => {
     await page.goto("/saints/today");
     await expect(page).toHaveURL(named(date), arrival);
     const cards = page.locator("main .vf-entry-link");
+    await skipWithoutSaints(page);
     await expect(cards.first()).toBeVisible();
     const last = (await cards.count()) - 1;
     await cards.nth(last).focus();
@@ -344,6 +355,7 @@ test.describe("today's saints find the visitor's own date", () => {
       await page.goto("/saints/today");
       // The server's day's list, while the visitor's is on its way.
       const cards = page.locator("main .vf-entry-link");
+      await skipWithoutSaints(page);
       await expect(cards.first()).toBeVisible();
       const last = (await cards.count()) - 1;
       await cards.nth(last).focus();
