@@ -177,13 +177,13 @@ describe("HeaderSearchClient", () => {
         .getAllByRole("option")
         .map((row) => row.querySelector(".vf-suggest-title")?.textContent),
     ]);
-    // Grouped by what a row is, and still in the dropdown's order of groups.
+    // Grouped by what a row is, each group where its best row came.
     expect(shape).toEqual([
       ["Litany", ["Litany of Lourdes"]],
       ["Prayer", ["Prayer at Lourdes", "Lourdes Prayer"]],
-      ["Saint", ["Bernadette"]],
       ["Apparition", ["Apparition"]],
       ["Our Lady", ["Our Lady"]],
+      ["Saint", ["Bernadette"]],
     ]);
     // Every group has its own heading to point at, so the ids cannot collide.
     const ids = groups.map((group) => group.getAttribute("aria-labelledby"));
@@ -192,6 +192,25 @@ describe("HeaderSearchClient", () => {
       const label = group.querySelector(".vf-suggest-label")?.textContent ?? "";
       expect(within(listbox).getByRole("group", { name: label })).toBe(group);
     }
+  });
+
+  it("opens on the group of the best match, with parishes after the site's own pages", async () => {
+    // "james", as the server ranks it: the Apostles first, then the parishes named after
+    // them, then the litanies and prayers whose text only mentions him.
+    mockSuggestFetch([
+      { group: "saints", id: "1", slug: "a", label: "Saint James the Greater", typeLabel: "Saint" },
+      { group: "saints", id: "2", slug: "b", label: "Saint James the Less", typeLabel: "Saint" },
+      { group: "parishes", id: "3", slug: "c", label: "St James", typeLabel: "Parish" },
+      { group: "liturgy", id: "4", slug: "d", label: "Feast of Saint James", typeLabel: "Liturgy" },
+      { group: "prayers", id: "5", slug: "e", label: "Litany of the Saints", typeLabel: "Litany" },
+      { group: "prayers", id: "6", slug: "f", label: "Prayer for Humility", typeLabel: "Prayer" },
+    ]);
+    render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
+    await typeAndWait(userEvent.setup(), "james");
+    const labels = within(screen.getByRole("listbox"))
+      .getAllByRole("group")
+      .map((group) => group.querySelector(".vf-suggest-label")?.textContent);
+    expect(labels).toEqual(["Saint", "Liturgy", "Litany", "Prayer", "Parish"]);
   });
 
   it("keeps the arrow keys in step with the regrouped rows", async () => {

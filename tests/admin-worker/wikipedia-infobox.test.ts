@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { patronageItems } from "@/lib/admin-worker/structured/ingestors";
 import {
   articleProse,
   cleanInfoboxValue,
@@ -195,5 +196,59 @@ describe("articleProse — the body the feast-wording check reads", () => {
     expect(prose).not.toContain("canonized_by");
     expect(prose).not.toContain("Pope Clement X");
     expect(prose).not.toContain("Martyrology");
+  });
+});
+
+describe("a patronage list keeps its items apart", () => {
+  const patronage = (value: string) =>
+    patronageItems(
+      parseInfobox(
+        `{{Infobox saint\n| patronage = ${value}\n| birth_date = c. 1170<br>Caleruega\n}}`,
+      ).patronage ?? "",
+    );
+
+  it("reads a line break as a separator, keeping a place with its country", () => {
+    // Saint Joachim's infobox, as written.
+    expect(
+      patronage(
+        "Fathers<br/>grandparents<br/>[[Adjuntas, Puerto Rico]]<br/>[[Dolores, Eastern Samar]]<br/>[[Fasnia]], [[Tenerife]]<br/>[[Carmelites]] <br/> [[San Joaquin, Iloilo]]",
+      ),
+    ).toEqual([
+      "Fathers",
+      "grandparents",
+      "Adjuntas, Puerto Rico",
+      "Dolores, Eastern Samar",
+      "Fasnia, Tenerife",
+      "Carmelites",
+      "San Joaquin, Iloilo",
+    ]);
+  });
+
+  it("splits a semicolon list only at its semicolons", () => {
+    // Saint Willibrord's: the last item is one place, not "Netherlands" a second time.
+    expect(
+      patronage(
+        "Convulsions; epilepsy; epileptics; Luxembourg; Netherlands; Archdiocese of Utrecht, Netherlands",
+      ),
+    ).toEqual([
+      "Convulsions",
+      "epilepsy",
+      "epileptics",
+      "Luxembourg",
+      "Netherlands",
+      "Archdiocese of Utrecht, Netherlands",
+    ]);
+  });
+
+  it("parts two links that only a removed reference stood between", () => {
+    // Saint Michael's: "[[Israel]]<ref>…</ref> [[Normandy]]" read as one place.
+    expect(
+      patronage("[[Germany]], [[Israel]]<ref>Kock 2021</ref> [[Normandy]], [[France]]"),
+    ).toEqual(["Germany", "Israel", "Normandy", "France"]);
+  });
+
+  it("leaves every other field as one value", () => {
+    const box = parseInfobox("{{Infobox saint\n| birth_date = c. 1170<br>Caleruega\n}}");
+    expect(box.birth_date).toBe("c. 1170 Caleruega");
   });
 });

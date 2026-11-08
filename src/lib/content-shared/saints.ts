@@ -420,6 +420,8 @@ export const SAINT_DUPLICATE_OF: Readonly<Record<string, string>> = {
   "saint-archippus-q276575": "saint-archippus",
   // The Good Thief, published again under his description.
   "saint-penitent-thief": "saint-dismas",
+  // Acts' John Mark, whom tradition holds to be the Evangelist (his own record says so).
+  "saint-john-mark": "saint-mark-the-evangelist",
 };
 
 /** Slug → place in the head of the list. A hidden duplicate holds its canonical's place. */
@@ -541,14 +543,14 @@ export function parseYear(value: unknown): number | null {
   return null;
 }
 
-/** Chronological sort key for a saint: death year, else birth, else canonization. */
+/**
+ * Chronological sort key for a saint: the death year, else the birth year. A
+ * canonization says nothing of when the saint lived (an early martyr canonized in the
+ * sixteenth century would stand among its saints), so a saint with neither date joins
+ * the undated ones after the dated.
+ */
 export function saintSortYear(payload: Record<string, unknown>): number | null {
-  return (
-    parseYear(payload.deathDate) ??
-    parseYear(payload.birthDate) ??
-    parseYear(payload.canonizationDate) ??
-    null
-  );
+  return parseYear(payload.deathDate) ?? parseYear(payload.birthDate) ?? null;
 }
 
 /**
@@ -948,24 +950,59 @@ export function saintDetailEyebrow(
 }
 
 /**
- * A saint's patronage as a phrase, whatever words the source wrapped it in. The
- * label already says "Patron of", so a stored "Patron saint of" does not repeat it,
- * nor does the name of the saint ("Epipodius is the patron saint of bachelors"). A
- * note that none is recorded, and the heading "Patronage list", are not a patronage.
- * A line never breaks between "St." and the name.
+ * An entry that is one of the saint's titles, not something the saint is patron of:
+ * "Guardian of the Catholic Church" (Saint Michael), "Apostle of the Frisians". After
+ * "Patron of" it reads as nonsense, so it is left out. "Protectress of trees" says how
+ * the saint is called on and stays (see patronageIsAgainst).
+ */
+const TITLE_ENTRY = /^(?:the\s+)?(?:guardian|apostle|prince|queen|king|mother|father)\s+of\b/i;
+
+/**
+ * A saint's patronages, one phrase each, whatever words the source wrapped them in. The
+ * label already says "Patron of", so a stored "Patron saint of" or "Patroness of" does
+ * not repeat it, on any entry, nor does the name of the saint ("Epipodius is the patron
+ * saint of bachelors"). A stored run of several ("Convulsions; epilepsy") is split at its
+ * semicolons. A title, a note that none is recorded and the heading "Patronage list" are
+ * not patronages, and a place named twice (Willibrord's "Netherlands", then
+ * "Archdiocese of Utrecht, Netherlands" split at its comma) is named once.
+ */
+export function saintPatronageList(patronages: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const phrases: string[] = [];
+  for (const entry of patronages.flatMap((p) => p.split(";"))) {
+    const phrase = entry
+      .trim()
+      .replace(/^\p{Lu}[\p{L}' -]* is (?=(?:the |a )?patron|invoked)/u, "")
+      .replace(/^(?:(?:the|a) )?patron(?:ess)?(?: saint)? of /i, "")
+      .replace(/^patron (?=against\b)/i, "")
+      .replace(/^saint of /i, "")
+      .replace(/\s*\(see [^)]*\)/gi, "")
+      .replace(/\.$/, "")
+      .trim();
+    if (!phrase || TITLE_ENTRY.test(phrase) || /\bnot recorded\b|^patronage list$/i.test(phrase)) {
+      continue;
+    }
+    const key = phrase.toLowerCase().replace(/^the\s+/, "");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    phrases.push(phrase);
+  }
+  return phrases;
+}
+
+/**
+ * A saint's patronage as one phrase to follow its label. A place written with its
+ * country ("Adjuntas, Puerto Rico") keeps its comma, so a list holding one is divided by
+ * semicolons, or it would read as more places than it names. A line never breaks
+ * between "St." and the name.
  */
 export function saintPatronage(patronages: readonly string[]): string | null {
-  const phrase = patronages
-    .join(", ")
-    .replace(/^\p{Lu}[\p{L}' -]* is (?=(?:the |a )?patron|invoked)/u, "")
-    .replace(/^(?:(?:the|a) )?patron(?:ess)?(?: saint)? of /i, "")
-    .replace(/^patron (?=against\b)/i, "")
-    .replace(/^saint of /i, "")
-    .replace(/\s*\(see [^)]*\)/gi, "")
+  const list = saintPatronageList(patronages);
+  if (list.length === 0) return null;
+  return list
+    .join(list.some((phrase) => phrase.includes(",")) ? "; " : ", ")
     .replace(/^(The|Against|Invoked)\b/, (word) => word.toLowerCase())
-    .replace(/\.$/, "")
     .replace(/\bSt\. /g, "St.\u00a0");
-  return !phrase || /\bnot recorded\b|^patronage list$/i.test(phrase) ? null : phrase;
 }
 
 /**

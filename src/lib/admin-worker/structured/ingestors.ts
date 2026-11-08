@@ -1108,11 +1108,7 @@ LIMIT ${limit} OFFSET ${offset}`,
 
     // Optional enrichment, straight from the article's infobox (cited via the
     // article itself): patronage list, birth/death, canonization details.
-    const patronages = (infobox.patronage ?? "")
-      .split(/[;,]| and /)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 1 && s.length <= 80)
-      .slice(0, 12);
+    const patronages = patronageItems(infobox.patronage ?? "");
     const yearish = (s: string | undefined): string | undefined => {
       const t = (s ?? "").trim();
       return t && /\d{3,4}/.test(t) && t.length <= 60 ? t : undefined;
@@ -1171,6 +1167,23 @@ LIMIT ${limit} OFFSET ${offset}`,
     };
   },
 };
+
+/**
+ * The items of an infobox patronage list, at most twelve. A list that separates its
+ * items with semicolons or line breaks (Willibrord's "…; Netherlands; Archdiocese of
+ * Utrecht, Netherlands", Joachim's places) keeps the comma that joins a place to its
+ * country, and still splits at one before a small letter ("embroiderers, gardeners");
+ * only a list of commas is split at every comma and "and".
+ */
+export function patronageItems(value: string): string[] {
+  const items = value.includes(";")
+    ? value.split(";").flatMap((item) => item.split(/,\s*(?=\p{Ll})/u))
+    : value.split(/,| and /);
+  return items
+    .map((s) => s.trim().replace(/[.,]+$/, ""))
+    .filter((s) => s.length > 1 && s.length <= 80)
+    .slice(0, 12);
+}
 
 type DocumentType =
   | "encyclical"

@@ -113,8 +113,34 @@ const MARTYR_OCCUPATION_QIDS = ["Q6498826", "Q107013"]; // martyr · Christian m
 // hieromartyr · great martyr · Reverend Martyr · New Martyr · passion bearer
 const MARTYR_STATUS_QIDS = ["Q2993173", "Q3332786", "Q4377390", "Q2389950", "Q2032316"];
 const DOCTOR_AWARD_QID = "Q192499";
-const APOSTLE_QID = "Q43412";
-const EVANGELIST_QID = "Q1381391";
+/**
+ * The Apostles, by their own items: the Twelve, Matthias, Paul and Barnabas, whom
+ * Scripture calls Apostles, with John the Evangelist and James "brother of the Lord",
+ * whom the Latin tradition holds to be John and James the Less. Wikidata also gives
+ * the "apostle" position to the Seventy of the Eastern calendars (Crescens, Prochorus,
+ * Apollos, Epaphroditus), whom the Church calls disciples, so the position is not
+ * enough.
+ */
+const APOSTLE_PERSON_QIDS: ReadonlySet<string> = new Set([
+  "Q33923", // Peter
+  "Q9200", // Paul
+  "Q43399", // Andrew
+  "Q43999", // James the Greater
+  "Q44015", // John the Apostle
+  "Q328804", // John the Evangelist
+  "Q43675", // Philip
+  "Q43982", // Bartholomew
+  "Q43600", // Matthew
+  "Q43669", // Thomas
+  "Q44047", // James, son of Alphaeus
+  "Q26925", // James, brother of the Lord
+  "Q43945", // Jude
+  "Q12871", // Simon the Zealot
+  "Q44020", // Matthias
+  "Q185856", // Barnabas
+]);
+/** The Evangelists who were not of the Twelve: Mark and Luke. */
+const EVANGELIST_PERSON_QIDS: ReadonlySet<string> = new Set(["Q31966", "Q128538"]);
 const POPE_QID = "Q19546";
 // bishop · Catholic bishop · archbishop · diocesan bishop
 const BISHOP_QIDS = ["Q29182", "Q611644", "Q49476", "Q1144278"];
@@ -139,9 +165,6 @@ const RELIGIOUS_QIDS = [
   "Q105169902", // Latin Catholic deacon
   "Q831474", // presbyter
 ];
-
-/** Apostles and evangelists all died in the first century. */
-const APOSTOLIC_AGE_LAST_YEAR = 150;
 
 /** "Catholic Encyclopedia" (1907–1913), the work its Wikisource articles are `published in`. */
 export const CATHOLIC_ENCYCLOPEDIA_QID = "Q302556";
@@ -437,12 +460,15 @@ export function deriveSaintType(facts: SaintFacts, ctx: SaintTypeContext = {}): 
     return "doctor_of_the_church";
   }
   // "Apostle" is also an honorific position ("Apostle of the Indies" on
-  // Francis Xavier), so it needs the apostolic-age death year as well.
-  const apostolicAge = facts.deathYear != null && facts.deathYear <= APOSTOLIC_AGE_LAST_YEAR;
-  if (roles.includes(APOSTLE_QID) && apostolicAge) return "apostle";
-  if (facts.occupations.includes(EVANGELIST_QID) && apostolicAge) return "evangelist";
+  // Francis Xavier) and Wikidata's word for the Seventy, so only the Apostles'
+  // and Evangelists' own items count.
+  if (APOSTLE_PERSON_QIDS.has(facts.qid)) return "apostle";
+  if (EVANGELIST_PERSON_QIDS.has(facts.qid)) return "evangelist";
   if (facts.positions.includes(POPE_QID)) return "pope";
-  if (hasAny(roles, BISHOP_QIDS) || facts.bishopSee) return "bishop";
+  // The infobox names a see Wikidata often lacks: Dubricius is only a "priest" there.
+  if (hasAny(roles, BISHOP_QIDS) || facts.bishopSee || /\b(?:arch)?bishop\b/.test(titles)) {
+    return "bishop";
+  }
   if (facts.founded || facts.occupations.includes(FOUNDER_QID)) return "founder";
   if (facts.occupations.includes(MISSIONARY_QID)) return "missionary";
   if (facts.statuses.includes(CONSECRATED_VIRGIN_QID) || /\bvirgin\b/.test(titles)) {
@@ -465,6 +491,20 @@ export function deriveSaintType(facts: SaintFacts, ctx: SaintTypeContext = {}): 
 
 const HONORIFIC_PREFIX_RE =
   /^(saint|st\.?|blessed|bl\.?|venerable|ven\.?|servant of god|pope|antipope|blessed virgin)\b/i;
+
+/**
+ * "Saint" in another language, which a Wikidata English label sometimes keeps ("Sankt
+ * Villehad af Danmark"): it is dropped and the honorific the status earns written in its
+ * place, instead of a second one beside it ("Saint Sankt Villehad af Danmark").
+ */
+const FOREIGN_SAINT_PREFIX_RE = /^(?:sankt|sainte|san|santa|santo|são|sint)\s+(?=\p{Lu})/iu;
+
+/**
+ * The Coptic style of a patriarch of Alexandria ("Pope Dionysius of Alexandria"). On this
+ * site "Pope" is the Bishop of Rome, and the Roman Martyrology calls these men bishops of
+ * Alexandria, so the word is dropped.
+ */
+const ALEXANDRIAN_POPE_RE = /^pope\s+(?=.+\bof\s+alexandria$)/i;
 
 /**
  * A label that names a group of saints rather than one person: "Uganda
@@ -532,7 +572,7 @@ function groupDisplayTitle(label: string, status: CanonizationStatus): string {
  * prefix anyway).
  */
 export function saintDisplayTitle(label: string, status: CanonizationStatus): string {
-  const name = label.trim();
+  const name = label.trim().replace(FOREIGN_SAINT_PREFIX_RE, "").replace(ALEXANDRIAN_POPE_RE, "");
   if (HONORIFIC_PREFIX_RE.test(name)) return name;
   if (isSaintGroupLabel(name)) return groupDisplayTitle(name, status);
   switch (status) {

@@ -65,23 +65,6 @@ const GROUP_LABEL: Record<SuggestionGroup, string> = {
   spiritualLife: "Spiritual Life",
 };
 
-const GROUP_ORDER: SuggestionGroup[] = [
-  "prayers",
-  "saints",
-  "apparitions",
-  "popes",
-  "doctors",
-  "guides",
-  "devotions",
-  "novenas",
-  "sacraments",
-  "spiritualLife",
-  "liturgy",
-  "documents",
-  "rites",
-  "parishes",
-];
-
 /**
  * Resolves the public route a suggestion should link to.
  *
@@ -355,10 +338,10 @@ export function HeaderSearchClient({ placeholder, ariaLabel, labels, variant = "
     setSwapping(false);
   }
 
-  // Group suggestions for the dropdown — prayers / saints / devotions
-  // first, then spiritual life, then liturgy and history, then parishes
-  // last. Within each group, the server already returns them ordered by
-  // relevance.
+  // Group suggestions for the dropdown in the order of each group's best row, as on
+  // the /search page: the server returns the rows best match first, with a saint the
+  // query names ahead of the rest, so "james" opens on Saint James and not on the
+  // litanies whose text mentions him. Parishes follow the site's own pages, as there.
   //
   // Rows gather under what each one is called, so a heading is true of every row
   // beneath it, as on the /search page: one group key can hold two kinds of thing
@@ -382,7 +365,12 @@ export function HeaderSearchClient({ placeholder, ariaLabel, labels, variant = "
       entry.items.push(s);
       byLabel.set(label, entry);
     }
-    return GROUP_ORDER.flatMap((g) => [...byLabel.values()].filter((e) => e.group === g));
+    // A Map keeps the order its labels first arrived in: each group's best row.
+    const groups = [...byLabel.values()];
+    return [
+      ...groups.filter((e) => e.group !== "parishes"),
+      ...groups.filter((e) => e.group === "parishes"),
+    ];
   }, [suggestions, labels.types]);
 
   // Flat list in render-order so the keyboard arrow keys can step through

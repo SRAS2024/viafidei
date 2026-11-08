@@ -302,6 +302,13 @@ const GENERIC_PLACE_NAMES = new Set([
   "capilla del hospital",
   "cappella dell'ospedale",
   "cappella privata",
+  // Korean "church", "great church" and "Our Lady's hall" (a grotto on a parish's
+  // grounds), with no name of a place. A bare 대성당 is as often a jeweller's: 大成堂 is a
+  // common shop name, and a 2009 import typed nine such shops as Catholic churches.
+  "성당",
+  "대성당",
+  "성모당",
+  "교회",
 ]);
 
 /**
@@ -340,12 +347,16 @@ export function parishExclusionFor(
  * Names that say a church belongs to another communion, whatever its denomination tag:
  * the Korean Methodist (감리교회), Presbyterian (장로교회), Baptist (침례교회), Holiness
  * (성결교회), Full Gospel (순복음), Lutheran (루터교회) and Anglican (성공회) churches and
- * the Salvation Army (구세군), and the few English words that never name a Catholic
- * church. Not "Baptist" or "Church of Christ": St. John the Baptist and Christ the King
- * are Catholic parishes everywhere.
+ * the Salvation Army (구세군); the World Mission Society Church of God (하나님의교회: a
+ * Catholic writes God 하느님), the Seventh-day Adventists (안식일예수재림교) and a name
+ * that opens with the Orthodox Church (정교회); and the few English words that never name
+ * a Catholic church. Not "Baptist" or "Church of Christ": St. John the Baptist and Christ
+ * the King are Catholic parishes everywhere. Not a bare 교회 either, though a Korean
+ * Catholic parish calls itself 성당: older ones are 천주교 …교회, and a Protestant church
+ * of any other name is the owner's call (see migration 0078).
  */
 export const PROTESTANT_NAME_RE =
-  /감리교회|장로교회|침례교회|성결교회|순복음|루터교회|성공회|구세군|\b(?:methodist|presbyterian|lutheran|pentecostal|seventh-day adventist)\b/i;
+  /감리교회|장로교회|침례교회|성결교회|순복음|루터교회|성공회|구세군|하나님의\s?교회|안식일\s?예수\s?재림|^(?:한국\s?)?정교회|\b(?:methodist|presbyterian|lutheran|pentecostal|seventh-day adventist)\b/i;
 
 /** How long discovery stays away from a row kept down as not a parish. */
 export const EXCLUDED_SKIP_MS = 365 * DAY_MS;

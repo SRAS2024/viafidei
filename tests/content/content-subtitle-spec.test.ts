@@ -36,6 +36,32 @@ describe("generateContentSubtitle — per-type spec", () => {
     expect(sub("SAINT", {})).toBe("A saint of the Catholic Church");
   });
 
+  it("SAINT: reads the first patronage as the saint's page reads it", () => {
+    // Mary of Bethany's subtitle read "Saint, patron of Patroness of Spiritual Studies".
+    expect(
+      sub("SAINT", {
+        saintType: "other",
+        patronages: ["Patroness of Spiritual Studies", "Lectors"],
+        feastDay: "07-29",
+      }),
+    ).toBe("Saint, patron of Spiritual Studies · Feast July 29");
+    expect(sub("SAINT", { saintType: "bishop", patronages: ["against snake bites"] })).toBe(
+      "Bishop, patron against snake bites",
+    );
+    expect(sub("SAINT", { saintType: "virgin", patronages: ["Co-patron of Messina"] })).toBe(
+      "Virgin, co-patron of Messina",
+    );
+    expect(
+      sub("SAINT", {
+        saintType: "bishop",
+        patronages: ["His specific patronages are not recorded"],
+      }),
+    ).toBe("Bishop");
+    expect(
+      sub("SAINT", { saintType: "other", patronages: ["Guardian of the Catholic Church", "Rome"] }),
+    ).toBe("Saint, patron of Rome");
+  });
+
   it("POPE: papacy span, optional ordinal", () => {
     expect(sub("POPE", { papacyStart: "1978", papacyEnd: "2005" })).toBe("Pope from 1978 to 2005");
     expect(sub("POPE", { papacyStart: "2025" })).toBe("Pope since 2025");
@@ -134,21 +160,45 @@ describe("generateContentSubtitle — per-type spec", () => {
     expect(sub("PRAYER", {}, "marian_prayer")).toMatch(/Marian prayer/);
   });
 
-  it("NOVENA: saint, start date or feast, theme fallback", () => {
-    expect(sub("NOVENA", { associatedSaintSlug: "saint-jude-thaddeus" })).toBe(
-      "Nine-day novena to Saint Jude Thaddeus",
-    );
+  it("NOVENA: start date or feast, theme fallback", () => {
     expect(sub("NOVENA", { relatedFeastSlug: "solemnity-pentecost" })).toBe(
       "Nine-day novena · before Pentecost",
     );
+    expect(sub("NOVENA", { relatedFeastSlug: "feast-saints-philip-and-james" })).toBe(
+      "Nine-day novena · before Saints Philip and James",
+    );
     expect(
       sub("NOVENA", { associatedSaintSlug: "saint-joseph", typicalStartDate: "March 10" }),
-    ).toBe("Nine-day novena to Saint Joseph · begins March 10");
+    ).toBe("Nine-day novena · begins March 10");
+    // A start that is not a day is said as the record says it, not "begins Any time".
+    expect(sub("NOVENA", { typicalStartDate: "Any time of need" })).toBe(
+      "Nine-day novena · any time of need",
+    );
+    expect(sub("NOVENA", { typicalStartDate: "The nine days before the feast" })).toBe(
+      "Nine-day novena · the nine days before the feast",
+    );
+    expect(sub("NOVENA", { typicalStartDate: "Late June, ending on 1 July" })).toBe(
+      "Nine-day novena · begins late June, ending on 1 July",
+    );
     expect(sub("NOVENA", { intentionTheme: "the seven gifts of the Holy Spirit" })).toBe(
       "Nine-day novena for the seven gifts of the Holy Spirit",
     );
     expect(sub("NOVENA", { durationDays: 25, intentionTheme: "Christmas" })).toBe(
       "25-day novena for Christmas",
+    );
+  });
+
+  it("NOVENA: never names the associated saint, who is not always the one it prays to", () => {
+    // The Divine Mercy Novena belongs with Saint Faustina and prays to the Lord; the
+    // Guadalupe novena belongs with Saint Juan Diego and prays to Our Lady.
+    expect(
+      sub("NOVENA", {
+        associatedSaintSlug: "saint-faustina-kowalska",
+        typicalStartDate: "Good Friday, ending on the Saturday before Divine Mercy Sunday",
+      }),
+    ).toBe("Nine-day novena · Good Friday, ending on the Saturday before Divine Mercy Sunday");
+    expect(sub("NOVENA", { associatedSaintSlug: "saint-jude-thaddeus" })).toBe(
+      "A nine-day Catholic devotion",
     );
   });
 
