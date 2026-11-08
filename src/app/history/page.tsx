@@ -99,7 +99,7 @@ export default async function HistoryPage({ searchParams }: Props) {
             tabIndex={-1}
             className="vf-timeline-status"
           >
-            <span className="sr-only">{historyStatusSpeech(view)}</span>
+            <span className="sr-only">{historyStatusSpeech(view, t, locale)}</span>
             <span aria-hidden="true">{historyStatusText(view)}</span>
           </p>
           {/* From the slider or the year field to the row it found, without
@@ -127,7 +127,7 @@ export default async function HistoryPage({ searchParams }: Props) {
           ) : null}
           {narrowed && view.total > 0 ? (
             <a href={historyHref({ order })} data-landing="status" className="vf-link-action">
-              Show all events
+              {t("history.showAll")}
             </a>
           ) : null}
         </div>
@@ -139,10 +139,13 @@ export default async function HistoryPage({ searchParams }: Props) {
               noneText={t("listSearch.none", { query: q })}
               hintText={t("listSearch.noneHint")}
               clearText={t("listSearch.clear")}
+              emptyText={t("history.noEvents")}
+              searchAllText={t("history.searchAll")}
+              showAllText={t("history.showAll")}
             />
           ) : (
             <>
-              <HistoryEventList view={view} t={t} />
+              <HistoryEventList view={view} t={t} locale={locale} />
               <HistoryPager view={view} base={base} t={t} />
               <HistoryEraSteps view={view} base={base} t={t} />
             </>

@@ -18,14 +18,31 @@ import type { ReadingsViewSection } from "./readings-view";
  * A section whose text cannot be verified is rendered as its heading and citation,
  * not as a paragraph-shaped placeholder.
  */
+/** The section's own sentences, in the page's language. */
+export interface ReadingSectionWords {
+  douayMisses: string;
+  /** "Read it at {source}". */
+  readItAt: string;
+  newTab: string;
+}
+
+const ENGLISH_WORDS: ReadingSectionWords = {
+  douayMisses:
+    "The Douay-Rheims numbers this passage differently from the Lectionary, so its text is not shown here.",
+  readItAt: "Read it at {source}",
+  newTab: "(opens in a new tab)",
+};
+
 export function ReadingSections({
   sections,
   sourceUrl,
   sourceName,
+  words = ENGLISH_WORDS,
 }: {
   sections: ReadingsViewSection[];
   sourceUrl?: string;
   sourceName?: string;
+  words?: ReadingSectionWords;
 }) {
   if (sections.length === 0) return null;
   return (
@@ -38,6 +55,7 @@ export function ReadingSections({
           section={section}
           sourceUrl={sourceUrl}
           sourceName={sourceName}
+          words={words}
         />
       ))}
     </div>
@@ -90,10 +108,12 @@ function ReadingSectionView({
   section,
   sourceUrl,
   sourceName,
+  words,
 }: {
   section: ReadingsViewSection;
   sourceUrl?: string;
   sourceName?: string;
+  words: ReadingSectionWords;
 }) {
   const [index, setIndex] = useState(0);
   const alternatives = section.alternatives;
@@ -152,15 +172,14 @@ function ReadingSectionView({
 
       {missesReading ? (
         <p className="vf-fineprint vf-reading-note">
-          The Douay-Rheims numbers this passage differently from the Lectionary, so its text is not
-          shown here.
+          {words.douayMisses}
           {sourceUrl ? (
             <>
               {" "}
               <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
-                Read it at {sourceName ?? "the source"}
+                {words.readItAt.replace("{source}", sourceName ?? "the source")}
                 <span aria-hidden="true"> ↗</span>
-                <span className="sr-only"> (opens in a new tab)</span>
+                <span className="sr-only"> {words.newTab}</span>
               </a>
               .
             </>

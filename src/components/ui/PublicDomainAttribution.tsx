@@ -8,6 +8,8 @@
 
 import { publicDomainTextSource } from "@/lib/content-shared/public-domain-attribution";
 
+import { newTabNote } from "./WikipediaAttribution";
+
 export function PublicDomainAttribution({ payload }: { payload: Record<string, unknown> }) {
   const source = publicDomainTextSource(payload);
   if (!source) return null;
@@ -16,7 +18,7 @@ export function PublicDomainAttribution({ payload }: { payload: Record<string, u
       Text from{" "}
       <a href={source.url} target="_blank" rel="noopener noreferrer">
         {source.work}
-        <span className="sr-only"> (opens in a new tab)</span>
+        <span className="sr-only"> {newTabNote()}</span>
       </a>
       {source.title ? `, “${source.title}”` : null}, public domain
     </p>

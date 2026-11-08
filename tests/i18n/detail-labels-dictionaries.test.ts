@@ -21,7 +21,10 @@ import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
 import { translateTypeLabel } from "@/lib/content-shared/content-type-labels";
 import {
   DETAIL_LABELS,
+  DOCTOR_ORDAINED_KEY,
+  FACT_LABELS,
   detailLabelKey,
+  factLabel,
   translateDetailLabel,
 } from "@/lib/content-shared/detail-labels";
 import {
@@ -37,21 +40,31 @@ import { createTranslator } from "@/lib/i18n/translator";
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 const ownFile = (locale: string) => read(`src/lib/i18n/dictionaries/${locale}.ts`);
 
-const KEYS = [...DETAIL_LABELS.map((label) => detailLabelKey(label)!), "label.saint.popeFromTo"];
+const KEYS = [
+  ...DETAIL_LABELS.map((label) => detailLabelKey(label)!),
+  "label.saint.popeFromTo",
+  DOCTOR_ORDAINED_KEY,
+];
 
 /** A person's standing, which most of the gendered languages cannot say of anyone. */
 const PERSON = ["stage.saint", "stage.blessed", "stage.servantOfGod", "role.religious", "role.lay"];
 /** "Apostle" over Junia and Phoebe, who are filed as apostles, in a language that marks it. */
 const APOSTLE = "saint.apostle";
+/**
+ * "Doctor of the Church" over Teresa of Ávila, Catherine of Siena, Thérèse of Lisieux and
+ * Hildegard of Bingen, where the word for a woman differs (Doctora, Doutora,
+ * Kirchenlehrerin). Italian, French, Polish and Latin say it of women in the same words.
+ */
+const DOCTOR = "saint.doctor";
 /** Where a language has no word true of a man, a woman and a group alike. */
 const NO_WORD: Readonly<Record<string, readonly string[]>> = {
-  es: PERSON,
+  es: [...PERSON, DOCTOR],
   fr: PERSON,
   it: [...PERSON, APOSTLE],
-  pt: [...PERSON, APOSTLE],
+  pt: [...PERSON, APOSTLE, DOCTOR],
   la: [...PERSON, APOSTLE],
   pl: [...PERSON, "stage.venerable", APOSTLE],
-  de: [...PERSON, "stage.venerable", APOSTLE],
+  de: [...PERSON, "stage.venerable", APOSTLE, DOCTOR],
   tl: ["stage.saint", "stage.blessed", "role.religious"],
 };
 

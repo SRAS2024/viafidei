@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublishedDetail } from "@/components/ui";
+import { factLabel, translateFacts } from "@/lib/content-shared/detail-labels";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { getTranslator } from "@/lib/i18n/server";
 import { localizeItem } from "@/lib/translation/localize";
@@ -36,8 +37,8 @@ export default async function DoctorDetailPage({ params }: Props) {
       eyebrow={doctorEyebrow(item.payload)}
       showSubtitle={false}
       lede={false}
-      factItems={doctorFactItems(item.payload)}
-      factsInSubtitle={["Title", "Feast day"]}
+      factItems={translateFacts(doctorFactItems(item.payload), t)}
+      factsInSubtitle={["Title", "Feast day"].map((label) => factLabel(label, t))}
       primaryFields={["background"]}
       headings={{ background: null }}
     />

@@ -53,6 +53,7 @@ export default async function MilestonesPage() {
     cancel: t("common.cancel"),
     deleteTitle: t("profile.milestones.deleteTitle"),
     deleteBody: t("profile.milestones.deleteBody"),
+    removeFailed: t("profile.milestones.removeFailed"),
   };
 
   const creatorLabels = {

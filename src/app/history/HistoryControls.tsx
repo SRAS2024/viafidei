@@ -1,4 +1,5 @@
 import { ListSearch } from "@/components/ui/ListSearch";
+import { tPlural } from "@/lib/i18n/plural";
 import type { Translator } from "@/lib/i18n/translator";
 
 import { HistoryYearSlider } from "./HistoryYearSlider";
@@ -18,6 +19,8 @@ type EraChoice = {
   years: string;
   yearsSpoken: string;
   count: number;
+  /** "35 events", in the reader's language and its plural. */
+  countSpoken: string;
   href: string;
   current: boolean;
 };
@@ -39,7 +42,7 @@ function EraCell({ choice }: { choice: EraChoice }) {
       </span>
       <span className="sr-only">
         {`, ${choice.yearsSpoken}, `}
-        {choice.count === 1 ? "1 event" : `${formatCount(choice.count)} events`}
+        {choice.countSpoken}
       </span>
     </>
   );
@@ -78,19 +81,25 @@ function EraChoices({
   view,
   base,
   firstLabel,
+  t,
+  locale,
 }: {
   view: HistoryView;
   base: HistoryLinkState;
   firstLabel: string;
+  t: Translator;
+  locale: string;
 }) {
   const maxYear = view.sliderMax;
+  const spokenCount = (count: number) => tPlural(t, locale, "history.eventCount", count);
   const choices: EraChoice[] = [
     {
       key: "all",
-      name: "All eras",
+      name: t("history.era.all"),
       years: `${firstLabel}–today`,
-      yearsSpoken: `from ${firstLabel} to today`,
+      yearsSpoken: t("history.era.spokenToToday", { from: firstLabel }),
       count: view.allErasCount,
+      countSpoken: spokenCount(view.allErasCount),
       href: historyHref({ ...base, era: null }),
       current: view.era === null,
     },
@@ -98,8 +107,9 @@ function EraChoices({
       key: era.key,
       name: era.label,
       years: eraRange(era, maxYear),
-      yearsSpoken: eraRangeSpoken(era, maxYear),
+      yearsSpoken: eraRangeSpoken(era, maxYear, t),
       count: view.eraCounts[era.key] ?? 0,
+      countSpoken: spokenCount(view.eraCounts[era.key] ?? 0),
       href: historyHref({ ...base, era: era.key }),
       current: view.era?.key === era.key,
     })),
@@ -107,13 +117,13 @@ function EraChoices({
   const current = choices.find((c) => c.current) ?? choices[0]!;
   return (
     <>
-      <nav aria-label="Eras" className="vf-history-eras-grid">
+      <nav aria-label={t("history.eras.nav")} className="vf-history-eras-grid">
         <EraList choices={choices} />
       </nav>
       <details data-history-menu className="vf-history-eras-fold">
         <summary className="vf-chip">
           <span className="min-w-0">
-            <span className="vf-history-fold-label">Era: </span>
+            <span className="vf-history-fold-label">{t("history.era.prefix")} </span>
             {current.name}
           </span>
           <span className="vf-chip-count">
@@ -121,7 +131,7 @@ function EraChoices({
             <span className="sr-only"> events</span>
           </span>
         </summary>
-        <nav aria-label="Eras">
+        <nav aria-label={t("history.eras.nav")}>
           <EraList choices={choices} />
         </nav>
       </details>
@@ -135,12 +145,22 @@ function EraChoices({
  * page has to work with no script running. As in the dropdown, choosing the
  * active theme again clears it.
  */
-function ThemeMenu({ view, base }: { view: HistoryView; base: HistoryLinkState }) {
+function ThemeMenu({
+  view,
+  base,
+  t,
+}: {
+  view: HistoryView;
+  base: HistoryLinkState;
+  t: Translator;
+}) {
   const filtered = view.theme !== "all";
   return (
     <details data-history-menu className="vf-history-menu">
       <summary className={filtered ? "vf-chip vf-filter-active" : "vf-chip"}>
-        <span className="sr-only">Filter the timeline by theme: {filtered ? "" : "All"}</span>
+        <span className="sr-only">
+          {t("history.theme.menu")} {filtered ? "" : t("history.theme.all")}
+        </span>
         {filtered ? (
           <span>
             {FILTER_LABELS[view.theme]}{" "}
@@ -178,23 +198,31 @@ function ThemeMenu({ view, base }: { view: HistoryView; base: HistoryLinkState }
   );
 }
 
-function OrderChoice({ view, base }: { view: HistoryView; base: HistoryLinkState }) {
+function OrderChoice({
+  view,
+  base,
+  t,
+}: {
+  view: HistoryView;
+  base: HistoryLinkState;
+  t: Translator;
+}) {
   const order = view.params.order;
   return (
-    <div role="group" aria-label="Order of events" className="vf-history-order">
+    <div role="group" aria-label={t("history.order.label")} className="vf-history-order">
       <a
         href={historyHref({ ...base, order: "oldest" })}
         aria-current={order === "oldest" ? "true" : undefined}
         className={order === "oldest" ? "vf-chip vf-filter-active" : "vf-chip"}
       >
-        Oldest first
+        {t("history.order.oldest")}
       </a>
       <a
         href={historyHref({ ...base, order: "newest" })}
         aria-current={order === "newest" ? "true" : undefined}
         className={order === "newest" ? "vf-chip vf-filter-active" : "vf-chip"}
       >
-        Newest first
+        {t("history.order.newest")}
       </a>
     </div>
   );
@@ -222,12 +250,12 @@ export function HistoryControls({
   const base: HistoryLinkState = { era: view.era?.key, theme, q, order };
   return (
     <>
-      <section aria-label="Find and filter events" className="vf-history-panel vf-history-find">
+      <section aria-label={t("history.find.region")} className="vf-history-panel vf-history-find">
         <div className="vf-history-zone vf-history-tools">
           <ListSearch
             action={HISTORY_PATH}
             query={q}
-            label="Find an event"
+            label={t("history.find.search")}
             keep={{
               era: view.era?.key,
               theme: theme === "all" ? null : theme,
@@ -237,12 +265,12 @@ export function HistoryControls({
             locale={locale}
           />
           <div className="vf-history-tools-end">
-            <ThemeMenu view={view} base={base} />
-            <OrderChoice view={view} base={base} />
+            <ThemeMenu view={view} base={base} t={t} />
+            <OrderChoice view={view} base={base} t={t} />
           </div>
         </div>
         <div className="vf-history-zone">
-          <EraChoices view={view} base={base} firstLabel={firstLabel} />
+          <EraChoices view={view} base={base} firstLabel={firstLabel} t={t} locale={locale} />
         </div>
       </section>
       <HistoryYearSlider
@@ -255,6 +283,9 @@ export function HistoryControls({
         labels={{
           box: t("history.yearBox"),
           hint: t("history.sliderHint", { years: SLIDER_KEY_STEP }),
+          slider: t("history.slider.label"),
+          input: t("history.slider.input"),
+          go: t("history.slider.go"),
         }}
       />
     </>

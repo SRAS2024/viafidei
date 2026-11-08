@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { NavSection } from "@/components/layout/NavSection";
 import { PublishedDetail, resolveRelatedLinks } from "@/components/ui";
 import { instructionField, listedField } from "@/components/ui/GuideSteps";
+import { factLabel, translateFacts } from "@/lib/content-shared/detail-labels";
 import { parseSequence } from "@/lib/content-shared/structured-content";
 import {
   getPublishedBySlug,
@@ -32,12 +33,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * site, on the page and to a screen reader. The canonical URL is the document ON
  * vatican.va, the text itself, not a line of text under a "Canonical Url" heading.
  */
-function fullTextLink(url: unknown) {
+function fullTextLink(url: unknown, newTab: string) {
   if (typeof url !== "string" || !/^https?:\/\//i.test(url)) return null;
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className="vf-btn vf-btn-ghost">
       {documentLinkLabel(url)} <span aria-hidden="true">↗</span>
-      <span className="sr-only"> (opens in a new tab)</span>
+      <span className="sr-only"> {newTab}</span>
     </a>
   );
 }
@@ -72,26 +73,33 @@ export default async function LiturgyHistoryDetailPage({ params }: Props) {
           item={liturgy}
           eyebrow={kind || undefined}
           showSubtitle={false}
-          factItems={[
-            ...facts,
-            saints.length > 0
-              ? {
-                  label: saints.length === 1 ? "Related saint" : "Related saints",
-                  value: (
-                    <ul className="vf-plain-list" role="list">
-                      {saints.map((saint) => (
-                        <li key={saint.slug}>
-                          <Link href={saint.href} className="vf-link">
-                            {saint.title}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  ),
-                }
-              : null,
-          ]}
-          factsInSubtitle={storedLineHolds ? ["Rank", "Date", "Season"] : undefined}
+          factItems={translateFacts(
+            [
+              ...facts,
+              saints.length > 0
+                ? {
+                    label: saints.length === 1 ? "Related saint" : "Related saints",
+                    value: (
+                      <ul className="vf-plain-list" role="list">
+                        {saints.map((saint) => (
+                          <li key={saint.slug}>
+                            <Link href={saint.href} className="vf-link">
+                              {saint.title}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    ),
+                  }
+                : null,
+            ],
+            t,
+          )}
+          factsInSubtitle={
+            storedLineHolds
+              ? ["Rank", "Date", "Season"].map((label) => factLabel(label, t))
+              : undefined
+          }
           primaryFields={["body", "associatedReadings"]}
           headings={{ body: null, associatedReadings: "Readings" }}
           // The parts of the Mass come in turn, each named, and are numbered as parts. The
@@ -116,14 +124,14 @@ export default async function LiturgyHistoryDetailPage({ params }: Props) {
           t={t}
           item={document}
           showSubtitle={false}
-          factItems={documentFactItems(document.payload)}
-          factsInSubtitle={["Date", "Type", "Issued by"]}
+          factItems={translateFacts(documentFactItems(document.payload), t)}
+          factsInSubtitle={["Date", "Type", "Issued by"].map((label) => factLabel(label, t))}
           primaryFields={
             excerptIsReadable(document.payload.bodyExcerpt)
               ? ["bodyExcerpt", "keyThemes"]
               : ["keyThemes"]
           }
-          footer={fullTextLink(document.payload.canonicalUrl)}
+          footer={fullTextLink(document.payload.canonicalUrl, t("common.opensInNewTab"))}
         />
       </>
     );

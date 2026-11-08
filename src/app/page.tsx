@@ -38,7 +38,7 @@ async function isSignedIn(): Promise<boolean> {
 }
 
 export default async function HomePage() {
-  const { t } = await getTranslator();
+  const { t, locale } = await getTranslator();
   const signedIn = await isSignedIn();
 
   // Worker-published featured rails (Homepage Makeover). When present,
@@ -66,7 +66,7 @@ export default async function HomePage() {
     <div className="vf-stack-section">
       <HomeHero t={t} signedIn={signedIn} />
       <HomeBeginHere t={t} />
-      <HomeTodaySection t={t} />
+      <HomeTodaySection t={t} locale={locale} />
       {workerFeatured.length > 0 ? (
         <HomeWorkerFeatured blocks={workerFeatured} t={t} />
       ) : (

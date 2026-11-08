@@ -21,6 +21,7 @@ export default async function LiturgicalCalendarPage() {
         rites={rites}
         initialRite={rite}
         loadingLabel={t("common.loadingCalendar")}
+        outOfRangeLabel={t("calendar.outOfRange")}
       />
     </div>
   );

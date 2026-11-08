@@ -33,8 +33,11 @@ type Props = {
   eras: SliderEra[];
   /** Carried along when the list jumps: the theme, the search and the order. */
   keep: Pick<HistoryLinkState, "theme" | "q" | "order">;
-  /** The box's name for a screen reader, and the slider's hint, in the reader's language. */
-  labels: { box: string; hint: string };
+  /**
+   * The box's name for a screen reader, the slider's hint, and the names of the slider
+   * and the year field, in the reader's language.
+   */
+  labels: { box: string; hint: string; slider?: string; input?: string; go?: string };
 };
 
 /** How long after the last keypress the list follows the slider. */
@@ -242,7 +245,7 @@ export function HistoryYearSlider({ min, max, value, valueEraLabel, eras, keep, 
             min={min}
             max={max}
             value={year}
-            aria-label="Go to a year in Church history"
+            aria-label={labels.slider ?? "Go to a year in Church history"}
             aria-valuetext={eraLabel ? `${year}, ${eraLabel}` : String(year)}
             aria-describedby="history-year-hint"
             className="vf-history-slider"
@@ -325,7 +328,7 @@ export function HistoryYearSlider({ min, max, value, valueEraLabel, eras, keep, 
           ) : null}
           {keep.q ? <input type="hidden" name="q" value={keep.q} /> : null}
           {keep.order === "newest" ? <input type="hidden" name="order" value="newest" /> : null}
-          <label htmlFor="history-year-input">Go to year</label>
+          <label htmlFor="history-year-input">{labels.input ?? "Go to year"}</label>
           <input
             id="history-year-input"
             type="number"
@@ -338,7 +341,7 @@ export function HistoryYearSlider({ min, max, value, valueEraLabel, eras, keep, 
             className="vf-input"
           />
           <button type="submit" className="vf-btn vf-btn-ghost vf-btn-sm">
-            Go
+            {labels.go ?? "Go"}
           </button>
         </form>
       </div>

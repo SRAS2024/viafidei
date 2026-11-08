@@ -83,9 +83,9 @@ export async function Header() {
       <HeaderHeight />
       {/* PHONE / TABLET, AND ENLARGED TEXT — one bar: brand on the left, search and
           menu on the right */}
-      <div className="vf-header-bar mx-auto flex max-w-6xl items-center justify-between gap-2 px-[min(1rem,5vw)] py-1.5 sm:px-6">
+      <div className="vf-header-bar mx-auto flex max-w-6xl items-center justify-between gap-[min(0.5rem,2.5vw)] px-[min(1rem,5vw)] py-1.5 sm:px-6">
         <HeaderBrand brandName={t("brand.name")} locale={locale} />
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-[min(0.25rem,1.25vw)]">
           <HeaderSearchSlot>
             <HeaderSearch t={t} locale={locale} variant="panel" />
           </HeaderSearchSlot>

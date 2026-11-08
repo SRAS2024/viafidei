@@ -14,6 +14,7 @@ import {
   getAnyPublishedBySlug,
   buildPublishedMetadata,
 } from "@/lib/data/published";
+import { factLabel, translateFacts } from "@/lib/content-shared/detail-labels";
 import { loadPrayerSet } from "@/lib/data/prayer-sets";
 import { getTranslator } from "@/lib/i18n/server";
 import { displayItem } from "@/lib/translation/display";
@@ -113,11 +114,14 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
           item={marian}
           eyebrow={marianEyebrow(marian.payload)}
           showSubtitle={false}
-          factItems={[
-            ...marianFactItems(marian.payload),
-            linkedFact(apparitions.length === 1 ? "Apparition" : "Apparitions", apparitions),
-          ]}
-          factsInSubtitle={["Feast day", "Defined", "Region"]}
+          factItems={translateFacts(
+            [
+              ...marianFactItems(marian.payload),
+              linkedFact(apparitions.length === 1 ? "Apparition" : "Apparitions", apparitions),
+            ],
+            t,
+          )}
+          factsInSubtitle={["Feast day", "Defined", "Region"].map((label) => factLabel(label, t))}
           primaryFields={["origin", "theologicalSignificance", "iconographyNotes"]}
           headings={{ iconographyNotes: "Iconography" }}
           linkedPrayers={prayers}
@@ -143,13 +147,16 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
         eyebrow={/^apparitions?\b/i.test(apparition.title) ? null : undefined}
         showSubtitle={false}
         action={<SaveContentButton contentType="APPARITION" slug={slug} />}
-        factItems={[
-          ...apparitionFactItems(apparition.payload),
-          // The names as the reader's language has them, in the stored order.
-          visionariesFact(displayItem(apparition).payload.visionaries),
-          linkedFact("Under the title", titles),
-        ]}
-        factsInSubtitle={["Status", "Place", "Year"]}
+        factItems={translateFacts(
+          [
+            ...apparitionFactItems(apparition.payload),
+            // The names as the reader's language has them, in the stored order.
+            visionariesFact(displayItem(apparition).payload.visionaries),
+            linkedFact("Under the title", titles),
+          ],
+          t,
+        )}
+        factsInSubtitle={["Status", "Place", "Year"].map((label) => factLabel(label, t))}
         primaryFields={["background", "messageHighlights"]}
       />
     );

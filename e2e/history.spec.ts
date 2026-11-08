@@ -161,6 +161,75 @@ test.describe("with JavaScript", () => {
     await expect(page).toHaveURL(/theme=councils/);
   });
 
+  // A screen reader reads a button's name as the focus lands on it. Given the focus
+  // while the old view is still showing, the menu's button would name the choice the
+  // reader is leaving, so the focus stays on the chosen link until the new view is in.
+  for (const { width, menu, choice, says } of [
+    {
+      width: 1280,
+      menu: ".vf-history-menu",
+      choice: "Councils",
+      says: /theme: Councils \d+ events/,
+    },
+    {
+      width: 375,
+      menu: ".vf-history-eras-fold",
+      choice: "Early Middle Ages",
+      says: /^Era: Early Middle Ages/,
+    },
+  ]) {
+    test(`gives the focus back to the ${menu} button only once it names ${choice}`, async ({
+      page,
+      isMobile,
+    }) => {
+      test.skip(isMobile, "The keyboard's.");
+      // Room for the safety net's eight seconds on a slow server, and the page after them.
+      test.setTimeout(60_000);
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/history");
+      await page.waitForLoadState("networkidle");
+      const summary = page.locator(`${menu} > summary`);
+      await summary.focus();
+      await page.keyboard.press("Enter");
+      await page.locator(`${menu} a`, { hasText: choice }).first().focus();
+      await summary.evaluate((node) => {
+        const names: string[] = [];
+        (window as unknown as { __named: string[] }).__named = names;
+        node.addEventListener("focus", () =>
+          names.push((node.textContent ?? "").replace(/\s+/g, " ").trim()),
+        );
+      });
+      // Holds the new view back, as a slow connection would.
+      await page.route(/_rsc=/, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await route.continue();
+      });
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(700);
+      await expect(summary).not.toBeFocused();
+      // Playwright's WebKit can fail to commit a held view at all. The safety net in
+      // watch-navigation.ts then loads it as a new page, which has no focus to give back.
+      const settled = () =>
+        page
+          .evaluate(() => {
+            const named = (window as unknown as { __named?: string[] }).__named;
+            if (named === undefined) return "new page";
+            return named.length > 0 ? "given back" : "waiting";
+          })
+          .catch(() => "waiting");
+      await expect.poll(settled, { timeout: 15_000 }).not.toBe("waiting");
+      test.skip(
+        (await settled()) === "new page",
+        "The router never committed the held view here, so the safety net loaded it.",
+      );
+      await expect(summary).toBeFocused();
+      const named = await page.evaluate(() => (window as unknown as { __named: string[] }).__named);
+      expect(named).toHaveLength(1);
+      expect(named[0]).toMatch(says);
+      await expect(page.locator(menu)).not.toHaveAttribute("open", "");
+    });
+  }
+
   test("goes on from a typed year to the row it found", async ({ page }) => {
     await page.goto("/history");
     await page.waitForLoadState("networkidle");

@@ -80,6 +80,7 @@ export default async function FavoritesPage() {
           cancel: t("common.cancel"),
           removeTitle: t("profile.saved.removeTitle"),
           removeBody: t("profile.saved.removeBody"),
+          removeFailed: t("profile.favorites.removeFailed"),
         }}
       />
     </div>

@@ -29,8 +29,10 @@ describe("watchNavigation", () => {
     vi.unstubAllGlobals();
   });
 
-  it("is what Next calls as each navigation starts", () => {
-    expect(onRouterTransitionStart).toBe(watchNavigation);
+  it("is armed by what Next calls as each navigation starts", () => {
+    onRouterTransitionStart("/saints?page=2", "push");
+    vi.advanceTimersByTime(NAVIGATION_PATIENCE_MS);
+    expect(fake.assign).toHaveBeenCalledWith("https://etviafidei.com/saints?page=2");
   });
 
   it("loads the page outright when a push never moves the address", () => {

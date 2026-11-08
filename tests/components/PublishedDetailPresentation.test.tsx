@@ -77,9 +77,10 @@ describe("PublishedDetail — eyebrow (PUB-7)", () => {
   });
 
   it("translates a page's own word when it is one of those kinds", () => {
-    const es = createTranslator("es");
-    render(<PublishedDetail t={es} item={makeItem({}, "SAINT")} eyebrow="Doctor of the Church" />);
-    expect(screen.getByText(es("search.type.doctor"))).toBeInTheDocument();
+    // Italian says "Dottore della Chiesa" of a woman Doctor too (see the next block).
+    const it_ = createTranslator("it");
+    render(<PublishedDetail t={it_} item={makeItem({}, "SAINT")} eyebrow="Doctor of the Church" />);
+    expect(screen.getByText("Dottore della Chiesa")).toBeInTheDocument();
     expect(screen.queryByText("Doctor of the Church")).not.toBeInTheDocument();
   });
 
@@ -184,12 +185,51 @@ describe("PublishedDetail — a saint's stage over a bare name", () => {
   it("keeps a Doctor's office where the role before it has no word", () => {
     const { container } = render(
       <PublishedDetail
-        t={createTranslator("es")}
+        t={createTranslator("it")}
         item={makeItem({}, "DOCTOR")}
         eyebrow="Religious · Doctor of the Church"
       />,
     );
-    expect(container.querySelector(".vf-eyebrow")).toHaveTextContent(/^Doctor de la Iglesia$/);
+    expect(container.querySelector(".vf-eyebrow")).toHaveTextContent(/^Dottore della Chiesa$/);
+  });
+
+  // Teresa of Ávila, Catherine of Siena, Thérèse of Lisieux and Hildegard of Bingen are
+  // Doctors, and Spanish, Portuguese and German have a word for a woman Doctor of its own.
+  it.each([
+    ["es", "Doctora de la Iglesia", "Doctor de la Iglesia"],
+    ["pt", "Doutora da Igreja", "Doutor da Igreja"],
+    ["de", "Kirchenlehrerin", "Kirchenlehrer"],
+  ] as const)(
+    "calls a woman Doctor and a man Doctor each by their word in %s",
+    (locale, woman, man) => {
+      const eyebrowOver = (slug: string) => {
+        const { container, unmount } = render(
+          <PublishedDetail
+            t={createTranslator(locale)}
+            item={{ ...makeItem({}, "DOCTOR"), slug }}
+            eyebrow="Religious · Doctor of the Church"
+          />,
+        );
+        const text = container.querySelector(".vf-eyebrow")?.textContent;
+        unmount();
+        return text;
+      };
+      expect(eyebrowOver("doctor-teresa-of-avila")).toBe(woman);
+      expect(eyebrowOver("doctor-augustine-of-hippo")).toBe(man);
+    },
+  );
+
+  it("still calls a bishop a Doctor in Spanish", () => {
+    const { container } = render(
+      <PublishedDetail
+        t={createTranslator("es")}
+        item={makeItem({}, "DOCTOR")}
+        eyebrow="Bishop · Doctor of the Church"
+      />,
+    );
+    expect(container.querySelector(".vf-eyebrow")).toHaveTextContent(
+      /^Obispo · Doctor de la Iglesia$/,
+    );
   });
 });
 

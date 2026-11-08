@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublishedDetail } from "@/components/ui";
+import { factLabel, translateFacts } from "@/lib/content-shared/detail-labels";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { getTranslator } from "@/lib/i18n/server";
 import { localizeItem } from "@/lib/translation/localize";
@@ -36,8 +37,8 @@ export default async function RiteDetailPage({ params }: Props) {
       eyebrow={/\brite\b/i.test(item.title) ? null : undefined}
       showSubtitle={false}
       lede={!riteSummaryIsFiller(item.payload)}
-      factItems={riteFactItems(item.payload)}
-      factsInSubtitle={["Type", "Tradition", "Place"]}
+      factItems={translateFacts(riteFactItems(item.payload), t)}
+      factsInSubtitle={["Type", "Tradition", "Place"].map((label) => factLabel(label, t))}
       primaryFields={["history", "background"]}
     />
   );

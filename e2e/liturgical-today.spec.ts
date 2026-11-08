@@ -442,6 +442,8 @@ test.describe("a line of facts", () => {
 
   test("looks as if the voice's words were not there", async ({ page }) => {
     await page.goto("/liturgy/readings?date=2026-11-07");
+    // A production build streams the page into a hidden holder first; copy it once shown.
+    await expect(page.locator(".vf-reading-meta").first()).toBeVisible();
     const copied = await page.evaluate(() => {
       const range = document.createRange();
       range.selectNodeContents(document.querySelector(".vf-reading-meta")!);

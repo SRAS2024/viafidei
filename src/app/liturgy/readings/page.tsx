@@ -6,6 +6,7 @@ import { MetaSeparator } from "@/components/ui/MetaSeparator";
 import { WeekdayCycle } from "@/components/ui/WeekdayCycle";
 import { prisma } from "@/lib/db/client";
 import { parseCivilDate } from "@/lib/content-shared/liturgical-calendar";
+import { getTranslator } from "@/lib/i18n/server";
 
 import { MassChoice } from "./MassChoice";
 import { ReadingSections } from "./ReadingSections";
@@ -58,6 +59,7 @@ export default async function DailyReadingsPage({
   const { date: dateParam, variant, mass, ascension } = await searchParams;
   const date = parseDateParam(dateParam);
   const calendar = calendarFromParam(ascension);
+  const { t } = await getTranslator();
 
   const rowDate = storedRowDate(date, mass, calendar);
   const row = rowDate
@@ -121,12 +123,16 @@ export default async function DailyReadingsPage({
       {view.masses.length > 1 || view.formularies.length > 1 || view.massNote ? (
         <div className="vf-mass-choices">
           {view.masses.length > 1 ? (
-            <MassChoice label="Mass" navLabel="Masses on this date" options={view.masses} />
+            <MassChoice
+              label={t("readings.mass")}
+              navLabel={t("readings.massesOnDate")}
+              options={view.masses}
+            />
           ) : null}
           {view.formularies.length > 1 ? (
             <MassChoice
-              label="Readings"
-              navLabel="Readings of this Mass"
+              label={t("readings.readings")}
+              navLabel={t("readings.readingsOfMass")}
               options={view.formularies}
             />
           ) : null}
@@ -146,6 +152,11 @@ export default async function DailyReadingsPage({
         sections={view.sections}
         sourceUrl={view.sourceUrl}
         sourceName={view.sourceName}
+        words={{
+          douayMisses: t("readings.douayMisses"),
+          readItAt: t("readings.readItAt"),
+          newTab: t("common.opensInNewTab"),
+        }}
       />
 
       <footer className="vf-detail-footer">
@@ -167,7 +178,7 @@ export default async function DailyReadingsPage({
           <a href={view.sourceUrl} target="_blank" rel="noopener noreferrer">
             {view.sourceName}
             <span aria-hidden="true"> ↗</span>
-            <span className="sr-only"> (opens in a new tab)</span>
+            <span className="sr-only"> {t("common.opensInNewTab")}</span>
           </a>
         </p>
         {catholicResources ? <p>{catholicResources.note}</p> : null}

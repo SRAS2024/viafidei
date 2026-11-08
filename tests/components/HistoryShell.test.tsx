@@ -6,6 +6,7 @@
  * form that works on its own; this turns them into navigations that keep the
  * page where it is, and leaves alone whatever is not its to handle.
  */
+import { Suspense, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
@@ -179,6 +180,92 @@ describe("HistoryShell menus", () => {
     expect(one.open).toBe(false);
     expect(document.activeElement).toBe(one.querySelector("summary"));
     expect(push).toHaveBeenCalledWith("/history?theme=councils", { scroll: false });
+  });
+
+  // Its button names the theme or era showing. Given the focus before the chosen view is
+  // on screen, it would say the one the reader is leaving.
+  it("keeps the focus on the chosen link until the chosen view is on screen", async () => {
+    let shown = false;
+    let show: (theme: string) => void = () => {};
+    let arrive: () => void = () => {};
+    const arrived = new Promise<void>((resolve) => {
+      arrive = () => {
+        shown = true;
+        resolve();
+      };
+    });
+    function Summary() {
+      const [theme, setTheme] = useState("All");
+      show = setTheme;
+      // The new view is on its way until it arrives.
+      if (theme !== "All" && !shown) throw arrived;
+      return <summary>Filter the timeline by theme: {theme}</summary>;
+    }
+    push.mockImplementationOnce(() => show("Councils"));
+    const { container } = render(
+      <HistoryShell>
+        <Suspense fallback={null}>
+          <details data-history-menu open className="vf-history-menu">
+            <Summary />
+            <a href="/history?theme=councils">Councils</a>
+          </details>
+        </Suspense>
+      </HistoryShell>,
+    );
+    const menu = container.querySelector<HTMLDetailsElement>("details")!;
+    const link = screen.getByRole("link", { name: "Councils" });
+    link.focus();
+    fireEvent.click(link);
+    expect(push).toHaveBeenCalledWith("/history?theme=councils", { scroll: false });
+    expect(menu.open).toBe(true);
+    expect(document.activeElement).toBe(link);
+
+    await act(async () => {
+      arrive();
+      await arrived;
+    });
+    expect(menu.open).toBe(false);
+    expect(document.activeElement).toBe(menu.querySelector("summary"));
+    expect(document.activeElement?.textContent).toBe("Filter the timeline by theme: Councils");
+  });
+
+  it("leaves the focus where the reader took it while the choice was on its way", async () => {
+    let show: (theme: string) => void = () => {};
+    let arrive: () => void = () => {};
+    let shown = false;
+    const arrived = new Promise<void>((resolve) => {
+      arrive = () => {
+        shown = true;
+        resolve();
+      };
+    });
+    function Summary() {
+      const [theme, setTheme] = useState("All");
+      show = setTheme;
+      if (theme !== "All" && !shown) throw arrived;
+      return <summary>Theme: {theme}</summary>;
+    }
+    push.mockImplementationOnce(() => show("Councils"));
+    const { container } = render(
+      <HistoryShell>
+        <Suspense fallback={null}>
+          <details data-history-menu open className="vf-history-menu">
+            <Summary />
+            <a href="/history?theme=councils">Councils</a>
+          </details>
+        </Suspense>
+        <button type="button">elsewhere</button>
+      </HistoryShell>,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Councils" }));
+    const elsewhere = screen.getByRole("button", { name: "elsewhere" });
+    elsewhere.focus();
+    await act(async () => {
+      arrive();
+      await arrived;
+    });
+    expect(container.querySelector<HTMLDetailsElement>("details")!.open).toBe(false);
+    expect(document.activeElement).toBe(elsewhere);
   });
 
   it("closes the other menu when one is used", () => {

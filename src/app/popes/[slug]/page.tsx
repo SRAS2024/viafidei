@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublishedDetail } from "@/components/ui";
+import { factLabel, translateFacts } from "@/lib/content-shared/detail-labels";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { getTranslator } from "@/lib/i18n/server";
 import { localizeItem } from "@/lib/translation/localize";
@@ -35,8 +36,8 @@ export default async function PopeDetailPage({ params }: Props) {
       eyebrow={/^pope\b/i.test(item.title) ? null : undefined}
       showSubtitle={false}
       lede={false}
-      factItems={popeFactItems(item.title, item.payload)}
-      factsInSubtitle={["Pontificate"]}
+      factItems={translateFacts(popeFactItems(item.title, item.payload), t)}
+      factsInSubtitle={[factLabel("Pontificate", t)]}
       primaryFields={["background"]}
       headings={{ background: null }}
     />

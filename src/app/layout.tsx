@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
 import { Header, Footer } from "@/components/layout";
+import { NavigationPendingStatus } from "@/components/layout/NavigationPendingStatus";
 import { SkipLink } from "@/components/layout/SkipLink";
 import { TitleKeeper } from "@/components/layout/TitleKeeper";
 import { LoginRequiredLabelsProvider } from "@/components/ui/LoginRequiredPopup";
@@ -137,6 +138,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </ShareLabelsProvider>
         </main>
         {isAdminRoute ? null : <Footer />}
+        <NavigationPendingStatus label={t("common.loading")} />
       </body>
     </html>
   );

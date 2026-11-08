@@ -153,9 +153,21 @@ export function eraRange(era: HistoryEraSummary, maxYear: number): string {
   return era.to > maxYear ? `${era.from}–today` : `${era.from}–${era.to}`;
 }
 
-/** The same span for the ear: "from 1965 to today". */
-export function eraRangeSpoken(era: HistoryEraSummary, maxYear: number): string {
-  return era.to > maxYear ? `from ${era.from} to today` : `from ${era.from} to ${era.to}`;
+/**
+ * The same span for the ear: "from 1965 to today", in the reader's language when the
+ * page passes its translator ("de 1965 a hoy"), so a Spanish voice is not reading English.
+ */
+export function eraRangeSpoken(
+  era: Pick<HistoryEraSummary, "from" | "to">,
+  maxYear: number,
+  t?: (key: string, values?: Record<string, string | number>) => string,
+): string {
+  if (era.to > maxYear) {
+    return t ? t("history.era.spokenToToday", { from: era.from }) : `from ${era.from} to today`;
+  }
+  return t
+    ? t("history.era.spokenRange", { from: era.from, to: era.to })
+    : `from ${era.from} to ${era.to}`;
 }
 
 export function formatCount(n: number): string {
@@ -378,13 +390,37 @@ export function buildHistoryView(timeline: HistoryTimeline, params: HistoryParam
   };
 }
 
-/** Spelled "61 to 120" rather than with a dash so a screen reader reads it as a range. */
-function countText({ total, rangeStart, rangeEnd }: HistoryView): string {
-  if (total === 0) return "Showing no events";
+/** A page's translator, as the spoken sentences take it. */
+type Say = (key: string, values?: Record<string, string | number>) => string;
+
+/** A count written the reader's way ("1,528", "1528", "1.528"); English without a locale. */
+function countIn(locale: string | undefined, n: number): string {
+  if (!locale) return formatCount(n);
+  try {
+    return new Intl.NumberFormat(locale === "tl" ? "fil" : locale).format(n);
+  } catch {
+    return String(n);
+  }
+}
+
+/**
+ * Spelled "61 to 120" rather than with a dash so a screen reader reads it as a range.
+ * With the page's translator it is the reader's language; without it, English.
+ */
+function countText({ total, rangeStart, rangeEnd }: HistoryView, t?: Say, locale?: string): string {
+  const n = (value: number) => countIn(locale, value);
+  if (total === 0) return t ? t("history.status.none") : "Showing no events";
   const shown = rangeEnd - rangeStart + 1;
-  if (total === 1) return "Showing 1 event";
+  if (total === 1) return t ? t("history.status.one") : "Showing 1 event";
   if (rangeStart > 1) {
-    return `Showing ${formatCount(rangeStart)} to ${formatCount(rangeEnd)} of ${formatCount(total)} events`;
+    return t
+      ? t("history.status.range", { start: n(rangeStart), end: n(rangeEnd), total: n(total) })
+      : `Showing ${formatCount(rangeStart)} to ${formatCount(rangeEnd)} of ${formatCount(total)} events`;
+  }
+  if (t) {
+    return shown === total
+      ? t("history.status.all", { count: n(total) })
+      : t("history.status.some", { shown: n(shown), total: n(total) });
   }
   return shown === total
     ? `Showing all ${formatCount(total)} events`
@@ -407,17 +443,32 @@ export function historyStatusText(view: HistoryView): string {
  * and theme it counts, and the order, or two views of the same length would sound
  * identical and reversing the list would not be heard at all. Where a year or link
  * landed comes first, since that is the news and the slider's reader may move on.
+ * With the page's translator and locale it is said in the reader's language, as the
+ * page around it is; without them, in English.
  */
-export function historyStatusSpeech(view: HistoryView): string {
+export function historyStatusSpeech(view: HistoryView, t?: Say, locale?: string): string {
   const { era, theme, q, target, year } = view;
-  let count = countText(view);
-  if (q) count += ` for “${q}”`;
-  if (view.params.order === "newest") count += ", newest first";
+  let count = countText(view, t, locale);
+  if (q) count = t ? t("history.status.query", { count, query: q }) : `${count} for “${q}”`;
+  if (view.params.order === "newest") {
+    count = t ? t("history.status.newest", { count }) : `${count}, newest first`;
+  }
   const scope = [era?.label, theme === "all" ? null : FILTER_LABELS[theme]]
     .filter(Boolean)
     .join(", ");
-  const sentence = scope ? `${scope}: ${count[0]!.toLowerCase()}${count.slice(1)}.` : `${count}.`;
-  if (target && year !== null) return `At ${year}: ${target.title}. ${sentence}`;
-  if (target) return `Opened: ${target.title}. ${sentence}`;
+  const lowered = `${count[0]!.toLowerCase()}${count.slice(1)}`;
+  const sentence = scope
+    ? `${t ? t("history.status.scoped", { scope, count: lowered }) : `${scope}: ${lowered}`}.`
+    : `${count}.`;
+  if (target && year !== null) {
+    return t
+      ? t("history.status.at", { year, title: target.title, sentence })
+      : `At ${year}: ${target.title}. ${sentence}`;
+  }
+  if (target) {
+    return t
+      ? t("history.status.opened", { title: target.title, sentence })
+      : `Opened: ${target.title}. ${sentence}`;
+  }
   return sentence;
 }

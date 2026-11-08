@@ -75,6 +75,7 @@ export default async function GoalsPage() {
           deleteBody: t("profile.goals.deleteBody"),
           checklist: t("profile.goals.checklist"),
           remove: t("common.remove"),
+          due: t("profile.goals.due"),
           journalSave: {
             titleTooLong: t("profile.journal.titleTooLong"),
             bodyTooLong: t("profile.journal.bodyTooLong"),

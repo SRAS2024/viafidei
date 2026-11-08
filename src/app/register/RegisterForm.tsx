@@ -71,7 +71,12 @@ export function RegisterForm({
 
   // The server redirects back with the failure in the URL, so the message is on
   // the page from first paint and a live region stays silent. Focusing the field
-  // it belongs to makes a screen reader read the field with its error.
+  // it belongs to makes a screen reader read the field with its error. The
+  // browser's own scroll on focus centres the field, which at enlarged text put
+  // the message above it off the screen, so the message and then the field are
+  // each brought only as far as needed to be seen, below the sticky header. A
+  // message too long to share the screen leaves the field in view, with the end of
+  // the message directly above it.
   useEffect(() => {
     if (!error) return;
     const target =
@@ -82,7 +87,11 @@ export function RegisterForm({
           : errorField === "passwordConfirm"
             ? confirmRef
             : firstNameRef;
-    target.current?.focus();
+    const field = target.current;
+    if (!field) return;
+    field.focus({ preventScroll: true });
+    document.getElementById(SERVER_ERROR_ID)?.scrollIntoView?.({ block: "nearest" });
+    field.scrollIntoView?.({ block: "nearest" });
   }, [error, errorField]);
 
   const validation: ValidationKind | null = (() => {
@@ -114,16 +123,22 @@ export function RegisterForm({
       ? { "aria-invalid": true, "aria-describedby": SERVER_ERROR_ID }
       : null;
 
+  // A failure that belongs to a field stands directly above that field, so the two
+  // are read in order and fit on one screen together at any text size. One that
+  // belongs to no field heads the form.
+  const noticeAbove = (field: RegisterErrorField | undefined) =>
+    error && errorField === field ? (
+      <p id={SERVER_ERROR_ID} role="alert" className="vf-notice vf-notice-error">
+        {error}
+      </p>
+    ) : null;
+
   return (
     <form method="post" action="/api/auth/register" className="vf-form" onSubmit={handleSubmit}>
       {/* Where to land after registering — set when an account-gated control
           (e.g. Favorite on a parish) sent the visitor here. */}
       {next ? <input type="hidden" name="next" value={next} /> : null}
-      {error ? (
-        <p id={SERVER_ERROR_ID} role="alert" className="vf-notice vf-notice-error">
-          {error}
-        </p>
-      ) : null}
+      {noticeAbove(undefined)}
       <div className="vf-field-pair">
         <div>
           <label htmlFor="firstName" className="vf-label">
@@ -160,6 +175,7 @@ export function RegisterForm({
         </div>
       </div>
 
+      {noticeAbove("email")}
       <div>
         <label htmlFor="email" className="vf-label">
           {labels.email}
@@ -180,6 +196,7 @@ export function RegisterForm({
         />
       </div>
 
+      {noticeAbove("password")}
       <div className="vf-field-split">
         <label htmlFor="password" className="vf-label">
           {labels.password}
@@ -213,6 +230,7 @@ export function RegisterForm({
         ) : null}
       </div>
 
+      {noticeAbove("passwordConfirm")}
       <div>
         <label htmlFor="passwordConfirm" className="vf-label">
           {labels.passwordConfirm}

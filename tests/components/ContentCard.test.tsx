@@ -18,6 +18,8 @@ import {
   lineRepeatsTitle,
   summaryLinesFor,
 } from "@/components/ui/ContentCard";
+import { keepPhrasesWhole } from "@/components/ui/keep-whole";
+import { PageHero } from "@/components/ui/PageHero";
 
 const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
 /** The declarations of the first rule with exactly this selector. */
@@ -46,6 +48,67 @@ describe("lineRepeatsTitle", () => {
   it("reads accents and case alike, and never counts an empty line", () => {
     expect(lineRepeatsTitle("Thérèse of Lisieux", "therese")).toBe(true);
     expect(lineRepeatsTitle("Anything", "—")).toBe(false);
+  });
+
+  // "Vocation" stayed under "Vocational Discernment" and "How to Pray for Vocations".
+  it("takes another form of a title's word, by a short ending, for the same word", () => {
+    expect(lineRepeatsTitle("Vocational Discernment", "Vocation")).toBe(true);
+    expect(lineRepeatsTitle("How to Pray for Vocations", "Vocation")).toBe(true);
+    expect(lineRepeatsTitle("Vocation", "Vocations")).toBe(true);
+    expect(lineRepeatsTitle("The Penances of Lent", "Penance")).toBe(true);
+  });
+
+  it("does not take a short word, or a longer one that only begins the same, for it", () => {
+    expect(lineRepeatsTitle("Saint Mark", "Market")).toBe(false);
+    expect(lineRepeatsTitle("Mary, Mother of God", "Maryland")).toBe(false);
+    expect(lineRepeatsTitle("Marian Devotion", "Marianne")).toBe(false);
+    expect(lineRepeatsTitle("Vocational Discernment", "Vocation and family")).toBe(false);
+  });
+});
+
+describe("keepPhrasesWhole", () => {
+  // Balanced wrapping broke "33- / Day", "step- / by-step" and "Our / Lady", and opened
+  // a line with a dash. No word changes: a span and a no-break space hold them.
+  it("holds a short hyphenated compound in a span that does not wrap", () => {
+    render(<p>{keepPhrasesWhole("How to Make the 33-Day Preparation, step-by-step")}</p>);
+    const held = [...document.querySelectorAll("span.whitespace-nowrap")].map((s) => s.textContent);
+    expect(held).toEqual(["33-Day", "step-by-step"]);
+    // Never a non-breaking hyphen, which a screen reader may read out.
+    expect(document.body.textContent).not.toContain("‑");
+    expect(document.body.textContent).toBe("How to Make the 33-Day Preparation, step-by-step");
+  });
+
+  it("joins Our Lady and keeps a dash with the word before it", () => {
+    expect(keepPhrasesWhole("Apparition of Our Lady of Lourdes")).toBe(
+      "Apparition of Our Lady of Lourdes",
+    );
+    expect(
+      keepPhrasesWhole(
+        "The seven sacraments of the Catholic Church — channels of grace instituted by Christ.",
+      ),
+    ).toBe("The seven sacraments of the Catholic Church — channels of grace instituted by Christ.");
+  });
+
+  it("lets a compound too long for a phone's line break at its hyphens", () => {
+    render(<p>{keepPhrasesWhole("Saint-Jean-Baptiste-de-la-Salle")}</p>);
+    expect(document.querySelector("span.whitespace-nowrap")).toBeNull();
+  });
+
+  it("holds them on a card's title and a hero's lede, with the link's name unchanged", () => {
+    render(
+      <>
+        <ContentCard href="/g" title="How to Make the 33-Day Preparation for Marian Consecration" />
+        <PageHero title="Spiritual Life" subtitle="Guided devotions and step-by-step checklists." />
+      </>,
+    );
+    expect(
+      screen.getByRole("link", {
+        name: "How to Make the 33-Day Preparation for Marian Consecration",
+      }),
+    ).toContainHTML('<span class="whitespace-nowrap">33-Day</span>');
+    expect(document.querySelector(".vf-page-hero-lede span.whitespace-nowrap")).toHaveTextContent(
+      "step-by-step",
+    );
   });
 });
 
@@ -161,9 +224,11 @@ describe("a description in a row of cards", () => {
       ).exec(css);
       expect(step, `${lines} lines`).not.toBeNull();
       const height = Number(step![1]);
-      // Just under that many whole lines, and well over one line fewer.
-      expect(height).toBeLessThan(lines * LINE);
-      expect(height).toBeGreaterThan((lines - 0.2) * LINE);
+      // About 0.4rem short of that many whole lines: the last may sit that far into
+      // the 0.875rem above Open, never on it. A step any later dropped a whole line
+      // and left it blank for want of a few pixels (Saint Catherine of Alexandria).
+      expect(height).toBeLessThan(lines * LINE - 0.35);
+      expect(lines * LINE - height).toBeLessThan(0.875 / 2);
     }
   });
 

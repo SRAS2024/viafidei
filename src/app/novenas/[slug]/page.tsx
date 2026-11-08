@@ -10,6 +10,7 @@ import {
   novenaTimingFacts,
   toDisclosureItems,
 } from "@/lib/content-shared/structured-content";
+import { translateFacts } from "@/lib/content-shared/detail-labels";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { getTranslator } from "@/lib/i18n/server";
 import { loadPrayersForText } from "@/lib/data/prayer-sets";
@@ -78,7 +79,7 @@ export default async function NovenaDetailPage({ params }: Props) {
       t={t}
       item={withPrayerList(item, prayers)}
       showSubtitle={false}
-      factItems={novenaTimingFacts(displayItem(item).payload.typicalStartDate)}
+      factItems={translateFacts(novenaTimingFacts(displayItem(item).payload.typicalStartDate), t)}
       primaryFields={["purpose", "intentions", "days", PRAYER_LIST_FIELD, "background"]}
       headings={{ [PRAYER_LIST_FIELD]: null }}
       fieldRenderers={{

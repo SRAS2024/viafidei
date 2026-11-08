@@ -133,6 +133,7 @@ export default async function JournalPage({
                   entryTitle={e.title}
                   isFavorite={e.isFavorite}
                   favoriteLabel={t("profile.journal.favorite")}
+                  failedLabel={t("save.failed")}
                 />
                 <a
                   href={`/api/journal/${e.id}/download`}

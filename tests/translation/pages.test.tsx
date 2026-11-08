@@ -167,11 +167,16 @@ describe("a saint's page in Spanish", () => {
     // The name is never machine-translated, and nothing sits above it.
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Saint Isidore the Farmer");
     expect(document.querySelector(".vf-eyebrow")).toBeNull();
-    // The facts, read from the stored record as on the card.
+    // The facts, read from the stored record as on the card, under Spanish labels.
     const facts = Array.from(document.querySelectorAll(".vf-facts dt")).map(
       (dt) => `${dt.textContent}: ${dt.nextElementSibling?.textContent}`,
     );
-    expect(facts).toEqual(["Patron of: farmers", "Feast day: May 15", "Born: 1070", "Died: 1130"]);
+    expect(facts).toEqual([
+      "Patronazgo: farmers",
+      "Fiesta: May 15",
+      "Nacimiento: 1070",
+      "Muerte: 1130",
+    ]);
     // The biography in Spanish, the saint's name kept as written.
     expect(pageText()).toContain("Isidore fue un labrador cerca de Madrid.");
     // No source pointer in either language, no subtitle, no summary.

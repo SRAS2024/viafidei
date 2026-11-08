@@ -64,11 +64,14 @@ export function LiturgicalCalendarBrowser({
   rites,
   initialRite,
   loadingLabel,
+  outOfRangeLabel = "This calendar covers the years {first} to {last}.",
 }: {
   rites: { value: string; label: string }[];
   initialRite: string;
   /** What a screen reader is told until the device's date has been read. */
   loadingLabel: string;
+  /** What the date's hint says of a year the calendar does not cover. */
+  outOfRangeLabel?: string;
 }) {
   // Null until mounted, so server and client render the same initial markup, and
   // the calendar follows the day until the visitor picks one of their own.
@@ -132,7 +135,9 @@ export function LiturgicalCalendarBrowser({
           />
           <p id={dateHintId} role="status" className="vf-fineprint vf-calendar-date-hint">
             {outOfRange
-              ? `This calendar covers the years ${FIRST_CALENDAR_DATE.slice(0, 4)} to ${LAST_CALENDAR_DATE.slice(0, 4)}.`
+              ? outOfRangeLabel
+                  .replace("{first}", FIRST_CALENDAR_DATE.slice(0, 4))
+                  .replace("{last}", LAST_CALENDAR_DATE.slice(0, 4))
               : ""}
           </p>
         </div>

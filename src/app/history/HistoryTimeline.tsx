@@ -1,6 +1,7 @@
 import { ExpandableTimelineEvent } from "@/components/ui/ExpandableTimelineEvent";
 import { MetaSeparator } from "@/components/ui/MetaSeparator";
 import type { HistoryEvent, HistoryEraSummary } from "@/lib/content-shared/church-history/timeline";
+import { tPlural } from "@/lib/i18n/plural";
 import type { Translator } from "@/lib/i18n/translator";
 
 import {
@@ -18,8 +19,10 @@ import {
   type HistoryView,
 } from "./historyView";
 
-function eventCount(count: number): string {
-  return count === 1 ? "1 event" : `${formatCount(count)} events`;
+/** "35 events", in the reader's language and its plural when the page gives its locale. */
+function eventCount(count: number, t: Translator, locale?: string): string {
+  if (!locale) return count === 1 ? "1 event" : `${formatCount(count)} events`;
+  return tPlural(t, locale, "history.eventCount", count);
 }
 
 function TimelineRow({
@@ -54,6 +57,7 @@ function TimelineRow({
         links={links}
         initiallyOpen={view.openSlug === event.slug}
         current={isTarget}
+        newTabLabel={t("common.opensInNewTab")}
       />
     </li>
   );
@@ -65,7 +69,16 @@ function TimelineRow({
  * reader can scan. Lists are `role="list"` because Safari drops the list role
  * from a list with no markers, and VoiceOver's "list, 14 items" is worth keeping.
  */
-export function HistoryEventList({ view, t }: { view: HistoryView; t: Translator }) {
+export function HistoryEventList({
+  view,
+  t,
+  locale,
+}: {
+  view: HistoryView;
+  t: Translator;
+  /** The reader's language, for the plural of an era's count; English without it. */
+  locale?: string;
+}) {
   const maxYear = view.sliderMax;
   return (
     <>
@@ -83,10 +96,10 @@ export function HistoryEventList({ view, t }: { view: HistoryView; t: Translator
                 loses the rest of a line of text that begins with something hidden from it,
                 and that was the count. */}
             <p className="vf-timeline-era-meta">
-              <span className="vf-sr-inline">{eraRangeSpoken(group.era, maxYear)}</span>
+              <span className="vf-sr-inline">{eraRangeSpoken(group.era, maxYear, t)}</span>
               <span aria-hidden="true">{eraRange(group.era, maxYear)}</span>
               <MetaSeparator />
-              {eventCount(group.count)}
+              {eventCount(group.count, t, locale)}
             </p>
           </div>
           {group.centuries.map((century) => (
@@ -183,12 +196,14 @@ function EraLink({
   align,
   href,
   maxYear,
+  t,
 }: {
   era: HistoryEraSummary;
   label: string;
   align: "start" | "end";
   href: string;
   maxYear: number;
+  t: Translator;
 }) {
   return (
     <a
@@ -208,7 +223,7 @@ function EraLink({
       <span className="vf-history-era-step-years" aria-hidden="true">
         {eraRange(era, maxYear)}
       </span>
-      <span className="sr-only">, {eraRangeSpoken(era, maxYear)}</span>
+      <span className="sr-only">, {eraRangeSpoken(era, maxYear, t)}</span>
     </a>
   );
 }
@@ -236,6 +251,7 @@ export function HistoryEraSteps({
           align="start"
           href={hrefOf(previousEra)}
           maxYear={view.sliderMax}
+          t={t}
         />
       ) : (
         <span />
@@ -247,6 +263,7 @@ export function HistoryEraSteps({
           align="end"
           href={hrefOf(nextEra)}
           maxYear={view.sliderMax}
+          t={t}
         />
       ) : null}
     </nav>
@@ -260,12 +277,19 @@ export function HistoryEmpty({
   noneText,
   hintText,
   clearText,
+  emptyText = "No events here.",
+  searchAllText = "Search all events",
+  showAllText = "Show all events",
 }: {
   view: HistoryView;
   base: HistoryLinkState;
   noneText: string;
   hintText: string;
   clearText: string;
+  /** The page's words for an empty list and its two ways out, in the reader's language. */
+  emptyText?: string;
+  searchAllText?: string;
+  showAllText?: string;
 }) {
   const { q, theme, era } = view;
   const order = view.params.order;
@@ -274,7 +298,7 @@ export function HistoryEmpty({
     ? noneText
     : theme !== "all" && era
       ? `No ${FILTER_LABELS[theme]} events in ${era.label}.`
-      : "No events here.";
+      : emptyText;
   return (
     <div className="vf-timeline-empty">
       <p className="vf-timeline-empty-message">{message}</p>
@@ -282,7 +306,7 @@ export function HistoryEmpty({
       <p className="vf-timeline-empty-actions">
         {q && narrowed ? (
           <a href={historyHref({ q, order })} data-landing="status" className="vf-btn vf-btn-ghost">
-            Search all events
+            {searchAllText}
           </a>
         ) : null}
         {q ? (
@@ -305,7 +329,7 @@ export function HistoryEmpty({
         ) : null}
         {!q || narrowed ? (
           <a href={historyHref({ order })} data-landing="status" className="vf-btn vf-btn-ghost">
-            Show all events
+            {showAllText}
           </a>
         ) : null}
       </p>

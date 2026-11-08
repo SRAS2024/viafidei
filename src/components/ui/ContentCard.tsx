@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 
 import { normalizeSearchText } from "@/lib/content-shared/list-search";
 
+import { keepPhrasesWhole } from "./keep-whole";
+
 export interface ContentCardProps {
   href: string;
   /** The item's name: always the first and largest thing on the card. */
@@ -44,15 +46,36 @@ export function summaryLinesFor(title: string, wanted = 4): number {
   return Math.max(2, wanted + 1 - titleLines);
 }
 
+/** The endings that make another form of the same word: "vocations", "vocational". */
+const SIMPLE_ENDINGS = ["s", "es", "al", "als"];
+
+/**
+ * Two forms of one word: "vocation" and "vocations" or "vocational". The shorter has
+ * at least five letters and the longer adds only a simple ending, so "Mark" is not
+ * taken for "Market", nor "Marian" for "Marianne".
+ */
+function sameWord(a: string, b: string): boolean {
+  if (a === b) return true;
+  const [shorter, longer] = a.length < b.length ? [a, b] : [b, a];
+  return (
+    shorter.length >= 5 &&
+    longer.startsWith(shorter) &&
+    SIMPLE_ENDINGS.includes(longer.slice(shorter.length))
+  );
+}
+
 /**
  * Whether a line under a title says nothing the title does not: "Almsgiving" under
- * "Almsgiving", "Penance" under "Friday Penance". A label is there to add something,
- * and a screen reader would otherwise read the same word twice.
+ * "Almsgiving", "Penance" under "Friday Penance", "Vocation" under "Vocational
+ * Discernment". A label is there to add something, and a screen reader would
+ * otherwise read the same word twice.
  */
 export function lineRepeatsTitle(title: string, line: string): boolean {
-  const titleWords = new Set(normalizeSearchText(title).split(" "));
+  const titleWords = normalizeSearchText(title).split(" ").filter(Boolean);
   const words = normalizeSearchText(line).split(" ").filter(Boolean);
-  return words.length > 0 && words.every((word) => titleWords.has(word));
+  return (
+    words.length > 0 && words.every((word) => titleWords.some((other) => sameWord(word, other)))
+  );
 }
 
 /** A regnal numeral stays with its name: "Pius XII", never "Pius" and then "XII". */
@@ -90,7 +113,7 @@ export function ContentCard({
     <article className="vf-entry">
       <Heading className="vf-entry-title">
         <Link href={href} className="vf-entry-link" lang={lang}>
-          {keepNumeralWithName(title)}
+          {keepPhrasesWhole(keepNumeralWithName(title))}
         </Link>
       </Heading>
       {lines.map((line, i) => (

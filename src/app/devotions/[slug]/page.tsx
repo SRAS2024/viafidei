@@ -15,6 +15,7 @@ import {
   withPrayerList,
 } from "@/components/ui/GuideSteps";
 import { SaveContentButton } from "@/components/profile";
+import { factLabel } from "@/lib/content-shared/detail-labels";
 import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
 import {
   getPublishedBySlug,
@@ -120,7 +121,7 @@ export default async function DevotionDetailPage({ params }: Props) {
       showSubtitle={false}
       factItems={[
         typeof minutes === "number"
-          ? { label: "Duration", value: formatDurationMinutes(minutes) }
+          ? { label: factLabel("Duration", t), value: formatDurationMinutes(minutes) }
           : null,
       ]}
       action={<SaveContentButton contentType="DEVOTION" slug={slug} />}

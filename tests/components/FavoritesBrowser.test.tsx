@@ -58,7 +58,8 @@ describe("FavoritesBrowser", () => {
     render(<FavoritesBrowser items={ITEMS} />);
     expect(screen.getByRole("link", { name: "The Memorare" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Saint Francis" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Our Lady of Lourdes" })).toBeInTheDocument();
+    // "Our Lady" is held together by a no-break space, which a voice reads as a space.
+    expect(screen.getByRole("link", { name: /^Our\sLady of Lourdes$/ })).toBeInTheDocument();
     // Six type filters → a single dropdown trigger (unfiltered shows "Filter").
     const trigger = filterTrigger();
     expect(trigger).toHaveTextContent("Filter");

@@ -100,7 +100,8 @@ export async function generateMetadata({
     title: await listPageTitleFor(
       {
         name: t("nav.spiritualGuidance"),
-        filter: filter ? OUR_LADY_FILTERS.find((f) => f.key === view.active)?.label : null,
+        // The title says the filter and each list's name in the reader's language.
+        filter: filter ? t(`ourLady.filter.${view.active}`) : null,
         query,
         t,
         locale,
@@ -111,10 +112,15 @@ export async function generateMetadata({
         return {
           pages: [
             ...(view.showTitles
-              ? [{ ...data.titlePage, of: sectioned ? "Marian Titles" : undefined }]
+              ? [{ ...data.titlePage, of: sectioned ? t("ourLady.filter.titles") : undefined }]
               : []),
             ...(view.showApparitions
-              ? [{ ...data.apparitionPage, of: sectioned ? "Apparitions" : undefined }]
+              ? [
+                  {
+                    ...data.apparitionPage,
+                    of: sectioned ? t("ourLady.filter.apparitions") : undefined,
+                  },
+                ]
               : []),
           ],
           total: data.titles.length + data.apparitions.length,

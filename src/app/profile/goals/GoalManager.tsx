@@ -43,6 +43,8 @@ type Labels = {
   checklist: string;
   /** The name of a checklist step's remove control; "Remove" when absent. */
   remove?: string;
+  /** A goal's due date after its status: "Due {date}". */
+  due?: string;
   /** What each goal's journal panel says about saving, as the journal page says it. */
   journalSave: JournalSaveLabels;
 };
@@ -437,7 +439,9 @@ function GoalCard({
             <span className={isOverdue(goal.status, goal.dueDate) ? "vf-overdue" : undefined}>
               {statusLabel(goal.status, goal.dueDate)}
             </span>
-            {goal.dueDate ? ` · Due ${formatDueDate(goal.dueDate, locale)}` : ""}
+            {goal.dueDate
+              ? ` · ${(labels.due ?? "Due {date}").replace("{date}", formatDueDate(goal.dueDate, locale))}`
+              : ""}
           </p>
           {goal.description ? <p className="vf-panel-text">{goal.description}</p> : null}
         </>

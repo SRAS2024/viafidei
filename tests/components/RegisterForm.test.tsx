@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { axe } from "jest-axe";
 import { RegisterForm } from "@/app/register/RegisterForm";
@@ -127,6 +127,44 @@ describe("RegisterForm privacy notice", () => {
     expect(email).toHaveAttribute("aria-invalid", "true");
     expect(email).toHaveAccessibleDescription("That email is taken.");
     expect(email).toHaveFocus();
+  });
+
+  // At 200% text the browser's own scroll on focus centred the Email field and left
+  // "An account already exists for that email." above the top of the screen.
+  it("puts a field's failure directly above it, and brings the two into view itself", () => {
+    const scrolled: string[] = [];
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = function (this: HTMLElement) {
+      scrolled.push(this.id);
+    };
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    try {
+      render(<RegisterForm labels={labels} error="That email is taken." errorField="email" />);
+      const email = screen.getByLabelText("Email");
+      expect(screen.getByRole("alert").nextElementSibling).toContainElement(email);
+      expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+      expect(email).toHaveFocus();
+      // The message first, then the field: a message too long to share the screen
+      // still leaves the field with focus in view.
+      expect(scrolled).toEqual(["register-error", "email"]);
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+      focus.mockRestore();
+    }
+  });
+
+  it("puts each password failure above its own field", () => {
+    const { unmount } = render(
+      <RegisterForm labels={labels} error="Too weak." errorField="password" />,
+    );
+    expect(screen.getByRole("alert").nextElementSibling).toContainElement(
+      screen.getByLabelText("Password"),
+    );
+    unmount();
+    render(<RegisterForm labels={labels} error="No match." errorField="passwordConfirm" />);
+    expect(screen.getByRole("alert").nextElementSibling).toContainElement(
+      screen.getByLabelText("Re-enter password"),
+    );
   });
 
   it("starts a reader at the top of the form for a failure that belongs to no field", () => {

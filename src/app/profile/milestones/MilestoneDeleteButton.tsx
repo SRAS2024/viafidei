@@ -12,6 +12,8 @@ type Props = {
     cancel: string;
     deleteTitle: string;
     deleteBody: string;
+    /** What the alert says when the milestone could not be removed. */
+    removeFailed?: string;
   };
 };
 
@@ -59,7 +61,7 @@ export function MilestoneDeleteButton({ milestoneId, milestoneTitle, labels }: P
       </button>
       {failed ? (
         <p role="alert" className="vf-field-error w-full">
-          Could not remove that milestone. Please try again.
+          {labels.removeFailed ?? "Could not remove that milestone. Please try again."}
         </p>
       ) : null}
       <ConfirmDialog

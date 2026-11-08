@@ -13,8 +13,10 @@ import {
   massOptions,
   resolveLiturgicalDay,
 } from "@/lib/content-shared/liturgical-calendar";
+import type { Locale } from "@/lib/i18n/locales";
 
 import { SkeletonLine } from "./SkeletonLine";
+import { massOptionLabel, type TodayWords } from "./today-words";
 
 /**
  * Homepage "Today's Scripture Readings" block.
@@ -27,7 +29,18 @@ import { SkeletonLine } from "./SkeletonLine";
  * server/client render in sync; until then only the day's own facts are
  * placeholders, since the rest of the block is the same every day.
  */
-export function LiturgicalToday({ loadingLabel }: { loadingLabel: string }) {
+export function LiturgicalToday({
+  loadingLabel,
+  words,
+  locale = "en",
+}: {
+  loadingLabel: string;
+  /** The block's labels and Mass names in the page's language (todayWords). */
+  words?: TodayWords;
+  locale?: Locale;
+}) {
+  // A label in the page's language, or the English it stands for without the words.
+  const word = (key: string, english: string) => words?.[key] ?? english;
   const today = useLocalToday();
   const date = today ? civilDate(today) : null;
   const day = date ? resolveLiturgicalDay(date) : null;
@@ -47,13 +60,13 @@ export function LiturgicalToday({ loadingLabel }: { loadingLabel: string }) {
           <FactList
             items={[
               {
-                label: "Season",
+                label: word("facts.season", "Season"),
                 value: day ? (
                   day.isJubileeYear ? (
                     <>
                       {day.seasonLabel}
                       <MetaSeparator />
-                      Jubilee Year
+                      {word("home.today.jubileeYear", "Jubilee Year")}
                     </>
                   ) : (
                     day.seasonLabel
@@ -63,11 +76,11 @@ export function LiturgicalToday({ loadingLabel }: { loadingLabel: string }) {
                 ),
               },
               {
-                label: "Sunday cycle",
+                label: word("home.today.sundayCycle", "Sunday cycle"),
                 value: day ? day.sundayCycle : <SkeletonLine className="w-5" />,
               },
               {
-                label: "Weekday cycle",
+                label: word("home.today.weekdayCycle", "Weekday cycle"),
                 value: day ? (
                   <WeekdayCycle cycle={day.weekdayCycle} />
                 ) : (
@@ -75,7 +88,7 @@ export function LiturgicalToday({ loadingLabel }: { loadingLabel: string }) {
                 ),
               },
               {
-                label: "Liturgical colour",
+                label: word("home.today.colour", "Liturgical colour"),
                 value: day ? liturgicalColorLabel(day) : <SkeletonLine className="w-1/2" />,
               },
             ]}
@@ -92,10 +105,10 @@ export function LiturgicalToday({ loadingLabel }: { loadingLabel: string }) {
           >
             Read today&apos;s Mass readings
           </Link>
-          {day
+          {day && date
             ? others.map((mass) => (
                 <Link key={mass.label} href={massHref(day.date, mass)} className="vf-link-action">
-                  {mass.label} <span aria-hidden="true">→</span>
+                  {massOptionLabel(mass, date, locale, words)} <span aria-hidden="true">→</span>
                 </Link>
               ))
             : null}

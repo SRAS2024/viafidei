@@ -8,6 +8,7 @@ import {
   readingField,
   withPrayerList,
 } from "@/components/ui/GuideSteps";
+import { translateFacts } from "@/lib/content-shared/detail-labels";
 import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { loadPrayersForText } from "@/lib/data/prayer-sets";
@@ -64,13 +65,16 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
         // From the stored English, put into the reader's language by the dictionaries.
         eyebrow={practiceKind(practice.subtitle)}
         showSubtitle={false}
-        factItems={[
-          typeof tradition === "string" ? { label: "Tradition", value: tradition } : null,
-          typeof minutes === "number"
-            ? { label: "Duration", value: formatDurationMinutes(minutes) }
-            : null,
-          typeof frequency === "string" ? { label: "When", value: frequency } : null,
-        ]}
+        factItems={translateFacts(
+          [
+            typeof tradition === "string" ? { label: "Tradition", value: tradition } : null,
+            typeof minutes === "number"
+              ? { label: "Duration", value: formatDurationMinutes(minutes) }
+              : null,
+            typeof frequency === "string" ? { label: "When", value: frequency } : null,
+          ],
+          t,
+        )}
         primaryFields={["instructions", PRAYER_LIST_FIELD, "background"]}
         headings={{ instructions: "How to practice", [PRAYER_LIST_FIELD]: null }}
         fieldRenderers={{

@@ -1,4 +1,5 @@
 import { eyebrowClass } from "./eyebrow";
+import { keepPhrasesWhole } from "./keep-whole";
 
 type PageHeroProps = {
   eyebrow?: string;
@@ -17,7 +18,7 @@ export function PageHero({ eyebrow, title, subtitle }: PageHeroProps) {
     <section className="vf-page-hero">
       {label ? <p className={eyebrowClass(label)}>{label}</p> : null}
       <h1 className="vf-page-hero-title text-ink">{title}</h1>
-      {subtitle ? <p className="vf-page-hero-lede">{subtitle}</p> : null}
+      {subtitle ? <p className="vf-page-hero-lede">{keepPhrasesWhole(subtitle)}</p> : null}
     </section>
   );
 }

@@ -43,6 +43,7 @@ const DEFAULT_LABELS = {
   cancel: "Cancel",
   removeTitle: "Remove saved item",
   removeBody: 'Remove "{name}" from your saved items?',
+  removeFailed: "Could not remove that favorite. Please try again.",
 };
 
 export function FavoritesBrowser({
@@ -134,7 +135,7 @@ export function FavoritesBrowser({
 
       {failed ? (
         <p role="alert" className="vf-notice vf-notice-error vf-column mb-4">
-          Could not remove that favorite. Please try again.
+          {labels.removeFailed}
         </p>
       ) : null}
 

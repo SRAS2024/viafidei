@@ -8,9 +8,17 @@ type Props = {
   entryTitle?: string;
   isFavorite: boolean;
   favoriteLabel: string;
+  /** What the alert says when the change could not be saved, in the page's language. */
+  failedLabel?: string;
 };
 
-export function JournalFavoriteButton({ entryId, entryTitle, isFavorite, favoriteLabel }: Props) {
+export function JournalFavoriteButton({
+  entryId,
+  entryTitle,
+  isFavorite,
+  favoriteLabel,
+  failedLabel = "Could not save. Please try again.",
+}: Props) {
   const [fav, setFav] = useState(isFavorite);
   const [failed, setFailed] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -51,7 +59,7 @@ export function JournalFavoriteButton({ entryId, entryTitle, isFavorite, favorit
       </button>
       {failed ? (
         <p role="alert" className="vf-field-error w-full">
-          Could not save. Please try again.
+          {failedLabel}
         </p>
       ) : null}
     </>

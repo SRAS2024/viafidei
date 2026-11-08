@@ -21,6 +21,18 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
 const findUnique = vi.hoisted(() => vi.fn(async () => null));
 vi.mock("@/lib/db/client", () => ({ prisma: { dailyReading: { findUnique } } }));
 
+// The reader's language, English unless a test says otherwise.
+const language = vi.hoisted(() => ({ locale: "en" }));
+vi.mock("@/lib/i18n/server", async () => {
+  const { createTranslator } = await import("@/lib/i18n/translator");
+  return {
+    getTranslator: async () => ({
+      t: createTranslator(language.locale as "en"),
+      locale: language.locale,
+    }),
+  };
+});
+
 import DailyReadingsPage, { generateMetadata } from "@/app/liturgy/readings/page";
 import { ReadingSections } from "@/app/liturgy/readings/ReadingSections";
 import { TodayDateSync } from "@/app/liturgy/readings/TodayDateSync";

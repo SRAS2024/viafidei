@@ -18,6 +18,8 @@ type Props = {
   current?: boolean;
   /** DOM id, so a link can land on this event. */
   id?: string;
+  /** What a screen reader hears after a link that opens a new tab, in the page's language. */
+  newTabLabel?: string;
 };
 
 /**
@@ -47,6 +49,7 @@ export function ExpandableTimelineEvent({
   initiallyOpen = false,
   current = false,
   id,
+  newTabLabel = "(opens in a new tab)",
 }: Props) {
   return (
     <details id={id} open={initiallyOpen} className="vf-timeline-event">
@@ -110,7 +113,7 @@ export function ExpandableTimelineEvent({
                     >
                       {link.label}
                       <span aria-hidden="true"> ↗</span>
-                      <span className="sr-only"> (opens in a new tab)</span>
+                      <span className="sr-only"> {newTabLabel}</span>
                     </a>
                   ) : (
                     <a href={link.href} className="vf-link">

@@ -3,6 +3,7 @@ import { isSupportedLocale, type Locale } from "./locales";
 import { createTranslator, getDictionary } from "./translator";
 import { LOCALE_COOKIE_NAME } from "./cookie";
 import { negotiateLocale } from "./negotiate";
+import { rememberRequestLocale } from "./request-locale";
 
 export { LOCALE_COOKIE_NAME } from "./cookie";
 
@@ -20,9 +21,12 @@ export { LOCALE_COOKIE_NAME } from "./cookie";
 export async function getLocale(): Promise<Locale> {
   const cookieStore = await cookies();
   const override = cookieStore.get(LOCALE_COOKIE_NAME)?.value;
-  if (override && isSupportedLocale(override)) return override;
-  const headerStore = await headers();
-  return negotiateLocale(headerStore.get("accept-language"));
+  const locale =
+    override && isSupportedLocale(override)
+      ? override
+      : negotiateLocale((await headers()).get("accept-language"));
+  rememberRequestLocale(locale);
+  return locale;
 }
 
 export async function getTranslator() {

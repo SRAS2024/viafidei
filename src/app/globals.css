@@ -1605,11 +1605,12 @@
     color: var(--ink-soft);
   }
 
-  /* Stays under the card's title, whose size is capped on a phone with enlarged text. */
+  /* Stays under the card's title, whose size is capped on a phone with enlarged text
+     at 9vw: this cap is a step below it, so the title still leads. */
   .vf-entry-summary {
     margin-top: 0.625rem;
     font-family: var(--font-serif);
-    font-size: min(1.125rem, 9vw);
+    font-size: min(1.125rem, 8vw);
     font-weight: 500;
     line-height: 1.45;
     color: var(--ink-soft);
@@ -1626,7 +1627,10 @@
      really wraps cannot be known from here. So a description in a row takes the room
      its card has left, and its clamp follows that room a whole line at a time, so it
      is never cut short above blank space. `--clamp` is the least it gets, a line being
-     1.125rem at 1.45. One column has no neighbours, and the plain clamp stands there. */
+     1.125rem at 1.45. One column has no neighbours, and the plain clamp stands there.
+     Each step comes 0.4rem before the room for its last line is all there: that line
+     may sit a few pixels into the 0.875rem above Open, where a whole line was dropped
+     and left blank for want of those pixels. */
   @media (min-width: 42.25rem) {
     @supports (container-type: size) {
       .vf-entry-fit {
@@ -1639,37 +1643,37 @@
         -webkit-line-clamp: 2;
       }
 
-      @container vf-fit (min-height: 4.864rem) {
+      @container vf-fit (min-height: 4.464rem) {
         .vf-entry-fit > .vf-clamp {
           -webkit-line-clamp: 3;
         }
       }
 
-      @container vf-fit (min-height: 6.495rem) {
+      @container vf-fit (min-height: 6.095rem) {
         .vf-entry-fit > .vf-clamp {
           -webkit-line-clamp: 4;
         }
       }
 
-      @container vf-fit (min-height: 8.126rem) {
+      @container vf-fit (min-height: 7.726rem) {
         .vf-entry-fit > .vf-clamp {
           -webkit-line-clamp: 5;
         }
       }
 
-      @container vf-fit (min-height: 9.758rem) {
+      @container vf-fit (min-height: 9.358rem) {
         .vf-entry-fit > .vf-clamp {
           -webkit-line-clamp: 6;
         }
       }
 
-      @container vf-fit (min-height: 11.389rem) {
+      @container vf-fit (min-height: 10.989rem) {
         .vf-entry-fit > .vf-clamp {
           -webkit-line-clamp: 7;
         }
       }
 
-      @container vf-fit (min-height: 13.02rem) {
+      @container vf-fit (min-height: 12.62rem) {
         .vf-entry-fit > .vf-clamp {
           -webkit-line-clamp: 8;
         }
@@ -1979,13 +1983,17 @@
     border-block: 1px solid var(--rule);
   }
 
+  /* A label is capped by the width too, so a long compound ("Wochentagslesejahr")
+     stays whole and on the screen at 250% and 300% text on a phone; nothing changes
+     from 375 wide at 200%. */
   .vf-facts dt {
     padding-top: 0.2rem;
     font-family: var(--font-sans);
-    font-size: 0.875rem;
+    font-size: min(0.875rem, 7.5vw);
     font-weight: 500;
     line-height: 1.5;
     color: var(--ink-faint);
+    overflow-wrap: break-word;
   }
 
   .vf-facts dd {
@@ -2171,15 +2179,20 @@
     transform: rotate(180deg);
   }
 
-  /* Expanded prayer text keeps full prayer size. */
+  /* Expanded prayer text keeps full prayer size. On a phone with enlarged text its
+     cap is a step below the title's 10vw, so the title over it still leads. */
   .vf-disclosure-body {
     padding: 0.875rem min(1.125rem, 5vw) 1.125rem;
     border-top: 1px solid var(--rule);
     font-family: var(--font-serif);
-    font-size: var(--fs-prayer);
+    font-size: min(var(--fs-prayer), 9vw);
     font-weight: 500;
     line-height: var(--lh-prayer);
     color: var(--ink);
+  }
+
+  .vf-disclosure-body .vf-prayer {
+    font-size: min(var(--fs-prayer), 9vw);
   }
 
   .vf-disclosure-list > * + * {
@@ -2347,6 +2360,13 @@
   .vf-step-body {
     grid-column: 2;
     margin-top: 0.125rem;
+  }
+
+  /* Reading text under a step's title is capped a step below the title's 10vw on a
+     phone with enlarged text, where the two otherwise met at the same size. Only the
+     reading text: a mystery's facts keep their own smaller size. */
+  .vf-step-title + .vf-step-body.vf-reading {
+    font-size: min(var(--fs-body), 9vw);
   }
 
   /* Enlarged text on a narrow screen: the number moves above its step, so that
@@ -2807,14 +2827,15 @@
   }
 
   /* Get directions stays whole and inside its card in the largest text on the
-     narrowest phone, where the card is narrower than the word at its full size: the
-     type is capped by the width, and the word runs into the padding before it breaks. */
+     narrowest phone: its padding is capped by the width, and its words take the size
+     and the width cap every button has, so they wrap between words and grow with the
+     reader's text like the Share and Favorite beside them. A tighter cap of its own
+     left them the smallest words on the card at 200%. */
   .vf-entry-action > .vf-btn,
   .vf-detail-actions > .vf-btn {
     max-width: 100%;
     gap: min(0.5rem, 2vw);
     padding-inline: min(0.875rem, 4.4vw);
-    font-size: min(0.875rem, 4.6vw);
   }
 
   /* Share and Favorite stand in wrappers of their own, at the size of any button's
@@ -2885,7 +2906,6 @@
     max-width: 100%;
     gap: min(0.5rem, 2vw);
     padding-inline: min(1.25rem, 4.4vw);
-    font-size: min(0.875rem, 5vw);
   }
 
   .vf-locator-actions .vf-menu {
@@ -3243,10 +3263,12 @@
   }
 
   /* On a desktop three equal parts share rows, so their titles, bodies and last
-     links line up across the section whatever each one holds. */
+     links line up across the section whatever each one holds. The readings part
+     never narrows below what its button needs to keep its label on one line: just
+     above this width it takes a little more of the row, and soon all three are equal. */
   @container vf-home (min-width: 58rem) {
     .vf-home-today {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: minmax(19.75rem, 1fr) repeat(2, minmax(0, 1fr));
       grid-template-rows: auto minmax(14.125rem, 1fr) auto;
       row-gap: 0;
     }
@@ -3377,6 +3399,8 @@
     text-wrap: balance;
   }
 
+  /* Centred, so balanced like the page heroes' ledes: pretty wrapping does not even
+     out two lines, and left a full line over "reset link." on the forgot-password page. */
   .vf-account-lede {
     margin-top: 0.375rem;
     font-family: var(--font-serif);
@@ -3384,7 +3408,7 @@
     font-weight: 500;
     line-height: 1.4;
     color: var(--ink-soft);
-    text-wrap: pretty;
+    text-wrap: balance;
   }
 
   .vf-account-card {
@@ -3450,10 +3474,10 @@
     order: 1;
   }
 
+  /* Its words are .vf-link-action's 14px, like every other control's. */
   .vf-field-toggle {
     order: 2;
     margin-bottom: 0.375rem;
-    font-size: 0.8125rem;
     cursor: pointer;
   }
 
@@ -3493,6 +3517,15 @@
 
   .vf-input[aria-invalid="true"] {
     border-color: var(--error-ink);
+  }
+
+  /* The error edge keeps its colour, so focus on a marked field cannot be shown by
+     turning that edge blue: it takes the site's own focus ring outside it instead,
+     in both themes. Otherwise two marked fields look the same with or without focus. */
+  .vf-input[aria-invalid="true"]:focus {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    box-shadow: none;
   }
 
   .vf-field-error {
@@ -4596,6 +4629,27 @@
     border-color: var(--btn-blue-hover);
   }
 
+  /* On the charcoal the blue fill is under 3:1 against the page, too faint to be the
+     one mark of what is chosen, so a chosen filter, page or pressed button also takes
+     the light edge the selected menu rows have, at rest and under the pointer alike.
+     The white label keeps its contrast on the fill. */
+  html[data-theme="dark"]
+    :is(
+      .vf-filter-active,
+      .vf-btn-ghost[aria-pressed="true"],
+      .vf-btn-ghost[aria-current="true"],
+      .vf-btn-ghost[aria-current="page"]
+    ),
+  html[data-theme="dark"]
+    :is(
+      .vf-filter-active,
+      .vf-btn-ghost[aria-pressed="true"],
+      .vf-btn-ghost[aria-current="true"],
+      .vf-btn-ghost[aria-current="page"]
+    ):hover:not(:disabled) {
+    border-color: var(--link);
+  }
+
   html[data-theme="dark"] .vf-nav-link-active,
   html[data-theme="dark"] .vf-nav-link[aria-current="page"] {
     background: transparent;
@@ -5087,6 +5141,9 @@
     font-weight: 500;
     line-height: 1.2;
     color: var(--ink-soft);
+    /* A last resort beyond the sizes below: a long era word breaks rather than
+       pushing the page sideways. */
+    overflow-wrap: break-word;
   }
 
   /* Every era's name sits unseen in the one cell with the name showing, which gives
@@ -5150,8 +5207,10 @@
 
   /* Two lines at most for the longest era, so a short name leaves no hole in the box. */
   @container history-panel (max-width: 21rem) {
+    /* At 300% text on a 320 phone, "Enlightenment" at 1rem is wider than the box.
+       12.5vw keeps it whole there and is no smaller than 1rem at 250% or less. */
     .vf-history-readout {
-      font-size: 1rem;
+      font-size: min(1rem, 12.5vw);
     }
 
     .vf-history-readout-year {
@@ -5312,7 +5371,8 @@
     top: 0.6875rem;
     left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p));
     font-family: var(--font-sans);
-    font-size: 0.875rem;
+    /* At 300% text on a 320 phone, 0.875rem ran "1000" into "2026". */
+    font-size: min(0.875rem, 9vw);
     line-height: 1.2;
     font-variant-numeric: tabular-nums;
     color: var(--ink-faint);
@@ -5606,10 +5666,12 @@
     border-color: var(--link);
   }
 
+  /* The slider's fill: the buttons' blue in the light theme, and in the dark one the
+     light blue that stands out from the panel, as the thumb does. */
   .vf-timeline-event[open] > .vf-timeline-summary::before,
   .vf-timeline-current::before {
-    background: var(--accent-fill);
-    border-color: var(--accent-fill);
+    background: var(--slider-fill, var(--accent-fill));
+    border-color: var(--slider-fill, var(--accent-fill));
   }
 
   /* The chevron says the row opens. */
@@ -5673,11 +5735,13 @@
     background: var(--surface-hover);
   }
 
-  /* The details line up with the title, at reading size and width. */
+  /* The details line up with the title, at reading size and width. Their cap on a
+     phone with enlarged text is a step under the title's 9.7vw, so the title is
+     never the smaller of the two. */
   .vf-timeline-body {
     padding: 0.125rem 0.75rem 1.125rem calc(var(--tl-title-x) + 0.625rem);
     font-family: var(--font-serif);
-    font-size: min(1.1875rem, 10vw);
+    font-size: min(1.1875rem, 9vw);
     font-weight: 500;
     line-height: 1.5;
     color: var(--ink-soft);
@@ -5953,8 +6017,11 @@
     }
   }
 
-  /* Enlarged text on a phone: two short rows rather than three, with one arrow alone. */
-  @container history-list (max-width: 12rem) {
+  /* The narrowest phones, 320 to 350 wide: seven full-size chips need about 312px,
+     and the Next arrow wrapped onto a row of its own. Smaller chips keep the pager
+     on one row. Enlarged text on a phone, under 12rem, takes the same: two short
+     rows rather than three, with one arrow alone. */
+  @container history-list (max-width: 20rem) {
     .vf-history-pager .vf-chip {
       min-width: 1.875rem;
     }

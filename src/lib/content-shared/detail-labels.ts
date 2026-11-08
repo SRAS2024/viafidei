@@ -35,6 +35,10 @@ const DETAIL_LABEL_KEYS: Readonly<Record<string, string>> = {
   "Father of John the Baptist": "label.saint.fatherOfJohnTheBaptist",
   Patriarch: "label.saint.patriarch",
   "Prophet and lawgiver": "label.saint.prophetAndLawgiver",
+  // A Doctor's title. Spanish, Portuguese and German have a word for a man and another
+  // for a woman, and four Doctors are women, so it is empty there unless the label also
+  // says the Doctor was ordained (DOCTOR_ORDAINED_KEY).
+  "Doctor of the Church": "label.saint.doctor",
   // A Doctor's state of life, before "Doctor of the Church".
   Bishop: "label.role.bishop",
   Priest: "label.role.priest",
@@ -114,18 +118,119 @@ export function detailLabelKey(label: string): string | undefined {
 /** A pope's dates as a saint's title (saintTitleLabel). */
 const POPE_FROM_TO = /^Pope from (\S+) to (\S+)$/;
 
+/** The states of life that only a man holds, which a Doctor's label may open with. */
+const ORDAINED_ROLES = new Set(["Bishop", "Priest", "Deacon"]);
+
+/** "Doctor of the Church" said of a man, in the languages whose word depends on it. */
+export const DOCTOR_ORDAINED_KEY = "label.saint.doctorOrdained";
+
+/** "Doctor of the Church" said of a woman: Doctora, Doutora, Kirchenlehrerin. */
+export const DOCTOR_WOMAN_KEY = "label.saint.doctorWoman";
+
+/**
+ * The four women among the Doctors of the Church, under their Doctor and saint records:
+ * Teresa of Ávila, Catherine of Siena, Thérèse of Lisieux and Hildegard of Bingen. Every
+ * other Doctor is a man, so the label is said of each in the word for them. A woman
+ * named a Doctor in future joins this list.
+ */
+export const WOMEN_DOCTORS: ReadonlySet<string> = new Set([
+  "doctor-teresa-of-avila",
+  "doctor-catherine-of-siena",
+  "doctor-therese-of-lisieux",
+  "doctor-hildegard-of-bingen",
+  "saint-teresa-of-avila",
+  "saint-catherine-of-siena",
+  "saint-therese-of-lisieux",
+  "saint-hildegard-of-bingen",
+]);
+
+/**
+ * The labels of the facts under a detail page's title ("Feast day", "Declared
+ * Doctor"), by the English word the facts are built with. Each word here has a key
+ * in every dictionary; a word missing from the list stays English.
+ */
+const FACT_LABEL_KEYS: Readonly<Record<string, string>> = {
+  Title: "facts.title",
+  "Feast day": "saints.feastDay",
+  Born: "saints.facts.born",
+  Died: "saints.facts.died",
+  Patron: "saints.facts.patron",
+  "Declared Doctor": "facts.declaredDoctor",
+  Pontificate: "facts.pontificate",
+  "Birth name": "facts.birthName",
+  Status: "facts.status",
+  Place: "facts.place",
+  Year: "facts.year",
+  Visionaries: "facts.visionaries",
+  "Under the title": "facts.underTheTitle",
+  Apparition: "facts.apparition",
+  Apparitions: "facts.apparitions",
+  Defined: "facts.defined",
+  Region: "facts.region",
+  Begins: "facts.begins",
+  Ends: "facts.ends",
+  When: "facts.when",
+  Tradition: "facts.tradition",
+  Duration: "facts.duration",
+  Type: "facts.type",
+  Faithful: "facts.faithful",
+  Date: "facts.date",
+  "Issued by": "facts.issuedBy",
+  Rank: "facts.rank",
+  Season: "facts.season",
+  "Related saint": "facts.relatedSaint",
+  "Related saints": "facts.relatedSaints",
+};
+
+/** Every fact label above, for the tests that hold each dictionary to them. */
+export const FACT_LABELS = Object.keys(FACT_LABEL_KEYS);
+
+/** A fact's label in the reader's language: "Feast day", "Fiesta", "축일". */
+export function factLabel(label: string, t: Translator): string {
+  const key = FACT_LABEL_KEYS[label];
+  return key ? t(key) : label;
+}
+
+/**
+ * A page's facts with their labels in the reader's language. The facts are built in
+ * English, from the stored record, and the labels are said here, where a reader sees
+ * them; a page's `factsInSubtitle` goes through factLabel the same way, so the two
+ * still match.
+ */
+export function translateFacts<T extends { label: string }>(
+  items: ReadonlyArray<T | null | undefined>,
+  t: Translator,
+): Array<T | null | undefined> {
+  return items.map((item) => (item ? { ...item, label: factLabel(item.label, t) } : item));
+}
+
 /**
  * A detail page's label in the reader's language, or null when that language has no
  * word for it that is true of everyone it may stand over. Parts joined by " · " ("Priest
  * · Doctor of the Church") are put over one by one, and a part with no word is left out.
  */
-export function translateDetailLabel(label: string, t: Translator): string | null {
+export function translateDetailLabel(
+  label: string,
+  t: Translator,
+  { slug }: { slug?: string } = {},
+): string | null {
   if (label.includes(" · ")) {
-    const parts = label
-      .split(" · ")
-      .map((part) => translateDetailLabel(part, t))
+    const words = label.split(" · ");
+    // Only a man is ordained, so beside "Bishop" a Doctor is a man in every language.
+    const ordained = words.some((part) => ORDAINED_ROLES.has(part));
+    const parts = words
+      .map((part) =>
+        ordained && part === "Doctor of the Church"
+          ? t(DOCTOR_ORDAINED_KEY) || null
+          : translateDetailLabel(part, t, { slug }),
+      )
       .filter((part): part is string => !!part);
     return parts.length > 0 ? parts.join(" · ") : null;
+  }
+  // Known by the page it stands over, a Doctor is said in the word for a woman or a man.
+  // A label read without its page stays with the word true of either, or none.
+  if (label === "Doctor of the Church" && slug) {
+    return t(WOMEN_DOCTORS.has(slug) ? DOCTOR_WOMAN_KEY : DOCTOR_ORDAINED_KEY) || null;
   }
   const pope = POPE_FROM_TO.exec(label);
   if (pope) return t("label.saint.popeFromTo", { start: pope[1]!, end: pope[2]! });

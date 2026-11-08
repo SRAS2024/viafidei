@@ -21,7 +21,7 @@ export function HeaderBrand({ brandName, locale, centered = false }: Props) {
       href="/"
       aria-label={brandName}
       lang={locale}
-      className={`group inline-flex items-center ${centered ? "gap-3.5" : "gap-2.5"}`}
+      className={`group inline-flex items-center ${centered ? "gap-3.5" : "gap-[min(0.625rem,3.125vw)]"}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -33,7 +33,9 @@ export function HeaderBrand({ brandName, locale, centered = false }: Props) {
         className="shrink-0"
       />
       {/* In the phone's bar the name keeps to one line and leaves room for the two
-          buttons beside it, however large the reader's text. */}
+          buttons beside it, however large the reader's text. That holds from 320
+          wide only because every gap in the bar is capped by the width as the name
+          is: a gap in plain rem doubles with the text and took the room it needs. */}
       <span
         className={`vf-wordmark leading-none text-ink ${
           centered

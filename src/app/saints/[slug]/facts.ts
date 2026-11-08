@@ -43,9 +43,11 @@ export function saintFactItems(payload: Record<string, unknown>, t: Translator):
   const items: Array<FactItem | null> = [
     patronage
       ? {
+          // A label of its own, not the card's "Patron of {patronages}" cut short: a
+          // language may need the patronages inside that sentence, not after it.
           label: patronageIsAgainst(patronage)
             ? label(t, "saints.facts.patron", "Patron")
-            : t("saints.card.patronOf", { patronages: "" }).trim(),
+            : label(t, "saints.facts.patronOf", "Patron of"),
           value: patronage,
         }
       : null,

@@ -134,10 +134,12 @@ describe("supporting text on a control", () => {
   it("is at least 14px, the same on a small button as on any other", () => {
     expect(rule(".vf-btn")).toMatch(/font-size: min\(0\.875rem, 9vw\)/);
     expect(rule(".vf-btn-sm")).not.toMatch(/font-size/);
-    expect(rule(".vf-entry-action > .vf-btn,\n  .vf-detail-actions > .vf-btn")).toMatch(
-      /font-size: min\(0\.875rem, 4\.6vw\)/,
+    // Caps of their own at 4.6vw and 5vw left Get directions and Use my location at
+    // 17px beside Share, Search and Filter at 28px with 200% text on a phone.
+    expect(rule(".vf-entry-action > .vf-btn,\n  .vf-detail-actions > .vf-btn")).not.toMatch(
+      /font-size/,
     );
-    expect(rule(".vf-locator-actions > .vf-btn")).toMatch(/font-size: min\(0\.875rem, 5vw\)/);
+    expect(rule(".vf-locator-actions > .vf-btn")).not.toMatch(/font-size/);
     expect(rule(".vf-chip-count")).toMatch(/font-size: 0\.875rem/);
   });
 });

@@ -298,7 +298,7 @@ export function PublishedDetail({
   // before the page begins, so it is left out, as it is on the cards.
   const eyebrowLabel =
     storedLabel && !lineRepeatsTitle(item.title, storedLabel)
-      ? translateDetailLabel(storedLabel, t)
+      ? translateDetailLabel(storedLabel, t, { slug: item.slug })
       : null;
 
   const primary = primaryFields ?? [];

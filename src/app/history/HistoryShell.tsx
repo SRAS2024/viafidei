@@ -62,6 +62,18 @@ function closeMenus(except?: Element | null) {
 }
 
 /**
+ * Closes a menu whose link was followed. Closing hides the link that has the focus, so
+ * the focus returns to the menu's own button rather than falling to the top of the
+ * page; unless the reader has already gone elsewhere, or the landing takes it on.
+ */
+function settleMenu(menu: HTMLDetailsElement, { keepFocus = false } = {}) {
+  const active = document.activeElement;
+  const focusWasHere = !active || active === document.body || menu.contains(active);
+  menu.open = false;
+  if (focusWasHere && !keepFocus) menu.querySelector("summary")?.focus();
+}
+
+/**
  * Scrolls an element to the top of the page, unless it is already in easy view,
  * so that a year landing just below the slider leaves the slider where it is. The
  * allowance is for the era heading that may be stuck below the site's header. A
@@ -170,6 +182,10 @@ export function HistoryShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const landing = useRef<Landing>(null);
+  // A menu whose choice is on its way. It stays open, with the focus on the chosen link,
+  // until the new view is on screen: its button names the theme or era showing, and given
+  // the focus any sooner it would say the one the reader is leaving.
+  const settling = useRef<HTMLDetailsElement | null>(null);
   const shell = useRef<HTMLDivElement>(null);
 
   // New children mean a new view, with new rows in it.
@@ -191,10 +207,13 @@ export function HistoryShell({ children }: { children: ReactNode }) {
   // A transition ends in the commit that shows the new view, so this runs with
   // the new rows in the document.
   useEffect(() => {
-    if (pending || !landing.current) return;
+    if (pending) return;
     const where = landing.current;
     landing.current = null;
-    carryOut(where);
+    const menu = settling.current;
+    settling.current = null;
+    if (menu) settleMenu(menu, { keepFocus: where !== null });
+    if (where) carryOut(where);
   }, [pending]);
 
   // Old links name an event in the hash, which the server never sees. If its
@@ -248,12 +267,7 @@ export function HistoryShell({ children }: { children: ReactNode }) {
     // Stops next/link inside too, so every link here takes this one path.
     event.preventDefault();
     event.stopPropagation();
-    // Closing hides the link that has the focus, so the focus returns to the
-    // menu's own summary rather than falling to the top of the page.
-    if (inMenu instanceof HTMLDetailsElement) {
-      inMenu.open = false;
-      inMenu.querySelector("summary")?.focus();
-    }
+    const menu = inMenu instanceof HTMLDetailsElement ? inMenu : null;
     const href = `${url.pathname}${url.search}${url.hash}`;
     if (url.pathname === HISTORY_PATH) {
       // A link to a row on this very view has nothing to fetch.
@@ -261,6 +275,7 @@ export function HistoryShell({ children }: { children: ReactNode }) {
         url.search === window.location.search &&
         url.hash.startsWith(`#${HISTORY_EVENT_ID_PREFIX}`)
       ) {
+        if (menu) settleMenu(menu, { keepFocus: true });
         carryOut("event");
         return;
       }
@@ -270,8 +285,11 @@ export function HistoryShell({ children }: { children: ReactNode }) {
           : anchor.dataset.landing === "status"
             ? "status"
             : null;
+      // A menu closes once its choice is on screen (see `settling`).
+      settling.current = menu;
       navigate(href, { landing });
     } else {
+      if (menu) settleMenu(menu);
       startTransition(() => router.push(href));
     }
   };
