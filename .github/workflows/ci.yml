@@ -190,7 +190,10 @@ jobs:
 
   e2e:
     name: End-to-end tests (Playwright)
-    runs-on: ubuntu-latest
+    # Pinned: `playwright install --with-deps` installs system packages by the names of
+    # the Ubuntu releases it knows, and ubuntu-latest began moving to Ubuntu 26 on
+    # 2026-10-19, where that step failed before a test could run.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     services:
