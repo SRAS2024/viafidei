@@ -5,15 +5,27 @@ import { expect, test, type Page } from "@playwright/test";
 // presses, and a date typed by hand is only believed once it is whole. The timezones
 // are chosen so the device's date differs from the server's UTC one whatever the hour.
 
-function visitorWhoseDateDiffers(): { timezoneId: string; date: string } {
-  const timezoneId = new Date().getUTCHours() < 10 ? "Pacific/Honolulu" : "Pacific/Kiritimati";
-  const date = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezoneId,
+/** Today's date in a time zone, or in the zone of the machine the tests and server share. */
+const dateIn = (timeZone?: string) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
-  return { timezoneId, date };
+
+/**
+ * A visitor whose date today is not the server's. The readings page reads the date in
+ * UTC; /saints/today reads the server's own clock, which is UTC in production and this
+ * machine's zone here. The ends of the world's clocks are 25 hours apart, so one of them
+ * is always on another date.
+ */
+function visitorWhoseDateDiffers(serverZone = "UTC"): { timezoneId: string; date: string } {
+  const server = dateIn(serverZone);
+  const timezoneId = ["Pacific/Kiritimati", "Pacific/Pago_Pago"].find(
+    (zone) => dateIn(zone) !== server,
+  )!;
+  return { timezoneId, date: dateIn(timezoneId) };
 }
 
 test.describe("the readings page finds the visitor's own date", () => {
@@ -226,7 +238,9 @@ test.describe("a readings tab opened on another date than the server's", () => {
 });
 
 test.describe("today's saints find the visitor's own date", () => {
-  const { timezoneId, date } = visitorWhoseDateDiffers();
+  const { timezoneId, date } = visitorWhoseDateDiffers(
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  );
   test.use({ timezoneId });
   test.setTimeout(60_000);
   const arrival = { timeout: 15_000 };
@@ -436,7 +450,8 @@ test.describe("a line of facts", () => {
       selection.addRange(range);
       return selection.toString();
     });
-    expect(copied).toBe("Ordinary Time · Sunday Cycle A · Weekday Cycle II");
+    // A no-break space holds each dot to the fact before it, so no line starts with one.
+    expect(copied).toBe("Ordinary Time\u00a0· Sunday Cycle A\u00a0· Weekday Cycle II");
   });
 });
 
