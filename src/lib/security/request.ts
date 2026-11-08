@@ -219,6 +219,18 @@ export function getPublicOrigin(req: NextRequest): string {
   // Production saw a host it does not serve: answer with the canonical
   // origin rather than the attacker-supplied one.
   if (inProduction && sawUntrustedHost) return PRIMARY_CANONICAL_ORIGIN;
+  // A browser on this machine names the loopback address it opened (next start, or the
+  // standalone server under Playwright). Answer with that one rather than req.url: a
+  // server bound to 127.0.0.1 still reports itself as localhost there, and the CSP's
+  // form-action 'self' stops a form's redirect to the other name, so the post went nowhere.
+  if (hostHeader) {
+    try {
+      const fromHost = new URL(`${new URL(req.url).protocol}//${hostHeader}`);
+      if (isLoopbackHostname(fromHost.hostname)) return fromHost.origin;
+    } catch {
+      // An unparseable Host header: req.url below still answers.
+    }
+  }
   // Last-resort fallback: req.url itself. May be a local-bind URL but at
   // least won't crash the redirect; the validation above is what
   // prevents that case from being reached when a proxy is present.

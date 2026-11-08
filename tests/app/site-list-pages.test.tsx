@@ -182,10 +182,10 @@ describe("/saints", () => {
     expect(linesOf("St. Peter")).toEqual([
       "St. Peter",
       "Patron of the papacy, fishermen, Rome",
-      "Feast day: June 29",
+      "Feast day: June\u00a029",
     ]);
     // No patronage recorded → the feast line follows the name directly.
-    expect(linesOf("St. Agnes")).toEqual(["St. Agnes", "Feast day: January 21"]);
+    expect(linesOf("St. Agnes")).toEqual(["St. Agnes", "Feast day: January\u00a021"]);
   });
 
   it("still renders every card when the detail projection fails", async () => {

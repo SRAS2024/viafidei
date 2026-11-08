@@ -29,6 +29,9 @@ import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 export const runtime = "nodejs";
 
 const LOGIN_INVALID = "/login?error=invalid";
+// A refused attempt is told apart from a wrong password: someone who mistyped a few times
+// must not be told that their right password, or the one a reset just set, is wrong.
+const LOGIN_RATE_LIMITED = "/login?error=rate_limited";
 const DEFAULT_NEXT = "/profile";
 
 async function readLoginForm(req: NextRequest): Promise<FormData | null> {
@@ -48,12 +51,9 @@ export async function POST(req: NextRequest) {
   let typedEmail: FormDataEntryValue | null = null;
   // Every failure goes back to the form with the page the reader was on their way to
   // and the address they typed, so that one wrong password costs one password.
-  const failed = async () => {
+  const failed = async (to: string = LOGIN_INVALID) => {
     await keepFormFields("/login", { email: typedEmail });
-    return redirectTo(
-      req,
-      next ? `${LOGIN_INVALID}&next=${encodeURIComponent(next)}` : LOGIN_INVALID,
-    );
+    return redirectTo(req, next ? `${to}&next=${encodeURIComponent(next)}` : to);
   };
   try {
     const form = await readLoginForm(req);
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       { ipAddress: ip },
     );
     if (!limit.ok) {
-      return await failed();
+      return await failed(LOGIN_RATE_LIMITED);
     }
 
     const user = await authenticate(parsed.data.email, parsed.data.password);

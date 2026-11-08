@@ -632,7 +632,7 @@ describe("the other content types keep their content and drop the filler", () =>
     expect(paragraphs.join(" ")).toBe(summary);
   });
 
-  it("liturgical entry: rank, date and season as facts, and the day's saint as a real link", async () => {
+  it("liturgical entry: rank, date and season as facts, and its related saint as a real link", async () => {
     put("SAINT", "saint-james-the-greater", "Saint James the Greater", {});
     put(
       "LITURGICAL",
@@ -654,7 +654,7 @@ describe("the other content types keep their content and drop the filler", () =>
       "Rank: Feast",
       "Date: July 25",
       "Season: Ordinary Time",
-      "Saint of this day: Saint James the Greater",
+      "Related saint: Saint James the Greater",
     ]);
     const saint = screen.getByRole("link", { name: "Saint James the Greater" });
     expect(saint).toHaveClass("vf-link");

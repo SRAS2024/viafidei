@@ -31,6 +31,19 @@ describe("listPageTitle", () => {
     );
   });
 
+  it("never says something impossible, such as page 2 of 1", () => {
+    expect(title({ query: "zzzqqq", total: 0, pages: [{ page: 2, pageCount: 1 }] })).toBe(
+      "0 results for “zzzqqq” · Saints",
+    );
+    expect(title({ pages: [{ page: 9999, pageCount: 53 }] })).toBe("Saints");
+  });
+
+  it("does not name a filter called what the list is called", () => {
+    expect(listPageTitle({ name: "Parishes", filter: "Parishes", t, locale: "en" })).toBe(
+      "Parishes",
+    );
+  });
+
   it("leads with a search's outcome, as /search does", () => {
     expect(title({ query: "joseph", total: 34 })).toBe("34 results for “joseph” · Saints");
     expect(title({ query: "joseph", total: 1 })).toBe("1 result for “joseph” · Saints");

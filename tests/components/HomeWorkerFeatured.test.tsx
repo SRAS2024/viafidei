@@ -127,7 +127,7 @@ describe("HomeWorkerFeatured", () => {
     const saint = screen.getByRole("link", { name: "Saint Hyginus" }).closest("article")!;
     expect([...saint.querySelectorAll(".vf-entry-meta")].map((line) => line.textContent)).toEqual([
       "Patron of the Church of Rome",
-      "Feast day: January 11",
+      "Feast day: January\u00a011",
     ]);
 
     // A card with no metadata is still a whole card.

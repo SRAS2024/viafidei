@@ -21,7 +21,7 @@ export default async function LoginPage({
   const sp = await searchParams;
   // A value that could leave the site never reaches the form or its links.
   const next = safeNextPath(sp.next) ?? undefined;
-  const failed = sp.error === "invalid";
+  const failed = sp.error === "invalid" || sp.error === "rate_limited";
   const kept = failed ? await readKeptFields() : {};
   return (
     <AccountPage
@@ -64,7 +64,13 @@ export default async function LoginPage({
         }}
         next={next}
         email={kept.email}
-        error={failed ? t("auth.invalid") : undefined}
+        error={
+          sp.error === "rate_limited"
+            ? t("auth.error.rateLimited")
+            : failed
+              ? t("auth.invalid")
+              : undefined
+        }
       />
     </AccountPage>
   );

@@ -168,6 +168,23 @@ describe("buildTimeline", () => {
     expect(timeline.documentCount).toBe(1);
   });
 
+  it("cuts a long excerpt between words, never in the middle of one", () => {
+    const words = "the nature and divisions of philosophy and its harmony with faith; ".repeat(12);
+    const timeline = toHistoryTimeline([
+      doc("an-unlisted-letter", "An Unlisted Letter", {
+        documentType: "encyclical",
+        issuedDate: "1923-06-29",
+        summary: words,
+      }),
+    ]);
+    const excerpt = timeline.events.find((e) => e.slug === "an-unlisted-letter")?.excerpt ?? "";
+    expect(excerpt.endsWith("…")).toBe(true);
+    const lastWord = excerpt.slice(0, -1).split(" ").at(-1)!;
+    // The excerpt ends on a whole word of the text, with no comma or stop before the "…".
+    expect(words.split(/[\s;]+/)).toContain(lastWord);
+    expect(excerpt).not.toMatch(/[\s,;:.]…$/);
+  });
+
   it("skips undatable documents and keeps the merged list chronological", () => {
     const timeline = toHistoryTimeline([
       doc("b", "B", { documentType: "encyclical", issuedDate: "not-a-date" }),

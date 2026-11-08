@@ -110,6 +110,11 @@ describe("listSitemapUrls", () => {
   it("answers an unknown or guessed segment with an empty list, not an error", async () => {
     expect(await listSitemapUrls("not-a-type-123", 0)).toEqual([]);
     expect(await listSitemapUrls("pages", 4)).toEqual([]);
+    // Letters only, but no type the database has: it must never reach the query.
+    expect(await listSitemapUrls("nope", 0)).toEqual([]);
+    expect(await listSitemapUrls("prayers", 0)).toEqual([]);
+    // A real type with an index no list could reach asks for nothing either.
+    expect(await listSitemapUrls("prayer", 99999999999999999999)).toEqual([]);
     expect(findMany).not.toHaveBeenCalled();
   });
 

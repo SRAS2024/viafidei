@@ -101,4 +101,16 @@ describe("watchNavigation", () => {
     vi.advanceTimersByTime(NAVIGATION_PATIENCE_MS);
     expect(fake.assign).not.toHaveBeenCalled();
   });
+
+  it("stands down when the reader goes Back to an entry the router never reports", () => {
+    // The navigation lands, then Back returns the address to where it started, onto an
+    // entry Next ignores. The old timer must not take the reader forward again.
+    watchNavigation("/prayers", "push");
+    fake.href = "https://etviafidei.com/prayers";
+    vi.advanceTimersByTime(1000);
+    fake.href = START;
+    window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+    vi.advanceTimersByTime(NAVIGATION_PATIENCE_MS);
+    expect(fake.assign).not.toHaveBeenCalled();
+  });
 });

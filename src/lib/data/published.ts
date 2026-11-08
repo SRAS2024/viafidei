@@ -954,10 +954,12 @@ export async function listSaintsForFeast(month: number, day: number): Promise<Pu
         },
       });
     }
-    // The same person on one feast is one card, as on the saint list.
+    // The same person is one card, as on the saint list: a duplicate whose better record
+    // is live is hidden here too, even when the two records keep different feasts.
     const live = new Set(rows.map((row) => row.slug));
+    const hidden = new Set(await hiddenDuplicateSaints());
     return rows
-      .filter((row) => !live.has(SAINT_DUPLICATE_OF[row.slug] ?? ""))
+      .filter((row) => !live.has(SAINT_DUPLICATE_OF[row.slug] ?? "") && !hidden.has(row.slug))
       .map((row) => deserialize(row)!)
       .filter(Boolean)
       .sort(compareSaintsChronologically);
@@ -1515,11 +1517,28 @@ function searchRank(
   const wordBoundary = wholeWords
     ? Prisma.sql`+ CASE WHEN "title" ~* ${wholeWords} THEN 2 ELSE 0 END`
     : Prisma.empty;
+  // "Saint Nicodemus" answers "nicodemus" as exactly as a bare "Nicodemus" would: the
+  // word before a saint's name is how the site names them, not what a reader types.
+  const bareTitle = Prisma.sql`regexp_replace("title", '^(saints?|st\\.?)\\s+', '', 'i')`;
+  // A saint the list names keeps the list's order among the matches, as the saint list's
+  // own search does: "mary" is Our Lady before Mary Magdalene, "john" the Apostle before
+  // John Bosco, "abraham" the Patriarch, and all of them before a namesake the list does
+  // not name. Ten points a place outweighs everything else here put together. Only the
+  // name counts, not what follows a comma: "Saint Elizabeth, Mother of John the Baptist"
+  // is not a John.
+  const named = wholeWords
+    ? Prisma.sql`+ CASE WHEN "contentType" = 'SAINT'::"ChecklistContentType"
+                         AND split_part("title", ',', 1) ~* ${wholeWords}
+        THEN COALESCE(10000 - 10 * array_position(${SAINT_RANK_SLUGS}::text[], "slug"), 0)
+        ELSE 0 END`
+    : Prisma.empty;
   return Prisma.sql`(
     ts_rank_cd("searchVector", ${tsquery})
-    + CASE WHEN lower("title") = lower(${query.trim()}) THEN 3 ELSE 0 END
-    + CASE WHEN "title" ILIKE ${prefix} THEN 1 ELSE 0 END
+    + CASE WHEN lower("title") = lower(${query.trim()})
+             OR lower(${bareTitle}) = lower(${query.trim()}) THEN 3 ELSE 0 END
+    + CASE WHEN "title" ILIKE ${prefix} OR ${bareTitle} ILIKE ${prefix} THEN 1 ELSE 0 END
     ${wordBoundary}
+    ${named}
     ${similarity}
     ${saints ? Prisma.sql`+ CASE WHEN ${isSaintAmong(saints.exactlyNamed)} THEN 3 ELSE 0 END` : Prisma.empty}
   )`;

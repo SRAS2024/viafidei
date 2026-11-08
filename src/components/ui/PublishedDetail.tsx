@@ -27,6 +27,7 @@ import {
   type PresentedValue,
 } from "@/lib/content-shared/field-presenters";
 
+import { lineRepeatsTitle } from "./ContentCard";
 import { Disclosure } from "./Disclosure";
 import { FactList, type FactItem } from "./FactList";
 import { PrayerLinkedText } from "./PrayerLinkedText";
@@ -293,7 +294,12 @@ export function PublishedDetail({
           typeof payload.prayerType === "string" ? payload.prayerType : null,
         )
       : eyebrow;
-  const eyebrowLabel = storedLabel ? translateDetailLabel(storedLabel, t) : storedLabel;
+  // A word the title already says ("Vocal prayer" over "Vocal Prayer") is read twice
+  // before the page begins, so it is left out, as it is on the cards.
+  const eyebrowLabel =
+    storedLabel && !lineRepeatsTitle(item.title, storedLabel)
+      ? translateDetailLabel(storedLabel, t)
+      : null;
 
   const primary = primaryFields ?? [];
   const secondary = secondaryFields ?? [];

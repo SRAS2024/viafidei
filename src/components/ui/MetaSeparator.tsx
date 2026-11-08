@@ -6,7 +6,10 @@
 export function MetaSeparator() {
   return (
     <>
-      <span className="vf-sr-inline">,</span> <span aria-hidden="true">· </span>
+      <span className="vf-sr-inline">,</span>
+      {/* No break before the dot, so a line never starts with it. */}
+      {"\u00a0"}
+      <span aria-hidden="true">· </span>
     </>
   );
 }

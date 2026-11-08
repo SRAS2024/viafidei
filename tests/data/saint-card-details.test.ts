@@ -97,12 +97,12 @@ describe("saintCardDetailLines", () => {
         { patronages: ["the papacy", "fishermen", "Rome"], feast: "June 29" },
         t,
       ),
-    ).toEqual(["Patron of the papacy, fishermen, Rome", "Feast day: June 29"]);
+    ).toEqual(["Patron of the papacy, fishermen, Rome", "Feast day: June\u00a029"]);
   });
 
   it("leaves out whichever fact is not recorded", () => {
     expect(saintCardDetailLines({ patronages: [], feast: "January 21" }, t)).toEqual([
-      "Feast day: January 21",
+      "Feast day: January\u00a021",
     ]);
     expect(saintCardDetailLines({ patronages: ["Ireland"], feast: null }, t)).toEqual([
       "Patron of Ireland",

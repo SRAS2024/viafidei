@@ -1104,19 +1104,19 @@ describe("the page, as a screen reader gets it", () => {
   it("speaks the weekday cycle as a number, and hides the separators from it", async () => {
     const { container } = await page({ date: "2026-11-07" });
     const meta = container.querySelectorAll(".vf-reading-meta");
-    expect(spoken(meta[0])).toBe("Ordinary Time, Sunday Cycle A, Weekday Cycle 2");
-    expect(spoken(meta[1])).toBe("Liturgical colour: Green, Lectionary: 490");
+    expect(spoken(meta[0])).toBe("Ordinary Time,\u00a0Sunday Cycle A,\u00a0Weekday Cycle 2");
+    expect(spoken(meta[1])).toBe("Liturgical colour: Green,\u00a0Lectionary: 490");
     // The eye still gets the dots and the numeral, and nothing else that was spoken.
     const seen = [...meta[0].querySelectorAll('[aria-hidden="true"]')].map((e) => e.textContent);
     expect(seen).toEqual(["· ", "· ", "II"]);
     meta[0].querySelectorAll(".vf-sr-inline").forEach((voice) => voice.remove());
-    expect(meta[0].textContent).toBe("Ordinary Time · Sunday Cycle A · Weekday Cycle II");
+    expect(meta[0].textContent).toBe("Ordinary Time\u00a0· Sunday Cycle A\u00a0· Weekday Cycle II");
   });
 
   it("keeps the Jubilee Year in the same line", async () => {
     const { container } = await page({ date: "2025-06-15" });
     expect(spoken(container.querySelector(".vf-reading-meta")!)).toBe(
-      "Ordinary Time, Sunday Cycle C, Weekday Cycle 1, Jubilee Year",
+      "Ordinary Time,\u00a0Sunday Cycle C,\u00a0Weekday Cycle 1,\u00a0Jubilee Year",
     );
   });
 

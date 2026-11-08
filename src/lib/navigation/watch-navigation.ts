@@ -21,8 +21,13 @@ function stopWatching() {
 }
 
 // A page kept in the back/forward cache keeps its timers too. Coming back to it must not
-// finish a navigation the reader has already left behind.
-if (typeof window !== "undefined") window.addEventListener("pagehide", stopWatching);
+// finish a navigation the reader has already left behind. Nor may Back or Forward: once
+// the reader moves through history, the address they land on is the one they chose, even
+// an entry the router does not answer for and so never reports as a traverse.
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", stopWatching);
+  window.addEventListener("popstate", stopWatching);
+}
 
 export function watchNavigation(url: string, type: "push" | "replace" | "traverse"): void {
   // Only the newest navigation counts: the router drops any older one.

@@ -126,6 +126,26 @@ describe("compareSaintsChronologically", () => {
   });
 });
 
+describe("compareSaintsChronologically — the Old Testament closes a feast's list", () => {
+  it("puts Elijah after the saints of the Church, and the undated before him", () => {
+    const list = [
+      { title: "Elijah", slug: "saint-elijah", payload: { deathDate: "850 BC" } },
+      { title: "Avraamy of Galich", slug: "saint-avraamy", payload: { deathDate: "1375" } },
+      { title: "Undated", slug: "saint-undated", payload: {} },
+      { title: "Saint Margaret of Antioch", slug: "saint-margaret-of-antioch", payload: {} },
+      { title: "Some Prophet", slug: "saint-some-prophet", payload: { deathDate: "700 BC" } },
+    ];
+    const ordered = [...list].sort(compareSaintsChronologically).map((s) => s.title);
+    expect(ordered).toEqual([
+      "Saint Margaret of Antioch",
+      "Avraamy of Galich",
+      "Undated",
+      "Elijah",
+      "Some Prophet",
+    ]);
+  });
+});
+
 describe("compareSaintsChronologically — the head of the saint list", () => {
   const fig = (title: string, payload: Record<string, unknown>) => ({ title, payload });
 
@@ -174,8 +194,24 @@ describe("compareSaintsChronologically — the head of the saint list", () => {
 
 describe("saintTitleLabel — only the permitted set", () => {
   it("labels Apostles and Doctors of the Church", () => {
-    expect(saintTitleLabel({ saintType: "apostle" })).toBe("Apostle and Disciple of Jesus");
+    expect(saintTitleLabel({ saintType: "apostle" }, "saint-andrew-the-apostle")).toBe(
+      "Apostle and Disciple of Jesus",
+    );
+    expect(saintTitleLabel({ saintType: "apostle", slug: "saint-matthias" })).toBe(
+      "Apostle and Disciple of Jesus",
+    );
+    // A duplicate record of an Apostle is still him.
+    expect(saintTitleLabel({ saintType: "apostle" }, "saint-john-the-evangelist")).toBe(
+      "Apostle and Disciple of Jesus",
+    );
     expect(saintTitleLabel({ saintType: "doctor_of_the_church" })).toBe("Doctor of the Church");
+  });
+
+  it("does not call everyone the stored type marks an apostle an Apostle", () => {
+    for (const slug of ["saint-phoebe", "saint-junia", "saint-apollos", "saint-willibrord"]) {
+      expect(saintTitleLabel({ saintType: "apostle" }, slug), slug).toBeUndefined();
+    }
+    expect(saintTitleLabel({ saintType: "apostle" })).toBeUndefined();
   });
 
   it("shows no label for Martyr, Virgin, Bishop, and the like", () => {
@@ -226,7 +262,9 @@ describe("saintEyebrow", () => {
   });
 
   it("shows just one part when the other is missing", () => {
-    expect(saintEyebrow({ saintType: "apostle" })).toBe("Apostle and Disciple of Jesus");
+    expect(saintEyebrow({ saintType: "apostle", slug: "saint-peter" })).toBe(
+      "Apostle and Disciple of Jesus",
+    );
     expect(saintEyebrow({ feastDay: "12-25" })).toBe("Feast December 25");
     expect(saintEyebrow({})).toBeUndefined();
   });

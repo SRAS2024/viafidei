@@ -40,7 +40,8 @@ describe("apparitionFeastDay", () => {
 describe("apparitionEyebrow", () => {
   it("combines status and feast day", () => {
     expect(apparitionEyebrow({ approvedStatus: "approved", title: "Our Lady of Lourdes" })).toBe(
-      "Approved · Feast February 11",
+      // The date keeps its month and day together.
+      "Approved · Feast February\u00a011",
     );
   });
 

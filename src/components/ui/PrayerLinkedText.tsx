@@ -160,14 +160,46 @@ interface OpenedPrayer {
   place: number | null;
 }
 
+/** What follows a prayer's name when the line only says how often to pray it. */
+const HOW_OFTEN = /^[,;]?\s*(?:thrice|twice|once|[\p{L}\d-]+ times)\b/iu;
+/** What stands between two names when the line only lists the prayers to say. */
+const ONLY_JOINS = /^[,;]?\s*(?:and|or|then)?\s*$/i;
+
+/** Letters and digits only, for comparing what a line says with a prayer's words. */
+const plainWords = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+
+/** The line is nothing but the prayer's opening words: "Glory be to the Father." */
+function onlyItsOpening(words: string, prayer: GuidePrayerData | undefined): boolean {
+  const said = plainWords(words);
+  return !!prayer?.variants.some(
+    (variant) => plainWords(variant.text.split(/[,;:.!?\n]/)[0] ?? "") === said,
+  );
+}
+
 /**
  * In text that is itself prayer, a spoken line opening with a prayer's name and
  * going on is saying the words, not naming the prayer: "Glory be to Thee, O Lord"
- * and the Our Father given in full. "Glory be to the Father, etc." still points.
+ * and the Our Father given in full. A line still points at the prayer when it says
+ * how often to pray it ("Ave Maria thrice.", "Hail Mary, three times."), lists
+ * prayers ("Pater noster and Ave Maria."), gives only the prayer's opening words
+ * ("Glory be to the Father.") or breaks off ("Glory be to the Father, etc.").
  */
-function saysTheWords(words: string, kind: PrayerLineKind, next: string | undefined): boolean {
+function saysTheWords(
+  words: string,
+  kind: PrayerLineKind,
+  next: string | undefined,
+  named: GuidePrayerData | undefined,
+  nextIsPrayer: boolean,
+): boolean {
   if (kind !== "spoken" && kind !== "versicle" && kind !== "response") return false;
-  return !!next && /^[,;]?\s+\S/.test(next) && !/\betc\.?$/.test(words);
+  if (!next || !/^[,;]?\s+\S/.test(next) || /\betc\.?$/.test(words)) return false;
+  if (HOW_OFTEN.test(next)) return false;
+  if (nextIsPrayer && ONLY_JOINS.test(next)) return false;
+  return !onlyItsOpening(words, named);
 }
 
 export function PrayerLinkedText({
@@ -213,7 +245,12 @@ export function PrayerLinkedText({
   const linkedWords = (words: string, place: number | null, kind?: PrayerLineKind): ReactNode => {
     const { segments } = tokenizePrayerMentions(words, prayers, { matchCase });
     const isLink = (i: number) =>
-      !!segments[i]?.prayer && !(i === 0 && kind && saysTheWords(words, kind, segments[1]?.text));
+      !!segments[i]?.prayer &&
+      !(
+        i === 0 &&
+        kind &&
+        saysTheWords(words, kind, segments[1]?.text, segments[0]?.prayer, !!segments[2]?.prayer)
+      );
     const possessive = (i: number) =>
       isLink(i - 1) ? (POSSESSIVE.exec(segments[i]!.text)?.[0] ?? "") : "";
     const closing = (i: number) =>

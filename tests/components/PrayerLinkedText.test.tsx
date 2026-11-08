@@ -256,6 +256,66 @@ describe("PrayerLinkedText", () => {
       expect(screen.getByText("Glory be to Thee, O Lord, for all Thy gifts.")).toBeInTheDocument();
     });
 
+    describe("a rubric line, which points at the prayer to say", () => {
+      const HAIL_MARY: GuidePrayerData = {
+        slug: "hail-mary",
+        title: "Hail Mary (Ave Maria)",
+        variants: [
+          { code: "en", label: "English", text: "Hail Mary, full of grace...", preserve: false },
+          { code: "la", label: "Latin", text: "Ave Maria, gratia plena...", preserve: true },
+        ],
+      };
+      const PATER: GuidePrayerData = { ...OUR_FATHER, title: "Our Father (Pater Noster)" };
+      const GLORIA: GuidePrayerData = {
+        slug: "glory-be",
+        title: "Glory Be (Gloria Patri)",
+        variants: [
+          {
+            code: "en",
+            label: "English",
+            text: "Glory be to the Father, and to the Son, and to the Holy Spirit...",
+            preserve: false,
+          },
+        ],
+      };
+      const linkedIn = (text: string) => {
+        render(<PrayerLinkedText text={text} prayers={[HAIL_MARY, PATER, GLORIA]} matchCase />);
+        // A comma or full stop after a name sits in its button, hidden from a screen reader.
+        return screen
+          .queryAllByRole("button")
+          .map((button) => button.textContent?.replace(/[\s\p{P}]+$/u, ""));
+      };
+
+      it("says how often: 'Ave Maria thrice.'", () => {
+        expect(linkedIn("Ave Maria thrice.")).toEqual(["Ave Maria"]);
+      });
+
+      it("says how often after a comma: 'Hail Mary, three times.'", () => {
+        expect(linkedIn("Hail Mary, three times.")).toEqual(["Hail Mary"]);
+      });
+
+      it("lists prayers with their counts", () => {
+        expect(linkedIn("Pater noster five times, and Gloria Patri once.")).toEqual([
+          "Pater noster",
+          "Gloria Patri",
+        ]);
+      });
+
+      it("lists prayers with nothing but 'and' between them", () => {
+        expect(linkedIn("Pater noster and Ave Maria.")).toEqual(["Pater noster", "Ave Maria"]);
+      });
+
+      it("gives only the prayer's opening words: 'Glory be to the Father.'", () => {
+        expect(linkedIn("Glory be to the Father.")).toEqual(["Glory be"]);
+      });
+
+      it("but a line that goes on with the prayer's words still says them", () => {
+        expect(linkedIn("Glory be to the Father, and to the Son, and to the Holy Spirit.")).toEqual(
+          [],
+        );
+      });
+    });
+
     it("still links a line that only points at a prayer", () => {
       render(
         <PrayerLinkedText

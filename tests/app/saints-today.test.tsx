@@ -56,7 +56,7 @@ describe("/saints/today", () => {
     expect(Array.from(card.querySelectorAll("h2, p")).map((el) => el.textContent)).toEqual([
       "Saint Wolfgang of Regensburg",
       "Patron of Regensburg, carpenters",
-      "Feast day: October 31",
+      "Feast day: October\u00a031",
     ]);
     expect(screen.getByRole("link")).toHaveAttribute("href", "/saints/saint-wolfgang");
     expect(container.textContent).not.toContain("reformed the monasteries");

@@ -65,7 +65,7 @@ export default async function SaintDetailPage({ params }: Props) {
       // A title the name does not carry ("Doctor of the Church", "Blessed"
       // over a beatus named without it), or nothing: "Saint" over "Saint
       // Godeberta" only repeated the first word of the name.
-      eyebrow={saintDetailEyebrow(item.payload, item.title) ?? null}
+      eyebrow={saintDetailEyebrow(item.payload, item.title, item.slug) ?? null}
       // The stored subtitle ("Religious, patron of Noyon · Feast April 11")
       // repeats the facts below it, and the summary repeats the biography.
       showSubtitle={false}

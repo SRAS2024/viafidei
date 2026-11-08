@@ -552,9 +552,20 @@ export function saintSortYear(payload: Record<string, unknown>): number | null {
 }
 
 /**
+ * Where a saint stands against the Old Testament's close of a list: 0 for a saint of the
+ * Church, then the named Old Testament figures in their order, then any other dated
+ * before Christ. Mirrors the saint list's own grouping in orderSqlFor("saints").
+ */
+function oldTestamentPlace(slug: string | undefined, year: number | null): number {
+  const named = slug ? OLD_TESTAMENT_SAINTS.indexOf(slug) : -1;
+  if (named >= 0) return 1 + named;
+  return year != null && year < OLD_TESTAMENT_BEFORE_YEAR ? 1 + OLD_TESTAMENT_SAINTS.length : 0;
+}
+
+/**
  * Comparator that orders saints. Those at the head of the saint list lead in the
  * owner's order; everyone else follows from earliest to latest, with undatable
- * saints last and ties broken by title.
+ * saints after them and the Old Testament last, ties broken by title.
  */
 export function compareSaintsChronologically(
   a: { title: string; slug?: string; payload: Record<string, unknown> },
@@ -569,11 +580,39 @@ export function compareSaintsChronologically(
 
   const ya = saintSortYear(a.payload);
   const yb = saintSortYear(b.payload);
+  // The Old Testament closes a list, as it closes the saint list, named ones first:
+  // a year before Christ would otherwise put Elijah ahead of every saint of the Church.
+  const oa = oldTestamentPlace(a.slug, ya);
+  const ob = oldTestamentPlace(b.slug, yb);
+  if (oa !== ob) return oa - ob;
   if (ya == null && yb == null) return a.title.localeCompare(b.title);
   if (ya == null) return 1;
   if (yb == null) return -1;
   if (ya !== yb) return ya - yb;
   return a.title.localeCompare(b.title);
+}
+
+/** The Twelve, Matthias, Paul and Barnabas: those Scripture calls Apostles. */
+const APOSTLES: ReadonlySet<string> = new Set([
+  "saint-peter",
+  "saint-paul",
+  "saint-james-the-greater",
+  "saint-john-the-apostle",
+  "saint-andrew-the-apostle",
+  "saint-philip-the-apostle",
+  "saint-bartholomew",
+  "saint-matthew",
+  "saint-thomas-the-apostle",
+  "saint-james-the-less",
+  "saint-jude-thaddeus",
+  "saint-simon-the-zealot",
+  "saint-matthias",
+  "saint-barnabas",
+]);
+
+/** The saint is an Apostle, under this record or the one it repeats. */
+function isApostle(slug: string): boolean {
+  return APOSTLES.has(slug) || APOSTLES.has(SAINT_DUPLICATE_OF[slug] ?? "");
 }
 
 /**
@@ -584,12 +623,20 @@ export function compareSaintsChronologically(
  * Church, and a dated papal title are derived. Martyr, Virgin, Bishop, and
  * the like deliberately show no label.
  */
-export function saintTitleLabel(payload: Record<string, unknown>): string | undefined {
+export function saintTitleLabel(
+  payload: Record<string, unknown>,
+  slug?: string,
+): string | undefined {
   if (typeof payload.titleLabel === "string" && payload.titleLabel.trim()) {
     return payload.titleLabel.trim();
   }
   const type = typeof payload.saintType === "string" ? payload.saintType : "";
-  if (type === "apostle") return "Apostle and Disciple of Jesus";
+  if (type === "apostle") {
+    // The stored type also marks missionaries called the apostle of a people, and
+    // Phoebe, Junia and Apollos; the label is true only of the Apostles themselves.
+    const own = slug ?? (typeof payload.slug === "string" ? payload.slug : "");
+    return isApostle(own) ? "Apostle and Disciple of Jesus" : undefined;
+  }
   if (type === "doctor_of_the_church") return "Doctor of the Church";
   if (type === "pope") {
     const start = parseYear(payload.papacyStart);
@@ -887,8 +934,9 @@ const STATUS_IN_NAME: Record<string, RegExp> = {
 export function saintDetailEyebrow(
   payload: Record<string, unknown>,
   name = "",
+  slug?: string,
 ): string | undefined {
-  const label = saintTitleLabel(payload);
+  const label = saintTitleLabel(payload, slug);
   if (label) return label;
   const status =
     typeof payload.canonizationStatus === "string"
@@ -937,6 +985,11 @@ function patronageLine(phrase: string, t: Translator): string {
     : phrase.charAt(0).toUpperCase() + phrase.slice(1);
 }
 
+/** "September 18" with a no-break space, so a line never ends on the month. */
+export function keepDateTogether(date: string): string {
+  return date.replace(/^(\p{L}+) (\d{1,2})$/u, "$1\u00a0$2");
+}
+
 /**
  * The lines a saint's catalogue card shows beneath the name, in order: the
  * patronage ("Patron of the papacy, fishermen, Rome"), then the feast day
@@ -950,6 +1003,7 @@ export function saintCardDetailLines(
   const lines: string[] = [];
   const patronage = saintPatronage(details.patronages);
   if (patronage) lines.push(patronageLine(patronage, t));
-  if (details.feast) lines.push(`${t("saints.feastDay")}: ${details.feast}`);
+  // A date keeps its month and day on one line, however narrow the card.
+  if (details.feast) lines.push(`${t("saints.feastDay")}: ${keepDateTogether(details.feast)}`);
   return lines;
 }

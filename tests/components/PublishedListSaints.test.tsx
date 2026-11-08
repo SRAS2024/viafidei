@@ -31,7 +31,7 @@ describe("PublishedList with saint ordering + computed eyebrow", () => {
       deathDate: "1897",
       feastDay: "10-01",
     }),
-    saint("peter", "St. Peter the Apostle", {
+    saint("saint-peter", "St. Peter the Apostle", {
       saintType: "apostle",
       deathDate: "67 AD",
       feastDay: "06-29",
@@ -44,7 +44,7 @@ describe("PublishedList with saint ordering + computed eyebrow", () => {
         items={items}
         baseHref="/saints"
         sortItems={compareSaintsChronologically}
-        eyebrowFor={(item) => saintEyebrow(item.payload)}
+        eyebrowFor={(item) => saintEyebrow({ ...item.payload, slug: item.slug })}
       />,
     );
 

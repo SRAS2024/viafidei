@@ -8,10 +8,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findUnique = vi.fn();
 const queryRaw = vi.fn();
+const findMany = vi.fn();
 
 vi.mock("@/lib/db/client", () => ({
   prisma: {
     homePage: { findUnique: (...args: unknown[]) => findUnique(...args) },
+    publishedContent: { findMany: (...args: unknown[]) => findMany(...args) },
     $queryRaw: (...args: unknown[]) => queryRaw(...args),
   },
 }));
@@ -59,6 +61,8 @@ beforeEach(() => {
   findUnique.mockReset();
   queryRaw.mockReset();
   queryRaw.mockResolvedValue([]);
+  findMany.mockReset();
+  findMany.mockResolvedValue([]);
 });
 
 describe("getPublishedFeaturedBlocks", () => {
@@ -135,6 +139,40 @@ describe("getPublishedFeaturedBlocks", () => {
     expect(rails.map((rail) => rail.blockType)).toEqual(["featured-prayers"]);
   });
 
+  it("keeps a devotion rail at three from the head of the devotions list", async () => {
+    publishedWith(
+      stored("featured-devotions", [
+        { slug: "a", title: "a" },
+        { slug: "b", title: "b" },
+        { slug: "gone", title: "gone" },
+      ]),
+    );
+    queryRaw
+      .mockResolvedValueOnce([row("DEVOTION", "a", "A"), row("DEVOTION", "b", "B")])
+      .mockResolvedValueOnce([row("DEVOTION", "c", "C")]);
+    findMany.mockResolvedValue([{ slug: "c" }]);
+
+    const [rail] = await getPublishedFeaturedBlocks();
+    expect(rail!.items.map((item) => item.slug)).toEqual(["a", "b", "c"]);
+    expect(findMany.mock.calls[0]![0]).toMatchObject({
+      where: { contentType: "DEVOTION", isPublished: true, slug: { notIn: ["a", "b"] } },
+      orderBy: { title: "asc" },
+    });
+  });
+
+  it("makes up a rail whose cards have all gone, rather than dropping it", async () => {
+    publishedWith(stored("featured-saints", [{ slug: "gone", title: "gone" }]));
+    queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        row("SAINT", "saint-blessed-virgin-mary", "The Blessed Virgin Mary"),
+      ]);
+
+    const [rail] = await getPublishedFeaturedBlocks();
+    expect(rail!.blockType).toBe("featured-saints");
+    expect(rail!.items.map((item) => item.slug)).toEqual(["saint-blessed-virgin-mary"]);
+  });
+
   it("matches a slug within its rail's own content type", async () => {
     publishedWith(stored("featured-prayers", [{ slug: "same-slug", title: "same-slug" }]));
     queryRaw.mockResolvedValue([row("SAINT", "same-slug", "A saint of that name")]);
@@ -149,6 +187,12 @@ describe("getPublishedFeaturedBlocks", () => {
       stored("featured-devotions", [{ slug: "d", title: "d" }]),
       stored("featured-novenas", [{ slug: "n", title: "n" }]),
     );
+    queryRaw.mockResolvedValue([
+      row("PRAYER", "p", "P"),
+      row("SAINT", "s", "S"),
+      row("DEVOTION", "d", "D"),
+      row("NOVENA", "n", "N"),
+    ]);
 
     await getPublishedFeaturedBlocks();
 

@@ -209,7 +209,13 @@ function excerptOf(text: string | undefined): string | undefined {
   if (!text) return undefined;
   const flat = text.replace(/\s+/g, " ").trim();
   if (!flat) return undefined;
-  return flat.length > EXCERPT_LIMIT ? `${flat.slice(0, EXCERPT_LIMIT - 1).trimEnd()}…` : flat;
+  if (flat.length <= EXCERPT_LIMIT) return flat;
+  // Cut between words, so a voice never reads half a word ("the the…"), and leave no
+  // comma or stop standing before the ellipsis.
+  const cut = flat.slice(0, EXCERPT_LIMIT - 1);
+  const lastSpace = cut.lastIndexOf(" ");
+  const whole = lastSpace > EXCERPT_LIMIT / 2 ? cut.slice(0, lastSpace) : cut;
+  return `${whole.replace(/[\s,;:.\-–—]+$/u, "")}…`;
 }
 
 /**

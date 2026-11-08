@@ -131,8 +131,14 @@ describe("a saint published twice", () => {
     );
   }
 
-  /** Every array of slugs handed to the SQL. */
-  const slugLists = () => rawValues().filter(Array.isArray) as string[][];
+  /**
+   * Every array of slugs handed to the SQL, leaving out the saint list's own order, which
+   * names every ranked saint, duplicates included, to keep the list's precedence in search.
+   */
+  const slugLists = () =>
+    (rawValues().filter(Array.isArray) as string[][]).filter(
+      (slugs) => slugs[0] !== "saint-blessed-virgin-mary",
+    );
 
   it("is left out of a search, its count and its groups", async () => {
     withCapabilities(true);
@@ -252,6 +258,25 @@ describe("a title's whole words in the search's ranking", () => {
     withCapabilities(true);
     await searchPublishedPage("Hail Mary");
     expect(rawValues()).toContain(String.raw`\yHail Mary\y`);
+  });
+
+  it("answers a bare name with the saint the site calls Saint", async () => {
+    // Migration 0070 named "Nicodemus" "Saint Nicodemus": an exact or leading match must
+    // still count, or a lesser Nicodemus outranks him.
+    withCapabilities(true);
+    await suggestPublished("nicodemus");
+    expect(rawSql()).toContain(String.raw`regexp_replace("title", '^(saints?|st\.?)\s+', '', 'i')`);
+  });
+
+  it("keeps the saint list's order among the saints it names, in suggestions and search", async () => {
+    withCapabilities(true);
+    await suggestPublished("mary");
+    await searchPublishedPage("mary");
+    const ranked = rawValues().filter(
+      (value) => Array.isArray(value) && value[0] === "saint-blessed-virgin-mary",
+    );
+    expect(ranked.length).toBeGreaterThanOrEqual(2);
+    expect(rawSql()).toContain(`split_part("title", ',', 1) ~*`);
   });
 });
 

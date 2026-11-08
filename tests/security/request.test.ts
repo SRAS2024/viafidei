@@ -123,6 +123,23 @@ describe("getPublicOrigin", () => {
     // never appear in a public HTTPS URL.
     expect(getPublicOrigin(req)).toBe("http://localhost:3000");
   });
+
+  it("answers a browser on this machine with the loopback name it opened", () => {
+    // The standalone server bound to 127.0.0.1 reports localhost in req.url. A redirect
+    // there would leave the page's origin, and form-action 'self' would stop it.
+    const req = makeReq({ url: "http://localhost:3100/api/auth/register", host: "127.0.0.1:3100" });
+    expect(getPublicOrigin(req)).toBe("http://127.0.0.1:3100");
+  });
+
+  it("never lets a loopback Host header outrank the proxy's forwarded host", () => {
+    const req = makeReq({
+      url: "http://localhost:8080/x",
+      host: "127.0.0.1:8080",
+      forwardedHost: "etviafidei.com",
+      forwardedProto: "https",
+    });
+    expect(getPublicOrigin(req)).toBe("https://etviafidei.com");
+  });
 });
 
 describe("redirectTo", () => {

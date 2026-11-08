@@ -162,8 +162,10 @@ describe("history timeline loader", () => {
     );
     const timeline = await loadHistoryTimeline();
     const event = timeline.events.find((e) => e.slug === "long-summary");
-    expect(event?.excerpt?.length).toBe(400);
-    expect(event?.excerpt?.endsWith("…")).toBe(true);
+    // Cut between words, so as near the limit as a whole word allows.
+    expect(event?.excerpt?.length).toBeLessThanOrEqual(400);
+    expect(event?.excerpt?.length).toBeGreaterThan(390);
+    expect(event?.excerpt?.endsWith("word…")).toBe(true);
   });
 
   it("has the page read the cached timeline, not the full published rows", () => {

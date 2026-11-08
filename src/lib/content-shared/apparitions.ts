@@ -7,7 +7,7 @@
  * supplies the universally-recognised feasts of the major approved
  * apparitions (kept deliberately conservative to stay accurate).
  */
-import { formatFeastDay } from "./saints";
+import { formatFeastDay, keepDateTogether } from "./saints";
 
 const APPROVAL_LABELS: Record<string, string> = {
   approved: "Approved",
@@ -52,6 +52,9 @@ export function apparitionApprovalLabel(payload: Record<string, unknown>): strin
 export function apparitionEyebrow(payload: Record<string, unknown>): string | undefined {
   const status = apparitionApprovalLabel(payload);
   const feast = formatFeastDay(apparitionFeastDay(payload));
-  const parts = [status, feast ? `Feast ${feast}` : undefined].filter(Boolean) as string[];
+  // The date keeps its month and day on one line ("Feast September / 8" would not).
+  const parts = [status, feast ? `Feast ${keepDateTogether(feast)}` : undefined].filter(
+    Boolean,
+  ) as string[];
   return parts.length ? parts.join(" · ") : undefined;
 }

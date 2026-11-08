@@ -100,7 +100,7 @@ describe("every word the pages' label functions can give", () => {
     ].map((match) => match[1]!);
     expect(curated.length).toBeGreaterThan(5);
     const words = [
-      saintDetailEyebrow({ saintType: "apostle" }),
+      saintDetailEyebrow({ saintType: "apostle" }, "", "saint-peter"),
       saintDetailEyebrow({ saintType: "doctor_of_the_church" }),
       ...curated,
     ];

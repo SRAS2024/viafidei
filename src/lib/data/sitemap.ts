@@ -11,6 +11,7 @@
  * publish).
  */
 
+import { ChecklistContentType as ChecklistContentTypes } from "@prisma/client";
 import type { ChecklistContentType } from "@prisma/client";
 
 import { publicRouteFor } from "@/lib/admin-worker/public-routes";
@@ -79,13 +80,18 @@ export interface SitemapUrl {
 
 const typeKey = (contentType: ChecklistContentType): string => contentType.toLowerCase();
 
+const CONTENT_TYPES: ReadonlySet<string> = new Set(Object.values(ChecklistContentTypes));
+
 function keyToContentType(key: string): ChecklistContentType | null {
   const upper = key.toUpperCase();
   // Compare against the values the database actually stores; an unknown
   // segment returns null and the route answers with an empty sitemap rather
-  // than throwing for a crawler that guessed a URL.
-  return /^[A-Z_]+$/.test(upper) ? (upper as ChecklistContentType) : null;
+  // than sending the database a type it does not have.
+  return CONTENT_TYPES.has(upper) ? (upper as ChecklistContentType) : null;
 }
+
+/** No content type comes near this many chunks; a larger index asks for nothing. */
+const MAX_SITEMAP_CHUNK = 1_000;
 
 /**
  * Every chunk the index should list. `lastModified` is the newest publish in
@@ -122,6 +128,7 @@ export async function listSitemapChunks(): Promise<SitemapChunkRef[]> {
 
 /** One chunk of URLs. An unknown key or an out-of-range chunk yields []. */
 export async function listSitemapUrls(key: string, chunk: number): Promise<SitemapUrl[]> {
+  if (Number.isInteger(chunk) && chunk > MAX_SITEMAP_CHUNK) return [];
   const index = Number.isInteger(chunk) && chunk >= 0 ? chunk : 0;
   if (key === SITEMAP_PAGES_KEY) {
     if (index > 0) return [];

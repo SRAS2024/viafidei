@@ -76,7 +76,7 @@ export default async function LiturgyHistoryDetailPage({ params }: Props) {
             ...facts,
             saints.length > 0
               ? {
-                  label: saints.length === 1 ? "Saint of this day" : "Saints of this day",
+                  label: saints.length === 1 ? "Related saint" : "Related saints",
                   value: (
                     <ul className="vf-plain-list" role="list">
                       {saints.map((saint) => (

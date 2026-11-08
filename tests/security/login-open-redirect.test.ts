@@ -122,6 +122,20 @@ describe("a failed login goes back to the form with the page the visitor wanted"
   it("never puts the typed address in the URL", async () => {
     expect(await failedLogin("/prayers/hail-mary")).not.toContain("example.com");
   });
+
+  it("says a refused attempt was refused, not that the password was wrong", async () => {
+    const { rateLimit } = await import("@/lib/security/rate-limit");
+    vi.mocked(rateLimit).mockResolvedValueOnce({
+      ok: false,
+      remaining: 0,
+      resetAt: Date.now() + 60_000,
+    } as Awaited<ReturnType<typeof rateLimit>>);
+    const location = new URL(await login("/prayers/hail-mary"));
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("error")).toBe("rate_limited");
+    expect(location.searchParams.get("next")).toBe("/prayers/hail-mary");
+    expect(authenticateMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("`next=` on /api/settings/rite cannot redirect off-site", () => {

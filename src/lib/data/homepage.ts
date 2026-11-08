@@ -280,6 +280,7 @@ function featuredDetails(row: FeaturedRow): Pick<FeaturedItem, "meta" | "saint">
 function resolveFeaturedBlocks(
   blocks: readonly FeaturedBlockView[],
   rows: readonly FeaturedRow[],
+  { keepEmpty = false }: { keepEmpty?: boolean } = {},
 ): FeaturedBlockView[] {
   const bySlug = new Map(rows.map((row) => [rowKey(row.contentType, row.slug), row]));
   return blocks
@@ -296,7 +297,7 @@ function resolveFeaturedBlocks(
       }
       return { ...block, items };
     })
-    .filter((block) => block.items.length > 0);
+    .filter((block) => keepEmpty || block.items.length > 0);
 }
 
 /** Where a rail that has lost a card finds another: the head of its type's own list. */
@@ -304,6 +305,31 @@ const RAIL_REPLACEMENTS: Readonly<Record<string, readonly string[]>> = {
   "featured-prayers": DISPLAY_ORDER_LISTS.prayers,
   "featured-saints": SAINT_DISPLAY_ORDER,
 };
+
+/** The rails whose lists have no fixed order: their pages list them by title. */
+const RAIL_REPLACEMENTS_BY_TITLE: Readonly<Record<string, ChecklistContentType>> = {
+  "featured-devotions": "DEVOTION",
+  "featured-novenas": "NOVENA",
+};
+
+/** The head of a rail's own list, leaving out what is already on it. */
+async function replacementsFor(
+  blockType: string,
+  onRail: ReadonlySet<string>,
+  howMany: number,
+): Promise<readonly string[]> {
+  const list = RAIL_REPLACEMENTS[blockType];
+  if (list) return list.filter((slug) => !onRail.has(slug)).slice(0, howMany);
+  const contentType = RAIL_REPLACEMENTS_BY_TITLE[blockType];
+  if (!contentType) return [];
+  const rows = await prisma.publishedContent.findMany({
+    where: { contentType, isPublished: true, slug: { notIn: [...onRail] } },
+    orderBy: { title: "asc" },
+    take: howMany,
+    select: { slug: true },
+  });
+  return rows.map((row) => row.slug);
+}
 
 /**
  * A rail keeps the number of cards it was drafted with. When the page behind one
@@ -315,15 +341,20 @@ async function makeUpFeaturedRails(
   resolved: FeaturedBlockView[],
 ): Promise<FeaturedBlockView[]> {
   const count = (block: FeaturedBlockView) => new Set(block.items.map((item) => item.slug)).size;
-  const candidates = resolved.flatMap((block) => {
-    const list = RAIL_REPLACEMENTS[block.blockType];
-    const wanted = drafted.find((d) => d.blockKey === block.blockKey);
-    if (!list || !wanted || count(block) >= count(wanted)) return [];
-    const onRail = new Set(block.items.map((item) => item.slug));
-    // More than the places to fill, in case some of these have gone too.
-    const items = list.filter((slug) => !onRail.has(slug)).slice(0, count(wanted) + 8);
-    return [{ ...block, items: items.map((slug) => ({ slug, title: slug })) }];
-  });
+  const candidates = (
+    await Promise.all(
+      resolved.map(async (block) => {
+        const wanted = drafted.find((d) => d.blockKey === block.blockKey);
+        if (!wanted || count(block) >= count(wanted)) return null;
+        const onRail = new Set(block.items.map((item) => item.slug));
+        // More than the places to fill, in case some of these have gone too.
+        const items = await replacementsFor(block.blockType, onRail, count(wanted) + 8);
+        return items.length > 0
+          ? { ...block, items: items.map((slug) => ({ slug, title: slug })) }
+          : null;
+      }),
+    )
+  ).filter((block): block is FeaturedBlockView => block !== null);
   if (candidates.length === 0) return resolved;
 
   const found = resolveFeaturedBlocks(candidates, await loadFeaturedRows(candidates));
@@ -377,10 +408,13 @@ export async function getPublishedFeaturedBlocks(): Promise<FeaturedBlockView[]>
     });
     if (!page || page.status !== "PUBLISHED") return [];
     const parsed = page.blocks.map(parseFeaturedBlock).filter((b) => b.items.length > 0);
-    return makeUpFeaturedRails(
+    // A rail whose stored cards have all gone is kept until it has been made up, and
+    // only a rail still empty after that is left out.
+    const made = await makeUpFeaturedRails(
       parsed,
-      resolveFeaturedBlocks(parsed, await loadFeaturedRows(parsed)),
+      resolveFeaturedBlocks(parsed, await loadFeaturedRows(parsed), { keepEmpty: true }),
     );
+    return made.filter((block) => block.items.length > 0);
   });
   return localizeFeaturedTitles(blocks);
 }

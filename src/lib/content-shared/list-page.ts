@@ -52,10 +52,12 @@ export function listPageTitle({
 }: ListTitleState): string {
   const parts: string[] = [];
   if (query) parts.push(tPlural(t, locale, "listSearch.results", total, { query }));
-  if (filter) parts.push(filter);
+  // A filter named like the list itself ("Parishes" in the parish directory) says nothing.
+  if (filter && filter.trim().toLowerCase() !== name.trim().toLowerCase()) parts.push(filter);
   parts.push(name);
   for (const { page, pageCount, of } of pages) {
-    if (page <= 1) continue;
+    // A page past the end shows nothing, and "page 3 of 1" says something impossible.
+    if (page <= 1 || page > pageCount) continue;
     const where = t("listSearch.pageOf", { page, count: pageCount });
     parts.push(of ? `${of} ${where}` : where);
   }

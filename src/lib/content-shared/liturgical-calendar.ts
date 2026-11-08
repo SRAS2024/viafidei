@@ -1359,10 +1359,15 @@ const RANK_LABELS: Record<LiturgicalRank, string> = {
  * Prayer is a day of prayer, not a memorial.
  */
 export function liturgicalRankLabel(
-  day: Pick<LiturgicalDayDetail, "rank" | "season" | "sanctoral">,
+  day: Pick<LiturgicalDayDetail, "rank" | "season" | "sanctoral"> & { temporalKey?: string },
 ): string {
   if (day.season === "triduum") return "Paschal Triduum";
   if (day.sanctoral?.key === US_DAY_OF_PRAYER.key) return "Day of prayer";
+  // The USCCB calendar gives these days no title of solemnity; its note says the first
+  // eight days of Easter Time "are celebrated as Solemnities of the Lord".
+  if (day.temporalKey?.startsWith("easter-octave-") && !day.sanctoral) {
+    return "Kept as a solemnity";
+  }
   return RANK_LABELS[day.rank];
 }
 

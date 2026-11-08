@@ -283,9 +283,15 @@ export function buildReadingsView(
 
   const vigil = isVigil ? resolveVigil(evening, opts.variant) : null;
   const resolved = vigil ? vigil.resolved : dayResolved;
-  const framing = isVigil
+  const dayFraming = isVigil
     ? buildReadingFraming(new Date(`${evening.next.date}T00:00:00Z`), opts.calendar)
     : buildReadingFraming(date, opts.calendar);
+  // The Chrism Mass comes before the Triduum begins: Lent lasts until the Evening Mass
+  // of the Lord's Supper (Universal Norms on the Liturgical Year, no. 28).
+  const framing =
+    !isVigil && dayResolved?.variant === "chrism" && dayFraming.season === "triduum"
+      ? { ...dayFraming, season: "lent", seasonLabel: "Lent" }
+      : dayFraming;
 
   const stored = storedSections(opts.row);
   // The worker writes its rows from these same tables, under the framing's source
@@ -409,7 +415,7 @@ function massNoteFor(framing: ReadingFraming, date: Date): string | null {
     return "No Mass is celebrated on Good Friday. These are the readings of the Celebration of the Passion of the Lord.";
   }
   if (key === "all-souls") {
-    return "These are the readings the USCCB gives for the day. Any readings from the Masses for the Dead may be used.";
+    return "Any readings from the Masses for the Dead may be used. These are among them.";
   }
   if (key === "day-of-prayer-for-the-unborn") {
     return "These are the weekday's readings. For the Day of Prayer, any readings from the Mass For Giving Thanks to God for the Gift of Human Life or the Mass For Peace and Justice may be used.";
