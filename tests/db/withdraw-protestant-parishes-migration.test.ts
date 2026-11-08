@@ -1,8 +1,7 @@
 /**
- * Migration 0073 unpublishes churches whose own names say they are Protestant. The import
- * must still refuse every name it withdrew, so a withdrawn church is not imported again,
- * and the migration must take nothing the import would keep. The import has since learned
- * more names (migration 0078); 0073 itself never changes.
+ * Migration 0073 unpublishes churches whose own names say they are Protestant. Its
+ * pattern must be the import's own, so a withdrawn church is not imported again and the
+ * migration takes nothing the import would keep.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -29,17 +28,11 @@ describe(`migration ${NAME}`, () => {
     expect(sql).toContain(`"contentType" = 'PARISH'::"ChecklistContentType"`);
   });
 
-  it("withdrew only names the import still refuses", () => {
+  it("withdraws by the same names the import refuses", () => {
     expect(pattern).not.toBe("");
-    // Every alternative of the file's pattern, the English words one by one.
-    const alternatives = pattern
-      .replace(/\\y\(([^)]*)\)\\y/, (_whole, words: string) => words)
-      .split("|");
-    expect(alternatives.length).toBeGreaterThan(10);
-    for (const name of alternatives) {
-      expect(PROTESTANT_NAME_RE.test(name), name).toBe(true);
-      expect(asJs.test(name), name).toBe(true);
-    }
+    expect(asJs.source.replace(/\\b/g, "")).toBe(
+      PROTESTANT_NAME_RE.source.replace(/\\b/g, "").replace("(?:", "("),
+    );
   });
 
   it.each(["Gamri Gyohoe (감리교회)", "First Methodist Church"])("takes %s", (title) => {

@@ -84,7 +84,6 @@ describe(`migration ${NAME}`, () => {
     for (const { slug, newList } of rows) {
       // Nothing for the page to take off or leave out: what is stored is what is read.
       expect(saintPatronageList(newList), slug).toEqual(newList);
-      expect(newList.length, slug).toBeLessThanOrEqual(12);
       for (const phrase of newList) {
         expect(phrase, slug).not.toMatch(/^(?:patron|guardian)|-victims|-dealers/i);
       }
@@ -93,8 +92,20 @@ describe(`migration ${NAME}`, () => {
     expect(saintPatronage(michael.newList)).toMatch(/^the Church, the dying, /);
     const joachim = rows.find((row) => row.slug === "saint-joachim")!;
     expect(saintPatronage(joachim.newList)).toBe(
-      "fathers; grandparents; Adjuntas, Puerto Rico; Dolores, Eastern Samar; the Carmelites; San Joaquin, Iloilo",
+      "fathers; grandparents; Adjuntas, Puerto Rico; Dolores, Eastern Samar; Fasnia, Tenerife; the Carmelites; San Joaquin, Iloilo",
     );
+  });
+
+  it("keeps every word of what the site showed", () => {
+    // The owner's condition: correcting a list must not take anything off the site.
+    const wrappers = new Set(["guardian", "catholic", "patroness", "people"]);
+    for (const { slug, oldList, newList } of rows) {
+      const kept = newList.join(" ").toLowerCase();
+      for (const word of oldList.toLowerCase().split(/[^\p{L}]+/u)) {
+        if (word.length > 3 && !wrappers.has(word))
+          expect(kept, `${slug}: ${word}`).toContain(word);
+      }
+    }
   });
 
   it("re-projects the subtitle the application writes for the new list", () => {

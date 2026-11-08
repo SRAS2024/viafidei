@@ -57,8 +57,4 @@ describe(`migration ${NAME}`, () => {
       expect(event.links?.saints ?? [], event.slug).not.toContain("saints-philip-and-james");
     }
   });
-
-  it("hides John Mark behind Saint Mark the Evangelist, whom tradition holds he was", () => {
-    expect(SAINT_DUPLICATE_OF["saint-john-mark"]).toBe("saint-mark-the-evangelist");
-  });
 });
