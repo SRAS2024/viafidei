@@ -96,7 +96,6 @@ struct MobileSnapshot: Decodable {
     var strictQA: TrimmedList<StrictQARow>?
     var rollbacks: TrimmedList<RollbackRow>?
     var security: TrimmedList<SecurityRow>?
-    var homepageDrafts: TrimmedList<HomepageDraftRow>?
     var publishing: TrimmedList<PublishingRow>?
     var readingsCoverage: [String: JSONScalar]?
 
@@ -346,14 +345,6 @@ struct SecurityRow: Decodable, Identifiable {
     var severity: String?
     var createdAt: String?
     var id: String { "\(actionType ?? "?")-\(createdAt ?? UUID().uuidString)" }
-    var createdDate: Date? { ISO.date(createdAt) }
-}
-
-struct HomepageDraftRow: Decodable, Identifiable {
-    var id: String?
-    var status: String?
-    var reasonSummary: String?
-    var createdAt: String?
     var createdDate: Date? { ISO.date(createdAt) }
 }
 

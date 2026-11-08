@@ -502,9 +502,6 @@ function fullSnapshot(): CommandCenterSnapshot {
       { slug: "st-agnes", rollbackAction: "UNPUBLISH", rollbackResult: "DONE", createdAt: now },
     ],
     security: [{ actionType: "ESCALATE", severity: "warning", createdAt: now }],
-    homepageDrafts: [
-      { id: "hd-1", status: "PENDING", reasonSummary: "Seasonal refresh.", createdAt: now },
-    ],
     publishing: [{ title: "St Agnes", contentType: "SAINT", slug: "st-agnes", updatedAt: now }],
     readingsCoverage: {
       total: 400,
@@ -718,7 +715,6 @@ describe("iPhone wire contract — GET /api/admin/worker/snapshot", () => {
       "strictQA",
       "rollbacks",
       "security",
-      "homepageDrafts",
       "publishing",
     ];
     for (const key of lists) {

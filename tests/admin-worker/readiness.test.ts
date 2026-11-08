@@ -19,7 +19,6 @@ function makePrisma(
     postPublish: number;
     publishedContent: number;
     securityActions: number;
-    homepageScores: number;
     recentReport: Date | null;
     pipelineStages: number;
     growthSnapshots: number;
@@ -39,7 +38,6 @@ function makePrisma(
     postPublish: 2,
     publishedContent: 3,
     securityActions: 1,
-    homepageScores: 1,
     recentReport: new Date() as Date | null,
     pipelineStages: 5,
     growthSnapshots: 3,
@@ -67,7 +65,6 @@ function makePrisma(
     adminWorkerStrictQAResult: { count: vi.fn(async () => opts.qaReports) },
     postPublishVerification: { count: vi.fn(async () => opts.postPublish) },
     adminWorkerSecurityAction: { count: vi.fn(async () => opts.securityActions) },
-    homepageQualityScore: { count: vi.fn(async () => opts.homepageScores) },
     adminDeveloperReportLog: {
       findFirst: vi.fn(async () => (opts.recentReport ? { generatedAt: opts.recentReport } : null)),
     },

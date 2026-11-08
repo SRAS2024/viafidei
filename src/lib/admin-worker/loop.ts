@@ -776,7 +776,6 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       tasksFailed: failedCount,
       contentBuilt: built,
       contentPublished: publishedCount,
-      homepageActions: dispatch.stage === "HOMEPAGE_WORK" ? 1 : 0,
       summary: `${brain.missionStage}: ${dispatch.summary}`,
     });
     completed = true;

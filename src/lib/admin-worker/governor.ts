@@ -62,9 +62,9 @@ import type { PrismaClient } from "@prisma/client";
 import { sampleWorld, type BrainMissionStage, type WorldState } from "./brain";
 
 /** The content-pipeline stages the governor judges for fixation. Operational
- * stages (REPAIR, REPORTING, MAINTENANCE, SECURITY_DEFENSE, HOMEPAGE_WORK,
- * PAUSED) are intentionally excluded — their "productivity" is not measured by
- * content advancement, so they are never flagged as fixated. */
+ * stages (REPAIR, REPORTING, MAINTENANCE, SECURITY_DEFENSE, PAUSED) are
+ * intentionally excluded — their "productivity" is not measured by content
+ * advancement, so they are never flagged as fixated. */
 const GOVERNED_CONTENT_STAGES: ReadonlySet<BrainMissionStage> = new Set<BrainMissionStage>([
   "DISCOVERY",
   "CANDIDATE_PRIORITIZATION",

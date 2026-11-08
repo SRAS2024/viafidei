@@ -51,7 +51,7 @@ describe("browser admin surface", () => {
     }
   });
 
-  it("has no server route that runs a pass, resumes the worker, or requests a makeover", () => {
+  it("has no server route that runs a pass or resumes the worker", () => {
     const routes = walk(path.join(ROOT, "src/app/api")).filter((f) => f.endsWith("route.ts"));
     const offenders = routes.filter((file) => {
       const src = readFileSync(file, "utf8");
@@ -59,7 +59,6 @@ describe("browser admin surface", () => {
         /\brunOnePass\b/.test(src) ||
         /\brunOperatorPass\b/.test(src) ||
         /\brunAdminWorkerLoop\b/.test(src) ||
-        /\bredesignHomepage\b/.test(src) ||
         /\brunCleanupPass\b/.test(src) ||
         /\bensureBrainStarted\b/.test(src)
       );
@@ -73,7 +72,6 @@ describe("browser admin surface", () => {
       const src = readFileSync(file, "utf8");
       return (
         /\bprobeBrain\b/.test(src) ||
-        /\bredesignHomepage\b/.test(src) ||
         /\brunOperatorPass\b/.test(src) ||
         /api\/admin\/admin-worker/.test(src)
       );

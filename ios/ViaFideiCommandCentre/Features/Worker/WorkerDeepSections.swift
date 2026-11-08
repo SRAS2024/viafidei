@@ -502,13 +502,9 @@ struct WorkerDeepSections: View {
 
     @ViewBuilder private var publishing: some View {
         let rows = snapshot?.publishing ?? .empty
-        let drafts = snapshot?.homepageDrafts ?? .empty
-        if !rows.isEmpty || !drafts.isEmpty {
-            FoldingSection(
-                title: "Recently published",
-                count: rows.isEmpty ? nil : rows.countLabel
-            ) {
-                VStack(alignment: .leading, spacing: 16) {
+        if !rows.isEmpty {
+            FoldingSection(title: "Recently published", count: rows.countLabel) {
+                RowStack {
                     ForEach(rows.rows) { row in
                         DetailRow(
                             title: row.title ?? row.slug ?? "—",
@@ -516,21 +512,6 @@ struct WorkerDeepSections: View {
                             detail: row.slug,
                             trailing: row.updatedDate.map { Formatting.ago($0) }
                         )
-                    }
-                    if !drafts.isEmpty {
-                        Divider().overlay(Theme.hairline)
-                        Text("Homepage drafts")
-                            .font(.caption.weight(.semibold))
-                            .textCase(.uppercase)
-                            .foregroundStyle(Theme.faint)
-                        ForEach(drafts.rows) { row in
-                            DetailRow(
-                                title: row.reasonSummary ?? row.id ?? "Draft",
-                                badge: row.status,
-                                badgeTone: StatusTone.forWord(row.status),
-                                trailing: row.createdDate.map { Formatting.ago($0) }
-                            )
-                        }
                     }
                 }
             }

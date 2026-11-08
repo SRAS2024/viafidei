@@ -164,7 +164,6 @@ export const LOG_SECTIONS: ReadonlyArray<{ category: AdminWorkerLogCategory; lab
   { category: "QA", label: "QA" },
   { category: "PUBLISHING", label: "Publishing" },
   { category: "POST_PUBLISH", label: "Post-publish verification" },
-  { category: "HOMEPAGE", label: "Homepage" },
   { category: "CLEANUP", label: "Cleanup" },
   { category: "SECURITY", label: "Security" },
   { category: "REPORT", label: "Reports" },

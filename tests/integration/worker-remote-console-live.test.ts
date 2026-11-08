@@ -402,7 +402,6 @@ describe("phone surface — a completed-2FA session against a real database", ()
         "goals",
         "growth",
         "heartbeatAgeMs",
-        "homepageDrafts",
         "knowledge",
         "logs",
         "memory",

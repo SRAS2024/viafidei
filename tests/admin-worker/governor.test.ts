@@ -27,7 +27,6 @@ function world(overrides: Partial<WorldState> = {}): WorldState {
     trustedSources: 0,
     reviewQueuePending: 0,
     recentSecurityBreaches24h: 0,
-    homepageScore: 1,
     isPaused: false,
     pausedReason: null,
     heartbeatAgeMs: 0,

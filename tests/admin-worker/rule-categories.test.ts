@@ -16,7 +16,6 @@ const REQUIRED_CATEGORIES: RuleCategory[] = [
   "cross_source_validation",
   "publish",
   "deletion",
-  "homepage_design",
   "security",
   "report",
 ];

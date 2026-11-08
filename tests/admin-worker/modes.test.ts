@@ -15,8 +15,8 @@ import {
 } from "@/lib/admin-worker/priorities";
 
 describe("Admin Worker modes", () => {
-  it("ships all 9 modes from the spec", () => {
-    expect(ADMIN_WORKER_MODES).toHaveLength(9);
+  it("ships all 8 modes the worker can enter", () => {
+    expect(ADMIN_WORKER_MODES).toHaveLength(8);
   });
 
   it("describes every mode", () => {

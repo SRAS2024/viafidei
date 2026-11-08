@@ -1,71 +1,20 @@
 /**
- * Homepage + reporting skill pack. Real wrappers over safe site administration:
- * create a homepage makeover draft (review-gated: preview → publish → discard),
- * refresh + verify daily readings, and generate the Developer Audit / monthly
- * reports + diagnostics. Homepage changes only ever produce an AWAITING_REVIEW
- * draft — the live homepage is never mutated autonomously.
+ * Daily readings + reporting skill pack. Real wrappers over safe site
+ * administration: refresh + verify daily readings, and generate the Developer
+ * Audit / monthly reports + diagnostics.
  */
 
-import { redesignHomepage } from "../homepage-mutator";
 import { refreshDailyReadings, backfillDailyReadings } from "../daily-readings";
 import { runAdminWorkerDiagnostics } from "../diagnostics";
 import { generateAdminWorkerDeveloperAuditPdf, generateMonthlyAdminWorkerReportPdf } from "../pdf";
 import { makeOpSkill } from "./skill-helpers";
-import type { CertifiedSkill, SkillContext } from "./types";
+import type { CertifiedSkill } from "./types";
 
 function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
-export const homepageSkills: CertifiedSkill[] = [
-  makeOpSkill({
-    name: "create_homepage_draft",
-    purpose:
-      "Run a homepage makeover and file an AWAITING_REVIEW draft to preview, publish, or discard. Never mutates the live homepage.",
-    category: "HOMEPAGE",
-    riskLevel: "low",
-    brainOps: ["analyze_ui"],
-    successMetrics: ["draft_filed"],
-    run: async (ctx: SkillContext) => {
-      const result = (await redesignHomepage(ctx.prisma, {
-        passId: ctx.passId ?? undefined,
-        mode: "ADMIN_REQUESTED",
-        force: true,
-      })) as { draftId?: string; filed?: boolean; draft?: { id?: string } };
-      const id = result.draftId ?? result.draft?.id ?? null;
-      return {
-        ok: Boolean(result.filed ?? id),
-        detail: id ? `draft ${id} filed for review` : "no draft filed",
-        outputEntityType: "HomepageWorkerDraft",
-        outputEntityId: id,
-      };
-    },
-  }),
-  makeOpSkill({
-    name: "verify_homepage_render",
-    purpose: "Confirm the homepage record exists and has renderable blocks.",
-    category: "HOMEPAGE",
-    allowedInSafeDegradedMode: true,
-    run: async (ctx) => {
-      const hp = await ctx.prisma.homePage
-        .findUnique({ where: { slug: "homepage" }, include: { blocks: true } })
-        .catch(() => null);
-      const ok = hp != null && hp.blocks.length > 0;
-      return { ok, detail: ok ? `${hp!.blocks.length} blocks` : "no homepage blocks" };
-    },
-  }),
-  makeOpSkill({
-    name: "refresh_homepage_featured_content",
-    purpose: "Re-derive the homepage featured rails from currently-published content (if needed).",
-    category: "HOMEPAGE",
-    run: async (ctx) => {
-      const result = (await redesignHomepage(ctx.prisma, {
-        passId: ctx.passId ?? undefined,
-        mode: "AUTOMATIC_SMALL",
-      }).catch(() => null)) as { filed?: boolean } | null;
-      return { ok: result != null, detail: result?.filed ? "draft filed" : "no change needed" };
-    },
-  }),
+export const readingsReportingSkills: CertifiedSkill[] = [
   makeOpSkill({
     name: "refresh_daily_readings",
     purpose: "Refresh today's daily Mass readings from the liturgical calendar + lectionary.",

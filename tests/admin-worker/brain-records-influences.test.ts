@@ -56,10 +56,6 @@ function makePrisma() {
       ...defaultModel(),
       findMany: vi.fn(async () => [{ sourceHost: "vatican.va", reputationTier: "TRUSTED" }]),
     },
-    homepageQualityScore: {
-      ...defaultModel(),
-      findFirst: vi.fn(async () => ({ finalScore: 0.9 })),
-    },
   };
   return new Proxy(
     {},

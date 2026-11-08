@@ -56,11 +56,9 @@ const REQUIRED_TABLES = [
   "CandidateSourceUrl",
   "ContentGoal",
   "HumanReviewQueue",
-  "HomepageWorkerDraft",
   "AdminDeveloperReportLog",
   "PostPublishVerification",
   "ContentQualityScore",
-  "HomepageQualityScore",
   // Admin + audit + security
   "AdminAuditLog",
   "AdminActionLog",

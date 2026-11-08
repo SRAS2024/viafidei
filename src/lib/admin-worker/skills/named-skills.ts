@@ -1,14 +1,12 @@
 /**
  * Remaining named skills from the spec's pack lists — real wrappers/checks that
- * complete the publishing, homepage, security, and maintenance packs:
+ * complete the publishing, navigation, security, and maintenance packs:
  * persist_package, publish_structured_sections, verify_published_row,
- * file_human_review, update_homepage_block, update_navigation_if_safe,
- * verify_navigation_render, record_security_event, respond_to_confirmed_threat,
- * refresh_calibration_scores.
+ * file_human_review, update_navigation_if_safe, verify_navigation_render,
+ * record_security_event, respond_to_confirmed_threat, refresh_calibration_scores.
  */
 
 import { defend, type DefendInput } from "../security-defender";
-import { redesignHomepage } from "../homepage-mutator";
 import { requireHumanReview } from "../policy";
 import { translatePrayer } from "../prayer-translator";
 import { makeOpSkill } from "./skill-helpers";
@@ -106,21 +104,7 @@ export const namedSkills: CertifiedSkill[] = [
       };
     },
   }),
-  // ── Homepage / site admin (review-gated) ─────────────────────────────────
-  makeOpSkill({
-    name: "update_homepage_block",
-    purpose: "Propose a homepage block change via a review-gated draft (never mutates live).",
-    category: "HOMEPAGE",
-    humanReviewRequired: true,
-    run: async (ctx) => {
-      const result = (await redesignHomepage(ctx.prisma, {
-        passId: ctx.passId ?? undefined,
-        mode: "ADMIN_REQUESTED",
-        force: true,
-      }).catch(() => null)) as { draftId?: string; filed?: boolean } | null;
-      return { ok: result != null, detail: result?.filed ? "draft filed for review" : "no draft" };
-    },
-  }),
+  // ── Navigation (review-gated) ────────────────────────────────────────────
   makeOpSkill({
     name: "update_navigation_if_safe",
     purpose:

@@ -3,8 +3,8 @@
  *
  * Every real Admin Worker task is represented as a CertifiedSkill: a typed,
  * executable, verifiable, reversible unit of work that wraps the worker's real
- * pipeline functions (fetch, extract, verify, strict-QA, publish, repair,
- * homepage, reporting, security, maintenance). The dispatcher becomes a skill
+ * pipeline functions (fetch, extract, verify, strict-QA, publish, repair, daily
+ * readings, reporting, security, maintenance). The dispatcher becomes a skill
  * ORCHESTRATOR: the Python final brain selects an action, TypeScript validates
  * safety, the Skill Planner maps the action to certified skills, and the Skill
  * Executor runs preflight -> execute -> verify -> ledger -> learning.

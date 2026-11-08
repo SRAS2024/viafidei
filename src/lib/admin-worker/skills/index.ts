@@ -5,7 +5,7 @@
  * skills registered here. See ./types for the contract, ./registry for the
  * catalogue, ./executor for the lifecycle, and ./bootstrap for registration of
  * the real skill packs (source, extraction, verification, publishing, repair,
- * homepage, reporting, security, maintenance).
+ * daily readings, reporting, security, maintenance).
  */
 
 export * from "./types";

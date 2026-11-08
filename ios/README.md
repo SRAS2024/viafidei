@@ -306,9 +306,9 @@ so iOS's rounded mask does not clip it.
 
 ## Not included
 
-- **Actions.** The desktop console can also trigger a pass, approve a review
-  item and act on a homepage draft over its loopback API. Those endpoints are
-  not exposed to the phone by the server, so this app observes and toggles;
-  approving is done on the Admin Site tab.
+- **Actions.** The desktop console can also trigger a pass and approve a review
+  item over its loopback API. Those endpoints are not exposed to the phone by
+  the server, so this app observes and toggles; approving is done on the Admin
+  Site tab.
 - **Push notifications.** Nothing here wakes the phone; it polls only while
   you are looking at it.

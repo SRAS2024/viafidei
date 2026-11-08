@@ -201,7 +201,6 @@ export async function runMonthlyReportJobIfDue(
       workerUptimePct: summary.workerUptimePct,
       workerFailures: summary.workerFailures,
       securityEvents: summary.securityEvents,
-      homepageChanges: summary.homepageChanges,
       pdfBase64,
     });
 

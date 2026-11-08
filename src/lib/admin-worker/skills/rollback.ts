@@ -1,9 +1,9 @@
 /**
  * Skill rollback / repair. Every medium- or high-risk skill must define a
  * rollback (unpublish, restore previous public state, remove invalid citation,
- * revert homepage draft, mark for review, reopen repair plan, restore previous
- * title/subtitle/sections, …). If rollback is not possible, the skill declares
- * that up front and stricter preflight applies.
+ * mark for review, reopen repair plan, restore previous title/subtitle/sections,
+ * …). If rollback is not possible, the skill declares that up front and
+ * stricter preflight applies.
  */
 
 import type { CertifiedSkill, RollbackResult, SkillContext, SkillExecutionResult } from "./types";

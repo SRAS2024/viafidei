@@ -3,8 +3,8 @@
  *
  * The Admin Worker's control surfaces are deliberately NOT here. The worker
  * executes on the operator's MacBook, under the native Via Fidei application,
- * which holds the complete command center — activation, passes, homepage
- * makeover, rules, skills, review, artifacts, intelligence and file ingestion.
+ * which holds the complete command center — activation, passes, rules, skills,
+ * review, artifacts, intelligence and file ingestion.
  *
  * What remains in the browser is what the operator asked to keep there: user
  * management, diagnostics, logs, and the read-only content surfaces that do not

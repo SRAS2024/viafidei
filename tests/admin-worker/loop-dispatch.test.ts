@@ -8,16 +8,19 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/checklist", () => ({}));
 
-vi.mock("@/lib/admin-worker/homepage-mutator", () => ({
-  redesignHomepage: vi.fn(async () => ({
-    draftId: "d1",
-    status: "AUTO_PUBLISHED",
-    finalScore: 0.7,
-    qualityScoreId: "q1",
-    sectionsChanged: ["updated:hero"],
-    reasonSummary: "test",
-  })),
-}));
+// The real brain, except that a test can have its decision name a stage the
+// dispatcher no longer has a handler for.
+const leftover = vi.hoisted(() => ({ stage: null as string | null }));
+vi.mock("@/lib/admin-worker/brain", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/admin-worker/brain")>();
+  return {
+    ...actual,
+    runBrain: async (...args: Parameters<typeof actual.runBrain>) => {
+      const decision = await actual.runBrain(...args);
+      return leftover.stage ? { ...decision, missionStage: leftover.stage } : decision;
+    },
+  };
+});
 
 vi.mock("@/lib/admin-worker/monthly-report-job", () => ({
   runMonthlyReportJobIfDue: vi.fn(async () => ({
@@ -43,7 +46,6 @@ vi.mock("@/lib/admin-worker/repair", () => ({
 }));
 
 import { runOnePass } from "@/lib/admin-worker/loop";
-import { redesignHomepage } from "@/lib/admin-worker/homepage-mutator";
 import { runMonthlyReportJobIfDue } from "@/lib/admin-worker/monthly-report-job";
 import { runCleanupPass } from "@/lib/admin-worker/cleanup";
 
@@ -84,7 +86,6 @@ function makePrisma(opts: { pendingJobs?: number; failedJobs?: number; gap?: num
     },
     humanReviewQueue: { count: vi.fn(async () => 0) },
     securityEvent: { count: vi.fn(async () => 0) },
-    homepageQualityScore: { findFirst: vi.fn(async () => ({ finalScore: 0.9 })) },
     candidateSourceUrl: {
       count: vi.fn(async () => 0),
       findFirst: vi.fn(async () => null),
@@ -134,17 +135,40 @@ function makePrisma(opts: { pendingJobs?: number; failedJobs?: number; gap?: num
 // core it can exceed the 5 s default, which is a scheduling artifact rather
 // than a real regression. The generous timeout applies to the whole file.
 describe("runOnePass — mode dispatch", { timeout: 30_000 }, () => {
-  it("runs the homepage mutator when HOMEPAGE priority wins", async () => {
-    vi.mocked(redesignHomepage).mockClear();
+  it("runs the cleanup pass when nothing else has work", async () => {
     const prisma = makePrisma({});
     // Force MAINTENANCE by leaving every world signal idle. The brain
     // walks its priority ladder (security → health → goal → repair →
-    // queue → homepage → diagnostics → maintenance) and lands on
-    // MAINTENANCE when nothing else has work. The dispatch then MUST
-    // call runCleanupPass.
+    // queue → diagnostics → maintenance) and lands on MAINTENANCE when
+    // nothing else has work. The dispatch then MUST call runCleanupPass.
     vi.mocked(runCleanupPass).mockClear();
     await runOnePass(prisma, "test-worker");
     expect(runCleanupPass).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes out a pass whose decision names the removed HOMEPAGE_WORK stage", async () => {
+    // Nothing reads a stage back out of a stored row to run it, but production
+    // may still hold rows that name HOMEPAGE_WORK. Should a decision ever carry
+    // it again, the pass ends like any stage with no handler: idle and
+    // SUCCEEDED, nothing thrown, and nothing left over for the next pass to retry.
+    leftover.stage = "HOMEPAGE_WORK";
+    try {
+      const prisma = makePrisma({});
+      const outcome = await runOnePass(prisma, "test-worker");
+      expect(outcome.failed).toBe(0);
+      expect(outcome.idle).toBe(true);
+      const closes = vi
+        .mocked(prisma.adminWorkerPass.update)
+        .mock.calls.map((call) => (call[0] as { data: Record<string, unknown> }).data);
+      expect(closes).toContainEqual(
+        expect.objectContaining({
+          status: "SUCCEEDED",
+          summary: "HOMEPAGE_WORK: No dispatcher registered for HOMEPAGE_WORK.",
+        }),
+      );
+    } finally {
+      leftover.stage = null;
+    }
   });
 
   it("does not run the monthly report when no priority selects REPORTING", async () => {

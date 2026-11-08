@@ -1,8 +1,9 @@
 /**
  * Shared helper for operational skills that wrap a single real worker function
- * (homepage, reporting, security, maintenance, repair). The `run` callback does
- * the real work and returns whether it succeeded; the helper wires the standard
- * certified-skill lifecycle (execute → verify) and defaults around it.
+ * (daily readings, reporting, security, maintenance, repair). The `run`
+ * callback does the real work and returns whether it succeeded; the helper
+ * wires the standard certified-skill lifecycle (execute → verify) and defaults
+ * around it.
  */
 
 import { check, decideFromChecks } from "./verification";

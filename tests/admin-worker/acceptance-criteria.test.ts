@@ -126,11 +126,6 @@ describe("spec §25 — acceptance capability exports", () => {
     expect(typeof AdminWorker.pipelineSnapshot).toBe("function");
   });
 
-  it("ships homepage orchestrator (spec §20)", () => {
-    expect(typeof AdminWorker.runHomepagePublishOrchestrator).toBe("function");
-    expect(typeof AdminWorker.inspectHomepage).toBe("function");
-  });
-
   it("ships quality-v2 scoring with doctrinal thresholds (spec §12)", () => {
     expect(typeof AdminWorker.computeFinalScore).toBe("function");
     expect(typeof AdminWorker.thresholdFor).toBe("function");

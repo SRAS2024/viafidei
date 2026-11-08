@@ -5,7 +5,6 @@
  *   - deletion is uncertain (below the delete threshold, 0.9 default)
  *   - the worker cannot determine the content type
  *   - source evidence conflicts in ways cross-source can't reconcile
- *   - the change is a major homepage redesign
  *   - a schema conflict is detected
  */
 

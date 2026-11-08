@@ -964,7 +964,6 @@ export const DEVELOPER_AUDIT_SECTIONS = [
   "Cache Logs",
   "Repair Logs",
   "Security Logs",
-  "Homepage Logs",
   "Source Reputation Changes",
   "Memory Changes",
   "Why No Content Growth",
@@ -973,7 +972,6 @@ export const DEVELOPER_AUDIT_SECTIONS = [
   "Worker Logs",
   "System Logs",
   "Content Growth and Publishing",
-  "Homepage Actions",
   "Worker Requests",
 ] as const;
 
@@ -992,7 +990,6 @@ export interface MonthlySummary {
   workerUptimePct: number;
   workerFailures: number;
   securityEvents: number;
-  homepageChanges: number;
 }
 
 /**
@@ -1004,7 +1001,7 @@ export async function buildMonthlySummary(
   monthStart: Date,
   monthEnd: Date,
 ): Promise<MonthlySummary> {
-  const [passes, bestSources, securityCount, homepageDrafts] = await Promise.all([
+  const [passes, bestSources, securityCount] = await Promise.all([
     prisma.adminWorkerPass.findMany({
       where: { startedAt: { gte: monthStart, lte: monthEnd } },
     }),
@@ -1013,9 +1010,6 @@ export async function buildMonthlySummary(
       take: 5,
     }),
     prisma.securityEvent.count({
-      where: { createdAt: { gte: monthStart, lte: monthEnd } },
-    }),
-    prisma.homepageWorkerDraft.count({
       where: { createdAt: { gte: monthStart, lte: monthEnd } },
     }),
   ]);
@@ -1048,7 +1042,6 @@ export async function buildMonthlySummary(
     workerUptimePct: uptime,
     workerFailures: totals.failures,
     securityEvents: securityCount,
-    homepageChanges: homepageDrafts,
   };
 }
 

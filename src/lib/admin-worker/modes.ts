@@ -35,11 +35,6 @@ export const ADMIN_WORKER_MODES: readonly ModeDescriptor[] = [
     description: "Fix pipeline failures (queue stalls, source errors, missing fields).",
   },
   {
-    mode: "HOMEPAGE",
-    label: "Homepage",
-    description: "Score and improve the public homepage.",
-  },
-  {
     mode: "DIAGNOSTICS",
     label: "Diagnostics",
     description: "Audit every subsystem and write DiagnosticSnapshot rows.",

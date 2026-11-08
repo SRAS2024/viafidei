@@ -16,7 +16,6 @@ export const PRIORITY_ORDER: readonly AdminWorkerPriority[] = [
   "CONTENT_BUILD",
   "CONTENT_VALIDATION",
   "CONTENT_PUBLISH",
-  "HOMEPAGE",
   "DIAGNOSTICS",
   "CLEANUP",
   "MAINTENANCE",

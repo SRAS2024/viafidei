@@ -35,16 +35,9 @@ function makePrisma() {
 }
 
 describe("FORCED_OPERATOR_PASSES", () => {
-  it("covers the six single-stage buttons and excludes cleanup + content_goal", () => {
+  it("covers the five single-stage buttons and excludes cleanup + content_goal", () => {
     expect(new Set(FORCED_OPERATOR_PASSES)).toEqual(
-      new Set([
-        "diagnostics",
-        "report",
-        "security",
-        "source_repair",
-        "homepage",
-        "source_discovery",
-      ]),
+      new Set(["diagnostics", "report", "security", "source_repair", "source_discovery"]),
     );
     expect(FORCED_OPERATOR_PASSES).not.toContain("cleanup");
     expect(FORCED_OPERATOR_PASSES).not.toContain("content_goal");
@@ -57,7 +50,6 @@ describe("runOperatorPass — forces the requested stage", () => {
     ["report", "REPORTING"],
     ["security", "SECURITY_DEFENSE"],
     ["source_repair", "REPAIR"],
-    ["homepage", "HOMEPAGE_WORK"],
     ["source_discovery", "DISCOVERY"],
   ];
 
@@ -88,6 +80,18 @@ describe("runOperatorPass — forces the requested stage", () => {
     );
     expect(statuses.every((s) => s !== "RUNNING")).toBe(true);
     expect(statuses.some((s) => s === "SUCCEEDED" || s === "FAILED")).toBe(true);
+  });
+
+  it("refuses the removed homepage pass before it opens a pass row", async () => {
+    // The local host answers an old command centre's "homepage" with a 400, and
+    // any other caller that still names it is turned away here: no RUNNING row
+    // is left behind and the dispatcher is never reached.
+    executeMissionStage.mockClear();
+    const prisma = makePrisma();
+    const result = await runOperatorPass(prisma, "homepage" as never);
+    expect(result).toMatchObject({ ok: false, outcome: null, error: "no forced stage" });
+    expect(prisma.adminWorkerPass.create).not.toHaveBeenCalled();
+    expect(executeMissionStage).not.toHaveBeenCalled();
   });
 
   it("marks the pass FAILED when the dispatcher throws, never leaving it RUNNING", async () => {

@@ -20,7 +20,6 @@ const HEALTHY_WORLD: WorldState = {
   trustedSources: 3,
   reviewQueuePending: 0,
   recentSecurityBreaches24h: 0,
-  homepageScore: 0.9,
   isPaused: false,
   pausedReason: null,
   heartbeatAgeMs: 1000,

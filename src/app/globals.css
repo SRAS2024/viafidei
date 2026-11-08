@@ -3305,14 +3305,8 @@
     }
   }
 
-  /* III. Featured: a small heading over each rail. A rail's columns follow from
-     how many cards it holds, and a last row of one or two shares the row's width. */
-  .vf-home-rail-title {
-    margin-bottom: var(--space-close);
-    padding-bottom: 0.375rem;
-    border-bottom: 1px solid var(--rule-strong);
-  }
-
+  /* III. Featured: the rail's columns follow from how many cards it holds, and a
+     last row of one or two shares the row's width. */
   .vf-home-rail .vf-grid {
     grid-template-columns: minmax(0, 1fr);
   }

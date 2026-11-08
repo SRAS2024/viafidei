@@ -31,9 +31,9 @@
  *     snapshot in a wide grid; the phone renders the same cards on a 390 pt
  *     screen. `trimSnapshotForMobile` projects every collection down to the
  *     fields the dashboard actually reads, caps the row counts to what fits a
- *     phone, truncates long free text, and drops the two heavy items outright
- *     (the raw `brain.latestDecision` log row and the homepage drafts' page
- *     payloads). See TRIM_LIMITS for the numbers.
+ *     phone, truncates long free text, and drops the one heavy item outright
+ *     (the raw `brain.latestDecision` log row). See TRIM_LIMITS for the
+ *     numbers.
  *
  * The caches are per server instance and in-memory: correctness never depends
  * on them (every value is re-derivable from Postgres), so an instance restart
@@ -470,7 +470,6 @@ export const TRIM_LIMITS = {
   strictQA: 10,
   rollbacks: 8,
   security: 12,
-  homepageDrafts: 6,
   publishing: 12,
 } as const;
 
@@ -660,12 +659,6 @@ export interface MobileSnapshot {
     severity: string | null;
     createdAt: string | null;
   }>;
-  homepageDrafts: TrimmedList<{
-    id: string | null;
-    status: string | null;
-    reasonSummary: string | null;
-    createdAt: string | null;
-  }>;
   publishing: TrimmedList<{
     title: string | null;
     contentType: string | null;
@@ -707,10 +700,9 @@ function readingsBag(value: unknown): Record<string, number | string | boolean |
  *
  * Pure and defensive: every field is coerced, so a schema drift or a Prisma
  * Decimal can never produce `[object Object]` on the phone or throw here and
- * blank the whole console. Two things are dropped rather than trimmed —
- * `brain.latestDecision` (the raw AdminWorkerLog row, whose `safeMetadata` the
- * ranked alternatives are already extracted from) and the homepage drafts'
- * generated page payloads — because both are unbounded and neither is rendered.
+ * blank the whole console. `brain.latestDecision` (the raw AdminWorkerLog row,
+ * whose `safeMetadata` the ranked alternatives are already extracted from) is
+ * dropped rather than trimmed, because it is unbounded and never rendered.
  */
 export function trimSnapshotForMobile(snapshot: CommandCenterSnapshot): MobileSnapshot {
   const execution = rec(snapshot.execution);
@@ -912,12 +904,6 @@ export function trimSnapshotForMobile(snapshot: CommandCenterSnapshot): MobileSn
       actionType: str(a.actionType ?? a.action, 48),
       severity: str(a.severity, 24),
       createdAt: iso(a.createdAt),
-    })),
-    homepageDrafts: take(snapshot.homepageDrafts, TRIM_LIMITS.homepageDrafts, (d) => ({
-      id: str(d.id, 40),
-      status: str(d.status, 24),
-      reasonSummary: str(d.reasonSummary, 140),
-      createdAt: iso(d.createdAt),
     })),
     publishing: take(snapshot.publishing, TRIM_LIMITS.publishing, (p) => ({
       title: str(p.title, 80),
