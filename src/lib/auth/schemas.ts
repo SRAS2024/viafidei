@@ -40,6 +40,20 @@ export const passwordSchema = z
   .regex(/[0-9]/, { message: "weak" })
   .regex(PASSWORD_SPECIAL_REGEX, { message: "weak" });
 
+/**
+ * Names no person registers under. From 2026-11-06 a bot signed up 359
+ * strangers' addresses as "Test User", so each of those people got a welcome
+ * email from Via Fidei they never asked for; the owner had the accounts
+ * removed on 2026-11-14 and the bot made another within minutes. Refusing the
+ * name keeps them out (compared ignoring case and spacing).
+ */
+const PLACEHOLDER_NAMES = new Set(["test user"]);
+
+export function isPlaceholderName(firstName: string, lastName: string): boolean {
+  const full = `${firstName} ${lastName}`.trim().toLowerCase().replace(/\s+/g, " ");
+  return PLACEHOLDER_NAMES.has(full);
+}
+
 export const registerSchema = z
   .object({
     firstName: z.string().min(1).max(80),
@@ -52,6 +66,10 @@ export const registerSchema = z
   .refine((v) => v.password === v.passwordConfirm, {
     path: ["passwordConfirm"],
     message: "mismatch",
+  })
+  .refine((v) => !isPlaceholderName(v.firstName, v.lastName), {
+    path: ["firstName"],
+    message: "placeholder_name",
   });
 
 export const loginSchema = z.object({

@@ -171,6 +171,14 @@ describe("POST /api/auth/register", () => {
     expect(res.headers.get("location")).toContain("error=mismatch");
   });
 
+  it('refuses a sign-up named "Test User" without creating an account or sending email', async () => {
+    const res = await POST(buildRequest({ ...validBody, firstName: "Test", lastName: "User" }));
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toContain("error=invalid");
+    expect(createUserMock).not.toHaveBeenCalled();
+    expect(sendWelcomeEmailMock).not.toHaveBeenCalled();
+  });
+
   it("rejects already-registered email", async () => {
     findUserByEmailMock.mockResolvedValue({ id: "existing", email: "user@example.com" });
     const res = await POST(buildRequest(validBody));

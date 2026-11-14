@@ -159,6 +159,23 @@ describe("registerSchema", () => {
     const result = registerSchema.safeParse({ ...valid, language: "es" });
     expect(result.success).toBe(true);
   });
+
+  it('refuses the "Test User" name a sign-up bot used, ignoring case and spacing', () => {
+    for (const [firstName, lastName] of [
+      ["Test", "User"],
+      ["test", "user"],
+      [" TEST ", " USER "],
+    ]) {
+      const result = registerSchema.safeParse({ ...valid, firstName, lastName });
+      expect(result.success, `${firstName} ${lastName}`).toBe(false);
+    }
+    expect(
+      registerSchema.safeParse({ ...valid, firstName: "Testa", lastName: "User" }).success,
+    ).toBe(true);
+    expect(
+      registerSchema.safeParse({ ...valid, firstName: "Test", lastName: "Usery" }).success,
+    ).toBe(true);
+  });
 });
 
 describe("resetPasswordSchema", () => {
