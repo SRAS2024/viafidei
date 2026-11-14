@@ -79,8 +79,8 @@ export type EmailBlock =
       rows: Array<Record<string, string>>;
     }
   | { type: "button"; label: string; url: string }
-  /** Closing lines, e.g. ["Blessings,", "The Via Fidei Team"]. */
-  | { type: "signature"; lines: string[] }
+  /** Closing lines, e.g. ["Blessings,", "The Via Fidei Team"], then the site's address as a link. */
+  | { type: "signature"; lines: string[]; link?: { url: string; label: string } }
   | { type: "fineprint"; text: string };
 
 export type EmailDocument = {
@@ -91,7 +91,11 @@ export type EmailDocument = {
   /** The inbox preview line shown after the subject. */
   preheader: string;
   blocks: EmailBlock[];
-  footer: { lines: string[]; link?: { url: string; label: string } };
+  /**
+   * Centered at the foot of the sheet: an optional link (the site's address) and
+   * lines, then the copyright notice, which always closes the message.
+   */
+  footer: { lines?: string[]; link?: { url: string; label: string }; copyright: string };
   /** The site's base URL; the logo and the paper grain are served from it. */
   siteUrl: string;
   /** Shown after the wordmark, e.g. "Admin" on operational mail. */
@@ -281,7 +285,10 @@ function renderBlock(block: EmailBlock, locale: string): string {
       const opening = UPRIGHT_SCRIPTS.has(locale)
         ? escapeHtml(first ?? "")
         : `<em style="font-style:italic;">${escapeHtml(first ?? "")}</em>`;
-      return row(`<p style="margin:0;${BODY_TEXT}">${opening}${tail}</p>`, 6, 8);
+      const link = block.link
+        ? `<br><a href="${escapeHtml(block.link.url)}" target="_blank" style="color:${C.action};text-decoration:underline;">${escapeHtml(block.link.label)}</a>`
+        : "";
+      return row(`<p style="margin:0;${BODY_TEXT}">${opening}${tail}${link}</p>`, 6, 8);
     }
     case "fineprint":
       return row(
@@ -326,16 +333,25 @@ export function renderEmailHtml(doc: EmailDocument): string {
 
   const body = doc.blocks.map((block) => renderBlock(block, doc.locale)).join("\n");
 
-  const footerLines = doc.footer.lines
+  // The foot of the sheet is centered: the site's address and any lines, then
+  // the copyright notice last.
+  const small = `font-family:${SANS};font-size:13px;line-height:20px;color:${C.inkFaint};text-align:center;`;
+  const footerParts = [
+    ...(doc.footer.link
+      ? [
+          `<a href="${escapeHtml(doc.footer.link.url)}" target="_blank" style="color:${C.action};text-decoration:underline;">${escapeHtml(doc.footer.link.label)}</a>`,
+        ]
+      : []),
+    ...(doc.footer.lines ?? []).map((l) => escapeHtml(l)),
+    escapeHtml(doc.footer.copyright),
+  ];
+  const footerHtml = footerParts
     .map(
-      (l, i) =>
-        `<p class="vf-sans" style="margin:${i === 0 ? 0 : 6}px 0 0 0;font-family:${SANS};font-size:14px;line-height:21px;color:${C.inkFaint};">${escapeHtml(l)}</p>`,
+      (part, i) =>
+        `<p class="vf-sans" align="center" style="margin:${i === 0 ? 0 : 6}px 0 0 0;${small}">${part}</p>`,
     )
     .join("");
-  const footerLink = doc.footer.link
-    ? `<p class="vf-sans" style="margin:6px 0 0 0;font-family:${SANS};font-size:14px;line-height:21px;"><a href="${escapeHtml(doc.footer.link.url)}" target="_blank" style="color:${C.action};text-decoration:underline;">${escapeHtml(doc.footer.link.label)}</a></p>`
-    : "";
-  const footer = row(rule(C.edge), 14, 0) + row(`${footerLines}${footerLink}`, 18, 30);
+  const footer = row(rule(C.edge), 14, 0) + row(footerHtml, 18, 30, "text-align:center;");
 
   return `<!doctype html>
 <html lang="${lang}" dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -455,15 +471,18 @@ export function renderEmailText(doc: EmailDocument): string {
         out.push(`${block.label}: ${block.url}`, "");
         break;
       case "signature":
-        out.push(...block.lines, "");
+        out.push(...block.lines);
+        if (block.link) out.push(block.link.url);
+        out.push("");
         break;
       case "fineprint":
         out.push(block.text, "");
         break;
     }
   }
-  out.push("--", ...doc.footer.lines);
+  out.push("--");
   if (doc.footer.link) out.push(doc.footer.link.url);
+  out.push(...(doc.footer.lines ?? []), doc.footer.copyright);
   return out.join("\n");
 }
 

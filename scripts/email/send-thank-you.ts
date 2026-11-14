@@ -22,6 +22,7 @@ import path from "node:path";
 
 import { PrismaClient } from "@prisma/client";
 
+import { CHURCH_HISTORY_EVENTS } from "../../src/lib/content-shared/church-history-events";
 import { SAINT_DUPLICATE_OF } from "../../src/lib/content-shared/saints";
 import { sendTransactionalEmail } from "../../src/lib/email/resend";
 import {
@@ -105,14 +106,11 @@ function loadRailwayEnvironment(): void {
   process.env.RESEND_API_KEY = vars.RESEND_API_KEY;
 }
 
-/** The figures a visitor sees: published rows, saints without the hidden duplicates. */
+/** The figures a visitor sees: published rows per section, saints without the hidden duplicates. */
 async function readCounts(prisma: PrismaClient): Promise<SiteContentCounts> {
   const grouped = await prisma.publishedContent.groupBy({
     by: ["contentType"],
-    where: {
-      isPublished: true,
-      contentType: { in: ["SAINT", "APPARITION", "CHURCH_DOCUMENT", "PRAYER", "GUIDE"] },
-    },
+    where: { isPublished: true },
     _count: true,
   });
   const count = (type: string) => grouped.find((g) => g.contentType === type)?._count ?? 0;
@@ -132,12 +130,29 @@ async function readCounts(prisma: PrismaClient): Promise<SiteContentCounts> {
     (slug) => live.has(slug) && live.has(SAINT_DUPLICATE_OF[slug]!),
   ).length;
 
+  // The Litanies tab lists the prayers whose subtype is "litany" (src/app/litanies).
+  const litanies = await prisma.publishedContent.count({
+    where: { contentType: "PRAYER", isPublished: true, subtype: "litany" },
+  });
+
   return {
+    prayers: count("PRAYER"),
+    litanies,
+    devotions: count("DEVOTION"),
+    novenas: count("NOVENA"),
     saints: count("SAINT") - hidden,
     apparitions: count("APPARITION"),
-    churchDocuments: count("CHURCH_DOCUMENT"),
-    prayers: count("PRAYER"),
+    marianTitles: count("MARIAN_TITLE"),
+    doctors: count("DOCTOR"),
+    popes: count("POPE"),
+    parishes: count("PARISH"),
+    spiritualLife: count("SPIRITUAL_PRACTICE"),
     guides: count("GUIDE"),
+    liturgy: count("LITURGICAL"),
+    rites: count("RITE"),
+    // The History timeline's events (its documents are counted under Church Documents).
+    history: CHURCH_HISTORY_EVENTS.length,
+    churchDocuments: count("CHURCH_DOCUMENT"),
   };
 }
 

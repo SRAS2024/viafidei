@@ -1,5 +1,6 @@
 import { renderEmail, type EmailBlock } from "./layout";
 import { type RenderedEmail, SITE_NAME, SITE_URL_DEFAULT } from "./templates";
+import { copyrightNotice } from "./translations";
 
 /**
  * Admin email rendering — uses the same paper / serif aesthetic as the
@@ -111,7 +112,7 @@ export function renderAdminEmail(params: AdminEmailParams): RenderedEmail {
     title: params.heading,
     preheader: params.intro,
     blocks,
-    footer: { lines: [OPERATIONAL_FOOTER] },
+    footer: { lines: [OPERATIONAL_FOOTER], copyright: copyrightNotice("en") },
     siteUrl: SITE_URL_DEFAULT,
     brandNote: "Admin",
   });

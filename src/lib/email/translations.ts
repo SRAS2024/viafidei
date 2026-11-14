@@ -3,8 +3,8 @@ import { isSupportedLocale, type Locale } from "@/lib/i18n/locales";
 export type EmailLocale = Locale;
 
 type EmailDictionary = {
-  shared_footerLine: string;
-  shared_siteLabel: string;
+  /** The centered notice that closes every email; {year} is filled in when it is sent. */
+  shared_copyright: string;
   welcome_subject: string;
   welcome_heading: string;
   welcome_intro: string;
@@ -30,8 +30,7 @@ type EmailDictionary = {
 };
 
 const EN: EmailDictionary = {
-  shared_footerLine: "Via Fidei — a reverent, private Catholic companion.",
-  shared_siteLabel: "Visit Via Fidei",
+  shared_copyright: "© {year} Via Fidei. All rights reserved.",
   welcome_subject: "Welcome!",
   welcome_heading: "Welcome to Via Fidei",
   welcome_intro: "We are glad to walk this path of faith with you.",
@@ -58,8 +57,7 @@ const EN: EmailDictionary = {
 };
 
 const ES: EmailDictionary = {
-  shared_footerLine: "Via Fidei — un acompañante católico reverente y privado.",
-  shared_siteLabel: "Visitar Via Fidei",
+  shared_copyright: "© {year} Via Fidei. Todos los derechos reservados.",
   welcome_subject: "¡Te damos la bienvenida!",
   welcome_heading: "Bienvenido a Via Fidei",
   welcome_intro: "Nos alegra acompañarte en este camino de la fe.",
@@ -85,8 +83,7 @@ const ES: EmailDictionary = {
 };
 
 const FR: EmailDictionary = {
-  shared_footerLine: "Via Fidei — un compagnon catholique discret et révérent.",
-  shared_siteLabel: "Visiter Via Fidei",
+  shared_copyright: "© {year} Via Fidei. Tous droits réservés.",
   welcome_subject: "Bienvenue !",
   welcome_heading: "Bienvenue sur Via Fidei",
   welcome_intro: "Nous sommes heureux de cheminer avec vous dans la foi.",
@@ -113,8 +110,7 @@ const FR: EmailDictionary = {
 };
 
 const IT: EmailDictionary = {
-  shared_footerLine: "Via Fidei — un compagno cattolico riservato e devoto.",
-  shared_siteLabel: "Visita Via Fidei",
+  shared_copyright: "© {year} Via Fidei. Tutti i diritti riservati.",
   welcome_subject: "Ti diamo il benvenuto!",
   welcome_heading: "Benvenuto in Via Fidei",
   welcome_intro: "Siamo lieti di camminare con te in questa via della fede.",
@@ -140,8 +136,7 @@ const IT: EmailDictionary = {
 };
 
 const DE: EmailDictionary = {
-  shared_footerLine: "Via Fidei — ein stiller, ehrfürchtiger katholischer Begleiter.",
-  shared_siteLabel: "Via Fidei besuchen",
+  shared_copyright: "© {year} Via Fidei. Alle Rechte vorbehalten.",
   welcome_subject: "Willkommen!",
   welcome_heading: "Willkommen bei Via Fidei",
   welcome_intro: "Wir freuen uns, diesen Weg des Glaubens mit dir zu gehen.",
@@ -168,8 +163,7 @@ const DE: EmailDictionary = {
 };
 
 const PT: EmailDictionary = {
-  shared_footerLine: "Via Fidei — um companheiro católico reverente e discreto.",
-  shared_siteLabel: "Visitar Via Fidei",
+  shared_copyright: "© {year} Via Fidei. Todos os direitos reservados.",
   welcome_subject: "Boas-vindas!",
   welcome_heading: "Bem-vindo ao Via Fidei",
   welcome_intro: "Estamos felizes por caminhar com você nesta via da fé.",
@@ -195,8 +189,7 @@ const PT: EmailDictionary = {
 };
 
 const PL: EmailDictionary = {
-  shared_footerLine: "Via Fidei — pełen czci, dyskretny katolicki towarzysz.",
-  shared_siteLabel: "Odwiedź Via Fidei",
+  shared_copyright: "© {year} Via Fidei. Wszelkie prawa zastrzeżone.",
   welcome_subject: "Witaj!",
   welcome_heading: "Witaj w Via Fidei",
   welcome_intro: "Cieszymy się, że możemy iść z tobą tą drogą wiary.",
@@ -222,8 +215,7 @@ const PL: EmailDictionary = {
 };
 
 const LA: EmailDictionary = {
-  shared_footerLine: "Via Fidei — comes catholicus reverens et privatus.",
-  shared_siteLabel: "Adi Via Fidei",
+  shared_copyright: "© {year} Via Fidei. Omnia iura reservata.",
   welcome_subject: "Salve!",
   welcome_heading: "Salve in Via Fidei",
   welcome_intro: "Gaudemus tecum hac via fidei ambulare.",
@@ -249,8 +241,7 @@ const LA: EmailDictionary = {
 };
 
 const TL: EmailDictionary = {
-  shared_footerLine: "Via Fidei — isang taimtim at pribadong Katolikong kasama.",
-  shared_siteLabel: "Bisitahin ang Via Fidei",
+  shared_copyright: "© {year} Via Fidei. Nakalaan ang lahat ng karapatan.",
   welcome_subject: "Maligayang pagdating!",
   welcome_heading: "Maligayang pagdating sa Via Fidei",
   welcome_intro: "Masaya kaming makasama ka sa landas ng pananampalataya.",
@@ -276,8 +267,7 @@ const TL: EmailDictionary = {
 };
 
 const VI: EmailDictionary = {
-  shared_footerLine: "Via Fidei — người bạn đồng hành Công giáo trang nghiêm và riêng tư.",
-  shared_siteLabel: "Truy cập Via Fidei",
+  shared_copyright: "© {year} Via Fidei. Bảo lưu mọi quyền.",
   welcome_subject: "Chào mừng bạn!",
   welcome_heading: "Chào mừng đến với Via Fidei",
   welcome_intro: "Chúng tôi vui mừng được đồng hành cùng bạn trên hành trình đức tin.",
@@ -303,8 +293,7 @@ const VI: EmailDictionary = {
 };
 
 const KO: EmailDictionary = {
-  shared_footerLine: "Via Fidei — 경건하고 개인적인 가톨릭 동반자.",
-  shared_siteLabel: "Via Fidei 방문",
+  shared_copyright: "© {year} Via Fidei. 모든 권리 보유.",
   welcome_subject: "환영합니다!",
   welcome_heading: "Via Fidei에 오신 것을 환영합니다",
   welcome_intro: "신앙의 길에서 함께하게 되어 기쁩니다.",
@@ -329,8 +318,7 @@ const KO: EmailDictionary = {
 };
 
 const ZH: EmailDictionary = {
-  shared_footerLine: "Via Fidei — 一位虔敬而私密的天主教同伴。",
-  shared_siteLabel: "访问 Via Fidei",
+  shared_copyright: "© {year} Via Fidei 版权所有。",
   welcome_subject: "欢迎！",
   welcome_heading: "欢迎来到 Via Fidei",
   welcome_intro: "我们很高兴与您一同踏上这条信仰之路。",
@@ -372,4 +360,9 @@ export function resolveEmailLocale(input: string | null | undefined): EmailLocal
 
 export function translateEmail(locale: EmailLocale): EmailDictionary {
   return DICT[locale] ?? DICT.en;
+}
+
+/** The copyright line for a message sent now, in the reader's language. */
+export function copyrightNotice(locale: EmailLocale, now: Date = new Date()): string {
+  return translateEmail(locale).shared_copyright.replace("{year}", String(now.getUTCFullYear()));
 }

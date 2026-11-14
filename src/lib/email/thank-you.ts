@@ -1,21 +1,37 @@
 /**
  * The one-off "Thank you!" letter to Via Fidei's members (November 2026),
- * in each member's own language. The wording is the owner's; the five figures
- * are read from the live catalogue at send time.
+ * in each member's own language. The wording is the owner's; the figures for
+ * every section of the site are read from the live catalogue at send time.
  *
  * Sent by scripts/email/send-thank-you.ts.
  */
 import { formatEmailCount, renderEmail } from "./layout";
 import type { RenderedEmail } from "./templates";
-import { resolveEmailLocale, translateEmail, type EmailLocale } from "./translations";
+import { copyrightNotice, resolveEmailLocale, type EmailLocale } from "./translations";
 
-/** What the site holds, by the names the owner listed (sacraments deliberately left out). */
+/**
+ * What the site holds, section by section in the order of its own menu. The
+ * owner asked for every kind of content; sacraments are left out (there are
+ * seven, which goes without saying) and the liturgical calendar is complete
+ * rather than counted.
+ */
 export type SiteContentCounts = {
+  prayers: number;
+  litanies: number;
+  devotions: number;
+  novenas: number;
   saints: number;
   apparitions: number;
-  churchDocuments: number;
-  prayers: number;
+  marianTitles: number;
+  doctors: number;
+  popes: number;
+  parishes: number;
+  spiritualLife: number;
   guides: number;
+  liturgy: number;
+  rites: number;
+  history: number;
+  churchDocuments: number;
 };
 
 type ThankYouDictionary = {
@@ -33,6 +49,19 @@ type ThankYouDictionary = {
   labelChurchDocuments: string;
   labelPrayers: string;
   labelGuides: string;
+  labelLitanies: string;
+  labelDevotions: string;
+  labelNovenas: string;
+  labelMarianTitles: string;
+  labelDoctors: string;
+  labelPopes: string;
+  labelParishes: string;
+  labelSpiritualLife: string;
+  labelLiturgy: string;
+  labelLiturgicalCalendar: string;
+  valueComplete: string;
+  labelRites: string;
+  labelHistory: string;
   closing: string;
   signoffBlessing: string;
   signoffTeam: string;
@@ -55,6 +84,19 @@ const EN: ThankYouDictionary = {
   labelChurchDocuments: "Church Documents",
   labelPrayers: "Prayers",
   labelGuides: "Guides",
+  labelLitanies: "Litanies",
+  labelDevotions: "Devotions",
+  labelNovenas: "Novenas",
+  labelMarianTitles: "Marian Titles",
+  labelDoctors: "Doctors of the Church",
+  labelPopes: "Popes",
+  labelParishes: "Parishes",
+  labelSpiritualLife: "Spiritual Life",
+  labelLiturgy: "Liturgy",
+  labelLiturgicalCalendar: "Liturgical Calendar",
+  valueComplete: "Complete",
+  labelRites: "Rites",
+  labelHistory: "History",
   closing: "We look forward to seeing how this project grows, as we already have dozens of users!",
   signoffBlessing: "Blessings,",
   signoffTeam: "The Via Fidei Team",
@@ -78,6 +120,19 @@ const ES: ThankYouDictionary = {
   labelChurchDocuments: "Documentos de la Iglesia",
   labelPrayers: "Oraciones",
   labelGuides: "Guías",
+  labelLitanies: "Letanías",
+  labelDevotions: "Devociones",
+  labelNovenas: "Novenas",
+  labelMarianTitles: "Advocaciones marianas",
+  labelDoctors: "Doctores de la Iglesia",
+  labelPopes: "Papas",
+  labelParishes: "Parroquias",
+  labelSpiritualLife: "Vida Espiritual",
+  labelLiturgy: "Liturgia",
+  labelLiturgicalCalendar: "Calendario litúrgico",
+  valueComplete: "Completo",
+  labelRites: "Ritos",
+  labelHistory: "Historia",
   closing:
     "¡Esperamos con entusiasmo ver cómo crece este proyecto, pues ya tenemos decenas de usuarios!",
   signoffBlessing: "Bendiciones,",
@@ -103,6 +158,19 @@ const FR: ThankYouDictionary = {
   labelChurchDocuments: "Documents de l’Église",
   labelPrayers: "Prières",
   labelGuides: "Guides",
+  labelLitanies: "Litanies",
+  labelDevotions: "Dévotions",
+  labelNovenas: "Neuvaines",
+  labelMarianTitles: "Titres marials",
+  labelDoctors: "Docteurs de l’Église",
+  labelPopes: "Papes",
+  labelParishes: "Paroisses",
+  labelSpiritualLife: "Vie spirituelle",
+  labelLiturgy: "Liturgie",
+  labelLiturgicalCalendar: "Calendrier liturgique",
+  valueComplete: "Complet",
+  labelRites: "Rites",
+  labelHistory: "Histoire",
   closing:
     "Nous avons hâte de voir ce projet grandir, car nous comptons déjà des dizaines d’utilisateurs !",
   signoffBlessing: "Que Dieu vous bénisse,",
@@ -126,6 +194,19 @@ const IT: ThankYouDictionary = {
   labelChurchDocuments: "Documenti della Chiesa",
   labelPrayers: "Preghiere",
   labelGuides: "Guide",
+  labelLitanies: "Litanie",
+  labelDevotions: "Devozioni",
+  labelNovenas: "Novene",
+  labelMarianTitles: "Titoli mariani",
+  labelDoctors: "Dottori della Chiesa",
+  labelPopes: "Papi",
+  labelParishes: "Parrocchie",
+  labelSpiritualLife: "Vita Spirituale",
+  labelLiturgy: "Liturgia",
+  labelLiturgicalCalendar: "Calendario liturgico",
+  valueComplete: "Completo",
+  labelRites: "Riti",
+  labelHistory: "Storia",
   closing:
     "Non vediamo l'ora di scoprire come crescerà questo progetto, visto che abbiamo già decine di utenti!",
   signoffBlessing: "Dio ti benedica,",
@@ -149,6 +230,19 @@ const DE: ThankYouDictionary = {
   labelChurchDocuments: "Kirchendokumente",
   labelPrayers: "Gebete",
   labelGuides: "Anleitungen",
+  labelLitanies: "Litaneien",
+  labelDevotions: "Andachten",
+  labelNovenas: "Novenen",
+  labelMarianTitles: "Marientitel",
+  labelDoctors: "Kirchenlehrer",
+  labelPopes: "Päpste",
+  labelParishes: "Pfarreien",
+  labelSpiritualLife: "Geistliches Leben",
+  labelLiturgy: "Liturgie",
+  labelLiturgicalCalendar: "Liturgischer Kalender",
+  valueComplete: "Vollständig",
+  labelRites: "Riten",
+  labelHistory: "Geschichte",
   closing:
     "Wir freuen uns darauf, zu sehen, wie dieses Projekt wächst, denn wir haben bereits Dutzende Nutzerinnen und Nutzer!",
   signoffBlessing: "Gottes Segen",
@@ -172,6 +266,19 @@ const PT: ThankYouDictionary = {
   labelChurchDocuments: "Documentos da Igreja",
   labelPrayers: "Orações",
   labelGuides: "Guias",
+  labelLitanies: "Ladainhas",
+  labelDevotions: "Devoções",
+  labelNovenas: "Novenas",
+  labelMarianTitles: "Títulos marianos",
+  labelDoctors: "Doutores da Igreja",
+  labelPopes: "Papas",
+  labelParishes: "Paróquias",
+  labelSpiritualLife: "Vida Espiritual",
+  labelLiturgy: "Liturgia",
+  labelLiturgicalCalendar: "Calendário litúrgico",
+  valueComplete: "Completo",
+  labelRites: "Ritos",
+  labelHistory: "História",
   closing:
     "Estamos ansiosos para ver como este projeto vai crescer, pois já temos dezenas de usuários!",
   signoffBlessing: "Deus abençoe,",
@@ -195,6 +302,19 @@ const PL: ThankYouDictionary = {
   labelChurchDocuments: "Dokumenty Kościoła",
   labelPrayers: "Modlitwy",
   labelGuides: "Przewodniki",
+  labelLitanies: "Litanie",
+  labelDevotions: "Nabożeństwa",
+  labelNovenas: "Nowenny",
+  labelMarianTitles: "Tytuły maryjne",
+  labelDoctors: "Doktorzy Kościoła",
+  labelPopes: "Papieże",
+  labelParishes: "Parafie",
+  labelSpiritualLife: "Życie duchowe",
+  labelLiturgy: "Liturgia",
+  labelLiturgicalCalendar: "Kalendarz liturgiczny",
+  valueComplete: "Pełny",
+  labelRites: "Obrządki",
+  labelHistory: "Historia",
   closing:
     "Z niecierpliwością czekamy na dalszy rozwój tego projektu, bo mamy już dziesiątki użytkowników!",
   signoffBlessing: "Szczęść Boże!",
@@ -218,6 +338,19 @@ const LA: ThankYouDictionary = {
   labelChurchDocuments: "Documenta Ecclesiae",
   labelPrayers: "Orationes",
   labelGuides: "Duces",
+  labelLitanies: "Litaniae",
+  labelDevotions: "Devotiones",
+  labelNovenas: "Novenae",
+  labelMarianTitles: "Tituli Mariani",
+  labelDoctors: "Doctores Ecclesiae",
+  labelPopes: "Summi Pontifices",
+  labelParishes: "Paroeciae",
+  labelSpiritualLife: "Vita Spiritualis",
+  labelLiturgy: "Liturgia",
+  labelLiturgicalCalendar: "Calendarium liturgicum",
+  valueComplete: "Integrum",
+  labelRites: "Ritus",
+  labelHistory: "Historia",
   closing:
     "Cupide exspectamus quomodo hoc inceptum crescat, cum iam aliquot utentium decades habeamus!",
   signoffBlessing: "Benedicat te Deus,",
@@ -242,6 +375,19 @@ const TL: ThankYouDictionary = {
   labelChurchDocuments: "Mga Dokumento ng Simbahan",
   labelPrayers: "Mga Panalangin",
   labelGuides: "Mga Gabay",
+  labelLitanies: "Mga Litanya",
+  labelDevotions: "Mga Debosyon",
+  labelNovenas: "Mga Nobena",
+  labelMarianTitles: "Mga Titulo ni Maria",
+  labelDoctors: "Mga Doktor ng Simbahan",
+  labelPopes: "Mga Papa",
+  labelParishes: "Mga Parokya",
+  labelSpiritualLife: "Buhay Espirituwal",
+  labelLiturgy: "Liturhiya",
+  labelLiturgicalCalendar: "Kalendaryong Liturhiko",
+  valueComplete: "Kumpleto",
+  labelRites: "Mga Rito",
+  labelHistory: "Kasaysayan",
   closing:
     "Sabik kaming makita kung paano lalago ang proyektong ito, dahil mayroon na kaming dose-dosenang gumagamit!",
   signoffBlessing: "Pagpalain ka ng Diyos,",
@@ -265,6 +411,19 @@ const VI: ThankYouDictionary = {
   labelChurchDocuments: "Văn kiện Giáo hội",
   labelPrayers: "Kinh nguyện",
   labelGuides: "Hướng dẫn",
+  labelLitanies: "Kinh cầu",
+  labelDevotions: "Lòng sùng kính",
+  labelNovenas: "Tuần cửu nhật",
+  labelMarianTitles: "Tước hiệu Đức Mẹ",
+  labelDoctors: "Tiến sĩ Hội Thánh",
+  labelPopes: "Các Giáo hoàng",
+  labelParishes: "Giáo xứ",
+  labelSpiritualLife: "Đời sống thiêng liêng",
+  labelLiturgy: "Phụng vụ",
+  labelLiturgicalCalendar: "Lịch phụng vụ",
+  valueComplete: "Đầy đủ",
+  labelRites: "Các nghi lễ",
+  labelHistory: "Lịch sử",
   closing:
     "Chúng tôi mong chờ được thấy dự án này phát triển như thế nào, vì chúng tôi đã có hàng chục người dùng!",
   signoffBlessing: "Xin Chúa chúc lành cho bạn,",
@@ -288,6 +447,19 @@ const KO: ThankYouDictionary = {
   labelChurchDocuments: "교회 문헌",
   labelPrayers: "기도문",
   labelGuides: "안내서",
+  labelLitanies: "호칭 기도",
+  labelDevotions: "신심",
+  labelNovenas: "9일 기도",
+  labelMarianTitles: "성모 칭호",
+  labelDoctors: "교회 학자",
+  labelPopes: "교황",
+  labelParishes: "본당",
+  labelSpiritualLife: "영성 생활",
+  labelLiturgy: "전례",
+  labelLiturgicalCalendar: "전례력",
+  valueComplete: "전체 수록",
+  labelRites: "예법",
+  labelHistory: "역사",
   closing: "이미 수십 명의 사용자가 있기에, 이 프로젝트가 어떻게 성장해 나갈지 기대됩니다!",
   signoffBlessing: "주님의 축복을 빕니다.",
   signoffTeam: "Via Fidei 팀 드림",
@@ -310,6 +482,19 @@ const ZH: ThankYouDictionary = {
   labelChurchDocuments: "教会文献",
   labelPrayers: "祈祷文",
   labelGuides: "指南",
+  labelLitanies: "祷文",
+  labelDevotions: "敬礼",
+  labelNovenas: "九日敬礼",
+  labelMarianTitles: "圣母称号",
+  labelDoctors: "教会圣师",
+  labelPopes: "教宗",
+  labelParishes: "堂区",
+  labelSpiritualLife: "灵修生活",
+  labelLiturgy: "礼仪",
+  labelLiturgicalCalendar: "礼仪日历",
+  valueComplete: "完整",
+  labelRites: "礼仪传统",
+  labelHistory: "历史",
   closing: "我们已经有了数十位用户，期待看到这个项目如何成长！",
   signoffBlessing: "愿天主降福您，",
   signoffTeam: "Via Fidei 团队",
@@ -349,7 +534,6 @@ export function renderThankYouEmail(params: {
   const locale: EmailLocale =
     requested !== "en" && thankYouDictionary(requested) === EN ? "en" : requested;
   const t = thankYouDictionary(locale);
-  const shared = translateEmail(locale);
   const n = (value: number) => formatEmailCount(value, locale);
   const siteUrl = params.siteUrl.replace(/\/+$/, "");
 
@@ -366,21 +550,34 @@ export function renderThankYouEmail(params: {
       {
         type: "figures",
         rows: [
+          { label: t.labelPrayers, value: n(params.counts.prayers) },
+          { label: t.labelLitanies, value: n(params.counts.litanies) },
+          { label: t.labelDevotions, value: n(params.counts.devotions) },
+          { label: t.labelNovenas, value: n(params.counts.novenas) },
           { label: t.labelSaints, value: n(params.counts.saints) },
           { label: t.labelApparitions, value: n(params.counts.apparitions) },
-          { label: t.labelChurchDocuments, value: n(params.counts.churchDocuments) },
-          { label: t.labelPrayers, value: n(params.counts.prayers) },
+          { label: t.labelMarianTitles, value: n(params.counts.marianTitles) },
+          { label: t.labelDoctors, value: n(params.counts.doctors) },
+          { label: t.labelPopes, value: n(params.counts.popes) },
+          { label: t.labelParishes, value: n(params.counts.parishes) },
+          { label: t.labelSpiritualLife, value: n(params.counts.spiritualLife) },
           { label: t.labelGuides, value: n(params.counts.guides) },
+          { label: t.labelLiturgy, value: n(params.counts.liturgy) },
+          { label: t.labelLiturgicalCalendar, value: t.valueComplete },
+          { label: t.labelRites, value: n(params.counts.rites) },
+          { label: t.labelHistory, value: n(params.counts.history) },
+          { label: t.labelChurchDocuments, value: n(params.counts.churchDocuments) },
         ],
       },
       { type: "paragraph", text: t.closing },
-      { type: "signature", lines: [t.signoffBlessing, t.signoffTeam] },
+      // The site's address on the line under the team's name, easy to share.
+      {
+        type: "signature",
+        lines: [t.signoffBlessing, t.signoffTeam],
+        link: { url: siteUrl, label: new URL(siteUrl).host },
+      },
     ],
-    footer: {
-      lines: [shared.shared_footerLine],
-      // The address itself, since the letter asks readers to share the site.
-      link: { url: siteUrl, label: new URL(siteUrl).host },
-    },
+    footer: { copyright: copyrightNotice(locale) },
     siteUrl,
   });
 

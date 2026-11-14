@@ -1,4 +1,4 @@
-import { translateEmail, type EmailLocale } from "./translations";
+import { copyrightNotice, translateEmail, type EmailLocale } from "./translations";
 import { escapeHtml, formatEmailDateTime, renderEmail, type EmailBlock } from "./layout";
 
 export { escapeHtml };
@@ -31,7 +31,6 @@ type AccountEmailParts = {
  * anyone who prefers to paste it.
  */
 function renderAccountEmail(parts: AccountEmailParts): RenderedEmail {
-  const t = translateEmail(parts.locale);
   const blocks: EmailBlock[] = [
     { type: "heading", text: parts.heading },
     ...parts.paragraphs.map((text): EmailBlock => ({ type: "paragraph", text })),
@@ -43,9 +42,10 @@ function renderAccountEmail(parts: AccountEmailParts): RenderedEmail {
     title: parts.subject,
     preheader: parts.preheader,
     blocks,
+    // Centered at the foot: the site's address, then the copyright notice.
     footer: {
-      lines: [t.shared_footerLine],
-      link: { url: parts.siteUrl, label: t.shared_siteLabel },
+      link: { url: parts.siteUrl, label: new URL(parts.siteUrl).host },
+      copyright: copyrightNotice(parts.locale),
     },
     siteUrl: parts.siteUrl,
   });

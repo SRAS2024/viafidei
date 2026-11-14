@@ -21,8 +21,8 @@ const doc = (over: Partial<EmailDocument> = {}): EmailDocument => ({
     { type: "signature", lines: ["Blessings,", "The Via Fidei Team"] },
   ],
   footer: {
-    lines: ["Footer line."],
     link: { url: "https://etviafidei.com", label: "etviafidei.com" },
+    copyright: "© 2026 Via Fidei. All rights reserved.",
   },
   ...over,
 });
@@ -64,6 +64,29 @@ describe("email layout — what keeps it intact across inboxes", () => {
     expect(html).toMatch(/<h1 [^>]*>Thank you!<\/h1>/);
     expect(html).toMatch(/<ul [^>]*><li [^>]*>One<\/li><li [^>]*>Two<\/li><\/ul>/);
     expect(html).toMatch(/<th scope="row"[^>]*>Saints<\/th><td[^>]*>3,752<\/td>/);
+  });
+
+  it("closes with the site's address and the copyright notice, centered", () => {
+    expect(html).toMatch(
+      /<p class="vf-sans" align="center" [^>]*text-align:center;[^>]*><a href="https:\/\/etviafidei\.com"[^>]*>etviafidei\.com<\/a><\/p><p class="vf-sans" align="center" [^>]*>© 2026 Via Fidei\. All rights reserved\.<\/p>/,
+    );
+  });
+
+  it("puts a link under the signature when one is given", () => {
+    const signed = renderEmailHtml(
+      doc({
+        blocks: [
+          {
+            type: "signature",
+            lines: ["Blessings,", "The Via Fidei Team"],
+            link: { url: "https://etviafidei.com", label: "etviafidei.com" },
+          },
+        ],
+      }),
+    );
+    expect(signed).toContain(
+      'The Via Fidei Team<br><a href="https://etviafidei.com" target="_blank" style="color:#1f3a8a;text-decoration:underline;">etviafidei.com</a></p>',
+    );
   });
 
   it("keeps decorative rules out of the screen reader's way", () => {
@@ -125,7 +148,9 @@ describe("email layout — plain text copy", () => {
     expect(text).toMatch(/Saints\s+3,752/);
     expect(text).toContain("Open: https://etviafidei.com/x?a=1&b=2");
     expect(text).toContain("Blessings,\nThe Via Fidei Team");
-    expect(text.trimEnd().endsWith("https://etviafidei.com")).toBe(true);
+    expect(
+      text.trimEnd().endsWith("https://etviafidei.com\n© 2026 Via Fidei. All rights reserved."),
+    ).toBe(true);
     expect(text).not.toMatch(/<[a-z]/i);
     // Rules made of "=" or "-" are read aloud character by character.
     expect(text).not.toMatch(/^[=-]{3,}$/m);
