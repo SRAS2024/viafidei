@@ -3537,6 +3537,18 @@
     color: var(--ink-faint);
   }
 
+  /* The sign-up form's box for machines (see RegisterForm). Off the screen to the left,
+     where nothing scrolls, rather than display:none, which the machines it catches pass
+     over. Its inert and aria-hidden keep it from the keyboard and screen readers. */
+  .vf-form-trap {
+    position: absolute;
+    left: -10000px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
   .vf-btn-block {
     width: 100%;
   }

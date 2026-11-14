@@ -183,6 +183,11 @@ export const fr: Dict = {
     "Gérez le contenu, les traductions, l'ingestion, les médias et la page d'accueil.",
   "admin.signOut": "Déconnexion",
   "admin.welcomeLine": "Vous êtes connecté en tant qu'administrateur.",
+  "auth.error.retry":
+    "Votre compte n'a pas été créé. Saisissez de nouveau votre mot de passe dans les deux champs de mot de passe, puis sélectionnez {button}.",
+  "auth.error.dailyLimit":
+    "Aucun autre compte ne peut être créé aujourd'hui. Veuillez réessayer demain.",
+  "auth.leaveEmpty": "Laissez ce champ vide.",
   "auth.forgot.success":
     "Si un compte existe pour {email}, nous avons envoyé à cette adresse un lien pour réinitialiser le mot de passe.",
   "auth.forgot.invalidAddress":

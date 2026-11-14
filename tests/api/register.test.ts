@@ -38,17 +38,32 @@ vi.mock("next/headers", () => ({
 }));
 
 import { POST } from "@/app/api/auth/register/route";
+import { issueSignupFormToken, SIGNUP_FORM_MAX_AGE_MS } from "@/lib/auth/signup-guard";
+import { SIGNUP_FORM_MIN_FILL_MS } from "@/lib/auth/signup-guard-fields";
 import type { NextRequest } from "next/server";
 
-function buildRequest(form: Record<string, string>): NextRequest {
+/**
+ * The form as a person sends it back: carrying the note the page was handed out with, made
+ * twenty seconds earlier, and the field only a machine fills in left empty. A test may
+ * replace either, or leave the note out with `formToken: undefined`.
+ */
+function buildRequest(form: Record<string, string | undefined>): NextRequest {
   const fd = new FormData();
-  for (const [k, v] of Object.entries(form)) fd.append(k, v);
+  const fields: Record<string, string | undefined> = {
+    formToken: issueSignupFormToken(Date.now() - 20_000),
+    website: "",
+    ...form,
+  };
+  for (const [k, v] of Object.entries(fields)) if (v !== undefined) fd.append(k, v);
   return new Request("http://localhost/api/auth/register", {
     method: "POST",
     body: fd,
     headers: { "x-forwarded-for": "203.0.113.5" },
   }) as unknown as NextRequest;
 }
+
+/** The keys the limiter was asked about, in order. */
+const limiterKeys = () => rateLimitMock.mock.calls.map((call) => call[0] as string);
 
 beforeEach(() => {
   rateLimitMock.mockReset();
@@ -191,6 +206,120 @@ describe("POST /api/auth/register", () => {
     const res = await POST(buildRequest(validBody));
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toContain("error=rate_limited");
+  });
+
+  // From September 2026 two bots signed strangers' addresses up here, so each stranger was
+  // sent a welcome email. Each fetched /register and posted it 0.2 to 0.9 seconds later.
+  describe("a post from a machine", () => {
+    async function expectRefused(form: Record<string, string | undefined>, error = "retry") {
+      const res = await POST(buildRequest({ ...validBody, ...form }));
+      expect(res.status).toBe(303);
+      const location = new URL(res.headers.get("location") ?? "");
+      expect(location.pathname).toBe("/register");
+      expect(location.searchParams.get("error")).toBe(error);
+      expect(createUserMock).not.toHaveBeenCalled();
+      expect(sendWelcomeEmailMock).not.toHaveBeenCalled();
+      expect(issueEmailVerificationTokenMock).not.toHaveBeenCalled();
+      return res;
+    }
+
+    it("is refused when the field only a machine can reach was filled in", async () => {
+      await expectRefused({ website: "https://cheap-pills.example" });
+      // Told apart from the form alone: no database work, nothing counted.
+      expect(findUserByEmailMock).not.toHaveBeenCalled();
+      expect(rateLimitMock).not.toHaveBeenCalled();
+    });
+
+    it("is refused when it never fetched the form, so carries no note", async () => {
+      await expectRefused({ formToken: undefined });
+      expect(findUserByEmailMock).not.toHaveBeenCalled();
+    });
+
+    it("is refused when it posts the form within moments of fetching it", async () => {
+      for (const ago of [200, 900, SIGNUP_FORM_MIN_FILL_MS - 100]) {
+        createUserMock.mockClear();
+        await expectRefused({ formToken: issueSignupFormToken(Date.now() - ago) });
+      }
+      expect(findUserByEmailMock).not.toHaveBeenCalled();
+    });
+
+    it("is refused when the note was altered", async () => {
+      const token = issueSignupFormToken(Date.now() - 20_000);
+      const [version, , nonce, signature] = token.split(".");
+      const backdated = [version, (Date.now() - 60_000).toString(36), nonce, signature].join(".");
+      await expectRefused({ formToken: backdated });
+      await expectRefused({ formToken: "v1.made.up" });
+    });
+
+    it("is refused when it posts one copy of the form twice", async () => {
+      rateLimitMock.mockImplementation(async (key: string) => ({
+        ok: !key.startsWith("signup-form:"),
+        remaining: 0,
+        resetAt: Date.now() + 60_000,
+      }));
+      await expectRefused({});
+    });
+
+    it("keeps what a person typed, apart from the password, if one is ever caught", async () => {
+      await expectRefused({
+        formToken: issueSignupFormToken(Date.now() - SIGNUP_FORM_MAX_AGE_MS - 1),
+      });
+      const { readKeptFields } = await import("@/lib/auth/form-flash");
+      expect(await readKeptFields()).toEqual({
+        firstName: "Pio",
+        lastName: "Pietrelcina",
+        email: "user@example.com",
+      });
+    });
+  });
+
+  describe("the day's allowance of new accounts", () => {
+    function refuseKey(prefix: string) {
+      rateLimitMock.mockImplementation(async (key: string) => ({
+        ok: !key.startsWith(prefix),
+        remaining: 0,
+        resetAt: Date.now() + 60_000,
+      }));
+    }
+
+    it("stops a connection that has made its day's accounts", async () => {
+      refuseKey("register-day:");
+      const res = await POST(buildRequest(validBody));
+      expect(new URL(res.headers.get("location") ?? "").searchParams.get("error")).toBe(
+        "daily_limit",
+      );
+      expect(createUserMock).not.toHaveBeenCalled();
+      expect(sendWelcomeEmailMock).not.toHaveBeenCalled();
+      // The site's own count is left alone.
+      expect(limiterKeys()).not.toContain("register-site-day");
+    });
+
+    it("stops everyone once the site has made its day's accounts", async () => {
+      refuseKey("register-site-day");
+      const res = await POST(buildRequest(validBody));
+      expect(new URL(res.headers.get("location") ?? "").searchParams.get("error")).toBe(
+        "daily_limit",
+      );
+      expect(createUserMock).not.toHaveBeenCalled();
+      expect(sendWelcomeEmailMock).not.toHaveBeenCalled();
+    });
+
+    it("counts only an attempt that would make an account", async () => {
+      await POST(buildRequest({ ...validBody, password: "weak", passwordConfirm: "weak" }));
+      findUserByEmailMock.mockResolvedValue({ id: "taken" });
+      await POST(buildRequest(validBody));
+      expect(limiterKeys()).toEqual(["register:203.0.113.5"]);
+    });
+
+    it("spends the form's note and the day's allowance when an account is made", async () => {
+      const res = await POST(buildRequest(validBody));
+      expect(res.headers.get("location")).toContain("/profile");
+      expect(createUserMock).toHaveBeenCalledTimes(1);
+      const keys = limiterKeys();
+      expect(keys[0]).toBe("register:203.0.113.5");
+      expect(keys[1]).toMatch(/^signup-form:[A-Za-z0-9_-]{16}$/);
+      expect(keys.slice(2)).toEqual(["register-day:203.0.113.5", "register-site-day"]);
+    });
   });
 
   // An account-gated control (Favorite on a parish) sends the visitor to

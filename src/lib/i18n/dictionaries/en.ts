@@ -355,6 +355,10 @@ const auth: Dict = {
   "auth.error.rateLimited": "Too many requests. Please wait a moment and try again.",
   "auth.error.exists": "An account already exists for that email.",
   "auth.error.generic": "Something went wrong. Please try again.",
+  "auth.error.retry":
+    "Your account was not created. Please type your password into both password fields again, then select {button}.",
+  "auth.error.dailyLimit": "No more accounts can be created today. Please try again tomorrow.",
+  "auth.leaveEmpty": "Leave this field empty.",
 };
 
 const profile: Dict = {

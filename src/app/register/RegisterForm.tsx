@@ -1,10 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, version as reactVersion } from "react";
 import { checkPasswordStrength, PASSWORD_MIN_LENGTH } from "@/lib/auth/schemas";
+import {
+  SIGNUP_FORM_MIN_FILL_MS,
+  SIGNUP_FORM_TOKEN_FIELD,
+  SIGNUP_FORM_TRAP_FIELD,
+} from "@/lib/auth/signup-guard-fields";
 
 const PASSWORD_MIN = PASSWORD_MIN_LENGTH;
+
+/** A little past the server's minimum, so the server's clock never sees a press as early. */
+const HOLD_UNTIL_MS = SIGNUP_FORM_MIN_FILL_MS + 500;
+
+const TRAP_ID = "register-website";
+
+/**
+ * `inert` takes the trap out of the Tab order, a screen reader's reach, iOS's previous and
+ * next field arrows, and find-in-page. The pages run the React that Next bundles (19), where
+ * `inert` is true or false and an empty string turns it off; React 18, which the unit tests
+ * run, knows no `inert` and passes a string through as it is. Either way the page gets
+ * `inert=""`, from its first paint.
+ */
+const INERT = (Number.parseInt(reactVersion, 10) >= 19 ? { inert: true } : { inert: "" }) as Record<
+  string,
+  boolean | string
+>;
 
 export type RegisterFormLabels = {
   firstName: string;
@@ -21,6 +43,8 @@ export type RegisterFormLabels = {
   privacyBefore: string;
   privacyLink: string;
   privacyAfter: string;
+  /** The trap field's label, seen only where the page's styles never load. */
+  leaveEmpty: string;
 };
 
 export type RegisterErrorField = "email" | "password" | "passwordConfirm";
@@ -35,12 +59,15 @@ const SERVER_ERROR_ID = "register-error";
 
 export function RegisterForm({
   labels,
+  formToken,
   next,
   values,
   error,
   errorField,
 }: {
   labels: RegisterFormLabels;
+  /** The server's signed note of when this copy of the form was made. */
+  formToken?: string;
   next?: string;
   /** What the reader typed, apart from the passwords, when a failure sent them back. */
   values?: { firstName?: string; lastName?: string; email?: string };
@@ -60,6 +87,20 @@ export function RegisterForm({
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLInputElement>(null);
+  // When the form appeared, and a press being held until it has been up long enough.
+  const shownAt = useRef<number | null>(null);
+  const heldSubmit = useRef<number | null>(null);
+
+  // The server turns away a form sent back within SIGNUP_FORM_MIN_FILL_MS of being made,
+  // as only a script is that quick. Should a person with everything filled in for them
+  // ever be that quick, their press is held here until then, rather than sending them
+  // back to type their password again.
+  useEffect(() => {
+    shownAt.current = Date.now();
+    return () => {
+      if (heldSubmit.current !== null) window.clearTimeout(heldSubmit.current);
+    };
+  }, []);
 
   // These two fields have no value prop, so hydration cannot wipe what a reader or a
   // password manager put in them while the page's script was still on its way. This
@@ -114,6 +155,19 @@ export function RegisterForm({
       confirmRef.current?.focus();
       return;
     }
+    const wait = shownAt.current === null ? 0 : shownAt.current + HOLD_UNTIL_MS - Date.now();
+    if (wait > 0) {
+      event.preventDefault();
+      // A second press while one is held sends nothing more.
+      if (heldSubmit.current !== null) return;
+      const form = event.currentTarget;
+      heldSubmit.current = window.setTimeout(() => {
+        heldSubmit.current = null;
+        // requestSubmit passes through this handler again; the older submit() does not.
+        if (typeof form.requestSubmit === "function") form.requestSubmit();
+        else form.submit();
+      }, wait);
+    }
   }
 
   // The server's verdict on a field stands until the reader's own edit has been
@@ -138,6 +192,7 @@ export function RegisterForm({
       {/* Where to land after registering — set when an account-gated control
           (e.g. Favorite on a parish) sent the visitor here. */}
       {next ? <input type="hidden" name="next" value={next} /> : null}
+      {formToken ? <input type="hidden" name={SIGNUP_FORM_TOKEN_FIELD} value={formToken} /> : null}
       {noticeAbove(undefined)}
       <div className="vf-field-pair">
         <div>
@@ -173,6 +228,29 @@ export function RegisterForm({
             defaultValue={values?.lastName}
           />
         </div>
+      </div>
+
+      {/* A box only a machine fills in: a post with anything in it makes no account. A
+          person never meets it. It is off the screen (not display:none, which such
+          machines know to pass over), inert and aria-hidden so neither the Tab key nor a
+          screen reader reaches it, and kept from browsers' and password managers'
+          autofill. It sits between the names and the email so that no password manager
+          takes it for the username before the password. Its label is seen only where the
+          page's styles never load. */}
+      <div className="vf-form-trap" aria-hidden="true" {...INERT}>
+        <label htmlFor={TRAP_ID}>{labels.leaveEmpty}</label>
+        <input
+          id={TRAP_ID}
+          name={SIGNUP_FORM_TRAP_FIELD}
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          data-1p-ignore=""
+          data-lpignore="true"
+          data-bwignore=""
+          data-form-type="other"
+          defaultValue=""
+        />
       </div>
 
       {noticeAbove("email")}

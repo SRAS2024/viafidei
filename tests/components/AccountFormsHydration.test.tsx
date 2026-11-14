@@ -35,6 +35,7 @@ const registerLabels = {
   privacyBefore: "By selecting create account, you agree to our ",
   privacyLink: "privacy policy",
   privacyAfter: ".",
+  leaveEmpty: "Leave this field empty.",
 };
 const resetLabels = {
   newPassword: "New password",
@@ -120,11 +121,16 @@ describe("text put in a field before the page's script has run", () => {
     });
     expect(document.querySelector<HTMLInputElement>("#password")!.value).toBe(STRONG);
     expect(document.querySelector<HTMLInputElement>("#passwordConfirm")!.value).toBe(STRONG);
+    // A press within moments of the form appearing is held back for a few seconds (see
+    // RegisterForm.test); this one comes after that.
+    const later = Date.now() + 10_000;
+    vi.spyOn(Date, "now").mockReturnValue(later);
     // fireEvent answers false when a handler called preventDefault.
     let allowed = false;
     await act(async () => {
       allowed = submit();
     });
+    vi.restoreAllMocks();
     expect(allowed).toBe(true);
     expect(screen.queryByText("Too weak")).not.toBeInTheDocument();
   });

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AccountPage } from "@/components/profile/AccountPage";
 import { readKeptFields } from "@/lib/auth/form-flash";
 import { safeNextPath } from "@/lib/auth/safe-next";
+import { issueSignupFormToken } from "@/lib/auth/signup-guard";
 import { getTranslator } from "@/lib/i18n/server";
 import { RegisterForm, type RegisterErrorField } from "./RegisterForm";
 
@@ -16,6 +17,9 @@ const ERROR_FIELD: ReadonlyMap<unknown, RegisterErrorField> = new Map([
   ["exists", "email"],
   ["weak", "password"],
   ["mismatch", "passwordConfirm"],
+  // The form's bot guards turned the post away: names and address come back, the
+  // password does not, so the message goes where the reader must type next.
+  ["retry", "password"],
 ]);
 
 export default async function RegisterPage({
@@ -28,6 +32,9 @@ export default async function RegisterPage({
   // A value that could leave the site never reaches the form or its links.
   const next = safeNextPath(rawNext) ?? undefined;
   const kept = error ? await readKeptFields() : {};
+  // Each copy of the form carries its own signed note of when it was made, so the server
+  // can tell a person from a script that posts it a fraction of a second after fetching it.
+  const formToken = issueSignupFormToken();
 
   const errorMessage =
     error === "mismatch"
@@ -38,11 +45,15 @@ export default async function RegisterPage({
           ? t("auth.error.exists")
           : error === "rate_limited"
             ? t("auth.error.rateLimited")
-            : error === "server"
-              ? t("auth.error.generic")
-              : error
-                ? t("auth.error.generic")
-                : null;
+            : error === "retry"
+              ? t("auth.error.retry", { button: t("auth.submitRegister") })
+              : error === "daily_limit"
+                ? t("auth.error.dailyLimit")
+                : error === "server"
+                  ? t("auth.error.generic")
+                  : error
+                    ? t("auth.error.generic")
+                    : null;
 
   return (
     <AccountPage
@@ -73,7 +84,9 @@ export default async function RegisterPage({
           privacyBefore: t("auth.privacyNotice.before"),
           privacyLink: t("auth.privacyNotice.linkText"),
           privacyAfter: t("auth.privacyNotice.after"),
+          leaveEmpty: t("auth.leaveEmpty"),
         }}
+        formToken={formToken}
         next={next}
         values={kept}
         error={errorMessage}

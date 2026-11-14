@@ -29,6 +29,7 @@ import LoginPage from "@/app/login/page";
 import RegisterPage from "@/app/register/page";
 import ResetPasswordPage from "@/app/reset-password/page";
 import { keepFormFields } from "@/lib/auth/form-flash";
+import { checkSignupForm } from "@/lib/auth/signup-guard";
 import { DICTIONARIES } from "@/lib/i18n/dictionaries";
 
 const EN = DICTIONARIES.en!;
@@ -126,6 +127,41 @@ describe("/register", () => {
     await keepFormFields("/register", { email: "maria@example.test" });
     await showRegister({});
     expect(screen.getByLabelText(EN["auth.email"]!)).toHaveValue("");
+  });
+
+  it("hands each copy of the form its own note of when it was made, signed by the server", async () => {
+    const before = Date.now();
+    await showRegister({});
+    const note = () =>
+      document.querySelector<HTMLInputElement>('input[name="formToken"]')?.value ?? "";
+    const first = note();
+    const result = checkSignupForm({ token: first, trap: "" }, before + 20_000);
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.issuedAt).toBeGreaterThanOrEqual(before);
+    cleanup();
+    await showRegister({});
+    expect(note()).not.toBe(first);
+  });
+
+  // The form's bot guards sent the post back. Names and address come back; the password
+  // never does, so the message stands above the password field and focus goes there.
+  it("asks for the password again when the post was turned back", async () => {
+    await keepFormFields("/register", { firstName: "María", email: "maria@example.test" });
+    await showRegister({ error: "retry" });
+    const password = screen.getByLabelText(EN["auth.password"]!);
+    const message = EN["auth.error.retry"]!.replace("{button}", EN["auth.submitRegister"]!);
+    expect(screen.getByRole("alert")).toHaveTextContent(message);
+    expect(message).toContain("Create account");
+    expect(password).toHaveFocus();
+    expect(password).toHaveAccessibleDescription(message);
+    expect(screen.getByLabelText(EN["auth.firstName"]!)).toHaveValue("María");
+    expect(screen.getByLabelText(EN["auth.email"]!)).toHaveValue("maria@example.test");
+  });
+
+  it("says when no more accounts can be made today", async () => {
+    await showRegister({ error: "daily_limit" });
+    expect(screen.getByRole("alert")).toHaveTextContent(EN["auth.error.dailyLimit"]!);
+    expect(EN["auth.error.dailyLimit"]).toMatch(/tomorrow/);
   });
 });
 

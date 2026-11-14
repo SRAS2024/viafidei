@@ -45,6 +45,8 @@ export const KEY_PURPOSE_LABELS = {
   "admin-2fa": "viafidei/v1/admin-2fa-code",
   /** Signatures on internal / machine-to-machine authentication payloads. */
   "internal-auth": "viafidei/v1/internal-auth-signature",
+  /** Signature on the sign-up form's note of when it was handed out (auth/signup-guard). */
+  "signup-form": "viafidei/v1/signup-form-token",
 } as const;
 
 export type KeyPurpose = keyof typeof KEY_PURPOSE_LABELS;

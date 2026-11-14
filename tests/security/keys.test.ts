@@ -29,7 +29,14 @@ afterEach(() => {
 describe("getPurposeKey", () => {
   it("covers every purpose the application needs, each with a unique label", () => {
     expect(PURPOSES.sort()).toEqual(
-      ["admin-2fa", "at-rest", "internal-auth", "security-fingerprint", "session"].sort(),
+      [
+        "admin-2fa",
+        "at-rest",
+        "internal-auth",
+        "security-fingerprint",
+        "session",
+        "signup-form",
+      ].sort(),
     );
     const labels = Object.values(KEY_PURPOSE_LABELS);
     expect(new Set(labels).size).toBe(labels.length);

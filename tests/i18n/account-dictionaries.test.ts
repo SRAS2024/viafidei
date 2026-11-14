@@ -16,6 +16,11 @@ const EN = DICTIONARIES.en!;
 const KEYS: Record<string, string[]> = {
   "auth.forgot.success": ["{email}"],
   "auth.forgot.invalidAddress": [],
+  // The sign-up form's bot guards: what a person hears if one ever turns them back, and
+  // the label of the field only a machine fills in (seen where styles never load).
+  "auth.error.retry": ["{button}"],
+  "auth.error.dailyLimit": [],
+  "auth.leaveEmpty": [],
   "profile.journal.empty": [],
   "profile.journal.emptyFavorites": [],
   "profile.journal.saved": [],

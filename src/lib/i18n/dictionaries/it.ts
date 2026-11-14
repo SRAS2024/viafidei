@@ -163,6 +163,10 @@ export const it: Dict = {
   "admin.dashboard.title": "Pannello amministrazione",
   "admin.signOut": "Disconnetti",
   "admin.welcomeLine": "Sei entrato come amministratore.",
+  "auth.error.retry":
+    "Il tuo account non è stato creato. Scrivi di nuovo la password in entrambi i campi della password, poi seleziona {button}.",
+  "auth.error.dailyLimit": "Oggi non è possibile creare altri account. Riprova domani.",
+  "auth.leaveEmpty": "Lascia vuoto questo campo.",
   "auth.forgot.success":
     "Se esiste un account per {email}, abbiamo inviato a quell'indirizzo un link per reimpostare la password.",
   "auth.forgot.invalidAddress":

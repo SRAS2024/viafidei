@@ -1,8 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
 import { RegisterForm } from "@/app/register/RegisterForm";
 
@@ -23,6 +26,7 @@ const labels = {
   privacyBefore: "By selecting create account, you agree to our ",
   privacyLink: "privacy policy",
   privacyAfter: ".",
+  leaveEmpty: "Leave this field empty.",
 };
 
 const STRONG_PASSWORD = "Strong1Pass!Word";
@@ -201,5 +205,142 @@ describe("RegisterForm privacy notice", () => {
     const { container } = render(<RegisterForm labels={labels} />);
     const results = await axe(container);
     expect(results.violations).toEqual([]);
+  });
+});
+
+// From September 2026 two bots signed strangers' addresses up through this form. These are
+// the parts of the form that tell them apart, which a person must never meet.
+describe("RegisterForm bot guards", () => {
+  const trap = (container: HTMLElement) =>
+    container.querySelector<HTMLInputElement>("input[name='website']")!;
+
+  it("sends the server's signed note of when the form was made", () => {
+    const { container } = render(<RegisterForm labels={labels} formToken="v1.note" />);
+    const note = container.querySelector<HTMLInputElement>("input[name='formToken']");
+    expect(note).toHaveAttribute("type", "hidden");
+    expect(note).toHaveValue("v1.note");
+  });
+
+  it("has a field for machines that a screen reader never reads", () => {
+    const { container } = render(<RegisterForm labels={labels} formToken="v1.note" />);
+    const field = trap(container);
+    expect(field).toHaveValue("");
+    const box = field.closest(".vf-form-trap");
+    expect(box).toHaveAttribute("aria-hidden", "true");
+    expect(box).toHaveAttribute("inert");
+    // Not in the accessibility tree: no textbox carries its label, and the form's own
+    // fields are all a screen reader finds.
+    expect(screen.queryByRole("textbox", { name: labels.leaveEmpty })).toBeNull();
+    expect(screen.getAllByRole("textbox").map((input) => input.getAttribute("name"))).toEqual([
+      "firstName",
+      "lastName",
+      "email",
+    ]);
+  });
+
+  it("keeps the field out of the Tab order and out of every autofill", async () => {
+    const { container } = render(<RegisterForm labels={labels} />);
+    const field = trap(container);
+    expect(field).toHaveAttribute("tabindex", "-1");
+    expect(field).toHaveAttribute("autocomplete", "off");
+    for (const optOut of ["data-1p-ignore", "data-lpignore", "data-bwignore", "data-form-type"]) {
+      expect(field).toHaveAttribute(optOut);
+    }
+    const user = userEvent.setup();
+    const reached: string[] = [];
+    for (let i = 0; i < 12; i += 1) {
+      await user.tab();
+      reached.push(document.activeElement?.getAttribute("name") ?? "");
+    }
+    expect(reached).not.toContain("website");
+    expect(reached.slice(0, 3)).toEqual(["firstName", "lastName", "email"]);
+  });
+
+  it("stands between the names and the email, never just before a password", () => {
+    const { container } = render(<RegisterForm labels={labels} />);
+    const order = [...container.querySelectorAll("input:not([type=hidden])")].map((input) =>
+      input.getAttribute("name"),
+    );
+    expect(order).toEqual([
+      "firstName",
+      "lastName",
+      "website",
+      "email",
+      "password",
+      "passwordConfirm",
+    ]);
+  });
+
+  it("is hidden by moving it off the screen, not with display:none", () => {
+    const css = readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
+    const rule = css.match(/\.vf-form-trap\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/position:\s*absolute/);
+    expect(rule).toMatch(/left:\s*-\d+px/);
+    expect(rule).not.toMatch(/display:\s*none|visibility:\s*hidden/);
+  });
+
+  describe("a press within moments of the form appearing", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
+
+    function fillIn() {
+      fireEvent.change(screen.getByLabelText("Password"), { target: { value: STRONG_PASSWORD } });
+      fireEvent.change(screen.getByLabelText("Re-enter password"), {
+        target: { value: STRONG_PASSWORD },
+      });
+    }
+
+    // Only a person with every field filled for them could be this quick. The server would
+    // send them back for their password; the form holds the press instead and sends it once
+    // the form has been up long enough.
+    it("is held, then sent once, by itself", () => {
+      vi.useFakeTimers();
+      const sent = vi
+        .spyOn(HTMLFormElement.prototype, "requestSubmit")
+        .mockImplementation(() => {});
+      const { container } = render(<RegisterForm labels={labels} formToken="v1.note" />);
+      const form = container.querySelector("form")!;
+      fillIn();
+      vi.advanceTimersByTime(1_000);
+
+      expect(fireEvent.submit(form)).toBe(false);
+      // A second press while the first is held sends nothing more.
+      expect(fireEvent.submit(form)).toBe(false);
+      vi.advanceTimersByTime(2_000);
+      expect(sent).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1_000);
+      expect(sent).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(10_000);
+      expect(sent).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("is not held once the form has been up for a few seconds", () => {
+      vi.useFakeTimers();
+      const sent = vi
+        .spyOn(HTMLFormElement.prototype, "requestSubmit")
+        .mockImplementation(() => {});
+      const { container } = render(<RegisterForm labels={labels} formToken="v1.note" />);
+      fillIn();
+      vi.advanceTimersByTime(4_000);
+      // fireEvent answers false when a handler called preventDefault.
+      expect(fireEvent.submit(container.querySelector("form")!)).toBe(true);
+      expect(sent).not.toHaveBeenCalled();
+    });
+
+    it("still stops first for a password that is too weak", () => {
+      vi.useFakeTimers();
+      const sent = vi
+        .spyOn(HTMLFormElement.prototype, "requestSubmit")
+        .mockImplementation(() => {});
+      const { container } = render(<RegisterForm labels={labels} />);
+      fireEvent.change(screen.getByLabelText("Password"), { target: { value: "weak" } });
+      expect(fireEvent.submit(container.querySelector("form")!)).toBe(false);
+      vi.advanceTimersByTime(10_000);
+      expect(sent).not.toHaveBeenCalled();
+      expect(screen.getByLabelText("Password")).toHaveFocus();
+    });
   });
 });

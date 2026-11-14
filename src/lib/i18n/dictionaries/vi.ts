@@ -151,6 +151,10 @@ export const vi: Dict = {
   "admin.dashboard.title": "Bảng quản trị",
   "admin.signOut": "Đăng xuất",
   "admin.welcomeLine": "Bạn đã đăng nhập với tư cách quản trị viên.",
+  "auth.error.retry":
+    "Tài khoản của bạn chưa được tạo. Hãy nhập lại mật khẩu vào cả hai ô mật khẩu, rồi chọn {button}.",
+  "auth.error.dailyLimit": "Hôm nay không thể tạo thêm tài khoản. Hãy thử lại vào ngày mai.",
+  "auth.leaveEmpty": "Hãy để trống ô này.",
   "auth.forgot.success":
     "Nếu có tài khoản cho {email}, chúng tôi đã gửi đến địa chỉ đó một liên kết để đặt lại mật khẩu.",
   "auth.forgot.invalidAddress": "Địa chỉ email đó có vẻ chưa đầy đủ. Hãy kiểm tra rồi thử lại.",

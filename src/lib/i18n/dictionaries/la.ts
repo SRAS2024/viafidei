@@ -156,6 +156,10 @@ export const la: Dict = {
   "admin.dashboard.title": "Tabula administrationis",
   "admin.signOut": "Exire",
   "admin.welcomeLine": "Administrator intrasti.",
+  "auth.error.retry":
+    "Ratio tua creata non est. Tesseram tuam iterum in utrumque campum tesserae inscribe, deinde {button} elige.",
+  "auth.error.dailyLimit": "Hodie nullae aliae rationes creari possunt. Cras iterum conare.",
+  "auth.leaveEmpty": "Hunc campum vacuum relinque.",
   "auth.forgot.success":
     "Si ratio pro {email} exstat, nexum ad tesseram renovandam ad hanc inscriptionem misimus.",
   "auth.forgot.invalidAddress":

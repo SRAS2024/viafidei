@@ -195,6 +195,10 @@ export const es: Dict = {
     "Gestiona contenidos, traducciones, ingesta, medios y la página de inicio en vivo.",
   "admin.signOut": "Cerrar sesión de administrador",
   "admin.welcomeLine": "Has iniciado sesión como administrador.",
+  "auth.error.retry":
+    "No se creó tu cuenta. Vuelve a escribir tu contraseña en los dos campos de contraseña y luego selecciona {button}.",
+  "auth.error.dailyLimit": "Hoy ya no se pueden crear más cuentas. Inténtalo de nuevo mañana.",
+  "auth.leaveEmpty": "Deja este campo vacío.",
   "auth.forgot.success":
     "Si existe una cuenta para {email}, hemos enviado a esa dirección un enlace para restablecer la contraseña.",
   "auth.forgot.invalidAddress":

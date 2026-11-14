@@ -157,6 +157,11 @@ export const tl: Dict = {
   "admin.dashboard.title": "Dashboard ng administrador",
   "admin.signOut": "Mag-sign out",
   "admin.welcomeLine": "Naka-sign in ka bilang administrador.",
+  "auth.error.retry":
+    "Hindi nagawa ang iyong account. Pakisulat muli ang iyong password sa dalawang field ng password, saka piliin ang {button}.",
+  "auth.error.dailyLimit":
+    "Wala nang account na maaaring gawin ngayong araw. Pakisubukang muli bukas.",
+  "auth.leaveEmpty": "Iwanang blangko ang field na ito.",
   "auth.forgot.success":
     "Kung may account para sa {email}, nagpadala kami sa address na iyon ng link para i-reset ang password.",
   "auth.forgot.invalidAddress":

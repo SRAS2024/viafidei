@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { expect, test, type Browser, type BrowserContext } from "@playwright/test";
+import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { SIGNUP_FORM_MIN_FILL_MS } from "../src/lib/auth/signup-guard-fields";
 
 // The account flows in a real browser, under the server's real Content-Security-Policy.
 // Each test signs up its own reader, from its own client address so the sign-up limit
@@ -31,16 +32,27 @@ async function postAsSite(context: BrowserContext, path: string, data: unknown) 
   return response!;
 }
 
+/**
+ * The server turns away a sign-up form sent back within SIGNUP_FORM_MIN_FILL_MS of being
+ * made, since only a script is that quick, and the page itself holds back a quicker press.
+ * A test fills the form in faster than any person, so it waits as one would.
+ */
+async function waitAsAPersonWould(page: Page, openedAt: number) {
+  await page.waitForTimeout(Math.max(0, SIGNUP_FORM_MIN_FILL_MS + 250 - (Date.now() - openedAt)));
+}
+
 async function signUp(context: BrowserContext) {
   const email = newEmail();
   const password = newPassword();
   const page = await context.newPage();
   await page.goto("/register");
+  const openedAt = Date.now();
   await page.fill("#firstName", "Testa");
   await page.fill("#lastName", "Verifier");
   await page.fill("#email", email);
   await page.fill("#password", password);
   await page.fill("#passwordConfirm", password);
+  await waitAsAPersonWould(page, openedAt);
   await Promise.all([
     page.waitForURL("**/profile"),
     page.locator("form[action='/api/auth/register'] button[type=submit]").click(),
@@ -360,11 +372,13 @@ test("a taken address keeps the typed fields, and never the passwords", async ({
   const context = await freshContext(browser, baseURL);
   const page = await context.newPage();
   await page.goto("/register?next=/prayers");
+  const openedAt = Date.now();
   await page.fill("#firstName", "María");
   await page.fill("#lastName", "Goretti");
   await page.fill("#email", email);
   await page.fill("#password", password);
   await page.fill("#passwordConfirm", password);
+  await waitAsAPersonWould(page, openedAt);
   await Promise.all([
     page.waitForURL(/error=exists/),
     page.locator("form[action='/api/auth/register'] button[type=submit]").click(),
@@ -380,6 +394,55 @@ test("a taken address keeps the typed fields, and never the passwords", async ({
   await expect(page.locator("#password")).toHaveValue("");
   await expect(page.locator("#passwordConfirm")).toHaveValue("");
   await context.close();
+});
+
+// From September 2026 two bots signed strangers' addresses up through this form, so each
+// stranger got a welcome email: each fetched /register and posted it back within a second,
+// never loading the page's scripts. A post like theirs makes no account.
+test("a form posted back the moment it is fetched makes no account", async ({
+  browser,
+  baseURL,
+}) => {
+  const context = await freshContext(browser, baseURL);
+  const html = await (await context.request.get("/register")).text();
+  const field = html.match(/<input[^>]*name="formToken"[^>]*>/)?.[0] ?? "";
+  const formToken = /value="([^"]+)"/.exec(field)?.[1];
+  expect(formToken, "the form carries its signed note").toBeTruthy();
+  const password = newPassword();
+  const response = await context.request.post("/api/auth/register", {
+    form: {
+      firstName: "Quick",
+      lastName: "Script",
+      email: newEmail(),
+      password,
+      passwordConfirm: password,
+      formToken: formToken!,
+      website: "",
+    },
+    maxRedirects: 0,
+  });
+  expect(response.status()).toBe(303);
+  const location = new URL(response.headers()["location"] ?? "", "http://site.invalid");
+  expect(location.pathname).toBe("/register");
+  expect(location.searchParams.get("error")).toBe("retry");
+  await context.close();
+});
+
+// The sign-up form's box for machines is out of every person's reach. The pages run React 19,
+// which drops an `inert` written as an empty string, so a real browser has to show it.
+test("the sign-up form's box for machines is out of every person's reach", async ({ page }) => {
+  await page.goto("/register");
+  const box = page.locator(".vf-form-trap");
+  await expect(box).toHaveAttribute("inert", "");
+  await expect(box).toHaveAttribute("aria-hidden", "true");
+  expect(await box.evaluate((el) => el.getBoundingClientRect().right)).toBeLessThanOrEqual(0);
+  const field = box.locator("input[name=website]");
+  await expect(field).toHaveValue("");
+  await field.evaluate((el: HTMLInputElement) => el.focus());
+  await expect(field).not.toBeFocused();
+  await page.focus("#lastName");
+  await page.keyboard.press("Tab");
+  await expect(page.locator("#email")).toBeFocused();
 });
 
 for (const code of ["constructor", "__proto__", "toString"]) {

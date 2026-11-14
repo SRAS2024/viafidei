@@ -159,6 +159,11 @@ export const de: Dict = {
   "admin.dashboard.title": "Administrationsbereich",
   "admin.signOut": "Abmelden",
   "admin.welcomeLine": "Sie sind als Administrator angemeldet.",
+  "auth.error.retry":
+    "Ihr Konto wurde nicht erstellt. Geben Sie Ihr Passwort bitte noch einmal in beide Passwortfelder ein und wählen Sie dann {button}.",
+  "auth.error.dailyLimit":
+    "Heute können keine weiteren Konten erstellt werden. Bitte versuchen Sie es morgen erneut.",
+  "auth.leaveEmpty": "Lassen Sie dieses Feld leer.",
   "auth.forgot.success":
     "Falls ein Konto für {email} besteht, haben wir an diese Adresse einen Link zum Zurücksetzen des Passworts gesendet.",
   "auth.forgot.invalidAddress":

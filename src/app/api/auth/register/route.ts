@@ -10,6 +10,12 @@ import {
 import { clearKeptFields, keepFormFields, type KeptFields } from "@/lib/auth/form-flash";
 import { safeNextPath } from "@/lib/auth/safe-next";
 import { recordUserSignIn } from "@/lib/auth/session";
+import {
+  checkSignupForm,
+  spendSignupFormToken,
+  takeSignupAllowance,
+} from "@/lib/auth/signup-guard";
+import { SIGNUP_FORM_TOKEN_FIELD, SIGNUP_FORM_TRAP_FIELD } from "@/lib/auth/signup-guard-fields";
 import { checkAuthTokenStorage } from "@/lib/security/auth-storage";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp, redirectTo } from "@/lib/security/request";
@@ -86,6 +92,8 @@ async function readRegisterPayload(req: NextRequest): Promise<
         passwordConfirm: FormDataEntryValue | null;
         language: FormDataEntryValue | null;
         next: FormDataEntryValue | null;
+        formToken: FormDataEntryValue | null;
+        trap: FormDataEntryValue | null;
       };
     }
   | { ok: false }
@@ -107,6 +115,8 @@ async function readRegisterPayload(req: NextRequest): Promise<
         passwordConfirm: form.get("passwordConfirm"),
         language: form.get("language"),
         next: form.get("next"),
+        formToken: form.get(SIGNUP_FORM_TOKEN_FIELD),
+        trap: form.get(SIGNUP_FORM_TRAP_FIELD),
       },
     };
   } catch {
@@ -140,6 +150,15 @@ export async function POST(req: NextRequest) {
       lastName: payload.data.lastName,
       email: payload.data.email,
     };
+
+    // Before any database work: a post from a machine is told apart here by the form
+    // itself (see @/lib/auth/signup-guard). A person this ever catches gets their names
+    // and address back and is asked only for the password again.
+    const formCheck = checkSignupForm({ token: payload.data.formToken, trap: payload.data.trap });
+    if (!formCheck.ok) {
+      logger.warn("auth.register.refused", { requestId, reason: formCheck.reason });
+      return await redirectWithError("retry");
+    }
 
     // Confirm — read-only — that the account email schema is present. This
     // used to CREATE the tables mid-request; DDL on an unauthenticated POST
@@ -205,6 +224,21 @@ export async function POST(req: NextRequest) {
       return await redirectWithError("server");
     }
     if (existing) return await redirectWithError("exists");
+
+    // Only an attempt that would make an account gets this far, so only those spend the
+    // form's note and the day's allowance.
+    if (!(await spendSignupFormToken(formCheck.nonce, ip))) {
+      logger.warn("auth.register.refused", { requestId, reason: "token_reused" });
+      return await redirectWithError("retry");
+    }
+    const allowance = await takeSignupAllowance(ip);
+    if (!allowance.ok) {
+      // The site-wide limit stops real people too, so it is logged as an error for the
+      // operator to see; one connection's limit is only a warning.
+      const log = allowance.reason === "site_daily_cap" ? logger.error : logger.warn;
+      log("auth.register.refused", { requestId, reason: allowance.reason });
+      return await redirectWithError("daily_limit");
+    }
 
     const language = await resolveLocaleFromRequest(req, parsed.data.language);
 

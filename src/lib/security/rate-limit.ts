@@ -12,6 +12,17 @@ export const RATE_POLICIES = {
   search: { windowMs: 60_000, max: 30 },
   login: { windowMs: 15 * 60_000, max: 5 },
   register: { windowMs: 60 * 60_000, max: 5 },
+  // Accounts made in a day: from one connection, and on the whole site. Each new account
+  // sends a welcome email, so these bound what a bot that gets past the form's other
+  // guards can send to strangers (see @/lib/auth/signup-guard). A household stays inside
+  // the first (a group signing up on one connection already meets `register`'s five an
+  // hour); the second is many times the site's real sign-ups, and leaves room for the 18
+  // accounts one run of the browser tests makes, and its retries.
+  registerDaily: { windowMs: 24 * 60 * 60_000, max: 5 },
+  registerSiteDaily: { windowMs: 24 * 60 * 60_000, max: 50 },
+  // One account per copy of the sign-up form: a copy's note is spent once used. The
+  // window covers the note's whole life (SIGNUP_FORM_MAX_AGE_MS).
+  signupFormToken: { windowMs: 24 * 60 * 60_000, max: 1 },
   // 5 password-reset attempts per hour per IP. Tight enough to slow
   // enumeration attacks (the form already returns a different shape for
   // existing vs. unknown emails), loose enough that testing the flow once
