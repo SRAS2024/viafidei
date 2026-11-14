@@ -51,7 +51,11 @@ describe("email layout — what keeps it intact across inboxes", () => {
   it("keeps Outlook to a 600px column and declares a light colour scheme", () => {
     expect(html).toContain('<!--[if mso]><table role="presentation" align="center" width="600"');
     expect(html).toContain('<meta name="color-scheme" content="light">');
-    expect(html).toContain("mso-padding-alt:15px 30px");
+    // The whole button is the link in Outlook too: hidden em-spaces pad it there.
+    expect(html).toContain("mso-padding-alt:0;");
+    expect(html).toMatch(
+      /<!--\[if mso\]><i style="mso-font-width:214%;mso-text-raise:22pt" hidden>&emsp;<\/i>/,
+    );
   });
 
   it("tells screen readers the language and gives them real structure", () => {
@@ -83,6 +87,14 @@ describe("email layout — what keeps it intact across inboxes", () => {
     );
     expect(admin).toMatch(/<th scope="col"[^>]*>Content<\/th>/);
     expect(admin).toMatch(/<th scope="row"[^>]*>Prayer<\/th><td[^>]*>\+5<\/td>/);
+  });
+
+  it("wraps long links and paths instead of stretching the sheet, and keeps line breaks", () => {
+    const long = renderEmailHtml(
+      doc({ blocks: [{ type: "paragraph", text: "at a (x.ts:1)\nat b (y.ts:2)" }] }),
+    );
+    expect(long).toContain("word-break:break-word;overflow-wrap:anywhere;");
+    expect(long).toContain("at a (x.ts:1)<br>at b (y.ts:2)");
   });
 
   it("hides the preview line from view and from screen readers", () => {

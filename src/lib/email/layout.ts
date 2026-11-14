@@ -7,7 +7,7 @@
  *  - Layout is tables with every style inline and colours as six-digit hex.
  *    Outlook for Windows draws mail with Word: it ignores rgba(), max-width and
  *    margins on <div>, so an MSO-only 600px "ghost" table keeps the column from
- *    sprawling there, and `mso-padding-alt` gives its button real padding.
+ *    sprawling there, and hidden em-spaces give its button clickable padding.
  *  - The logo is a hosted PNG with width/height attributes. Gmail, Outlook and
  *    Yahoo drop inline <svg> entirely, which is why the old drawn cross never
  *    appeared for most readers.
@@ -162,7 +162,18 @@ function rule(color: string): string {
   return `<table role="presentation" aria-hidden="true" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid ${color};font-size:1px;line-height:1px;height:1px;mso-line-height-rule:exactly;">&nbsp;</td></tr></table>`;
 }
 
-const BODY_TEXT = `font-family:${SERIF};font-size:19px;line-height:30px;color:${C.inkSoft};mso-line-height-rule:exactly;`;
+/**
+ * A long unbroken string (a link, a file path) wraps instead of stretching the
+ * sheet: word-break survives in Gmail, Outlook.com and Yahoo, overflow-wrap
+ * everywhere else.
+ */
+const WRAP = "word-break:break-word;overflow-wrap:anywhere;";
+const BODY_TEXT = `font-family:${SERIF};font-size:19px;line-height:30px;color:${C.inkSoft};mso-line-height-rule:exactly;${WRAP}`;
+
+/** Escaped text whose own line breaks (a stack trace, an address) survive in HTML. */
+function multiline(text: string): string {
+  return escapeHtml(text).replace(/\r?\n/g, "<br>");
+}
 
 /** Site locales whose script has no italic form. */
 const UPRIGHT_SCRIPTS = new Set(["zh", "ko"]);
@@ -182,7 +193,7 @@ function renderBlock(block: EmailBlock, locale: string): string {
         10,
       );
     case "paragraph":
-      return row(`<p style="margin:0;${BODY_TEXT}">${escapeHtml(block.text)}</p>`, 0, 18);
+      return row(`<p style="margin:0;${BODY_TEXT}">${multiline(block.text)}</p>`, 0, 18);
     case "list": {
       const items = block.items
         .map(
@@ -207,7 +218,7 @@ function renderBlock(block: EmailBlock, locale: string): string {
         .join("");
       // The panel is layout; the inner table is the data a reader hears row by row.
       return row(
-        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.paperWarm}" style="background-color:${C.paperWarm};border:1px solid ${C.edge};border-radius:3px;"><tr><td style="padding:4px 22px;">` +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.paperWarm}" style="background-color:${C.paperWarm};border:1px solid ${C.edge};border-radius:3px;"><tr><td style="padding:4px 16px;">` +
           `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;">${cells}</table>` +
           `</td></tr></table>`,
         4,
@@ -226,7 +237,8 @@ function renderBlock(block: EmailBlock, locale: string): string {
           const cells = block.columns
             .map((c, i) => {
               const align = c.align ?? "left";
-              const style = `padding:8px;border-bottom:1px solid ${C.hairline};font-family:${SANS};font-size:14px;line-height:20px;font-weight:400;color:${C.ink};text-align:${align};`;
+              const fit = align === "right" ? "white-space:nowrap;" : WRAP;
+              const style = `padding:8px;border-bottom:1px solid ${C.hairline};font-family:${SANS};font-size:14px;line-height:20px;font-weight:400;color:${C.ink};text-align:${align};${fit}`;
               const value = escapeHtml(r[c.key] ?? "");
               // The first column names the row, so a screen reader can say which
               // row a number belongs to when moving down a column.
@@ -246,10 +258,17 @@ function renderBlock(block: EmailBlock, locale: string): string {
     }
     case "button": {
       const url = escapeHtml(block.url);
+      // Outlook for Windows ignores padding on a link, so there the padding is
+      // drawn by hidden em-spaces inside it (the goodemailcode.com link button):
+      // the whole button is clickable in every client, not just its label.
+      const mso = {
+        open: `<!--[if mso]><i style="mso-font-width:214%;mso-text-raise:22pt" hidden>&emsp;</i><span style="mso-text-raise:11pt;"><![endif]-->`,
+        close: `<!--[if mso]></span><i style="mso-font-width:214%;" hidden>&emsp;&#8203;</i><![endif]-->`,
+      };
       return row(
         `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>` +
-          `<td align="center" bgcolor="${C.action}" style="background-color:${C.action};border-radius:3px;mso-padding-alt:15px 30px;">` +
-          `<a href="${url}" target="_blank" class="vf-sans" style="display:inline-block;padding:15px 30px;font-family:${SANS};font-size:14px;line-height:18px;letter-spacing:2px;text-transform:uppercase;font-weight:600;color:${C.onAction};text-decoration:none;border-radius:3px;mso-line-height-rule:exactly;">${escapeHtml(block.label)}</a>` +
+          `<td align="center" bgcolor="${C.action}" style="background-color:${C.action};border-radius:3px;">` +
+          `<a href="${url}" target="_blank" class="vf-sans" style="display:inline-block;padding:15px 30px;background-color:${C.action};border-radius:3px;font-family:${SANS};font-size:14px;line-height:18px;letter-spacing:1px;text-transform:uppercase;font-weight:600;color:${C.onAction};text-decoration:none;mso-padding-alt:0;text-underline-color:${C.action};mso-line-height-rule:exactly;">${mso.open}${escapeHtml(block.label)}${mso.close}</a>` +
           `</td></tr></table>`,
         6,
         26,
@@ -266,7 +285,7 @@ function renderBlock(block: EmailBlock, locale: string): string {
     }
     case "fineprint":
       return row(
-        `<p class="vf-sans" style="margin:0;font-family:${SANS};font-size:14px;line-height:21px;color:${C.inkFaint};">${escapeHtml(block.text)}</p>`,
+        `<p class="vf-sans" style="margin:0;font-family:${SANS};font-size:14px;line-height:21px;color:${C.inkFaint};${WRAP}">${multiline(block.text)}</p>`,
         0,
         16,
       );
@@ -277,7 +296,7 @@ function renderBlock(block: EmailBlock, locale: string): string {
 function preheaderHtml(text: string): string {
   const spacer = "&#847;&zwnj;&nbsp;".repeat(60);
   return (
-    `<div aria-hidden="true" style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:${C.desk};">${escapeHtml(text)}</div>` +
+    `<div aria-hidden="true" style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;">${escapeHtml(text)}</div>` +
     `<div aria-hidden="true" style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;">${spacer}</div>`
   );
 }
