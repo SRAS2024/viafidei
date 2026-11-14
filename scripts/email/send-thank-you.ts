@@ -7,6 +7,7 @@
  *   npx tsx scripts/email/send-thank-you.ts --railway --preview-dir <dir>   # also write every language's HTML + text
  *   npx tsx scripts/email/send-thank-you.ts --railway --send --only <email> --ledger <file>
  *   npx tsx scripts/email/send-thank-you.ts --railway --send --all --ledger <file>
+ *   npx tsx scripts/email/send-thank-you.ts --railway --send --ids <ids.json> --ledger <file>   # exactly these accounts
  *
  * --railway resolves the production database (public proxy URL) and the Resend
  * key from the linked Railway project, in memory only; without it DATABASE_URL
@@ -41,6 +42,8 @@ type Args = {
   send: boolean;
   all: boolean;
   only: string | null;
+  /** A JSON file holding an array of user ids: send to exactly those accounts. */
+  ids: string | null;
   ledger: string | null;
   previewDir: string | null;
 };
@@ -55,6 +58,7 @@ function parseArgs(argv: string[]): Args {
     send: argv.includes("--send"),
     all: argv.includes("--all"),
     only: value("--only"),
+    ids: value("--ids"),
     ledger: value("--ledger"),
     previewDir: value("--preview-dir"),
   };
@@ -174,8 +178,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  if (args.send && !args.all && !args.only) throw new Error("--send needs --all or --only <email>");
-  if (args.send && args.all && args.only) throw new Error("use --all or --only, not both");
+  const targets = [args.all, args.only, args.ids].filter(Boolean).length;
+  if (args.send && targets === 0)
+    throw new Error("--send needs --all, --only <email> or --ids <file>");
+  if (targets > 1) throw new Error("use one of --all, --only or --ids");
+  const ids = args.ids ? (JSON.parse(readFileSync(args.ids, "utf8")) as string[]) : null;
+  if (ids && (!Array.isArray(ids) || ids.some((id) => typeof id !== "string"))) {
+    throw new Error("--ids must name a JSON array of user ids");
+  }
   if (args.send && !args.ledger) throw new Error("--send needs --ledger <file>");
   if (args.railway) loadRailwayEnvironment();
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not set (or pass --railway)");
@@ -199,12 +209,15 @@ async function main(): Promise<void> {
     }
 
     const users = await prisma.user.findMany({
-      where: args.only ? { email: args.only } : {},
+      where: ids ? { id: { in: ids } } : args.only ? { email: args.only } : {},
       select: { id: true, email: true, language: true },
       orderBy: { createdAt: "asc" },
     });
     if (args.only && users.length !== 1)
       throw new Error(`no member with the address given to --only`);
+    if (ids && users.length !== new Set(ids).size) {
+      throw new Error(`--ids names ${new Set(ids).size} accounts but ${users.length} exist`);
+    }
 
     const ledger = args.ledger ? readLedger(args.ledger) : { campaign: CAMPAIGN, sent: {} };
     const pending = users.filter((u) => !ledger.sent[u.id]);
