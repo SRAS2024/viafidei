@@ -21,6 +21,7 @@ const KEYS: Record<string, string[]> = {
   "auth.error.retry": ["{button}"],
   "auth.error.dailyLimit": [],
   "auth.leaveEmpty": [],
+  "auth.register.needsScript": [],
   "profile.journal.empty": [],
   "profile.journal.emptyFavorites": [],
   "profile.journal.saved": [],

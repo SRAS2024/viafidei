@@ -359,6 +359,8 @@ const auth: Dict = {
     "Your account was not created. Please type your password into both password fields again, then select {button}.",
   "auth.error.dailyLimit": "No more accounts can be created today. Please try again tomorrow.",
   "auth.leaveEmpty": "Leave this field empty.",
+  "auth.register.needsScript":
+    "Creating an account needs JavaScript, which is turned off in this browser. Please turn it on, then reload this page.",
 };
 
 const profile: Dict = {

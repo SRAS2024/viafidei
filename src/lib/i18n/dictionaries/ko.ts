@@ -152,6 +152,8 @@ export const ko: Dict = {
     "계정이 만들어지지 않았습니다. 두 비밀번호 칸에 비밀번호를 다시 입력한 후 {button} 버튼을 선택하세요.",
   "auth.error.dailyLimit": "오늘은 더 이상 계정을 만들 수 없습니다. 내일 다시 시도하세요.",
   "auth.leaveEmpty": "이 칸은 비워 두세요.",
+  "auth.register.needsScript":
+    "계정을 만들려면 JavaScript가 필요하지만 이 브라우저에서 꺼져 있습니다. JavaScript를 켠 후 이 페이지를 새로 고치세요.",
   "auth.forgot.success": "{email} 계정이 있는 경우 해당 주소로 비밀번호 재설정 링크를 보냈습니다.",
   "auth.forgot.invalidAddress":
     "이메일 주소가 완전하지 않은 것 같습니다. 확인한 후 다시 시도하세요.",

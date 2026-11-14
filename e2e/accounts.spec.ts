@@ -282,6 +282,35 @@ test.describe("with no script", () => {
       extraHTTPHeaders: { "x-forwarded-for": clientAddress() },
     });
 
+  // Signing up is the one form that needs the page's script: the bots that signed strangers
+  // up in 2026 never ran it. A reader without script is told so, before typing anything.
+  test("creating an account says it needs JavaScript, and makes none without it", async ({
+    browser,
+    baseURL,
+  }) => {
+    const context = await noScript(browser, baseURL);
+    const page = await context.newPage();
+    await page.goto("/register");
+    const openedAt = Date.now();
+    // Playwright's text search passes over <noscript>, so the notice is found by its place.
+    const notice = page.locator("noscript > p.vf-notice");
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText("Creating an account needs JavaScript");
+    const password = newPassword();
+    await page.fill("#firstName", "Nuntia");
+    await page.fill("#lastName", "Sine");
+    await page.fill("#email", newEmail());
+    await page.fill("#password", password);
+    await page.fill("#passwordConfirm", password);
+    await waitAsAPersonWould(page, openedAt);
+    await Promise.all([
+      page.waitForURL(/\/register\?error=retry/),
+      page.locator("form button[type=submit]").click(),
+    ]);
+    await expect(notice).toBeVisible();
+    await context.close();
+  });
+
   test("forgot password answers, with the address kept out of the URL", async ({
     browser,
     baseURL,
@@ -412,6 +441,41 @@ test("a form posted back the moment it is fetched makes no account", async ({
   const response = await context.request.post("/api/auth/register", {
     form: {
       firstName: "Quick",
+      lastName: "Script",
+      email: newEmail(),
+      password,
+      passwordConfirm: password,
+      formToken: formToken!,
+      website: "",
+    },
+    maxRedirects: 0,
+  });
+  expect(response.status()).toBe(303);
+  const location = new URL(response.headers()["location"] ?? "", "http://site.invalid");
+  expect(location.pathname).toBe("/register");
+  expect(location.searchParams.get("error")).toBe("retry");
+  await context.close();
+});
+
+// A script that waits as a person would, but never runs the page's own script, which every
+// browser does, also makes no account.
+test("a form posted back without the page's script having run makes no account", async ({
+  browser,
+  baseURL,
+}) => {
+  const context = await freshContext(browser, baseURL);
+  const html = await (await context.request.get("/register")).text();
+  const fetchedAt = Date.now();
+  const field = html.match(/<input[^>]*name="formToken"[^>]*>/)?.[0] ?? "";
+  const formToken = /value="([^"]+)"/.exec(field)?.[1];
+  expect(html, "the page as sent carries nothing its script writes").not.toContain("formProof");
+  await new Promise((done) =>
+    setTimeout(done, Math.max(0, SIGNUP_FORM_MIN_FILL_MS + 250 - (Date.now() - fetchedAt))),
+  );
+  const password = newPassword();
+  const response = await context.request.post("/api/auth/register", {
+    form: {
+      firstName: "Patient",
       lastName: "Script",
       email: newEmail(),
       password,

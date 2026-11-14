@@ -7,7 +7,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
+import { renderToString } from "react-dom/server";
 import { RegisterForm } from "@/app/register/RegisterForm";
+import { signupFormProof } from "@/lib/auth/signup-guard-fields";
 
 const labels = {
   firstName: "First name",
@@ -27,6 +29,7 @@ const labels = {
   privacyLink: "privacy policy",
   privacyAfter: ".",
   leaveEmpty: "Leave this field empty.",
+  needsScript: "Creating an account needs JavaScript.",
 };
 
 const STRONG_PASSWORD = "Strong1Pass!Word";
@@ -219,6 +222,25 @@ describe("RegisterForm bot guards", () => {
     const note = container.querySelector<HTMLInputElement>("input[name='formToken']");
     expect(note).toHaveAttribute("type", "hidden");
     expect(note).toHaveValue("v1.note");
+  });
+
+  // Neither bot of 2026 ran the page's scripts, and every browser does.
+  it("writes what the server checks only once the page's script has run", () => {
+    const sent = renderToString(<RegisterForm labels={labels} formToken="v1.note" />);
+    expect(sent).toContain('name="formToken"');
+    expect(sent).not.toContain('name="formProof"');
+
+    const { container } = render(<RegisterForm labels={labels} formToken="v1.note" />);
+    const proof = container.querySelector<HTMLInputElement>("input[name='formProof']");
+    expect(proof).toHaveAttribute("type", "hidden");
+    expect(proof).toHaveValue(signupFormProof("v1.note"));
+  });
+
+  it("tells a browser without JavaScript, and only that one, that signing up needs it", () => {
+    const sent = renderToString(<RegisterForm labels={labels} formToken="v1.note" />);
+    expect(sent).toMatch(
+      /<noscript><p class="vf-notice vf-notice-error">Creating an account needs JavaScript\.<\/p><\/noscript>/,
+    );
   });
 
   it("has a field for machines that a screen reader never reads", () => {

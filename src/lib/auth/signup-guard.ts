@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { getPurposeKey } from "@/lib/security/keys";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
-import { SIGNUP_FORM_MIN_FILL_MS } from "./signup-guard-fields";
+import { SIGNUP_FORM_MIN_FILL_MS, signupFormProof } from "./signup-guard-fields";
 
 /**
  * Guards on the sign-up form that a person never meets.
@@ -19,13 +19,17 @@ import { SIGNUP_FORM_MIN_FILL_MS } from "./signup-guard-fields";
  *   - the note is missing, damaged or not signed by this server;
  *   - it came back sooner than SIGNUP_FORM_MIN_FILL_MS after the page was made, which no
  *     person manages (and the page itself holds back a quicker press, see RegisterForm);
- *   - it is older than SIGNUP_FORM_MAX_AGE_MS, or has already made an account.
+ *   - it is older than SIGNUP_FORM_MAX_AGE_MS, or has already made an account;
+ *   - the page's own script never ran, so the form lacks what that script writes into it
+ *     (signupFormProof). Every browser runs it, with or without a screen reader; a person
+ *     who has turned JavaScript off is told on the page that signing up needs it.
  *
  * Every refusal sends the reader back to the form with their names and address kept, asking
  * only for the password again, so even a person caught by one (say, a page left open for a
  * day) loses one step. Beyond these, each connection may make a few accounts a day and the
  * whole site a few dozen (RATE_POLICIES.registerDaily and registerSiteDaily), which bounds
- * the welcome emails a cleverer bot could cause.
+ * the welcome emails a cleverer bot could cause. None of this stops a bot that drives a
+ * real browser and waits; only these daily limits bound that.
  */
 
 export const SIGNUP_FORM_MAX_AGE_MS = 24 * 60 * 60_000;
@@ -55,18 +59,21 @@ export type SignupFormRefusal =
   | "token_forged"
   | "too_fast"
   | "expired"
-  | "from_future";
+  | "from_future"
+  | "no_script"
+  | "proof_wrong";
 
 export type SignupFormCheck =
   | { ok: true; nonce: string; issuedAt: number }
   | { ok: false; reason: SignupFormRefusal };
 
 /**
- * What can be told from the post alone, with no database: the trap field and the note.
- * Values are the raw form entries, so a file where text belongs counts as filled in.
+ * What can be told from the post alone, with no database: the trap field, the note, and
+ * what the page's script wrote. Values are the raw form entries, so a file where text
+ * belongs counts as filled in.
  */
 export function checkSignupForm(
-  fields: { token: unknown; trap: unknown },
+  fields: { token: unknown; trap: unknown; proof: unknown },
   now: number = Date.now(),
 ): SignupFormCheck {
   if (fields.trap !== null && fields.trap !== undefined && fields.trap !== "") {
@@ -89,6 +96,10 @@ export function checkSignupForm(
   if (age < -CLOCK_SKEW_MS) return { ok: false, reason: "from_future" };
   if (age < SIGNUP_FORM_MIN_FILL_MS) return { ok: false, reason: "too_fast" };
   if (age > SIGNUP_FORM_MAX_AGE_MS) return { ok: false, reason: "expired" };
+  if (typeof fields.proof !== "string" || fields.proof.length === 0) {
+    return { ok: false, reason: "no_script" };
+  }
+  if (fields.proof !== signupFormProof(token)) return { ok: false, reason: "proof_wrong" };
   return { ok: true, nonce, issuedAt };
 }
 

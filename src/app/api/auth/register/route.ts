@@ -15,7 +15,11 @@ import {
   spendSignupFormToken,
   takeSignupAllowance,
 } from "@/lib/auth/signup-guard";
-import { SIGNUP_FORM_TOKEN_FIELD, SIGNUP_FORM_TRAP_FIELD } from "@/lib/auth/signup-guard-fields";
+import {
+  SIGNUP_FORM_PROOF_FIELD,
+  SIGNUP_FORM_TOKEN_FIELD,
+  SIGNUP_FORM_TRAP_FIELD,
+} from "@/lib/auth/signup-guard-fields";
 import { checkAuthTokenStorage } from "@/lib/security/auth-storage";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp, redirectTo } from "@/lib/security/request";
@@ -94,6 +98,7 @@ async function readRegisterPayload(req: NextRequest): Promise<
         next: FormDataEntryValue | null;
         formToken: FormDataEntryValue | null;
         trap: FormDataEntryValue | null;
+        proof: FormDataEntryValue | null;
       };
     }
   | { ok: false }
@@ -117,6 +122,7 @@ async function readRegisterPayload(req: NextRequest): Promise<
         next: form.get("next"),
         formToken: form.get(SIGNUP_FORM_TOKEN_FIELD),
         trap: form.get(SIGNUP_FORM_TRAP_FIELD),
+        proof: form.get(SIGNUP_FORM_PROOF_FIELD),
       },
     };
   } catch {
@@ -154,7 +160,11 @@ export async function POST(req: NextRequest) {
     // Before any database work: a post from a machine is told apart here by the form
     // itself (see @/lib/auth/signup-guard). A person this ever catches gets their names
     // and address back and is asked only for the password again.
-    const formCheck = checkSignupForm({ token: payload.data.formToken, trap: payload.data.trap });
+    const formCheck = checkSignupForm({
+      token: payload.data.formToken,
+      trap: payload.data.trap,
+      proof: payload.data.proof,
+    });
     if (!formCheck.ok) {
       logger.warn("auth.register.refused", { requestId, reason: formCheck.reason });
       return await redirectWithError("retry");

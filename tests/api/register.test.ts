@@ -39,18 +39,22 @@ vi.mock("next/headers", () => ({
 
 import { POST } from "@/app/api/auth/register/route";
 import { issueSignupFormToken, SIGNUP_FORM_MAX_AGE_MS } from "@/lib/auth/signup-guard";
-import { SIGNUP_FORM_MIN_FILL_MS } from "@/lib/auth/signup-guard-fields";
+import { SIGNUP_FORM_MIN_FILL_MS, signupFormProof } from "@/lib/auth/signup-guard-fields";
 import type { NextRequest } from "next/server";
 
 /**
- * The form as a person sends it back: carrying the note the page was handed out with, made
- * twenty seconds earlier, and the field only a machine fills in left empty. A test may
- * replace either, or leave the note out with `formToken: undefined`.
+ * The form as a person's browser sends it back: carrying the note the page was handed out
+ * with, made twenty seconds earlier, what the page's script writes from that note, and the
+ * field only a machine fills in left empty. A test may replace any of them, or leave one out
+ * with `undefined`.
  */
 function buildRequest(form: Record<string, string | undefined>): NextRequest {
   const fd = new FormData();
+  const formToken =
+    "formToken" in form ? form.formToken : issueSignupFormToken(Date.now() - 20_000);
   const fields: Record<string, string | undefined> = {
-    formToken: issueSignupFormToken(Date.now() - 20_000),
+    formToken,
+    formProof: formToken ? signupFormProof(formToken) : undefined,
     website: "",
     ...form,
   };
@@ -249,6 +253,12 @@ describe("POST /api/auth/register", () => {
       const backdated = [version, (Date.now() - 60_000).toString(36), nonce, signature].join(".");
       await expectRefused({ formToken: backdated });
       await expectRefused({ formToken: "v1.made.up" });
+    });
+
+    it("is refused when it never ran the page's script, however long it waits", async () => {
+      await expectRefused({ formProof: undefined });
+      await expectRefused({ formProof: "0000000000000000" });
+      expect(findUserByEmailMock).not.toHaveBeenCalled();
     });
 
     it("is refused when it posts one copy of the form twice", async () => {

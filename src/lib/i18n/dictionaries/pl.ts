@@ -165,6 +165,8 @@ export const pl: Dict = {
     "Twoje konto nie zostało utworzone. Wpisz ponownie hasło w obu polach hasła, a następnie wybierz {button}.",
   "auth.error.dailyLimit": "Dziś nie można już utworzyć więcej kont. Spróbuj ponownie jutro.",
   "auth.leaveEmpty": "Pozostaw to pole puste.",
+  "auth.register.needsScript":
+    "Do utworzenia konta potrzebny jest JavaScript, który jest wyłączony w tej przeglądarce. Włącz go, a następnie odśwież tę stronę.",
   "auth.forgot.success":
     "Jeśli istnieje konto dla adresu {email}, wysłaliśmy na ten adres link do zresetowania hasła.",
   "auth.forgot.invalidAddress":

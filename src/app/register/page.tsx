@@ -85,6 +85,7 @@ export default async function RegisterPage({
           privacyLink: t("auth.privacyNotice.linkText"),
           privacyAfter: t("auth.privacyNotice.after"),
           leaveEmpty: t("auth.leaveEmpty"),
+          needsScript: t("auth.register.needsScript"),
         }}
         formToken={formToken}
         next={next}

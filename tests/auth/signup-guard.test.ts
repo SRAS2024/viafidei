@@ -11,7 +11,7 @@ import {
   spendSignupFormToken,
   takeSignupAllowance,
 } from "@/lib/auth/signup-guard";
-import { SIGNUP_FORM_MIN_FILL_MS } from "@/lib/auth/signup-guard-fields";
+import { SIGNUP_FORM_MIN_FILL_MS, signupFormProof } from "@/lib/auth/signup-guard-fields";
 import { RATE_POLICIES } from "@/lib/security/rate-limit";
 
 const NOW = Date.UTC(2026, 10, 14, 18, 0, 0);
@@ -26,9 +26,13 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-/** A form as a person sends it back: made `ago` milliseconds before now, trap left empty. */
+/**
+ * A form as a person's browser sends it back: made `ago` milliseconds before now, the trap
+ * left empty, and what the page's script writes in place.
+ */
 function sentBack(ago: number, trap: unknown = "") {
-  return checkSignupForm({ token: issueSignupFormToken(NOW - ago), trap }, NOW);
+  const token = issueSignupFormToken(NOW - ago);
+  return checkSignupForm({ token, trap, proof: signupFormProof(token) }, NOW);
 }
 
 describe("the sign-up form's signed note", () => {
@@ -64,7 +68,7 @@ describe("the sign-up form's signed note", () => {
 
   it("refuses a post without a note, as a script that never fetched the page sends", () => {
     for (const token of [undefined, null, ""]) {
-      expect(checkSignupForm({ token, trap: "" }, NOW)).toEqual({
+      expect(checkSignupForm({ token, trap: "", proof: "" }, NOW)).toEqual({
         ok: false,
         reason: "token_missing",
       });
@@ -81,7 +85,7 @@ describe("the sign-up form's signed note", () => {
       `${good}${"A".repeat(300)}`,
       new File(["x"], "token.txt"),
     ]) {
-      expect(checkSignupForm({ token, trap: "" }, NOW)).toEqual({
+      expect(checkSignupForm({ token, trap: "", proof: "" }, NOW)).toEqual({
         ok: false,
         reason: typeof token === "string" ? "token_malformed" : "token_missing",
       });
@@ -92,16 +96,48 @@ describe("the sign-up form's signed note", () => {
     const good = issueSignupFormToken(NOW - 20_000);
     const [version, , nonce, signature] = good.split(".");
     const earlier = [version, (NOW - 60_000).toString(36), nonce, signature].join(".");
-    expect(checkSignupForm({ token: earlier, trap: "" }, NOW)).toEqual({
+    expect(
+      checkSignupForm({ token: earlier, trap: "", proof: signupFormProof(earlier) }, NOW),
+    ).toEqual({
       ok: false,
       reason: "token_forged",
     });
 
     vi.stubEnv("SESSION_SECRET", `${TEST_SECRET}-another-server`);
-    expect(checkSignupForm({ token: good, trap: "" }, NOW)).toEqual({
+    expect(checkSignupForm({ token: good, trap: "", proof: signupFormProof(good) }, NOW)).toEqual({
       ok: false,
       reason: "token_forged",
     });
+  });
+});
+
+// Neither bot of 2026 ever loaded the page's scripts; every browser runs them.
+describe("what the page's own script writes into the form", () => {
+  it("refuses a form posted by something that never ran the page's script", () => {
+    const token = issueSignupFormToken(NOW - 20_000);
+    for (const proof of [undefined, null, ""]) {
+      expect(checkSignupForm({ token, trap: "", proof }, NOW)).toEqual({
+        ok: false,
+        reason: "no_script",
+      });
+    }
+  });
+
+  it("refuses a form whose script-written value does not belong to its note", () => {
+    const token = issueSignupFormToken(NOW - 20_000);
+    const other = issueSignupFormToken(NOW - 20_000);
+    for (const proof of ["0000000000000000", signupFormProof(other), new File(["x"], "p.txt")]) {
+      expect(checkSignupForm({ token, trap: "", proof }, NOW)).toEqual({
+        ok: false,
+        reason: typeof proof === "string" ? "proof_wrong" : "no_script",
+      });
+    }
+  });
+
+  it("is worked out the same way on the server and in the page, and differs per note", () => {
+    expect(signupFormProof("v1.a.b.c")).toBe(signupFormProof("v1.a.b.c"));
+    expect(signupFormProof("v1.a.b.c")).toMatch(/^[0-9a-f]{16}$/);
+    expect(signupFormProof("v1.a.b.c")).not.toBe(signupFormProof("v1.a.b.d"));
   });
 });
 

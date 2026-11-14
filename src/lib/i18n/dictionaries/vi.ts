@@ -155,6 +155,8 @@ export const vi: Dict = {
     "Tài khoản của bạn chưa được tạo. Hãy nhập lại mật khẩu vào cả hai ô mật khẩu, rồi chọn {button}.",
   "auth.error.dailyLimit": "Hôm nay không thể tạo thêm tài khoản. Hãy thử lại vào ngày mai.",
   "auth.leaveEmpty": "Hãy để trống ô này.",
+  "auth.register.needsScript":
+    "Cần có JavaScript để tạo tài khoản, nhưng JavaScript đang bị tắt trong trình duyệt này. Hãy bật lên rồi tải lại trang này.",
   "auth.forgot.success":
     "Nếu có tài khoản cho {email}, chúng tôi đã gửi đến địa chỉ đó một liên kết để đặt lại mật khẩu.",
   "auth.forgot.invalidAddress": "Địa chỉ email đó có vẻ chưa đầy đủ. Hãy kiểm tra rồi thử lại.",

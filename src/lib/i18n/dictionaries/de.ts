@@ -164,6 +164,8 @@ export const de: Dict = {
   "auth.error.dailyLimit":
     "Heute können keine weiteren Konten erstellt werden. Bitte versuchen Sie es morgen erneut.",
   "auth.leaveEmpty": "Lassen Sie dieses Feld leer.",
+  "auth.register.needsScript":
+    "Zum Erstellen eines Kontos wird JavaScript benötigt, das in diesem Browser ausgeschaltet ist. Bitte schalten Sie es ein und laden Sie diese Seite neu.",
   "auth.forgot.success":
     "Falls ein Konto für {email} besteht, haben wir an diese Adresse einen Link zum Zurücksetzen des Passworts gesendet.",
   "auth.forgot.invalidAddress":

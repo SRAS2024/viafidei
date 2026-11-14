@@ -30,6 +30,7 @@ import RegisterPage from "@/app/register/page";
 import ResetPasswordPage from "@/app/reset-password/page";
 import { keepFormFields } from "@/lib/auth/form-flash";
 import { checkSignupForm } from "@/lib/auth/signup-guard";
+import { signupFormProof } from "@/lib/auth/signup-guard-fields";
 import { DICTIONARIES } from "@/lib/i18n/dictionaries";
 
 const EN = DICTIONARIES.en!;
@@ -135,7 +136,10 @@ describe("/register", () => {
     const note = () =>
       document.querySelector<HTMLInputElement>('input[name="formToken"]')?.value ?? "";
     const first = note();
-    const result = checkSignupForm({ token: first, trap: "" }, before + 20_000);
+    const result = checkSignupForm(
+      { token: first, trap: "", proof: signupFormProof(first) },
+      before + 20_000,
+    );
     expect(result.ok).toBe(true);
     expect(result.ok && result.issuedAt).toBeGreaterThanOrEqual(before);
     cleanup();

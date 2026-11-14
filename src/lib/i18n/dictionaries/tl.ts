@@ -162,6 +162,8 @@ export const tl: Dict = {
   "auth.error.dailyLimit":
     "Wala nang account na maaaring gawin ngayong araw. Pakisubukang muli bukas.",
   "auth.leaveEmpty": "Iwanang blangko ang field na ito.",
+  "auth.register.needsScript":
+    "Kailangan ang JavaScript para gumawa ng account, at naka-off ito sa browser na ito. Pakibuksan ito, saka i-reload ang page na ito.",
   "auth.forgot.success":
     "Kung may account para sa {email}, nagpadala kami sa address na iyon ng link para i-reset ang password.",
   "auth.forgot.invalidAddress":

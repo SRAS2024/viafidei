@@ -163,6 +163,8 @@ export const pt: Dict = {
     "Sua conta não foi criada. Digite sua senha novamente nos dois campos de senha e depois selecione {button}.",
   "auth.error.dailyLimit": "Não é possível criar mais contas hoje. Tente novamente amanhã.",
   "auth.leaveEmpty": "Deixe este campo em branco.",
+  "auth.register.needsScript":
+    "Para criar uma conta é preciso JavaScript, que está desativado neste navegador. Ative-o e recarregue esta página.",
   "auth.forgot.success":
     "Se existir uma conta para {email}, enviamos para esse endereço um link para redefinir a senha.",
   "auth.forgot.invalidAddress":

@@ -36,6 +36,7 @@ const registerLabels = {
   privacyLink: "privacy policy",
   privacyAfter: ".",
   leaveEmpty: "Leave this field empty.",
+  needsScript: "Creating an account needs JavaScript.",
 };
 const resetLabels = {
   newPassword: "New password",

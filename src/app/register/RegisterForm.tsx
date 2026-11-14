@@ -5,8 +5,10 @@ import { useEffect, useRef, useState, version as reactVersion } from "react";
 import { checkPasswordStrength, PASSWORD_MIN_LENGTH } from "@/lib/auth/schemas";
 import {
   SIGNUP_FORM_MIN_FILL_MS,
+  SIGNUP_FORM_PROOF_FIELD,
   SIGNUP_FORM_TOKEN_FIELD,
   SIGNUP_FORM_TRAP_FIELD,
+  signupFormProof,
 } from "@/lib/auth/signup-guard-fields";
 
 const PASSWORD_MIN = PASSWORD_MIN_LENGTH;
@@ -45,6 +47,8 @@ export type RegisterFormLabels = {
   privacyAfter: string;
   /** The trap field's label, seen only where the page's styles never load. */
   leaveEmpty: string;
+  /** Said where the browser runs no JavaScript, without which no account can be made. */
+  needsScript: string;
 };
 
 export type RegisterErrorField = "email" | "password" | "passwordConfirm";
@@ -90,6 +94,12 @@ export function RegisterForm({
   // When the form appeared, and a press being held until it has been up long enough.
   const shownAt = useRef<number | null>(null);
   const heldSubmit = useRef<number | null>(null);
+  // Written only here, once this script runs: the page as sent never carries it, so the
+  // server can tell a browser from a script that only reads the page (see signupFormProof).
+  const [proof, setProof] = useState<string | null>(null);
+  useEffect(() => {
+    setProof(formToken ? signupFormProof(formToken) : null);
+  }, [formToken]);
 
   // The server turns away a form sent back within SIGNUP_FORM_MIN_FILL_MS of being made,
   // as only a script is that quick. Should a person with everything filled in for them
@@ -193,6 +203,13 @@ export function RegisterForm({
           (e.g. Favorite on a parish) sent the visitor here. */}
       {next ? <input type="hidden" name="next" value={next} /> : null}
       {formToken ? <input type="hidden" name={SIGNUP_FORM_TOKEN_FIELD} value={formToken} /> : null}
+      {formToken && proof ? (
+        <input type="hidden" name={SIGNUP_FORM_PROOF_FIELD} value={proof} />
+      ) : null}
+      {/* Only a browser that runs no JavaScript shows this; every other reader never meets it. */}
+      <noscript>
+        <p className="vf-notice vf-notice-error">{labels.needsScript}</p>
+      </noscript>
       {noticeAbove(undefined)}
       <div className="vf-field-pair">
         <div>

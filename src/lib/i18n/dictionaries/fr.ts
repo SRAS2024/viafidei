@@ -188,6 +188,8 @@ export const fr: Dict = {
   "auth.error.dailyLimit":
     "Aucun autre compte ne peut être créé aujourd'hui. Veuillez réessayer demain.",
   "auth.leaveEmpty": "Laissez ce champ vide.",
+  "auth.register.needsScript":
+    "La création d'un compte nécessite JavaScript, qui est désactivé dans ce navigateur. Activez-le, puis rechargez cette page.",
   "auth.forgot.success":
     "Si un compte existe pour {email}, nous avons envoyé à cette adresse un lien pour réinitialiser le mot de passe.",
   "auth.forgot.invalidAddress":

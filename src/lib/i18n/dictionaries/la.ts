@@ -160,6 +160,8 @@ export const la: Dict = {
     "Ratio tua creata non est. Tesseram tuam iterum in utrumque campum tesserae inscribe, deinde {button} elige.",
   "auth.error.dailyLimit": "Hodie nullae aliae rationes creari possunt. Cras iterum conare.",
   "auth.leaveEmpty": "Hunc campum vacuum relinque.",
+  "auth.register.needsScript":
+    "Ad rationem creandam JavaScript necessarium est, quod in hoc navigatro exstinctum est. Id accende, deinde hanc paginam renova.",
   "auth.forgot.success":
     "Si ratio pro {email} exstat, nexum ad tesseram renovandam ad hanc inscriptionem misimus.",
   "auth.forgot.invalidAddress":

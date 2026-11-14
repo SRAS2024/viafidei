@@ -145,6 +145,8 @@ export const zh: Dict = {
   "auth.error.retry": "您的账户尚未创建。请在两个密码栏中重新输入密码，然后选择“{button}”。",
   "auth.error.dailyLimit": "今天无法再创建更多账户。请明天再试。",
   "auth.leaveEmpty": "请将此栏留空。",
+  "auth.register.needsScript":
+    "创建账户需要 JavaScript，但此浏览器已将其关闭。请开启后重新加载此页面。",
   "auth.forgot.success": "如果存在 {email} 的账户，我们已向该地址发送了重置密码的链接。",
   "auth.forgot.invalidAddress": "该电子邮件地址似乎不完整。请检查后重试。",
   "profile.journal.empty": "您的记录将显示在这里。",
