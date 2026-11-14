@@ -38,13 +38,13 @@ describe("renderWelcomeEmail (required wording)", () => {
     expect(out.textBody).toContain("Via Fidei");
   });
 
-  it("includes the cross logo SVG inline", () => {
+  it("shows the crucifix logo as a hosted image, since Gmail and Outlook drop inline SVG", () => {
     const out = renderWelcomeEmail({ ...baseParams, locale: "en" });
-    expect(out.htmlBody).toContain("<svg");
-    expect(out.htmlBody).toContain('aria-label="Via Fidei"');
+    expect(out.htmlBody).toContain('src="https://etviafidei.com/email/crucifix-logo.png"');
+    expect(out.htmlBody).not.toContain("<svg");
   });
 
-  it("preserves the required wording even in non-English locales", () => {
+  it("writes the whole message, subject included, in the member's own language", () => {
     for (const locale of [
       "es",
       "fr",
@@ -59,8 +59,11 @@ describe("renderWelcomeEmail (required wording)", () => {
       "zh",
     ] as const) {
       const out = renderWelcomeEmail({ ...baseParams, locale });
-      expect(out.subject).toBe("Welcome!");
-      expect(out.htmlBody).toContain("Welcome, Maria Goretti. Account creation successful.");
+      expect(out.subject, locale).not.toBe("Welcome!");
+      expect(out.htmlBody, locale).not.toContain("Account creation successful");
+      expect(out.textBody, locale).not.toContain("Account creation successful");
+      expect(out.htmlBody, locale).toContain("Maria Goretti");
+      expect(out.htmlBody, locale).toContain(`lang="${locale === "zh" ? "zh-Hans" : locale}"`);
     }
   });
 });

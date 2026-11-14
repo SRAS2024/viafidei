@@ -100,9 +100,11 @@ describe("sendAdminLoginAlert — Admin Log In email", () => {
   it("uses the current shared admin email design", async () => {
     await sendAdminLoginAlert({ username: "admin", deviceSeenBefore: false, successful: true });
     const email = lastEmail();
-    // The renderAdminEmail shell stamps these markers on every admin email.
+    // The renderAdminEmail shell stamps these markers on every admin email:
+    // the operational footer and "Admin" beside the wordmark.
     expect(email.htmlBody).toContain("operational notification");
-    expect(email.htmlBody).toContain("— Admin");
+    expect(email.htmlBody).toMatch(/>Admin<\/td>/);
+    expect(email.htmlBody).toContain("/email/crucifix-logo.png");
   });
 
   it("never carries a Suspicious Activity / Security Breach subject", async () => {

@@ -78,7 +78,7 @@ describe("renderWelcomeEmail", () => {
     expect(out.htmlBody).toContain("Welcome, Maria Goretti. Account creation successful.");
   });
 
-  it("renders the localized welcome heading in Spanish while keeping the required wording intact", () => {
+  it("renders the whole welcome in Spanish for a Spanish-speaking member", () => {
     const out = renderWelcomeEmail({
       firstName: "Maria",
       fullName: "María Goretti",
@@ -86,9 +86,10 @@ describe("renderWelcomeEmail", () => {
       verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       locale: "es",
     });
-    expect(out.subject).toBe("Welcome!");
+    expect(out.subject).not.toBe("Welcome!");
     expect(out.htmlBody).toContain("Bienvenido a Via Fidei");
-    expect(out.htmlBody).toContain("Welcome, María Goretti. Account creation successful.");
+    expect(out.htmlBody).toContain("María Goretti");
+    expect(out.htmlBody).not.toContain("Account creation successful");
   });
 });
 
@@ -194,6 +195,66 @@ describe("renderEmailVerificationEmail", () => {
       locale: "klingon",
     });
     expect(out.htmlBody).toMatch(/Verify your Via Fidei email/);
+  });
+});
+
+describe("account emails in every language", () => {
+  const LOCALES = ["en", "es", "fr", "it", "de", "pt", "pl", "la", "tl", "vi", "ko", "zh"] as const;
+
+  it("never leaves a {placeholder} unfilled", () => {
+    for (const locale of LOCALES) {
+      const common = {
+        firstName: "Pio",
+        fullName: "Pio Pietrelcina",
+        siteUrl: "https://etviafidei.com",
+        locale,
+      };
+      const bodies = [
+        renderWelcomeEmail({ ...common, verifyUrl: "https://etviafidei.com/verify-email?token=a" }),
+        renderPasswordResetEmail({
+          ...common,
+          resetUrl: "https://etviafidei.com/reset-password?token=a",
+          expiresAt: FUTURE,
+        }),
+        renderEmailVerificationEmail({
+          ...common,
+          verifyUrl: "https://etviafidei.com/verify-email?token=a",
+          expiresAt: FUTURE,
+        }),
+      ];
+      for (const out of bodies) {
+        expect(out.htmlBody, locale).not.toMatch(/\{[a-zA-Z]+\}/);
+        expect(out.textBody, locale).not.toMatch(/\{[a-zA-Z]+\}/);
+        expect(out.subject.length, locale).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("names the 15-minute validity of a reset link in every language", () => {
+    for (const locale of LOCALES) {
+      const out = renderPasswordResetEmail({
+        firstName: "Pio",
+        fullName: "Pio Pietrelcina",
+        resetUrl: "https://etviafidei.com/reset-password?token=a",
+        expiresAt: FUTURE,
+        siteUrl: "https://etviafidei.com",
+        locale,
+      });
+      expect(out.textBody, locale).toMatch(/15/);
+    }
+  });
+
+  it("writes the verification expiry as a date in the reader's language", () => {
+    const out = renderEmailVerificationEmail({
+      firstName: "Pio",
+      fullName: "Pio Pietrelcina",
+      verifyUrl: "https://etviafidei.com/verify-email?token=a",
+      expiresAt: new Date("2099-01-01T12:00:00Z"),
+      siteUrl: "https://etviafidei.com",
+      locale: "fr",
+    });
+    expect(out.textBody).toContain("1 janvier 2099");
+    expect(out.textBody).toContain("UTC");
   });
 });
 

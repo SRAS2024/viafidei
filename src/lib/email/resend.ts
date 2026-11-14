@@ -18,6 +18,13 @@ export type SendEmailInput = {
     content: string;
     contentType?: string;
   }>;
+  /**
+   * Optional Resend idempotency key. A retried send with the same key within
+   * Resend's window is accepted without delivering a second copy, so a one-off
+   * announcement can be re-run after an interruption without anyone receiving
+   * it twice.
+   */
+  idempotencyKey?: string;
 };
 
 export type SendEmailResult =
@@ -187,6 +194,7 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
         Accept: "application/json",
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.apiKey}`,
+        ...(input.idempotencyKey ? { "Idempotency-Key": input.idempotencyKey } : {}),
       },
       body: JSON.stringify({
         from: fromHeader,
