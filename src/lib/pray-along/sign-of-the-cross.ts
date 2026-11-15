@@ -27,7 +27,7 @@ export const SIGN_OF_THE_CROSS: Readonly<Record<AudioLang, string>> = {
   vi: "Nhân danh Cha và Con và Thánh Thần. Amen.",
   ko: "성부와 성자와 성령의 이름으로. 아멘.",
   zh: "因父、及子、及圣神之名。阿们。",
-  el: "Εἰς τὸ ὄνομα τοῦ Πατρὸς καὶ τοῦ Υἱοῦ καὶ τοῦ Ἁγίου Πνεύματος. Ἀμήν.",
+  el: "Εις το όνομα του Πατρός και του Υιού και του Αγίου Πνεύματος. Αμήν.",
 };
 
 /** The opening words that mark a text as already beginning with the Sign of the Cross. */

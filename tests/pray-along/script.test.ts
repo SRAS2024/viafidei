@@ -137,7 +137,7 @@ describe("rosaryScript", () => {
     ]);
     // The English Hail, Holy Queen carries its versicle: it is said once, not twice.
     expect(t.filter((x) => x.includes("promises of Christ")).length).toBe(1);
-    expect(t.some((x) => x.startsWith("Let us pray. O God, whose only begotten Son"))).toBe(true);
+    expect(t.some((x) => x.startsWith("Let us pray. O God, whose only-begotten Son"))).toBe(true);
   });
 
   it("rotates the takes of a prayer said many times", () => {
@@ -146,6 +146,27 @@ describe("rosaryScript", () => {
       i.kind === "say" && i.text === HAIL_MARY ? [i.take] : [],
     );
     expect(new Set(takes)).toEqual(new Set([0, 1, 2]));
+  });
+
+  it("says the versicle once in a translation that carries it", () => {
+    const spanish = new Map(PRAYERS);
+    spanish.set(
+      "salve-regina",
+      source(
+        "salve-regina",
+        "Dios te salve, Reina",
+        "Hail, holy Queen.\nV. Pray for us, O holy Mother of God.\nR. That we may be made worthy of the promises of Christ.",
+        undefined,
+        "Dios te salve, Reina.\nV. Ruega por nosotros.\nR. Para que seamos dignos de las promesas de Cristo.",
+      ),
+    );
+    spanish.set(
+      "hail-mary",
+      source("hail-mary", "Ave María", HAIL_MARY, undefined, "Dios te salve, María. Amén."),
+    );
+    const s = rosaryScript("joyful", { pageLang: "es", chosen: null, prayers: spanish });
+    expect(texts(s).filter((x) => /Ruega por nosotros/.test(x)).length).toBe(1);
+    expect(texts(s).some((x) => x.startsWith("Primer misterio gozoso"))).toBe(true);
   });
 
   it("adds the versicle a Latin Salve Regina does not carry", () => {

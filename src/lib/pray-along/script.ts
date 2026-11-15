@@ -456,9 +456,16 @@ function writeRosary(w: ScriptWriter, set: MysterySetKey, ctx: ScriptContext): v
   writePrayer(w, "salve-regina", 1, ctx, 1, new Set());
   // The Hail, Holy Queen's English carries its versicle and response; a text that
   // does not (the Latin) has them said here, so they are prayed exactly once.
+  // A translation keeps its English lines, so it is judged by its English; the Latin
+  // or Greek by its own words.
   const salve = ctx.prayers.get("salve-regina");
-  const salveText = salve ? (prayerText(salve, ctx)?.text ?? "") : "";
-  if (!/promis|promess|promes|Christi|基督|그리스도/i.test(salveText)) {
+  const said = salve ? prayerText(salve, ctx) : null;
+  const carries = said?.english
+    ? /promises of Christ/i.test(said.english)
+    : /promis|promess|promes|Christi|Χριστ|基督|그리스도|Kristo|Kitô|Chrystus/i.test(
+        said?.text ?? "",
+      );
+  if (!carries) {
     w.say(texts.versicle, lang);
     w.pause(STANZA_PAUSE_MS);
     w.say(texts.response, lang);
