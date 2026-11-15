@@ -246,6 +246,14 @@ function foldProse(value: string): string {
 /** Below this, two fields can honestly give one answer ("A bishop"); above it, one repeats. */
 const SHORTEST_PARAGRAPH = 60;
 
+/**
+ * The pages that keep their source lines as they are: a Church document and a parish. Every
+ * other page shows no source (the owner's rule), so a public-domain text, which no licence
+ * asks to be credited, is not named under it. The Wikipedia line is the licence's own
+ * condition and stays wherever a page still shows Wikipedia's words.
+ */
+const KEEPS_SOURCE_LINES: ReadonlySet<string> = new Set(["CHURCH_DOCUMENT", "PARISH"]);
+
 export function PublishedDetail({
   item,
   t,
@@ -470,7 +478,9 @@ export function PublishedDetail({
       {/* Which article to credit is read from the stored record. */}
       <div className="vf-credits">
         <WikipediaAttribution contentType={item.contentType} payload={payload} />
-        <PublicDomainAttribution payload={payload} />
+        {KEEPS_SOURCE_LINES.has(item.contentType) ? (
+          <PublicDomainAttribution payload={payload} />
+        ) : null}
       </div>
     </article>
   );
