@@ -87,6 +87,9 @@ let session: Session | null = null;
 let tokens = 0;
 /** What the element is playing now: a clip, a pause, or the silence of a wait. */
 let playing: "clip" | "pause" | "wait" | null = null;
+/** Load errors in a row: a file that will not load is given up on, never retried in a spin. */
+let errorsInARow = 0;
+const MAX_ERRORS_IN_A_ROW = 3;
 
 function setState(next: PlayerState): void {
   state = next;
@@ -233,6 +236,7 @@ async function poll(s: Session): Promise<void> {
 function onEnded(): void {
   const s = session;
   if (!s) return;
+  errorsInARow = 0;
   if (playing === "wait") {
     // Still waiting: play the silence again, or go on if the clip is now made.
     advance();
@@ -245,6 +249,12 @@ function onEnded(): void {
 function onError(): void {
   const s = session;
   if (!s) return;
+  errorsInARow += 1;
+  if (errorsInARow >= MAX_ERRORS_IN_A_ROW) {
+    errorsInARow = 0;
+    finish("error");
+    return;
+  }
   if (playing === "clip") {
     // The clip could not be fetched: treat it as not made yet and wait for it.
     const item = s.items[s.index];
@@ -275,6 +285,7 @@ export async function startPrayAlong(
   opts: { chosen: string | null; title: string },
 ): Promise<void> {
   if (session) finish("stopped");
+  errorsInARow = 0;
   const token = ++tokens;
   const el = element();
   // Begin inside the press: browsers allow sound only from one, and a short silence
