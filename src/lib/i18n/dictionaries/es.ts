@@ -18,10 +18,42 @@ export const es: Dict = {
   "nav.settings": "Ajustes",
   "home.title": "Un lugar sereno para orar, aprender y volver.",
   "home.lede":
-    "Via Fidei es un compañero católico — una biblioteca cuidada de oraciones, santos, guía sacramental, formación litúrgica y búsqueda de parroquias.",
+    "Via Fidei reúne las oraciones, los santos, los sacramentos y la liturgia de la Iglesia católica, y un directorio de parroquias.",
   "home.ctaExplore": "Explorar oraciones",
   "home.ctaJoin": "Crear perfil",
   "home.ctaProfile": "Ir a tu perfil",
+  "home.quickLinks.title": "Empieza aquí",
+  "home.newcomer.title": "¿Das tus primeros pasos en la fe?",
+  "home.newcomer.body":
+    "Una introducción serena y paso a paso a la oración, los sacramentos y la vida de la gracia.",
+  "home.featured.title": "Oraciones destacadas",
+  "home.mission.title": "Nuestra misión",
+  "home.mission.body":
+    "Hacemos legibles la belleza y la precisión de la tradición católica, tanto para quien se acerca por primera vez como para los fieles de toda la vida. Nada ruidoso, nada que distraiga: solo lo que pertenece a la página.",
+  "home.catholic.title": "¿Qué es el catolicismo?",
+  "home.catholic.body":
+    "La Iglesia católica es la comunidad de los discípulos reunidos en torno a Jesucristo, guiada por la Sagrada Escritura, la Sagrada Tradición y el Magisterio confiado a Pedro y a los apóstoles.",
+  "devotions.title": "Devociones",
+  "devotions.subtitle":
+    "Devociones católicas tradicionales, como el Rosario, la Divina Misericordia y el Ángelus.",
+  "spiritualLife.title": "Vida Espiritual",
+  "spiritualLife.subtitle":
+    "Las prácticas de oración, penitencia y caridad con las que los católicos crecen en santidad.",
+  "guides.eyebrow": "Cómo orar y practicar",
+  "guides.title": "Guías",
+  "guides.subtitle":
+    "Guías paso a paso para el Rosario, la Coronilla de la Divina Misericordia, la Confesión y la vida espiritual.",
+  "prayerLanguage.group": "Idioma de la oración",
+  "prayerLanguage.groupFor": "{title}: idioma",
+  "prayerLanguage.en": "Inglés",
+  "prayerLanguage.la": "Latín",
+  "prayerLanguage.el": "Griego",
+  "prayerLanguage.es": "Español",
+  "prayerLanguage.it": "Italiano",
+  "prayerLanguage.fr": "Francés",
+  "prayerLanguage.pt": "Portugués",
+  "prayerLanguage.de": "Alemán",
+  "prayerLanguage.pl": "Polaco",
   "nav.devotions": "Devociones",
   "nav.novenas": "Novenas",
   "auth.signIn": "Iniciar sesión",
@@ -126,7 +158,6 @@ export const es: Dict = {
   "search.groupResults.other": "{count} resultados",
   "search.groupShown.other": "{shown} de {count} resultados",
   "search.title": "Buscar",
-  "search.subtitle": "Una sola biblioteca: oraciones, santos, liturgia, parroquias y más.",
   "search.placeholder": "Oraciones, santos, parroquias…",
   "search.prompt":
     "Busca oraciones, santos, guías, devociones, parroquias y documentos de la Iglesia.",

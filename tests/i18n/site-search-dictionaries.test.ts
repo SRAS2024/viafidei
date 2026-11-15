@@ -35,7 +35,6 @@ const TYPE_KEYS = Object.keys(EN).filter((key) => key.startsWith("search.type.")
 const OWN_WORDS = [
   ...TYPE_KEYS,
   "search.title",
-  "search.subtitle",
   "search.placeholder",
   "search.prompt",
   "search.unavailable",

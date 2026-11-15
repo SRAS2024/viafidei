@@ -78,7 +78,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
 
   return (
     <div>
-      <PageHero title={t("search.title")} subtitle={t("search.subtitle")} />
+      {/* "Search" says what the page is: no line under it (the owner's rule). */}
+      <PageHero title={t("search.title")} />
 
       <ListControls>
         <ListSearch

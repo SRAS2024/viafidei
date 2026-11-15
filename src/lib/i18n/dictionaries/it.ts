@@ -19,6 +19,40 @@ export const it: Dict = {
   "home.ctaExplore": "Esplora le preghiere",
   "home.ctaJoin": "Crea il tuo profilo",
   "home.ctaProfile": "Vai al tuo profilo",
+  "home.lede":
+    "Via Fidei raccoglie le preghiere, i santi, i sacramenti e la liturgia della Chiesa cattolica, e un elenco delle parrocchie.",
+  "home.quickLinks.title": "Inizia da qui",
+  "home.newcomer.title": "Ti avvicini alla fede?",
+  "home.newcomer.body":
+    "Un'introduzione serena, passo dopo passo, alla preghiera, ai sacramenti e alla vita di grazia.",
+  "home.featured.title": "Preghiere in evidenza",
+  "home.mission.title": "La nostra missione",
+  "home.mission.body":
+    "Rendiamo leggibili la bellezza e la precisione della tradizione cattolica, sia per chi si avvicina per la prima volta sia per chi è fedele da sempre. Niente di rumoroso, niente che distragga: solo ciò che appartiene alla pagina.",
+  "home.catholic.title": "Che cos'è il cattolicesimo?",
+  "home.catholic.body":
+    "La Chiesa cattolica è la comunità dei discepoli riuniti attorno a Gesù Cristo, guidata dalla Sacra Scrittura, dalla Sacra Tradizione e dall'insegnamento del Magistero affidato a Pietro e agli apostoli.",
+  "devotions.title": "Devozioni",
+  "devotions.subtitle":
+    "Devozioni cattoliche tradizionali, come il Rosario, la Divina Misericordia e l'Angelus.",
+  "spiritualLife.title": "Vita Spirituale",
+  "spiritualLife.subtitle":
+    "Le pratiche di preghiera, penitenza e carità con cui i cattolici crescono nella santità.",
+  "guides.eyebrow": "Come pregare e praticare",
+  "guides.title": "Guide",
+  "guides.subtitle":
+    "Guide passo dopo passo al Rosario, alla Coroncina della Divina Misericordia, alla Confessione e alla vita spirituale.",
+  "prayerLanguage.group": "Lingua della preghiera",
+  "prayerLanguage.groupFor": "{title}: lingua",
+  "prayerLanguage.en": "Inglese",
+  "prayerLanguage.la": "Latino",
+  "prayerLanguage.el": "Greco",
+  "prayerLanguage.es": "Spagnolo",
+  "prayerLanguage.it": "Italiano",
+  "prayerLanguage.fr": "Francese",
+  "prayerLanguage.pt": "Portoghese",
+  "prayerLanguage.de": "Tedesco",
+  "prayerLanguage.pl": "Polacco",
   "nav.devotions": "Devozioni",
   "nav.novenas": "Novene",
   "parishes.distanceAway": "A {distance} di distanza",
@@ -105,7 +139,6 @@ export const it: Dict = {
   "search.groupResults.other": "{count} risultati",
   "search.groupShown.other": "{shown} di {count} risultati",
   "search.title": "Cerca",
-  "search.subtitle": "Un'unica biblioteca: preghiere, santi, liturgia, parrocchie e altro ancora.",
   "search.placeholder": "Preghiere, santi, parrocchie…",
   "search.prompt": "Cerca preghiere, santi, guide, devozioni, parrocchie e documenti della Chiesa.",
   "search.unavailable": "La ricerca non è disponibile al momento. Riprova tra poco.",

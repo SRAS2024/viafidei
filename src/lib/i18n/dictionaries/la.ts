@@ -12,6 +12,41 @@ export const la: Dict = {
   "home.ctaExplore": "Orationes perlustra",
   "home.ctaJoin": "Paginam tuam crea",
   "home.ctaProfile": "Ad paginam tuam i",
+  "home.title": "Locus quietus ad orandum, ad discendum, ad redeundum.",
+  "home.lede":
+    "Via Fidei orationes, sanctos, sacramenta et liturgiam Ecclesiae Catholicae colligit, una cum indice paroeciarum.",
+  "home.quickLinks.title": "Hic incipe",
+  "home.newcomer.title": "Ad fidem nunc accedis?",
+  "home.newcomer.body":
+    "Placida et gradatim procedens introductio in orationem, sacramenta vitamque gratiae.",
+  "home.featured.title": "Orationes selectae",
+  "home.mission.title": "Propositum nostrum",
+  "home.mission.body":
+    "Pulchritudinem et subtilitatem traditionis catholicae tam iis qui nunc accedunt quam fidelibus diuturnis perspicuas reddimus. Nihil strepens, nihil avocans: id solum quod in pagina esse decet.",
+  "home.catholic.title": "Quid est fides catholica?",
+  "home.catholic.body":
+    "Ecclesia Catholica est communitas discipulorum circa Iesum Christum congregatorum, quam Sacra Scriptura, Sacra Traditio et Magisterium Petro et Apostolis concreditum regunt.",
+  "devotions.title": "Devotiones",
+  "devotions.subtitle":
+    "Devotiones catholicae traditae, ut Rosarium, Divina Misericordia et Angelus Domini.",
+  "spiritualLife.title": "Vita Spiritualis",
+  "spiritualLife.subtitle":
+    "Exercitia orationis, paenitentiae et caritatis, quibus catholici in sanctitate proficiunt.",
+  "guides.eyebrow": "Ratio orandi et agendi",
+  "guides.title": "Enchiridia",
+  "guides.subtitle":
+    "Enchiridia gradatim procedentia de Rosario, de Corona Divinae Misericordiae, de Confessione et de vita spirituali.",
+  "prayerLanguage.group": "Lingua orationis",
+  "prayerLanguage.groupFor": "{title}: lingua",
+  "prayerLanguage.en": "Anglica",
+  "prayerLanguage.la": "Latina",
+  "prayerLanguage.el": "Graeca",
+  "prayerLanguage.es": "Hispanica",
+  "prayerLanguage.it": "Italica",
+  "prayerLanguage.fr": "Gallica",
+  "prayerLanguage.pt": "Lusitana",
+  "prayerLanguage.de": "Germanica",
+  "prayerLanguage.pl": "Polonica",
   "nav.devotions": "Devotiones",
   "nav.novenas": "Novenae",
   "parishes.distanceAway": "{distance} abest",
@@ -98,7 +133,6 @@ export const la: Dict = {
   "search.groupShown.other": "{shown} ex {count} inventis",
   "nav.search": "Quaere",
   "search.title": "Quaere",
-  "search.subtitle": "Una bibliotheca: orationes, sancti, liturgia, paroeciae et alia.",
   "search.placeholder": "Orationes, sancti, paroeciae…",
   "search.prompt":
     "Orationes, sanctos, duces, devotiones, paroecias et documenta Ecclesiae quaere.",
