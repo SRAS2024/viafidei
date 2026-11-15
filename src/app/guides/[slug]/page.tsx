@@ -16,6 +16,7 @@ import { loadPrayerSet } from "@/lib/data/prayer-sets";
 import { getTranslator } from "@/lib/i18n/server";
 import { displayItem } from "@/lib/translation/display";
 import { localizeItem, localizePrayers } from "@/lib/translation/localize";
+import { englishWhereUntranslated, pageIsNotEnglish } from "@/lib/translation/shown-language";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +63,11 @@ export default async function GuideDetailPage({ params }: Props) {
   // Latin / Greek chips, and so prayer names inside the steps become
   // inline-expandable. Titles and texts in the reader's language, like the steps.
   const prayers = await localizePrayers(await loadPrayerSet(payload.relatedPrayers));
-  const { t } = await getTranslator();
+  const { t, locale } = await getTranslator();
+  // Text shown as published is English: on a page in another language it says so, for a
+  // screen reader's voice. The section headings and the step count are English words.
+  const englishIf = (key: string) => englishWhereUntranslated(locale, shown[key], payload[key]);
+  const english = pageIsNotEnglish(locale) ? "en" : undefined;
   // The guide's kind, from the stored record, in the reader's language.
   const eyebrow = translateDetailLabel(guideEyebrow(payload), t);
 
@@ -85,9 +90,14 @@ export default async function GuideDetailPage({ params }: Props) {
     <article className="vf-detail">
       <header className="vf-detail-header">
         {eyebrow ? <p className={eyebrowClass(eyebrow)}>{eyebrow}</p> : null}
-        <h1 className="vf-detail-title text-ink">{shownGuide.title}</h1>
+        <h1
+          className="vf-detail-title text-ink"
+          lang={englishWhereUntranslated(locale, shownGuide.title, guide.title)}
+        >
+          {shownGuide.title}
+        </h1>
         {meta.length > 0 ? (
-          <p className="vf-detail-meta">
+          <p className="vf-detail-meta" lang={english}>
             {meta.map((part, i) => (
               <Fragment key={part}>
                 {i > 0 ? <MetaSeparator /> : null}
@@ -99,12 +109,16 @@ export default async function GuideDetailPage({ params }: Props) {
         <div className="vf-detail-actions">
           <ShareButton title={shownGuide.title} text={summary ?? shownGuide.title} />
         </div>
-        {summary ? <p className="vf-lede">{summary}</p> : null}
+        {summary ? (
+          <p className="vf-lede" lang={englishIf("summary")}>
+            {summary}
+          </p>
+        ) : null}
       </header>
 
       {intro ? (
         <section className="vf-detail-section">
-          <div className="vf-reading">
+          <div className="vf-reading" lang={englishIf("intro")}>
             <ReadingText text={intro} />
           </div>
         </section>
@@ -112,8 +126,10 @@ export default async function GuideDetailPage({ params }: Props) {
 
       {whatYouNeed.length > 0 ? (
         <section className="vf-detail-section">
-          <h2 className="vf-subhead">What you need</h2>
-          <div className="vf-reading">
+          <h2 className="vf-subhead" lang={english}>
+            What you need
+          </h2>
+          <div className="vf-reading" lang={englishIf("whatYouNeed")}>
             <ul>
               {whatYouNeed.map((need, i) => (
                 // By position: two items can read the same once translated.
@@ -126,8 +142,10 @@ export default async function GuideDetailPage({ params }: Props) {
 
       {whenToPray ? (
         <section className="vf-detail-section">
-          <h2 className="vf-subhead">When to pray it</h2>
-          <div className="vf-reading">
+          <h2 className="vf-subhead" lang={english}>
+            When to pray it
+          </h2>
+          <div className="vf-reading" lang={englishIf("whenToPray")}>
             <ReadingText text={whenToPray} />
           </div>
         </section>
@@ -135,17 +153,22 @@ export default async function GuideDetailPage({ params }: Props) {
 
       {steps.length > 0 ? (
         <section className="vf-detail-section">
-          <h2 id="guide-steps" className="vf-subhead">
+          <h2 id="guide-steps" className="vf-subhead" lang={english}>
             Steps
           </h2>
-          <GuideSteps steps={steps} prayers={prayers} headingId="guide-steps" t={t} />
+          {/* A step's spoken number and an opened prayer say their own language. */}
+          <div lang={englishIf("steps")}>
+            <GuideSteps steps={steps} prayers={prayers} headingId="guide-steps" t={t} />
+          </div>
         </section>
       ) : null}
 
       {tips.length > 0 ? (
         <section className="vf-detail-section">
-          <h2 className="vf-subhead">Tips</h2>
-          <div className="vf-reading">
+          <h2 className="vf-subhead" lang={english}>
+            Tips
+          </h2>
+          <div className="vf-reading" lang={englishIf("tips")}>
             <ul>
               {tips.map((tip, i) => (
                 <li key={i}>{tip}</li>
