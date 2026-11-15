@@ -357,11 +357,12 @@ export async function runStructuredSaintRepair(
       : {};
     // Wikidata's P411 lags the causes in both directions: Richard Henkes
     // (beatified 2019), Teresio Olivelli and Moisés Lira are still "Venerable"
-    // there, Nikola Tavelić (canonized 1970) resolves to "Venerable" too, and
-    // Józef Cebula is a "Catholic saint" beside his 1999 beatification. When the
-    // article contradicts the stage — or could not be read to tell — neither
-    // source proves it, so the row is left alone: no re-status, and above all no
-    // feast stripped from a Blessed on the strength of a stale "Venerable".
+    // there, Nikola Tavelić (canonized 1970) is too (STAGE_CORRECTIONS sets him
+    // right), and Józef Cebula is a "Catholic saint" beside his 1999
+    // beatification. When the article contradicts the stage — or could not be
+    // read to tell — neither source proves it, so the row is left alone: no
+    // re-status, and above all no feast stripped from a Blessed on the strength
+    // of a stale "Venerable".
     if (reads.unread.length > 0 || articleStageConflict(status, infobox)) {
       out.unresolved += 1;
       continue;

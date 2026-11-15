@@ -180,7 +180,8 @@ const FACTS: SparqlBinding[] = [
   // Wikidata lags: still "Venerable" after the 2019 beatification.
   facts("Q71226", "Richard Henkes", { statuses: `${WD}Q51619`, religions: `${WD}Q9592` }),
   facts("Q9034167", "Moises Lira Serafin", { statuses: `${WD}Q51619`, religions: `${WD}Q9592` }),
-  // "Venerable" outranks the generic saint item: resolves to venerable.
+  // "Venerable" outranks the generic saint item, but his canonization in 1970 is a
+  // hand-checked correction (STAGE_CORRECTIONS): the record resolves to canonized.
   facts("Q48252", "Nikola Tavelic", {
     statuses: `${WD}Q51619||${WD}Q43115`,
     religions: `${WD}Q9592`,

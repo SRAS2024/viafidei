@@ -211,7 +211,7 @@ export const popeKnowledge: CuratedEntry[] = [
   ),
   pope(
     "pope-john-paul-i",
-    "Pope John Paul I",
+    "Pope Blessed John Paul I",
     "1978",
     "1978",
     "Albino Luciani",

@@ -849,9 +849,11 @@ LIMIT ${limit} OFFSET ${offset}`,
       return reject("not_catholic_status", `${facts.label}: P411 ${facts.statuses.join(" ")}`);
     }
     // Negative guard: an Orthodox / Anglican / Coptic religion with no Catholic
-    // religion is disqualifying unless a Catholic-specific status overrides it.
+    // religion is disqualifying unless a Catholic-specific status (or a stage
+    // checked by hand) overrides it.
     if (
       resolved?.basis !== "catholic-status" &&
+      resolved?.basis !== "hand-checked" &&
       hasNonCatholicReligion(facts) &&
       !hasCatholicReligion(facts)
     ) {
