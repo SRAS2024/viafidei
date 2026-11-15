@@ -172,8 +172,10 @@ describe("prayer detail page", () => {
   it("never links a prayer's own name inside its text", async () => {
     seed({ body: OUR_FATHER_BODY, latin: "Pater noster, qui es in caelis." });
     await renderPrayer();
-    // Only the Share control carries the name; the prayer text has no link.
+    // Only the header's controls carry the name (praying it aloud, sharing it); the
+    // prayer text has no link to itself.
     expect(screen.getAllByRole("button", { name: /Our Father/ })).toEqual([
+      screen.getByRole("button", { name: "Pray along: Our Father" }),
       screen.getByRole("button", { name: "Share Our Father" }),
     ]);
   });
