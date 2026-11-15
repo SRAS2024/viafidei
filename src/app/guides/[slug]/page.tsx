@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { GuidePrayers, GuideSteps, RosaryMysteries, ShareButton } from "@/components/ui";
+import { PrayAlongButton } from "@/components/pray-along/PrayAlongButton";
 import { eyebrowClass } from "@/components/ui/eyebrow";
 import { ReadingText } from "@/components/ui/GuideSteps";
 import { MetaSeparator } from "@/components/ui/MetaSeparator";
@@ -97,6 +98,10 @@ export default async function GuideDetailPage({ params }: Props) {
           </p>
         ) : null}
         <div className="vf-detail-actions">
+          {/* A Rosary guide's button is on its mysteries, where the set is chosen. */}
+          {isRosaryGuide(payload) || prayers.length === 0 ? null : (
+            <PrayAlongButton target={{ kind: "guide", slug }} title={shownGuide.title} />
+          )}
           <ShareButton title={shownGuide.title} text={summary ?? shownGuide.title} />
         </div>
         {summary ? <p className="vf-lede">{summary}</p> : null}
@@ -155,7 +160,9 @@ export default async function GuideDetailPage({ params }: Props) {
         </section>
       ) : null}
 
-      {isRosaryGuide(payload) ? <RosaryMysteries todayChip={t("rosary.todayChip")} /> : null}
+      {isRosaryGuide(payload) ? (
+        <RosaryMysteries todayChip={t("rosary.todayChip")} prayAlongSlug={slug} />
+      ) : null}
       <GuidePrayers prayers={prayers} />
     </article>
   );

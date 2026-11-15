@@ -32,3 +32,33 @@ describe("Disclosure (prayer/day dropdown)", () => {
     expect(screen.getByText("Day one prayer")).toBeInTheDocument();
   });
 });
+
+describe("Disclosure with an action (a novena day's megaphone)", () => {
+  it("shows the action beside the title only while open, keeping the toggle (and its focus) in place", () => {
+    render(
+      <Disclosure
+        title="All mankind"
+        eyebrow="Day 1"
+        action={<button type="button">Pray along: Day 1</button>}
+      >
+        <p>The day&apos;s prayer</p>
+      </Disclosure>,
+    );
+    const toggle = screen.getByRole("button", { name: /all mankind/i });
+    expect(screen.queryByRole("button", { name: "Pray along: Day 1" })).toBeNull();
+    toggle.focus();
+    fireEvent.click(toggle);
+    // Same element, still focused: opening did not remount it.
+    expect(screen.getByRole("button", { name: /all mankind/i })).toBe(toggle);
+    expect(document.activeElement).toBe(toggle);
+    const action = screen.getByRole("button", { name: "Pray along: Day 1" });
+    // Reading order: the day, its megaphone, then its prayer.
+    expect(toggle.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      action.compareDocumentPosition(screen.getByText("The day's prayer")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("button", { name: "Pray along: Day 1" })).toBeNull();
+  });
+});

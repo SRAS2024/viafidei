@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { SaveContentButton } from "@/components/profile";
+import { PrayAlongButton } from "@/components/pray-along/PrayAlongButton";
 import { Disclosure, GuidePrayers, PublishedDetail } from "@/components/ui";
 import { PRAYER_LIST_FIELD, readingField, withPrayerList } from "@/components/ui/GuideSteps";
 import { PrayerLinkedText } from "@/components/ui/PrayerLinkedText";
@@ -90,7 +91,18 @@ export default async function NovenaDetailPage({ params }: Props) {
           return days ? (
             <div className="vf-disclosure-list">
               {days.map((day, i) => (
-                <Disclosure key={i} title={day.title} eyebrow={day.eyebrow}>
+                <Disclosure
+                  key={i}
+                  title={day.title}
+                  eyebrow={day.eyebrow}
+                  // Beside the day's title once it is open: prays this day alone.
+                  action={
+                    <PrayAlongButton
+                      target={{ kind: "novena", slug, day: i + 1 }}
+                      title={day.eyebrow ? `${day.eyebrow}: ${day.title}` : day.title}
+                    />
+                  }
+                >
                   <PrayerLinkedText text={day.body} prayers={prayers} matchCase />
                 </Disclosure>
               ))}

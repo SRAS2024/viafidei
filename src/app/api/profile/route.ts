@@ -16,6 +16,7 @@ import { writeAudit } from "@/lib/audit";
 const patchSchema = z.object({
   languageOverride: z.string().max(20).nullable().optional(),
   theme: z.string().max(40).nullable().optional(),
+  audioVoice: z.enum(["female", "male"]).nullable().optional(),
 });
 
 export async function GET() {

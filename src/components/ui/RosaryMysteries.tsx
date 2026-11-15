@@ -10,6 +10,9 @@ import {
   type MysterySetKey,
 } from "@/lib/content-shared/rosary";
 
+import { PrayAlongButton } from "@/components/pray-along/PrayAlongButton";
+import { getPlayerState, stopPrayAlong } from "@/components/pray-along/player";
+
 import { FilterChips } from "./FilterChips";
 import { useLocalToday, useVisitDay } from "./useLocalToday";
 
@@ -39,9 +42,15 @@ function setForDay(isoDate: string): MysterySetKey {
  */
 export function RosaryMysteries({
   todayChip = "{label} (today)",
+  prayAlongSlug,
 }: {
   /** The chip of today's set, in the reader's language: "{label} (today)". */
   todayChip?: string;
+  /**
+   * The guide whose Rosary the pray-along button at the top right prays: the whole
+   * Rosary on the set shown, following the chips. Omitted, there is no button.
+   */
+  prayAlongSlug?: string;
 }) {
   const today = useLocalToday();
   const visitDay = useVisitDay();
@@ -53,7 +62,16 @@ export function RosaryMysteries({
 
   return (
     <section className="vf-detail-section vf-mysteries">
-      <h2 className="vf-subhead">The Mysteries of the Rosary</h2>
+      <div className="vf-mysteries-head">
+        <h2 className="vf-subhead">The Mysteries of the Rosary</h2>
+        {prayAlongSlug && active ? (
+          // Top right, praying the set on show; choosing another set re-targets it.
+          <PrayAlongButton
+            target={{ kind: "guide", slug: prayAlongSlug, set: active.key }}
+            title={`The Holy Rosary, ${active.label}`}
+          />
+        ) : null}
+      </div>
       {today && todaySet ? (
         <p className="vf-detail-note">
           Today ({atNoon(today).toLocaleDateString("en-US", { weekday: "long" })}) the{" "}
@@ -72,7 +90,18 @@ export function RosaryMysteries({
           };
         })}
         activeKey={selected ?? ""}
-        onSelect={(key) => setPicked(key as MysterySetKey)}
+        onSelect={(key) => {
+          // A Rosary under way on another set stops: the button now prays the new one.
+          const player = getPlayerState();
+          if (
+            prayAlongSlug &&
+            player.targetId?.startsWith(`guide:${prayAlongSlug}:`) &&
+            ["loading", "playing", "paused", "waiting"].includes(player.status)
+          ) {
+            stopPrayAlong();
+          }
+          setPicked(key as MysterySetKey);
+        }}
         collapseAfter={ROSARY_MYSTERY_SETS.length}
         // The four sets fill the column evenly, so that none is left alone on a row.
         // How many go across is the column's to say, in the stylesheet: it follows

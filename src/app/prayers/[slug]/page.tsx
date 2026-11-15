@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { SaveContentButton } from "@/components/profile";
+import { PrayAlongButton } from "@/components/pray-along/PrayAlongButton";
 import { PrayerLanguageToggle, ShareButton } from "@/components/ui";
 import { PrayerText } from "@/components/ui/PrayerText";
 import { resolvePrayerLanguage } from "@/lib/content-shared/prayer-language";
@@ -88,6 +89,8 @@ export default async function PrayerDetailPage({ params }: Props) {
       <header className="vf-detail-header">
         <PrayerTitle title={shown.title} />
         <div className="vf-detail-actions">
+          {/* Prays the prayer aloud, in the language shown (or the Latin / Greek chosen). */}
+          <PrayAlongButton target={{ kind: "prayer", slug }} title={shown.title} />
           <ShareButton title={shown.title} text={summary ?? shown.title} />
           <SaveContentButton contentType="PRAYER" slug={slug} />
         </div>

@@ -614,6 +614,27 @@ const privacy: Dict = {
 };
 
 const common: Dict = {
+  // Pray-along audio: the megaphone button, its status words, and the Audio settings.
+  "prayAlong.play": "Pray along: {title}",
+  "prayAlong.pause": "Pause praying along: {title}",
+  "prayAlong.resume": "Resume praying along: {title}",
+  "prayAlong.stop": "Stop praying along: {title}",
+  "prayAlong.preparing": "Preparing the audio for {title}",
+  "prayAlong.status.loading": "Preparing the audio…",
+  "prayAlong.status.playing": "Praying along.",
+  "prayAlong.status.paused": "Paused.",
+  "prayAlong.status.waiting": "The next part is being prepared…",
+  "prayAlong.status.stopped": "Stopped.",
+  "prayAlong.status.finished": "Finished.",
+  "prayAlong.status.unavailable":
+    "The audio for this prayer is not ready yet. Please try again in a little while.",
+  "prayAlong.status.error": "The audio could not be played.",
+  "profile.settings.section.audio": "Audio",
+  "profile.settings.section.audio.body": "The voice that prays along with you.",
+  "profile.settings.audio.voice": "Voice",
+  "profile.settings.audio.female": "Female",
+  "profile.settings.audio.male": "Male",
+  "profile.settings.audio.failed": "Your choice could not be saved. Please try again.",
   "common.loading": "Loading",
   "common.loadingContent": "Loading the latest published content…",
   "common.loadingReadings": "Loading the readings of the day…",

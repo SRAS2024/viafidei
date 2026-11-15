@@ -170,6 +170,9 @@ model Profile {
   avatarMediaId    String?
   languageOverride String?
   theme            String?
+  /// The pray-along voice a member chose: "female" or "male". NULL is the default
+  /// voice (female), which signed-out visitors always hear.
+  audioVoice       String?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -3221,4 +3224,46 @@ model ContentTranslation {
 
   @@unique([lang, sourceHash])
   @@index([status, requestedAt])
+}
+
+/// One spoken clip of the pray-along audio: a stretch of prayer text in one
+/// language, read by one voice. Made by the voice engine on the worker host
+/// (voice-engine/), stored here, served by /api/pray-along/clip/<key>. The web
+/// server files a 'pending' row when a listener needs a clip that is not made yet.
+model PrayerAudioClip {
+  id          String    @id @default(cuid())
+  /// sha256 over the voice's version, the language, the voice and the text.
+  key         String    @unique
+  /// en, es, fr, it, de, pt, pl, la, tl, vi, ko, zh or el.
+  lang        String
+  /// "female" | "male"
+  voice       String
+  /// The model and voice that speak this language for this gender (voices.json).
+  voiceId     String
+  /// The exact words to speak, already cleaned for speech.
+  text        String
+  /// pending | done | failed
+  status      String    @default("pending")
+  /// Pre-making order, lower first (building blocks before whole novenas).
+  priority    Int       @default(50)
+  audio       Bytes?
+  /// "audio/mp4" (AAC).
+  mime        String?
+  durationMs  Int?
+  byteLength  Int?
+  /// "<model>@<revision>:<voice>" of the engine that made `audio`.
+  engine      String?
+  /// Character error rate of the speech recogniser's transcript against `text`.
+  qaScore     Float?
+  attempts    Int       @default(0)
+  lastError   String?
+  /// When a listener last needed it while it was missing.
+  requestedAt DateTime?
+  claimedAt   DateTime?
+  claimedBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, requestedAt])
+  @@index([status, priority])
 }

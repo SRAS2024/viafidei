@@ -37,6 +37,9 @@ export const RATE_POLICIES = {
   mediaUpload: { windowMs: 60_000, max: 10 },
   adminWrite: { windowMs: 60_000, max: 60 },
   ingestionTrigger: { windowMs: 60 * 60_000, max: 12 },
+  // Pray-along playlists: the player asks once per press and every few seconds while
+  // a clip it waits for is being made, so a minute holds a long wait comfortably.
+  prayAlong: { windowMs: 60_000, max: 90 },
 } as const satisfies Record<string, RatePolicy>;
 
 export type RatePolicyName = keyof typeof RATE_POLICIES;

@@ -1,0 +1,19 @@
+{
+  "$comment": "Which open model and stock voice speaks each language, for each of the two voices members can choose. Shared by the web server (src/lib/pray-along/voices.ts) and the voice engine (voice-engine/). Changing a voiceId re-keys that language's clips, so the engine makes them again with the new voice. formatVersion re-keys every clip.",
+  "formatVersion": 1,
+  "voices": {
+    "en": { "female": "pending:en-female", "male": "pending:en-male" },
+    "es": { "female": "pending:es-female", "male": "pending:es-male" },
+    "fr": { "female": "pending:fr-female", "male": "pending:fr-male" },
+    "it": { "female": "pending:it-female", "male": "pending:it-male" },
+    "de": { "female": "pending:de-female", "male": "pending:de-male" },
+    "pt": { "female": "pending:pt-female", "male": "pending:pt-male" },
+    "pl": { "female": "pending:pl-female", "male": "pending:pl-male" },
+    "la": { "female": "pending:la-female", "male": "pending:la-male" },
+    "tl": { "female": "pending:tl-female", "male": "pending:tl-male" },
+    "vi": { "female": "pending:vi-female", "male": "pending:vi-male" },
+    "ko": { "female": "pending:ko-female", "male": "pending:ko-male" },
+    "zh": { "female": "pending:zh-female", "male": "pending:zh-male" },
+    "el": { "female": "pending:el-female", "male": "pending:el-male" }
+  }
+}

@@ -1,5 +1,6 @@
 import { prisma } from "../db/client";
 import { isSupportedLocale } from "../i18n/locales";
+import { isVoice } from "@/lib/pray-along/voice-choice";
 import { checksumDataUrl, type AvatarDataUrlOk } from "../media/avatar-data-url";
 
 export type ProfileCounts = {
@@ -16,6 +17,8 @@ export type ProfileCounts = {
 export type UpdateProfileInput = {
   languageOverride?: string | null;
   theme?: string | null;
+  /** The pray-along voice: "female" or "male"; null returns to the default (female). */
+  audioVoice?: string | null;
 };
 
 export async function getProfileForUser(userId: string) {
@@ -33,7 +36,11 @@ export async function ensureProfile(userId: string) {
 
 export async function updateProfile(userId: string, input: UpdateProfileInput) {
   await ensureProfile(userId);
-  const data: { languageOverride?: string | null; theme?: string | null } = {};
+  const data: {
+    languageOverride?: string | null;
+    theme?: string | null;
+    audioVoice?: string | null;
+  } = {};
   let userLanguage: string | undefined;
   if (input.languageOverride !== undefined) {
     if (input.languageOverride === null || input.languageOverride === "") {
@@ -47,6 +54,11 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
   }
   if (input.theme !== undefined) {
     data.theme = input.theme === null || input.theme === "" ? null : input.theme;
+  }
+  if (input.audioVoice !== undefined) {
+    if (input.audioVoice === null || input.audioVoice === "") data.audioVoice = null;
+    else if (isVoice(input.audioVoice)) data.audioVoice = input.audioVoice;
+    else return { ok: false as const, reason: "invalid_voice" as const };
   }
   const updated = await prisma.profile.update({ where: { userId }, data });
   if (userLanguage) {

@@ -36,3 +36,6 @@ TESTING.md
 # Editor temp + OS metadata
 .DS_Store
 *.log
+
+# The voice engine runs on the worker host, never in the web image.
+voice-engine

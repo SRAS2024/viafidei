@@ -414,4 +414,26 @@ export const de: Dict = {
   "label.practice.worksOfMercy": "Werke der Barmherzigkeit",
   "label.practice.silence": "Stille und Einsamkeit",
   "label.practice.familyPrayer": "Gebet in der Familie",
+  // Pray-along audio: the megaphone button, its status words, and the Audio settings.
+  "prayAlong.play": "Anhören und mitbeten: {title}",
+  "prayAlong.pause": "Gebet anhalten: {title}",
+  "prayAlong.resume": "Gebet fortsetzen: {title}",
+  "prayAlong.stop": "Gebet beenden: {title}",
+  "prayAlong.preparing": "Audio für {title} wird vorbereitet",
+  "prayAlong.status.loading": "Audio wird vorbereitet …",
+  "prayAlong.status.playing": "Das Gebet läuft.",
+  "prayAlong.status.paused": "Angehalten.",
+  "prayAlong.status.waiting": "Der nächste Teil wird vorbereitet …",
+  "prayAlong.status.stopped": "Beendet.",
+  "prayAlong.status.finished": "Zu Ende.",
+  "prayAlong.status.unavailable":
+    "Das Audio für dieses Gebet ist noch nicht fertig. Bitte versuchen Sie es in Kürze erneut.",
+  "prayAlong.status.error": "Das Audio konnte nicht abgespielt werden.",
+  "profile.settings.section.audio": "Audio",
+  "profile.settings.section.audio.body": "Die Stimme, die mit Ihnen betet.",
+  "profile.settings.audio.voice": "Stimme",
+  "profile.settings.audio.female": "Weiblich",
+  "profile.settings.audio.male": "Männlich",
+  "profile.settings.audio.failed":
+    "Ihre Auswahl konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
 };

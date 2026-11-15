@@ -12,6 +12,9 @@ import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 import { getThemeCookieValue } from "@/lib/i18n/theme-cookie";
 import { ThemeAppearancePicker } from "./ThemeAppearancePicker";
 import { RitePicker } from "./RitePicker";
+import { AudioVoicePicker } from "./AudioVoicePicker";
+import { getProfileForUser } from "@/lib/data/profile";
+import { voiceOrDefault } from "@/lib/pray-along/voice-choice";
 import { UnverifiedEmailNotice } from "@/components/profile/UnverifiedEmailNotice";
 import { logPageError } from "@/lib/observability/page-errors";
 
@@ -42,6 +45,10 @@ export default async function SettingsPage() {
   // menu has to show which of them is in effect.
   const chosenLocale = (await cookies()).get(LOCALE_COOKIE_NAME)?.value ?? "";
   const initialLocale = isSupportedLocale(chosenLocale) ? chosenLocale : "";
+  // The pray-along voice saved on the profile; never chosen is the default (female).
+  const initialVoice = voiceOrDefault(
+    (await getProfileForUser(user.id).catch(() => null))?.audioVoice,
+  );
 
   return (
     <div className="vf-column">
@@ -115,6 +122,24 @@ export default async function SettingsPage() {
                 light: t("profile.settings.appearance.light"),
                 dark: t("profile.settings.appearance.dark"),
                 heading: t("profile.settings.theme"),
+              }}
+            />
+          </div>
+        </section>
+
+        {/* Audio section: the voice that prays along */}
+        <section className="vf-panel">
+          <h2 className="vf-subhead">{t("profile.settings.section.audio")}</h2>
+          <p className="vf-panel-text mt-0">{t("profile.settings.section.audio.body")}</p>
+          <div className="mt-3">
+            <AudioVoicePicker
+              initialVoice={initialVoice}
+              labels={{
+                heading: t("profile.settings.audio.voice"),
+                female: t("profile.settings.audio.female"),
+                male: t("profile.settings.audio.male"),
+                saved: t("common.savedItem"),
+                failed: t("profile.settings.audio.failed"),
               }}
             />
           </div>

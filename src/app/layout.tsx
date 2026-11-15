@@ -8,6 +8,7 @@ import { SkipLink } from "@/components/layout/SkipLink";
 import { TitleKeeper } from "@/components/layout/TitleKeeper";
 import { LoginRequiredLabelsProvider } from "@/components/ui/LoginRequiredPopup";
 import { ShareLabelsProvider } from "@/components/ui/ShareButton";
+import { PrayAlongLabelsProvider } from "@/components/pray-along/PrayAlongButton";
 import { appConfig } from "@/lib/config";
 import { getLocale, getTranslator } from "@/lib/i18n/server";
 import { getThemeCookieValue } from "@/lib/i18n/theme-cookie";
@@ -131,7 +132,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 closeLabel: t("loginRequired.close"),
               }}
             >
-              {children}
+              <PrayAlongLabelsProvider
+                labels={{
+                  play: t("prayAlong.play"),
+                  pause: t("prayAlong.pause"),
+                  resume: t("prayAlong.resume"),
+                  stop: t("prayAlong.stop"),
+                  preparing: t("prayAlong.preparing"),
+                  loading: t("prayAlong.status.loading"),
+                  playing: t("prayAlong.status.playing"),
+                  paused: t("prayAlong.status.paused"),
+                  waiting: t("prayAlong.status.waiting"),
+                  stopped: t("prayAlong.status.stopped"),
+                  finished: t("prayAlong.status.finished"),
+                  unavailable: t("prayAlong.status.unavailable"),
+                  error: t("prayAlong.status.error"),
+                }}
+              >
+                {children}
+              </PrayAlongLabelsProvider>
             </LoginRequiredLabelsProvider>
           </ShareLabelsProvider>
         </main>

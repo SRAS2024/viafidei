@@ -2199,6 +2199,99 @@
     margin-top: 0.5rem;
   }
 
+  /* A disclosure whose open panel has an action of its own (a novena day's
+     pray-along button): the action sits to the right of the title row, outside the
+     toggle, so each is its own button. */
+  .vf-disclosure-head {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: inherit;
+  }
+
+  .vf-disclosure-head > .vf-disclosure-trigger {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+  }
+
+  .vf-disclosure-action {
+    flex-shrink: 0;
+    padding-right: min(0.75rem, 3vw);
+  }
+
+  /* ---------- Pray along: the megaphone, its stop button and level meter ---------- */
+  .vf-pray-along {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  /* Round and square: an icon button the height of the small buttons beside it. */
+  .vf-pray-along-button {
+    width: var(--control-h-sm);
+    min-width: var(--control-h-sm);
+    padding: 0;
+    border-radius: 999px;
+  }
+
+  /* While a prayer is under way the megaphone is drawn in the action blue, so a
+     sighted reader can see which prayer is praying. */
+  .vf-pray-along:is([data-status="playing"], [data-status="waiting"], [data-status="paused"], [data-status="loading"])
+    > .vf-pray-along-button:first-child {
+    color: var(--action-blue);
+    border-color: var(--action-blue);
+  }
+
+  .vf-pray-along-level {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 14px;
+  }
+
+  .vf-pray-along-level i {
+    display: block;
+    width: 3px;
+    height: 8px;
+    border-radius: 1px;
+    background: var(--action-blue);
+  }
+
+  /* The meter moves only for readers who have not asked for reduced motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    .vf-pray-along-level i {
+      animation: vf-pray-level 1.2s ease-in-out infinite;
+    }
+
+    .vf-pray-along-level i:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .vf-pray-along-level i:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+  }
+
+  @keyframes vf-pray-level {
+    0%,
+    100% {
+      height: 4px;
+    }
+
+    50% {
+      height: 13px;
+    }
+  }
+
+  /* The Rosary's button, at the top right of its mysteries. */
+  .vf-mysteries-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
   /* ---------- Filters and menus ---------- */
   .vf-list-controls {
     display: flex;
