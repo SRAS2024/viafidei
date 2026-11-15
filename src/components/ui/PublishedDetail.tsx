@@ -389,9 +389,11 @@ export function PublishedDetail({
     if (custom) {
       const rendered = custom(value);
       if (rendered == null) return null;
+      // The prayer list ("prayerList", see withPrayerList) says each prayer's language
+      // itself: a translated title is the reader's, an untranslated one English.
       return section(
         key,
-        <div className="vf-reading" lang={lang}>
+        <div className="vf-reading" lang={key === "prayerList" ? undefined : lang}>
           {rendered}
         </div>,
       );

@@ -132,12 +132,14 @@ export function PrayerLanguageChips({
   label?: string;
   className?: string;
 }) {
-  const { names, groupLabel } = usePrayerLanguageSetup();
+  const { names, groupLabel, readerLanguage } = usePrayerLanguageSetup();
   if (options.length === 0) return null;
   return (
+    // Named in the reader's language, wherever the chips sit: over English text too.
     <div
       role="group"
       aria-label={label ?? groupLabel}
+      lang={readerLanguage}
       className={`vf-language-chips ${className}`.trim()}
     >
       {options.map((option) => (

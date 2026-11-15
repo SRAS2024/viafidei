@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { usePrayerLanguageSetup } from "@/components/ui/PrayerLanguageChips";
 import { useLocalToday } from "@/components/ui/useLocalToday";
 import { prayerCategoryLabel } from "@/lib/content-shared/prayer-categories";
 
@@ -51,6 +52,7 @@ export function HomePrayerOfTheDay({ loadingLabel }: { loadingLabel: string }) {
   }, [today]);
 
   const prayer = state.kind === "loaded" ? state.prayer : null;
+  const { readerLanguage } = usePrayerLanguageSetup();
 
   return (
     // The prayer's title is the part's one link, stretched over the whole part.
@@ -76,7 +78,8 @@ export function HomePrayerOfTheDay({ loadingLabel }: { loadingLabel: string }) {
           </p>
         </div>
       ) : prayer ? (
-        <div className="vf-home-part-body">
+        // The prayer is shown as published, in English: said so on a page in another language.
+        <div className="vf-home-part-body" lang={readerLanguage === "en" ? undefined : "en"}>
           <p className="vf-entry-title font-display font-medium text-ink">
             <Link href={`/prayers/${prayer.slug}`} className="vf-entry-link">
               {prayer.title}

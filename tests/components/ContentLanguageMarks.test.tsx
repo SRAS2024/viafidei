@@ -15,12 +15,29 @@ vi.mock("@/lib/i18n/request-locale", () => ({
   rememberRequestLocale: () => undefined,
 }));
 
+import { GuidePrayers } from "@/components/ui/GuidePrayers";
+import { instructionField } from "@/components/ui/GuideSteps";
+import { PrayerLanguageProvider } from "@/components/ui/PrayerLanguageChips";
 import { PublishedDetail } from "@/components/ui/PublishedDetail";
 import { PublishedList } from "@/components/ui/PublishedList";
 import type { PublishedItem } from "@/lib/data/published";
 import { createTranslator } from "@/lib/i18n/translator";
 import { attachDisplay } from "@/lib/translation/display";
+import type { PrayerVariant } from "@/lib/content-shared/prayer-language";
 import { englishWhereUntranslated, sameText } from "@/lib/translation/shown-language";
+
+const EN_VARIANT: PrayerVariant = {
+  code: "en",
+  label: "English",
+  text: "Our Father…",
+  preserve: false,
+};
+const LA_VARIANT: PrayerVariant = {
+  code: "la",
+  label: "Latin",
+  text: "Pater noster…",
+  preserve: true,
+};
 
 afterEach(() => {
   cleanup();
@@ -183,5 +200,51 @@ describe("a card in another language", () => {
     expect(screen.getAllByText("A teenager of the Eucharist.")[0]).toHaveAttribute("lang", "en");
     expect(screen.getByRole("link", { name: "성 베네딕토" })).not.toHaveAttribute("lang");
     expect(screen.getByText("수도 생활의 아버지.")).not.toHaveAttribute("lang");
+  });
+});
+
+describe("the reader's own words inside English text", () => {
+  const spanish = {
+    readerLanguage: "es",
+    names: { la: "Latín" },
+    groupLabel: "Idioma de la oración",
+    groupFor: "{title}: idioma",
+  };
+
+  it("says each prayer's language in a list: English where untranslated, the reader's where not", () => {
+    const prayers = [
+      { slug: "a", title: "Our Father", variants: [EN_VARIANT, LA_VARIANT] },
+      { slug: "b", title: "Ave María", variants: [EN_VARIANT], titleTranslated: true },
+    ];
+    render(
+      <PrayerLanguageProvider setup={spanish}>
+        <GuidePrayers prayers={prayers} heading="Prayers of this novena" />
+      </PrayerLanguageProvider>,
+    );
+    expect(screen.getByText("Our Father").closest(".vf-disclosure")).toHaveAttribute("lang", "en");
+    expect(screen.getByText("Ave María").closest(".vf-disclosure")).toHaveAttribute("lang", "es");
+    expect(screen.getByRole("heading", { name: "Prayers of this novena" })).toHaveAttribute(
+      "lang",
+      "en",
+    );
+    // The chips are named in Spanish, so they say so even inside English text.
+    expect(screen.getByRole("group", { name: "Idioma de la oración" })).toHaveAttribute(
+      "lang",
+      "es",
+    );
+  });
+
+  it("gives a step's spoken number the reader's language", () => {
+    render(
+      <div lang="en">
+        {instructionField(
+          undefined,
+          3,
+          createTranslator("es"),
+        )("1. Make the sign of the cross.\n2. Pray the Our Father.")}
+      </div>,
+    );
+    const label = screen.getAllByText(/^Paso 1/)[0]!;
+    expect(label).toHaveAttribute("lang", "es");
   });
 });

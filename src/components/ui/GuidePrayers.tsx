@@ -72,15 +72,20 @@ export function GuidePrayers({
   // The chip that reads as pressed is the chosen language, when this list offers it.
   const activeCode = language && languages.some((l) => l.code === language) ? language : null;
 
+  // The heading, the note and an untranslated title are English; a translated title is
+  // the reader's. Each says so, whatever language the text around the list is in.
+  const english = readerLanguage !== "en" ? "en" : undefined;
   return (
     <section className="vf-detail-section vf-prayer-list">
-      <h2 className="vf-subhead">{heading}</h2>
+      <h2 className="vf-subhead" lang={english}>
+        {heading}
+      </h2>
       <PrayerLanguageChips
         options={languages}
         active={activeCode}
         onSelect={(code) => toggle(code, activeCode)}
       />
-      <p className="vf-detail-note">
+      <p className="vf-detail-note" lang={english}>
         {ordered ? "In the order they are prayed — tap" : "Tap"} a prayer to reveal its full text
         {languages.length > 0 ? " in the chosen language" : ""}.
       </p>
@@ -92,8 +97,7 @@ export function GuidePrayers({
               key={p.slug}
               eyebrow={ordered ? `Prayer ${i + 1}` : undefined}
               title={p.title}
-              // A title still in English, on a page in another language, is read as English.
-              lang={readerLanguage !== "en" && !p.titleTranslated ? "en" : undefined}
+              lang={english && (p.titleTranslated ? readerLanguage : english)}
             >
               {shown ? (
                 <>

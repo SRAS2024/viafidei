@@ -67,7 +67,10 @@ function InlinePrayerPanel({
       <div className="vf-inline-prayer-head">
         <Heading
           className="vf-disclosure-title"
-          lang={readerLanguage !== "en" && !prayer.titleTranslated ? "en" : undefined}
+          // The reader's language when translated, English when not, wherever it opens.
+          lang={
+            readerLanguage === "en" ? undefined : prayer.titleTranslated ? readerLanguage : "en"
+          }
         >
           {prayer.title}
         </Heading>
