@@ -34,6 +34,7 @@
     "readings:refresh": "tsx scripts/refresh-daily-readings.ts",
     "translate": "tsx scripts/translate-content.ts",
     "translate:setup": "sh scripts/translate-setup.sh",
+    "voice:plan": "tsx scripts/pray-along-plan.ts",
     "lectionary:build": "tsx scripts/lectionary/build-tables.ts",
     "lectionary:check": "tsx scripts/lectionary/build-tables.ts --check",
     "lectionary:coverage": "tsx scripts/lectionary/check-coverage.ts --strict",

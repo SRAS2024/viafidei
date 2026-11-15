@@ -7,6 +7,7 @@ import { usePrayerLanguage } from "@/components/ui/PrayerLanguageChips";
 import {
   getPlayerState,
   pausePrayAlong,
+  registerPrayAlongButton,
   resumePrayAlong,
   startPrayAlong,
   stopPrayAlong,
@@ -137,6 +138,7 @@ export function PrayAlongButton({
   const active = ACTIVE.has(status);
 
   useEffect(() => subscribePlayer(setPlayer), []);
+  useEffect(() => registerPrayAlongButton(id), [id]);
 
   // Stop vanishes when the prayer ends: focus that was on it comes back to the megaphone.
   const wasActive = useRef(active);
@@ -188,7 +190,6 @@ export function PrayAlongButton({
         type="button"
         onClick={onMain}
         aria-label={label}
-        title={label}
         className="vf-btn vf-btn-sm vf-btn-ghost vf-pray-along-button"
       >
         {status === "playing" || status === "waiting" ? <PauseGlyph /> : <MegaphoneGlyph />}
@@ -207,7 +208,6 @@ export function PrayAlongButton({
           type="button"
           onClick={onStop}
           aria-label={named(labels.stop)}
-          title={named(labels.stop)}
           className="vf-btn vf-btn-sm vf-btn-ghost vf-pray-along-button"
         >
           <StopGlyph />

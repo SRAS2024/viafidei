@@ -60,6 +60,8 @@ interface Session {
   waitingSince: number | null;
   lastPoll: number;
   pausedWhile: "playing" | "waiting" | null;
+  /** A clip has played: a later wait is for "the next part", the first is "preparing". */
+  started: boolean;
 }
 
 /** How long to wait for a clip the engine has not made before saying it is not ready. */
@@ -201,12 +203,14 @@ function advance(): void {
   }
   if (!item.ready) {
     if (s.waitingSince == null) s.waitingSince = Date.now();
-    if (state.status !== "waiting") setState({ status: "waiting", targetId: state.targetId });
+    const waiting = s.started ? "waiting" : "loading";
+    if (state.status !== waiting) setState({ status: waiting, targetId: state.targetId });
     void poll(s);
     play(silenceUrl(1100), "wait");
     return;
   }
   s.waitingSince = null;
+  s.started = true;
   if (state.status !== "playing") setState({ status: "playing", targetId: state.targetId });
   play(item.url, "clip");
   prefetchAhead(s);
@@ -295,6 +299,7 @@ export async function startPrayAlong(
     waitingSince: null,
     lastPoll: Date.now(),
     pausedWhile: null,
+    started: false,
   };
   setMediaSession(session.title);
   setPlaybackState("playing");
@@ -331,4 +336,30 @@ export function stopPrayAlong(): void {
   if (!session && state.status !== "loading") return;
   tokens += 1;
   finish("stopped");
+}
+
+/**
+ * The buttons on the page, by target. A prayer whose button has gone (the reader left
+ * the page, or folded its novena day away) stops, rather than praying on with nothing
+ * on the page to pause or stop it.
+ */
+const mounted = new Map<string, number>();
+
+export function registerPrayAlongButton(targetId: string): () => void {
+  mounted.set(targetId, (mounted.get(targetId) ?? 0) + 1);
+  return () => {
+    const left = (mounted.get(targetId) ?? 1) - 1;
+    if (left > 0) mounted.set(targetId, left);
+    else mounted.delete(targetId);
+    // After a moment, so a button that is only re-rendered is not taken for gone.
+    setTimeout(() => {
+      if (
+        !mounted.has(targetId) &&
+        state.targetId === targetId &&
+        (session || state.status === "loading")
+      ) {
+        stopPrayAlong();
+      }
+    }, 400);
+  };
 }

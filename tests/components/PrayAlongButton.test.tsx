@@ -32,6 +32,7 @@ const player = vi.hoisted(() => {
     pausePrayAlong: vi.fn(),
     resumePrayAlong: vi.fn(),
     stopPrayAlong: vi.fn(),
+    registerPrayAlongButton: vi.fn(() => () => undefined),
     targetIdOf: (t: { kind: string; slug?: string; day?: number; set?: string }) =>
       [t.kind, t.slug ?? "", t.day ?? "", t.set ?? ""].join(":"),
   };

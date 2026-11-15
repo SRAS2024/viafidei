@@ -430,42 +430,41 @@ function rosaryLang(ctx: ScriptContext): AudioLang {
  */
 export function rosaryScript(set: MysterySetKey, ctx: ScriptContext): PrayAlongScript {
   const lang = rosaryLang(ctx);
+  return wrapInSign((w) => writeRosary(w, set, ctx), signLang(ctx, lang), null, null);
+}
+
+/** The Rosary's body, without the Sign of the Cross around it. */
+function writeRosary(w: ScriptWriter, set: MysterySetKey, ctx: ScriptContext): void {
+  const lang = rosaryLang(ctx);
   const texts = rosaryTextsFor(lang)!;
   const mysterySet = ROSARY_MYSTERY_SETS.find((s) => s.key === set) ?? ROSARY_MYSTERY_SETS[0]!;
   const announcements = texts.announcements[mysterySet.key];
-  return wrapInSign(
-    (w) => {
-      writePrayer(w, "apostles-creed", 1, ctx, 1, new Set());
-      writePrayer(w, "our-father", 1, ctx, 1, new Set());
-      writePrayer(w, "hail-mary", 3, ctx, 1, new Set());
-      writePrayer(w, "glory-be", 1, ctx, 1, new Set());
-      for (let m = 0; m < 5; m++) {
-        w.pause(DECADE_PAUSE_MS);
-        w.say(announcements[m]!, lang);
-        w.pause(ANNOUNCE_PAUSE_MS);
-        writePrayer(w, "our-father", 1, ctx, 1, new Set());
-        writePrayer(w, "hail-mary", 10, ctx, 1, new Set());
-        writePrayer(w, "glory-be", 1, ctx, 1, new Set());
-        writePrayer(w, "fatima-prayer", 1, ctx, 1, new Set());
-      }
-      w.pause(DECADE_PAUSE_MS);
-      writePrayer(w, "salve-regina", 1, ctx, 1, new Set());
-      // The Hail, Holy Queen's English carries its versicle and response; a text that
-      // does not (the Latin) has them said here, so they are prayed exactly once.
-      const salve = ctx.prayers.get("salve-regina");
-      const salveText = salve ? (prayerText(salve, ctx)?.text ?? "") : "";
-      if (!/promis|promess|promes|Christi|基督|그리스도/i.test(salveText)) {
-        w.say(texts.versicle, lang);
-        w.pause(STANZA_PAUSE_MS);
-        w.say(texts.response, lang);
-        w.pause(PRAYER_PAUSE_MS);
-      }
-      w.say(`${texts.letUsPray} ${texts.closingPrayer}`, lang);
-    },
-    signLang(ctx, lang),
-    null,
-    null,
-  );
+  writePrayer(w, "apostles-creed", 1, ctx, 1, new Set());
+  writePrayer(w, "our-father", 1, ctx, 1, new Set());
+  writePrayer(w, "hail-mary", 3, ctx, 1, new Set());
+  writePrayer(w, "glory-be", 1, ctx, 1, new Set());
+  for (let m = 0; m < 5; m++) {
+    w.pause(DECADE_PAUSE_MS);
+    w.say(announcements[m]!, lang);
+    w.pause(ANNOUNCE_PAUSE_MS);
+    writePrayer(w, "our-father", 1, ctx, 1, new Set());
+    writePrayer(w, "hail-mary", 10, ctx, 1, new Set());
+    writePrayer(w, "glory-be", 1, ctx, 1, new Set());
+    writePrayer(w, "fatima-prayer", 1, ctx, 1, new Set());
+  }
+  w.pause(DECADE_PAUSE_MS);
+  writePrayer(w, "salve-regina", 1, ctx, 1, new Set());
+  // The Hail, Holy Queen's English carries its versicle and response; a text that
+  // does not (the Latin) has them said here, so they are prayed exactly once.
+  const salve = ctx.prayers.get("salve-regina");
+  const salveText = salve ? (prayerText(salve, ctx)?.text ?? "") : "";
+  if (!/promis|promess|promes|Christi|基督|그리스도/i.test(salveText)) {
+    w.say(texts.versicle, lang);
+    w.pause(STANZA_PAUSE_MS);
+    w.say(texts.response, lang);
+    w.pause(PRAYER_PAUSE_MS);
+  }
+  w.say(`${texts.letUsPray} ${texts.closingPrayer}`, lang);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -500,4 +499,71 @@ export function sequenceScript(
     null,
     null,
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/* A guide's own plan                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What a guide prays, step by step, as checked for it (guide-plans.json): a named
+ * prayer, words its steps quote, a repeated block (decades, stations), or the whole
+ * Rosary or Divine Mercy chaplet. The Sign of the Cross around it is added here.
+ */
+export type PlanItem =
+  | { prayer: string; count?: number }
+  | { quote: { step: number; index: number }; count?: number }
+  | { repeat: number; items: PlanItem[] }
+  | { template: "rosary" | "divine-mercy-chaplet" };
+
+export interface PlanInputs {
+  /** The words a step quotes, in the reader's language when the translation kept them. */
+  quote: (step: number, index: number) => { text: string; lang: AudioLang } | null;
+  /** The set the Rosary is prayed on. */
+  rosarySet: MysterySetKey;
+  /** The Divine Mercy chaplet's prayers, when the guide gives them. */
+  chaplet: ChapletPrayers | null;
+}
+
+/** Plans nest; a runaway one is cut off rather than allowed to build forever. */
+const MAX_PLAN_ITEMS = 2000;
+
+export function planScript(
+  plan: readonly PlanItem[],
+  inputs: PlanInputs,
+  ctx: ScriptContext,
+): PrayAlongScript {
+  const firstPrayer = plan.find((i): i is { prayer: string } => "prayer" in i);
+  const lang = signLang(
+    ctx,
+    (firstPrayer && prayedLang(firstPrayer.prayer, ctx)) ??
+      prayedLang("our-father", ctx) ??
+      ctx.pageLang,
+  );
+  let budget = MAX_PLAN_ITEMS;
+  const run = (w: ScriptWriter, items: readonly PlanItem[]) => {
+    for (const item of items) {
+      if (--budget < 0) return;
+      if ("repeat" in item) {
+        const times = Math.max(1, Math.min(60, Math.trunc(item.repeat)));
+        for (let i = 0; i < times; i++) run(w, item.items ?? []);
+      } else if ("template" in item) {
+        if (item.template === "rosary") writeRosary(w, inputs.rosarySet, ctx);
+        else if (inputs.chaplet) writeDivineMercyChaplet(w, inputs.chaplet, ctx);
+      } else if ("prayer" in item) {
+        if (item.prayer === "sign-of-the-cross") continue;
+        writePrayer(w, item.prayer, Math.max(1, item.count ?? 1), ctx, 1, new Set());
+      } else if ("quote" in item) {
+        const q = inputs.quote(item.quote.step, item.quote.index);
+        if (!q) continue;
+        const times = Math.max(1, item.count ?? 1);
+        for (let i = 0; i < times; i++) {
+          w.pause(PRAYER_PAUSE_MS);
+          w.say(q.text, q.lang, times > 1);
+        }
+        w.pause(PRAYER_PAUSE_MS);
+      }
+    }
+  };
+  return wrapInSign((w) => run(w, plan), lang, null, null);
 }

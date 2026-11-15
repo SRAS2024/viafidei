@@ -17,16 +17,21 @@ import { toGuideSteps } from "@/lib/content-shared/structured-content";
 import { getPublishedBySlug } from "@/lib/data/published";
 import { loadPrayerSet, loadPrayersForText, publishedPrayerVariants } from "@/lib/data/prayer-sets";
 import { displayItem, displayPrayerVariants } from "@/lib/translation/display";
+import type { Locale } from "@/lib/i18n/locales";
 import { localizeItem, localizePrayers } from "@/lib/translation/localize";
 
 import { toAudioLang, type AudioLang } from "./languages";
+import guidePlans from "./guide-plans.json";
 import {
   divineMercyPrayers,
   divineMercyScript,
   novenaDayScript,
+  planScript,
+  quotedPassages,
   prayerScript,
   rosaryScript,
   sequenceScript,
+  type PlanItem,
   type PrayAlongScript,
   type PrayerSource,
   type ScriptContext,
@@ -79,9 +84,10 @@ function effectiveChoice(chosen: string | null, pageLang: AudioLang): string | n
 async function prayerSources(
   stored: readonly PrayerWithVariants[],
   exclude?: string,
+  locale?: Locale,
 ): Promise<Map<string, PrayerSource>> {
   const list = stored.filter((p) => p.slug !== exclude);
-  const localized = await localizePrayers(list);
+  const localized = await localizePrayers(list, locale ? { locale } : {});
   const map = new Map<string, PrayerSource>();
   list.forEach((p, i) => {
     const shown = localized[i] ?? p;
@@ -109,10 +115,11 @@ export async function scriptForPrayer(
   slug: string,
   chosen: string | null,
   pageLang: AudioLang,
+  locale?: Locale,
 ): Promise<BuiltScript | null> {
   const stored = await getPublishedBySlug("PRAYER", slug);
   if (!stored) return null;
-  const prayer = (await localizeItem(stored)) ?? stored;
+  const prayer = (await localizeItem(stored, locale ? { locale } : {})) ?? stored;
   const choice = effectiveChoice(chosen, pageLang);
   const storedVariants = publishedPrayerVariants(slug, stored.payload);
   const variants = displayPrayerVariants(prayer, (p) => publishedPrayerVariants(slug, p));
@@ -125,7 +132,7 @@ export async function scriptForPrayer(
   const ctx: ScriptContext = {
     pageLang: lang,
     chosen: choice,
-    prayers: await prayerSources(blocks, slug),
+    prayers: await prayerSources(blocks, slug, locale),
   };
   return {
     title: displayItem(prayer).title,
@@ -139,10 +146,11 @@ export async function scriptForNovenaDay(
   dayIndex: number,
   chosen: string | null,
   pageLang: AudioLang,
+  locale?: Locale,
 ): Promise<BuiltScript | null> {
   const stored = await getPublishedBySlug("NOVENA", slug);
   if (!stored) return null;
-  const item = (await localizeItem(stored)) ?? stored;
+  const item = (await localizeItem(stored, locale ? { locale } : {})) ?? stored;
   const storedDays = Array.isArray(stored.payload.days) ? stored.payload.days : [];
   const shownDaysRaw = displayItem(item).payload.days;
   const shownDays = Array.isArray(shownDaysRaw) ? shownDaysRaw : storedDays;
@@ -159,7 +167,7 @@ export async function scriptForNovenaDay(
   const ctx: ScriptContext = {
     pageLang: lang,
     chosen: effectiveChoice(chosen, pageLang),
-    prayers: await prayerSources(mergePrayers(named, blocks)),
+    prayers: await prayerSources(mergePrayers(named, blocks), undefined, locale),
   };
   return {
     title: dayTitle(shownDays[dayIndex] ?? storedDays[dayIndex], dayIndex),
@@ -185,13 +193,14 @@ export async function scriptForRosary(
   set: MysterySetKey,
   chosen: string | null,
   pageLang: AudioLang,
+  locale?: Locale,
 ): Promise<BuiltScript | null> {
   const prayers = await loadPrayerSet(ROSARY_PRAYERS);
   if (!prayers.some((p) => p.slug === "hail-mary")) return null;
   const ctx: ScriptContext = {
     pageLang,
     chosen: effectiveChoice(chosen, pageLang),
-    prayers: await prayerSources(prayers),
+    prayers: await prayerSources(prayers, undefined, locale),
   };
   return { title: "The Holy Rosary", script: rosaryScript(set, ctx) };
 }
@@ -231,14 +240,15 @@ export async function scriptForGuide(
   chosen: string | null,
   pageLang: AudioLang,
   set: MysterySetKey | null,
+  locale?: Locale,
 ): Promise<BuiltScript | null> {
   const stored = await getPublishedBySlug("GUIDE", slug);
   if (!stored) return null;
   if (isRosaryGuide(stored.payload)) {
-    const rosary = await scriptForRosary(set ?? "joyful", chosen, pageLang);
+    const rosary = await scriptForRosary(set ?? "joyful", chosen, pageLang, locale);
     return rosary ? { ...rosary, title: stored.title } : null;
   }
-  const guide = (await localizeItem(stored)) ?? stored;
+  const guide = (await localizeItem(stored, locale ? { locale } : {})) ?? stored;
   const title = displayItem(guide).title;
   const choice = effectiveChoice(chosen, pageLang);
   // A chaplet guide whose steps quote the Divine Mercy prayers prays the chaplet.
@@ -248,7 +258,7 @@ export async function scriptForGuide(
     .join("\n");
   const blocks = await loadPrayerSet(BUILDING_BLOCK_PRAYERS);
   const listed = await loadPrayerSet(stored.payload.relatedPrayers);
-  const sources = await prayerSources(mergePrayers(listed, blocks));
+  const sources = await prayerSources(mergePrayers(listed, blocks), undefined, locale);
   const ctx: ScriptContext = { pageLang, chosen: choice, prayers: sources };
   const translatedSteps = shownSteps !== englishSteps;
   const chaplet = divineMercyPrayers({
@@ -256,6 +266,27 @@ export async function scriptForGuide(
     lang: translatedSteps ? pageLang : "en",
     english: translatedSteps ? englishSteps : undefined,
   });
+  // A guide with its own checked plan prays exactly that.
+  const plan = (guidePlans as Record<string, PlanItem[] | undefined>)[slug];
+  if (plan && plan.length > 0) {
+    const english = toGuideSteps(stored.payload.steps) ?? [];
+    const shown = toGuideSteps(displayItem(guide).payload.steps) ?? [];
+    const quote = (step: number, index: number) => {
+      const en = english[step - 1] ? quotedPassages(english[step - 1]!.body) : [];
+      const enText = en[index];
+      if (!enText) return null;
+      const sh = shown[step - 1] ? quotedPassages(shown[step - 1]!.body) : [];
+      const translated = shown[step - 1] && shown[step - 1]!.body !== english[step - 1]!.body;
+      if (translated && sh.length === en.length && sh[index]) {
+        return { text: sh[index]!, lang: pageLang };
+      }
+      return { text: enText, lang: "en" as AudioLang };
+    };
+    return {
+      title,
+      script: planScript(plan, { quote, rosarySet: set ?? "joyful", chaplet }, ctx),
+    };
+  }
   if (chaplet) return { title, script: divineMercyScript(chaplet, ctx) };
   return { title, script: sequenceScript(guideSequence(listed), ctx) };
 }
