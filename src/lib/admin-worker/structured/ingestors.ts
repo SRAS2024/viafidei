@@ -1566,7 +1566,14 @@ export function leadText(text: string, maxChars: number): string {
   if (t.length <= maxChars) return t;
   const slice = t.slice(0, maxChars);
   const stop = Math.max(slice.lastIndexOf(". "), slice.lastIndexOf("? "), slice.lastIndexOf("! "));
-  return stop > 40 ? slice.slice(0, stop + 1) : slice;
+  if (stop > 40) return slice.slice(0, stop + 1);
+  // No sentence ends in reach: end on the last whole word and mark the cut, never in the
+  // middle of a word ("…on 13 May 1917, a").
+  const words = /[\p{L}\p{N}]/u.test(t.charAt(maxChars - 1))
+    ? slice.slice(0, maxChars - 1).replace(/[\p{L}\p{N}'’-]+$/u, "")
+    : slice.slice(0, maxChars - 1);
+  const ended = words.replace(/[\s,;:–—-]+$/u, "");
+  return ended ? `${ended}…` : slice;
 }
 
 /**
@@ -1649,9 +1656,13 @@ function sourcedEntitySources(row: SparqlBinding): string[] {
 /**
  * Classify a devotion's type from its name + sourced text into the schema's
  * free-text `devotionType`. Reads only the source text — never invents — and
- * falls back to the always-valid "Catholic devotion".
+ * falls back to the always-valid "Catholic devotion". A devotion NAMED for Saint
+ * Joseph (his Chaste Heart, his Sorrows and Joys) is a devotion to a saint, however
+ * much its text says of Mary, his spouse: the Chaste Heart of Joseph was filed as a
+ * Marian devotion.
  */
-export function classifyDevotionType(text: string): string {
+export function classifyDevotionType(text: string, name = ""): string {
+  if (/\bjoseph\b/i.test(name)) return "Devotion to a saint";
   const t = text.toLowerCase();
   if (/sacred heart/.test(t)) return "Devotion to the Sacred Heart";
   if (/immaculate heart/.test(t)) return "Devotion to the Immaculate Heart";
@@ -1735,7 +1746,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       title: label,
       summary: leadText(narrative.text, 280),
       background: narrative.text,
-      devotionType: classifyDevotionType(`${label} ${types} ${narrative.text}`),
+      devotionType: classifyDevotionType(`${label} ${types} ${narrative.text}`, label),
       practiceInstructions: narrative.text,
       relatedPrayers: [],
       relatedSaints: [],

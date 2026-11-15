@@ -14,6 +14,7 @@
  * The caller decides which; this component never assumes a payload is there.
  */
 
+import { wholeWordExcerpt } from "@/lib/content-shared/excerpt";
 import { formatEnumValue } from "@/lib/content-shared/field-presenters";
 import type { PublishedItem, PublishedListItem } from "@/lib/data/published";
 import { displayItem } from "@/lib/translation/display";
@@ -129,10 +130,11 @@ export function PublishedList({
       : typeof rawEyebrow === "string" && rawEyebrow.trim()
         ? formatEnumValue(eyebrowField ?? "", rawEyebrow)
         : undefined;
+    // A summary the import cut from a longer field ends on a whole word ("…").
     const summary = !showSummary
       ? ""
       : shownPayload
-        ? ((shownPayload[summaryField] as string | undefined) ?? "")
+        ? wholeWordExcerpt((shownPayload[summaryField] as string | undefined) ?? "", shownPayload)
         : showSubtitle
           ? shown.subtitle
           : "";
