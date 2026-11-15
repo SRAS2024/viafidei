@@ -7,12 +7,16 @@ import {
   PrayerLanguageChips,
   UnofficialTranslationNote,
   usePrayerLanguage,
+  usePrayerLanguageSetup,
 } from "./PrayerLanguageChips";
 import { PrayerLinkedText } from "./PrayerLinkedText";
 import { PrayerText } from "./PrayerText";
 
 /**
  * A prayer's text with its language selector (the prayer page).
+ *
+ * On the Latin site a prayer that carries its Latin opens in it, with the English
+ * one chip away (`resolvePrayerLanguage`).
  *
  * The vernacular text is the implicit default and is NOT shown as a button —
  * the page already renders in the reader's language. Every OTHER language the
@@ -47,7 +51,12 @@ export function PrayerLanguageToggle({
   linkedPrayers?: GuidePrayerData[];
 }) {
   const { language, toggle } = usePrayerLanguage();
-  const { vernacular, alternates, shown } = resolvePrayerLanguage(variants, language);
+  const { readerLanguage } = usePrayerLanguageSetup();
+  const { vernacular, alternates, shown } = resolvePrayerLanguage(
+    variants,
+    language,
+    readerLanguage,
+  );
   if (!shown) return null;
 
   const activeCode = shown === vernacular ? null : shown.code;

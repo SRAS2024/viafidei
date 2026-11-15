@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { PrayerLanguageProvider } from "@/components/ui/PrayerLanguageChips";
 import { PrayerLanguageToggle } from "@/components/ui/PrayerLanguageToggle";
 import type { PrayerVariant } from "@/lib/content-shared/prayer-language";
 
@@ -268,5 +269,63 @@ describe("PrayerLanguageToggle", () => {
       expect(screen.getByText(OPENING)).toBeInTheDocument();
       expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("PrayerLanguageToggle in the reader's language", () => {
+  const latin = {
+    readerLanguage: "la",
+    names: { en: "Anglica", la: "Latina", el: "Graeca" },
+    groupLabel: "Lingua orationis",
+    groupFor: "{title}: lingua",
+  };
+
+  it("opens the Latin for a reader of the Latin site, with the English one chip away", () => {
+    render(
+      <PrayerLanguageProvider setup={latin}>
+        <PrayerLanguageToggle variants={[EN, LA]} />
+      </PrayerLanguageProvider>,
+    );
+    const shown = screen.getByText("Ave Maria...").closest(".vf-prayer");
+    expect(shown).toHaveAttribute("lang", "la");
+    const group = screen.getByRole("group", { name: "Lingua orationis" });
+    const english = within(group).getByRole("button", { name: "Anglica" });
+    expect(english).toHaveAttribute("aria-pressed", "false");
+    expect(within(group).queryByRole("button", { name: "Latina" })).not.toBeInTheDocument();
+
+    fireEvent.click(english);
+    const shownEnglish = screen.getByText("Hail Mary...").closest(".vf-prayer");
+    expect(shownEnglish).toHaveAttribute("lang", "en");
+    expect(english).toHaveAttribute("aria-pressed", "true");
+    // Pressed again, it returns to the Latin.
+    fireEvent.click(english);
+    expect(screen.getByText("Ave Maria...")).toBeInTheDocument();
+  });
+
+  it("keeps a prayer without Latin in English on the Latin site", () => {
+    render(
+      <PrayerLanguageProvider setup={latin}>
+        <PrayerLanguageToggle variants={[EN]} />
+      </PrayerLanguageProvider>,
+    );
+    expect(screen.getByText("Hail Mary...").closest(".vf-prayer")).toHaveAttribute("lang", "en");
+  });
+
+  it("names the Latin chip in the reader's language elsewhere", () => {
+    render(
+      <PrayerLanguageProvider
+        setup={{
+          readerLanguage: "es",
+          names: { la: "Latín", en: "Inglés" },
+          groupLabel: "Idioma de la oración",
+          groupFor: "{title}: idioma",
+        }}
+      >
+        <PrayerLanguageToggle variants={[EN, LA]} />
+      </PrayerLanguageProvider>,
+    );
+    expect(screen.getByText("Hail Mary...")).toBeInTheDocument();
+    const group = screen.getByRole("group", { name: "Idioma de la oración" });
+    expect(within(group).getByRole("button", { name: "Latín" })).toBeInTheDocument();
   });
 });

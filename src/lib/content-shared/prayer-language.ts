@@ -82,12 +82,22 @@ function labelFor(code: string): string {
  * …), or the only variant there is; every other variant is an alternate the
  * reader can select. `chosen` falls back to the vernacular when this prayer does
  * not carry it, so choosing Greek never blanks a prayer that has no Greek.
+ *
+ * A reader whose site language is a liturgical language the prayer carries as
+ * received text (Latin, for a reader of the Latin site) reads the prayer in it:
+ * that variant takes the vernacular's place, and the English is one chip away.
+ * Content is never machine-translated into Latin, so this is the only Latin such a
+ * reader is given, and a machine-made fill (`unofficial`) never takes the place.
  */
 export function resolvePrayerLanguage(
   variants: readonly PrayerVariant[],
   chosen: string | null,
+  readerLanguage?: string | null,
 ): { vernacular?: PrayerVariant; alternates: PrayerVariant[]; shown?: PrayerVariant } {
-  const vernacular = variants.find((v) => !v.preserve) ?? variants[0];
+  const own = readerLanguage
+    ? variants.find((v) => v.preserve && !v.unofficial && v.code === readerLanguage)
+    : undefined;
+  const vernacular = own ?? variants.find((v) => !v.preserve) ?? variants[0];
   const alternates = variants.filter((v) => v.code !== vernacular?.code);
   const shown = (chosen ? alternates.find((v) => v.code === chosen) : undefined) ?? vernacular;
   return { vernacular, alternates, shown };

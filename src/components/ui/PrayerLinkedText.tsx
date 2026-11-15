@@ -11,6 +11,7 @@ import {
   PrayerLanguageChips,
   UnofficialTranslationNote,
   usePrayerLanguage,
+  usePrayerLanguageSetup,
 } from "./PrayerLanguageChips";
 import { PrayerText, type PrayerHeadingLevel } from "./PrayerText";
 
@@ -52,7 +53,12 @@ function InlinePrayerPanel({
   headingLevel: PanelHeadingLevel;
 }) {
   const { language, toggle } = usePrayerLanguage();
-  const { vernacular, alternates, shown } = resolvePrayerLanguage(prayer.variants, language);
+  const { readerLanguage, groupFor } = usePrayerLanguageSetup();
+  const { vernacular, alternates, shown } = resolvePrayerLanguage(
+    prayer.variants,
+    language,
+    readerLanguage,
+  );
   const activeCode = shown && shown !== vernacular ? shown.code : null;
   const Heading = `h${headingLevel}` as const;
 
@@ -64,7 +70,7 @@ function InlinePrayerPanel({
           options={alternates}
           active={activeCode}
           onSelect={(code) => toggle(code, activeCode)}
-          label={`${prayer.title} language`}
+          label={groupFor.replace("{title}", prayer.title)}
         />
       </div>
       <div className="vf-disclosure-body">

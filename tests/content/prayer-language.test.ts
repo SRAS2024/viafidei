@@ -133,6 +133,37 @@ describe("resolvePrayerLanguage (what every language chip row shows)", () => {
     expect(resolvePrayerLanguage(variants, "el").shown?.text).toBe("Our Father...");
   });
 
+  it("opens a prayer in Latin for a reader of the Latin site, with the English one chip away", () => {
+    const withGreek = buildPrayerVariants({
+      body: "Our Father...",
+      latin: "Pater noster...",
+      greek: "Πάτερ ἡμῶν...",
+    });
+    const r = resolvePrayerLanguage(withGreek, null, "la");
+    expect(r.shown?.text).toBe("Pater noster...");
+    expect(r.vernacular?.code).toBe("la");
+    expect(r.alternates.map((v) => v.code)).toEqual(["en", "el"]);
+    // The English chip shows the English; Greek is still offered.
+    expect(resolvePrayerLanguage(withGreek, "en", "la").shown?.text).toBe("Our Father...");
+    expect(resolvePrayerLanguage(withGreek, "el", "la").shown?.code).toBe("el");
+    // A prayer without Latin stays in English: nothing is machine-made into Latin.
+    const englishOnly = buildPrayerVariants({ body: "A prayer of the day..." });
+    expect(resolvePrayerLanguage(englishOnly, null, "la").shown?.code).toBe("en");
+    // Other readers keep the vernacular first.
+    expect(resolvePrayerLanguage(withGreek, null, "es").shown?.code).toBe("en");
+  });
+
+  it("never opens a machine-made Latin fill in its place", () => {
+    const filled = buildPrayerVariants({
+      body: "Memorare...",
+      latin: "Memorare, o piissima...",
+      machineTranslated: ["la"],
+    });
+    const r = resolvePrayerLanguage(filled, null, "la");
+    expect(r.shown?.code).toBe("en");
+    expect(r.alternates.map((v) => v.code)).toEqual(["la"]);
+  });
+
   it("treats a Latin-only prayer's Latin as its text, with nothing to switch to", () => {
     const latinOnly = buildPrayerVariants({ latin: "Salve Regina..." });
     const r = resolvePrayerLanguage(latinOnly, null);
