@@ -16,7 +16,9 @@
 import { translateDetailLabel } from "@/lib/content-shared/detail-labels";
 import { contentTypeLabel, type PublishedItem } from "@/lib/data/published";
 import type { Translator } from "@/lib/i18n/translator";
+import { requestLocale } from "@/lib/i18n/request-locale";
 import { displayItem } from "@/lib/translation/display";
+import { englishWhereUntranslated, pageIsNotEnglish } from "@/lib/translation/shown-language";
 import { documentDatePrecision } from "@/lib/content-shared/church-history/timeline";
 import { formatHistoryDate } from "@/lib/content-shared/church-history/types";
 import { splitParagraphs, toDisclosureItems } from "@/lib/content-shared/structured-content";
@@ -277,6 +279,14 @@ export function PublishedDetail({
   const payload = item.payload;
   const shown = displayItem(item);
   const shownPayload = shown.payload;
+  // Text shown as published is English. On a page in another language it is marked so, or
+  // a screen reader reads it in that language's voice. A parish is named in its own
+  // country's language, so nothing on its page is called English.
+  const locale = item.contentType === "PARISH" ? undefined : requestLocale();
+  const englishIf = (shownText: unknown, storedText: unknown) =>
+    englishWhereUntranslated(locale, shownText, storedText);
+  /** For text that is always English: the section headings, the facts' values. */
+  const english = pageIsNotEnglish(locale) ? "en" : undefined;
   const summary =
     typeof payload.summary === "string" && payload.summary.trim() ? payload.summary : undefined;
   const shownSummary =
@@ -341,7 +351,11 @@ export function PublishedDetail({
     const heading = headingFor(key);
     return (
       <section key={key} className="vf-detail-section">
-        {heading ? <h2 className="vf-subhead">{heading}</h2> : null}
+        {heading ? (
+          <h2 className="vf-subhead" lang={english}>
+            {heading}
+          </h2>
+        ) : null}
         {body}
       </section>
     );
@@ -369,28 +383,47 @@ export function PublishedDetail({
     }
     // The reader's text, in the stored shape (the stored value when untranslated).
     const value = shownPayload[key] ?? stored;
+    const lang = englishIf(value, stored);
     // Caller-supplied renderer for this field (e.g. address → Maps link).
     const custom = fieldRenderers?.[key];
     if (custom) {
       const rendered = custom(value);
       if (rendered == null) return null;
-      return section(key, <div className="vf-reading">{rendered}</div>);
+      return section(
+        key,
+        <div className="vf-reading" lang={lang}>
+          {rendered}
+        </div>,
+      );
     }
     if (key === "issuedDate") {
       const formatted = formatIssuedDate(value, payload.documentType);
       if (formatted) {
-        return section(key, <div className="vf-reading">{formatted}</div>);
+        return section(
+          key,
+          <div className="vf-reading" lang={english}>
+            {formatted}
+          </div>,
+        );
       }
     }
     // Novena days / guide prayers / rosary mysteries → expandable dropdowns
     // (title + chevron → full text), so long pages stay concise.
     const disclosures = toDisclosureItems(value);
     if (disclosures) {
+      // Each day is judged on its own: a novena whose first days are translated keeps
+      // the English of the rest marked as English.
+      const storedDisclosures = lang ? null : toDisclosureItems(stored);
       return section(
         key,
-        <div className="vf-disclosure-list">
+        <div className="vf-disclosure-list" lang={lang}>
           {disclosures.map((d, i) => (
-            <Disclosure key={`${key}-${i}`} title={d.title} eyebrow={d.eyebrow}>
+            <Disclosure
+              key={`${key}-${i}`}
+              title={d.title}
+              eyebrow={d.eyebrow}
+              lang={storedDisclosures ? englishIf(d, storedDisclosures[i]) : undefined}
+            >
               {linked ? (
                 // A day's text is itself prayer: only capitalised names link.
                 <PrayerLinkedText
@@ -417,7 +450,7 @@ export function PublishedDetail({
     const presented = value === stored ? layout : (presentValue(key, value) ?? layout);
     return section(
       key,
-      <div className="vf-reading">
+      <div className="vf-reading" lang={lang}>
         {linked && presented.kind === "text" ? (
           // Instructions name prayers in running prose ("pray the Our Father").
           <PrayerLinkedText text={presented.text} prayers={linked} headingLevel={panelLevel(key)} />
@@ -433,15 +466,18 @@ export function PublishedDetail({
       <header className="vf-detail-header">
         {eyebrowLabel ? <p className={eyebrowClass(eyebrowLabel)}>{eyebrowLabel}</p> : null}
         {/* "Our Lady" is one name: a title wraps around it, never through it. */}
-        <h1 className="vf-detail-title text-ink">
+        <h1 className="vf-detail-title text-ink" lang={englishIf(shown.title, item.title)}>
           {shown.title.replace(/\bOur Lady\b/g, "Our Lady")}
         </h1>
         {showSubtitle && shown.subtitle ? (
-          <p className="vf-detail-subtitle">{shown.subtitle}</p>
+          <p className="vf-detail-subtitle" lang={englishIf(shown.subtitle, item.subtitle)}>
+            {shown.subtitle}
+          </p>
         ) : null}
-        {shownFacts ? <FactList items={shownFacts} /> : null}
+        {/* The labels are the reader's; the values are the record's English. */}
+        {shownFacts ? <FactList items={shownFacts} valueLang={english} /> : null}
         {factLines.length > 0 ? (
-          <div className="mt-2">
+          <div className="mt-2" lang={english}>
             {factLines.map((line, i) => (
               <p
                 key={`${i}:${line}`}
@@ -457,12 +493,16 @@ export function PublishedDetail({
           {action}
         </div>
         {/* After the actions, so the summary runs straight on into the sections. */}
-        {ledeText && !summaryIsReadingText ? <p className="vf-lede">{ledeText}</p> : null}
+        {ledeText && !summaryIsReadingText ? (
+          <p className="vf-lede" lang={englishIf(ledeText, summary)}>
+            {ledeText}
+          </p>
+        ) : null}
       </header>
 
       {ledeText && summaryIsReadingText ? (
         <section className="vf-detail-section">
-          <div className="vf-reading">
+          <div className="vf-reading" lang={englishIf(ledeText, summary)}>
             {splitParagraphs(ledeText).map((paragraph, i) => (
               <p key={i} className="whitespace-pre-line">
                 {paragraph}

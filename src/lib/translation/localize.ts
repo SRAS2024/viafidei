@@ -199,10 +199,12 @@ export async function localizePrayers(
     if (!source) return prayer;
     const item = localized[next++] ?? source.item;
     if (!displayOverlay(item)) return prayer;
+    const title = displayItem(item).title;
     return {
       slug: prayer.slug,
-      title: displayItem(item).title,
+      title,
       variants: displayPrayerVariants(item, source.variantsOf),
+      ...(title !== prayer.title ? { titleTranslated: true } : {}),
     };
   });
 }

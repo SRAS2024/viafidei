@@ -46,6 +46,11 @@ export interface PrayerWithVariants {
   title: string;
   /** Ordered variants (vernacular first, then Latin / Greek / …). */
   variants: PrayerVariant[];
+  /**
+   * The title is in the reader's language (src/lib/translation). Otherwise it is the
+   * stored English, which a page in another language marks as English.
+   */
+  titleTranslated?: boolean;
 }
 
 const LANGUAGE_LABELS: Record<string, string> = {

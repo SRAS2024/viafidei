@@ -13,18 +13,21 @@ export function Disclosure({
   title,
   eyebrow,
   defaultOpen = false,
+  lang,
   children,
 }: {
   title: string;
   eyebrow?: string;
   defaultOpen?: boolean;
+  /** The language of its title and text when it is not the page's (English as published). */
+  lang?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const panelId = useId();
 
   return (
-    <div className="vf-disclosure">
+    <div className="vf-disclosure" lang={lang}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

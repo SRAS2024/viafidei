@@ -65,7 +65,12 @@ function InlinePrayerPanel({
   return (
     <div id={id} className="vf-disclosure vf-inline-prayer">
       <div className="vf-inline-prayer-head">
-        <Heading className="vf-disclosure-title">{prayer.title}</Heading>
+        <Heading
+          className="vf-disclosure-title"
+          lang={readerLanguage !== "en" && !prayer.titleTranslated ? "en" : undefined}
+        >
+          {prayer.title}
+        </Heading>
         <PrayerLanguageChips
           options={alternates}
           active={activeCode}

@@ -17,7 +17,9 @@
 import { wholeWordExcerpt } from "@/lib/content-shared/excerpt";
 import { formatEnumValue } from "@/lib/content-shared/field-presenters";
 import type { PublishedItem, PublishedListItem } from "@/lib/data/published";
+import { requestLocale } from "@/lib/i18n/request-locale";
 import { displayItem } from "@/lib/translation/display";
+import { englishWhereUntranslated } from "@/lib/translation/shown-language";
 
 import { ContentCard } from "./ContentCard";
 import { PaginatedGrid, type GridColumns } from "./PaginatedGrid";
@@ -114,6 +116,10 @@ export function PublishedList({
       ? [...(items as PublishedItem[])].sort(sortItems)
       : [...items];
 
+  // A card's title and description shown as published are English: on a page in another
+  // language they are marked so (src/lib/translation/shown-language.ts). A parish is
+  // named in its own country's language.
+  const locale = requestLocale();
   const cards = ordered.map((item) => {
     // Labels and ordering read the stored (English) fields; the card shows the
     // reader's language when the item carries a translation overlay.
@@ -138,6 +144,13 @@ export function PublishedList({
         : showSubtitle
           ? shown.subtitle
           : "";
+    const marks = item.contentType === "PARISH" ? undefined : locale;
+    const storedSummary = payload
+      ? payload[summaryField]
+      : showSubtitle
+        ? (item as PublishedListItem).subtitle
+        : "";
+    const shownSummary = shownPayload ? shownPayload[summaryField] : shown.subtitle;
     const details = (detailLinesFor?.(item) ?? []).filter((line) => line.trim());
     // The title leads; a brief category label and the facts follow it.
     return (
@@ -145,10 +158,12 @@ export function PublishedList({
         key={item.id}
         href={`${baseHref}/${item.slug}`}
         title={shown.title}
+        lang={englishWhereUntranslated(marks, shown.title, item.title)}
         titleAs={titleAs}
         meta={[eyebrow, ...details]}
         theme={themeFor?.(item)}
         summary={summary}
+        summaryLang={englishWhereUntranslated(marks, shownSummary, storedSummary)}
         action={action}
       />
     );

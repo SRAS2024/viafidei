@@ -24,6 +24,10 @@ export interface ContentCardProps {
   theme?: string | null;
   /** The description preview. */
   summary?: string | null;
+  /** The language of the description when it differs from the page's. */
+  summaryLang?: string;
+  /** The language of the lines under the title when it differs from the page's. */
+  metaLang?: string;
   /** The quiet action on the card's bottom line ("Open"). */
   action?: string | null;
   /** Controls that are not the card's own link (a directions button). */
@@ -102,6 +106,8 @@ export function ContentCard({
   metaLines = 2,
   theme,
   summary,
+  summaryLang,
+  metaLang,
   action,
   children,
 }: ContentCardProps) {
@@ -121,6 +127,7 @@ export function ContentCard({
           key={`${i}:${line}`}
           className="vf-entry-meta vf-clamp"
           style={{ "--clamp": metaLines } as React.CSSProperties}
+          lang={metaLang}
         >
           {line}
         </p>
@@ -131,7 +138,9 @@ export function ContentCard({
           className="vf-entry-summary vf-entry-fit"
           style={{ "--clamp": summaryLinesFor(title) } as React.CSSProperties}
         >
-          <span className="vf-clamp">{summary}</span>
+          <span className="vf-clamp" lang={summaryLang}>
+            {summary}
+          </span>
         </p>
       ) : null}
       {children}

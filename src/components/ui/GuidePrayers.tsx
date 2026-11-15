@@ -92,6 +92,8 @@ export function GuidePrayers({
               key={p.slug}
               eyebrow={ordered ? `Prayer ${i + 1}` : undefined}
               title={p.title}
+              // A title still in English, on a page in another language, is read as English.
+              lang={readerLanguage !== "en" && !p.titleTranslated ? "en" : undefined}
             >
               {shown ? (
                 <>

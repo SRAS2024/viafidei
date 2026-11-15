@@ -7,8 +7,10 @@ import { PrayerText } from "@/components/ui/PrayerText";
 import { resolvePrayerLanguage } from "@/lib/content-shared/prayer-language";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { loadNamedPrayers, publishedPrayerVariants } from "@/lib/data/prayer-sets";
+import { getLocale } from "@/lib/i18n/server";
 import { displayItem, displayPrayerVariants } from "@/lib/translation/display";
 import { localizeItem, localizePrayers } from "@/lib/translation/localize";
+import { englishWhereUntranslated } from "@/lib/translation/shown-language";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +23,11 @@ type Props = { params: Promise<{ slug: string }> };
  * order are unchanged. A number stays with its title ("Psalm 102 (103)"), and
  * "St." stays with the name it belongs to.
  */
-function PrayerTitle({ title }: { title: string }) {
+function PrayerTitle({ title, lang }: { title: string; lang?: string }) {
   const parts = /^(.*\S)\s+(\((?!\d)[^()]+\))$/.exec(title);
   const main = (parts?.[1] ?? title).replace(/\b(Sts?\.) /g, "$1\u00a0");
   return (
-    <h1 className="vf-detail-title text-ink">
+    <h1 className="vf-detail-title text-ink" lang={lang}>
       {main}
       {parts ? (
         <>
@@ -56,6 +58,7 @@ export default async function PrayerDetailPage({ params }: Props) {
   const { slug } = await params;
   const prayer = await localizeItem(await getPublishedBySlug("PRAYER", slug));
   if (!prayer) notFound();
+  const locale = await getLocale();
 
   const payload = prayer.payload;
   // What the reader sees, in their language (src/lib/translation); the logic
@@ -86,7 +89,11 @@ export default async function PrayerDetailPage({ params }: Props) {
   return (
     <article className="vf-detail">
       <header className="vf-detail-header">
-        <PrayerTitle title={shown.title} />
+        {/* A title shown as published is English, on a page in any language. */}
+        <PrayerTitle
+          title={shown.title}
+          lang={englishWhereUntranslated(locale, shown.title, prayer.title)}
+        />
         <div className="vf-detail-actions">
           <ShareButton title={shown.title} text={summary ?? shown.title} />
           <SaveContentButton contentType="PRAYER" slug={slug} />
