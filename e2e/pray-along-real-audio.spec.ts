@@ -47,7 +47,9 @@ test("the Hail Mary is prayed aloud, from the Sign of the Cross to the Sign of t
   await expect(status).toHaveText("Praying along.", { timeout: 30_000 });
   // Sign of the Cross (~4 s) + Hail Mary (~15 s) + Sign of the Cross, with pauses between.
   await expect(status).toHaveText("Finished.", { timeout: 60_000 });
-  const played = await page.evaluate(() => (window as unknown as { __vfPlayed: number }).__vfPlayed);
+  const played = await page.evaluate(
+    () => (window as unknown as { __vfPlayed: number }).__vfPlayed,
+  );
   expect(played).toBeGreaterThan(15);
   expect(clips.length).toBeGreaterThan(0);
   expect(clips.every((s) => s === 200 || s === 206)).toBe(true);

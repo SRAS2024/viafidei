@@ -2237,7 +2237,12 @@
 
   /* While a prayer is under way the megaphone is drawn in the action blue, so a
      sighted reader can see which prayer is praying. */
-  .vf-pray-along:is([data-status="playing"], [data-status="waiting"], [data-status="paused"], [data-status="loading"])
+  .vf-pray-along:is(
+      [data-status="playing"],
+      [data-status="waiting"],
+      [data-status="paused"],
+      [data-status="loading"]
+    )
     > .vf-pray-along-button:first-child {
     color: var(--action-blue);
     border-color: var(--action-blue);

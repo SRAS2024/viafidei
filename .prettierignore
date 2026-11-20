@@ -30,3 +30,7 @@ ios/build-signed
 
 # Local agent worktrees: separate checkouts, not this tree
 .claude
+
+# The voice engine is its own Python project; its JSON (voice designs, the registry,
+# test fixtures) is written by its own tools.
+voice-engine/

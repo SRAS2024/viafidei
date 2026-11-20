@@ -221,8 +221,14 @@ describe("the reader's own words inside English text", () => {
         <GuidePrayers prayers={prayers} heading="Prayers of this novena" />
       </PrayerLanguageProvider>,
     );
-    expect(screen.getByText("Our Father").closest(".vf-disclosure-trigger")).toHaveAttribute("lang", "en");
-    expect(screen.getByText("Ave María").closest(".vf-disclosure-trigger")).toHaveAttribute("lang", "es");
+    expect(screen.getByText("Our Father").closest(".vf-disclosure-trigger")).toHaveAttribute(
+      "lang",
+      "en",
+    );
+    expect(screen.getByText("Ave María").closest(".vf-disclosure-trigger")).toHaveAttribute(
+      "lang",
+      "es",
+    );
     expect(screen.getByRole("heading", { name: "Prayers of this novena" })).toHaveAttribute(
       "lang",
       "en",

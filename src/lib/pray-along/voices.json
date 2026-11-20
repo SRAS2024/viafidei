@@ -2,18 +2,42 @@
   "$comment": "Which open model and stock voice speaks each language, for each of the two voices members can choose. Shared by the web server (src/lib/pray-along/voices.ts) and the voice engine (voice-engine/). Changing a voiceId re-keys that language's clips, so the engine makes them again with the new voice. formatVersion re-keys every clip.",
   "formatVersion": 1,
   "voices": {
-    "en": { "female": "qwen3-tts-1.7b-base:lock:en-female-v1", "male": "qwen3-tts-1.7b-customvoice:Aiden" },
-    "es": { "female": "qwen3-tts-1.7b-base:lock:es-female-v1", "male": "qwen3-tts-1.7b-base:lock:es-male-v1" },
-    "fr": { "female": "qwen3-tts-1.7b-base:lock:fr-female-v1", "male": "qwen3-tts-1.7b-base:lock:fr-male-v1" },
-    "it": { "female": "qwen3-tts-1.7b-base:lock:it-female-v1", "male": "qwen3-tts-1.7b-base:lock:it-male-v1" },
-    "de": { "female": "qwen3-tts-1.7b-base:lock:de-female-v1", "male": "qwen3-tts-1.7b-base:lock:de-male-v1" },
-    "pt": { "female": "qwen3-tts-1.7b-base:lock:pt-female-v1", "male": "qwen3-tts-1.7b-base:lock:pt-male-v1" },
+    "en": {
+      "female": "qwen3-tts-1.7b-base:lock:en-female-v1",
+      "male": "qwen3-tts-1.7b-customvoice:Aiden"
+    },
+    "es": {
+      "female": "qwen3-tts-1.7b-base:lock:es-female-v1",
+      "male": "qwen3-tts-1.7b-base:lock:es-male-v1"
+    },
+    "fr": {
+      "female": "qwen3-tts-1.7b-base:lock:fr-female-v1",
+      "male": "qwen3-tts-1.7b-base:lock:fr-male-v1"
+    },
+    "it": {
+      "female": "qwen3-tts-1.7b-base:lock:it-female-v1",
+      "male": "qwen3-tts-1.7b-base:lock:it-male-v1"
+    },
+    "de": {
+      "female": "qwen3-tts-1.7b-base:lock:de-female-v1",
+      "male": "qwen3-tts-1.7b-base:lock:de-male-v1"
+    },
+    "pt": {
+      "female": "qwen3-tts-1.7b-base:lock:pt-female-v1",
+      "male": "qwen3-tts-1.7b-base:lock:pt-male-v1"
+    },
     "pl": { "female": "voxcpm2:lock:pl-female-v1", "male": "voxcpm2:lock:pl-male-v1" },
     "la": { "female": "kokoro-82m:latin-ipa:if_sara", "male": "kokoro-82m:latin-ipa:im_nicola" },
     "tl": { "female": "voxcpm2:lock:tl-female-v1", "male": "voxcpm2:lock:tl-male-v1" },
     "vi": { "female": "voxcpm2:lock:vi-female-v1", "male": "voxcpm2:lock:vi-male-v1" },
-    "ko": { "female": "qwen3-tts-1.7b-customvoice:Sohee", "male": "qwen3-tts-1.7b-base:lock:ko-male-v1" },
-    "zh": { "female": "qwen3-tts-1.7b-base:lock:zh-female-v1", "male": "qwen3-tts-1.7b-base:lock:zh-male-v1" },
+    "ko": {
+      "female": "qwen3-tts-1.7b-customvoice:Sohee",
+      "male": "qwen3-tts-1.7b-base:lock:ko-male-v1"
+    },
+    "zh": {
+      "female": "qwen3-tts-1.7b-base:lock:zh-female-v1",
+      "male": "qwen3-tts-1.7b-base:lock:zh-male-v1"
+    },
     "el": { "female": "voxcpm2:lock:el-female-v1", "male": "voxcpm2:lock:el-male-v1" }
   }
 }
