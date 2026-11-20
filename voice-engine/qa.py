@@ -207,13 +207,54 @@ def _latin_letters(s: str) -> str:
     return _letters_only(s)
 
 
+# The recogniser abbreviates words a clip says in full ("St. Peter" for "Saint Peter",
+# "Ste Marie", "St. Michael" for "Sankt Michael", "Sta. María"). Each is read as its
+# word on both sides, so a take is never failed for Whisper's spelling; only forms
+# that stand for one word in prayer are listed (Polish "św." or German "hl." do not:
+# they stand for every case of the word).
+ABBREVIATIONS: dict[str, list[tuple[str, str]]] = {
+    "en": [(r"\bSts\.?(?=\s)", "Saints"), (r"\bSt\.?(?=\s)", "Saint"), (r"\bMt\.?(?=\s)", "Mount")],
+    "fr": [
+        (r"\bStes\b\.?", "Saintes"),
+        (r"\bSte\b\.?", "Sainte"),
+        (r"\bSts\b\.?", "Saints"),
+        (r"\bSt\b\.?", "Saint"),
+    ],
+    "de": [(r"\bSt\.(?=\s)", "Sankt")],
+    "es": [(r"\bSto\.(?=\s)", "Santo"), (r"\bSta\.(?=\s)", "Santa")],
+    "pt": [(r"\bSto\.(?=\s)", "Santo"), (r"\bSta\.(?=\s)", "Santa")],
+    "tl": [(r"\bSto\.(?=\s)", "Santo"), (r"\bSta\.(?=\s)", "Santa")],
+}
+
+
+# English the recogniser spells differently from a prayer book, with the same sound:
+# the vocative "O" it writes "Oh", "for ever" it writes "forever", and British "-our"
+# ("honour", "Saviour") it writes American. Read alike on both sides.
+EN_SAME_SOUND: list[tuple[str, str]] = [
+    (r"\boh\b", "o"),
+    (r"\bfor ever\b", "forever"),
+    (r"\b([a-z]{3,})our\b", r"\1or"),
+]
+
+
+def expand_abbreviations(text: str, lang: str) -> str:
+    """`text` with the recogniser's abbreviations written out (see ABBREVIATIONS)."""
+    for pattern, word in ABBREVIATIONS.get(lang, []):
+        text = re.sub(pattern, word, text)
+    return text
+
+
 def fold(text: str, lang: str, *, strict: bool = False) -> str:
     """The text as the CER compares it (see the module docstring)."""
+    text = expand_abbreviations(text, lang)
     try:
         t = normalize_for_voice(text, lang)
     except Exception:
         t = text
     t = unicodedata.normalize("NFKC", t).lower()
+    if lang == "en":
+        for pattern, same in EN_SAME_SOUND:
+            t = re.sub(pattern, same, t)
     if lang == "zh":
         return _pinyin(t).replace(" ", "") if not strict else re.sub(r"[^㐀-鿿]", "", t)
     if lang == "ko":

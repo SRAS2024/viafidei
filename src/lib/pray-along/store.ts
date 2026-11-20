@@ -76,9 +76,18 @@ export async function readyClipKeys(keys: readonly string[]): Promise<Set<string
 const MAX_DEMAND_PER_REQUEST = 600;
 
 /**
+ * A clip that failed its quality check is tried again when a listener asks for it,
+ * until it has had this many claims (the engine's own limit, voice-engine/worker.py
+ * MAX_ATTEMPTS); each retry speaks with new seeds. Any other failure stays failed.
+ */
+export const RETRY_FAILED_BELOW_ATTEMPTS = 5;
+
+/**
  * Files the clips a listener is waiting for, so the engine makes them first: a new row
- * is 'pending' and requested now; a pending row has its request time moved up. A made
- * clip is left alone. Never throws.
+ * is 'pending' and requested now; a pending row has its request time moved up; a row
+ * that failed its quality check is pending again (see RETRY_FAILED_BELOW_ATTEMPTS),
+ * so one failed take never leaves a prayer unplayable for good. A made clip is left
+ * alone. Never throws.
  */
 export async function fileClipDemand(clips: readonly NeededClip[]): Promise<void> {
   const batch = clips.slice(0, MAX_DEMAND_PER_REQUEST);
@@ -97,7 +106,14 @@ export async function fileClipDemand(clips: readonly NeededClip[]): Promise<void
       VALUES ${Prisma.join(values)}
       ON CONFLICT ("key") DO UPDATE
         SET "requestedAt" = EXCLUDED."requestedAt",
-            "priority" = LEAST("PrayerAudioClip"."priority", EXCLUDED."priority")
+            "priority" = LEAST("PrayerAudioClip"."priority", EXCLUDED."priority"),
+            "status" = CASE
+              WHEN "PrayerAudioClip"."status" = 'failed'
+                AND "PrayerAudioClip"."lastError" LIKE 'qa:%'
+                AND "PrayerAudioClip"."attempts" < ${RETRY_FAILED_BELOW_ATTEMPTS}
+              THEN 'pending'
+              ELSE "PrayerAudioClip"."status"
+            END
         WHERE "PrayerAudioClip"."status" <> 'done'`;
   } catch {
     // No table yet, or a transient error: the page still plays what is made.

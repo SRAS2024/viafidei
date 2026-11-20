@@ -18,7 +18,10 @@ priority. One row at a time is claimed with SELECT ... FOR UPDATE SKIP LOCKED, s
 rows another worker claimed in the last 10 minutes; a claim sets claimedAt/claimedBy
 and counts an attempt. Each clip is spoken in up to 4 takes, each checked by qa.py;
 the best take is stored as AAC (.m4a). A pass is 'done'; a marginal best take is
-'done' with lastError 'qa:marginal:<cer>:...'; a clearly broken one is 'failed'.
+'done' with lastError 'qa:marginal:<cer>:...'; a clearly broken one is 'failed'. A
+listener asking again for a clip that failed on quality files it as pending once more
+(the website's store.ts, while attempts < MAX_ATTEMPTS), and the retry speaks with new
+seeds (seed_key_for).
 """
 
 from __future__ import annotations
@@ -277,6 +280,12 @@ def status(db: DB, voices: Optional[list[str]] = None) -> None:
 # --------------------------------------------------------------------------- #
 
 
+def seed_key_for(key: str, attempts: int) -> str:
+    """The seeds a claim speaks with: the clip's own on its first claim, new ones on each
+    retry (a clip that failed is asked for again only to hear different takes)."""
+    return key if attempts <= 1 else f"{key}:retry{attempts}"
+
+
 def make_one(db: DB, eng, me: str, row: dict) -> str:
     """Makes and stores one claimed clip. Returns the row's new status."""
     from engine import engine_label
@@ -297,7 +306,9 @@ def make_one(db: DB, eng, me: str, row: dict) -> str:
         return "failed"
     t0 = time.time()
     try:
-        clip = eng.make_clip(row["voiceId"], row["text"], row["lang"], seed_key=row["key"])
+        clip = eng.make_clip(
+            row["voiceId"], row["text"], row["lang"], seed_key=seed_key_for(row["key"], row["attempts"])
+        )
     except KeyboardInterrupt:
         raise
     except Exception as e:
