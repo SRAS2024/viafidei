@@ -12,8 +12,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LOG_DIR="$HOME/Library/Logs/ViaFidei"
 
-if [ "${1:-}" = "--remove" ]; then
+# Stops the running engine and waits until it is gone. `launchctl bootout` returns while
+# a busy engine is still finishing the clip in hand; loading the label again before then
+# fails ("Bootstrap failed: 5: Input/output error") and leaves no engine running at all.
+stop_engine() {
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+  for _ in $(seq 1 180); do
+    launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || return 0
+    sleep 1
+  done
+  echo "the voice engine did not stop within 3 minutes; try again" >&2
+  return 1
+}
+
+if [ "${1:-}" = "--remove" ]; then
+  stop_engine
   rm -f "$PLIST"
   echo "removed $LABEL"
   exit 0
@@ -42,6 +55,6 @@ cat > "$PLIST" <<PLIST
 </dict>
 </plist>
 PLIST
-launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+stop_engine
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
 echo "installed and started $LABEL (logs: $LOG_DIR/voice-engine.log)"
