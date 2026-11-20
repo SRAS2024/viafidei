@@ -101,6 +101,23 @@ describe("/api/pray-along", () => {
     expect((await (await ask("kind=prayer&slug=hail-mary")).json()).voice).toBe("female");
   });
 
+  it("tells the player whether the listener is a member and the speed their account keeps", async () => {
+    let body = await (await ask("kind=prayer&slug=hail-mary")).json();
+    expect(body).toMatchObject({ member: false, rate: null });
+    auth.requireUser.mockResolvedValue({ id: "u1" });
+    profile.getProfileForUser.mockResolvedValue({ audioVoice: null, audioRate: 1.25 });
+    body = await (await ask("kind=prayer&slug=hail-mary")).json();
+    expect(body).toMatchObject({ member: true, rate: 1.25 });
+    profile.getProfileForUser.mockResolvedValue({ audioVoice: null, audioRate: null });
+    expect(await (await ask("kind=prayer&slug=hail-mary")).json()).toMatchObject({
+      member: true,
+      rate: null,
+    });
+    // A stored value that is not one of the speeds is never passed on.
+    profile.getProfileForUser.mockResolvedValue({ audioVoice: null, audioRate: 3 });
+    expect((await (await ask("kind=prayer&slug=hail-mary")).json()).rate).toBeNull();
+  });
+
   it("asks for a novena's day by its number and the Rosary by its set", async () => {
     await ask("kind=novena&slug=divine-mercy-novena&day=3");
     expect(builders.scriptForNovenaDay).toHaveBeenCalledWith("divine-mercy-novena", 2, null, "es");

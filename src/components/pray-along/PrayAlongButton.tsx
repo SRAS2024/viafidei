@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { usePrayerLanguage } from "@/components/ui/PrayerLanguageChips";
+import { formatRate, type Rate } from "@/lib/pray-along/rate";
 
 import {
   getPlayerState,
@@ -14,8 +15,10 @@ import {
   subscribePlayer,
   targetIdOf,
   type PlayerState,
+  type PlayerStatus,
   type PrayAlongTarget,
 } from "./player";
+import { cycleRate, getRate, subscribeRate } from "./rate-store";
 
 /** The player's words in the reader's language; the button labels carry a {title}. */
 export interface PrayAlongLabels {
@@ -32,6 +35,10 @@ export interface PrayAlongLabels {
   finished: string;
   unavailable: string;
   error: string;
+  /** The speed button's name, also said when it changes: "Speed {rate}". */
+  speed: string;
+  /** The reader's locale, for the speed's decimal mark ("1,25x" in French). */
+  locale: string;
 }
 
 const ENGLISH: PrayAlongLabels = {
@@ -48,6 +55,8 @@ const ENGLISH: PrayAlongLabels = {
   finished: "Finished.",
   unavailable: "The audio for this prayer is not ready yet. Please try again in a little while.",
   error: "The audio could not be played.",
+  speed: "Speed {rate}",
+  locale: "en",
 };
 
 const LabelsContext = createContext<PrayAlongLabels>(ENGLISH);
@@ -111,11 +120,13 @@ const ACTIVE = new Set(["loading", "playing", "paused", "waiting"]);
  * Greek when they chose it on the chips.
  *
  * For VoiceOver: a real button whose name says what it will do ("Pray along: Hail
- * Mary", then "Pause praying along: Hail Mary", "Resume…"), a Stop button beside it
- * while a prayer is under way, and every change said in a status region ("Paused.",
- * "Finished."). It never takes `disabled`, which would drop focus to the top of the
- * page; when Stop disappears, focus returns to the megaphone. Keyboard: both are
- * ordinary buttons. Nothing plays until it is pressed.
+ * Mary", then "Pause praying along: Hail Mary", "Resume…"); while a prayer is under
+ * way, a Stop button beside it and, right of Stop, the speed ("Speed 1x", then 1.25x,
+ * 1.5x and 1x again, remembered in this browser and in a member's account); every
+ * change said in a status region ("Paused.", "Speed 1.25x", "Finished."). It never
+ * takes `disabled`, which would drop focus to the top of the page; when Stop and the
+ * speed disappear, focus returns to the megaphone. Keyboard: all are ordinary buttons.
+ * Nothing plays until it is pressed.
  */
 export function PrayAlongButton({
   target,
@@ -130,6 +141,10 @@ export function PrayAlongButton({
   const labels = useContext(LabelsContext);
   const { language } = usePrayerLanguage();
   const [player, setPlayer] = useState<PlayerState>(() => getPlayerState());
+  const [rate, setRate] = useState<Rate>(() => getRate());
+  // What the speed button last said, and in which state, so the next change of state
+  // ("Finished.") is said in its place.
+  const [rateNote, setRateNote] = useState<{ text: string; status: PlayerStatus } | null>(null);
   const mainRef = useRef<HTMLButtonElement>(null);
   const stopRef = useRef<HTMLButtonElement>(null);
   const id = targetIdOf(target);
@@ -138,6 +153,7 @@ export function PrayAlongButton({
   const active = ACTIVE.has(status);
 
   useEffect(() => subscribePlayer(setPlayer), []);
+  useEffect(() => subscribeRate(setRate), []);
   useEffect(() => registerPrayAlongButton(id), [id]);
 
   // Stop vanishes when the prayer ends: focus that was on it comes back to the megaphone.
@@ -150,6 +166,10 @@ export function PrayAlongButton({
   }, [active]);
 
   const named = (template: string) => template.replace("{title}", () => title);
+  const speedOf = (value: Rate) => {
+    const text = formatRate(value, labels.locale);
+    return labels.speed.replace("{rate}", () => text);
+  };
 
   let label = named(labels.play);
   if (status === "playing" || status === "waiting") label = named(labels.pause);
@@ -175,6 +195,10 @@ export function PrayAlongButton({
     else if (status === "paused") resumePrayAlong();
     else if (status === "loading") return;
     else void startPrayAlong(target, { chosen: language, title });
+  }
+
+  function onRate() {
+    setRateNote({ text: speedOf(cycleRate()), status });
   }
 
   function onStop() {
@@ -213,8 +237,18 @@ export function PrayAlongButton({
           <StopGlyph />
         </button>
       ) : null}
+      {active ? (
+        <button
+          type="button"
+          onClick={onRate}
+          aria-label={speedOf(rate)}
+          className="vf-btn vf-btn-sm vf-btn-ghost vf-pray-along-rate"
+        >
+          {formatRate(rate, labels.locale)}
+        </button>
+      ) : null}
       <span role="status" className="sr-only">
-        {message}
+        {rateNote && rateNote.status === status ? rateNote.text : message}
       </span>
     </span>
   );

@@ -430,6 +430,7 @@ export const ko: Dict = {
   "prayAlong.pause": "기도 일시정지: {title}",
   "prayAlong.resume": "기도 계속하기: {title}",
   "prayAlong.stop": "기도 멈추기: {title}",
+  "prayAlong.speed": "재생 속도 {rate}",
   "prayAlong.preparing": "{title} 오디오를 준비하는 중",
   "prayAlong.status.loading": "오디오를 준비하는 중…",
   "prayAlong.status.playing": "기도하는 중입니다.",

@@ -161,6 +161,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     finished: t("prayAlong.status.finished"),
                     unavailable: t("prayAlong.status.unavailable"),
                     error: t("prayAlong.status.error"),
+                    speed: t("prayAlong.speed"),
+                    locale,
                   }}
                 >
                   {children}

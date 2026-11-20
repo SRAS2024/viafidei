@@ -641,6 +641,7 @@ const common: Dict = {
   "prayAlong.pause": "Pause praying along: {title}",
   "prayAlong.resume": "Resume praying along: {title}",
   "prayAlong.stop": "Stop praying along: {title}",
+  "prayAlong.speed": "Speed {rate}",
   "prayAlong.preparing": "Preparing the audio for {title}",
   "prayAlong.status.loading": "Preparing the audio…",
   "prayAlong.status.playing": "Praying along.",

@@ -37,6 +37,13 @@ translator has not reached yet.
 Voice: a member's choice under Settings → Audio (female or male, `Profile.audioVoice`);
 signed-out visitors and members who never chose hear the female voice.
 
+Speed: while a prayer is under way, a button right of Stop steps 1x → 1.25x → 1.5x → 1x
+(the pitch is kept). The browser remembers the last speed (`localStorage`); a signed-in
+member's is also kept in their account (`Profile.audioRate`, migration 0088), so it is
+the same on every browser they sign in on: each playlist carries it, and a member's new
+choice is saved to the account a moment after their last click
+(`src/components/pray-along/rate-store.ts`).
+
 ## Where the audio comes from
 
 The web server never runs a model. Every clip is identified by a hash of the voice, the
@@ -89,8 +96,9 @@ imitates a real person.
 
 A real button named for what it will do ("Pray along: Hail Mary", then "Pause praying
 along: …", "Resume praying along: …"), a Stop button beside it while a prayer is under
-way, every change said in a polite status region ("Preparing the audio…", "Paused.",
-"Finished."), focus returned to the megaphone when Stop goes, never `disabled`, keyboard
-operable, lock-screen and headphone controls through the Media Session API, and a small
+way, and right of Stop the speed ("Speed 1x", "Speed 1.25x", "Speed 1.5x"), every change
+said in a polite status region ("Preparing the audio…", "Paused.", "Speed 1.25x",
+"Finished."), focus returned to the megaphone when Stop and the speed go, never
+`disabled`, keyboard operable, lock-screen and headphone controls through the Media Session API, and a small
 level meter that moves only for readers who have not asked for reduced motion. A prayer
 whose button leaves the page (the reader navigates away or folds its day) stops.

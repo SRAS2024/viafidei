@@ -1,5 +1,6 @@
 import { prisma } from "../db/client";
 import { isSupportedLocale } from "../i18n/locales";
+import { isRate } from "@/lib/pray-along/rate";
 import { isVoice } from "@/lib/pray-along/voice-choice";
 import { checksumDataUrl, type AvatarDataUrlOk } from "../media/avatar-data-url";
 
@@ -19,6 +20,8 @@ export type UpdateProfileInput = {
   theme?: string | null;
   /** The pray-along voice: "female" or "male"; null returns to the default (female). */
   audioVoice?: string | null;
+  /** The pray-along speed: 1, 1.25 or 1.5; null returns to the normal speed. */
+  audioRate?: number | null;
 };
 
 export async function getProfileForUser(userId: string) {
@@ -40,6 +43,7 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
     languageOverride?: string | null;
     theme?: string | null;
     audioVoice?: string | null;
+    audioRate?: number | null;
   } = {};
   let userLanguage: string | undefined;
   if (input.languageOverride !== undefined) {
@@ -59,6 +63,11 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
     if (input.audioVoice === null || input.audioVoice === "") data.audioVoice = null;
     else if (isVoice(input.audioVoice)) data.audioVoice = input.audioVoice;
     else return { ok: false as const, reason: "invalid_voice" as const };
+  }
+  if (input.audioRate !== undefined) {
+    if (input.audioRate === null) data.audioRate = null;
+    else if (isRate(input.audioRate)) data.audioRate = input.audioRate;
+    else return { ok: false as const, reason: "invalid_rate" as const };
   }
   const updated = await prisma.profile.update({ where: { userId }, data });
   if (userLanguage) {

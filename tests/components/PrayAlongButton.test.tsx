@@ -43,12 +43,21 @@ vi.mock("@/components/ui/PrayerLanguageChips", () => ({
   usePrayerLanguage: () => ({ language: "la", toggle: vi.fn() }),
 }));
 
-import { PrayAlongButton } from "@/components/pray-along/PrayAlongButton";
+import {
+  PrayAlongButton,
+  PrayAlongLabelsProvider,
+  type PrayAlongLabels,
+} from "@/components/pray-along/PrayAlongButton";
+import { RATE_STORAGE_KEY, resetRateForTests } from "@/components/pray-along/rate-store";
 
 const TARGET = { kind: "prayer" as const, slug: "hail-mary" };
 const ID = "prayer:hail-mary::";
 
-beforeEach(() => player.reset());
+beforeEach(() => {
+  player.reset();
+  resetRateForTests();
+  window.localStorage.clear();
+});
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -121,5 +130,75 @@ describe("PrayAlongButton", () => {
     expect(container.querySelector(".vf-pray-along-level")).toBeNull();
     act(() => player.set({ status: "playing", targetId: ID }));
     expect(container.querySelector(".vf-pray-along-level")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("shows the speed right of Stop while praying, steps through the speeds and says each", () => {
+    render(<PrayAlongButton target={TARGET} title="Hail Mary" />);
+    expect(screen.queryByRole("button", { name: /^Speed/ })).toBeNull();
+    act(() => player.set({ status: "playing", targetId: ID }));
+    const stop = screen.getByRole("button", { name: "Stop praying along: Hail Mary" });
+    const speed = screen.getByRole("button", { name: "Speed 1x" });
+    expect(speed).toHaveTextContent("1x");
+    expect(stop.nextElementSibling).toBe(speed);
+    fireEvent.click(speed);
+    expect(screen.getByRole("button", { name: "Speed 1.25x" })).toHaveTextContent("1.25x");
+    expect(screen.getByRole("status")).toHaveTextContent("Speed 1.25x");
+    fireEvent.click(screen.getByRole("button", { name: "Speed 1.25x" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Speed 1.5x");
+    fireEvent.click(screen.getByRole("button", { name: "Speed 1.5x" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Speed 1x");
+    expect(window.localStorage.getItem(RATE_STORAGE_KEY)).toBe("1");
+    // The next change of state is said in its place; paused, the speed can still change.
+    act(() => player.set({ status: "paused", targetId: ID }));
+    expect(screen.getByRole("status")).toHaveTextContent("Paused.");
+    expect(screen.getByRole("button", { name: "Speed 1x" })).toBeInTheDocument();
+    act(() => player.set({ status: "finished", targetId: ID }));
+    expect(screen.queryByRole("button", { name: /^Speed/ })).toBeNull();
+  });
+
+  it("opens at the speed this browser last chose", () => {
+    window.localStorage.setItem(RATE_STORAGE_KEY, "1.5");
+    render(<PrayAlongButton target={TARGET} title="Hail Mary" />);
+    act(() => player.set({ status: "playing", targetId: ID }));
+    expect(screen.getByRole("button", { name: "Speed 1.5x" })).toHaveTextContent("1.5x");
+  });
+
+  it("writes the speed in the reader's language, with its decimal mark", () => {
+    const french: PrayAlongLabels = {
+      play: "Prier avec : {title}",
+      pause: "Mettre en pause : {title}",
+      resume: "Reprendre : {title}",
+      stop: "Arrêter la prière : {title}",
+      preparing: "Préparation de l'audio pour {title}",
+      loading: "Préparation de l'audio…",
+      playing: "Prière en cours.",
+      paused: "En pause.",
+      waiting: "La suite est en préparation…",
+      stopped: "Arrêtée.",
+      finished: "Terminée.",
+      unavailable: "Pas encore prête.",
+      error: "Lecture impossible.",
+      speed: "Vitesse {rate}",
+      locale: "fr",
+    };
+    render(
+      <PrayAlongLabelsProvider labels={french}>
+        <PrayAlongButton target={TARGET} title="Je vous salue Marie" />
+      </PrayAlongLabelsProvider>,
+    );
+    act(() => player.set({ status: "playing", targetId: ID }));
+    fireEvent.click(screen.getByRole("button", { name: "Vitesse 1x" }));
+    expect(screen.getByRole("button", { name: "Vitesse 1,25x" })).toHaveTextContent("1,25x");
+    expect(screen.getByRole("status")).toHaveTextContent("Vitesse 1,25x");
+  });
+
+  it("puts focus back on the megaphone when the speed button goes with the prayer", () => {
+    render(<PrayAlongButton target={TARGET} title="Hail Mary" />);
+    act(() => player.set({ status: "playing", targetId: ID }));
+    screen.getByRole("button", { name: "Speed 1x" }).focus();
+    act(() => player.set({ status: "finished", targetId: ID }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Pray along: Hail Mary" }),
+    );
   });
 });

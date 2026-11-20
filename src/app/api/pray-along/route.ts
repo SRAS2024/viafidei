@@ -13,6 +13,7 @@ import {
   type BuiltScript,
 } from "@/lib/pray-along/server";
 import { buildManifest } from "@/lib/pray-along/store";
+import { isRate, type Rate } from "@/lib/pray-along/rate";
 import { DEFAULT_VOICE, voiceOrDefault, type Voice } from "@/lib/pray-along/voice-choice";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIpOrNull } from "@/lib/security/request";
@@ -29,15 +30,29 @@ function bad(status: number, error: string) {
   return Response.json({ error }, { status, headers: NO_STORE });
 }
 
-/** The listener's voice: a member's choice, otherwise the female voice (the owner's rule). */
-async function listenerVoice(): Promise<Voice> {
+interface Listener {
+  voice: Voice;
+  /** The speed a member last chose (it follows them to every browser), or null. */
+  rate: Rate | null;
+  member: boolean;
+}
+
+const VISITOR: Listener = { voice: DEFAULT_VOICE, rate: null, member: false };
+
+/** The listener: a member's voice and speed, otherwise the female voice (the owner's rule). */
+async function listener(): Promise<Listener> {
   try {
     const user = await requireUser();
-    if (!user) return DEFAULT_VOICE;
+    if (!user) return VISITOR;
     const profile = await getProfileForUser(user.id);
-    return voiceOrDefault(profile?.audioVoice);
+    const rate = profile?.audioRate;
+    return {
+      voice: voiceOrDefault(profile?.audioVoice),
+      rate: isRate(rate) ? rate : null,
+      member: true,
+    };
   } catch {
-    return DEFAULT_VOICE;
+    return VISITOR;
   }
 }
 
@@ -95,13 +110,15 @@ export async function GET(req: NextRequest) {
   }
   if (!built || built.script.items.length === 0) return bad(404, "not_found");
 
-  const voice = await listenerVoice();
+  const { voice, rate, member } = await listener();
   const manifest = await buildManifest(built.script, voice);
   return Response.json(
     {
       title: built.title,
       lang: manifest.lang,
       voice: manifest.voice,
+      rate,
+      member,
       total: manifest.total,
       ready: manifest.ready,
       items: manifest.items.map((item) =>

@@ -2248,6 +2248,19 @@
     border-color: var(--action-blue);
   }
 
+  /* The speed, right of Stop: as tall as the round buttons, wide enough for "1.25x" so
+     the row does not shift as it steps through the speeds. */
+  .vf-pray-along-rate {
+    min-width: 3.25rem;
+    padding: 0 0.5rem;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    /* "1.25x" as written, not the buttons' small capitals ("1.25X"). */
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
   .vf-pray-along-level {
     display: inline-flex;
     align-items: flex-end;

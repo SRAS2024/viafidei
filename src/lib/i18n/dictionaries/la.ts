@@ -448,6 +448,7 @@ export const la: Dict = {
   "prayAlong.pause": "Orationem intermitte: {title}",
   "prayAlong.resume": "Orationem resume: {title}",
   "prayAlong.stop": "Orationem siste: {title}",
+  "prayAlong.speed": "Celeritas {rate}",
   "prayAlong.preparing": "Sonus paratur: {title}",
   "prayAlong.status.loading": "Sonus paratur…",
   "prayAlong.status.playing": "Oratur.",

@@ -454,6 +454,7 @@ export const it: Dict = {
   "prayAlong.pause": "Metti in pausa la preghiera: {title}",
   "prayAlong.resume": "Riprendi la preghiera: {title}",
   "prayAlong.stop": "Interrompi la preghiera: {title}",
+  "prayAlong.speed": "Velocità {rate}",
   "prayAlong.preparing": "Preparazione dell’audio di {title}",
   "prayAlong.status.loading": "Preparazione dell’audio…",
   "prayAlong.status.playing": "Preghiera in corso.",

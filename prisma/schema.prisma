@@ -173,6 +173,9 @@ model Profile {
   /// The pray-along voice a member chose: "female" or "male". NULL is the default
   /// voice (female), which signed-out visitors always hear.
   audioVoice       String?
+  /// The pray-along speed a member last chose with the speed button: 1, 1.25 or 1.5.
+  /// Kept here so it follows them to every browser; NULL is the normal speed.
+  audioRate        Float?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)

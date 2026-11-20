@@ -437,6 +437,7 @@ export const vi: Dict = {
   "prayAlong.pause": "Tạm dừng lời kinh: {title}",
   "prayAlong.resume": "Tiếp tục lời kinh: {title}",
   "prayAlong.stop": "Dừng lời kinh: {title}",
+  "prayAlong.speed": "Tốc độ {rate}",
   "prayAlong.preparing": "Đang chuẩn bị âm thanh cho {title}",
   "prayAlong.status.loading": "Đang chuẩn bị âm thanh…",
   "prayAlong.status.playing": "Đang đọc kinh.",

@@ -12,11 +12,13 @@ import {
   isThemePreference,
 } from "@/lib/i18n/theme-cookie";
 import { writeAudit } from "@/lib/audit";
+import { isRate } from "@/lib/pray-along/rate";
 
 const patchSchema = z.object({
   languageOverride: z.string().max(20).nullable().optional(),
   theme: z.string().max(40).nullable().optional(),
   audioVoice: z.enum(["female", "male"]).nullable().optional(),
+  audioRate: z.number().refine(isRate).nullable().optional(),
 });
 
 export async function GET() {

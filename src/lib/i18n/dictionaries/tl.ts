@@ -450,6 +450,7 @@ export const tl: Dict = {
   "prayAlong.pause": "Ihinto sandali ang panalangin: {title}",
   "prayAlong.resume": "Ituloy ang panalangin: {title}",
   "prayAlong.stop": "Itigil ang panalangin: {title}",
+  "prayAlong.speed": "Bilis {rate}",
   "prayAlong.preparing": "Inihahanda ang audio ng {title}",
   "prayAlong.status.loading": "Inihahanda ang audio…",
   "prayAlong.status.playing": "Nananalangin.",

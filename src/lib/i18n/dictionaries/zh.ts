@@ -418,6 +418,7 @@ export const zh: Dict = {
   "prayAlong.pause": "暂停祈祷：{title}",
   "prayAlong.resume": "继续祈祷：{title}",
   "prayAlong.stop": "停止祈祷：{title}",
+  "prayAlong.speed": "播放速度 {rate}",
   "prayAlong.preparing": "正在准备{title}的音频",
   "prayAlong.status.loading": "正在准备音频…",
   "prayAlong.status.playing": "正在祈祷。",

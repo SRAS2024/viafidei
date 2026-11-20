@@ -9,10 +9,13 @@
  * silence playing meanwhile, and asked for again every few seconds.
  *
  * Nothing plays until a person presses a button (no autoplay). The lock screen and
- * headphone controls drive it through the Media Session API.
+ * headphone controls drive it through the Media Session API. Everything plays at the
+ * reader's speed (rate-store.ts), pitch kept.
  *
  * Browser only.
  */
+
+import { adoptAccountRate, getRate, rateChanges, subscribeRate } from "./rate-store";
 
 export type PrayAlongKind = "prayer" | "novena" | "rosary" | "guide";
 
@@ -47,6 +50,9 @@ type ManifestItem = { type: "clip"; url: string; ready: boolean } | { type: "pau
 interface Manifest {
   title: string;
   items: ManifestItem[];
+  /** The speed a signed-in member's account keeps (null when none, or signed out). */
+  rate?: number | null;
+  member?: boolean;
 }
 
 interface Session {
@@ -107,12 +113,26 @@ export function subscribePlayer(listener: (s: PlayerState) => void): () => void 
   };
 }
 
+/** Sets the element's speed; a new source starts at the default rate, so both are set. */
+function applyRate(el: HTMLAudioElement): void {
+  const rate = getRate();
+  el.defaultPlaybackRate = rate;
+  el.playbackRate = rate;
+}
+
 function element(): HTMLAudioElement {
   if (audio) return audio;
   audio = new Audio();
   audio.preload = "auto";
+  // A faster prayer keeps its voice: the pitch stays where it was.
+  audio.preservesPitch = true;
   audio.addEventListener("ended", onEnded);
   audio.addEventListener("error", onError);
+  applyRate(audio);
+  // A new speed takes hold at once, in the middle of a clip too.
+  subscribeRate(() => {
+    if (audio) applyRate(audio);
+  });
   return audio;
 }
 
@@ -174,6 +194,7 @@ function play(url: string, what: "clip" | "pause" | "wait"): void {
   const el = element();
   playing = what;
   el.src = url;
+  applyRate(el);
   void el.play().catch(() => {
     // A refused play (a browser that lost the press that allowed it) stops cleanly.
     if (session) finish("error");
@@ -292,14 +313,21 @@ export async function startPrayAlong(
   // now lets the prayer itself start once its playlist arrives.
   playing = "pause";
   el.src = silenceUrl(300);
+  applyRate(el);
   void el.play().catch(() => undefined);
   setState({ status: "loading", targetId: targetIdOf(target) });
+  const changesAtRequest = rateChanges();
   const manifest = await fetchManifest(target, opts.chosen);
   if (token !== tokens) return;
   if (typeof manifest === "string") {
     finish(manifest);
     return;
   }
+  // A member's saved speed follows them to this browser.
+  adoptAccountRate(
+    { member: manifest.member === true, rate: manifest.rate ?? null },
+    changesAtRequest,
+  );
   session = {
     token,
     target,
