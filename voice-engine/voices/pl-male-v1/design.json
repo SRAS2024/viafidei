@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/VoxCPM2-bf16",
+ "revision": "a7fb80d9056983135a54ca3f71fcc5a637ccddf5",
+ "description": "A warm, calm man in his forties with a gentle, resonant baritone voice. He is a native Polish speaker with a natural standard Polish accent. He prays aloud sincerely at a natural, unhurried conversational pace, with natural intonation, reverent but not slow and not theatrical.",
+ "seed": 1959543348,
+ "ref_text": "Chwała Ojcu i Synowi, i Duchowi Świętemu. Jak była na początku, teraz i zawsze, i na wieki wieków. Amen.",
+ "design": "d1s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Chwała Ojcu i Synowi i Duchowi Świętemu, jak była na początku, teraz i zawsze i na wieki wieków. Amen.",
+  "pace_ratio": 1.0549,
+  "f0_median_hz": 104.6,
+  "f0_spread_st": 1.47
+ },
+ "source_cell": "pl-male",
+ "bakeoff_candidate": "pl-male:voxcpm2:lock:pl-male-d1s1"
+}

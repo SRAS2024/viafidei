@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16",
+ "revision": "7d3824abff87e49756bb0f83fb5411de75d160c4",
+ "description": "A woman around thirty with a bright yet soft and warm voice, a native Brazilian Portuguese speaker with Brazilian (São Paulo) pronunciation and clear diction. Gentle, devout and natural, speaking at an ordinary relaxed pace with natural pitch movement.",
+ "seed": 1435073706,
+ "ref_text": "Glória ao Pai e ao Filho e ao Espírito Santo. Como era no princípio, agora e sempre. Amém.",
+ "design": "d3s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Glória ao Pai e ao Filho e ao Espírito Santo, como era no princípio, agora e sempre. Amém.",
+  "pace_ratio": 0.8099,
+  "f0_median_hz": 230.2,
+  "f0_spread_st": 3.29
+ },
+ "source_cell": "pt-female",
+ "bakeoff_candidate": "pt-female:qwen3-tts-1.7b-base:lock:pt-female-d3s1"
+}

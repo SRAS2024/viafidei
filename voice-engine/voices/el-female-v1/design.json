@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/VoxCPM2-bf16",
+ "revision": "a7fb80d9056983135a54ca3f71fcc5a637ccddf5",
+ "description": "A kind, motherly woman in her fifties with a warm, slightly low, smooth voice, speaking Greek as her native language with a standard Athenian Greek accent. Calm, peaceful and heartfelt, like leading a prayer in a quiet church, with natural human rhythm and phrasing at a normal speaking speed.",
+ "seed": 1863879849,
+ "ref_text": "Δόξα Πατρί και Υιώ και Αγίω Πνεύματι, και νυν και αεί και εις τους αιώνας των αιώνων. Αμήν.",
+ "design": "d2s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Δόξα Πατρί και Υιό και Αγίο Πνεύματι, και νυν και αΐ και εις τους αιώνας των αιώνων. Αμήν.",
+  "pace_ratio": 0.8911,
+  "f0_median_hz": 188.2,
+  "f0_spread_st": 3.17
+ },
+ "source_cell": "el-female",
+ "bakeoff_candidate": "el-female:voxcpm2:lock:el-female-d2s1"
+}

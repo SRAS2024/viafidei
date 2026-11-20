@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16",
+ "revision": "7d3824abff87e49756bb0f83fb5411de75d160c4",
+ "description": "A warm, friendly man in his thirties or forties with a clear, natural baritone voice, a native Mandarin Chinese speaker with a standard Putonghua accent. He says a short prayer aloud the way people say it together in church every day: fluent and flowing, at a normal conversational speed, warm and sincere, without dragging and without dramatic pauses.",
+ "seed": 1127729106,
+ "ref_text": "愿光荣归于父，及子，及圣神，起初如何，今日亦然，直到永远。阿们。",
+ "design": "d4s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "愿光荣归于父及子及圣神,起初如何,今日亦然,直到永远。阿们。",
+  "pace_ratio": 0.7799,
+  "f0_median_hz": 111.9,
+  "f0_spread_st": 3.86
+ },
+ "source_cell": "zh-male",
+ "bakeoff_candidate": "zh-male:qwen3-tts-1.7b-base:lock:zh-male-d4s1"
+}

@@ -59,8 +59,13 @@ refuse_loopback
 case "$MODE" in
   engine)
     PY="$(python_for_engine)"
-    # Keep the Mac awake while the engine works (released when it exits).
-    exec /usr/bin/caffeinate -i "$PY" "$PROJECT_DIR/voice-engine/worker.py" "$@"
+    # The engine works whenever the Mac is awake. VIAFIDEI_VOICE_KEEP_AWAKE=1 also keeps
+    # it from idle sleep while the engine runs (for a long first pass); off by default, so
+    # a login item never holds the Mac awake for good.
+    if [ "${VIAFIDEI_VOICE_KEEP_AWAKE:-0}" = "1" ]; then
+      exec /usr/bin/caffeinate -i "$PY" "$PROJECT_DIR/voice-engine/worker.py" "$@"
+    fi
+    exec "$PY" "$PROJECT_DIR/voice-engine/worker.py" "$@"
     ;;
   plan)
     exec "$PROJECT_DIR/node_modules/.bin/tsx" "$PROJECT_DIR/scripts/pray-along-plan.ts" "$@"

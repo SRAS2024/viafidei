@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/VoxCPM2-bf16",
+ "revision": "a7fb80d9056983135a54ca3f71fcc5a637ccddf5",
+ "description": "A warm, friendly woman in her thirties or forties with a clear, natural, mid-pitched voice, a native Vietnamese speaker with a Northern Hanoi Vietnamese accent. She says a short prayer aloud the way people say it together in church every day: fluent and flowing, at a normal conversational speed, warm and sincere, without dragging and without dramatic pauses.",
+ "seed": 1157523495,
+ "ref_text": "Sáng danh Đức Chúa Cha, và Đức Chúa Con, và Đức Chúa Thánh Thần. Như đã có trước vô cùng, và bây giờ, và hằng có, và đời đời chẳng cùng. Amen.",
+ "design": "d4s1",
+ "design_qa": {
+  "cer": 0.0224,
+  "transcript": "Sáng đen Đức Chúa Cha và Đức Chúa Con và Đức Chúa Thánh Thần Như đã có trước vô cùng và bây giờ và hằng có và đời đời chẳng cùng. AMEN",
+  "pace_ratio": 0.8396,
+  "f0_median_hz": 202.5,
+  "f0_spread_st": 2.56
+ },
+ "source_cell": "vi-female",
+ "bakeoff_candidate": "vi-female:voxcpm2:lock:vi-female-d4s1"
+}

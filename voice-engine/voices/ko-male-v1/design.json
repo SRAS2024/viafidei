@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16",
+ "revision": "7d3824abff87e49756bb0f83fb5411de75d160c4",
+ "description": "A warm, friendly man in his thirties or forties with a clear, natural baritone voice, a native Korean speaker with a standard Seoul Korean accent. He says a short prayer aloud the way people say it together in church every day: fluent and flowing, at a normal conversational speed, warm and sincere, without dragging and without dramatic pauses.",
+ "seed": 1844198112,
+ "ref_text": "영광이 성부와 성자와 성령께, 처음과 같이 이제와 항상 영원히. 아멘.",
+ "design": "d4s1",
+ "design_qa": {
+  "cer": 0.037,
+  "transcript": "영광히 성부와 성자와 성령께, 처음과 같이 이제와 항상 영원히. 아멘.",
+  "pace_ratio": 0.8732,
+  "f0_median_hz": 149.5,
+  "f0_spread_st": 3.91
+ },
+ "source_cell": "ko-male",
+ "bakeoff_candidate": "ko-male:qwen3-tts-1.7b-base:lock:ko-male-d4s1"
+}

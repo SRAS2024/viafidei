@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16",
+ "revision": "7d3824abff87e49756bb0f83fb5411de75d160c4",
+ "description": "A kind, motherly woman in her fifties with a warm, slightly low, smooth voice, speaking Italian as her native language with a standard Italian accent. Calm, peaceful and heartfelt, like leading a prayer in a quiet church, with natural human rhythm and phrasing at a normal speaking speed.",
+ "seed": 1890812948,
+ "ref_text": "Gloria al Padre e al Figlio e allo Spirito Santo. Come era nel principio, e ora e sempre, nei secoli dei secoli. Amen.",
+ "design": "d2s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Gloria al Padre e al Figlio e allo Spirito Santo, come era nel principio e ora è sempre nei secoli dei secoli. Amen.",
+  "pace_ratio": 0.7751,
+  "f0_median_hz": 200.0,
+  "f0_spread_st": 3.1
+ },
+ "source_cell": "it-female",
+ "bakeoff_candidate": "it-female:qwen3-tts-1.7b-base:lock:it-female-d2s1"
+}

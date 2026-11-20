@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/VoxCPM2-bf16",
+ "revision": "a7fb80d9056983135a54ca3f71fcc5a637ccddf5",
+ "description": "A native Filipino speaker: a calm adult man with a pleasant, warm, low-mid voice and Manila Tagalog pronunciation. Natural, fluent everyday speech at a normal speed, gentle and kind, with clear diction and no theatrical emphasis.",
+ "seed": 631046532,
+ "ref_text": "Luwalhati sa Ama, at sa Anak, at sa Espiritu Santo. Kapara noong unang-una, ngayon at magpakailanman, at magpasawalang hanggan. Amen.",
+ "design": "d5s1",
+ "design_qa": {
+  "cer": 0.0238,
+  "transcript": "Luwalhati sa Ama at sa Anak at sa Espiritu Santo, kaparano ang unang-una, ngayon at magpakailanman at magpasawalang hanggan. Amen.",
+  "pace_ratio": 0.8957,
+  "f0_median_hz": 106.0,
+  "f0_spread_st": 4.08
+ },
+ "source_cell": "tl-male",
+ "bakeoff_candidate": "tl-male:voxcpm2:lock:tl-male-d5s1"
+}

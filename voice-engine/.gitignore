@@ -1,0 +1,6 @@
+# The engine's own virtualenv, caches and working files never go into git.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+var/

@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16",
+ "revision": "7d3824abff87e49756bb0f83fb5411de75d160c4",
+ "description": "A warm, friendly woman in her thirties or forties with a clear, natural, mid-pitched voice, a native German speaker with a standard High German accent. She says a short prayer aloud the way people say it together in church every day: fluent and flowing, at a normal conversational speed, warm and sincere, without dragging and without dramatic pauses.",
+ "seed": 669729430,
+ "ref_text": "Ehre sei dem Vater und dem Sohn und dem Heiligen Geist, wie im Anfang, so auch jetzt und alle Zeit und in Ewigkeit. Amen.",
+ "design": "d4s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Ehre sei dem Vater und dem Sohn und dem Heiligen Geist wie im Anfang, so auch jetzt und alle Zeit und in Ewigkeit. Amen.",
+  "pace_ratio": 0.9301,
+  "f0_median_hz": 225.4,
+  "f0_spread_st": 2.9
+ },
+ "source_cell": "de-female",
+ "bakeoff_candidate": "de-female:qwen3-tts-1.7b-base:lock:de-female-d4s1"
+}

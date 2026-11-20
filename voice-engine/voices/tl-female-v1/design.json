@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/VoxCPM2-bf16",
+ "revision": "a7fb80d9056983135a54ca3f71fcc5a637ccddf5",
+ "description": "A woman around thirty with a bright yet soft and warm voice, a native Filipino speaker with Manila Tagalog pronunciation and clear diction. Gentle, devout and natural, speaking at an ordinary relaxed pace with natural pitch movement.",
+ "seed": 1257850492,
+ "ref_text": "Luwalhati sa Ama, at sa Anak, at sa Espiritu Santo. Kapara noong unang-una, ngayon at magpakailanman, at magpasawalang hanggan. Amen.",
+ "design": "d3s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Luwalhati sa Ama at sa Anak at sa Espiritu Santo, kapara noong unang una, ngayon at magpakailanman, at magpasawalang hanggan. Amen.",
+  "pace_ratio": 0.8567,
+  "f0_median_hz": 192.8,
+  "f0_spread_st": 2.44
+ },
+ "source_cell": "tl-female",
+ "bakeoff_candidate": "tl-female:voxcpm2:lock:tl-female-d3s1"
+}

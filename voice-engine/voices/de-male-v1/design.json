@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16",
+ "revision": "7d3824abff87e49756bb0f83fb5411de75d160c4",
+ "description": "A warm, calm man in his forties with a gentle, resonant baritone voice. He is a native German speaker with a natural standard High German accent. He prays aloud sincerely at a natural, unhurried conversational pace, with natural intonation, reverent but not slow and not theatrical.",
+ "seed": 29594639,
+ "ref_text": "Ehre sei dem Vater und dem Sohn und dem Heiligen Geist, wie im Anfang, so auch jetzt und alle Zeit und in Ewigkeit. Amen.",
+ "design": "d1s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Ehre sei dem Vater und dem Sohn und dem Heiligen Geist, wie im Anfang, so auch jetzt und alle Zeit und in Ewigkeit. Amen.",
+  "pace_ratio": 0.7291,
+  "f0_median_hz": 108.1,
+  "f0_spread_st": 3.88
+ },
+ "source_cell": "de-male",
+ "bakeoff_candidate": "de-male:qwen3-tts-1.7b-base:lock:de-male-d1s1"
+}

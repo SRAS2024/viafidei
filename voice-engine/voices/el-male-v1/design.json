@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/VoxCPM2-bf16",
+ "revision": "a7fb80d9056983135a54ca3f71fcc5a637ccddf5",
+ "description": "A warm, calm man in his forties with a gentle, resonant baritone voice. He is a native Greek speaker with a natural standard Athenian Greek accent. He prays aloud sincerely at a natural, unhurried conversational pace, with natural intonation, reverent but not slow and not theatrical.",
+ "seed": 804276931,
+ "ref_text": "Δόξα Πατρί και Υιώ και Αγίω Πνεύματι, και νυν και αεί και εις τους αιώνας των αιώνων. Αμήν.",
+ "design": "d1s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Δόξα Πατρί και Υιό και Αγίο Πνεύματι, και νυν και αΐ και εις τους αιώνας των αιώνων. Αμήν.",
+  "pace_ratio": 0.9451,
+  "f0_median_hz": 108.1,
+  "f0_spread_st": 2.26
+ },
+ "source_cell": "el-male",
+ "bakeoff_candidate": "el-male:voxcpm2:lock:el-male-d1s1"
+}

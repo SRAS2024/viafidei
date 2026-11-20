@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16",
+ "revision": "7d3824abff87e49756bb0f83fb5411de75d160c4",
+ "description": "A warm, gentle woman in her forties with a soft, clear, mid-pitched voice. She is a native French speaker with a natural standard Parisian French accent. She prays aloud calmly and sincerely at a natural, unhurried conversational pace, with gentle natural intonation, reverent but not slow and not theatrical.",
+ "seed": 1651525160,
+ "ref_text": "Gloire au Père, et au Fils, et au Saint-Esprit, comme il était au commencement, maintenant et toujours, et pour les siècles des siècles. Amen.",
+ "design": "d1s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Gloire au Père et au Fils et au Saint-Esprit, comme il était au commencement, maintenant et toujours, et pour les siècles des siècles. Amen.",
+  "pace_ratio": 0.6875,
+  "f0_median_hz": 202.5,
+  "f0_spread_st": 2.88
+ },
+ "source_cell": "fr-female",
+ "bakeoff_candidate": "fr-female:qwen3-tts-1.7b-base:lock:fr-female-d1s1"
+}

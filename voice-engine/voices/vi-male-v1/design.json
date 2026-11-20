@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/VoxCPM2-bf16",
+ "revision": "a7fb80d9056983135a54ca3f71fcc5a637ccddf5",
+ "description": "A native Vietnamese speaker: a calm adult man with a pleasant, warm, low-mid voice and Northern Hanoi Vietnamese pronunciation. Natural, fluent everyday speech at a normal speed, gentle and kind, with clear diction and no theatrical emphasis.",
+ "seed": 1393266322,
+ "ref_text": "Sáng danh Đức Chúa Cha, và Đức Chúa Con, và Đức Chúa Thánh Thần. Như đã có trước vô cùng, và bây giờ, và hằng có, và đời đời chẳng cùng. Amen.",
+ "design": "d5s1",
+ "design_qa": {
+  "cer": 0.0075,
+  "transcript": "Sáng danh Đức Chúa Cha Và Đức Chúa Con Và Đức Chúa Thánh Thần Như đã có trước vô cùng Và bây giờ Và hàng có Và đời đời chẳng cùng AMEN",
+  "pace_ratio": 0.7422,
+  "f0_median_hz": 104.6,
+  "f0_spread_st": 3.3
+ },
+ "source_cell": "vi-male",
+ "bakeoff_candidate": "vi-male:voxcpm2:lock:vi-male-d5s1"
+}

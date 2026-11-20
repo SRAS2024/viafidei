@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16",
+ "revision": "7d3824abff87e49756bb0f83fb5411de75d160c4",
+ "description": "A warm, gentle woman in her forties with a soft, clear, mid-pitched voice. She is a native English speaker with a natural General American accent. She prays aloud calmly and sincerely at a natural, unhurried conversational pace, with gentle natural intonation, reverent but not slow and not theatrical.",
+ "seed": 1404932518,
+ "ref_text": "Glory be to the Father, and to the Son, and to the Holy Spirit, as it was in the beginning, is now, and ever shall be, world without end. Amen.",
+ "design": "d1s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Glory be to the Father and to the Son and to the Holy Spirit, as it was in the beginning, is now and ever shall be, world without end. Amen.",
+  "pace_ratio": 0.8705,
+  "f0_median_hz": 205.1,
+  "f0_spread_st": 2.02
+ },
+ "source_cell": "en-female",
+ "bakeoff_candidate": "en-female:qwen3-tts-1.7b-base:lock:en-female-d1s1"
+}

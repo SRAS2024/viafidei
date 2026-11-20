@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16",
+ "revision": "7d3824abff87e49756bb0f83fb5411de75d160c4",
+ "description": "A man around thirty-five with a clear, warm, mid-low voice, a native Spanish speaker with neutral Latin American (Mexican) pronunciation and clear diction. Gentle and devout, speaking at an ordinary relaxed pace with natural pitch movement.",
+ "seed": 869694104,
+ "ref_text": "Gloria al Padre, y al Hijo, y al Espíritu Santo. Como era en el principio, ahora y siempre, por los siglos de los siglos. Amén.",
+ "design": "d3s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Gloria al Padre, y al Hijo, y al Espíritu Santo, como era en el principio, ahora y siempre, por los siglos de los siglos. Amén.",
+  "pace_ratio": 0.7392,
+  "f0_median_hz": 104.6,
+  "f0_spread_st": 3.37
+ },
+ "source_cell": "es-male",
+ "bakeoff_candidate": "es-male:qwen3-tts-1.7b-base:lock:es-male-d3s1"
+}

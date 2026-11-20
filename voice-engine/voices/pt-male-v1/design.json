@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16",
+ "revision": "7d3824abff87e49756bb0f83fb5411de75d160c4",
+ "description": "A native Brazilian Portuguese speaker: a calm adult man with a pleasant, warm, low-mid voice and Brazilian (São Paulo) pronunciation. Natural, fluent everyday speech at a normal speed, gentle and kind, with clear diction and no theatrical emphasis.",
+ "seed": 2134744941,
+ "ref_text": "Glória ao Pai e ao Filho e ao Espírito Santo. Como era no princípio, agora e sempre. Amém.",
+ "design": "d5s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Glória ao Pai e ao Filho e ao Espírito Santo, como era no princípio, agora e sempre. Amém.",
+  "pace_ratio": 0.8408,
+  "f0_median_hz": 105.3,
+  "f0_spread_st": 3.06
+ },
+ "source_cell": "pt-male",
+ "bakeoff_candidate": "pt-male:qwen3-tts-1.7b-base:lock:pt-male-d5s1"
+}

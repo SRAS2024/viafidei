@@ -1,0 +1,17 @@
+{
+ "model": "mlx-community/VoxCPM2-bf16",
+ "revision": "a7fb80d9056983135a54ca3f71fcc5a637ccddf5",
+ "description": "A warm, gentle woman in her forties with a soft, clear, mid-pitched voice. She is a native Polish speaker with a natural standard Polish accent. She prays aloud calmly and sincerely at a natural, unhurried conversational pace, with gentle natural intonation, reverent but not slow and not theatrical.",
+ "seed": 215375040,
+ "ref_text": "Chwała Ojcu i Synowi, i Duchowi Świętemu. Jak była na początku, teraz i zawsze, i na wieki wieków. Amen.",
+ "design": "d1s1",
+ "design_qa": {
+  "cer": 0.0,
+  "transcript": "Chwała Ojcu i Synowi i Duchowi Świętemu, jak była na początku, teraz i zawsze i na wieki wieków. Amen.",
+  "pace_ratio": 0.9568,
+  "f0_median_hz": 168.4,
+  "f0_spread_st": 1.67
+ },
+ "source_cell": "pl-female",
+ "bakeoff_candidate": "pl-female:voxcpm2:lock:pl-female-d1s1"
+}
