@@ -161,6 +161,7 @@ function writePrayer(
     lang: text.lang,
     english: text.english,
     prayers: [...ctx.prayers.values()],
+    self: slug,
   });
   for (let i = 0; i < count; i++) {
     w.pause(PRAYER_PAUSE_MS);
@@ -234,26 +235,68 @@ export interface ShownText {
 }
 
 /**
+ * The pages that set out a set of the Rosary's mysteries pray the whole Rosary on that
+ * set (the owner's rule: the Rosary is prayed through in full).
+ */
+const ROSARY_PAGES: Readonly<Record<string, MysterySetKey>> = {
+  "joyful-mysteries": "joyful",
+  "sorrowful-mysteries": "sorrowful",
+  "glorious-mysteries": "glorious",
+  "luminous-mysteries": "luminous",
+};
+
+/**
+ * The text's own Sign of the Cross at its very start or end ("Make the Sign of the
+ * Cross and say:") is the one the audio opens or closes with, so it is not said twice.
+ */
+function withoutEndSigns(steps: readonly SpokenStep[]): SpokenStep[] {
+  const out = [...steps];
+  const trim = (i: number) => {
+    const s = out[i];
+    if (!s || s.kind !== "prayer" || s.slug !== "sign-of-the-cross") return false;
+    if (s.count > 1) out[i] = { ...s, count: s.count - 1 };
+    else out.splice(i, 1);
+    return true;
+  };
+  const firstReal = () => out.findIndex((s) => s.kind !== "pause");
+  const lastReal = () => {
+    for (let i = out.length - 1; i >= 0; i--) if (out[i]!.kind !== "pause") return i;
+    return -1;
+  };
+  const f = firstReal();
+  if (f >= 0) trim(f);
+  const l = lastReal();
+  if (l >= 0 && out.some((s) => s.kind !== "pause")) trim(l);
+  return out;
+}
+
+/**
  * A prayer page: the Sign of the Cross, the prayer as shown (every prayer it names
- * prayed in full), the Sign of the Cross. The Sign of the Cross's own page says it once.
+ * prayed in full), the Sign of the Cross. The Sign of the Cross's own page says it once;
+ * a page that sets out a set of the Rosary's mysteries prays that Rosary.
  */
 export function prayerScript(slug: string, shown: ShownText, ctx: ScriptContext): PrayAlongScript {
+  const rosarySet = ROSARY_PAGES[slug];
+  if (rosarySet) return rosaryScript(rosarySet, ctx);
   // The chaplet's own page holds its instructions with its prayers: it prays the chaplet.
   const chaplet = /\bbeads?\b|\bdecades?\b/i.test(shown.english ?? shown.text)
     ? divineMercyPrayers(shown)
     : null;
   if (chaplet) return divineMercyScript(chaplet, ctx);
-  const steps = spokenSteps(shown.text, {
+  const spoken = spokenSteps(shown.text, {
     lang: shown.lang,
     english: shown.english,
     prayers: [...ctx.prayers.values()],
+    page: `prayer:${slug}`,
+    self: slug,
   });
   const within = new Set([slug]);
   if (slug === "sign-of-the-cross") {
     const w = new ScriptWriter();
-    writeSteps(w, steps, ctx, 0, within);
+    writeSteps(w, spoken, ctx, 0, within);
     return w.finish(shown.lang);
   }
+  const steps = withoutEndSigns(spoken);
   return wrapInSign(
     (w) => writeSteps(w, steps, ctx, 0, within),
     shown.lang,
@@ -375,20 +418,49 @@ export function divineMercyScript(prayers: ChapletPrayers, ctx: ScriptContext): 
   return wrapInSign((w) => writeDivineMercyChaplet(w, prayers, ctx), lang, null, null);
 }
 
+/** Which novena day is being prayed, for the few texts that need it. */
+export interface NovenaDayOptions {
+  /** The page ("novena:<slug>:<day>"), for the texts a general rule cannot read. */
+  page?: string;
+  /** A Rosary novena's day: the day's prayer, then the Rosary on this set. */
+  rosary?: MysterySetKey;
+}
+
 /**
  * One day of a novena: the Sign of the Cross, the day's prayer as shown (its named
  * prayers prayed in full, its "(Thrice.)" said three times), the Sign of the Cross. A
- * day that only says how to pray the Chaplet of the Divine Mercy prays the chaplet.
+ * day that only says how to pray the Chaplet of the Divine Mercy prays the chaplet; a
+ * day of a Rosary novena prays its prayer and then that day's Rosary.
  */
-export function novenaDayScript(shown: ShownText, ctx: ScriptContext): PrayAlongScript {
+export function novenaDayScript(
+  shown: ShownText,
+  ctx: ScriptContext,
+  day: NovenaDayOptions = {},
+): PrayAlongScript {
   const lang = signLang(ctx, shown.lang);
   const chaplet = divineMercyPrayers(shown);
   if (chaplet) return divineMercyScript(chaplet, ctx);
-  const steps = spokenSteps(shown.text, {
-    lang: shown.lang,
-    english: shown.english,
-    prayers: [...ctx.prayers.values()],
-  });
+  const steps = withoutEndSigns(
+    spokenSteps(shown.text, {
+      lang: shown.lang,
+      english: shown.english,
+      prayers: [...ctx.prayers.values()],
+      page: day.page,
+    }),
+  );
+  const rosary = day.rosary;
+  if (rosary) {
+    return wrapInSign(
+      (w) => {
+        writeSteps(w, steps, ctx, 0, new Set());
+        w.pause(PRAYER_PAUSE_MS);
+        writeRosary(w, rosary, ctx);
+      },
+      signLang(ctx, rosaryLang(ctx)),
+      firstSaid(steps),
+      null,
+    );
+  }
   return wrapInSign(
     (w) => writeSteps(w, steps, ctx, 0, new Set()),
     lang,

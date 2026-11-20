@@ -22,6 +22,7 @@ import { localizeItem, localizePrayers } from "@/lib/translation/localize";
 
 import { toAudioLang, type AudioLang } from "./languages";
 import guidePlans from "./guide-plans.json";
+import { namedPrayerSlugsIn } from "./speech-text";
 import {
   divineMercyPrayers,
   divineMercyScript,
@@ -129,10 +130,11 @@ export async function scriptForPrayer(
   const englishText = resolvePrayerLanguage(storedVariants, null).vernacular?.text;
   const english = shown === vernacular && lang !== "en" ? englishText : undefined;
   const blocks = await loadPrayerSet(BUILDING_BLOCK_PRAYERS);
+  const named = await loadNamedInText([englishText ?? "", shown.text]);
   const ctx: ScriptContext = {
     pageLang: lang,
     chosen: choice,
-    prayers: await prayerSources(blocks, slug, locale),
+    prayers: await prayerSources(mergePrayers(blocks, named), slug, locale),
   };
   return {
     title: displayItem(prayer).title,
@@ -160,22 +162,46 @@ export async function scriptForNovenaDay(
   const translated = shownRaw !== englishRaw;
   const lang: AudioLang = translated ? pageLang : "en";
   const dayTexts = storedDays.map(dayBody).filter((t): t is string => !!t);
-  const [{ prayers: named }, blocks] = await Promise.all([
+  const [{ prayers: named }, blocks, inText] = await Promise.all([
     loadPrayersForText(stored.payload.relatedPrayers, dayTexts, { matchCase: true }),
     loadPrayerSet(BUILDING_BLOCK_PRAYERS),
+    loadNamedInText([englishRaw]),
   ]);
   const ctx: ScriptContext = {
     pageLang: lang,
     chosen: effectiveChoice(chosen, pageLang),
-    prayers: await prayerSources(mergePrayers(named, blocks), undefined, locale),
+    prayers: await prayerSources(mergePrayers(named, blocks, inText), undefined, locale),
   };
+  const storedTitle = dayTitle(storedDays[dayIndex], dayIndex);
   return {
     title: dayTitle(shownDays[dayIndex] ?? storedDays[dayIndex], dayIndex),
     script: novenaDayScript(
       { text: shownRaw, lang, english: translated ? englishRaw : undefined },
       ctx,
+      { page: `novena:${slug}:${dayIndex + 1}`, rosary: rosaryNovenaSet(slug, storedTitle) },
     ),
   };
+}
+
+/**
+ * The prayers beyond the building blocks that a text tells the reader to pray by name
+ * ("Litany of Loreto.", "Magnificat.", "Veni Creator, etc."), so they are prayed in full.
+ */
+async function loadNamedInText(texts: readonly string[]): Promise<PrayerWithVariants[]> {
+  const slugs = [...new Set(texts.flatMap((t) => namedPrayerSlugsIn(t)))].filter(
+    (s) => !BUILDING_BLOCK_PRAYERS.includes(s),
+  );
+  return slugs.length > 0 ? loadPrayerSet(slugs) : [];
+}
+
+/**
+ * A day of a Rosary novena prays that day's Rosary: the set its stored title names
+ * ("The Joyful Mysteries: A Crown of Snow-White Buds").
+ */
+export function rosaryNovenaSet(slug: string, dayTitle: string): MysterySetKey | undefined {
+  if (!/\brosary\b/i.test(slug)) return undefined;
+  const m = /\b(Joyful|Sorrowful|Glorious|Luminous)\s+Mysteries\b/i.exec(dayTitle);
+  return m ? (m[1]!.toLowerCase() as MysterySetKey) : undefined;
 }
 
 /** The prayers the Rosary is made of. */
