@@ -40,7 +40,7 @@ signed-out visitors and members who never chose hear the female voice.
 ## Where the audio comes from
 
 The web server never runs a model. Every clip is identified by a hash of the voice, the
-language and the exact words (`voices.ts`), stored in `PrayerAudioClip` (migration 0086)
+language and the exact words (`voices.ts`), stored in `PrayerAudioClip` (migration 0087)
 and served by `/api/pray-along/clip/<key>` (byte ranges for Safari, cached for good).
 
 1. A press asks `/api/pray-along` for the playlist. Clips not made yet are filed
