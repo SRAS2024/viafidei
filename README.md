@@ -830,7 +830,8 @@ npm run worker:local   # the worker loop alone, on this machine
 ### The retained Railway worker service
 
 The Railway worker service is **kept, not deleted** — `Dockerfile.worker` and
-`railway.worker.json` still build and deploy, and the image still contains
+its settings in [`.railway/railway.ts`](.railway/railway.ts) still build and
+deploy it, and the image still contains
 everything a cloud worker would need (Node, tsx, the Prisma client, Python 3.11
 for the brain, Chromium for the dynamic fetcher) so the service stays genuinely
 recoverable. What changed is what it _runs_: `scripts/worker-service-parked.sh`
@@ -7161,8 +7162,9 @@ failure, not something an unauthenticated request quietly fixes.
 
 ## Deploy path
 
-`railway.json` → `Dockerfile` → [`scripts/start.sh`](scripts/start.sh), and each
-step of that chain is load-bearing:
+[`.railway/railway.ts`](.railway/railway.ts) → `Dockerfile` →
+[`scripts/start.sh`](scripts/start.sh), and each step of that chain is
+load-bearing:
 
 1. **Wait for the database** (up to 60 s).
 2. **`prisma migrate deploy`**, via
@@ -7176,6 +7178,10 @@ step of that chain is load-bearing:
    actually needs. It deliberately does **not** require the optional search
    column or index to exist.
 4. **`exec`** the Next standalone server.
+
+Railway never reads `.railway/railway.ts` during a deploy: `railway config
+apply` copies its settings onto the services, and each deploy uses those. See
+[`.railway/README.md`](.railway/README.md) before changing a setting.
 
 The Admin Worker is not part of this path: the app is installed on the
 operator's Mac by `bash scripts/desktop-app/install.sh` and runs the worker from

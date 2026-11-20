@@ -15,7 +15,7 @@
 # It parks on `sleep`, which holds a few hundred KB of RSS and zero CPU. This is
 # the mechanism that makes the footprint negligible: Railway's config schema
 # requires numReplicas >= 1, so the service cannot be scaled to zero from
-# railway.worker.json. `deploy.sleepApplication: true` additionally asks Railway
+# .railway/railway.ts. `deploy.sleepApplication: true` additionally asks Railway
 # to sleep the idle service.
 #
 # To deliberately restore cloud execution in the future (there is no automatic
@@ -23,7 +23,8 @@
 #
 #   npm run worker -- --force-remote-execution "reason for the change"
 #
-# and ALSO set `deploy.sleepApplication` to false in railway.worker.json first:
+# and ALSO set `deploy.sleepApplication` to false in .railway/railway.ts first
+# (then plan and apply it: see .railway/README.md):
 # a worker service receives no inbound traffic, so with app-sleep enabled a
 # restored worker would be slept during any idle or backoff window and nothing
 # would ever wake it.

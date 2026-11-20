@@ -1,0 +1,9 @@
+{
+  "name": "viafidei-railway-config",
+  "private": true,
+  "description": "Railway's TypeScript SDK, needed only to plan or apply .railway/railway.ts. Kept apart from the app's own dependencies: the app never imports it and no image build installs it.",
+  "type": "module",
+  "devDependencies": {
+    "railway": "3.17.0"
+  }
+}

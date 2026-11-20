@@ -39,3 +39,7 @@ TESTING.md
 
 # The voice engine runs on the worker host, never in the web image.
 voice-engine
+
+# Railway's settings (.railway/railway.ts) are applied with the Railway CLI;
+# no build reads them.
+.railway

@@ -1,7 +1,7 @@
 /**
  * Deploy-safety rules for migrations, enforced on the files themselves.
  *
- * The deploy path is load-bearing: railway.json → Dockerfile → scripts/start.sh,
+ * The deploy path is load-bearing: .railway/railway.ts → Dockerfile → scripts/start.sh,
  * which runs `prisma migrate deploy` and EXITS NON-ZERO on failure. A migration
  * that errors does not just fail the deploy — the same start.sh is the start
  * command for every restart, so the container cannot boot afterwards.

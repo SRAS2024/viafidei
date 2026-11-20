@@ -2,12 +2,17 @@
  * The Railway worker service must stay DEPLOYABLE while consuming essentially
  * no compute (spec §6, acceptance §30.4 and §30.39).
  *
- * These are offline invariants on the deploy configuration itself. They exist
- * because a plausible-looking value can silently break a deploy: Railway's
- * schema requires `deploy.numReplicas >= 1`, so the obvious way to express
- * "run nothing" — numReplicas: 0 — is rejected, and the service would not
- * deploy at all. The parked start command is what actually guarantees the
- * near-zero footprint.
+ * These are offline invariants on the deploy configuration itself, which lives
+ * in .railway/railway.ts (Railway's Infrastructure as Code; it replaced
+ * railway.json and railway.worker.json). They exist because a plausible-looking
+ * value can silently break a deploy: Railway's schema requires
+ * `deploy.numReplicas >= 1`, so the obvious way to express "run nothing" —
+ * numReplicas: 0 — is rejected, and the service would not deploy at all. The
+ * parked start command is what actually guarantees the near-zero footprint.
+ *
+ * The file is read as text. It is plain object literals, so matching braces is
+ * enough, and the test needs no copy of Railway's SDK (that lives in
+ * .railway/node_modules, which the app's own install never creates).
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -15,27 +20,45 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = process.cwd();
-const workerConfig = JSON.parse(readFileSync(path.join(ROOT, "railway.worker.json"), "utf8")) as {
-  build?: { builder?: string; dockerfilePath?: string };
-  deploy?: Record<string, unknown>;
-};
-const webConfig = JSON.parse(readFileSync(path.join(ROOT, "railway.json"), "utf8")) as {
-  deploy?: Record<string, unknown>;
-};
+const IAC = readFileSync(path.join(ROOT, ".railway", "railway.ts"), "utf8");
+/** The file without its whole-line comments, so prose is never read as config. */
+const CODE = IAC.replace(/^\s*\/\/.*$/gm, "");
 
-/** Mirrors https://backboard.railway.app/railway.schema.json (deploy section). */
+/** The `{ ... }` passed to `service("<name>", ...)`. */
+function serviceBlock(name: string): string {
+  const start = CODE.indexOf(`service(${JSON.stringify(name)},`);
+  if (start < 0) throw new Error(`.railway/railway.ts declares no service ${name}`);
+  const open = CODE.indexOf("{", start);
+  let depth = 0;
+  for (let i = open; i < CODE.length; i++) {
+    if (CODE[i] === "{") depth++;
+    if (CODE[i] === "}" && --depth === 0) return CODE.slice(open, i + 1);
+  }
+  throw new Error(`service ${name} in .railway/railway.ts has unbalanced braces`);
+}
+
+/** The literal (string, number or boolean) written after `key:` in a block. */
+function setting(block: string, key: string): string | number | boolean | undefined {
+  const match = block.match(new RegExp(`\\b${key}:\\s*("(?:[^"\\\\]|\\\\.)*"|-?\\d+|true|false)`));
+  return match ? (JSON.parse(match[1]) as string | number | boolean) : undefined;
+}
+
+const worker = serviceBlock("joyful-upliftment");
+const web = serviceBlock("viafidei");
+
+/** Mirrors Railway's DeployConfig restartPolicyType. */
 const RESTART_POLICIES = new Set(["ON_FAILURE", "ALWAYS", "NEVER"]);
 
 describe("Railway worker service — retained but parked", () => {
   it("is still a buildable Dockerfile service", () => {
-    expect(workerConfig.build?.builder).toBe("DOCKERFILE");
-    const dockerfile = workerConfig.build?.dockerfilePath ?? "";
+    expect(setting(worker, "builder")).toBe("DOCKERFILE");
+    const dockerfile = String(setting(worker, "dockerfilePath") ?? "");
     expect(dockerfile).toBe("Dockerfile.worker");
     expect(existsSync(path.join(ROOT, dockerfile))).toBe(true);
   });
 
   it("starts the parked entrypoint, not the worker", () => {
-    const start = String(workerConfig.deploy?.startCommand ?? "");
+    const start = String(setting(worker, "startCommand") ?? "");
     expect(start).toContain("scripts/worker-service-parked.sh");
     expect(start).not.toMatch(/run-worker|npm run worker/);
     expect(existsSync(path.join(ROOT, "scripts/worker-service-parked.sh"))).toBe(true);
@@ -43,25 +66,30 @@ describe("Railway worker service — retained but parked", () => {
 
   it("uses only values Railway's schema accepts", () => {
     // numReplicas: 0 is INVALID (schema minimum is 1) — expressing "run nothing"
-    // that way would break the deploy, so it must be absent entirely.
-    const replicas = workerConfig.deploy?.numReplicas;
-    expect(replicas === undefined || (typeof replicas === "number" && replicas >= 1)).toBe(true);
+    // that way would break the deploy, so it must be absent entirely. The SDK's
+    // `replicas` shorthand sets the same number.
+    for (const key of ["numReplicas", "replicas"]) {
+      const replicas = setting(worker, key);
+      expect(replicas === undefined || (typeof replicas === "number" && replicas >= 1)).toBe(true);
+    }
 
-    const policy = workerConfig.deploy?.restartPolicyType;
+    const policy = setting(worker, "restartPolicyType");
     if (policy !== undefined) expect(RESTART_POLICIES.has(String(policy))).toBe(true);
 
-    const sleep = workerConfig.deploy?.sleepApplication;
+    const sleep = setting(worker, "sleepApplication");
     if (sleep !== undefined) expect(typeof sleep).toBe("boolean");
   });
 
   it("asks Railway to sleep the idle service", () => {
-    expect(workerConfig.deploy?.sleepApplication).toBe(true);
+    expect(setting(worker, "sleepApplication")).toBe(true);
   });
 
   it("stays recoverable: a crashed un-parked worker would restart", () => {
     // NEVER would leave a future, deliberately un-parked cloud worker dead on
     // its first crash; ON_FAILURE preserves the original service semantics.
-    expect(workerConfig.deploy?.restartPolicyType).toBe("ON_FAILURE");
+    // ON_FAILURE is Railway's default, which Railway does not store, so the
+    // file leaves the policy out (written out, it would show in every plan).
+    expect([undefined, "ON_FAILURE"]).toContain(setting(worker, "restartPolicyType"));
   });
 
   it("parks without a Node, Python, Prisma or Chromium process", () => {
@@ -86,6 +114,23 @@ describe("Railway worker service — retained but parked", () => {
     expect(parked).not.toMatch(/migrate-deploy|prisma migrate/);
     const start = readFileSync(path.join(ROOT, "scripts/start.sh"), "utf8");
     expect(start).toMatch(/migrate-deploy\.sh/);
-    expect(String(webConfig.deploy?.startCommand ?? "")).toContain("scripts/start.sh");
+    expect(String(setting(web, "startCommand") ?? "")).toContain("scripts/start.sh");
+  });
+});
+
+describe("Railway config file — safe to apply", () => {
+  it("manages only the services it declares", () => {
+    // Without a named partial the file would manage the whole project, and
+    // `railway config apply` would delete every service or database it does
+    // not list: the Postgres database among them.
+    expect(CODE).toMatch(/^export const partial = "viafidei";$/m);
+  });
+
+  it("keeps each service deploying from GitHub main", () => {
+    // Inside a declared service, an omitted source means "no source": an apply
+    // would disconnect the repository and pushes to main would stop deploying.
+    for (const block of [web, worker]) {
+      expect(block).toContain('source: github("SRAS2024/viafidei", { branch: "main" })');
+    }
   });
 });
