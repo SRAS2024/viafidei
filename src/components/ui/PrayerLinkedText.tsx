@@ -11,6 +11,7 @@ import {
   PrayerLanguageChips,
   UnofficialTranslationNote,
   usePrayerLanguage,
+  usePrayerLanguageSetup,
 } from "./PrayerLanguageChips";
 import { PrayerText, type PrayerHeadingLevel } from "./PrayerText";
 
@@ -52,19 +53,32 @@ function InlinePrayerPanel({
   headingLevel: PanelHeadingLevel;
 }) {
   const { language, toggle } = usePrayerLanguage();
-  const { vernacular, alternates, shown } = resolvePrayerLanguage(prayer.variants, language);
+  const { readerLanguage, groupFor } = usePrayerLanguageSetup();
+  const { vernacular, alternates, shown } = resolvePrayerLanguage(
+    prayer.variants,
+    language,
+    readerLanguage,
+  );
   const activeCode = shown && shown !== vernacular ? shown.code : null;
   const Heading = `h${headingLevel}` as const;
 
   return (
     <div id={id} className="vf-disclosure vf-inline-prayer">
       <div className="vf-inline-prayer-head">
-        <Heading className="vf-disclosure-title">{prayer.title}</Heading>
+        <Heading
+          className="vf-disclosure-title"
+          // The reader's language when translated, English when not, wherever it opens.
+          lang={
+            readerLanguage === "en" ? undefined : prayer.titleTranslated ? readerLanguage : "en"
+          }
+        >
+          {prayer.title}
+        </Heading>
         <PrayerLanguageChips
           options={alternates}
           active={activeCode}
           onSelect={(code) => toggle(code, activeCode)}
-          label={`${prayer.title} language`}
+          label={groupFor.replace("{title}", prayer.title)}
         />
       </div>
       <div className="vf-disclosure-body">

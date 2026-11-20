@@ -33,6 +33,9 @@ export function SearchResultGroup({
   locale?: string;
 }) {
   const shown = group.items.length;
+  // The hits are the stored English (a parish, its own country's name): on a page in
+  // another language they are marked so, for a screen reader's voice.
+  const english = locale && locale !== "en" && group.contentType !== "PARISH" ? "en" : undefined;
   const count =
     group.total === null
       ? null
@@ -49,13 +52,13 @@ export function SearchResultGroup({
       <ul role="list" className="vf-result-list">
         {group.items.map((item) => (
           <li key={item.id} className="vf-result">
-            <h3 className="vf-result-title">
+            <h3 className="vf-result-title" lang={english}>
               <Link href={item.href} aria-label={item.title} className="vf-entry-link">
                 <SearchHighlight text={item.title} query={query} />
               </Link>
             </h3>
             {item.subtitle ? (
-              <p className="vf-entry-meta">
+              <p className="vf-entry-meta" lang={english}>
                 <SearchMetaLine text={item.subtitle} query={query} />
               </p>
             ) : null}

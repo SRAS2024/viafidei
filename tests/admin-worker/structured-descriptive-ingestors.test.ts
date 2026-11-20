@@ -19,6 +19,7 @@ vi.mock("@/lib/admin-worker/structured/document-excerpt", () => ({
 import { validatePayload } from "@/lib/checklist";
 import {
   classifyDevotionType,
+  leadText,
   classifyPracticeKind,
   ingestorFor,
   isCatholicPracticeContext,
@@ -63,6 +64,41 @@ describe("classifyDevotionType", () => {
     );
     expect(classifyDevotionType("Our Lady of the Rosary")).toBe("Marian devotion");
     expect(classifyDevotionType("An obscure pious practice")).toBe("Catholic devotion");
+  });
+
+  it("files a devotion named for Saint Joseph under the saints, though its text speaks of Mary", () => {
+    const text =
+      "Chaste Heart of Joseph Marian devotion The Most Chaste Heart of Joseph is a Catholic devotion which venerates Saint Joseph, the chaste guardian of the Blessed Virgin Mary.";
+    expect(classifyDevotionType(text, "Chaste Heart of Joseph")).toBe("Devotion to a saint");
+    // Without the name, the text alone still reads as Marian, as before.
+    expect(classifyDevotionType(text)).toBe("Marian devotion");
+    expect(
+      classifyDevotionType("Our Lady of Sorrows and Saint Joseph", "Our Lady of Sorrows"),
+    ).toBe("Marian devotion");
+  });
+});
+
+describe("leadText", () => {
+  it("ends on a sentence when one ends in reach", () => {
+    const text = `${"A".repeat(60)} first sentence. ${"Second sentence goes on ".repeat(20)}`;
+    expect(leadText(text, 120)).toBe(`${"A".repeat(60)} first sentence.`);
+  });
+
+  it("otherwise ends on the last whole word, marked as cut, never mid-word", () => {
+    const text =
+      "The First Saturdays Devotion is a Catholic devotion which, according to Lúcia dos Santos, was announced at Fátima on 13 July 1917, as well as during apparitions in Pontevedra.";
+    const lead = leadText(text, 120);
+    expect(lead.endsWith("…")).toBe(true);
+    expect(lead.length).toBeLessThanOrEqual(120);
+    const kept = lead.slice(0, -1);
+    expect(text.startsWith(kept)).toBe(true);
+    // The next character of the source is not a letter: the last word is whole.
+    expect(text.charAt(kept.length)).toMatch(/[\s,]/);
+    expect(kept).not.toMatch(/[\s,]$/);
+  });
+
+  it("keeps a short text whole", () => {
+    expect(leadText("  A short   devotion.  ", 280)).toBe("A short devotion.");
   });
 });
 

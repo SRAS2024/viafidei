@@ -29,7 +29,10 @@ vi.mock("@/components/profile", () => ({
 
 vi.mock("@/lib/i18n/server", async () => {
   const { createTranslator } = await import("@/lib/i18n/translator");
-  return { getTranslator: async () => ({ t: createTranslator("en") }) };
+  return {
+    getTranslator: async () => ({ t: createTranslator("en"), locale: "en" }),
+    getLocale: async () => "en",
+  };
 });
 
 vi.mock("@/lib/data/published", async (importOriginal) => {

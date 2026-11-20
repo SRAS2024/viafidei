@@ -3,7 +3,9 @@
  * same place and style as the Wikipedia credit: "Text from the Catholic
  * Encyclopedia (1913), “St. Ita”, public domain" or "Text from the Roman
  * Martyrology (1916), public domain", the work linked to the page the text was
- * taken from. Renders nothing when no shown prose came from such a work.
+ * taken from. Renders nothing when no shown prose came from such a work. No
+ * licence asks for it, so only the pages that keep their source lines (a Church
+ * document, a parish) show it; PublishedDetail decides.
  */
 
 import { publicDomainTextSource } from "@/lib/content-shared/public-domain-attribution";

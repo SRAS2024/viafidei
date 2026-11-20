@@ -16,8 +16,18 @@ const FALLBACK_PRAYERS: FeaturedPrayer[] = [
   { id: "fallback-3", title: "Anima Christi", category: "Eucharistic", slug: "anima-christi" },
 ];
 
-export function HomeFeatured({ t, items }: { t: Translator; items?: FeaturedPrayer[] }) {
+export function HomeFeatured({
+  t,
+  items,
+  locale,
+}: {
+  t: Translator;
+  items?: FeaturedPrayer[];
+  /** The reader's language: the cards' titles and labels are the stored English. */
+  locale?: string;
+}) {
   const prayers = items && items.length > 0 ? items : FALLBACK_PRAYERS;
+  const english = locale && locale !== "en" ? "en" : undefined;
   return (
     <section className="vf-home-section" aria-labelledby="home-featured-title">
       <HomeSectionHead n={3} id="home-featured-title">
@@ -29,6 +39,8 @@ export function HomeFeatured({ t, items }: { t: Translator; items?: FeaturedPray
             key={p.id}
             href={`/prayers/${p.slug}`}
             title={p.title}
+            lang={english}
+            metaLang={english}
             titleAs="h3"
             // "General" names no type, as on the prayer library's own cards.
             meta={[p.category === "General" ? null : p.category]}

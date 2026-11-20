@@ -12,6 +12,41 @@ export const pl: Dict = {
   "home.ctaExplore": "Przeglądaj modlitwy",
   "home.ctaJoin": "Utwórz swój profil",
   "home.ctaProfile": "Przejdź do swojego profilu",
+  "home.title": "Ciche miejsce, by się modlić, uczyć i wracać.",
+  "home.lede":
+    "Via Fidei gromadzi modlitwy, świętych, sakramenty i liturgię Kościoła katolickiego oraz spis parafii.",
+  "home.quickLinks.title": "Zacznij tutaj",
+  "home.newcomer.title": "Dopiero poznajesz wiarę?",
+  "home.newcomer.body":
+    "Spokojne wprowadzenie, krok po kroku, w modlitwę, sakramenty i życie łaski.",
+  "home.featured.title": "Wybrane modlitwy",
+  "home.mission.title": "Nasza misja",
+  "home.mission.body":
+    "Sprawiamy, że piękno i precyzja tradycji katolickiej stają się czytelne zarówno dla tych, którzy dopiero ją poznają, jak i dla wiernych od zawsze. Nic hałaśliwego, nic rozpraszającego – tylko to, co ma swoje miejsce na stronie.",
+  "home.catholic.title": "Czym jest katolicyzm?",
+  "home.catholic.body":
+    "Kościół katolicki jest wspólnotą uczniów zgromadzonych wokół Jezusa Chrystusa, prowadzoną przez Pismo Święte, Świętą Tradycję i Magisterium powierzone Piotrowi i apostołom.",
+  "devotions.title": "Nabożeństwa",
+  "devotions.subtitle":
+    "Tradycyjne nabożeństwa katolickie, takie jak różaniec, Miłosierdzie Boże i Anioł Pański.",
+  "spiritualLife.title": "Życie duchowe",
+  "spiritualLife.subtitle":
+    "Praktyki modlitwy, pokuty i miłości, dzięki którym katolicy wzrastają w świętości.",
+  "guides.eyebrow": "Jak się modlić i praktykować",
+  "guides.title": "Przewodniki",
+  "guides.subtitle":
+    "Przewodniki krok po kroku po różańcu, Koronce do Miłosierdzia Bożego, spowiedzi i życiu duchowym.",
+  "prayerLanguage.group": "Język modlitwy",
+  "prayerLanguage.groupFor": "{title}: język",
+  "prayerLanguage.en": "Angielski",
+  "prayerLanguage.la": "Łacina",
+  "prayerLanguage.el": "Greka",
+  "prayerLanguage.es": "Hiszpański",
+  "prayerLanguage.it": "Włoski",
+  "prayerLanguage.fr": "Francuski",
+  "prayerLanguage.pt": "Portugalski",
+  "prayerLanguage.de": "Niemiecki",
+  "prayerLanguage.pl": "Polski",
   "nav.devotions": "Nabożeństwa",
   "nav.novenas": "Nowenny",
   "parishes.distanceAway": "{distance} stąd",
@@ -100,7 +135,6 @@ export const pl: Dict = {
   "search.groupShown.other": "{shown} z {count} wyników",
   "nav.search": "Szukaj",
   "search.title": "Szukaj",
-  "search.subtitle": "Jedna biblioteka: modlitwy, święci, liturgia, parafie i nie tylko.",
   "search.placeholder": "Modlitwy, święci, parafie…",
   "search.prompt":
     "Szukaj modlitw, świętych, przewodników, nabożeństw, parafii i dokumentów Kościoła.",

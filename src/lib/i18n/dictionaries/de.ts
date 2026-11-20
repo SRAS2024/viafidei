@@ -16,6 +16,41 @@ export const de: Dict = {
   "home.ctaExplore": "Gebete entdecken",
   "home.ctaJoin": "Profil erstellen",
   "home.ctaProfile": "Zu Ihrem Profil",
+  "home.title": "Ein stiller Ort, um zu beten, zu lernen und zurückzukehren.",
+  "home.lede":
+    "Via Fidei vereint die Gebete, die Heiligen, die Sakramente und die Liturgie der katholischen Kirche sowie ein Verzeichnis der Pfarreien.",
+  "home.quickLinks.title": "Hier beginnen",
+  "home.newcomer.title": "Neu im Glauben?",
+  "home.newcomer.body":
+    "Eine ruhige Einführung, Schritt für Schritt, in das Gebet, die Sakramente und das Leben der Gnade.",
+  "home.featured.title": "Ausgewählte Gebete",
+  "home.mission.title": "Unser Auftrag",
+  "home.mission.body":
+    "Wir machen die Schönheit und Genauigkeit der katholischen Tradition lesbar, für Neuankömmlinge wie für lebenslang Gläubige. Nichts Lautes, nichts Ablenkendes – nur, was auf die Seite gehört.",
+  "home.catholic.title": "Was ist der Katholizismus?",
+  "home.catholic.body":
+    "Die katholische Kirche ist die Gemeinschaft der Jünger, die um Jesus Christus versammelt sind, geleitet von der Heiligen Schrift, der Heiligen Überlieferung und dem Lehramt, das Petrus und den Aposteln anvertraut ist.",
+  "devotions.title": "Andachten",
+  "devotions.subtitle":
+    "Traditionelle katholische Andachten wie der Rosenkranz, die Göttliche Barmherzigkeit und der Engel des Herrn.",
+  "spiritualLife.title": "Geistliches Leben",
+  "spiritualLife.subtitle":
+    "Die Übungen des Gebets, der Buße und der Nächstenliebe, durch die Katholiken in der Heiligkeit wachsen.",
+  "guides.eyebrow": "Beten und den Glauben leben",
+  "guides.title": "Anleitungen",
+  "guides.subtitle":
+    "Schritt-für-Schritt-Anleitungen zum Rosenkranz, zum Barmherzigkeitsrosenkranz, zur Beichte und zum geistlichen Leben.",
+  "prayerLanguage.group": "Sprache des Gebets",
+  "prayerLanguage.groupFor": "{title}: Sprache",
+  "prayerLanguage.en": "Englisch",
+  "prayerLanguage.la": "Latein",
+  "prayerLanguage.el": "Griechisch",
+  "prayerLanguage.es": "Spanisch",
+  "prayerLanguage.it": "Italienisch",
+  "prayerLanguage.fr": "Französisch",
+  "prayerLanguage.pt": "Portugiesisch",
+  "prayerLanguage.de": "Deutsch",
+  "prayerLanguage.pl": "Polnisch",
   "nav.devotions": "Andachten",
   "nav.novenas": "Novenen",
   "parishes.distanceAway": "{distance} entfernt",
@@ -99,7 +134,6 @@ export const de: Dict = {
   "search.groupResults.other": "{count} Ergebnisse",
   "search.groupShown.other": "{shown} von {count} Ergebnissen",
   "search.title": "Suche",
-  "search.subtitle": "Eine einzige Bibliothek: Gebete, Heilige, Liturgie, Pfarreien und mehr.",
   "search.placeholder": "Gebete, Heilige, Pfarreien…",
   "search.prompt":
     "Suchen Sie nach Gebeten, Heiligen, Anleitungen, Andachten, Pfarreien und Kirchendokumenten.",

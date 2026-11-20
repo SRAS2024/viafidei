@@ -103,9 +103,9 @@ export default async function GuidesPage({ searchParams }: { searchParams: Searc
   return (
     <div>
       <PageHero
-        eyebrow="How to pray & practice"
-        title="Guides"
-        subtitle="Step-by-step guides to the Rosary, the Divine Mercy Chaplet, Confession, and the spiritual life — steps first, then each prayer in a dropdown."
+        eyebrow={t("guides.eyebrow")}
+        title={t("guides.title")}
+        subtitle={t("guides.subtitle")}
       />
       <ListControls>
         <ListSearch

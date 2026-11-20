@@ -14,6 +14,7 @@ export function Disclosure({
   eyebrow,
   defaultOpen = false,
   action,
+  lang,
   children,
 }: {
   title: string;
@@ -25,6 +26,11 @@ export function Disclosure({
    * comes after it in reading order: the day, then its megaphone, then its prayer.
    */
   action?: ReactNode;
+  /**
+   * The language of its title and text when it is not the page's (English as published).
+   * It marks the toggle and the panel only: the action's label is in the reader's language.
+   */
+  lang?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -37,6 +43,7 @@ export function Disclosure({
       aria-expanded={open}
       aria-controls={panelId}
       className="vf-disclosure-trigger"
+      lang={lang}
     >
       <span className="min-w-0">
         {eyebrow ? <span className="vf-disclosure-label">{eyebrow}</span> : null}
@@ -68,7 +75,7 @@ export function Disclosure({
         {open && action ? <div className="vf-disclosure-action">{action}</div> : null}
       </div>
       {open ? (
-        <div id={panelId} className="vf-disclosure-body">
+        <div id={panelId} className="vf-disclosure-body" lang={lang}>
           {children}
         </div>
       ) : null}

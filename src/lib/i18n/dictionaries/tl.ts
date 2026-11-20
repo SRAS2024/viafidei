@@ -11,6 +11,41 @@ export const tl: Dict = {
   "home.ctaExplore": "Tuklasin ang mga panalangin",
   "home.ctaJoin": "Gumawa ng iyong profile",
   "home.ctaProfile": "Pumunta sa iyong profile",
+  "home.title": "Isang tahimik na lugar upang manalangin, matuto, at magbalik.",
+  "home.lede":
+    "Tinitipon ng Via Fidei ang mga panalangin, mga santo, mga sakramento, at liturhiya ng Simbahang Katolika, kasama ang talaan ng mga parokya.",
+  "home.quickLinks.title": "Magsimula rito",
+  "home.newcomer.title": "Bago sa pananampalataya?",
+  "home.newcomer.body":
+    "Isang mahinahon at sunud-sunod na pagpapakilala sa panalangin, sa mga sakramento, at sa buhay ng biyaya.",
+  "home.featured.title": "Mga Tampok na Panalangin",
+  "home.mission.title": "Ang Aming Misyon",
+  "home.mission.body":
+    "Ginagawa naming malinaw ang ganda at katiyakan ng tradisyong Katoliko para sa mga bago at sa mga matagal nang mananampalataya. Walang ingay, walang abala — tanging ang nararapat sa pahina.",
+  "home.catholic.title": "Ano ang Katolisismo?",
+  "home.catholic.body":
+    "Ang Simbahang Katolika ay ang pamayanan ng mga alagad na nagkakatipon kay Hesukristo, na ginagabayan ng Banal na Kasulatan, ng Banal na Tradisyon, at ng turo ng Magisteryo na ipinagkatiwala kay Pedro at sa mga apostol.",
+  "devotions.title": "Mga Debosyon",
+  "devotions.subtitle":
+    "Mga tradisyonal na debosyong Katoliko, gaya ng Rosaryo, ng Banal na Awa, at ng Angelus.",
+  "spiritualLife.title": "Buhay Espirituwal",
+  "spiritualLife.subtitle":
+    "Ang mga gawain ng panalangin, pagsisisi, at pagkakawanggawa na nagpapalago sa kabanalan ng mga Katoliko.",
+  "guides.eyebrow": "Paano manalangin at magsabuhay",
+  "guides.title": "Mga Gabay",
+  "guides.subtitle":
+    "Mga gabay na sunud-sunod para sa Rosaryo, sa Koronilya ng Banal na Awa, sa Kumpisal, at sa buhay espirituwal.",
+  "prayerLanguage.group": "Wika ng panalangin",
+  "prayerLanguage.groupFor": "{title}: wika",
+  "prayerLanguage.en": "Ingles",
+  "prayerLanguage.la": "Latin",
+  "prayerLanguage.el": "Griyego",
+  "prayerLanguage.es": "Espanyol",
+  "prayerLanguage.it": "Italyano",
+  "prayerLanguage.fr": "Pranses",
+  "prayerLanguage.pt": "Portuges",
+  "prayerLanguage.de": "Aleman",
+  "prayerLanguage.pl": "Polako",
   "nav.devotions": "Mga Debosyon",
   "nav.novenas": "Mga Nobena",
   "parishes.distanceAway": "{distance} ang layo",
@@ -98,7 +133,6 @@ export const tl: Dict = {
   "search.groupShown.other": "{shown} sa {count} resulta",
   "nav.search": "Maghanap",
   "search.title": "Maghanap",
-  "search.subtitle": "Iisang aklatan: mga panalangin, santo, liturhiya, parokya, at iba pa.",
   "search.placeholder": "Panalangin, santo, parokya…",
   "search.prompt":
     "Maghanap ng mga panalangin, santo, gabay, debosyon, parokya at dokumento ng Simbahan.",

@@ -204,11 +204,16 @@ export function GuideSteps({
           </span>
           {step.title ? (
             <StepTitle className="vf-step-title text-ink">
-              <span className="sr-only">{said(step.order)}</span>
+              {/* The reader's word for "Step", in steps that may be English. */}
+              <span className="sr-only" lang={t.locale}>
+                {said(step.order)}
+              </span>
               {step.title}
             </StepTitle>
           ) : (
-            <span className="sr-only">{said(step.order)}</span>
+            <span className="sr-only" lang={t.locale}>
+              {said(step.order)}
+            </span>
           )}
           <div className="vf-step-body vf-reading">
             {/* A prayer opened in a titled step sits one level under its title. */}

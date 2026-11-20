@@ -47,7 +47,7 @@ const home: Dict = {
   "home.eyebrow": "Est. MMXXVI · Canonical",
   "home.title": "A quiet place to pray, to learn, and to return.",
   "home.lede":
-    "Via Fidei is a Catholic companion — a curated library of prayers, saints, sacramental guidance, liturgical formation, and parish discovery, presented with reverence and clarity.",
+    "Via Fidei brings together the prayers, saints, sacraments and liturgy of the Catholic Church, and a directory of parishes.",
   "home.ctaExplore": "Explore prayers",
   "home.ctaJoin": "Create your profile",
   "home.ctaProfile": "Go to your profile",
@@ -91,7 +91,7 @@ const prayers: Dict = {
 const spiritualLife: Dict = {
   "spiritualLife.title": "Spiritual Life",
   "spiritualLife.subtitle":
-    "Formation pathways, guided devotions, and step-by-step checklists for growing in holiness.",
+    "The practices of prayer, penance and charity by which Catholics grow in holiness.",
   "spiritualLife.rosary": "The Rosary",
   "spiritualLife.confession": "Confession",
   "spiritualLife.adoration": "Adoration",
@@ -103,7 +103,30 @@ const spiritualLife: Dict = {
 const devotions: Dict = {
   "devotions.title": "Devotions",
   "devotions.subtitle":
-    "Traditional Catholic devotions — the Rosary, Divine Mercy, the Angelus, novenas, and more.",
+    "Traditional Catholic devotions, such as the Rosary, the Divine Mercy and the Angelus.",
+};
+
+// The head of the guides: a line under a title only where it says what the page holds.
+const sectionHeads: Dict = {
+  "guides.eyebrow": "How to pray & practice",
+  "guides.title": "Guides",
+  "guides.subtitle":
+    "Step-by-step guides to the Rosary, the Divine Mercy Chaplet, Confession, and the spiritual life.",
+};
+
+// The language chips over a prayer's text, and the name of their group.
+const prayerLanguage: Dict = {
+  "prayerLanguage.group": "Prayer language",
+  "prayerLanguage.groupFor": "{title} language",
+  "prayerLanguage.en": "English",
+  "prayerLanguage.la": "Latin",
+  "prayerLanguage.el": "Greek",
+  "prayerLanguage.es": "Spanish",
+  "prayerLanguage.it": "Italian",
+  "prayerLanguage.fr": "French",
+  "prayerLanguage.pt": "Portuguese",
+  "prayerLanguage.de": "German",
+  "prayerLanguage.pl": "Polish",
 };
 
 const guidance: Dict = {
@@ -193,7 +216,6 @@ const search: Dict = {
   "search.groupResults.one": "{count} result",
   "search.groupResults.other": "{count} results",
   "search.groupShown.other": "{shown} of {count} results",
-  "search.subtitle": "One unified library — prayers, saints, liturgy, parishes, and more.",
   "search.placeholder": "Search prayers, saints, parishes…",
   "search.noResults": "Nothing matches yet.",
   "search.resultsCount": '{count} results for "{query}".',
@@ -919,6 +941,8 @@ export const en: Dict = {
   ...home,
   ...prayers,
   ...devotions,
+  ...sectionHeads,
+  ...prayerLanguage,
   ...spiritualLife,
   ...guidance,
   ...parishes,

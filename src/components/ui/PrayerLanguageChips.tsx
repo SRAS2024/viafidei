@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
 import type { PrayerVariant } from "@/lib/content-shared/prayer-language";
 
@@ -67,6 +67,44 @@ export function usePrayerLanguage(): {
   return { language, toggle };
 }
 
+/**
+ * What the chips need from the reader's site language, set once by the root layout: the
+ * language itself (a reader of the Latin site reads a prayer's Latin first, see
+ * `resolvePrayerLanguage`), each prayer language's name in it ("Latín", "라틴어"), and the
+ * names of the chip groups. Without a provider (tests, a stray render) it is English.
+ */
+export interface PrayerLanguageSetup {
+  readerLanguage: string;
+  /** A prayer language's name in the reader's language, by code ("la" → "Latin"). */
+  names: Readonly<Record<string, string>>;
+  /** The name of a chip group ("Prayer language"). */
+  groupLabel: string;
+  /** The name of the chips over a prayer opened in place: "{title} language". */
+  groupFor: string;
+}
+
+const PrayerLanguageContext = createContext<PrayerLanguageSetup>({
+  readerLanguage: "en",
+  names: {},
+  groupLabel: "Prayer language",
+  groupFor: "{title} language",
+});
+
+export function PrayerLanguageProvider({
+  setup,
+  children,
+}: {
+  setup: PrayerLanguageSetup;
+  children: ReactNode;
+}) {
+  return <PrayerLanguageContext.Provider value={setup}>{children}</PrayerLanguageContext.Provider>;
+}
+
+/** The reader's prayer-language setup (see `PrayerLanguageSetup`). */
+export function usePrayerLanguageSetup(): PrayerLanguageSetup {
+  return useContext(PrayerLanguageContext);
+}
+
 export interface LanguageOption {
   code: string;
   label: string;
@@ -75,12 +113,14 @@ export interface LanguageOption {
 /**
  * The chip row: one real, `aria-pressed` button per selectable language. They are
  * the site's small outlined buttons, and the pressed look comes with `aria-pressed`.
+ * Each chip is named in the reader's language ("Latín" on the Spanish site), and the
+ * group is named "Prayer language" in it unless the caller names it.
  */
 export function PrayerLanguageChips({
   options,
   active,
   onSelect,
-  label = "Prayer language",
+  label,
   className = "",
 }: {
   /** The selectable (non-vernacular) languages. Renders nothing when empty. */
@@ -92,9 +132,16 @@ export function PrayerLanguageChips({
   label?: string;
   className?: string;
 }) {
+  const { names, groupLabel, readerLanguage } = usePrayerLanguageSetup();
   if (options.length === 0) return null;
   return (
-    <div role="group" aria-label={label} className={`vf-language-chips ${className}`.trim()}>
+    // Named in the reader's language, wherever the chips sit: over English text too.
+    <div
+      role="group"
+      aria-label={label ?? groupLabel}
+      lang={readerLanguage}
+      className={`vf-language-chips ${className}`.trim()}
+    >
       {options.map((option) => (
         <button
           key={option.code}
@@ -103,7 +150,7 @@ export function PrayerLanguageChips({
           onClick={() => onSelect(option.code)}
           className="vf-btn vf-btn-sm vf-btn-ghost"
         >
-          {option.label}
+          {names[option.code] ?? option.label}
         </button>
       ))}
     </div>

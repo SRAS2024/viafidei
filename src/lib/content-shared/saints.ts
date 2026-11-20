@@ -925,6 +925,15 @@ const STATUS_IN_NAME: Record<string, RegExp> = {
 };
 
 /**
+ * Records whose stored stage no Catholic source confirms. The schema has no word for
+ * "none", so the record keeps one, but the page does not print it: "Saint" over Arthur of
+ * Glastonbury, never canonized (most likely Blessed John Thorne, whose name in religion
+ * was Arthur; migration 0082), would say what the Church never has. Whether such a record
+ * is retitled or stays is the owner's call.
+ */
+export const STAGE_NOT_RECORDED: ReadonlySet<string> = new Set(["saint-arthur"]);
+
+/**
  * The eyebrow over a saint's name on the saint's own page: the one permitted
  * title label (Apostle, Doctor of the Church, a dated papacy, a curated
  * `titleLabel`), else the stage of the cause ("Blessed", "Venerable") when the
@@ -940,6 +949,7 @@ export function saintDetailEyebrow(
 ): string | undefined {
   const label = saintTitleLabel(payload, slug);
   if (label) return label;
+  if (slug && STAGE_NOT_RECORDED.has(slug)) return undefined;
   const status =
     typeof payload.canonizationStatus === "string"
       ? payload.canonizationStatus.trim().toLowerCase()

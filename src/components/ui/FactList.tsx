@@ -13,9 +13,15 @@ export interface FactItem {
 export function FactList({
   items,
   className = "",
+  valueLang,
 }: {
   items: ReadonlyArray<FactItem | null | undefined>;
   className?: string;
+  /**
+   * The language of the values when it is not the page's: a record's English dates and
+   * patronages under labels in the reader's language.
+   */
+  valueLang?: string;
 }) {
   const shown = items.filter(
     (item): item is FactItem =>
@@ -27,7 +33,7 @@ export function FactList({
       {shown.map((item) => (
         <div key={item.label} className="contents">
           <dt>{item.label}</dt>
-          <dd>{item.value}</dd>
+          <dd lang={valueLang}>{item.value}</dd>
         </div>
       ))}
     </dl>

@@ -20,6 +20,40 @@ export const fr: Dict = {
   "home.ctaExplore": "Explorer les prières",
   "home.ctaJoin": "Créer un profil",
   "home.ctaProfile": "Aller à votre profil",
+  "home.lede":
+    "Via Fidei rassemble les prières, les saints, les sacrements et la liturgie de l’Église catholique, ainsi qu’un annuaire des paroisses.",
+  "home.quickLinks.title": "Commencez ici",
+  "home.newcomer.title": "Vous découvrez la foi ?",
+  "home.newcomer.body":
+    "Une introduction paisible, étape par étape, à la prière, aux sacrements et à la vie de la grâce.",
+  "home.featured.title": "Prières à la une",
+  "home.mission.title": "Notre mission",
+  "home.mission.body":
+    "Nous rendons lisibles la beauté et la précision de la tradition catholique, pour ceux qui la découvrent comme pour les fidèles de toujours. Rien de bruyant, rien qui distraie : seulement ce qui a sa place sur la page.",
+  "home.catholic.title": "Qu’est-ce que le catholicisme ?",
+  "home.catholic.body":
+    "L’Église catholique est la communauté des disciples rassemblés autour de Jésus-Christ, guidée par l’Écriture sainte, la Tradition sacrée et l’enseignement du Magistère confié à Pierre et aux apôtres.",
+  "devotions.title": "Dévotions",
+  "devotions.subtitle":
+    "Des dévotions catholiques traditionnelles, comme le Rosaire, la Divine Miséricorde et l’Angélus.",
+  "spiritualLife.title": "Vie spirituelle",
+  "spiritualLife.subtitle":
+    "Les pratiques de prière, de pénitence et de charité par lesquelles les catholiques grandissent en sainteté.",
+  "guides.eyebrow": "Prier et pratiquer",
+  "guides.title": "Guides",
+  "guides.subtitle":
+    "Des guides pas à pas pour le Rosaire, le Chapelet de la Divine Miséricorde, la Confession et la vie spirituelle.",
+  "prayerLanguage.group": "Langue de la prière",
+  "prayerLanguage.groupFor": "{title} : langue",
+  "prayerLanguage.en": "Anglais",
+  "prayerLanguage.la": "Latin",
+  "prayerLanguage.el": "Grec",
+  "prayerLanguage.es": "Espagnol",
+  "prayerLanguage.it": "Italien",
+  "prayerLanguage.fr": "Français",
+  "prayerLanguage.pt": "Portugais",
+  "prayerLanguage.de": "Allemand",
+  "prayerLanguage.pl": "Polonais",
   "nav.devotions": "Dévotions",
   "nav.novenas": "Neuvaines",
   "auth.signIn": "Connexion",
@@ -115,8 +149,6 @@ export const fr: Dict = {
   "search.groupResults.other": "{count} résultats",
   "search.groupShown.other": "{shown} sur {count} résultats",
   "search.title": "Recherche",
-  "search.subtitle":
-    "Une seule bibliothèque : prières, saints, liturgie, paroisses et plus encore.",
   "search.placeholder": "Prières, saints, paroisses…",
   "search.prompt":
     "Recherchez des prières, des saints, des guides, des dévotions, des paroisses et des documents de l'Église.",

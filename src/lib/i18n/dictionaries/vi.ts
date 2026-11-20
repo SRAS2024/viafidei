@@ -11,6 +11,41 @@ export const vi: Dict = {
   "home.ctaExplore": "Khám phá kinh nguyện",
   "home.ctaJoin": "Tạo hồ sơ của bạn",
   "home.ctaProfile": "Đến hồ sơ của bạn",
+  "home.title": "Một nơi yên tĩnh để cầu nguyện, học hỏi và trở về.",
+  "home.lede":
+    "Via Fidei quy tụ các kinh nguyện, các thánh, các bí tích và phụng vụ của Giáo Hội Công Giáo, cùng danh bạ các giáo xứ.",
+  "home.quickLinks.title": "Bắt đầu từ đây",
+  "home.newcomer.title": "Bạn mới tìm hiểu đức tin?",
+  "home.newcomer.body":
+    "Một lời giới thiệu nhẹ nhàng, từng bước một, về cầu nguyện, các bí tích và đời sống ân sủng.",
+  "home.featured.title": "Kinh nguyện nổi bật",
+  "home.mission.title": "Sứ mạng của chúng tôi",
+  "home.mission.body":
+    "Chúng tôi giúp vẻ đẹp và sự chính xác của truyền thống Công Giáo trở nên dễ đọc cho cả người mới tìm hiểu lẫn những tín hữu lâu năm. Không ồn ào, không gây xao nhãng — chỉ những gì thuộc về trang này.",
+  "home.catholic.title": "Công Giáo là gì?",
+  "home.catholic.body":
+    "Giáo Hội Công Giáo là cộng đoàn các môn đệ quy tụ quanh Đức Giêsu Kitô, được hướng dẫn bởi Kinh Thánh, Thánh Truyền và giáo huấn của Huấn Quyền được trao phó cho Thánh Phêrô và các Tông Đồ.",
+  "devotions.title": "Lòng sùng kính",
+  "devotions.subtitle":
+    "Những lòng sùng kính truyền thống của Công Giáo, như Kinh Mân Côi, Lòng Thương Xót Chúa và Kinh Truyền Tin.",
+  "spiritualLife.title": "Đời sống thiêng liêng",
+  "spiritualLife.subtitle":
+    "Những việc thực hành cầu nguyện, sám hối và bác ái giúp người Công Giáo lớn lên trong sự thánh thiện.",
+  "guides.eyebrow": "Cách cầu nguyện và thực hành",
+  "guides.title": "Hướng dẫn",
+  "guides.subtitle":
+    "Hướng dẫn từng bước về Kinh Mân Côi, Chuỗi Lòng Thương Xót, việc xưng tội và đời sống thiêng liêng.",
+  "prayerLanguage.group": "Ngôn ngữ kinh nguyện",
+  "prayerLanguage.groupFor": "{title}: ngôn ngữ",
+  "prayerLanguage.en": "Tiếng Anh",
+  "prayerLanguage.la": "Tiếng Latinh",
+  "prayerLanguage.el": "Tiếng Hy Lạp",
+  "prayerLanguage.es": "Tiếng Tây Ban Nha",
+  "prayerLanguage.it": "Tiếng Ý",
+  "prayerLanguage.fr": "Tiếng Pháp",
+  "prayerLanguage.pt": "Tiếng Bồ Đào Nha",
+  "prayerLanguage.de": "Tiếng Đức",
+  "prayerLanguage.pl": "Tiếng Ba Lan",
   "nav.devotions": "Lòng sùng kính",
   "nav.novenas": "Tuần cửu nhật",
   "parishes.distanceAway": "Cách {distance}",
@@ -93,8 +128,6 @@ export const vi: Dict = {
   "search.groupShown.other": "{shown} trong {count} kết quả",
   "nav.search": "Tìm kiếm",
   "search.title": "Tìm kiếm",
-  "search.subtitle":
-    "Một thư viện duy nhất: kinh nguyện, các thánh, phụng vụ, giáo xứ và nhiều nội dung khác.",
   "search.placeholder": "Kinh nguyện, các thánh, giáo xứ…",
   "search.prompt":
     "Tìm kinh nguyện, các thánh, hướng dẫn, việc sùng kính, giáo xứ và văn kiện Giáo hội.",

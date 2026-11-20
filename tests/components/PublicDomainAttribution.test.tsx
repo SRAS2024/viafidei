@@ -1,10 +1,10 @@
 /**
  * @vitest-environment jsdom
  *
- * A biography quoted from a public-domain work gets the same single small
- * credit line Wikipedia text gets — "Text from the Catholic Encyclopedia
- * (1913), “St. Ita”, public domain", the work linked to the page the text
- * came from — and the page then shows no Wikipedia credit at all.
+ * The line a public-domain work gets — "Text from the Catholic Encyclopedia
+ * (1913), “St. Ita”, public domain", the work linked to the page the text came
+ * from. No licence asks for it, so a saint's page (like every page but a Church
+ * document's or a parish's) shows none, and no Wikipedia credit either.
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
@@ -85,24 +85,41 @@ describe("PublicDomainAttribution", () => {
 });
 
 describe("PublishedDetail on a saint with an Encyclopedia biography", () => {
-  it("shows one credit line — the Encyclopedia's, not Wikipedia's", () => {
-    const item: PublishedItem = {
-      id: "1",
-      checklistItemId: "c1",
-      contentType: "SAINT",
-      slug: ITA.slug,
-      title: "Saint Íte of Killeedy",
-      subtitle: "",
-      authorityLevel: "TRUSTED_PUBLISHER",
-      version: 1,
-      publishedAt: null,
-      payload: ITA,
-    };
+  const item: PublishedItem = {
+    id: "1",
+    checklistItemId: "c1",
+    contentType: "SAINT",
+    slug: ITA.slug,
+    title: "Saint Íte of Killeedy",
+    subtitle: "",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    version: 1,
+    publishedAt: null,
+    payload: ITA,
+  };
+
+  it("shows no credit line: no licence asks for one, and it is not Wikipedia's text", () => {
+    // The owner's rule: no sources on a saint's page. The Wikipedia line alone stays
+    // where a page still shows Wikipedia's words, because its licence requires it.
     render(<PublishedDetail t={t} item={item} primaryFields={["biography"]} />);
+    expect(screen.getByText(/Brigid of Munster/)).toBeInTheDocument();
+    expect(screen.queryByText(/Text from/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/public domain/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/CC BY-SA/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the line on a Church document, whose sources stay as they are", () => {
+    const document: PublishedItem = {
+      ...item,
+      contentType: "CHURCH_DOCUMENT",
+      slug: "a-document",
+      title: "A Document",
+      payload: { ...ITA, summary: ITA.biography },
+    };
+    render(<PublishedDetail t={t} item={document} primaryFields={["biography"]} />);
     expect(screen.getAllByText(/Text from/)).toHaveLength(1);
     expect(
       screen.getByRole("link", { name: /^the Catholic Encyclopedia \(1913\)/ }),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/CC BY-SA/)).not.toBeInTheDocument();
   });
 });

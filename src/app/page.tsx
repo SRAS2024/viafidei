@@ -55,7 +55,7 @@ export default async function HomePage() {
       <HomeHero t={t} signedIn={signedIn} />
       <HomeBeginHere t={t} />
       <HomeTodaySection t={t} locale={locale} />
-      <HomeFeatured t={t} items={featuredPrayers} />
+      <HomeFeatured t={t} items={featuredPrayers} locale={locale} />
       <HomeMission t={t} />
     </div>
   );

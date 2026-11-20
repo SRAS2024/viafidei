@@ -11,6 +11,7 @@ import {
   PrayerLanguageChips,
   UnofficialTranslationNote,
   usePrayerLanguage,
+  usePrayerLanguageSetup,
   type LanguageOption,
 } from "./PrayerLanguageChips";
 import { PrayerText } from "./PrayerText";
@@ -31,7 +32,8 @@ import { PrayerText } from "./PrayerText";
  */
 export type GuidePrayerData = PrayerWithVariants;
 
-const LANG_ORDER = ["la", "el"];
+// The English chip a reader of the Latin site sees comes first, then Latin and Greek.
+const LANG_ORDER = ["en", "la", "el"];
 
 export function GuidePrayers({
   prayers,
@@ -44,11 +46,13 @@ export function GuidePrayers({
   /** The list is the order in which the prayers are prayed (default). */
   ordered?: boolean;
 }) {
-  // Every language some prayer offers beyond its own vernacular — the chips.
+  const { readerLanguage } = usePrayerLanguageSetup();
+  // Every language some prayer offers beyond its own vernacular — the chips. On the
+  // Latin site a prayer's Latin is its vernacular, so its English is the chip.
   const languages = useMemo<LanguageOption[]>(() => {
     const map = new Map<string, string>();
     for (const p of prayers) {
-      for (const v of resolvePrayerLanguage(p.variants, null).alternates) {
+      for (const v of resolvePrayerLanguage(p.variants, null, readerLanguage).alternates) {
         if (!map.has(v.code)) map.set(v.code, v.label);
       }
     }
@@ -59,7 +63,7 @@ export function GuidePrayers({
         const bi = LANG_ORDER.indexOf(b.code);
         return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
       });
-  }, [prayers]);
+  }, [prayers, readerLanguage]);
 
   const { language, toggle } = usePrayerLanguage();
 
@@ -68,26 +72,32 @@ export function GuidePrayers({
   // The chip that reads as pressed is the chosen language, when this list offers it.
   const activeCode = language && languages.some((l) => l.code === language) ? language : null;
 
+  // The heading, the note and an untranslated title are English; a translated title is
+  // the reader's. Each says so, whatever language the text around the list is in.
+  const english = readerLanguage !== "en" ? "en" : undefined;
   return (
     <section className="vf-detail-section vf-prayer-list">
-      <h2 className="vf-subhead">{heading}</h2>
+      <h2 className="vf-subhead" lang={english}>
+        {heading}
+      </h2>
       <PrayerLanguageChips
         options={languages}
         active={activeCode}
         onSelect={(code) => toggle(code, activeCode)}
       />
-      <p className="vf-detail-note">
+      <p className="vf-detail-note" lang={english}>
         {ordered ? "In the order they are prayed — tap" : "Tap"} a prayer to reveal its full text
         {languages.length > 0 ? " in the chosen language" : ""}.
       </p>
       <div className="vf-disclosure-list">
         {prayers.map((p, i) => {
-          const { shown } = resolvePrayerLanguage(p.variants, language);
+          const { shown } = resolvePrayerLanguage(p.variants, language, readerLanguage);
           return (
             <Disclosure
               key={p.slug}
               eyebrow={ordered ? `Prayer ${i + 1}` : undefined}
               title={p.title}
+              lang={english && (p.titleTranslated ? readerLanguage : english)}
             >
               {shown ? (
                 <>

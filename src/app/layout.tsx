@@ -7,6 +7,7 @@ import { NavigationPendingStatus } from "@/components/layout/NavigationPendingSt
 import { SkipLink } from "@/components/layout/SkipLink";
 import { TitleKeeper } from "@/components/layout/TitleKeeper";
 import { LoginRequiredLabelsProvider } from "@/components/ui/LoginRequiredPopup";
+import { PrayerLanguageProvider } from "@/components/ui/PrayerLanguageChips";
 import { ShareLabelsProvider } from "@/components/ui/ShareButton";
 import { PrayAlongLabelsProvider } from "@/components/pray-along/PrayAlongButton";
 import { appConfig } from "@/lib/config";
@@ -83,6 +84,9 @@ export const metadata: Metadata = {
 // at the very top of the screen. Driven by the SAME theme cookie that sets
 // `data-theme`, so it is exact whether the theme came from the system or an
 // in-app toggle. `#fbf8f1` / `#2e2e2e` are the light / dark `--paper` values.
+/** The prayer languages a chip can offer, each named in the reader's language. */
+const PRAYER_LANGUAGE_CODES = ["en", "la", "el", "es", "it", "fr", "pt", "de", "pl"] as const;
+
 export async function generateViewport(): Promise<Viewport> {
   const theme = await getThemeCookieValue();
   return { themeColor: theme === "dark" ? "#2e2e2e" : "#fbf8f1" };
@@ -132,25 +136,36 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 closeLabel: t("loginRequired.close"),
               }}
             >
-              <PrayAlongLabelsProvider
-                labels={{
-                  play: t("prayAlong.play"),
-                  pause: t("prayAlong.pause"),
-                  resume: t("prayAlong.resume"),
-                  stop: t("prayAlong.stop"),
-                  preparing: t("prayAlong.preparing"),
-                  loading: t("prayAlong.status.loading"),
-                  playing: t("prayAlong.status.playing"),
-                  paused: t("prayAlong.status.paused"),
-                  waiting: t("prayAlong.status.waiting"),
-                  stopped: t("prayAlong.status.stopped"),
-                  finished: t("prayAlong.status.finished"),
-                  unavailable: t("prayAlong.status.unavailable"),
-                  error: t("prayAlong.status.error"),
+              <PrayerLanguageProvider
+                setup={{
+                  readerLanguage: locale,
+                  names: Object.fromEntries(
+                    PRAYER_LANGUAGE_CODES.map((code) => [code, t(`prayerLanguage.${code}`)]),
+                  ),
+                  groupLabel: t("prayerLanguage.group"),
+                  groupFor: t("prayerLanguage.groupFor"),
                 }}
               >
-                {children}
-              </PrayAlongLabelsProvider>
+                <PrayAlongLabelsProvider
+                  labels={{
+                    play: t("prayAlong.play"),
+                    pause: t("prayAlong.pause"),
+                    resume: t("prayAlong.resume"),
+                    stop: t("prayAlong.stop"),
+                    preparing: t("prayAlong.preparing"),
+                    loading: t("prayAlong.status.loading"),
+                    playing: t("prayAlong.status.playing"),
+                    paused: t("prayAlong.status.paused"),
+                    waiting: t("prayAlong.status.waiting"),
+                    stopped: t("prayAlong.status.stopped"),
+                    finished: t("prayAlong.status.finished"),
+                    unavailable: t("prayAlong.status.unavailable"),
+                    error: t("prayAlong.status.error"),
+                  }}
+                >
+                  {children}
+                </PrayAlongLabelsProvider>
+              </PrayerLanguageProvider>
             </LoginRequiredLabelsProvider>
           </ShareLabelsProvider>
         </main>

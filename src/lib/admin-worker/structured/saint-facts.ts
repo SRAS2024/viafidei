@@ -385,8 +385,27 @@ export function hasCatholicStatus(facts: Pick<SaintFacts, "statuses">): boolean 
 export interface StatusResolution {
   status: CanonizationStatus;
   /** Which rule produced it (for logs / repair reasons). */
-  basis: "catholic-status" | "generic-saint-catholic-religion";
+  basis: "catholic-status" | "generic-saint-catholic-religion" | "hand-checked";
 }
+
+/**
+ * The stage of a cause where Wikidata contradicts the Church, checked by hand against the
+ * Holy See and the Catholic Encyclopedia (migration 0082 stores the same). The import and
+ * the repair sweep read the stage only through `resolveCanonizationStatus`, so a record
+ * listed here is never re-titled from the stale one. `null`: no Catholic source records
+ * the person at any stage, so the record proves none.
+ */
+export const STAGE_CORRECTIONS: ReadonlyMap<string, CanonizationStatus | null> = new Map([
+  // Nikola Tavelić, canonized by Paul VI on 21 June 1970 (his homily of that day on
+  // vatican.va); Wikidata still gives "Venerable".
+  ["Q48252", "canonized"],
+  // "Saint Arthur" of Glastonbury, whom Wikidata calls a Catholic saint. He was never
+  // canonized: the Glastonbury martyrs of 1539 beatified in 1895 are Richard Whiting, John
+  // Thorne and Roger James (Catholic Encyclopedia, "Ven. Richard Whiting"). Nominis gives
+  // Arthur as John Thorne's name in religion, but the record does not say it is him, so no
+  // stage is printed until the owner decides (migration 0082).
+  ["Q4070328", null],
+]);
 
 /**
  * The Catholic canonization status proven by the structured record, or null.
@@ -394,6 +413,10 @@ export interface StatusResolution {
  * canonization) resolves to the HIGHEST rank, never an arbitrary sample.
  */
 export function resolveCanonizationStatus(facts: SaintFacts): StatusResolution | null {
+  if (STAGE_CORRECTIONS.has(facts.qid)) {
+    const corrected = STAGE_CORRECTIONS.get(facts.qid) ?? null;
+    return corrected ? { status: corrected, basis: "hand-checked" } : null;
+  }
   const nonCatholic = hasNonCatholicReligion(facts) && !hasCatholicReligion(facts);
   for (const status of STATUS_RANK) {
     if (!hasAny(facts.statuses, CATHOLIC_STATUS_QIDS[status])) continue;
