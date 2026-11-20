@@ -73,6 +73,10 @@ bash scripts/voice/install-launch-agent.sh --remove   # stop it for good
 project into memory only (as the Admin Worker launcher does) and refuses a local database
 unless `VIAFIDEI_ALLOW_LOCAL_DB=1`. Logs: `~/Library/Logs/ViaFidei/voice-engine.log`.
 
+Once it has nothing left to make, the engine runs the planner again by itself once a day,
+so prayers published and pages translated since are made before anyone presses play. The
+planner reads the translations the pages have and never asks the translator for more.
+
 ## Voices
 
 `src/lib/pray-along/voices.json` names the open model and voice that speak each language

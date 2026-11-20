@@ -17,6 +17,7 @@ import {
   readTranslations,
   resetTranslationStoreState,
   setTranslationDb,
+  stopFilingDemand,
   translationsPaused,
   type Db,
 } from "@/lib/translation/store";
@@ -122,6 +123,16 @@ describe("reading the translation cache", () => {
     expect(await flushDemand()).toBe(0);
     expect(inserts).toHaveLength(1);
     expect(inserts[0]).toEqual(expect.arrayContaining(["es", "fr", "h1", "Pray."]));
+  });
+
+  it("files nothing once a batch reader has stopped filing demand", async () => {
+    const { db, inserts } = fakeDb();
+    setTranslationDb(db);
+    stopFilingDemand();
+    const unit = { kind: "text" as const, source: "Pray.", sourceLang: "en", protect: [] };
+    fileDemand([{ lang: "es", hash: "h1", unit }]);
+    expect(await flushDemand()).toBe(0);
+    expect(inserts).toHaveLength(0);
   });
 });
 

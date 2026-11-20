@@ -11,6 +11,9 @@
  * a member chose the male) in all of them before the male voice.
  *
  * It never changes a clip that exists: rows are inserted with ON CONFLICT DO NOTHING.
+ * It reads the translations the pages have now and asks the translator for nothing more
+ * (a page's own visitors do that); the engine plans again once a day when it has nothing
+ * to make, so new prayers and new translations follow.
  *
  * Usage:
  *   npm run voice:plan                         # everything, both voices
@@ -39,6 +42,7 @@ import {
   scriptForRosary,
 } from "../src/lib/pray-along/server";
 import type { NeededClip } from "../src/lib/pray-along/store";
+import { stopFilingDemand } from "../src/lib/translation/store";
 import { VOICES, type Voice } from "../src/lib/pray-along/voice-choice";
 import { clipKey, voiceIdFor } from "../src/lib/pray-along/voices";
 
@@ -111,6 +115,7 @@ function isIn(script: PrayAlongScript, lang: AudioLang): boolean {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  stopFilingDemand();
   const wanted = new Map<string, NeededClip & { priority: number }>();
   const add = (script: PrayAlongScript | null | undefined, voice: Voice, priority: number) => {
     if (!script) return;

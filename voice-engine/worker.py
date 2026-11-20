@@ -8,6 +8,7 @@ The pray-along voice worker: makes the clips the website files in "PrayerAudioCl
     .venv/bin/python worker.py --lang la el    # only these languages
     .venv/bin/python worker.py --lang en --voice female   # bulk pre-making, one model loaded
     .venv/bin/python worker.py --status        # counts, then exit
+    .venv/bin/python worker.py --replan-daily  # also run the site's planner once a day when idle
 
 Reads DATABASE_URL (postgresql://user:pass@host:port/db[?sslmode=require]).
 
@@ -28,6 +29,7 @@ import os
 import signal
 import socket
 import ssl
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -43,6 +45,8 @@ CLAIM_STALE_MIN = 10
 MAX_ATTEMPTS = 5
 IDLE_POLL_S = 4.0
 TABLE = '"PrayerAudioClip"'
+REPLAN_EVERY_S = 24 * 3600
+PROJECT_DIR = Path(__file__).resolve().parent.parent
 
 
 # --------------------------------------------------------------------------- #
@@ -323,6 +327,35 @@ def make_one(db: DB, eng, me: str, row: dict) -> str:
     return clip.status
 
 
+# --------------------------------------------------------------------------- #
+# Planning again                                                              #
+# --------------------------------------------------------------------------- #
+
+
+def replan_due(last: Optional[float], now: float, every_s: float = REPLAN_EVERY_S) -> bool:
+    """True when this run has not planned yet, or last planned a day ago or more."""
+    return last is None or now - last >= every_s
+
+
+def start_replan() -> Optional[subprocess.Popen]:
+    """Starts the website's own planner (scripts/pray-along-plan.ts) in the background,
+    so prayers published and pages translated since the last plan are made before anyone
+    presses play. It writes to this worker's log; listeners' clips go on being made while
+    it runs."""
+    tsx = PROJECT_DIR / "node_modules" / ".bin" / "tsx"
+    plan = PROJECT_DIR / "scripts" / "pray-along-plan.ts"
+    if not (tsx.exists() and plan.exists()):
+        log.warning("cannot plan again: %s or %s is missing", tsx, plan)
+        return None
+    try:
+        proc = subprocess.Popen([str(tsx), str(plan)], cwd=str(PROJECT_DIR), stdin=subprocess.DEVNULL)
+    except OSError as e:
+        log.warning("cannot plan again: %s", e)
+        return None
+    log.info("planning the site's clips again (pid %d)", proc.pid)
+    return proc
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--once", action="store_true", help="make at most one clip, then exit")
@@ -332,6 +365,11 @@ def main() -> int:
     ap.add_argument("--voice", choices=["female", "male"], help="only this voice (bulk runs: no model switching)")
     ap.add_argument("--status", action="store_true", help="print counts and exit")
     ap.add_argument("--exit-when-idle", action="store_true", help="exit when nothing is pending")
+    ap.add_argument(
+        "--replan-daily",
+        action="store_true",
+        help="when idle, run the site's planner (new prayers, new translations) once a day",
+    )
     ap.add_argument("--worker-id", default=f"{socket.gethostname()}:{os.getpid()}")
     args = ap.parse_args()
 
@@ -364,13 +402,21 @@ def main() -> int:
     me = args.worker_id
     voice_ids = list(eng.registry.keys())
     made = 0
+    last_plan: Optional[float] = None
+    planner: Optional[subprocess.Popen] = None
     log.info("voice worker %s started (%d voices)", me, len(eng.registry))
     try:
         while not STOP.soft:
+            if planner is not None and planner.poll() is not None:
+                log.info("planning finished (exit %d)", planner.returncode)
+                planner = None
             row = claim(db, me, args.demand_only, args.lang, voice_ids, args.voice)
             if row is None:
                 if args.once or args.exit_when_idle:
                     break
+                if args.replan_daily and planner is None and replan_due(last_plan, time.monotonic()):
+                    last_plan = time.monotonic()
+                    planner = start_replan()
                 time.sleep(IDLE_POLL_S)
                 continue
             try:
@@ -385,6 +431,8 @@ def main() -> int:
     except KeyboardInterrupt:
         log.info("stopped")
     finally:
+        if planner is not None and planner.poll() is None:
+            planner.terminate()
         db.close()
         eng.cache.clear()
     log.info("voice worker %s finished: %d clips", me, made)

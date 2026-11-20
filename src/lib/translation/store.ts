@@ -69,6 +69,7 @@ export function translationsPaused(now = Date.now()): boolean {
 /** Test hook. */
 export function resetTranslationStoreState(): void {
   pausedUntil = 0;
+  demandFilingOff = false;
   cache.clear();
   filed.clear();
   demand.clear();
@@ -183,6 +184,17 @@ const FLUSH_DELAY_MS = 1_500;
 const filed = new Map<string, number>(); // lang:hash → when filed
 const demand = new Map<string, DemandRow>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
+/** Off for a batch reader (the pray-along planner): see stopFilingDemand. */
+let demandFilingOff = false;
+
+/**
+ * For a batch job that reads every page's translations (the pray-along planner): it
+ * takes what is translated now and asks the translator for nothing, which a page's
+ * own visitors do.
+ */
+export function stopFilingDemand(): void {
+  demandFilingOff = true;
+}
 
 /**
  * Ask the translator for units a visitor's page needed and did not find.
@@ -190,7 +202,7 @@ let flushTimer: ReturnType<typeof setTimeout> | null = null;
  * the page.
  */
 export function fileDemand(rows: readonly DemandRow[]): void {
-  if (translationDisabled() || translationsPaused() || rows.length === 0) return;
+  if (demandFilingOff || translationDisabled() || translationsPaused() || rows.length === 0) return;
   const now = Date.now();
   for (const row of rows) {
     const key = `${row.lang}:${row.hash}`;

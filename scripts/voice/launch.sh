@@ -5,6 +5,7 @@
 # process's memory only. Nothing is written to disk.
 #
 #   scripts/voice/launch.sh engine [worker.py args]   # make clips: listeners first, then the plan
+#                                                     # (and plan again once a day when idle)
 #   scripts/voice/launch.sh plan   [--dry-run …]      # file every clip the site will need
 #   scripts/voice/launch.sh status                    # counts by language and status
 #
@@ -63,9 +64,9 @@ case "$MODE" in
     # it from idle sleep while the engine runs (for a long first pass); off by default, so
     # a login item never holds the Mac awake for good.
     if [ "${VIAFIDEI_VOICE_KEEP_AWAKE:-0}" = "1" ]; then
-      exec /usr/bin/caffeinate -i "$PY" "$PROJECT_DIR/voice-engine/worker.py" "$@"
+      exec /usr/bin/caffeinate -i "$PY" "$PROJECT_DIR/voice-engine/worker.py" --replan-daily "$@"
     fi
-    exec "$PY" "$PROJECT_DIR/voice-engine/worker.py" "$@"
+    exec "$PY" "$PROJECT_DIR/voice-engine/worker.py" --replan-daily "$@"
     ;;
   plan)
     exec "$PROJECT_DIR/node_modules/.bin/tsx" "$PROJECT_DIR/scripts/pray-along-plan.ts" "$@"

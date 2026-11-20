@@ -27,6 +27,7 @@ export DATABASE_URL=postgresql://viafidei:viafidei@localhost:5432/viafidei   # o
 | `worker.py --lang la el` | Only these languages. |
 | `worker.py --voice female` | Only this voice (bulk runs keep one model loaded). |
 | `worker.py --exit-when-idle` | Exits when nothing is pending (batch runs). |
+| `worker.py --replan-daily` | When idle, runs the site's planner (`scripts/pray-along-plan.ts`) in the background once a day, so new prayers and new translations are made before anyone presses play. `scripts/voice/launch.sh engine` turns it on. |
 | `worker.py --status` | Counts by status, language and voice, then exits. |
 
 Order of work: listener demand first (newest `requestedAt` first, then lowest
