@@ -20,6 +20,7 @@ import { resolvePrayerLanguage, type PrayerVariant } from "@/lib/content-shared/
 import { ROSARY_MYSTERY_SETS, type MysterySetKey } from "@/lib/content-shared/rosary";
 
 import { toAudioLang, type AudioLang } from "./languages";
+import { quotedPassages } from "./quotes";
 import { rosaryTextsFor } from "./rosary-texts";
 import {
   closesWithSignOfTheCross,
@@ -266,12 +267,7 @@ export function prayerScript(slug: string, shown: ShownText, ctx: ScriptContext)
 /* -------------------------------------------------------------------------- */
 
 /** Quoted words in a text, in order, whatever the quotation marks. */
-export function quotedPassages(text: string): string[] {
-  const out: string[] = [];
-  const re = /["“„«「『]([^"“”„«»「」『』]{6,})["”»」』“]/g;
-  for (const m of text.matchAll(re)) out.push(m[1]!.trim());
-  return out;
-}
+export { quotedPassages } from "./quotes";
 
 /** The Divine Mercy chaplet's own prayers, in one language. */
 export interface ChapletPrayers {

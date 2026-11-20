@@ -1,1 +1,1970 @@
-{}
+{
+  "how-to-pray-the-divine-mercy-chaplet": [
+    {
+      "template": "divine-mercy-chaplet"
+    }
+  ],
+  "examination-of-conscience": [
+    {
+      "quote": {
+        "step": 1,
+        "index": 0,
+        "text": "Come, Holy Spirit, show me my sins as you see them, give me true sorrow for them, and the courage to confess them."
+      },
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    }
+  ],
+  "how-to-go-to-confession": [
+    {
+      "prayer": "confiteor",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    }
+  ],
+  "how-to-pray-the-stations-of-the-cross": [
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "repeat": 14,
+      "items": [
+        {
+          "prayer": "our-father",
+          "count": 1
+        },
+        {
+          "prayer": "hail-mary",
+          "count": 1
+        },
+        {
+          "prayer": "glory-be",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-before-a-crucifix",
+      "count": 1
+    }
+  ],
+  "how-to-pray-the-o-antiphons": [
+    {
+      "prayer": "o-antiphons",
+      "count": 1
+    },
+    {
+      "prayer": "magnificat",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "o-antiphons",
+      "count": 1
+    }
+  ],
+  "glorious-mysteries-of-the-rosary": [
+    {
+      "template": "rosary",
+      "set": "glorious"
+    }
+  ],
+  "how-to-pray-a-scriptural-rosary": [
+    {
+      "template": "rosary"
+    }
+  ],
+  "how-to-pray-the-rosary-as-a-family": [
+    {
+      "template": "rosary"
+    }
+  ],
+  "how-to-pray-the-chaplet-of-the-seven-sorrows": [
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "repeat": 7,
+      "items": [
+        {
+          "prayer": "our-father",
+          "count": 1
+        },
+        {
+          "prayer": "hail-mary",
+          "count": 7
+        }
+      ]
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 3
+    }
+  ],
+  "how-to-pray-the-chaplet-of-the-precious-blood": [
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "repeat": 6,
+      "items": [
+        {
+          "prayer": "our-father",
+          "count": 5
+        },
+        {
+          "prayer": "glory-be",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "prayer": "our-father",
+      "count": 3
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    }
+  ],
+  "how-to-pray-the-franciscan-crown": [
+    {
+      "quote": {
+        "step": 1,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "repeat": 7,
+      "items": [
+        {
+          "prayer": "our-father",
+          "count": 1
+        },
+        {
+          "prayer": "hail-mary",
+          "count": 10
+        },
+        {
+          "prayer": "glory-be",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 2
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    }
+  ],
+  "how-to-pray-the-chaplet-of-the-holy-face": [
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 3,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 3,
+        "index": 1
+      },
+      "count": 6
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 4,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 4,
+        "index": 2
+      },
+      "count": 6
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 5,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 5,
+        "index": 1
+      },
+      "count": 6
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 6,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 6,
+        "index": 1
+      },
+      "count": 6
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 7,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 7,
+        "index": 1
+      },
+      "count": 6
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 8,
+        "index": 0
+      },
+      "count": 3
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 9,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 9,
+        "index": 1
+      },
+      "count": 1
+    }
+  ],
+  "examination-of-conscience-for-children": [
+    {
+      "quote": {
+        "step": 1,
+        "index": 0,
+        "text": "Jesus, help me remember the times I did not love you or other people the way I should. Help me be sorry, and help me do better."
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 7,
+        "index": 4,
+        "text": "O my God, I am sorry for my sins with all my heart. In choosing to do wrong and failing to do good, I have sinned against you whom I should love above all things. I firmly intend, with your help, to do penance, to sin no more, and to avoid whatever leads me to sin. Our Saviour Jesus Christ suffered and died for us. In his name, my God, have mercy. Amen."
+      },
+      "count": 1
+    }
+  ],
+  "examination-of-conscience-for-young-adults": [
+    {
+      "quote": {
+        "step": 1,
+        "index": 0,
+        "text": "Come, Holy Spirit. Show me what you see, give me sorrow for it, and give me the courage to say it out loud."
+      },
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    }
+  ],
+  "examination-of-conscience-for-married-persons": [
+    {
+      "prayer": "confiteor",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    }
+  ],
+  "examination-of-conscience-on-the-beatitudes": [
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-of-saint-francis",
+      "count": 1
+    }
+  ],
+  "how-to-return-to-confession-after-many-years": [
+    {
+      "prayer": "de-profundis",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "confiteor",
+      "count": 1
+    }
+  ],
+  "how-to-make-an-act-of-perfect-contrition": [
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 4,
+        "index": 1
+      },
+      "count": 1
+    }
+  ],
+  "how-to-attend-eucharistic-adoration-for-the-first-time": [
+    {
+      "prayer": "act-of-faith",
+      "count": 1
+    },
+    {
+      "prayer": "adoro-te-devote",
+      "count": 1
+    },
+    {
+      "prayer": "anima-christi",
+      "count": 1
+    },
+    {
+      "prayer": "tantum-ergo",
+      "count": 1
+    },
+    {
+      "prayer": "divine-praises",
+      "count": 1
+    }
+  ],
+  "how-to-pray-benediction-of-the-blessed-sacrament": [
+    {
+      "prayer": "o-salutaris-hostia",
+      "count": 1
+    },
+    {
+      "prayer": "adoro-te-devote",
+      "count": 1
+    },
+    {
+      "prayer": "tantum-ergo",
+      "count": 1
+    },
+    {
+      "prayer": "divine-praises",
+      "count": 1
+    },
+    {
+      "prayer": "te-deum",
+      "count": 1
+    }
+  ],
+  "how-to-make-an-act-of-spiritual-communion": [
+    {
+      "quote": {
+        "step": 3,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-spiritual-communion",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-love",
+      "count": 1
+    }
+  ],
+  "how-to-take-part-in-a-eucharistic-procession": [
+    {
+      "prayer": "o-salutaris-hostia",
+      "count": 1
+    },
+    {
+      "prayer": "adoro-te-devote",
+      "count": 1
+    },
+    {
+      "prayer": "tantum-ergo",
+      "count": 1
+    },
+    {
+      "prayer": "tantum-ergo",
+      "count": 1
+    },
+    {
+      "prayer": "divine-praises",
+      "count": 1
+    },
+    {
+      "prayer": "te-deum",
+      "count": 1
+    }
+  ],
+  "how-to-pray-the-liturgy-of-the-hours": [
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "benedictus-canticle-of-zechariah",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "magnificat",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "confiteor",
+      "count": 1
+    },
+    {
+      "prayer": "nunc-dimittis",
+      "count": 1
+    },
+    {
+      "prayer": "salve-regina",
+      "count": 1
+    }
+  ],
+  "how-to-pray-grace-at-meals": [
+    {
+      "prayer": "grace-before-meals",
+      "count": 1
+    },
+    {
+      "prayer": "sign-of-the-cross",
+      "count": 1
+    },
+    {
+      "prayer": "grace-after-meals",
+      "count": 1
+    }
+  ],
+  "how-to-pray-a-novena": [
+    {
+      "prayer": "veni-creator-spiritus",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    }
+  ],
+  "how-to-pray-a-litany": [
+    {
+      "prayer": "litany-of-the-blessed-virgin-mary",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-the-sacred-heart-of-jesus",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-saint-joseph",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-the-saints",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-humility",
+      "count": 1
+    }
+  ],
+  "how-to-teach-a-child-the-basic-prayers": [
+    {
+      "prayer": "grace-before-meals",
+      "count": 1
+    },
+    {
+      "prayer": "grace-after-meals",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "guardian-angel-prayer",
+      "count": 1
+    }
+  ],
+  "how-to-gain-a-plenary-indulgence": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    },
+    {
+      "prayer": "apostles-creed",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "eternal-rest",
+      "count": 1
+    }
+  ],
+  "how-to-make-the-nine-first-fridays": [
+    {
+      "quote": {
+        "step": 4,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "prayer": "anima-christi",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-the-sacred-heart-of-jesus",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-consecration-to-the-sacred-heart",
+      "count": 1
+    }
+  ],
+  "how-to-make-the-five-first-saturdays": [
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 3,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "prayer": "anima-christi",
+      "count": 1
+    },
+    {
+      "template": "rosary"
+    }
+  ],
+  "how-to-be-enrolled-in-the-brown-scapular": [
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    },
+    {
+      "prayer": "sub-tuum-praesidium",
+      "count": 1
+    },
+    {
+      "prayer": "salve-regina",
+      "count": 1
+    }
+  ],
+  "how-to-bless-your-home-and-use-holy-water": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-to-saint-michael",
+      "count": 1
+    },
+    {
+      "prayer": "sub-tuum-praesidium",
+      "count": 1
+    },
+    {
+      "prayer": "guardian-angel-prayer",
+      "count": 1
+    }
+  ],
+  "how-to-hold-a-may-crowning": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 10
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "regina-caeli",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-the-blessed-virgin-mary",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 7,
+        "index": 1
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 7,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "prayer": "magnificat",
+      "count": 1
+    },
+    {
+      "prayer": "salve-regina",
+      "count": 1
+    }
+  ],
+  "how-to-return-to-the-church-as-a-lapsed-catholic": [
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "confiteor",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-of-saint-francis",
+      "count": 1
+    }
+  ],
+  "how-to-make-the-33-day-preparation-for-marian-consecration": [
+    {
+      "prayer": "veni-creator-spiritus",
+      "count": 1
+    },
+    {
+      "prayer": "magnificat",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-the-blessed-virgin-mary",
+      "count": 1
+    },
+    {
+      "template": "rosary"
+    },
+    {
+      "prayer": "anima-christi",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-consecration-to-mary-de-montfort",
+      "count": 1
+    },
+    {
+      "prayer": "magnificat",
+      "count": 1
+    },
+    {
+      "prayer": "memorare",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 8,
+        "index": 0
+      },
+      "count": 1
+    }
+  ],
+  "how-to-consecrate-yourself-to-the-sacred-heart-of-jesus": [
+    {
+      "prayer": "litany-of-the-sacred-heart-of-jesus",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-consecration-to-the-sacred-heart",
+      "count": 1
+    },
+    {
+      "prayer": "morning-offering",
+      "count": 1
+    }
+  ],
+  "how-to-enthrone-the-sacred-heart-in-your-home": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "eternal-rest",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-the-sacred-heart-of-jesus",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    }
+  ],
+  "how-to-consecrate-yourself-to-saint-joseph": [
+    {
+      "prayer": "litany-of-saint-joseph",
+      "count": 1
+    },
+    {
+      "prayer": "memorare",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-to-saint-joseph",
+      "count": 1
+    }
+  ],
+  "how-to-consecrate-yourself-to-the-immaculate-heart-of-mary": [
+    {
+      "template": "rosary"
+    },
+    {
+      "prayer": "litany-of-the-blessed-virgin-mary",
+      "count": 1
+    },
+    {
+      "prayer": "salve-regina",
+      "count": 1
+    },
+    {
+      "prayer": "sub-tuum-praesidium",
+      "count": 1
+    }
+  ],
+  "how-to-discern-gods-will-in-a-major-decision": [
+    {
+      "prayer": "veni-creator-spiritus",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-to-the-holy-spirit",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    }
+  ],
+  "how-to-find-a-spiritual-director": [
+    {
+      "prayer": "prayer-to-the-holy-spirit",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    }
+  ],
+  "how-to-discern-a-call-to-marriage": [
+    {
+      "prayer": "prayer-to-the-holy-spirit",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    }
+  ],
+  "how-to-discern-a-call-to-the-priesthood": [
+    {
+      "prayer": "veni-creator-spiritus",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-for-vocations",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-the-saints",
+      "count": 1
+    }
+  ],
+  "how-to-discern-a-call-to-the-permanent-diaconate": [
+    {
+      "prayer": "veni-creator-spiritus",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-of-saint-francis",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-the-saints",
+      "count": 1
+    }
+  ],
+  "how-to-discern-consecrated-life-as-a-lay-person": [
+    {
+      "prayer": "veni-creator-spiritus",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-to-the-holy-spirit",
+      "count": 1
+    },
+    {
+      "prayer": "magnificat",
+      "count": 1
+    }
+  ],
+  "how-to-pray-for-vocations": [
+    {
+      "prayer": "prayer-for-vocations",
+      "count": 1
+    },
+    {
+      "prayer": "o-salutaris-hostia",
+      "count": 1
+    },
+    {
+      "template": "rosary"
+    },
+    {
+      "prayer": "tantum-ergo",
+      "count": 1
+    },
+    {
+      "prayer": "divine-praises",
+      "count": 1
+    }
+  ],
+  "preparing-for-baptism-infant": [
+    {
+      "prayer": "apostles-creed",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    },
+    {
+      "prayer": "guardian-angel-prayer",
+      "count": 1
+    }
+  ],
+  "how-to-choose-godparents": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "guardian-angel-prayer",
+      "count": 1
+    }
+  ],
+  "how-to-be-a-godparent": [
+    {
+      "prayer": "apostles-creed",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    },
+    {
+      "prayer": "guardian-angel-prayer",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 10
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    }
+  ],
+  "how-to-baptize-in-an-emergency": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "apostles-creed",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 4,
+        "index": 0,
+        "text": "Lord, receive your child."
+      },
+      "count": 1
+    }
+  ],
+  "preparing-for-confirmation": [
+    {
+      "prayer": "veni-creator-spiritus",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "nicene-creed",
+      "count": 1
+    },
+    {
+      "prayer": "morning-offering",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-to-the-holy-spirit",
+      "count": 1
+    }
+  ],
+  "how-to-choose-a-confirmation-saint-and-sponsor": [
+    {
+      "prayer": "prayer-to-the-holy-spirit",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-humility",
+      "count": 1
+    },
+    {
+      "prayer": "veni-creator-spiritus",
+      "count": 1
+    }
+  ],
+  "how-to-prepare-to-receive-holy-communion": [
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "confiteor",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-spiritual-communion",
+      "count": 1
+    },
+    {
+      "prayer": "anima-christi",
+      "count": 1
+    },
+    {
+      "prayer": "adoro-te-devote",
+      "count": 1
+    }
+  ],
+  "how-to-participate-in-mass": [
+    {
+      "prayer": "confiteor",
+      "count": 1
+    },
+    {
+      "prayer": "nicene-creed",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 6,
+        "index": 1
+      },
+      "count": 1
+    },
+    {
+      "prayer": "sanctus",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 6,
+        "index": 8
+      },
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 7,
+        "index": 3
+      },
+      "count": 1
+    },
+    {
+      "prayer": "anima-christi",
+      "count": 1
+    }
+  ],
+  "holy-days-of-obligation-guide": [
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    },
+    {
+      "prayer": "salve-regina",
+      "count": 1
+    },
+    {
+      "prayer": "te-deum",
+      "count": 1
+    },
+    {
+      "prayer": "magnificat",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    }
+  ],
+  "how-to-request-anointing-of-the-sick": [
+    {
+      "prayer": "confiteor",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "anima-christi",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    }
+  ],
+  "how-to-prepare-for-viaticum-and-the-last-rites": [
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "confiteor",
+      "count": 1
+    },
+    {
+      "prayer": "apostles-creed",
+      "count": 1
+    },
+    {
+      "prayer": "anima-christi",
+      "count": 1
+    },
+    {
+      "prayer": "commendation-of-the-dying",
+      "count": 1
+    },
+    {
+      "prayer": "eternal-rest",
+      "count": 1
+    }
+  ],
+  "how-to-pray-with-someone-who-is-dying": [
+    {
+      "quote": {
+        "step": 2,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 2,
+        "index": 1
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 2,
+        "index": 2
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 2,
+        "index": 3
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 2,
+        "index": 4
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 2,
+        "index": 5
+      },
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "de-profundis",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-the-saints",
+      "count": 1
+    },
+    {
+      "template": "divine-mercy-chaplet"
+    },
+    {
+      "prayer": "commendation-of-the-dying",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 7,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 7,
+        "index": 1
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 7,
+        "index": 2
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 7,
+        "index": 3
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 7,
+        "index": 4
+      },
+      "count": 1
+    },
+    {
+      "prayer": "eternal-rest",
+      "count": 1
+    }
+  ],
+  "how-to-plan-a-catholic-funeral": [
+    {
+      "prayer": "eternal-rest",
+      "count": 1
+    },
+    {
+      "prayer": "de-profundis",
+      "count": 1
+    },
+    {
+      "prayer": "salve-regina",
+      "count": 1
+    }
+  ],
+  "how-to-pray-for-the-dead": [
+    {
+      "prayer": "eternal-rest",
+      "count": 1
+    },
+    {
+      "prayer": "de-profundis",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 10
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    }
+  ],
+  "how-to-plan-a-catholic-wedding-liturgy": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    },
+    {
+      "prayer": "salve-regina",
+      "count": 1
+    }
+  ],
+  "how-to-pray-as-a-married-couple": [
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "morning-offering",
+      "count": 1
+    },
+    {
+      "prayer": "grace-before-meals",
+      "count": 1
+    },
+    {
+      "prayer": "grace-after-meals",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 10
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-spiritual-communion",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-humility",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    }
+  ],
+  "how-to-have-a-marriage-convalidated": [
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-to-the-holy-spirit",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    }
+  ],
+  "how-to-petition-for-a-declaration-of-nullity": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-humility",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-to-the-holy-spirit",
+      "count": 1
+    }
+  ],
+  "lent-preparation-guide": [
+    {
+      "prayer": "de-profundis",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    }
+  ],
+  "how-to-observe-ash-wednesday": [
+    {
+      "prayer": "de-profundis",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    }
+  ],
+  "how-to-fast-and-abstain-during-lent": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-love",
+      "count": 1
+    }
+  ],
+  "how-to-make-lenten-resolutions": [
+    {
+      "prayer": "morning-offering",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    }
+  ],
+  "how-to-observe-holy-week": [
+    {
+      "prayer": "anima-christi",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-before-a-crucifix",
+      "count": 1
+    },
+    {
+      "prayer": "stabat-mater",
+      "count": 1
+    },
+    {
+      "prayer": "regina-caeli",
+      "count": 1
+    }
+  ],
+  "advent-preparation-guide": [
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "angelus",
+      "count": 1
+    },
+    {
+      "prayer": "magnificat",
+      "count": 1
+    },
+    {
+      "prayer": "benedictus-canticle-of-zechariah",
+      "count": 1
+    }
+  ],
+  "how-to-make-and-bless-an-advent-wreath": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "angelus",
+      "count": 1
+    }
+  ],
+  "how-to-set-up-and-bless-a-nativity-scene": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    }
+  ],
+  "how-to-pray-the-christmas-novena": [
+    {
+      "prayer": "o-antiphons",
+      "count": 1
+    },
+    {
+      "prayer": "magnificat",
+      "count": 1
+    },
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "prayer": "o-antiphons",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    }
+  ],
+  "ocia-rcia-overview": [
+    {
+      "prayer": "apostles-creed",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "nicene-creed",
+      "count": 1
+    }
+  ],
+  "how-to-become-catholic": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-to-the-holy-spirit",
+      "count": 1
+    },
+    {
+      "prayer": "apostles-creed",
+      "count": 1
+    }
+  ],
+  "how-to-be-an-ocia-sponsor": [
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-to-the-holy-spirit",
+      "count": 1
+    }
+  ],
+  "how-to-participate-in-the-scrutinies": [
+    {
+      "prayer": "apostles-creed",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    }
+  ],
+  "how-to-prepare-for-the-easter-vigil-as-a-catechumen": [
+    {
+      "prayer": "apostles-creed",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "litany-of-the-saints",
+      "count": 1
+    },
+    {
+      "prayer": "te-deum",
+      "count": 1
+    }
+  ],
+  "how-to-pray-the-rosary": [
+    {
+      "template": "rosary"
+    }
+  ],
+  "joyful-mysteries-of-the-rosary": [
+    {
+      "template": "rosary"
+    }
+  ],
+  "luminous-mysteries-of-the-rosary": [
+    {
+      "template": "rosary"
+    }
+  ],
+  "how-to-pray-the-chaplet-of-saint-michael": [
+    {
+      "prayer": "glory-be",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 3,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 3
+    },
+    {
+      "quote": {
+        "step": 3,
+        "index": 1
+      },
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 3
+    },
+    {
+      "quote": {
+        "step": 3,
+        "index": 2
+      },
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 3
+    },
+    {
+      "quote": {
+        "step": 4,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 3
+    },
+    {
+      "quote": {
+        "step": 4,
+        "index": 1
+      },
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 3
+    },
+    {
+      "quote": {
+        "step": 4,
+        "index": 2
+      },
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 3
+    },
+    {
+      "quote": {
+        "step": 5,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 3
+    },
+    {
+      "quote": {
+        "step": 5,
+        "index": 1
+      },
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 3
+    },
+    {
+      "quote": {
+        "step": 5,
+        "index": 2
+      },
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 3
+    },
+    {
+      "prayer": "our-father",
+      "count": 4
+    },
+    {
+      "quote": {
+        "step": 7,
+        "index": 0
+      },
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 8,
+        "index": 0
+      },
+      "count": 1
+    }
+  ],
+  "how-to-pray-the-angelus": [
+    {
+      "prayer": "angelus",
+      "count": 1
+    }
+  ],
+  "how-to-begin-and-end-the-day-with-prayer": [
+    {
+      "prayer": "morning-offering",
+      "count": 1
+    },
+    {
+      "prayer": "angelus",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    },
+    {
+      "prayer": "nunc-dimittis",
+      "count": 1
+    },
+    {
+      "quote": {
+        "step": 5,
+        "index": 1
+      },
+      "count": 1
+    },
+    {
+      "prayer": "guardian-angel-prayer",
+      "count": 1
+    }
+  ],
+  "discerning-religious-vocation": [
+    {
+      "prayer": "veni-creator-spiritus",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-for-vocations",
+      "count": 1
+    },
+    {
+      "prayer": "magnificat",
+      "count": 1
+    }
+  ],
+  "how-to-be-a-confirmation-sponsor": [
+    {
+      "prayer": "veni-creator-spiritus",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-to-the-holy-spirit",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    }
+  ],
+  "preparing-for-first-communion": [
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "grace-before-meals",
+      "count": 1
+    },
+    {
+      "prayer": "anima-christi",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-spiritual-communion",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    }
+  ],
+  "preparing-for-marriage": [
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    },
+    {
+      "prayer": "prayer-to-the-holy-spirit",
+      "count": 1
+    },
+    {
+      "prayer": "our-father",
+      "count": 1
+    },
+    {
+      "prayer": "hail-mary",
+      "count": 1
+    }
+  ],
+  "how-to-fulfil-your-easter-duty": [
+    {
+      "prayer": "confiteor",
+      "count": 1
+    },
+    {
+      "prayer": "act-of-contrition",
+      "count": 1
+    }
+  ]
+}
