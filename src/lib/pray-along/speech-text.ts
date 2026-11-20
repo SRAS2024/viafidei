@@ -341,6 +341,8 @@ function prepareWords(text: string, lang: AudioLang): string {
       .replace(/œ/g, "oe")
       .replace(/Œ/g, "Oe")
       .replace(/\s&\s/g, " and ")
+      // Two martyrs invoked together: "St. Fabian and Sebastian, pray for us."
+      .replace(/\bSaint (\p{Lu}\p{Ll}+) and (\p{Lu}\p{Ll}+)(?=,\s*pray for us)/gu, "Saints $1 and $2")
       .replace(
         /\b(\p{Lu}\p{Ll}+) (II|III|IV|VI|VII|VIII|IX|XI|XII|XIII|XIV|XV|XVI|XXIII)\b(?:\.(?=\s*[,;:]|\s+\p{Ll}))?/gu,
         (_m, name: string, numeral: string) => `${name} ${ENGLISH_ORDINALS[numeral] ?? numeral}`,
@@ -1485,6 +1487,32 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
     l.last = !next || next.blank;
   });
 
+  // A quotation run on from a meditation ("Meditation. …" and then "“Do not extinguish
+  // the Spirit” (1 Thess. v, 19).") is read in silence with it.
+  lines.forEach((l, i) => {
+    const prev = lines[i - 1];
+    if (l.blank || !prev || prev.blank || prev.kind !== "note") return;
+    if (/^["\u201c\u2018]/.test(l.rule) && !ADDRESS.test(l.rule)) l.kind = "note";
+  });
+  // "Our Father (silently as far as):" prays the Our Father; the lines that then say its
+  // end aloud ("And lead us not into temptation.") are already prayed.
+  lines.forEach((l, i) => {
+    if (!/^(?:Our Father|Pater noster)\s*\(silently as far as\)[.:]?$/i.test(l.rule)) return;
+    l.parts = [{ t: "rubric", text: "Our Father." }];
+    for (let j = i + 1; j < Math.min(lines.length, i + 3); j++) {
+      const n = lines[j]!;
+      if (/lead us not into temptation|deliver us from evil|ne nos inducas|libera nos a malo/i.test(n.said)) {
+        n.heading = true;
+      }
+    }
+  });
+  // A prayer said only on a condition ("(Add Eternal rest, etc., if said for the
+  // departed.)") is not prayed, nor where the text points back to it ("as above").
+  const conditional = new Set<string>();
+  for (const m of shownLines.join("\n").matchAll(/\(([^()]*\bif\b[^()]*)\)/g)) {
+    for (const h of findPrayerNames(m[1] ?? "", [])) conditional.add(h.slug);
+  }
+
   const ruleText = lines.map((l) => l.rule).join("\n");
   const style = styleOf(ruleText);
   const marian =
@@ -2157,6 +2185,10 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
       return [{ t: "effect", effect: { prayers: [], repeatPrevious: repeat } }];
     }
     if (kind === "drop" && !/\bafter each\b/i.test(inner)) return [];
+    if (kind === "prayers" && /\bas\s+(?:above|before)\b/i.test(inner)) {
+      const hits = findPrayerNames(inner, prayers, opts.self);
+      if (hits.length > 0 && hits.every((h) => conditional.has(h.slug))) return [];
+    }
     const out: Out[] = [];
     // "V. and R. as above.": the versicle and response said last.
     if (/\bV\.\s+and\s+R\.\s+as\s+above\b/.test(inner)) {
