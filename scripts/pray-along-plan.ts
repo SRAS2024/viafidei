@@ -7,7 +7,8 @@
  * Order (lower priority first): the Sign of the Cross and the Rosary's prayers in each
  * language, the four Rosaries, every prayer in the site's display order, the novena
  * days, then the guides; English first, then Latin and Greek, then the reader
- * languages a page has been translated into.
+ * languages a page has been translated into; the female voice (every visitor's, unless
+ * a member chose the male) in all of them before the male voice.
  *
  * It never changes a clip that exists: rows are inserted with ON CONFLICT DO NOTHING.
  *
@@ -85,6 +86,15 @@ function band(lang: AudioLang): number {
   return 200_000;
 }
 
+/**
+ * Every language's female voice before any male voice: it is the voice every visitor
+ * hears unless a signed-in member chose the male one, and a member's press is made
+ * first whatever its voice.
+ */
+function voiceBand(voice: Voice): number {
+  return voice === "female" ? 0 : 1_000_000;
+}
+
 /** How a language is asked for: the reader's locale and their Latin / Greek choice. */
 function request(lang: AudioLang): { locale: Locale; chosen: string | null } {
   if (lang === "la") return { locale: "la", chosen: "la" };
@@ -144,8 +154,8 @@ async function main() {
   for (const lang of args.langs) {
     const { locale, chosen } = request(lang);
     const pageLang: AudioLang = lang === "el" ? "en" : lang;
-    const b = band(lang);
     for (const voice of args.voices) {
+      const b = band(lang) + voiceBand(voice);
       if (args.kinds.includes("blocks")) {
         const sign = normalizeForSpeech(SIGN_OF_THE_CROSS[lang], lang);
         add({ lang, items: [{ kind: "say", text: sign, lang }] }, voice, b);

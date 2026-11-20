@@ -54,7 +54,9 @@ and served by `/api/pray-along/clip/<key>` (byte ranges for Safari, cached for g
 
 `npm run voice:plan` files every clip the site will need so the engine makes them before
 anyone presses play (the Sign of the Cross and the Rosary's prayers first, then prayers in
-display order, novena days, guides; English, then Latin and Greek, then translated pages).
+display order, novena days, guides; English, then Latin and Greek, then translated pages;
+every language's female voice, which every visitor hears unless a member chose the male
+one, before the male voice).
 
 ## Running the engine on the Mac
 
