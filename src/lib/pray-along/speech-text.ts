@@ -342,7 +342,10 @@ function prepareWords(text: string, lang: AudioLang): string {
       .replace(/Œ/g, "Oe")
       .replace(/\s&\s/g, " and ")
       // Two martyrs invoked together: "St. Fabian and Sebastian, pray for us."
-      .replace(/\bSaint (\p{Lu}\p{Ll}+) and (\p{Lu}\p{Ll}+)(?=,\s*pray for us)/gu, "Saints $1 and $2")
+      .replace(
+        /\bSaint (\p{Lu}\p{Ll}+) and (\p{Lu}\p{Ll}+)(?=,\s*pray for us)/gu,
+        "Saints $1 and $2",
+      )
       .replace(
         /\b(\p{Lu}\p{Ll}+) (II|III|IV|VI|VII|VIII|IX|XI|XII|XIII|XIV|XV|XVI|XXIII)\b(?:\.(?=\s*[,;:]|\s+\p{Ll}))?/gu,
         (_m, name: string, numeral: string) => `${name} ${ENGLISH_ORDINALS[numeral] ?? numeral}`,
@@ -1501,7 +1504,11 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
     l.parts = [{ t: "rubric", text: "Our Father." }];
     for (let j = i + 1; j < Math.min(lines.length, i + 3); j++) {
       const n = lines[j]!;
-      if (/lead us not into temptation|deliver us from evil|ne nos inducas|libera nos a malo/i.test(n.said)) {
+      if (
+        /lead us not into temptation|deliver us from evil|ne nos inducas|libera nos a malo/i.test(
+          n.said,
+        )
+      ) {
         n.heading = true;
       }
     }
@@ -2038,6 +2045,15 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
     if (hits.length > 0 && isPointer(t, hits)) return readInstruction(t, hits);
     if (english && isInstruction(t, hits.length > 0)) return readInstruction(t, hits);
     if (english && c.firstOfLine && isTitledHeading(t)) return [];
+    // A note naming whose words these are: "Thus Saint Augustine expresses himself."
+    if (
+      english &&
+      /^Thus\s+(?:Saint|St\.?|the)\s+[\w\s.]{2,40}?\s+(?:expresses himself|speaks|says|writes)\.$/.test(
+        t,
+      )
+    ) {
+      return [];
+    }
     const tail = tailPointer(t, hits);
     if (tail) return [{ keep: tail.head }, ...readInstruction(tail.tail, tail.hits)];
     return [{ keep: clause.trim() }];
