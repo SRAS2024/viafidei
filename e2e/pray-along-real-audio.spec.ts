@@ -6,6 +6,8 @@ import { expect, test } from "@playwright/test";
 // by voice-engine/worker.py in the database the server reads.
 
 test.skip(!process.env.E2E_REAL_AUDIO, "needs clips made by the voice engine (E2E_REAL_AUDIO=1)");
+// The prayer itself lasts about half a minute: more than a test's usual 30 s.
+test.setTimeout(120_000);
 
 test("the Hail Mary is prayed aloud, from the Sign of the Cross to the Sign of the Cross", async ({
   page,
