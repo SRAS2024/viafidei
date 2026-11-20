@@ -1589,7 +1589,10 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
     if (l.blank || l.heading || l.kind !== "spoken" || l.marker) return;
     const next = lines[i + 1];
     const t = l.rule;
-    if (DATED_TITLE.test(t)) {
+    if (
+      DATED_TITLE.test(t) ||
+      /^(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)[.:]?$/.test(t)
+    ) {
       l.heading = true;
       return;
     }

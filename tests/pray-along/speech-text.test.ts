@@ -482,3 +482,13 @@ describe("the module stays safe for old Safari", () => {
     expect(source).not.toMatch(/\(\?<[=!]/);
   });
 });
+
+describe("a weekday over the prayer for that day", () => {
+  it("is a heading, not a word of the prayer", () => {
+    expect(
+      said(
+        en("Sunday.\nO great High-Priest, have mercy on us.\n\nMonday\nKing of virgins, hear us."),
+      ),
+    ).toEqual(["O great High-Priest, have mercy on us.", "King of virgins, hear us."]);
+  });
+});
