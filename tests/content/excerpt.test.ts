@@ -46,3 +46,25 @@ describe("wholeWordExcerpt (a card's description)", () => {
     );
   });
 });
+
+describe("wholeWordExcerpt in Chinese and on odd data", () => {
+  it("ends a Chinese cut at its sentence end, with no stray ellipsis", () => {
+    const background = "他们向三位牧童显现，请求念玫瑰经。后来又在庞特维德拉显现。";
+    expect(wholeWordExcerpt("他们向三位牧童显现，请求念玫瑰经。", { background })).toBe(
+      "他们向三位牧童显现，请求念玫瑰经。",
+    );
+  });
+
+  it("does not take a Chinese character after the cut for a broken word", () => {
+    const background = "他们向三位牧童显现，请求念玫瑰经。后来又在庞特维德拉显现。";
+    expect(wholeWordExcerpt("他们向三位牧童显现，请求念", { background })).toBe(
+      "他们向三位牧童显现，请求念…",
+    );
+    expect(wholeWordExcerpt("他们向三位牧童显现，", { background })).toBe("他们向三位牧童显现…");
+  });
+
+  it("returns a summary that is not text as it is, never throwing", () => {
+    expect(wholeWordExcerpt(42 as unknown as string, { background: "x" })).toBe(42);
+    expect(wholeWordExcerpt(["a"] as unknown as string, { background: "x" })).toEqual(["a"]);
+  });
+});

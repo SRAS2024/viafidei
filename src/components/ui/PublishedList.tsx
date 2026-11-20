@@ -140,7 +140,12 @@ export function PublishedList({
     const summary = !showSummary
       ? ""
       : shownPayload
-        ? wholeWordExcerpt((shownPayload[summaryField] as string | undefined) ?? "", shownPayload)
+        ? wholeWordExcerpt(
+            typeof shownPayload[summaryField] === "string"
+              ? (shownPayload[summaryField] as string)
+              : "",
+            shownPayload,
+          )
         : showSubtitle
           ? shown.subtitle
           : "";

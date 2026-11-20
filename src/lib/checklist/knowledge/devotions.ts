@@ -126,8 +126,8 @@ const LEGACY: CuratedEntry[] = [
   devotion(
     "five-first-saturdays",
     "The Five First Saturdays",
-    "A devotion of reparation to the Immaculate Heart of Mary requested at Fatima, made on the first Saturday of five consecutive months.",
-    "At Fatima the Blessed Virgin Mary asked for Communions of reparation to her Immaculate Heart on the first Saturdays, promising her assistance at the hour of death to those who fulfill the devotion.",
+    "A devotion of reparation to the Immaculate Heart of Mary, announced at Fatima and requested at Pontevedra, made on the first Saturday of five consecutive months.",
+    "At Fatima, on 13 July 1917, the Blessed Virgin Mary said she would come to ask for the Communion of reparation on the first Saturdays; at Pontevedra, on 10 December 1925, she asked for Communions of reparation to her Immaculate Heart on the first Saturdays, promising her assistance at the hour of death to those who fulfill the devotion.",
     "On the first Saturday of five consecutive months, go to Confession, receive Holy Communion, pray five decades of the Rosary, and keep Mary company for fifteen minutes meditating on the mysteries, all in reparation to her Immaculate Heart.",
     "marian",
     ["hail-mary"],

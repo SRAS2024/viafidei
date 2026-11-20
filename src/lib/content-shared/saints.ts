@@ -927,8 +927,9 @@ const STATUS_IN_NAME: Record<string, RegExp> = {
 /**
  * Records whose stored stage no Catholic source confirms. The schema has no word for
  * "none", so the record keeps one, but the page does not print it: "Saint" over Arthur of
- * Glastonbury, whom no Catholic list of the English martyrs names (migration 0082), would
- * say what the Church never has. Whether such a record stays is the owner's call.
+ * Glastonbury, never canonized (most likely Blessed John Thorne, whose name in religion
+ * was Arthur; migration 0082), would say what the Church never has. Whether such a record
+ * is retitled or stays is the owner's call.
  */
 export const STAGE_NOT_RECORDED: ReadonlySet<string> = new Set(["saint-arthur"]);
 

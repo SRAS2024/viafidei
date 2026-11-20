@@ -399,10 +399,11 @@ export const STAGE_CORRECTIONS: ReadonlyMap<string, CanonizationStatus | null> =
   // Nikola Tavelić, canonized by Paul VI on 21 June 1970 (his homily of that day on
   // vatican.va); Wikidata still gives "Venerable".
   ["Q48252", "canonized"],
-  // "Saint Arthur" of Glastonbury, whom Wikidata calls a Catholic saint. The Glastonbury
-  // martyrs of 1539 beatified in 1895 are Richard Whiting, John Thorne and Roger James
-  // (Catholic Encyclopedia, "Ven. Richard Whiting"), and the Roman Martyrology names only
-  // them; no Catholic list of the English martyrs names an Arthur of Glastonbury.
+  // "Saint Arthur" of Glastonbury, whom Wikidata calls a Catholic saint. He was never
+  // canonized: the Glastonbury martyrs of 1539 beatified in 1895 are Richard Whiting, John
+  // Thorne and Roger James (Catholic Encyclopedia, "Ven. Richard Whiting"). Nominis gives
+  // Arthur as John Thorne's name in religion, but the record does not say it is him, so no
+  // stage is printed until the owner decides (migration 0082).
   ["Q4070328", null],
 ]);
 

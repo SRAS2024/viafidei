@@ -24,17 +24,25 @@ const SOURCE_FIELDS = [
 
 const fold = (text: string) => text.replace(/\s+/g, " ").trim();
 
-/** Ends a sentence: a full stop, question or exclamation mark, maybe inside a quotation. */
-const SENTENCE_END = /[.!?]["”’)\]]?$/;
+/**
+ * Ends a sentence: a full stop, question or exclamation mark (Western or full-width),
+ * maybe inside a quotation or bracket.
+ */
+const SENTENCE_END = /[.!?。！？]["”’)\]」』）]?$/;
+
+/** Scripts written without spaces: any character after the cut starts a new word. */
+const NO_SPACES = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
 
 /**
  * `summary` ended on a whole word with "…" when it is a cut opening of one of the record's
  * longer fields; otherwise `summary` unchanged.
  */
-export function wholeWordExcerpt(
-  summary: string,
+export function wholeWordExcerpt<T>(
+  summary: T,
   payload: Record<string, unknown> | null | undefined,
-): string {
+): T {
+  // A summary that is not text (a stray number or list) is shown as it was, never thrown on.
+  if (typeof summary !== "string") return summary;
   const text = fold(summary);
   if (!text || !payload || text.endsWith("…")) return summary;
   const source = SOURCE_FIELDS.map((key) => payload[key])
@@ -42,10 +50,12 @@ export function wholeWordExcerpt(
     .map(fold)
     .find((value) => value.length > text.length && value.startsWith(text));
   if (!source) return summary;
-  // A letter or digit right after the cut means the last word was cut short.
-  const midWord = /[\p{L}\p{N}]/u.test(source.charAt(text.length));
+  // A letter or digit right after the cut means the last word was cut short, except in
+  // scripts written without spaces, where every character is a word's edge.
+  const next = source.charAt(text.length);
+  const midWord = /[\p{L}\p{N}]/u.test(next) && !NO_SPACES.test(next);
   const kept = midWord ? text.replace(/[\p{L}\p{N}'’-]+$/u, "") : text;
-  if (!midWord && SENTENCE_END.test(kept)) return kept;
-  const ended = kept.replace(/[\s,;:–—-]+$/u, "");
-  return ended ? `${ended}…` : summary;
+  if (!midWord && SENTENCE_END.test(kept)) return kept as T;
+  const ended = kept.replace(/[\s,;:–—\-，、；：]+$/u, "");
+  return (ended ? `${ended}…` : summary) as T;
 }

@@ -18,15 +18,17 @@
 --     sync finds nothing to change.
 --   * Saint Michael is called "Saint Michael the Archangel", as Saints Gabriel and Raphael
 --     are called the Archangel beside him. His slug, and every link to it, stays.
---   * "Saint Arthur" (Arthur of Glastonbury, said to have died in 1539) is no saint of the
---     Church: the Glastonbury martyrs whom Leo XIII beatified in 1895 are Richard Whiting,
---     John Thorne and Roger James (Catholic Encyclopedia, "Ven. Richard Whiting",
+--   * "Saint Arthur" (Arthur of Glastonbury, said to have died in 1539) was never canonized:
+--     the Glastonbury martyrs whom Leo XIII beatified in 1895 are Richard Whiting, John
+--     Thorne and Roger James (Catholic Encyclopedia, "Ven. Richard Whiting",
 --     https://www.newadvent.org/cathen/13046c.htm, and "English Confessors and Martyrs",
---     https://www.newadvent.org/cathen/05474a.htm), the Roman Martyrology names only them, and
---     no Catholic list of the English martyrs names an Arthur. Wikidata calls him a Catholic
---     saint, which is where "Saint" came from. He keeps his page and his place; only his
---     title loses the word, and the page prints no stage over it (STAGE_NOT_RECORDED in
---     src/lib/content-shared/saints.ts). Whether the entry stays is the owner's decision.
+--     https://www.newadvent.org/cathen/05474a.htm). Nominis, the French bishops' calendar of
+--     saints, gives Arthur as Blessed John Thorne's name in religion, so this record is most
+--     likely his; the record itself does not say so, and Wikidata's "Catholic saint" is where
+--     "Saint" came from. He keeps his page and his place; only his title loses the word, and
+--     the page prints no stage over it (STAGE_NOT_RECORDED in src/lib/content-shared/
+--     saints.ts). Retitling him "Blessed John Thorne", or whether the entry stays, is the
+--     owner's decision.
 --
 -- The worker re-derives a structured saint's stage and title from Wikidata and the stored
 -- bare name (`canonicalName`); Tavelić's and Arthur's corrected stages are in

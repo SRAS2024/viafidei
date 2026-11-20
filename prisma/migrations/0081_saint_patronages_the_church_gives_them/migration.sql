@@ -27,7 +27,8 @@
 --   Laurence O'Toole: "Patron Saint of the Archdiocese of Dublin" (Archdiocese of Dublin,
 --     https://www.dublindiocese.ie/the-story-of-st-laurence-otoole/; Catholic Online,
 --     https://www.catholic.org/saints/saint.php?saint_id=4213). "Head injury", which the
---     import ran into the same entry, is kept as the site showed it, as its own entry.
+--     import ran into the same entry, is kept as the site showed it, as its own entry; no
+--     Catholic source checked lists it, and whether it stays is the owner's decision.
 --   Albert the Great: heavenly patron of those who cultivate the natural sciences (Pius
 --     XII, apostolic letter of 16 December 1941, AAS 34 (1942) 89-91; Benedict XVI, general
 --     audience of 24 March 2010, https://www.vatican.va/content/benedict-xvi/en/audiences/2010/documents/hf_ben-xvi_aud_20100324.html);
@@ -59,7 +60,7 @@ WITH corrected("slug", "oldList", "newList", "oldSubtitle", "newSubtitle") AS (V
    'Confessor, patron of young people · Feast July 4'),
   ('saint-lorcan-ua-tuathail',
    'Archdiocese of Dublin. Head injury',
-   '["the Archdiocese of Dublin", "head injuries"]'::jsonb,
+   '["the Archdiocese of Dublin", "head injury"]'::jsonb,
    'Bishop, patron of Archdiocese of Dublin. Head injury · Feast November 14',
    'Bishop, patron of the Archdiocese of Dublin · Feast November 14'),
   ('saint-albertus-magnus',
