@@ -211,3 +211,56 @@ describe("sequenceScript", () => {
     ]);
   });
 });
+
+describe("pages prayed through in full", () => {
+  it("prays the whole Rosary on a page that sets out its mysteries", () => {
+    const text =
+      "First Joyful Mystery: The Annunciation (Lk 1:26-27)\nSecond Joyful Mystery: The Visitation (Lk 1:39-42)\n\nAt the beginning of each decade, announce the mystery to be contemplated.";
+    const s = prayerScript("joyful-mysteries", { text, lang: "en" }, ctx());
+    expect(count(s, HAIL_MARY)).toBe(53);
+    expect(texts(s).some((t) => /Lk 1/.test(t))).toBe(false);
+  });
+
+  it("does not say the Sign of the Cross twice when the text tells the reader to make it", () => {
+    const sign = new Map(PRAYERS);
+    sign.set(
+      "sign-of-the-cross",
+      source("sign-of-the-cross", "Sign of the Cross", SIGN_OF_THE_CROSS.en),
+    );
+    const s = prayerScript(
+      "surplice",
+      {
+        text: "Make the Sign of the Cross and say:\nClothe me, O Lord, with the new man.",
+        lang: "en",
+      },
+      { pageLang: "en", chosen: null, prayers: sign },
+    );
+    expect(texts(s).filter((t) => t === SIGN_OF_THE_CROSS.en)).toHaveLength(2);
+  });
+
+  it("prays a Rosary novena's day and then that day's Rosary", () => {
+    const s = novenaDayScript(
+      { text: "Hail, Queen of the Most Holy Rosary, my Mother Mary, hail!", lang: "en" },
+      ctx(),
+      { rosary: "joyful" },
+    );
+    const t = texts(s);
+    expect(t[1]).toBe("Hail, Queen of the Most Holy Rosary, my Mother Mary, hail!");
+    expect(count(s, HAIL_MARY)).toBe(53);
+    expect(t.filter((x) => x === SIGN_OF_THE_CROSS.en)).toHaveLength(2);
+  });
+
+  it("prays the prayers a text names, and says the collect's conclusion whole", () => {
+    const text =
+      "O God, who didst make this night holy. Through our Lord Jesus Christ, etc.\nPater, Ave, Gloria.";
+    const s = prayerScript("collect", { text, lang: "en" }, ctx());
+    expect(texts(s)).toEqual([
+      SIGN_OF_THE_CROSS.en,
+      "O God, who didst make this night holy. Through our Lord Jesus Christ, Thy Son, who liveth and reigneth with Thee in the unity of the Holy Ghost, God, world without end. Amen.",
+      "Our Father, who art in heaven. Amen.",
+      HAIL_MARY,
+      "Glory be to the Father. Amen.",
+      SIGN_OF_THE_CROSS.en,
+    ]);
+  });
+});

@@ -313,6 +313,11 @@ function prepareWords(text: string, lang: AudioLang): string {
     .replace(/(^|[.!?:;]\s+)Ps\.\s*(?:\d+\.?\s+)?(?=\p{Lu})/gu, "$1")
     // Name placeholders: "for us, for N., and for all", "the grace of N—", "thy servant N.".
     .replace(/(,\s*)(?:for|and|with|to|of|on|upon)\s+N\.(?:\s*N\.)?,\s*/g, "$1")
+    // "the grace of N.": the reader names the grace, in a moment of silence.
+    .replace(
+      /\b(grace|favou?r|request|petition|intention)\s+(?:of|for)\s+N(?:\.|[—–]+)(?=[\s,;.:]|$)/gi,
+      `$1 ${INTENTION}`,
+    )
     .replace(/\s+(?:of|for)\s+N(?:\.|[—–]+)(?=[\s,;.:]|$)/g, "")
     .replace(/(\p{L})\s+N\.(?:\s?N\.)?(?=\s+\p{Lu})/gu, "$1.")
     .replace(/(^|\s)N\.(?:\s?N\.)?(?=[\s,.;:]|$)/g, "$1")
@@ -818,9 +823,13 @@ function isPointer(text: string, hits: readonly NameHit[]): boolean {
 const INSTRUCTION_OPENER =
   /^(?:Then|Next|Afterwards|After\s+(?:this|that|which|each|every|the)|Here|Now|Finally|Lastly|At\s+the\s+(?:beginning|end|close)|On\s+(?:the|each|every)|Holding|Still\s+on|Starting\s+(?:on|with)|While|During|Before|Kneel|Stand|Rise|Make|Say|Pray|Recite|Repeat|Add|Sing|Conclude|Begin|End|Finish|Close|Announce|Meditate|Reflect|Pause|Mention|State|Specify|Offer|Honou?r|Profess|Continue|Adore|Passing)\b/i;
 
-/** What an instruction speaks of. */
-const INSTRUCTION_WORDS =
-  /\b(?:say|says|said|saying|pray|prays|prayed|praying|recite|recited|repeat|repeated|add|added|sing|sung|follows?|followed|announce|kneel|genuflect|make|profess|honou?r|meditate|mention|omit|omitted|beads?|decades?|crucifix|times|once|twice|thrice|following|as above|as before|litany|hymn|visit|reflection|call to mind|adore)\b/i;
+/** What an instruction tells the reader to do: say, recite, repeat … */
+const RUBRIC_VERB =
+  /\b(?:say|says|said|saying|recite|recited|repeat|repeated|add|added|sing|sung|announce|announced|profess|kneel|genuflect)\b/i;
+
+/** …and what to do it with: a count, "the following", a bead, a decade. */
+const RUBRIC_OBJECT =
+  /\b(?:times|once|twice|thrice|following|this prayer|mystery|mysteries|beads?|decades?|crucifix|as above|as before)\b/i;
 
 /** "For Christmas Day and its Octave.": when a part is said, not a word of it. */
 const SEASONAL =
@@ -836,33 +845,32 @@ function isInstruction(text: string, namesPrayers: boolean): boolean {
   const t = text.trim();
   if (ADDRESS.test(t)) return false;
   if (
-    /^(?:Pray(?:,|\s+for\b)|Make\s+(?:me|us|my|our|haste)\b|Say\s+to\b|Let\s+us\s+pray\b|Repeat\s+after\b)/i.test(
+    /^(?:Pray(?:,|\s+for\b)|Make\s+(?:me|us|my|our|haste|all)\b|Say\s+to\b|Let\s+us\s+pray\b|Repeat\s+after\b)/i.test(
       t,
     )
   ) {
     return false;
   }
-  if (/^Let\s+us\s+(?:now\s+)?(?:meditate|consider|reflect|give\s+praise|turn)\b/i.test(t))
-    return true;
-  if (/^(?:The\s+)?Litany\b/.test(t)) return true;
+  if (/^Let\s+us\s+(?:now\s+)?(?:meditate|consider|reflect|give\s+praise)\b/i.test(t)) return true;
   if (
-    /^(?:Say|Pray|Recite|Repeat|Add|Sing)\b/i.test(t) &&
-    !namesPrayers &&
-    !/\b(?:times|once|twice|thrice|following|daily)\b/i.test(t)
+    /^(?:The\s+)?Litany\b/.test(t) ||
+    /^Here\s+follows?\b/i.test(t) ||
+    /^Make\s+a\s+visit\b/i.test(t)
   ) {
-    return false;
+    return true;
   }
-  if (INSTRUCTION_OPENER.test(t) && INSTRUCTION_WORDS.test(t)) return true;
   if (
     /\b(?:is|are)\s+(?:to\s+be\s+)?(?:omitted|said|added|repeated|recited|sung|prayed)\b/i.test(t)
   ) {
     return true;
   }
-  if (/\b(?:beads?|decades?)\b/i.test(t)) return true;
   if (SEASONAL.test(t)) return true;
-  return /^(?:During|Before|After)\b.{0,60}\b(?:Mass|Communion|Confession|Office|meals?)\.?$/.test(
-    t,
-  );
+  if (/^(?:During|Before|After)\b.{0,60}\b(?:Mass|Communion|Confession|Office|meals?)\.?$/.test(t))
+    return true;
+  if (!INSTRUCTION_OPENER.test(t)) return false;
+  if (namesPrayers) return true;
+  if (/\b(?:beads?|decades?|[Cc]rucifix)\b/.test(t)) return true;
+  return RUBRIC_VERB.test(t) && (RUBRIC_OBJECT.test(t) || /[:,]$/.test(t));
 }
 
 /** Words that stay small in a title. */
@@ -1456,10 +1464,7 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
     if (line.heading) {
       // "First Word: Father, forgive them; …", "First Mystery. Jesus was conceived …":
       // the label is a heading, the words after it are said.
-      const label =
-        /^(?:\S+\s+(?:Word|Mystery|Sorrow|Joy|Station)\b[^:.]*[:.]|Station\s+[IVXLC]+\.)\s+(\S.*)$/.exec(
-          rule,
-        );
+      const label = /^\S+\s+(?:Word|Mystery)\b[^:.]*[:.]\s+(\S.*)$/.exec(rule);
       if (label?.[1] && !/^[IVXLC]+\.?$/.test(rule)) {
         line.heading = false;
         line.parts = [{ t: "say", rule: label[1], shown: "" }];
@@ -1775,6 +1780,13 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
 
   const sayOut = (out: Out[], text: string, lang: AudioLang) => {
     const pieces = text.split(INTENTION);
+    // The stop after a request's place ends the words before the silence.
+    for (let i = 1; i < pieces.length; i++) {
+      const stop = /^\s*([.;:!?]+)/.exec(pieces[i]!);
+      if (!stop) continue;
+      pieces[i - 1] = `${pieces[i - 1]!.trimEnd().replace(/[,;:]$/, "")}${stop[1]}`;
+      pieces[i] = pieces[i]!.slice(stop[0].length);
+    }
     pieces.forEach((piece, i) => {
       if (i > 0) out.push({ t: "pause", ms: INTENTION_PAUSE_MS });
       if (piece.trim() && /[\p{L}\p{N}]/u.test(piece))
@@ -1897,7 +1909,16 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
     if (!w) return [];
     const out: Out[] = [];
     if (!c.translated) {
-      const conclusion = conclusionFor(w, c.context, style, ruleLang);
+      // The collect's own English decides between "Thy Son … liveth" and "your Son … lives".
+      const own = /\b(?:[Tt]hee|[Tt]hou|[Tt]hy|[Yy]ou|[Yy]our)\b/.test(c.context)
+        ? styleOf(c.context)
+        : style;
+      const conclusion = conclusionFor(
+        w,
+        c.context,
+        { ...own, ghost: style.ghost, jesum: style.jesum },
+        ruleLang,
+      );
       if (conclusion) {
         const amen = /^\s*(?:R\.\s*)?(?:Amen|Amén)\b/i.test(c.after) ? "" : " Amen.";
         sayOut(out, `${conclusion}${amen}`, ruleLang);
@@ -2128,7 +2149,13 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
     const kind = bracketed ? classifyBracket(inner, t.startsWith("[")) : null;
     if (kind === "intention") return [{ t: "pause", ms: INTENTION_PAUSE_MS }];
     const repeat = repeatCount(t);
-    if (repeat != null) return [{ t: "effect", effect: { prayers: [], repeatPrevious: repeat } }];
+    if (repeat != null) {
+      // "(Thrice.)" repeats the words before it; "Say three times," those after it.
+      if (!bracketed && /[,:]$/.test(t)) {
+        return repeat > 1 ? [{ t: "effect", effect: { prayers: [], times: repeat } }] : [];
+      }
+      return [{ t: "effect", effect: { prayers: [], repeatPrevious: repeat } }];
+    }
     if (kind === "drop" && !/\bafter each\b/i.test(inner)) return [];
     const out: Out[] = [];
     // "V. and R. as above.": the versicle and response said last.
