@@ -61,6 +61,12 @@ export interface ScriptContext {
   pageLang: AudioLang;
   /** The reader's chosen prayer language (the Latin / Greek chips), or null. */
   chosen: string | null;
+  /**
+   * The reader's site language when it is a liturgical one ("la" on the Latin site): a
+   * prayer carrying that received text opens in it, as on the page
+   * (`resolvePrayerLanguage`), and a machine-made fill never does.
+   */
+  readerLanguage?: string | null;
   /** Every prayer a text may name (building blocks and the page's own prayers). */
   prayers: ReadonlyMap<string, PrayerSource>;
 }
@@ -108,11 +114,12 @@ function prayerText(
   source: PrayerSource,
   ctx: ScriptContext,
 ): { text: string; lang: AudioLang; english?: string } | null {
-  const { vernacular, shown } = resolvePrayerLanguage(source.variants, ctx.chosen);
+  const { shown } = resolvePrayerLanguage(source.variants, ctx.chosen, ctx.readerLanguage ?? null);
   if (!shown) return null;
   const lang = toAudioLang(shown.lang ?? shown.code) ?? "en";
-  // The English to read a translation's instructions by, only for the vernacular.
-  const english = shown === vernacular && lang !== "en" ? source.english : undefined;
+  // The English to read a translation's instructions by: only for the reader's
+  // translation of the vernacular, never for Latin or Greek.
+  const english = !shown.preserve && lang !== "en" ? source.english : undefined;
   return { text: shown.text, lang, english };
 }
 

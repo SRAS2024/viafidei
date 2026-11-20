@@ -73,11 +73,11 @@ function dayTitle(day: unknown, index: number): string {
 }
 
 /**
- * The reader's prayer language: the chip they chose, or Latin for a reader who reads
- * the site in Latin and chose nothing ("normally the site's current language").
+ * The reader's site language when it is a liturgical one: on the Latin site a prayer
+ * carrying its received Latin opens in it, as the page opens it ("normally the site's
+ * current language"); English is the chip away from it.
  */
-function effectiveChoice(chosen: string | null, pageLang: AudioLang): string | null {
-  if (chosen) return chosen;
+function liturgicalReaderLanguage(pageLang: AudioLang): string | null {
   return pageLang === "la" ? "la" : null;
 }
 
@@ -121,19 +121,20 @@ export async function scriptForPrayer(
   const stored = await getPublishedBySlug("PRAYER", slug);
   if (!stored) return null;
   const prayer = (await localizeItem(stored, locale ? { locale } : {})) ?? stored;
-  const choice = effectiveChoice(chosen, pageLang);
+  const readerLanguage = liturgicalReaderLanguage(pageLang);
   const storedVariants = publishedPrayerVariants(slug, stored.payload);
   const variants = displayPrayerVariants(prayer, (p) => publishedPrayerVariants(slug, p));
-  const { vernacular, shown } = resolvePrayerLanguage(variants, choice);
+  const { shown } = resolvePrayerLanguage(variants, chosen, readerLanguage);
   if (!shown) return null;
   const lang = toAudioLang(shown.lang ?? shown.code) ?? "en";
   const englishText = resolvePrayerLanguage(storedVariants, null).vernacular?.text;
-  const english = shown === vernacular && lang !== "en" ? englishText : undefined;
+  const english = !shown.preserve && lang !== "en" ? englishText : undefined;
   const blocks = await loadPrayerSet(BUILDING_BLOCK_PRAYERS);
   const named = await loadNamedInText([englishText ?? "", shown.text]);
   const ctx: ScriptContext = {
     pageLang: lang,
-    chosen: choice,
+    chosen,
+    readerLanguage,
     prayers: await prayerSources(mergePrayers(blocks, named), slug, locale),
   };
   return {
@@ -169,7 +170,8 @@ export async function scriptForNovenaDay(
   ]);
   const ctx: ScriptContext = {
     pageLang: lang,
-    chosen: effectiveChoice(chosen, pageLang),
+    chosen,
+    readerLanguage: liturgicalReaderLanguage(pageLang),
     prayers: await prayerSources(mergePrayers(named, blocks, inText), undefined, locale),
   };
   const storedTitle = dayTitle(storedDays[dayIndex], dayIndex);
@@ -225,7 +227,8 @@ export async function scriptForRosary(
   if (!prayers.some((p) => p.slug === "hail-mary")) return null;
   const ctx: ScriptContext = {
     pageLang,
-    chosen: effectiveChoice(chosen, pageLang),
+    chosen,
+    readerLanguage: liturgicalReaderLanguage(pageLang),
     prayers: await prayerSources(prayers, undefined, locale),
   };
   return { title: "The Holy Rosary", script: rosaryScript(set, ctx) };
@@ -276,7 +279,7 @@ export async function scriptForGuide(
   }
   const guide = (await localizeItem(stored, locale ? { locale } : {})) ?? stored;
   const title = displayItem(guide).title;
-  const choice = effectiveChoice(chosen, pageLang);
+  const choice = chosen;
   // A chaplet guide whose steps quote the Divine Mercy prayers prays the chaplet.
   const englishSteps = (toGuideSteps(stored.payload.steps) ?? []).map((s) => s.body).join("\n");
   const shownSteps = (toGuideSteps(displayItem(guide).payload.steps) ?? [])
@@ -285,7 +288,12 @@ export async function scriptForGuide(
   const blocks = await loadPrayerSet(BUILDING_BLOCK_PRAYERS);
   const listed = await loadPrayerSet(stored.payload.relatedPrayers);
   const sources = await prayerSources(mergePrayers(listed, blocks), undefined, locale);
-  const ctx: ScriptContext = { pageLang, chosen: choice, prayers: sources };
+  const ctx: ScriptContext = {
+    pageLang,
+    chosen: choice,
+    readerLanguage: liturgicalReaderLanguage(pageLang),
+    prayers: sources,
+  };
   const translatedSteps = shownSteps !== englishSteps;
   const chaplet = divineMercyPrayers({
     text: translatedSteps ? shownSteps : englishSteps,

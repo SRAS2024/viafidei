@@ -158,8 +158,8 @@ describe("a detail page in another language", () => {
     );
     render(<PublishedDetail t={createTranslator("es")} item={item} primaryFields={["days"]} />);
     expect(screen.getByRole("heading", { level: 1 })).not.toHaveAttribute("lang");
-    const first = screen.getByText("Día 1").closest(".vf-disclosure");
-    const second = screen.getByText("Day 2").closest(".vf-disclosure");
+    const first = screen.getByText("Día 1").closest(".vf-disclosure-trigger");
+    const second = screen.getByText("Day 2").closest(".vf-disclosure-trigger");
     expect(first).not.toHaveAttribute("lang");
     expect(second).toHaveAttribute("lang", "en");
   });
@@ -221,8 +221,8 @@ describe("the reader's own words inside English text", () => {
         <GuidePrayers prayers={prayers} heading="Prayers of this novena" />
       </PrayerLanguageProvider>,
     );
-    expect(screen.getByText("Our Father").closest(".vf-disclosure")).toHaveAttribute("lang", "en");
-    expect(screen.getByText("Ave María").closest(".vf-disclosure")).toHaveAttribute("lang", "es");
+    expect(screen.getByText("Our Father").closest(".vf-disclosure-trigger")).toHaveAttribute("lang", "en");
+    expect(screen.getByText("Ave María").closest(".vf-disclosure-trigger")).toHaveAttribute("lang", "es");
     expect(screen.getByRole("heading", { name: "Prayers of this novena" })).toHaveAttribute(
       "lang",
       "en",
