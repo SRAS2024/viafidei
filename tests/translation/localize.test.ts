@@ -17,8 +17,8 @@ import {
   readTranslations,
   resetTranslationStoreState,
   setTranslationDb,
-  stopFilingDemand,
   translationsPaused,
+  setBatchTranslationMode,
   type Db,
 } from "@/lib/translation/store";
 
@@ -125,10 +125,41 @@ describe("reading the translation cache", () => {
     expect(inserts[0]).toEqual(expect.arrayContaining(["es", "fr", "h1", "Pray."]));
   });
 
-  it("files nothing once a batch reader has stopped filing demand", async () => {
+  it("waits for a slow lookup in a batch job, where a page would serve its original", async () => {
+    vi.useFakeTimers();
+    try {
+      const slow = () => ({
+        $queryRaw: vi.fn(
+          () =>
+            new Promise((resolve) =>
+              setTimeout(
+                () => resolve([{ sourceHash: "h1", text: "Hola" }]),
+                LOOKUP_TIMEOUT_MS + 200,
+              ),
+            ),
+        ),
+        $executeRaw: vi.fn(),
+      });
+      setTranslationDb(slow() as unknown as Db);
+      const page = readTranslations("es", ["h1"]);
+      await vi.advanceTimersByTimeAsync(LOOKUP_TIMEOUT_MS + 300);
+      expect(await page).toEqual(new Map());
+
+      resetTranslationStoreState();
+      setTranslationDb(slow() as unknown as Db);
+      setBatchTranslationMode();
+      const batch = readTranslations("es", ["h1"]);
+      await vi.advanceTimersByTimeAsync(LOOKUP_TIMEOUT_MS + 300);
+      expect(await batch).toEqual(new Map([["h1", "Hola"]]));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("files nothing for a batch job", async () => {
     const { db, inserts } = fakeDb();
     setTranslationDb(db);
-    stopFilingDemand();
+    setBatchTranslationMode();
     const unit = { kind: "text" as const, source: "Pray.", sourceLang: "en", protect: [] };
     fileDemand([{ lang: "es", hash: "h1", unit }]);
     expect(await flushDemand()).toBe(0);

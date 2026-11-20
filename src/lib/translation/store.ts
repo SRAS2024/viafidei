@@ -70,6 +70,7 @@ export function translationsPaused(now = Date.now()): boolean {
 export function resetTranslationStoreState(): void {
   pausedUntil = 0;
   demandFilingOff = false;
+  lookupTimeoutMs = LOOKUP_TIMEOUT_MS;
   cache.clear();
   filed.clear();
   demand.clear();
@@ -86,6 +87,9 @@ const POSITIVE_TTL_MS = 30 * 60_000;
 const NEGATIVE_TTL_MS = 45_000;
 const CACHE_MAX = 60_000;
 export const LOOKUP_TIMEOUT_MS = 400;
+/** A batch job waits this long for a lookup rather than reading a slow one as untranslated. */
+export const BATCH_LOOKUP_TIMEOUT_MS = 60_000;
+let lookupTimeoutMs = LOOKUP_TIMEOUT_MS;
 
 type CacheEntry = { text: string | null; at: number };
 const cache = new Map<string, CacheEntry>();
@@ -126,7 +130,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 /**
  * Finished translations for `hashes` in `lang` (hash → raw model output).
- * Never throws and never waits longer than `LOOKUP_TIMEOUT_MS` on the database.
+ * Never throws and never waits longer than `LOOKUP_TIMEOUT_MS` on the database (a
+ * batch job: `BATCH_LOOKUP_TIMEOUT_MS`).
  */
 export async function readTranslations(
   lang: string,
@@ -150,7 +155,7 @@ export async function readTranslations(
         WHERE "lang" = ${lang}
           AND "sourceHash" = ANY(${missing}::text[])
           AND "status" = 'done' AND "text" IS NOT NULL`),
-      LOOKUP_TIMEOUT_MS,
+      lookupTimeoutMs,
     );
     const found = new Set<string>();
     const at = Date.now();
@@ -184,16 +189,19 @@ const FLUSH_DELAY_MS = 1_500;
 const filed = new Map<string, number>(); // lang:hash → when filed
 const demand = new Map<string, DemandRow>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
-/** Off for a batch reader (the pray-along planner): see stopFilingDemand. */
+/** Off for a batch job (the pray-along planner): see setBatchTranslationMode. */
 let demandFilingOff = false;
 
 /**
- * For a batch job that reads every page's translations (the pray-along planner): it
- * takes what is translated now and asks the translator for nothing, which a page's
- * own visitors do.
+ * For a batch job that reads every page's translations (the pray-along planner), over
+ * a database that may be a network away: it takes what is translated now and asks the
+ * translator for nothing (a page's own visitors do that), and it waits for a slow
+ * lookup instead of reading it as "not translated", which would quietly leave a
+ * translated prayer out of its language.
  */
-export function stopFilingDemand(): void {
+export function setBatchTranslationMode(): void {
   demandFilingOff = true;
+  lookupTimeoutMs = BATCH_LOOKUP_TIMEOUT_MS;
 }
 
 /**
