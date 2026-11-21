@@ -107,7 +107,8 @@ voices: words dropped or garbled, as in the refrain "Ave, Ave, Ave, Maria!", or 
 off, as a litany missing a sentence) is said again a sentence at a time, a sentence whose
 takes all failed borrowing a good take of another with the very same words (the refrain's
 two halves), and that is kept if it judges better, no sentence failed its own check and,
-when a whole take was usable already, its words are better. An engine change never reaches
+when a whole take was usable already, its words are better. When every sentence passed on its own, the joined clip's words count as heard,
+since the recogniser collapses a litany's repeated lines on a whole clip. An engine change never reaches
 clips already made (their keys do not change), nor failed ones out of attempts: reset those
 rows by hand, as the engine's README describes under the worker.
 

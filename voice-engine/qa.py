@@ -723,6 +723,7 @@ def evaluate(
     *,
     check: Optional[str] = None,
     pace_ref: Optional[float] = None,
+    words_verified: Optional[float] = None,
 ) -> QAResult:
     """QA of a FINISHED take (trimmed, normalised) against the exact words `text`.
 
@@ -730,6 +731,13 @@ def evaluate(
     voices/registry.json). When given, pace is judged against the voice's own norm, so
     only a take that is stretched or rushed compared with the voice itself is flagged;
     whether the voice's pace is natural was settled when the voice was chosen.
+
+    `words_verified`: the take's words were already heard right piece by piece, and this is
+    their combined error (the per-sentence route, when every sentence passed its own check).
+    Whisper on a whole joined clip collapses a repeated sentence (a litany's "Señor, ten piedad
+    de nosotros." said twice: ten sentences passed one by one, and the joined clip was heard as
+    CER 0.325) and stops early, so the words, the tail and extra words are not judged again;
+    what the audio itself shows (pace over its sound, silences inside it) still is.
     """
     check = check or (LATIN_CHECK if lang == "la" else None)
     if lang == "la":
@@ -745,6 +753,11 @@ def evaluate(
     c = cer(ref, hyp)
     c_strict = cer(ref_s, hyp_s)
     s_err = ser(ref_text, hyp_text, lang) if lang in SYLLABLE_LANGS else None
+    if words_verified is not None:  # judged sentence by sentence already (see the docstring)
+        if s_err is not None:
+            s_err = words_verified
+        else:
+            c = words_verified
 
     duration = len(audio) / sr
     start, end = A.speech_bounds(audio, sr)
@@ -755,7 +768,7 @@ def evaluate(
     pace_judged = pace_ratio / pace_ref if pace_ref else pace_ratio
     sil = A.silences(audio, sr)
     max_sil = sil[0][1] if sil else 0.0
-    lw = last_word_end(result)
+    lw = last_word_end(result) if words_verified is None else None
     tail_gap = (end / sr - lw) if lw is not None else None
     if (
         0 < syl <= SHORT_CLIP_SYLLABLES
@@ -765,7 +778,7 @@ def evaluate(
         and tail_gap <= SHORT_CLIP_TAIL_S
     ):  # its last syllable drawn out, and nothing else
         pace_judged = min(1.0, pace_judged * (syl + 1) / syl)
-    extra_start, extra_end = end_insertions(ref, hyp)
+    extra_start, extra_end = end_insertions(ref, hyp) if words_verified is None else (0, 0)
     pitch = pitch_stats(audio, sr)
 
     reasons: list[str] = []
@@ -779,17 +792,20 @@ def evaluate(
     if s_err is not None:  # tonal languages are judged by whole syllables
         err, pass_cer, marg_cer = s_err, PASS_SER[lang], MARGINAL_SER[lang]
     what = "the voice's own pace" if pace_ref else "normal"
-    if end <= start or not hyp:
+    if end <= start or (not hyp and words_verified is None):
         reasons.append("no speech recognised")
         fail = retake = words_failed = True
     what_err = "ser" if s_err is not None else "cer"
-    if err > marg_cer:
+    if words_verified is not None:
+        pass  # the words were judged sentence by sentence (see the docstring)
+    elif err > marg_cer:
         reasons.append(f"{what_err} {err:.3f} > {marg_cer}")
         fail = retake = words_failed = True
     elif err > pass_cer:
         reasons.append(f"{what_err} {err:.3f} > {pass_cer}")
         marginal = retake = words_marginal = True
-    for word, heard, times in dropped_repeats(ref_text, hyp_text, fold_lang) if hyp else []:
+    repeats = dropped_repeats(ref_text, hyp_text, fold_lang) if hyp and words_verified is None else []
+    for word, heard, times in repeats:
         reasons.append(f"{what_err} {err:.3f}: said {word!r} {heard} {'time' if heard == 1 else 'times'}, not {times}")
         fail = retake = words_failed = True
     if not (PACE_MARGINAL[0] <= pace_judged <= PACE_MARGINAL[1]):

@@ -110,7 +110,11 @@ What a row gets: `audio` (AAC-LC in MP4, faststart, mono, 24 kHz, ~48 kbps), `mi
    drawn from the clip's; a sentence whose best take failed uses the best take that did
    not of another sentence given the very same words (the two halves of the refrain).
    The chosen takes are joined with a 0.45 s pause (the low end of the voices' own
-   pause at a sentence end), finished, and judged against the whole text. The joined
+   pause at a sentence end), finished, and judged against the whole text; when every
+   sentence passed its own check, its words count as heard (their combined error) and
+   only what the audio shows is judged again (pace, silences), because Whisper on a
+   whole litany collapses a repeated sentence: ten Spanish lines that each passed alone
+   were heard as CER 0.325 joined. The joined
    clip is kept only if it judges better than the best whole take and no sentence's
    chosen take failed its own check (a sentence that ran on into an untranscribed tail
    would carry it inside the joined clip, where the joined clip's check does not look);

@@ -29,6 +29,7 @@ from engine import (
     sentence_seed,
     split_sentences,
     stable_seed,
+    verified_words,
     word_error,
     words_wrong,
 )
@@ -245,10 +246,12 @@ class Judge:
         self.script = {t: list(v) for t, v in script.items()}
         self.judged: list[tuple[str, float]] = []
         self.pace_refs: list[Optional[float]] = []
+        self.verified: list[Optional[float]] = []  # words_verified, per call
 
-    def __call__(self, audio, sr, text, lang, *, check=None, pace_ref=None):
+    def __call__(self, audio, sr, text, lang, *, check=None, pace_ref=None, words_verified=None):
         self.judged.append((text, len(audio) / sr))
         self.pace_refs.append(pace_ref)
+        self.verified.append(words_verified)
         queue = self.script[text]
         return verdict(*(queue.pop(0) if len(queue) > 1 else queue[0]))
 
@@ -904,3 +907,33 @@ def test_french_keeps_its_own_final_e_rule(monkeypatch):
 def test_a_mixed_english_clip_gains_one_syllable_per_latin_word(monkeypatch):
     text = "Holy God, holy Mighty One, Miserere, judge of all, parce mihi, Domine. Ave!"
     assert qa.estimate_syllables(text, "en") == without_exception(monkeypatch, text) + 4
+
+
+# --------------------------------------------------------------------------- #
+# A join whose every sentence passed is not judged on its words again          #
+# --------------------------------------------------------------------------- #
+
+
+def test_verified_words_is_the_sentences_error_weighted_by_length_only_when_all_passed():
+    sentences = [("Dios, escúchanos.", "Dios, escúchanos."), ("Señor, ten piedad de nosotros.", "x")]
+    passed = [Take(index=0, seed=1, params={}, raw_sr=SR, gen_s=0, finished=None, qa=verdict("pass", 1.0, 0.0)),
+              Take(index=0, seed=2, params={}, raw_sr=SR, gen_s=0, finished=None, qa=verdict("pass", 2.0, 0.03))]
+    expected = (0.0 * len(sentences[0][0]) + 0.03 * len(sentences[1][0])) / (len(sentences[0][0]) + len(sentences[1][0]))
+    assert verified_words(sentences, passed) == pytest.approx(expected)
+    marginal = [passed[0], Take(index=0, seed=2, params={}, raw_sr=SR, gen_s=0, finished=None,
+                                qa=verdict("marginal-words", 12.0, 0.06))]
+    assert verified_words(sentences, marginal) is None
+    assert verified_words([], []) is None
+
+
+def test_a_join_of_passed_sentences_is_judged_with_its_words_verified(monkeypatch):
+    clip, _, judge = run(monkeypatch, {TWO: WORDS4, "Hail Mary, full of grace.": [("pass", 1.0)],
+                                        "The Lord is with thee.": [("pass", 1.0)]})
+    assert judge.verified[:4] == [None] * 4  # the whole takes are judged on their words
+    assert judge.verified[-1] is not None  # the join: its sentences were each heard right
+
+
+def test_a_join_with_a_marginal_sentence_is_judged_on_its_words_as_usual(monkeypatch):
+    clip, _, judge = run(monkeypatch, {TWO: WORDS4, "Hail Mary, full of grace.": [("marginal-words", 12.0)],
+                                        "The Lord is with thee.": [("pass", 1.0)]})
+    assert judge.verified[-1] is None

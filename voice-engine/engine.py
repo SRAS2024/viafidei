@@ -591,7 +591,8 @@ class Engine:
         parts = [own[lent[i]] if i in lent else p for i, p in enumerate(own)]
         fin = A.finish(join_sentences([p.finished.audio for p in parts], A.TARGET_SR), A.TARGET_SR)
         t1 = time.time()
-        result = QA.evaluate(fin.audio, fin.sr, clip.text, clip.lang, pace_ref=spec.get("pace_ref"))
+        result = QA.evaluate(fin.audio, fin.sr, clip.text, clip.lang, pace_ref=spec.get("pace_ref"),
+                             words_verified=verified_words(sentences, parts))
         params: dict[str, Any] = {"sentences": len(parts), "pause_s": SENTENCE_PAUSE_S}
         if lent:
             params["borrowed"] = dict(lent)
@@ -929,6 +930,16 @@ def words_wrong(q: QA.QAResult) -> bool:
     not count, whatever else it failed on: its pace, a silence or a tail. (Extra words at an end
     add to its error, so a take that failed on them has its words at least a little off.)"""
     return failed_on_words(q) or q.words_marginal
+
+
+def verified_words(sentences: Sequence[tuple[str, str]], parts: Sequence[Take]) -> Optional[float]:
+    """The joined take's word error when every sentence's take PASSED its own check (each sentence's
+    error weighted by its length), else None. Whisper on the whole joined clip collapses a repeated
+    sentence, so it would judge again, and wrongly, words already heard right one by one."""
+    if not parts or any(p.qa.verdict != "pass" for p in parts):
+        return None
+    sizes = [max(1, len(sentence)) for sentence, _ in sentences]
+    return sum(word_error(p.qa) * n for p, n in zip(parts, sizes)) / sum(sizes)
 
 
 def word_error(q: QA.QAResult) -> float:
