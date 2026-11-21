@@ -17,7 +17,8 @@ with nothing extra?
       * la: see LATIN_CHECK below.
   - Pace: estimated syllables per second over the spoken span, against a normal rate
     for the language (Pellegrino, Coupé & Marsico 2011 for en fr de it es zh vi;
-    estimates for the rest) times a prayer factor.
+    estimates for the rest) times a prayer factor. A clip of one to three syllables is
+    allowed its drawn-out last syllable (SHORT_CLIP_SYLLABLES).
   - No long internal silences, no untranscribed tail (run-on babble), no extra words
     at either end, and a sane duration.
   - Pitch: median F0 (is the female voice in a female range?) and its spread in
@@ -75,6 +76,24 @@ DEFAULT_MARGINAL = 0.10
 
 PACE_OK = (0.72, 1.40)
 PACE_MARGINAL = (0.58, 1.70)
+# A clip of one to three syllables ("Dos.", "Amén.", "Let us pray.") is said in one breath,
+# and its last syllable is drawn out the way every speaker draws out the end of an
+# utterance; a heavy syllable (tres, seis) and the hiss of a final s add to it. In a long
+# clip that one syllable is lost in the average; here it is a third of the clip or more.
+# By syllable rate alone, the 24 takes of the Spanish numerals "dos", "tres" and "seis"
+# (measured 2026-11-21; Whisper heard the right word in every one) were 0.25-0.60x the
+# voice's pace, and 23 failed. So a short clip's norm is a range, from its syllables at the
+# voice's pace to the same with the last syllable counted twice: a take inside the range is
+# at the voice's pace, a slower one is measured against its slow end (then 19 of those 24
+# takes pass, 4 are marginal and a 0.77 s "seis" still fails), and a faster one is judged
+# as before. Only pace changes: the words, silences, tail and extra words are judged alike.
+# The allowance is for a drawn-out syllable only: on a clip this short, pace is the one check
+# that sees sound Whisper did not write down (a murmur after the word, a gap inside it, both
+# under the silence and tail limits), so a take with any silence inside or more than
+# SHORT_CLIP_TAIL_S of untranscribed tail is judged as before (the 24 numeral takes had no
+# silence and tails of 0.04-0.27 s).
+SHORT_CLIP_SYLLABLES = 3
+SHORT_CLIP_TAIL_S = 0.3
 SILENCE_MARGINAL_S = 1.4
 SILENCE_FAIL_S = 2.4
 TAIL_GAP_S = 0.9
@@ -543,6 +562,14 @@ def evaluate(
     max_sil = sil[0][1] if sil else 0.0
     lw = last_word_end(result)
     tail_gap = (end / sr - lw) if lw is not None else None
+    if (
+        0 < syl <= SHORT_CLIP_SYLLABLES
+        and pace_judged < 1.0
+        and max_sil == 0.0
+        and tail_gap is not None
+        and tail_gap <= SHORT_CLIP_TAIL_S
+    ):  # its last syllable drawn out, and nothing else
+        pace_judged = min(1.0, pace_judged * (syl + 1) / syl)
     extra_start, extra_end = end_insertions(ref, hyp)
     pitch = pitch_stats(audio, sr)
 

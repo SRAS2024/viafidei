@@ -1,4 +1,5 @@
-"""A clip asked for again after failing is spoken with new seeds, not the same takes."""
+"""A clip asked for again after failing is spoken with new seeds (new takes for Qwen3-TTS and
+VoxCPM2; for Kokoro, which does not sample, only new vocoder noise)."""
 
 from worker import MAX_ATTEMPTS, seed_key_for
 

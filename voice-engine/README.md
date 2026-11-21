@@ -34,7 +34,8 @@ Order of work: listener demand first (newest `requestedAt` first, then lowest
 `priority` = earliest in the prayer), then background rows by `priority`. One row at a
 time is claimed with `SELECT … FOR UPDATE SKIP LOCKED` (rows claimed in the last 10
 minutes are skipped, so a crashed worker's row is retried; after 5 attempts a row is
-`failed`). The worker reconnects with back-off if the database drops. Timestamps are
+`failed`; a quality failure a listener asks for again comes back with no claim, so it is
+retried at once, except a Kokoro (Latin) one, whose retries are nearly the same takes). The worker reconnects with back-off if the database drops. Timestamps are
 written in UTC, as Prisma writes them.
 
 What a row gets: `audio` (AAC-LC in MP4, faststart, mono, 24 kHz, ~48 kbps), `mime`
@@ -44,7 +45,17 @@ What a row gets: `audio` (AAC-LC in MP4, faststart, mono, 24 kHz, ~48 kbps), `mi
 * `done`: the best of up to 4 takes passed QA;
 * `done` with `lastError = 'qa:marginal:<cer>:<reasons>'`: usable, but not clean;
 * `failed` with `lastError` (`qa:failed:…`, `voice:unknown:…`, `attempts:exhausted:…`):
-  no audio is stored; reset the row to `pending` to try again.
+  no audio is played (a failed remake of a made row keeps its old bytes, unserved).
+  A listener's request files a `qa:` failure below 5 attempts as `pending` again
+  (website `store.ts`), and whatever engine is running makes it, fixes included.
+  Reset by hand only rows out of attempts, or made rows a fix should reach (the key
+  does not change, so nothing else remakes them): set `status = 'pending'`,
+  `attempts = 0`, `claimedAt = NULL` and `claimedBy = NULL`. A reset that leaves the
+  claim waits out the 10 minutes; one that leaves `attempts` at 5 fails at once as
+  `attempts:exhausted`. With `attempts = 0` the remake uses the row's first seeds, so it
+  helps only after an engine change. A reset made row plays nothing until it is made
+  again, and if the remake fails QA it stays failed and its prayer stalls: check the fix
+  on those texts with `make_clip` first.
 
 ## What happens to one clip
 
@@ -53,7 +64,9 @@ What a row gets: `audio` (AAC-LC in MP4, faststart, mono, 24 kHz, ~48 kbps), `mi
 2. Front end: Latin goes through `latin.py` (below); everything else is text.
 3. The model speaks it (`engine.py`; one TTS model resident at a time, LRU-unloaded,
    Whisper stays loaded beside it). The clip's seed comes from its key, so a repeated
-   prayer's three takes (the site's `take` 0–2) sound different.
+   prayer's three takes (the site's `take` 0–2) sound different with Qwen3-TTS and
+   VoxCPM2; with Kokoro (Latin) the seed changes only the vocoder's noise, so the three
+   sound nearly the same.
 4. `audio.py`: mono 24 kHz, 40 ms of silence before the first sound and 250 ms after
    the last, loudness −18 LUFS (BS.1770), true peak ≤ −1.5 dBTP.
 5. `qa.py`: Whisper large-v3-turbo transcribes the take in the clip's language; the
@@ -61,7 +74,11 @@ What a row gets: `audio` (AAC-LC in MP4, faststart, mono, 24 kHz, ~48 kbps), `mi
    Chinese as tonal pinyin, Vietnamese and Polish with their diacritics). Also pace
    (against the voice's own usual pace, recorded in the registry), long silences, an
    untranscribed tail (run-on babble), extra words, duration. A take that has wrong
-   words or is broken is re-taken (new seed, slightly different sampling), up to 4.
+   words or is broken is re-taken (a new seed and slightly different sampling; for
+   Kokoro, which does not sample, a slightly different speed: `engine.py` take_params),
+   up to 4. A clip of one to three syllables is allowed its drawn-out last syllable in
+   the pace check (`SHORT_CLIP_SYLLABLES`): by syllable rate alone, Spanish "dos", "tres"
+   and "seis" were heard right in every take and still failed as slow.
 6. Encoded with macOS's AudioToolbox AAC encoder (`ffmpeg -c:a aac_at`).
 
 ## Latin
@@ -74,6 +91,31 @@ logged (`VOICE_ENGINE_LATIN_UNKNOWN_LOG=path` also appends it to a file). Kokoro
 Italian voices read the phonemes. `latin.to_respelling()` is the challenger route (an
 Italian voice reading an Italian respelling). House-style choices are listed in the
 module docstring.
+
+Kokoro says a very short input badly: alone, "Amen." failed QA in every take (heard as
+"E amen", "Garmin") and "Oremus." came out as "Oremos". So a Latin phrase under 20 IPA
+symbols (`KOKORO_SHORT` in `engine.py`) is said in the middle of a carrier sentence,
+`Pater noster, qui es in caelis. <phrase> Pater noster, qui es in caelis.`, in one call,
+and cut back out at the quietest 5 ms of the pause on each side, with a 5 ms fade at each
+edge. The carrier starts on p and ends on s: Kokoro speaks a little ahead of its own
+durations, so each pause also holds the edges of its neighbours, but the p's closure and
+the end of the s leave a quiet gap, which the search finds. If either cut is less than
+30 dB under the phrase, the phrase is said alone, as before (logged as a warning). Clips of 20 symbols or more
+are made as before, apart from the female voice's vowel onset (below). Measured with the engine's own seeds on 2026-11-21: "Amen."
+passed 40 of 40 takes (none alone), and the seven other short Latin texts measured 106 of
+112 (61 alone).
+
+The female Latin voice (`if_sara`) also starts a vowel-initial clip more cleanly. Kokoro
+voices the last 75–175 ms of its start token, and before a first vowel that early voicing
+was at times heard as another vowel ("Ora pro nobis" as "Aura pro nobis", "Ut digni" as
+"O digne"). Its registry entry sets `vowel_onset_keep_s` (0.025): the start token is
+silenced except its last 25 ms, which fade in (`soften_vowel_onset` in `engine.py`).
+Silencing all of it took short first vowels away ("In nomine" heard as "Nomine"); the
+male voice says these onsets right as they are (the same cut cost it 3 of 26 takes), so it
+has no such setting. A first consonant keeps its voicing, which belongs to it ("Deo").
+Like `tempo` (and the `pace_ref` calibrated with it), this setting is set by hand:
+`tools/pick.py` rewrites a voice's registry entry without them, so set them again after a
+re-pick.
 
 ## Voices
 
@@ -95,6 +137,9 @@ and the bake-off report for why each was chosen.
    website's `voices.json`. Bump the folder's `-vN` for a new voice rather than
    overwriting one: a new voiceId re-keys that language's clips on the website, so
    the engine makes them again in the new voice, while old clips stay valid until then.
+   `pick` writes each entry from the bake-off alone: settings set by hand afterwards
+   (`tempo` with the `pace_ref` calibrated with it, `vowel_onset_keep_s`) must be set
+   again.
 3. Listen to `samples/<lang>-<gender>.m4a`, run the tests, commit `voices/` and
    `voices.json` together.
 
@@ -147,6 +192,9 @@ time so only one model is loaded: `worker.py --lang en --voice female`, then `--
 Gloria Patri, every word of the site's Latin corpus in Kokoro's vocabulary) and
 `tests/test_normalize.py` (numbers, ordinals and numerals in all 13 languages).
 `tests/test_qa_fold.py` (the QA's fair folds, trimming and loudness).
+`tests/test_qa_pace.py` (the pace check of one- to three-syllable clips; no model is loaded).
+`tests/test_kokoro_carrier.py` (the short-phrase carrier: its cuts and guard on synthetic audio,
+and the engine's Kokoro path with a fake model; no model is loaded).
 `tools/e2e_local.py` is the end-to-end proof against a local database (it refuses any other host):
 `insert`, then `worker.py --once` / `--exit-when-idle`, then `verify` (status, bytes, ffprobe,
 macOS's own decoder, a full decode to non-silent audio).

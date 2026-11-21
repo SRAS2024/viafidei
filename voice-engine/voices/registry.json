@@ -217,7 +217,8 @@
       "pace_ref": 0.95,
       "voiceId": "kokoro-82m:latin-ipa:if_sara",
       "licence": "Kokoro-82M (hexgrad), Apache-2.0, with its Apache-2.0 voice packs; MLX conversion by mlx-community",
-      "tempo": 0.836
+      "tempo": 0.836,
+      "vowel_onset_keep_s": 0.025
     },
     "kokoro-82m:latin-ipa:im_nicola": {
       "lang": "la",

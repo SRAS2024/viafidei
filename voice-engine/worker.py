@@ -20,8 +20,10 @@ and counts an attempt. Each clip is spoken in up to 4 takes, each checked by qa.
 the best take is stored as AAC (.m4a). A pass is 'done'; a marginal best take is
 'done' with lastError 'qa:marginal:<cer>:...'; a clearly broken one is 'failed'. A
 listener asking again for a clip that failed on quality files it as pending once more
-(the website's store.ts, while attempts < MAX_ATTEMPTS), and the retry speaks with new
-seeds (seed_key_for).
+(the website's store.ts, while attempts < MAX_ATTEMPTS), with its last claim cleared so
+the retry can start at once, except for Kokoro (Latin). The retry uses new seeds
+(seed_key_for): new takes from Qwen3-TTS and VoxCPM2; Kokoro does not sample, so its
+retry is nearly the same four takes, and its claim keeps the 10-minute pace.
 """
 
 from __future__ import annotations
@@ -282,7 +284,8 @@ def status(db: DB, voices: Optional[list[str]] = None) -> None:
 
 def seed_key_for(key: str, attempts: int) -> str:
     """The seeds a claim speaks with: the clip's own on its first claim, new ones on each
-    retry (a clip that failed is asked for again only to hear different takes)."""
+    retry, so Qwen3-TTS and VoxCPM2 speak different takes. Kokoro does not sample: a new
+    seed changes only its vocoder's noise (its takes keep engine.py take_params' speeds)."""
     return key if attempts <= 1 else f"{key}:retry{attempts}"
 
 

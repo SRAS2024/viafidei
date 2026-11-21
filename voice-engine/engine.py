@@ -14,7 +14,8 @@ Models (all run locally on Apple silicon through mlx-audio; see README for licen
   - "voxcpm2" VoxCPM2: design from a description, or clone a locked reference clip
               (reference audio + prompt continuation);
   - "kokoro"  Kokoro-82M: stock voice packs fed raw phonemes. Latin goes through our
-              own front end (latin.py -> Kokoro IPA).
+              own front end (latin.py -> Kokoro IPA); a short Latin phrase is said
+              inside a carrier sentence and cut back out (KOKORO_SHORT).
 
 Only `capacity` models stay resident (default 1): asking for another unloads the
 least recently used one and frees its memory first, so two TTS models never sit in
@@ -30,6 +31,7 @@ import logging
 import os
 import time
 from collections import OrderedDict
+from collections.abc import Container, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
@@ -247,6 +249,31 @@ def _collect(results) -> tuple[np.ndarray, int]:
     return np.concatenate(chunks), int(sr)
 
 
+# Kokoro starts to voice a first vowel in the last 75-175 ms of its start token, as loud as the
+# vowel itself. In the female Latin voice that early voicing is at times heard as another vowel:
+# "Ora pro nobis" as "Aura pro nobis", "Ut digni" as "O digne". Silencing all of it took a short
+# first vowel away ("In nomine" was heard as "Nomine", "Attende" as "Tende"), so a voice whose
+# registry entry sets vowel_onset_keep_s keeps only that much of it, faded in. Measured through
+# make_clip with the worker's seeds (2026-11-21), female voice, 19 vowel-initial prayers: the
+# first word was heard right in 18 with 25 ms kept, 16 as before, and none was lost. The male
+# voice says these words right as they are (and the same cut cost it 3 of 26 takes), so it has
+# no such setting. A first consonant keeps its voicing: that is part of the consonant ("Deo").
+LATIN_IPA_VOWELS = frozenset("aeiouɛɔ")  # every vowel latin.to_ipa writes (y is i; ae, oe are e)
+
+
+def soften_vowel_onset(audio: np.ndarray, pred_dur, keep_s: float) -> np.ndarray:
+    """Kokoro's output (24 kHz) with its start token's frames (pred_dur[0]) silenced, except the
+    last `keep_s` seconds, which fade in to where the first symbol's frames begin."""
+    dur = [int(d) for d in np.asarray(pred_dur).tolist()]
+    hop = len(audio) // max(1, sum(dur))  # samples per duration frame (600 at 24 kHz)
+    end = min(len(audio), dur[0] * hop)
+    start = max(0, end - int(keep_s * 24000))
+    out = audio.copy()
+    out[:start] = 0.0
+    out[start:end] *= np.sin(np.linspace(0, np.pi / 2, end - start, dtype=np.float32)) ** 2
+    return out
+
+
 class Engine:
     def __init__(self, registry: Optional[dict] = None, capacity: int = 1):
         self.registry = registry if registry is not None else load_registry()
@@ -283,7 +310,9 @@ class Engine:
     # -- one raw take --------------------------------------------------------- #
 
     def take_params(self, spec: dict, k: int) -> dict:
-        """Take k's sampling settings: seeds always vary; temperature/cfg vary a little."""
+        """Take k's settings: temperature (Qwen3), cfg (VoxCPM2) or speed (Kokoro) varies a
+        little. Seeds always vary too, but Kokoro does not sample: its seed reaches only the
+        vocoder's noise, so its takes differ by this speed ladder alone."""
         p = dict(spec.get("params", {}))
         kind = spec["kind"]
         if kind == "qwen3":
@@ -359,6 +388,13 @@ class Engine:
         else:
             raise ValueError(f"kokoro needs phonemes; front_end {front!r} not supported")
         speed = float(params.get("speed", 1.0))
+        if kokoro_uses_carrier(front, phonemes):
+            phrase = kokoro_in_carrier(holder.model, pack, phonemes.strip(), speed)
+            if phrase is not None:
+                return phrase, 24000
+            # No silent cut: the phrase is said alone below, as before. Kokoro's decoder noise
+            # comes from the seed and the carrier call drew on it first, so the take is not
+            # bit for bit the one this seed gave before.
         pieces = latin.chunk_ipa(phonemes, limit=500)
         gap = np.zeros(int(0.16 * 24000), np.float32)
         out: list[np.ndarray] = []
@@ -367,7 +403,11 @@ class Engine:
             if not ps:
                 continue
             o = holder.model(ps, pack[len(ps) - 1], speed, return_output=True)
-            out.append(np.asarray(o.audio, dtype=np.float32).reshape(-1))
+            piece = np.asarray(o.audio, dtype=np.float32).reshape(-1)
+            keep = spec.get("vowel_onset_keep_s")
+            if keep is not None and front == "latin-ipa" and ps.lstrip(latin.STRESS)[:1] in LATIN_IPA_VOWELS:
+                piece = soften_vowel_onset(piece, o.pred_dur, float(keep))
+            out.append(piece)
             if i < len(pieces) - 1:
                 out.append(gap)
         return (np.concatenate(out) if out else np.zeros(1, np.float32)), 24000
@@ -426,6 +466,177 @@ class Engine:
         if encode:
             clip.m4a = A.encode_m4a(best.finished.audio, best.finished.sr)
         return clip
+
+
+# --------------------------------------------------------------------------- #
+# Kokoro: a short Latin phrase is said inside a carrier sentence              #
+# --------------------------------------------------------------------------- #
+
+# Kokoro-82M learnt from whole sentences and says a very short input badly. Alone, a Latin
+# "Amen." failed QA in every take ("E amen", "Lame lindri", "Garmin") and "Oremus." was
+# heard as "Oremos". Two weaknesses meet there: the voice pack holds one style per input
+# length, and the styles for the shortest inputs sound little like the voice; and Kokoro
+# voices the last frames of its start token, which before a first vowel is heard as an
+# extra vowel. So a short phrase is said in the middle of a carrier sentence, in ONE call
+# with the style for the whole string's length (the rule every clip follows), and cut back
+# out at the quietest 5 ms of the pause on each side; the start token stays behind with the
+# first carrier. Measured through make_clip with the engine's own seeds (2026-11-21):
+# "Amen." passed 40 of 40 takes in the two voices (none alone); the other short Latin texts
+# measured (Oremus, Alleluia, Deo gratias, Ora pro nobis, Kyrie and Christe eleison,
+# Miserere nobis) passed 106 of 112 takes (61 alone) and failed none (13 alone).
+
+# Under 20 IPA symbols ("ˈaːmen." is 7, "mizerˈɛːre nˈɔːbis." 19) is the range measured: inside
+# the carrier every text in it passed at least as often as alone, and no take failed. Clips of
+# 20 symbols or more ("Christe, audi nos." and every prayer) were not measured inside the
+# carrier, so they are said alone as before (the female voice's vowel onset aside).
+KOKORO_SHORT = 20
+
+# latin.to_ipa("Pater noster, qui es in caelis."), said before and after the phrase, so the
+# phrase is neither the first nor the last thing Kokoro says. It starts on p and ends on s,
+# both voiceless. Kokoro speaks a little ahead of its own predicted durations (25-75 ms on
+# real audio), so each pause span also holds the edges of its neighbours (the next carrier's
+# p burst, even the start of its vowel); but the p's closure and the end of the s leave a
+# quiet gap, the quietest-5-ms search finds it, and the guard below checks it. A carrier that
+# ends on a voiced sound ("Per Christum Dominum nostrum.", ending on m) left no quiet gap
+# before a voiced first sound ("Deo"). And it is short (36 symbols): inside an 81-symbol
+# carrier ("Per Christum Dominum nostrum, Filium tuum, qui tecum vivit et regnat.") the style
+# for the longer string slowed the phrase and lowered its pitch, and no take of "Amen." passed.
+KOKORO_CARRIER = "pˈaːter nˈɔster, kwi ˈɛs in ʧˈɛːlis."
+
+# Each cut must be at least this far under the phrase's loud frames (the 95th percentile of
+# its 20 ms frame levels). A louder cut would chop a sound off the phrase or keep one of the
+# carrier's, so the phrase is then said alone, as before: one take in the 152 measured
+# ("Deo gratias.", male voice, a cut 29 dB under).
+KOKORO_CUT_DB = -30.0
+
+KOKORO_CUT_WINDOW = 120  # samples searched for the quietest point: 5 ms at Kokoro's 24 kHz
+
+# The cut phrase fades in and out over this many samples (5 ms, raised cosine). The cuts sit
+# 40-77 dB under the phrase, but the male voice's pauses are not quite silent (30-36 dB under
+# it) and his cut can fall a few ms after his last sound, so without a fade the clip would stop
+# on a hard edge where every clip said alone fades out.
+KOKORO_EDGE_FADE = 120
+
+# What Kokoro says as a pause: punctuation and the space between words.
+_PAUSE_MARKS = frozenset(".,;:!?…— ")
+
+
+def kokoro_uses_carrier(front_end: str, phonemes: str) -> bool:
+    """Whether a Kokoro clip is said inside the carrier: Latin IPA of fewer than KOKORO_SHORT
+    symbols (spaces around it not counted). Every other clip takes the path it always took."""
+    return front_end == "latin-ipa" and 0 < len(phonemes.strip()) < KOKORO_SHORT
+
+
+def carrier_sentence(phrase: str) -> tuple[str, int, int]:
+    """What Kokoro is given for `phrase`, and where the phrase sits in it: (text, index of
+    the phrase's first symbol, index just past its last)."""
+    first = len(KOKORO_CARRIER) + 1
+    return f"{KOKORO_CARRIER} {phrase} {KOKORO_CARRIER}", first, first + len(phrase)
+
+
+def symbol_start_frames(text: str, durations: Sequence[int], vocab: Container[str]) -> list[int]:
+    """The duration frame at which each symbol of `text` starts, then the frame at which the
+    end token starts. Kokoro predicts one duration per token: its start token, each symbol
+    it knows (it drops the others, so they take no time), then its end token."""
+    starts, frame, token = [], durations[0], 1
+    for ch in text:
+        starts.append(frame)
+        if ch in vocab:
+            frame += durations[token]
+            token += 1
+    starts.append(frame)
+    return starts
+
+
+def pauses_around(text: str, first: int, end: int) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Symbol spans [start, stop) of the pause before the phrase text[first:end] and of the
+    pause after it: the marks and spaces between the phrase and each carrier. A comma inside
+    the phrase ("kˈiːrie, elˈɛːizon.") belongs to the phrase and is never a place to cut."""
+    before = first
+    while before > 0 and text[before - 1] in _PAUSE_MARKS:
+        before -= 1
+    closing = end  # the phrase's own closing marks are part of the pause after it
+    while closing > first and text[closing - 1] in _PAUSE_MARKS:
+        closing -= 1
+    after = end
+    while after < len(text) and text[after] in _PAUSE_MARKS:
+        after += 1
+    return (before, first), (closing, after)
+
+
+def quietest_point(audio: np.ndarray, a: int, b: int, win: int = KOKORO_CUT_WINDOW) -> tuple[int, float]:
+    """The sample at the middle of the quietest `win` samples in audio[a:b], and their level
+    in dBFS. A span shorter than the window is searched as the one window starting at `a`;
+    when the audio ends less than a window after `a`, the point counts as loud (0 dBFS), so
+    no cut is made there."""
+    seg = audio[a:max(b, a + win)].astype(np.float64)
+    if len(seg) < win:
+        return (a + b) // 2, 0.0
+    power = np.convolve(seg**2, np.ones(win) / win, mode="valid")
+    i = int(np.argmin(power))
+    return a + i + win // 2, float(10 * np.log10(power[i] + 1e-18))
+
+
+@dataclass(frozen=True)
+class CarrierCut:
+    """Where a phrase is cut out of its carrier sentence's audio (sample indices), and how
+    quiet the audio is at each cut."""
+
+    start: int
+    end: int
+    start_db: float  # dBFS of the quietest 5 ms at each cut
+    end_db: float
+    loud_db: float  # the phrase's loud frames: 95th percentile of its 20 ms frame levels
+
+    @property
+    def silent(self) -> bool:
+        """The guard: the cuts in order, each at least 30 dB (KOKORO_CUT_DB) under the
+        phrase's loud frames."""
+        return self.end > self.start and max(self.start_db, self.end_db) <= self.loud_db + KOKORO_CUT_DB
+
+
+def find_cut(audio: np.ndarray, before: tuple[int, int], after: tuple[int, int], sr: int = 24000) -> CarrierCut:
+    """The phrase's cut points: the quietest 5 ms of the pause before it and of the pause
+    after it (both pauses given as sample spans)."""
+    start, start_db = quietest_point(audio, *before)
+    end, end_db = quietest_point(audio, *after)
+    loud = float(np.percentile(A.frame_db(audio[start:end], sr), 95)) if end > start else 0.0
+    return CarrierCut(start, end, start_db, end_db, loud)
+
+
+def kokoro_in_carrier(model, pack, phrase: str, speed: float) -> Optional[np.ndarray]:
+    """`phrase` said between two copies of KOKORO_CARRIER in one Kokoro call and cut back out
+    (24 kHz), or None when a cut would not fall in silence (the caller then says the phrase
+    alone, as before)."""
+    text, first, end = carrier_sentence(phrase)
+    out = model(text, pack[len(text) - 1], speed, return_output=True)
+    audio = np.asarray(out.audio, dtype=np.float32).reshape(-1)
+    durations = [int(d) for d in np.asarray(out.pred_dur).tolist()]
+    hop = len(audio) // max(1, sum(durations))  # samples per duration frame (600 at 24 kHz)
+    frames = symbol_start_frames(text, durations, model.vocab)
+    (a, b), (c, d) = pauses_around(text, first, end)
+    cut = find_cut(audio, (frames[a] * hop, frames[b] * hop), (frames[c] * hop, frames[d] * hop))
+    if not cut.silent:
+        # A warning, so it reaches the engine's log (the worker shows only warnings from the
+        # engine): a short Latin clip said alone is the one Kokoro garbles.
+        log.warning(
+            "kokoro carrier: no silent cut for %r (%.0f and %.0f dB against the phrase, %.0f needed); said alone",
+            phrase, cut.start_db - cut.loud_db, cut.end_db - cut.loud_db, KOKORO_CUT_DB,
+        )
+        return None
+    return fade_edges(audio[cut.start:cut.end])
+
+
+def fade_edges(audio: np.ndarray, n: int = KOKORO_EDGE_FADE) -> np.ndarray:
+    """A copy of `audio` that fades in over its first `n` samples and out over its last `n`
+    (raised cosine; a clip shorter than 2n fades over half its length)."""
+    out = np.array(audio, dtype=np.float32, copy=True)
+    n = min(n, len(out) // 2)
+    if n > 0:
+        ramp = (0.5 - 0.5 * np.cos(np.linspace(0.0, np.pi, n))).astype(np.float32)
+        out[:n] *= ramp
+        out[-n:] *= ramp[::-1]
+    return out
 
 
 # --------------------------------------------------------------------------- #

@@ -92,6 +92,15 @@ voice was made. Changing a voice there re-keys that language's clips, so the eng
 them again. All models are open and commercially licensed, run locally, and no voice
 imitates a real person.
 
+Latin is read by Kokoro from the engine's own Ecclesiastical-Latin phonemes. Kokoro garbles a
+word said on its own, so a short Latin line ("Amen.", "Oremus.") is said inside a carrier
+sentence ("Pater noster, qui es in caelis.") and cut back out (the engine's README, Latin).
+The female Latin voice also trims the early voicing Kokoro puts before a first vowel, which
+was heard as an extra vowel ("Aura pro nobis"). In every language, a clip of one to three
+syllables is allowed a drawn-out last syllable in the quality check's pace test. An engine
+change never reaches clips already made (their keys do not change), nor failed ones out of
+attempts: reset those rows by hand, as the engine's README describes under the worker.
+
 ## Accessibility
 
 A real button named for what it will do ("Pray along: Hail Mary", then "Pause praying

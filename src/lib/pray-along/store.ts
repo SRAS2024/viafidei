@@ -78,16 +78,20 @@ const MAX_DEMAND_PER_REQUEST = 600;
 /**
  * A clip that failed its quality check is tried again when a listener asks for it,
  * until it has had this many claims (the engine's own limit, voice-engine/worker.py
- * MAX_ATTEMPTS); each retry speaks with new seeds. Any other failure stays failed.
+ * MAX_ATTEMPTS). Each retry is made with new seeds (worker.py seed_key_for). That gives
+ * the sampled voices (Qwen3-TTS, VoxCPM2) different takes, but not Kokoro (Latin): its
+ * takes differ only by a fixed ladder of speeds (engine.py take_params), and its seed
+ * moves nothing but the vocoder's noise, so a Latin retry is nearly the same four takes
+ * again. Any other failure stays failed.
  */
 export const RETRY_FAILED_BELOW_ATTEMPTS = 5;
 
 /**
  * Files the clips a listener is waiting for, so the engine makes them first: a new row
  * is 'pending' and requested now; a pending row has its request time moved up; a row
- * that failed its quality check is pending again (see RETRY_FAILED_BELOW_ATTEMPTS),
- * so one failed take never leaves a prayer unplayable for good. A made clip is left
- * alone. Never throws.
+ * that failed its quality check is pending again with its last claim cleared (see
+ * RETRY_FAILED_BELOW_ATTEMPTS), so the engine can try it while the listener waits
+ * (a Kokoro clip keeps its claim's pace). A made clip is left alone. Never throws.
  */
 export async function fileClipDemand(clips: readonly NeededClip[]): Promise<void> {
   const batch = clips.slice(0, MAX_DEMAND_PER_REQUEST);
@@ -100,6 +104,24 @@ export async function fileClipDemand(clips: readonly NeededClip[]): Promise<void
       (c, i) =>
         Prisma.sql`(${`pac_${c.key}`}, ${c.key}, ${c.lang}, ${c.voice}, ${c.voiceId}, ${c.text}, 'pending', ${i}, ${now}, ${now}, ${now})`,
     );
+    // A quality failure filed again loses its last claim too. The engine skips a row
+    // claimed in the last 10 minutes (worker.py CLAIM_STALE_MIN), far longer than the
+    // player waits for a clip (player.ts MAX_WAIT_MS, 2 minutes), so a retry still
+    // holding the failed attempt's claim could not start while the listener waits. A
+    // failed row is never being worked on, so no worker loses anything. A pending row
+    // keeps its claim: the worker making it stores its result only in a row it still
+    // holds, and no second worker starts on it.
+    // Except Kokoro (Latin): its retries are nearly the same takes (see
+    // RETRY_FAILED_BELOW_ATTEMPTS), so its claim keeps the engine's 10-minute pace. With
+    // it cleared, one listener's polls (player.ts, every 2.5 s) would spend every
+    // attempt in half a minute on those same takes, and a later fix to the engine would
+    // find the row out of attempts.
+    // Postgres works out every SET expression from the row as it was before this
+    // update, so all the CASEs below test the old status and always agree.
+    const retry = Prisma.sql`"PrayerAudioClip"."status" = 'failed'
+      AND "PrayerAudioClip"."lastError" LIKE 'qa:%'
+      AND "PrayerAudioClip"."attempts" < ${RETRY_FAILED_BELOW_ATTEMPTS}`;
+    const retryNow = Prisma.sql`${retry} AND "PrayerAudioClip"."voiceId" NOT LIKE 'kokoro-%'`;
     await prisma.$executeRaw`
       INSERT INTO "PrayerAudioClip"
         ("id", "key", "lang", "voice", "voiceId", "text", "status", "priority", "requestedAt", "createdAt", "updatedAt")
@@ -107,13 +129,9 @@ export async function fileClipDemand(clips: readonly NeededClip[]): Promise<void
       ON CONFLICT ("key") DO UPDATE
         SET "requestedAt" = EXCLUDED."requestedAt",
             "priority" = LEAST("PrayerAudioClip"."priority", EXCLUDED."priority"),
-            "status" = CASE
-              WHEN "PrayerAudioClip"."status" = 'failed'
-                AND "PrayerAudioClip"."lastError" LIKE 'qa:%'
-                AND "PrayerAudioClip"."attempts" < ${RETRY_FAILED_BELOW_ATTEMPTS}
-              THEN 'pending'
-              ELSE "PrayerAudioClip"."status"
-            END
+            "status" = CASE WHEN ${retry} THEN 'pending' ELSE "PrayerAudioClip"."status" END,
+            "claimedAt" = CASE WHEN ${retryNow} THEN NULL ELSE "PrayerAudioClip"."claimedAt" END,
+            "claimedBy" = CASE WHEN ${retryNow} THEN NULL ELSE "PrayerAudioClip"."claimedBy" END
         WHERE "PrayerAudioClip"."status" <> 'done'`;
   } catch {
     // No table yet, or a transient error: the page still plays what is made.
