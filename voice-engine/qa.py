@@ -34,6 +34,7 @@ import difflib
 import math
 import re
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Optional
 
@@ -263,8 +264,8 @@ def expand_abbreviations(text: str, lang: str) -> str:
     return text
 
 
-def fold(text: str, lang: str, *, strict: bool = False) -> str:
-    """The text as the CER compares it (see the module docstring)."""
+def _fold_spaced(text: str, lang: str, strict: bool) -> str:
+    """fold() with one space between words, in every language (see fold_words)."""
     text = expand_abbreviations(text, lang)
     try:
         t = normalize_for_voice(text, lang)
@@ -275,16 +276,15 @@ def fold(text: str, lang: str, *, strict: bool = False) -> str:
         for pattern, same in EN_SAME_SOUND:
             t = re.sub(pattern, same, t)
     if lang == "zh":
-        return _pinyin(t).replace(" ", "") if not strict else re.sub(r"[^㐀-鿿]", "", t)
+        return _pinyin(t) if not strict else " ".join(re.findall(r"[㐀-鿿]", t))
     if lang == "ko":
-        t = re.sub(r"[^가-힣]", "", t)
-        return t if strict else korean_liaison(t)
+        return " ".join(w for w in (re.sub(r"[^가-힣]", "", w) for w in t.split()) if w)
     if lang == "el":
         if strict:
-            return _letters_only(_strip_marks(t)).replace(" ", "")
-        return greek_phonemes(_letters_only(t)).replace(" ", "")
+            return _letters_only(_strip_marks(t))
+        return greek_phonemes(_letters_only(t))
     if lang == "la":
-        return _latin_letters(t).replace(" ", "")
+        return _latin_letters(t)
     if lang == "vi" and not strict:
         t = northern_vietnamese(_letters_only(t))
     if lang == "tl" and not strict:
@@ -292,8 +292,25 @@ def fold(text: str, lang: str, *, strict: bool = False) -> str:
     t = t.replace("ß", "ss").replace("æ", "ae").replace("œ", "oe")
     if not strict and lang not in KEEP_DIACRITICS:
         t = _strip_marks(t)
-    t = _letters_only(t)
+    return _letters_only(t)
+
+
+def fold(text: str, lang: str, *, strict: bool = False) -> str:
+    """The text as the CER compares it (see the module docstring)."""
+    t = _fold_spaced(text, lang, strict)
+    if lang == "ko":
+        t = t.replace(" ", "")
+        return t if strict else korean_liaison(t)
     return t.replace(" ", "") if lang in NO_SPACES else t
+
+
+def fold_words(text: str, lang: str, *, strict: bool = False) -> list[str]:
+    """The text as fold() reads it, word by word, also in the languages whose fold drops the
+    spaces (NO_SPACES): there the words of the normalised text, each folded alike, so that
+    joined they are fold()'s string. Korean gives the Hangul of each word, without the liaison
+    (it moves a sound across a word boundary); Chinese, written without spaces, gives its
+    characters (strict) or their syllables in Pinyin."""
+    return _fold_spaced(text, lang, strict).split()
 
 
 SYLLABLE_LANGS = {"vi", "zh"}  # a wrong tone is a wrong word: count whole syllables
@@ -365,10 +382,176 @@ def end_insertions(ref: str, hyp: str) -> tuple[int, int]:
 
 
 # --------------------------------------------------------------------------- #
+# Repeated words                                                              #
+# --------------------------------------------------------------------------- #
+
+# A word the text says N times running must be heard N times, whatever the CER. Qwen3-TTS
+# drops one of a run: the female English voice said "Ave, Ave, Ave, Maria! Ave, Ave, Ave,
+# Maria!" with five Aves in every whole take (the voice, not Whisper: that half lasted 1.5 s,
+# not 2.1 s), and in a verse one Ave is CER 0.033, under the pass line, so two clips were made
+# with five ("Immaculate Mary, your praises we sing", "In heaven the blessed"). So:
+#   - a run is the same word in the text's STRICT fold (fold_words), so only a word said again
+#     counts: Spanish "para mí, mi Jesús" is two words, though the fair fold reads both "mi";
+#   - the transcript is lined up with the text in the FAIR fold, word by word (word_alignment),
+#     so Whisper's case, punctuation, accents and Greek spelling of a sound are not a word lost
+#     ("AVE", "Avé", "άγειος" for "ἅγιος");
+#   - a copy not lined up with the same word may still have been said: the run's copies are
+#     looked for in the transcript between the nearest words lined up around the run, and
+#     the larger of two counts there is credited: the words that no word of the text accounts
+#     for (a copy Whisper spelled otherwise, "Santus" for "Sanctus", "Jesús" for "Jesu", is
+#     judged by the CER like any misheard word), or the times the word itself is written there,
+#     inside other words too ("Avemaria", "aveave": a copy Whisper joined to the next word lost
+#     no copy). The two are not added, so a gap holding both kinds can read short. Letters
+#     alone are no copy: Whisper wrote the two drawn-out Aves the male voice said in each half
+#     of a verse's refrain as "Eveveve, eveve" (12 letters, enough for three), and that take
+#     said four Aves, not six.
+#     Rare false fails, each only another take, never a clip kept with a copy missing: a copy
+#     both joined to another and spelled otherwise ("santussantus"); one copy spelled otherwise
+#     beside one joined to a word ("Ava, ave, Avemaria"); the refrain's two halves sharing one
+#     gap. None was seen in the 386 real transcripts checked.
+# Chinese is lined up by character, not by its Pinyin, which reads a character two ways in two
+# words; Korean by its words between spaces (fold_words).
+# A run is three copies or more. Whisper itself drops one of a word said twice, as a speaker's
+# stumble ("I, I have"), and collapses a sentence said twice in a long litany: judged again on
+# 2026-11-21, of the 88 stored clips that say a word twice running it wrote "But all that is" for
+# "But all, all that is" and "but I have used it" for "but I, I have used it", where the same
+# audio cut shorter has both copies; and it heard 7 of the 10 sentences of a Spanish litany
+# whose voice had said 9. Of the 15 stored clips with a run of three (Holy, Ave, Santo, Sanctus,
+# Hagios; Jesu four times) it heard every copy in 13; the other 2 are the verses above, which
+# the voice made short.
+REPEAT_MIN = 3
+
+
+def repeat_runs(words: Sequence[str], least: int = REPEAT_MIN) -> list[tuple[int, int]]:
+    """[start, end) of each run of one word `least` times or more in a row in `words`."""
+    runs, i = [], 0
+    while i < len(words):
+        j = i + 1
+        while j < len(words) and words[j] == words[i]:
+            j += 1
+        if j - i >= least:
+            runs.append((i, j))
+        i = j
+    return runs
+
+
+def word_alignment(a: Sequence[str], b: Sequence[str]) -> dict[int, int]:
+    """The words of `a` lined up with the same word of `b`, as {index in a: index in b}: an
+    alignment of the fewest edits (a word left out, put in or changed), and of those the one
+    that lines up the most words, taking a word the same on both sides as early as it can, so a
+    copy `b` lacks is the run's last one, beside what follows. difflib's matcher lines up the
+    longest stretch first: where Whisper wrote the last word of the bare refrain's first half
+    otherwise ("Mariah", "Avemaria"), it lined up the text's first half with the transcript's
+    second and found the whole second half lost. The most words: a word Whisper wrote that the
+    text's fold has not (a Latin "O" in a Greek prayer, heard as Greek "Ω") is one put in, not a
+    chain of words changed that leaves the word after it unmatched."""
+    n, m = len(a), len(b)
+
+    def edit(rest: tuple[int, int]) -> tuple[int, int]:  # one edit more than the rest's
+        return rest[0] + 1, rest[1]
+
+    def lined_up(rest: tuple[int, int]) -> tuple[int, int]:  # one word lined up more
+        return rest[0], rest[1] - 1
+
+    # best[i][j]: (edits, -words lined up) of the best alignment of a[i:] with b[j:]
+    best = [[(0, 0)] * (m + 1) for _ in range(n + 1)]
+    for i in range(n, -1, -1):
+        for j in range(m, -1, -1):
+            if i == n or j == m:
+                best[i][j] = ((n - i) + (m - j), 0)
+                continue
+            here = min(edit(best[i + 1][j + 1]), edit(best[i + 1][j]), edit(best[i][j + 1]))
+            best[i][j] = min(here, lined_up(best[i + 1][j + 1])) if a[i] == b[j] else here
+    lined: dict[int, int] = {}
+    i = j = 0
+    while i < n and j < m:
+        here = best[i][j]
+        if a[i] == b[j] and here == lined_up(best[i + 1][j + 1]):
+            lined[i] = j
+            i, j = i + 1, j + 1
+        elif here == edit(best[i + 1][j + 1]):  # a word changed
+            i, j = i + 1, j + 1
+        elif here == edit(best[i + 1][j]):  # a word of `a` left out
+            i += 1
+        else:  # a word put in
+            j += 1
+    return lined
+
+
+def copies_in(written: str, word: str) -> int:
+    """How many times `word` stands in the one word `written`, overlaps counted: the Latin fold
+    writes a doubled consonant once, so two copies of "sanctus" joined fold to "sanctusanctus".
+    Word by word, never across two: a copy Whisper split in two is a word left over already, and
+    a count across two words would find "ave" in "a very"."""
+    return sum(1 for i in range(len(written) - len(word) + 1) if written.startswith(word, i)) if word else 0
+
+
+def dropped_repeats(ref_text: str, hyp_text: str, lang: str) -> list[tuple[str, int, int]]:
+    """Each run of one word said N times in `ref_text` that the transcript `hyp_text` has fewer
+    times: (the word as the strict fold writes it, times heard, N). See REPEAT_MIN."""
+    by_character = lang == "zh"
+    named = fold_words(ref_text, lang, strict=True)
+    ref = fold_words(ref_text, lang, strict=by_character)
+    hyp = fold_words(hyp_text, lang, strict=by_character)
+    if len(named) != len(ref):
+        # The folds split the text otherwise (2 Greek clips write a word in Latin letters, which
+        # the phonemic fold drops): the runs are those of the fold lined up.
+        named = ref
+    runs = repeat_runs(named)
+    if not runs:
+        return []
+    lined = word_alignment(ref, hyp)
+    dropped = []
+    for start, end in runs:
+        heard = sum(1 for i in range(start, end) if i in lined)
+        lost = (end - start) - heard
+        if lost:
+            # Every copy Whisper wrote is in the transcript between the nearest words lined up
+            # around the run, wherever the alignment left a gap or a word written otherwise.
+            before = max((i for i in lined if i < start), default=None)
+            after = min((i for i in lined if i >= end), default=None)
+            lo = 0 if before is None else before + 1
+            hi = len(ref) if after is None else after
+            j_lo = 0 if before is None else lined[before] + 1
+            j_hi = len(hyp) if after is None else lined[after]
+            taken = {lined[i] for i in range(start, end) if i in lined}
+            free = [hyp[j] for j in range(j_lo, j_hi) if j not in taken]
+            # The text's other words there, none of them lined up: what the transcript has for
+            # them is not a copy.
+            others = ref[lo:start] + ref[end:hi]
+            word = ref[start]
+            words_left = len(free) - len(others)
+            written = sum(copies_in(w, word) for w in free) - sum(copies_in(w, word) for w in others)
+            heard += max(0, min(lost, max(words_left, written)))
+        if heard < end - start:
+            dropped.append((named[start], heard, end - start))
+    return dropped
+
+
+# --------------------------------------------------------------------------- #
 # Syllables and pitch                                                         #
 # --------------------------------------------------------------------------- #
 
 _VOWELS = "aeiouyàáâãäåæèéêëìíîïòóôõöøùúûüýÿąęœ"
+
+# Latin words English prayers keep, whose final e is said ("A-ve", "Do-mi-ne"). The English
+# silent-e rule in estimate_syllables would count "Ave" as one syllable, like "have": the refrain
+# "Ave, Ave, Ave, Maria! Ave, Ave, Ave, Maria!" read as 10 syllables (16 now), so its takes read
+# as 0.5-0.8x the voice's pace, and a take of the male voice that said every word as 0.46x, a
+# fail (0.74x with 16, a pass). Taken from the English clips (all 6,302 distinct texts,
+# 2026-11-21): Ave (5 clips, 20 times), Domine and Miserere (6 clips each) and Parce (3); Kyrie,
+# Christe, Ecce and Sancte, the same kind of Latin in other English prayers; and the words
+# ending in e of the Latin that 13 English clips quote ("Sit nobis nomen Mariae mel in ore,
+# melos in aure, et jubilus in corde"; the O Antiphons). It raises the count of 26 clips and
+# lowers none. Left to the rule: Latin words that are also English words with a silent e
+# (salve, pace, ore, fine, and mane: the 2 clips that say "Mane nobiscum" count 88 and 75
+# syllables where they say 89 and 76, too little to move their pace).
+EN_LATIN_FINAL_E = frozenset({
+    "ave", "domine", "miserere", "parce", "kyrie", "christe", "ecce", "sancte",
+    "aeternae", "aure", "averte", "confige", "corde", "discrimine", "flammae", "igne", "infirmitate",
+    "justitiae", "lapisque", "libertate", "mariae", "patre", "prudentiae", "suaviterque", "tardare",
+    "timore", "usque", "utraque", "voluntate",
+})
 
 
 def estimate_syllables(text: str, lang: str) -> int:
@@ -393,7 +576,10 @@ def estimate_syllables(text: str, lang: str) -> int:
     n = 0
     for w in re.findall(r"[^\W\d_]+", t):
         k = len(re.findall(f"[{_VOWELS}]+", w))
-        if lang == "en" and k > 1 and w.endswith("e") and not w.endswith(("le", "ee", "ye")):
+        if (
+            lang == "en" and k > 1 and w.endswith("e") and not w.endswith(("le", "ee", "ye"))
+            and w not in EN_LATIN_FINAL_E
+        ):
             k -= 1
         if lang == "en" and k > 1 and w.endswith("ed") and not w.endswith(("ted", "ded")):
             k -= 1
@@ -504,6 +690,15 @@ class QAResult:
     # True when another take could help: wrong words or a broken take. A voice's own
     # steady pace is not a reason to re-take (every take of a locked voice shares it).
     retake: bool = False
+    # True when the take failed on its words: a character or syllable error over the marginal
+    # limit, a word said fewer times running than the text says it (dropped_repeats), or no
+    # speech recognised. Its pace, a silence and a tail are not its words, nor the check of extra
+    # words at an end, though those add to its error like any word not in the text (engine.
+    # words_wrong reads this and words_marginal, to say a clip again a sentence at a time).
+    words_failed: bool = False
+    # True when its character or syllable error is between the pass and the marginal limits: the
+    # words a little off, as when a sentence of a long litany is missing (CER 0.099).
+    words_marginal: bool = False
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -577,6 +772,7 @@ def evaluate(
     fail = False
     marginal = False
     retake = False
+    words_failed = words_marginal = False
     pass_cer = PASS_CER.get(lang, DEFAULT_PASS)
     marg_cer = MARGINAL_CER.get(lang, DEFAULT_MARGINAL)
     err = c
@@ -585,14 +781,17 @@ def evaluate(
     what = "the voice's own pace" if pace_ref else "normal"
     if end <= start or not hyp:
         reasons.append("no speech recognised")
-        fail = retake = True
+        fail = retake = words_failed = True
     what_err = "ser" if s_err is not None else "cer"
     if err > marg_cer:
         reasons.append(f"{what_err} {err:.3f} > {marg_cer}")
-        fail = retake = True
+        fail = retake = words_failed = True
     elif err > pass_cer:
         reasons.append(f"{what_err} {err:.3f} > {pass_cer}")
-        marginal = retake = True
+        marginal = retake = words_marginal = True
+    for word, heard, times in dropped_repeats(ref_text, hyp_text, fold_lang) if hyp else []:
+        reasons.append(f"{what_err} {err:.3f}: said {word!r} {heard} {'time' if heard == 1 else 'times'}, not {times}")
+        fail = retake = words_failed = True
     if not (PACE_MARGINAL[0] <= pace_judged <= PACE_MARGINAL[1]):
         reasons.append(f"pace {pace_judged:.2f}x {what}")
         fail = retake = True
@@ -649,4 +848,6 @@ def evaluate(
         f0_spread_st=pitch["f0_spread_st"],
         reasons=reasons,
         retake=retake,
+        words_failed=words_failed,
+        words_marginal=words_marginal,
     )

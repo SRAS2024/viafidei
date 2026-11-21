@@ -29,6 +29,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import time
 from collections import OrderedDict
 from collections.abc import Container, Sequence
@@ -189,6 +190,10 @@ class Take:
     finished: A.Finished
     qa: QA.QAResult
     qa_s: float = 0.0
+    # A take joined from one take per sentence (make_clip's per-sentence fallback): the take
+    # of each sentence that was used, in order (one take twice when a sentence used the take of
+    # another with the same words: params["borrowed"]). Empty for a take of the whole clip.
+    sentences: list["Take"] = field(default_factory=list)
 
     @property
     def rtf(self) -> float:
@@ -202,13 +207,24 @@ class Clip:
     text: str
     spoken_text: str
     best: Take
-    takes: list[Take] = field(default_factory=list)
+    takes: list[Take] = field(default_factory=list)  # the takes of the whole clip
     engine_label: str = ""
     m4a: bytes = b""
+    # The per-sentence fallback, when it ran: every take of each sentence, and the clip joined
+    # from the best of each (best is that joined take when it judged better than every take of
+    # the whole clip, none of those sentence takes failed, and, when the best whole take was
+    # usable (marginal), its words judged better too; see Engine.say_by_sentence).
+    sentence_takes: list[list[Take]] = field(default_factory=list)
+    joined: Optional[Take] = None
 
     @property
     def qa(self) -> QA.QAResult:
         return self.best.qa
+
+    @property
+    def per_sentence(self) -> bool:
+        """Whether the clip kept is the one said a sentence at a time."""
+        return bool(self.best.sentences)
 
     @property
     def status(self) -> str:
@@ -230,6 +246,11 @@ class Clip:
         the fair fold; syllable error rate for Vietnamese and Chinese). 1.0 = word-perfect."""
         q = self.best.qa
         return round(max(0.0, 1.0 - (q.ser if q.ser is not None else q.cer)), 4)
+
+
+def best_take(takes: Sequence[Take]) -> Take:
+    """The take QA scores best (lowest score); the first of equals."""
+    return min(takes, key=lambda t: t.qa.score)
 
 
 def _mx_seed(seed: int) -> None:
@@ -426,13 +447,50 @@ class Engine:
         stop_on_pass: bool = True,
         encode: bool = True,
     ) -> Clip:
+        """The clip in up to `takes` takes of the whole text, each checked by qa.py, the best kept
+        (stopping at the first that needs no other). When no take said its words right (each
+        failed on them or had them only marginal: words_wrong) and the voice is Qwen3-TTS or
+        VoxCPM2, the clip is said again a sentence at a time, and that is kept if it judges
+        better and no sentence of it failed its own check, with better words too when the best
+        whole take was usable (say_by_sentence)."""
         spec = spec or self.spec(voice_id)
         if spec.get("lang") and spec["lang"] != lang:
             raise ValueError(f"voice {voice_id} speaks {spec['lang']}, not {lang}")
         spoken = self.spoken_text(spec, text, lang)
         base_seed = stable_seed(voice_id, text, seed_key)
-        all_takes: list[Take] = []
-        best: Optional[Take] = None
+        all_takes = self.takes_of(spec, voice_id, text, spoken, lang, base_seed, takes, stop_on_pass)
+        clip = Clip(
+            voice_id=voice_id,
+            lang=lang,
+            text=text,
+            spoken_text=spoken,
+            best=best_take(all_takes),
+            takes=all_takes,
+            engine_label=engine_label(spec),
+        )
+        if spec["kind"] in SENTENCE_FALLBACK_KINDS and all(words_wrong(t.qa) for t in all_takes):
+            sentences = self.sentences(spec, text, lang)
+            if len(sentences) >= 2:
+                self.say_by_sentence(clip, spec, sentences, base_seed, takes, stop_on_pass)
+        if encode:
+            clip.m4a = A.encode_m4a(clip.best.finished.audio, clip.best.finished.sr)
+        return clip
+
+    def takes_of(
+        self,
+        spec: dict,
+        voice_id: str,
+        text: str,
+        spoken: str,
+        lang: str,
+        base_seed: int,
+        takes: int,
+        stop_on_pass: bool,
+        what: str = "take",
+    ) -> list[Take]:
+        """Up to `takes` takes of `spoken`, each finished at the voice's tempo and checked against
+        `text`; it stops at the first take that needs no other when `stop_on_pass`."""
+        out: list[Take] = []
         for k in range(max(1, takes)):
             params = self.take_params(spec, k)
             seed = base_seed + 7919 * k
@@ -442,30 +500,141 @@ class Engine:
             fin = A.finish(raw, sr, tempo=float(spec.get("tempo", 1.0)))
             t1 = time.time()
             result = QA.evaluate(fin.audio, fin.sr, text, lang, pace_ref=spec.get("pace_ref"))
-            take = Take(index=k, seed=seed, params=params, raw_sr=sr, gen_s=gen_s, finished=fin, qa=result,
-                        qa_s=time.time() - t1)
-            all_takes.append(take)
+            out.append(Take(index=k, seed=seed, params=params, raw_sr=sr, gen_s=gen_s, finished=fin, qa=result,
+                            qa_s=time.time() - t1))
             log.info(
-                "take %d %s %s cer=%.3f pace=%.2f score=%.1f %s",
-                k, voice_id, lang, result.cer, result.pace_ratio, result.score, result.verdict,
+                "%s %d %s %s cer=%.3f pace=%.2f score=%.1f %s",
+                what, k, voice_id, lang, result.cer, result.pace_ratio, result.score, result.verdict,
             )
-            if best is None or take.qa.score < best.qa.score:
-                best = take
             if stop_on_pass and not result.retake:
                 break
-        assert best is not None
-        clip = Clip(
-            voice_id=voice_id,
-            lang=lang,
-            text=text,
-            spoken_text=spoken,
-            best=best,
-            takes=all_takes,
-            engine_label=engine_label(spec),
+        return out
+
+    # -- the per-sentence fallback -------------------------------------------- #
+
+    def sentences(self, spec: dict, text: str, lang: str) -> list[tuple[str, str]]:
+        """The clip's sentences (split_sentences), each with the words this voice is given for it,
+        or [] for a clip of one sentence. Said one after another they must give the voice exactly
+        the words the whole clip gives it: where two sentences said apart would be read otherwise
+        than said together (normalize.py reads a number by the word after it), they stay one. A
+        sentence with no letter in it (a stray mark) joins the one before it, or the first the
+        one after it."""
+        spans = sentence_spans(text, lang)
+        if len(spans) < 2:
+            return []
+
+        def words(a: int, b: int) -> str:  # the text of sentences a..b-1
+            return text[spans[a][0]:spans[b - 1][1]]
+
+        def said(a: int, b: int) -> str:  # the voice's words for them, spaces aside
+            return re.sub(r"\s+", "", self.spoken_text(spec, words(a, b), lang))
+
+        n = len(spans)
+        whole = said(0, n)
+        cuts = [j for j in range(1, n) if said(0, j) + said(j, n) == whole]
+        groups: list[list[int]] = []
+        for a, b in zip([0] + cuts, cuts + [n]):
+            if groups and not (_has_letter(words(a, b)) and _has_letter(words(*groups[-1]))):
+                groups[-1][1] = b
+            else:
+                groups.append([a, b])
+        if len(groups) < 2 or "".join(said(a, b) for a, b in groups) != whole:
+            return []
+        return [(words(a, b), self.spoken_text(spec, words(a, b), lang)) for a, b in groups]
+
+    def say_by_sentence(
+        self,
+        clip: Clip,
+        spec: dict,
+        sentences: Sequence[tuple[str, str]],
+        base_seed: int,
+        takes: int,
+        stop_on_pass: bool,
+    ) -> None:
+        """Says the clip a sentence at a time, after no take of the whole clip said its words right
+        (words_wrong: wrong or missing words, a word said fewer times running than the text says,
+        nothing heard, or words only marginal). A sampling model can drop a word from a whole take
+        that a shorter take keeps: the refrain "Ave, Ave, Ave, Maria! Ave, Ave, Ave, Maria!" lost
+        one Ave in each of 8 whole takes in the female English voice, always in its second half,
+        and said alone that half keeps all three Aves in one half to two thirds of its takes. Said
+        apart one take each and joined, one of the two halves still lost an Ave in each of 8 tries;
+        so each sentence gets up to `takes` takes of its own, judged by QA against its own words,
+        and the best of each is kept. A sentence whose best take failed takes the best take that
+        did not fail of another sentence the voice is given the very same words for (the two
+        halves of that refrain): the male English voice's first half failed in 4 takes of a verse
+        where its second half, the same words, passed in one. Those are joined with a sentence's
+        pause (join_sentences), finished like any take and judged against the whole text. The
+        joined take becomes the clip's best take only when it judges better than the best take of
+        the whole clip AND none of the sentence takes it is made of failed its own check
+        (clip.per_sentence then says so): the joined clip's check does not see everything a
+        sentence's check saw, such as a sentence that runs on into sound Whisper does not write
+        down, a tail at that sentence's end but no tail of the joined clip, which goes on after
+        it. When that whole take is usable (marginal: its words only a little off), the joined
+        take must also have fewer wrong words (a lower character or syllable error): the row has
+        a clip to play already, and the clip is said apart for its words, not for its pace. Both
+        steps are logged as warnings, so they reach the worker's log (it shows only the engine's
+        warnings)."""
+        whole = clip.best
+        log.warning(
+            "per sentence: %s %s %r: no take of the whole clip said its words right (best: %s; heard %r); "
+            "saying its %d sentences one by one",
+            clip.voice_id, clip.lang, clip.text[:60], "; ".join(whole.qa.reasons), whole.qa.transcript[:120],
+            len(sentences),
         )
-        if encode:
-            clip.m4a = A.encode_m4a(best.finished.audio, best.finished.sr)
-        return clip
+        t0 = time.time()
+        tried: list[list[Take]] = []
+        for i, (sentence, spoken) in enumerate(sentences):
+            tried.append(self.takes_of(spec, clip.voice_id, sentence, spoken, clip.lang, sentence_seed(base_seed, i),
+                                       takes, stop_on_pass, what=f"sentence {i} take"))
+        own = [best_take(ts) for ts in tried]
+        lent = borrowed_takes(sentences, own)
+        parts = [own[lent[i]] if i in lent else p for i, p in enumerate(own)]
+        fin = A.finish(join_sentences([p.finished.audio for p in parts], A.TARGET_SR), A.TARGET_SR)
+        t1 = time.time()
+        result = QA.evaluate(fin.audio, fin.sr, clip.text, clip.lang, pace_ref=spec.get("pace_ref"))
+        params: dict[str, Any] = {"sentences": len(parts), "pause_s": SENTENCE_PAUSE_S}
+        if lent:
+            params["borrowed"] = dict(lent)
+        joined = Take(
+            index=len(clip.takes),
+            seed=parts[0].seed,
+            params=params,
+            raw_sr=parts[0].raw_sr,
+            gen_s=sum(t.gen_s for ts in tried for t in ts),
+            finished=fin,
+            qa=result,
+            qa_s=sum(t.qa_s for ts in tried for t in ts) + time.time() - t1,
+            sentences=parts,
+        )
+        clip.sentence_takes = tried
+        clip.joined = joined
+        failed = [(sentence, p) for (sentence, _), p in zip(sentences, parts) if p.qa.verdict == "fail"]
+        better = result.score < whole.qa.score
+        fewer_wrong = whole.qa.verdict == "fail" or word_error(result) < word_error(whole.qa)
+        if better and fewer_wrong and not failed:
+            clip.best = joined
+            outcome = "kept"
+        elif failed:
+            outcome = "not kept, as the best take of {} {} its own check".format(
+                " and of ".join(f"{s[:40]!r} ({'; '.join(p.qa.reasons)})" for s, p in failed),
+                "failed" if len(failed) == 1 else "each failed",
+            )
+        elif not better:
+            outcome = "not kept, as it judges no better"
+        else:
+            outcome = "not kept, as its words are no better ({} {:.3f}, the whole clip's {:.3f})".format(
+                "ser" if result.ser is not None else "cer", word_error(result), word_error(whole.qa))
+        log.warning(
+            "per sentence: %s %s %r: sentences %s; joined %s cer=%.3f pace=%.2f score=%.1f, heard %r; %s "
+            "(best take of the whole clip: %s, score %.1f) in %.1fs",
+            clip.voice_id, clip.lang, clip.text[:60],
+            ", ".join(
+                f"{p.qa.verdict} in {len(ts)}" + (f", so sentence {lent[i]}'s take (the same words)" if i in lent else "")
+                for i, (p, ts) in enumerate(zip(own, tried))
+            ),
+            result.verdict, result.cer, result.pace_ratio, result.score, result.transcript[:120],
+            outcome, whole.qa.verdict, whole.qa.score, time.time() - t0,
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -637,6 +806,183 @@ def fade_edges(audio: np.ndarray, n: int = KOKORO_EDGE_FADE) -> np.ndarray:
         out[:n] *= ramp
         out[-n:] *= ramp[::-1]
     return out
+
+
+# --------------------------------------------------------------------------- #
+# Saying a clip a sentence at a time (make_clip's per-sentence fallback)      #
+# --------------------------------------------------------------------------- #
+
+# The models that sample, whose short takes can say words their whole take dropped. Kokoro does
+# not sample (its takes differ by speed alone) and already says a long clip in pieces.
+SENTENCE_FALLBACK_KINDS = frozenset({"qwen3", "voxcpm2"})
+
+# The pause between two sentences said apart: from the last sound of one (audio.speech_bounds)
+# to the first of the next. The voices' own pause at a sentence end, measured on 2026-11-21 at
+# 58 sentence ends of normal takes made as make_clip makes them (the Hail Mary, Glory Be and Act
+# of Contrition in English, the Hail Mary in Spanish, the Hail Mary and Glory Be in Polish),
+# counting a breath as part of the pause: median 0.47 s for the female English voice, 0.60 for
+# the male one, 0.56-0.57 for the Spanish voices and 0.44-0.45 for the Polish ones (VoxCPM2); up
+# to 0.79 s, and none at all once (the female English voice ran on into "Amen"). The low end of
+# the medians is taken: a longer pause would slow the joined clip's pace.
+SENTENCE_PAUSE_S = 0.45
+
+# Each sentence keeps this much of its own quiet on either side of its sound, faded to nothing,
+# so no cut clicks; silence fills the rest of the pause.
+SENTENCE_EDGE_S = 0.020
+
+# A full stop after one of these is an abbreviation's, not a sentence's end: the website's own
+# list (src/lib/pray-along/speech-text.ts, ABBREVIATION_BEFORE_DOT), which cut the prayer into
+# the sentences a clip is packed from, with the French plural qa.py also reads as a word (Stes),
+# and the Polish św. (święty, saint) and bł. (błogosławiony, blessed) and the German hl. (heilig,
+# saint), which the website does not list and which stand before a capital ("św. Józefie",
+# "hl. Josef").
+SENTENCE_ABBREVIATIONS = frozenset({
+    "St", "Sts", "SS", "Ste", "Stes", "Sta", "Sto", "Bl", "Ven", "Mt", "Mr", "Mrs", "Dr", "Fr", "Rev", "Br",
+    "Sr", "No", "Nos", "vs", "cf", "Cf", "viz", "ibid", "Ps", "Pss", "ch", "vol", "p", "pp",
+    "św", "Św", "bł", "Bł", "hl", "Hl",
+})
+
+_SENTENCE_MARK = re.compile(r"[.!?;…。！？][\"'”’»)\]]*")  # a mark, with the quotes or brackets it closes
+_CJK_ENDS = frozenset("。！？")  # end a sentence wherever they stand
+_OPENERS = re.compile(r"^[\"'“‘«(\[*‖\s]+")  # what may stand before a sentence's first letter
+_LAST_WORD = re.compile(r"[^\s(\"“‘'\[]*$")  # the word just before a mark
+# A Roman numeral as normalize.py reads one (I to XXXIX): "II. We offer", "Pius XII.".
+_ROMAN_NUMERAL = re.compile(r"(?=[IVX])X{0,3}(?:IX|IV|V?I{0,3})")
+
+
+def _has_letter(s: str) -> bool:
+    return any(ch.isalpha() for ch in s)
+
+
+def _ends_no_sentence(before: str) -> bool:
+    """A full stop after `before` (the sentence so far) that does not end it: after an
+    abbreviation, a single capital ("R.", "V.", "B. V. M."), a number ("1. Todas las cosas",
+    "am 8. Dezember") or a Roman numeral. normalize.py reads a number by the word after it
+    (a German "8." before a month is "achten"), so a number is never cut from what follows."""
+    word = _LAST_WORD.search(before).group(0)
+    if word in SENTENCE_ABBREVIATIONS:
+        return True
+    if len(word) == 1 and word.isalpha() and word.isupper():
+        return True
+    return word[-1:].isdigit() or bool(_ROMAN_NUMERAL.fullmatch(word))
+
+
+def sentence_spans(text: str, lang: str) -> list[tuple[int, int]]:
+    """Where each sentence of `text` starts and ends ([start, end) in `text`, spaces outside).
+    The cuts are the website's (speech-text.ts splitSentences), which packed whole sentences
+    into the clip: after . ! ? … (and ; in Greek, its question mark) where a new sentence opens,
+    that is before anything but a small letter ("O Mary! which you exhibited" is one sentence),
+    never after an abbreviation; and after 。！？ wherever they stand. Unlike the website's, a full
+    stop after a number, a Roman numeral or a single capital of any alphabet ("Ρ.") never cuts,
+    nor one after the Polish and German abbreviations (_ends_no_sentence)."""
+    spans: list[tuple[int, int]] = []
+    start = 0
+
+    def add(a: int, b: int) -> None:
+        piece = text[a:b]
+        if piece.strip():
+            lead = len(piece) - len(piece.lstrip())
+            spans.append((a + lead, a + len(piece.rstrip())))
+
+    for m in _SENTENCE_MARK.finditer(text):
+        mark, at, end = m.group(0)[0], m.start(), m.end()
+        if mark not in _CJK_ENDS:
+            rest = text[end:]
+            if mark == ";" and lang != "el":
+                continue
+            if rest and not rest[0].isspace():
+                continue
+            first = _OPENERS.sub("", rest)[:1]
+            if first and first.islower():
+                continue
+            if mark == "." and _ends_no_sentence(text[start:at]):
+                continue
+        add(start, end)
+        start = end
+    add(start, len(text))
+    return spans
+
+
+def split_sentences(text: str, lang: str) -> list[str]:
+    """The sentences of `text` (sentence_spans), as written."""
+    return [text[a:b] for a, b in sentence_spans(text, lang)]
+
+
+def sentence_seed(base_seed: int, index: int) -> int:
+    """The seed of sentence `index`'s first take: drawn from the clip's own seed, so a clip says
+    its sentences the same way each time and a retry (new seed key) says them anew. Its takes
+    add 7919 per take, as the whole clip's do."""
+    return stable_seed(str(base_seed), "sentence", str(index))
+
+
+def failed_on_words(q: QA.QAResult) -> bool:
+    """A take that failed QA on its words (QAResult.words_failed: the model dropped or garbled
+    words), not only on its pace, a silence, a tail or extra words at an end."""
+    return q.verdict == "fail" and q.words_failed
+
+
+def words_wrong(q: QA.QAResult) -> bool:
+    """A take that did not say its words right: it failed on them (failed_on_words) or had them
+    only marginal (QAResult.words_marginal), whatever else it did. A Spanish litany missing a
+    whole sentence was kept at CER 0.099, a marginal take: its words, not its pace, were wrong,
+    and a sentence said alone can bring the missing one back. A take whose words are right does
+    not count, whatever else it failed on: its pace, a silence or a tail. (Extra words at an end
+    add to its error, so a take that failed on them has its words at least a little off.)"""
+    return failed_on_words(q) or q.words_marginal
+
+
+def word_error(q: QA.QAResult) -> float:
+    """The error QA judged a take's words by: syllables for Vietnamese and Chinese, characters
+    elsewhere (as Clip.qa_score)."""
+    return q.ser if q.ser is not None else q.cer
+
+
+def borrowed_takes(sentences: Sequence[tuple[str, str]], best: Sequence[Take]) -> dict[int, int]:
+    """{sentence: the sentence whose take it uses instead of its own}: each sentence whose best
+    take (`best`, one per sentence) failed its check takes the best one that did not of another
+    sentence the voice is given the very same words for (the spoken text of `sentences`, character
+    for character: then the take says this sentence's words). The lowest score wins, the first of
+    equals; a sentence with no such twin keeps its own."""
+    lent: dict[int, int] = {}
+    for i, (_, spoken) in enumerate(sentences):
+        if best[i].qa.verdict != "fail":
+            continue
+        twins = [k for k, (_, other) in enumerate(sentences)
+                 if k != i and other == spoken and best[k].qa.verdict != "fail"]
+        if twins:
+            lent[i] = min(twins, key=lambda k: best[k].qa.score)
+    return lent
+
+
+def _ramp(n: int) -> np.ndarray:
+    return (np.sin(np.linspace(0, np.pi / 2, n, dtype=np.float32)) ** 2).astype(np.float32)
+
+
+def join_sentences(parts: Sequence[np.ndarray], sr: int = A.TARGET_SR, pause_s: float = SENTENCE_PAUSE_S) -> np.ndarray:
+    """Finished takes of a clip's sentences as one take: each cut to its sound (audio.speech_bounds)
+    with SENTENCE_EDGE_S of its own quiet on either side, faded to nothing, and `pause_s` from the
+    last sound of one to the first sound of the next. A part with no sound adds nothing. The result
+    is finished again (trim, loudness) like any take."""
+    edge = int(round(SENTENCE_EDGE_S * sr))
+    pause = int(round(pause_s * sr))
+    out: list[np.ndarray] = []
+    tail = 0  # quiet kept after the last part's sound
+    for x in parts:
+        x = np.asarray(x, dtype=np.float32)
+        s, e = A.speech_bounds(x, sr)
+        if e <= s:
+            continue
+        a, b = max(0, s - edge), min(len(x), e + edge)
+        seg = x[a:b].copy()
+        if s > a:
+            seg[: s - a] *= _ramp(s - a)
+        if b > e:
+            seg[len(seg) - (b - e):] *= _ramp(b - e)[::-1]
+        if out:
+            out.append(np.zeros(max(0, pause - tail - (s - a)), np.float32))
+        out.append(seg)
+        tail = b - e
+    return np.concatenate(out) if out else np.zeros(1, np.float32)
 
 
 # --------------------------------------------------------------------------- #

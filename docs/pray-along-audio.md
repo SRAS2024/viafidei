@@ -97,9 +97,19 @@ word said on its own, so a short Latin line ("Amen.", "Oremus.") is said inside 
 sentence ("Pater noster, qui es in caelis.") and cut back out (the engine's README, Latin).
 The female Latin voice also trims the early voicing Kokoro puts before a first vowel, which
 was heard as an extra vowel ("Aura pro nobis"). In every language, a clip of one to three
-syllables is allowed a drawn-out last syllable in the quality check's pace test. An engine
-change never reaches clips already made (their keys do not change), nor failed ones out of
-attempts: reset those rows by hand, as the engine's README describes under the worker.
+syllables is allowed a drawn-out last syllable in the quality check's pace test. A word a
+prayer says three times running ("Ave, Ave, Ave", "Holy, holy, holy") must be heard as many
+times, however small the error rate: one Ave dropped from a verse used to pass. A copy
+counts when the recogniser wrote a word for it (also spelled otherwise, "Jesús" for "Jesu",
+or joined to the next word), never for letters alone: two drawn-out Aves heard as "Eveveve,
+eveve" are two. A clip none of whose takes said its words right (Qwen3-TTS and VoxCPM2
+voices: words dropped or garbled, as in the refrain "Ave, Ave, Ave, Maria!", or a little
+off, as a litany missing a sentence) is said again a sentence at a time, a sentence whose
+takes all failed borrowing a good take of another with the very same words (the refrain's
+two halves), and that is kept if it judges better, no sentence failed its own check and,
+when a whole take was usable already, its words are better. An engine change never reaches
+clips already made (their keys do not change), nor failed ones out of attempts: reset those
+rows by hand, as the engine's README describes under the worker.
 
 ## Accessibility
 

@@ -42,7 +42,8 @@ What a row gets: `audio` (AAC-LC in MP4, faststart, mono, 24 kHz, ~48 kbps), `mi
 `audio/mp4`, `durationMs`, `byteLength`, `engine` (`<model repo>@<revision>:<voice>`),
 `qaScore` (1 − character error rate of the best take, so 1.0 = word-perfect), `status`:
 
-* `done`: the best of up to 4 takes passed QA;
+* `done`: the best of up to 4 takes passed QA (or the clip said a sentence at a time, after
+  no take said its words right: step 6 below);
 * `done` with `lastError = 'qa:marginal:<cer>:<reasons>'`: usable, but not clean;
 * `failed` with `lastError` (`qa:failed:…`, `voice:unknown:…`, `attempts:exhausted:…`):
   no audio is played (a failed remake of a made row keeps its old bytes, unserved).
@@ -78,8 +79,59 @@ What a row gets: `audio` (AAC-LC in MP4, faststart, mono, 24 kHz, ~48 kbps), `mi
    Kokoro, which does not sample, a slightly different speed: `engine.py` take_params),
    up to 4. A clip of one to three syllables is allowed its drawn-out last syllable in
    the pace check (`SHORT_CLIP_SYLLABLES`): by syllable rate alone, Spanish "dos", "tres"
-   and "seis" were heard right in every take and still failed as slow.
-6. Encoded with macOS's AudioToolbox AAC encoder (`ffmpeg -c:a aac_at`).
+   and "seis" were heard right in every take and still failed as slow. English counts
+   the Latin words its prayers keep ("Ave", "Domine", "Miserere": `EN_LATIN_FINAL_E`)
+   with their final e said; the silent-e rule read "Ave, Ave, Ave, Maria! Ave, Ave, Ave,
+   Maria!" as 10 syllables, not 16. A word the text says three times or more running
+   ("Ave, Ave, Ave", "Santo, Santo, Santo", "Sanctus") must be heard as many times, at
+   any CER (`dropped_repeats`): one Ave dropped from a verse is CER 0.033, under the pass
+   line, and two clips were made so. A word said twice is left to the CER, as Whisper
+   itself writes one of a doubled word ("but I, I have"). The transcript is lined up
+   with the text word by word (`word_alignment`: the fewest edits, then the most words
+   lined up; difflib's longest-stretch-first matching paired the bare refrain's first
+   half with the transcript's second when Whisper wrote "Mariah" for the first Maria),
+   and a copy not lined up is looked for between the nearest words that are: a word
+   there that no word of the text accounts for may be a copy Whisper spelled otherwise
+   ("Santus", "Jesús" for "Jesu"), and the word may be written inside another
+   ("Avemaria", "aveave"); the larger of those two counts is credited, not their sum.
+   Letters alone are no copy: the male voice's two drawn-out Aves per half, heard as
+   "Eveveve, eveve", once passed for three. Rare false fails (another take, never a clip
+   kept with a copy missing): a copy both joined and misspelled ("santussantus"), or one
+   misspelled beside one joined.
+6. When no take said its words right (each failed on them, `QAResult.words_failed`: a
+   character or syllable error over the marginal limit, a word of a run said fewer
+   times, or nothing heard; or had them only marginal, `words_marginal`: an error
+   between the pass and marginal lines; not pace, silences or a tail alone) and the
+   voice is Qwen3-TTS or VoxCPM2, a clip of two or more sentences is said again a
+   sentence at a time (`engine.py` say_by_sentence). The sentences are cut where the
+   website cut them (`speech-text.ts` splitSentences), never after an abbreviation or a
+   number, and only where the voice is given the same words as for the whole clip. Each
+   sentence gets up to 4 takes of its own, judged against its own words, with seeds
+   drawn from the clip's; a sentence whose best take failed uses the best take that did
+   not of another sentence given the very same words (the two halves of the refrain).
+   The chosen takes are joined with a 0.45 s pause (the low end of the voices' own
+   pause at a sentence end), finished, and judged against the whole text. The joined
+   clip is kept only if it judges better than the best whole take and no sentence's
+   chosen take failed its own check (a sentence that ran on into an untranscribed tail
+   would carry it inside the joined clip, where the joined clip's check does not look);
+   when that whole take is usable (marginal), the joined clip must also have a lower
+   character (or syllable) error, as the row has a clip to play already. Both steps are
+   logged as warnings. A clip that passes on a whole take is made exactly as before.
+   The female English voice dropped an "Ave" from that refrain in all 8 whole takes
+   measured (always from its second half); said a sentence at a time it passed with all
+   six, with the worker's seeds and its retry's, and so did the male voice's row, whose
+   4 whole takes each lost two Aves or more. With the worker's first seeds (2026-11-21):
+   the two female verses stored with five Aves fail those takes now (CER 0.033 and
+   0.032) and pass on a later whole take with six; the male voice's two verses, whose
+   every whole take lost an Ave or garbled the refrain ("Eveveve, eveve": four Aves,
+   six bursts of sound), pass said a sentence at a time with six, one of them with its
+   refrain's first half, failed in 4 takes, using the second half's take; the two
+   Spanish rows that say "Jesu" four times pass on their first take ("Jesús" each time),
+   and that take with one Jesu cut out of its audio fails ("said 'jesu' 3 times, not
+   4"), where it used to pass as marginal. Clips said apart for words only marginal are
+   few: of the 8,239 clips made by then, 13 of two sentences or more were kept with a
+   best take whose words were only marginal.
+7. Encoded with macOS's AudioToolbox AAC encoder (`ffmpeg -c:a aac_at`).
 
 ## Latin
 
