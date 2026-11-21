@@ -56,12 +56,18 @@ beforeEach(() => {
     total: 2,
     ready: 1,
     items: [
-      { type: "clip", key: "c".repeat(40), ready: true },
+      { type: "clip", key: "c".repeat(40), ready: true, version: "mwq7iszf" },
       { type: "pause", ms: 1100 },
-      { type: "clip", key: "d".repeat(40), ready: false },
+      { type: "clip", key: "d".repeat(40), ready: false, version: null },
     ],
   }));
 });
+
+/** The clip URLs of a playlist, in order. */
+const clipUrls = async (query: string) =>
+  ((await (await ask(query)).json()).items as { type: string; url?: string }[])
+    .filter((item) => item.type === "clip")
+    .map((item) => item.url);
 
 describe("/api/pray-along", () => {
   it("refuses requests it cannot build from a published record", async () => {
@@ -84,12 +90,43 @@ describe("/api/pray-along", () => {
     const body = await res.json();
     expect(body.title).toBe("Hail Mary");
     expect(body.items).toEqual([
-      { type: "clip", url: `/api/pray-along/clip/${"c".repeat(40)}`, ready: true },
+      { type: "clip", url: `/api/pray-along/clip/${"c".repeat(40)}?v=mwq7iszf`, ready: true },
       { type: "pause", ms: 1100 },
       { type: "clip", url: `/api/pray-along/clip/${"d".repeat(40)}`, ready: false },
     ]);
     // The reader's language and their Latin choice reach the builder.
     expect(builders.scriptForPrayer).toHaveBeenCalledWith("hail-mary", "la", "es");
+  });
+
+  it("names a made clip's version in its URL, so only a clip made again gets a new one", async () => {
+    /** Two clips, each with its version, or null while it is not made. */
+    const playlist = (c: string | null, d: string | null) => ({
+      lang: "en",
+      voice: "female",
+      total: 2,
+      ready: [c, d].filter((v) => v !== null).length,
+      items: [
+        { type: "clip", key: "c".repeat(40), ready: c !== null, version: c },
+        { type: "pause", ms: 1100 },
+        { type: "clip", key: "d".repeat(40), ready: d !== null, version: d },
+      ],
+    });
+    const C = `/api/pray-along/clip/${"c".repeat(40)}`;
+    const D = `/api/pray-along/clip/${"d".repeat(40)}`;
+    const urls = () => clipUrls("kind=prayer&slug=hail-mary");
+    // Only a made clip has a version: one not made yet keeps the bare URL until it is.
+    store.buildManifest.mockResolvedValueOnce(playlist("mwq7iszf", null));
+    expect(await urls()).toEqual([`${C}?v=mwq7iszf`, D]);
+    // The second made since: its URL names its version, and the first keeps its URL, so
+    // browsers keep playing it from their caches.
+    store.buildManifest.mockResolvedValueOnce(playlist("mwq7iszf", "mwqi0k3a"));
+    expect(await urls()).toEqual([`${C}?v=mwq7iszf`, `${D}?v=mwqi0k3a`]);
+    // The first made again: a new URL, so browsers that kept its old audio fetch the new.
+    store.buildManifest.mockResolvedValueOnce(playlist("mwqhdc0f", "mwqi0k3a"));
+    const remade = await urls();
+    expect(remade).toEqual([`${C}?v=mwqhdc0f`, `${D}?v=mwqi0k3a`]);
+    // The browser tests (e2e/) find the clips by this part of the URL.
+    for (const url of remade) expect(url).toContain("/api/pray-along/clip/");
   });
 
   it("uses the female voice for a signed-out visitor and a member's own choice otherwise", async () => {

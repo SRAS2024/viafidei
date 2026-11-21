@@ -25,9 +25,12 @@ export interface NeededClip {
   text: string;
 }
 
-/** What the player is given: the clips and pauses in order, and which clips are ready. */
+/**
+ * What the player is given: the clips and pauses in order, and which clips are ready. A
+ * ready clip carries the version of its audio (clipVersion), null until it is made.
+ */
 export type ManifestItem =
-  | { type: "clip"; key: string; ready: boolean }
+  | { type: "clip"; key: string; ready: boolean; version: string | null }
   | { type: "pause"; ms: number };
 
 export interface Manifest {
@@ -58,17 +61,33 @@ export function clipsOf(script: PrayAlongScript, voice: Voice): NeededClip[] {
   return [...seen.values()];
 }
 
-/** The keys among `keys` whose audio is made. */
-export async function readyClipKeys(keys: readonly string[]): Promise<Set<string>> {
-  if (keys.length === 0) return new Set();
+/**
+ * The version of a made clip's audio, which its URL names: the row's "updatedAt" in
+ * milliseconds, in base 36 (8 characters). A clip keeps its key when it is made again
+ * after an engine fix, so the key alone cannot tell old audio from new. Only the voice
+ * engine's write_done (worker.py) writes the audio, and it moves "updatedAt" in the same
+ * statement; nothing writes a made row otherwise (a listener's demand and the planner
+ * leave 'done' rows alone, and a remake goes through 'pending'). So the version changes
+ * each time the audio is written, and at no other time while it is served. A hash of
+ * the audio would mean reading every clip's bytes for each playlist, or a new column
+ * the engine fills; "updatedAt" is on the row the playlist reads already. Anything
+ * that writes a clip's audio by hand must move "updatedAt" with it.
+ */
+export function clipVersion(updatedAt: Date): string {
+  return updatedAt.getTime().toString(36);
+}
+
+/** The keys among `keys` whose audio is made, each with its version (clipVersion). */
+export async function readyClipVersions(keys: readonly string[]): Promise<Map<string, string>> {
+  if (keys.length === 0) return new Map();
   try {
     const rows = await prisma.prayerAudioClip.findMany({
       where: { key: { in: [...keys] }, status: "done" },
-      select: { key: true },
+      select: { key: true, updatedAt: true },
     });
-    return new Set(rows.map((r) => r.key));
+    return new Map(rows.map((r) => [r.key, clipVersion(r.updatedAt)]));
   } catch {
-    return new Set();
+    return new Map();
   }
 }
 
@@ -141,7 +160,7 @@ export async function fileClipDemand(clips: readonly NeededClip[]): Promise<void
 /** The manifest for a script in a voice: clip keys and pauses, with readiness; files demand. */
 export async function buildManifest(script: PrayAlongScript, voice: Voice): Promise<Manifest> {
   const clips = clipsOf(script, voice);
-  const ready = await readyClipKeys(clips.map((c) => c.key));
+  const ready = await readyClipVersions(clips.map((c) => c.key));
   const missing = clips.filter((c) => !ready.has(c.key));
   if (missing.length > 0) await fileClipDemand(missing);
   const items: ManifestItem[] = script.items.map((item) =>
@@ -149,23 +168,47 @@ export async function buildManifest(script: PrayAlongScript, voice: Voice): Prom
       ? { type: "pause", ms: item.ms }
       : (() => {
           const key = clipKey(item.text, item.lang, voice, item.take ?? 0);
-          return { type: "clip", key, ready: ready.has(key) } as const;
+          const version = ready.get(key) ?? null;
+          return { type: "clip", key, ready: version !== null, version } as const;
         })(),
   );
   return { lang: script.lang, voice, items, total: clips.length, ready: ready.size };
 }
 
-/** A made clip's audio, or null. */
+/**
+ * A made clip's audio and its version (clipVersion), or null. Both come from one read
+ * of the row, so the version is always that of these bytes.
+ */
 export async function readClipAudio(
   key: string,
-): Promise<{ audio: Uint8Array<ArrayBuffer>; mime: string } | null> {
+): Promise<{ audio: Uint8Array<ArrayBuffer>; mime: string; version: string } | null> {
   try {
     const row = await prisma.prayerAudioClip.findUnique({
       where: { key },
-      select: { audio: true, mime: true, status: true },
+      select: { audio: true, mime: true, status: true, updatedAt: true },
     });
     if (!row || row.status !== "done" || !row.audio) return null;
-    return { audio: Uint8Array.from(row.audio), mime: row.mime ?? "audio/mp4" };
+    return {
+      audio: Uint8Array.from(row.audio),
+      mime: row.mime ?? "audio/mp4",
+      version: clipVersion(row.updatedAt),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The version of a made clip's audio, or null: a small read that leaves the audio out,
+ * so the clip route can check that a copy it holds in memory is still the current one.
+ */
+export async function readClipVersion(key: string): Promise<string | null> {
+  try {
+    const row = await prisma.prayerAudioClip.findUnique({
+      where: { key },
+      select: { status: true, updatedAt: true },
+    });
+    return row && row.status === "done" ? clipVersion(row.updatedAt) : null;
   } catch {
     return null;
   }

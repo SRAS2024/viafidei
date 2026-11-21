@@ -39,6 +39,17 @@ interface Listener {
 
 const VISITOR: Listener = { voice: DEFAULT_VOICE, rate: null, member: false };
 
+/**
+ * A clip's URL. A made clip's names the version of its audio: a clip the voice engine
+ * makes again keeps its key, so only a new URL reaches browsers that kept the old audio,
+ * while an unchanged clip keeps its URL and stays in their caches. A clip not made yet
+ * has no version; the player asks for the playlist again before it plays it.
+ */
+function clipUrl(key: string, version: string | null): string {
+  const url = `/api/pray-along/clip/${key}`;
+  return version ? `${url}?v=${version}` : url;
+}
+
 /** The listener: a member's voice and speed, otherwise the female voice (the owner's rule). */
 async function listener(): Promise<Listener> {
   try {
@@ -124,7 +135,7 @@ export async function GET(req: NextRequest) {
       items: manifest.items.map((item) =>
         item.type === "pause"
           ? item
-          : { type: "clip", url: `/api/pray-along/clip/${item.key}`, ready: item.ready },
+          : { type: "clip", url: clipUrl(item.key, item.version), ready: item.ready },
       ),
     },
     { headers: NO_STORE },

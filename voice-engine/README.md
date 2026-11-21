@@ -56,7 +56,10 @@ What a row gets: `audio` (AAC-LC in MP4, faststart, mono, 24 kHz, ~48 kbps), `mi
   `attempts:exhausted`. With `attempts = 0` the remake uses the row's first seeds, so it
   helps only after an engine change. A reset made row plays nothing until it is made
   again, and if the remake fails QA it stays failed and its prayer stalls: check the fix
-  on those texts with `make_clip` first.
+  on those texts with `make_clip` first. Once it is made again, its new audio reaches
+  listeners from their next press, whatever their browsers or the site's memory kept:
+  each playlist names the clip's version (its `updatedAt`, which `write_done` moves) in
+  its URL. So anything that writes `audio` by hand must move `updatedAt` too.
 
 ## What happens to one clip
 

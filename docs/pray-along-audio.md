@@ -48,7 +48,10 @@ choice is saved to the account a moment after their last click
 
 The web server never runs a model. Every clip is identified by a hash of the voice, the
 language and the exact words (`voices.ts`), stored in `PrayerAudioClip` (migration 0087)
-and served by `/api/pray-along/clip/<key>` (byte ranges for Safari, cached for good).
+and served by `/api/pray-along/clip/<key>?v=<version>` (byte ranges for Safari). The version
+is the row's `updatedAt` (`store.ts` clipVersion), which the engine moves each time it writes
+the audio: a clip made again keeps its key but gets a new URL, which every browser fetches
+afresh, while an unchanged clip stays cached for good.
 
 1. A press asks `/api/pray-along` for the playlist. Clips not made yet are filed
    `pending` with the time of the request and their place in the prayer.
@@ -110,7 +113,8 @@ two halves), and that is kept if it judges better, no sentence failed its own ch
 when a whole take was usable already, its words are better. When every sentence passed on its own, the joined clip's words count as heard,
 since the recogniser collapses a litany's repeated lines on a whole clip. An engine change never reaches
 clips already made (their keys do not change), nor failed ones out of attempts: reset those
-rows by hand, as the engine's README describes under the worker.
+rows by hand, as the engine's README describes under the worker. Once made again, a clip's
+new audio reaches every listener from their next press, since each playlist names its version.
 
 ## Accessibility
 
