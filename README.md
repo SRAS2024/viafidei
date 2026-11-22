@@ -7183,6 +7183,18 @@ Railway never reads `.railway/railway.ts` during a deploy: `railway config
 apply` copies its settings onto the services, and each deploy uses those. See
 [`.railway/README.md`](.railway/README.md) before changing a setting.
 
+The build fetches nothing from Google Fonts. Cormorant Garamond and Inter are
+served from [`src/app/_fonts`](src/app/_fonts/index.ts) through
+`next/font/local`: the same files, byte for byte, that `next/font/google` used
+to download during `next build`. That download failed now and then on Railway
+(Google answered with a font address the loader could not read: `Cannot read
+properties of null (reading '1')`), which failed the builds of `5e6b8d95`,
+`39686558` and `d83ba916` until each commit was rebuilt. The files are variable
+fonts covering Cormorant's weights 300–700 and Inter's 100–900, so another
+weight is another `src` entry on the same files.
+[`tests/build/self-hosted-fonts.test.ts`](tests/build/self-hosted-fonts.test.ts)
+fails if `next/font/google` comes back or a family loses its licence file.
+
 The Admin Worker is not part of this path: the app is installed on the
 operator's Mac by `bash scripts/desktop-app/install.sh` and runs the worker from
 the checkout it points at, and the retained Railway worker service runs

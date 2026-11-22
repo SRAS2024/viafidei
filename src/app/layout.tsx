@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import { Cormorant_Garamond, Inter } from "next/font/google";
+import { fontVariables } from "./_fonts";
 import "./globals.css";
 import { Header, Footer } from "@/components/layout";
 import { NavigationPendingStatus } from "@/components/layout/NavigationPendingStatus";
@@ -13,21 +13,6 @@ import { PrayAlongLabelsProvider } from "@/components/pray-along/PrayAlongButton
 import { appConfig } from "@/lib/config";
 import { getLocale, getTranslator } from "@/lib/i18n/server";
 import { getThemeCookieValue } from "@/lib/i18n/theme-cookie";
-
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
-  display: "swap",
-  variable: "--font-serif-loaded",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
-  display: "swap",
-  variable: "--font-sans-loaded",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(appConfig.canonicalUrl),
@@ -106,7 +91,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const pathname = (await headers()).get("x-pathname") ?? "";
   const isAdminRoute = pathname.startsWith("/admin");
   return (
-    <html lang={locale} data-theme={theme} className={`${cormorant.variable} ${inter.variable}`}>
+    <html lang={locale} data-theme={theme} className={fontVariables}>
       <body className="flex min-h-screen flex-col">
         <TitleKeeper />
         {isAdminRoute ? null : <SkipLink label={t("common.skipToContent")} />}

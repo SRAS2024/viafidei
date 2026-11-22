@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * The stand-ins that end --font-serif-loaded and --font-sans-loaded (set by
+ * src/app/_fonts): the computer's own Times New Roman and Arial, resized so a
+ * line takes the same room as it will in Cormorant Garamond or Inter. They show
+ * while the web fonts load, and for any character the web fonts lack. These
+ * are the values next/font/google computed for the two families; next/font/local
+ * would compute slightly different ones from the files, so they are kept here.
+ */
+@font-face {
+  font-family: "Cormorant Garamond Fallback";
+  src: local("Times New Roman");
+  ascent-override: 95.27%;
+  descent-override: 29.59%;
+  line-gap-override: 0%;
+  size-adjust: 96.98%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial");
+  ascent-override: 90.44%;
+  descent-override: 22.52%;
+  line-gap-override: 0%;
+  size-adjust: 107.12%;
+}
+
 @layer base {
   :root {
     --font-serif: var(--font-serif-loaded), "Cormorant Garamond", "EB Garamond", "Georgia", serif;
