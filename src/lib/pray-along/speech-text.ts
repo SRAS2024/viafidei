@@ -290,24 +290,89 @@ function tidy(text: string): string {
 }
 
 /**
- * Words made ready to read: placeholders, references and printed signs go, and the
- * abbreviations a voice would misread are written out ("St Joseph" is "Saint Joseph",
- * "viz." is "namely", a pope's number is said). "etc.", a responsory's "*" and the
- * INTENTION mark stay, for the rules that read them.
+ * The leader's and the people's marks ("V." "R." "V/." "R/." "R:") where they stand as
+ * marks: at the start of the words or of a line, or where a sentence has just ended (a
+ * slash standing for a line break between; Chinese puts no space after its stop), with
+ * a word after them. The parser takes them off the lines it reads, but a translation is
+ * said in its own words, which can hold both parts on one line ("… de su Hijo. R.
+ * Amén."), and a guide quotes a versicle and its response whole; a mark is not a word
+ * to pray. The word after one never opens with a small letter ("V. and R. as above."
+ * only names them) and is never an initial ("R. H. Benson").
+ */
+const MARK =
+  /(^[\s«“‘"'([「『]*|\n[\s«“‘"'([「『]*|(?:[.!?…;:]["'”’»)\]]*\s+|[。！？]["'”’»)\]」』]*\s*)(?:\/\s+)?[\s«“‘"'([「『]*)[VR](?:\.|\/\.?|:)\s+(?=[¡¿«“‘"'(「『]*[^\P{L}\p{Ll}](?!\.))/gu;
+
+/**
+ * Titles a full stop closes before a name ("Msgr. R. Knox"). Only marks are judged by
+ * them: the sentence split keeps its own list, so where a clip ends does not move.
+ */
+const TITLE_BEFORE_DOT = /(?:^|[\s("“‘'[])(?:Mgr|Msgr|Card|Bp|Abp|Mons|Cap|Kap|Lib)$/;
+
+/**
+ * A MARK's match without the mark. After a full stop that closes an abbreviation, a
+ * title or an initial ("B. V. M.", "Fr. R. Knox") no sentence has ended, so a capital
+ * there is a name, kept; so is a number after a word ("Pius V.", "Estación V."), which
+ * MARK never matches. A lone "N." is the place of a name, not an initial, so a mark
+ * after it is one ("… nuestro Pontífice N. R. El Señor le guarde"). A mark that opens a
+ * line is a mark whatever stands before it, and a slash standing for that line break
+ * goes with it.
+ */
+function withoutMark(match: string, before: string, at: number, text: string): string {
+  const head = text.slice(0, at);
+  if (
+    before.startsWith(".") &&
+    !before.includes("\n") &&
+    !/(?:^|\s)N$/.test(head) &&
+    (ABBREVIATION_BEFORE_DOT.test(head) || TITLE_BEFORE_DOT.test(head))
+  ) {
+    return match;
+  }
+  return before.replace(/\s*\/\s+/, " ");
+}
+
+/**
+ * A litany's response marked after its invocation's comma: "Causa nostrae laetitiae, R.
+ * ora pro nobis.", "Agnus Dei, qui tollis peccata mundi, R. exaudi nos, Domine." The
+ * response opens with a small letter, which a name after an initial does not.
+ */
+const COMMA_MARK = /(,\s+)[VR](?:\.|\/\.?|:)\s+(?=\p{Ll})/gu;
+
+/**
+ * A COMMA_MARK's match without the mark. A numeral in a list ("IV, V. and VI"), a name
+ * ("Vincent, V. de Paul") and words that name the marks ("…, V. and R. as above") keep
+ * theirs.
+ */
+function withoutCommaMark(match: string, before: string, at: number, text: string): string {
+  const rest = text.slice(at + match.length);
+  if (/(?:^|\s)[IVXLC]+$/.test(text.slice(0, at))) return match;
+  if (/^\p{Ll}+\s+[VR](?:\.|\/|:)/u.test(rest)) return match;
+  if (/^(?:de|di|da|du|del|della|van|von)\s+\p{Lu}/u.test(rest)) return match;
+  return before;
+}
+
+/**
+ * Words made ready to read: placeholders, references and printed signs go (the
+ * versicle signs and marks among them), and the abbreviations a voice would misread
+ * are written out ("St Joseph" is "Saint Joseph", "viz." is "namely", a pope's number
+ * is said). "etc.", a responsory's "*" and the INTENTION mark stay, for the rules that
+ * read them.
  */
 function prepareWords(text: string, lang: AudioLang): string {
   let s = text
     .replace(/&c\.?/g, "etc.")
     .replace(/[✠✝✞†‡☩]/g, " ")
     .replace(/[℣℟]\.?/g, " ")
+    .replace(MARK, withoutMark)
+    .replace(COMMA_MARK, withoutCommaMark)
     // The blank for a name: "My dear patron, St. ——, …", "Pope ________".
     .replace(/(?:\s*\b(?:Sts?|SS|Saint)\.?)?\s*(?:[—–]{2,}|_{2,})/g, " ")
     .replace(/\s*\.\s+\.\s+\.(?:\s+\.)*/g, "…")
     .replace(/\.{3,}/g, "…")
     // An attribution after a dash: "…crown him when he is victorious.”—Saint Aug. in Ps. 32."
+    // (a translation may write the dash as a hyphen after the quotation: "…victorioso.”-St.").
     .replace(
-      /\s*[—–]\s*(?:Saint|St\.?|S\.|Bl\.?|Blessed|Ven\.?)\s+[\p{L}.]+(?:\s+[\p{L}.\d]+){0,6}\.?\s*$/u,
-      "",
+      /(?:\s*[—–]|(["”’»])\s*-)\s*(?:Saint|St\.?|S\.|Bl\.?|Blessed|Ven\.?)\s+[\p{L}.]+(?:\s+[\p{L}.\d]+){0,6}\.?\s*$/u,
+      "$1",
     )
     // A psalm's label before its verse: "… with joy. Ps. 66. Deus misereatur nostri".
     .replace(/(^|[.!?:;]\s+)Ps\.\s*(?:\d+\.?\s+)?(?=\p{Lu})/gu, "$1")
@@ -366,7 +431,17 @@ function prepareWords(text: string, lang: AudioLang): string {
 function finishWords(text: string): string {
   return tidy(
     text
-      .replace(/,?\s*\betc\b\.?(?:,?\s*as\s+(?:above|before))?/gi, "")
+      // "etc." that ends a sentence leaves it its full stop: "… quien vive, etc. Amén." is
+      // "… quien vive. Amén.", not one sentence run into the next.
+      .replace(
+        /,?\s*\betc\b\.?(?:,?\s*as\s+(?:above|before))?/gi,
+        (m: string, at: number, s: string) =>
+          m.endsWith(".") &&
+          !/[.!?…]["'”’»)\]]*$/.test(s.slice(0, at)) &&
+          /^\s+["'“‘«(¡¿]*\p{Lu}/u.test(s.slice(at + m.length))
+            ? "."
+            : "",
+      )
       .replace(/\s*\*\s*/g, " ")
       .split(INTENTION)
       .join(" ")
@@ -1104,6 +1179,35 @@ function conclusionFor(cue: string, before: string, style: Style, lang: AudioLan
   return null;
 }
 
+/**
+ * Words that lead into more and so never end a conclusion: prepositions, articles,
+ * "and", "who" in the languages the pages are translated into.
+ */
+const LEADS_ON = new Set(
+  [
+    "a al de del por para con en el la los las lo un una y e o u que quien mediante",
+    "à au aux du des par pour avec le les l une et ou qui",
+    "ao do da dos das pelo pela com em no na os as um uma",
+    "di della dal per il gli i che",
+    "durch mit von zu in der die das den dem ein eine und",
+    "przez z w oraz",
+    "through by with of the and an to who",
+  ]
+    .join(" ")
+    .split(" "),
+);
+
+/**
+ * A collect's conclusion a translator wrote, not the opening of one they cut off: at
+ * least three words ("Por Cristo nuestro Señor"), the last of them not one that leads
+ * into more ("A través de" opens "Through our Lord …" and stops). A Chinese character
+ * counts as a word, as its script has no spaces.
+ */
+function wholeConclusion(words: string): boolean {
+  const ws = words.match(/\p{Script=Han}|[\p{L}\p{M}\p{N}]+/gu) ?? [];
+  return ws.length >= 3 && !LEADS_ON.has(ws[ws.length - 1]!.toLowerCase());
+}
+
 /* -------------------------------------------------------------------------- */
 /* The few texts no rule can read right                                       */
 /* -------------------------------------------------------------------------- */
@@ -1321,20 +1425,201 @@ class StepBuilder {
   }
 }
 
-/** The shown words of a translated line once its English line's instructions are out. */
+/**
+ * A whole English line prepared as its said words are (brackets read, abbreviations
+ * written out, marks and placeholders taken out), with the brackets that say no words
+ * kept as they stand: an instruction ("(Thrice.)") or the place of a request ("(Here
+ * mention those for whom you wish to pray)"). It differs from the line's said words
+ * only by what the parser left out of them.
+ */
+function preparedLine(raw: string): string {
+  let out = "";
+  let last = 0;
+  for (const m of raw.matchAll(/\(([^()]*)\)|\[([^[\]]*)\]/g)) {
+    const kind = classifyBracket(m[1] ?? m[2] ?? "", m[2] !== undefined);
+    if (kind !== "repeat" && kind !== "prayers" && kind !== "intention") continue;
+    const at = m.index ?? 0;
+    out += ` ${prepareWords(stripBrackets(raw.slice(last, at), true), "en")} ${m[0]}`;
+    last = at + m[0].length;
+  }
+  return `${out} ${prepareWords(stripBrackets(raw.slice(last), true), "en")}`.trim();
+}
+
+interface Word {
+  word: string;
+  start: number;
+  end: number;
+}
+
+/** A text's words as `foldForCompare` writes them, with where each stands in the text. */
+function wordsOf(text: string): Word[] {
+  const out: Word[] = [];
+  for (const m of text.matchAll(/[\p{L}\p{M}\p{N}]+/gu)) {
+    const word = foldForCompare(m[0]);
+    const start = m.index ?? 0;
+    if (word) out.push({ word, start, end: start + m[0].length });
+  }
+  return out;
+}
+
+/** Where the words of `part` stand together in `words` (the last place, with `last`), or -1. */
+function findWords(words: readonly Word[], part: readonly Word[], last = false): number {
+  for (let k = 0; k + part.length <= words.length; k++) {
+    const i = last ? words.length - part.length - k : k;
+    if (part.every((w, j) => words[i + j]!.word === w.word)) return i;
+  }
+  return -1;
+}
+
+/**
+ * Where the said words stand in the whole line, first and last: as one stretch, or with
+ * words left out between them too ("… we humbly implore (here state the favour
+ * needed). If thou …"). Null when they do not all stand there in order.
+ */
+function saidSpan(all: readonly Word[], said: readonly Word[]): [number, number] | null {
+  if (said.length === 0) return null;
+  const from = findWords(all, said);
+  if (from >= 0) return [from, from + said.length - 1];
+  let i = 0;
+  let first = -1;
+  for (const w of said) {
+    while (i < all.length && all[i]!.word !== w.word) i++;
+    if (i === all.length) return null;
+    if (first < 0) first = i;
+    i++;
+  }
+  return [first, i - 1];
+}
+
+/** A bracket closing a text, with the stop after it: "… this favour: (here name it)." */
+const CLOSING_BRACKET = /\s*[([][^()[\]]*[)\]][.:;!?]*$/;
+
+/** A translation's opening label: up to three words closed by "." or ":" ("Primera Palabra:"). */
+const OPENING_LABEL = /^\s*[^\s.:!?;,]+(?:\s+[^\s.:!?;,]+){0,2}([.:])\s+/;
+
+/**
+ * A translation without the label its English line opens with, when the translator
+ * wrote that label in their own words ("Ant." as "Horta.", "First Word:" as "Primera
+ * Palabra:"): the English left unsaid there is a label of a few words closed by "." or
+ * ":", the translation opens with a few words closed by the same stop, and what follows
+ * them has as many sentences as the English said, so those words are the label and no
+ * part of the prayer. Otherwise the translation stays whole.
+ */
+function withoutLabel(englishLabel: string, text: string, saidSentences: number): string {
+  const label = englishLabel.trim();
+  const stop = label.slice(-1);
+  if ((stop !== "." && stop !== ":") || wordsOf(label).length > 3) return text;
+  const own = OPENING_LABEL.exec(text);
+  if (!own || own[1] !== stop) return text;
+  if (wordsOf(own[0]).length > wordsOf(label).length + 1) return text;
+  const rest = text.slice(own[0].length);
+  return splitSentences(rest, "en").length === saidSentences ? rest : text;
+}
+
+/**
+ * The shown words of a translated line once what its English line does not say is out.
+ * The said English is set against the whole English line prepared the same way, so a
+ * line that differs only by that preparation ("St" written "Saint", a mark or a
+ * placeholder taken out) is said whole: the translation is the stored content, and it
+ * is read in full. What the parser left out before or after the said words (a marker, a
+ * closing pointer, refrain mark or instruction) comes off the translation where it is
+ * left there in English: at the start, or at the very end. A closing part the translator
+ * wrote in their own words comes off as the bracket it is, or as the sentences it is
+ * when a sentence of the English ends before it and the translation has a sentence for
+ * every one the English said besides; an opening label they wrote in their own words
+ * comes off as withoutLabel finds it. Words are never cut on a guess: anything else is
+ * said as shown.
+ */
 function sayTranslated(englishRaw: string, englishSaid: string, shownRaw: string): string {
   const shown = shownRaw.trim();
   if (!englishSaid) return "";
-  if (foldForCompare(englishSaid) === foldForCompare(englishRaw)) return shown;
-  const removed = englishRaw.replace(englishSaid, "").trim();
-  if (removed && shown.endsWith(removed)) return shown.slice(0, -removed.length).trim();
-  if (removed && shown.includes(removed))
-    return shown.replace(removed, " ").replace(/\s+/g, " ").trim();
-  const sentences = splitSentences(shown, "en");
-  if (sentences.length > 1 && englishRaw.trim().endsWith(removed)) {
-    return sentences.slice(0, -1).join(" ").trim();
+  const line = preparedLine(englishRaw);
+  const all = wordsOf(line);
+  const span = saidSpan(all, wordsOf(englishSaid));
+  if (!span) return shown;
+  const before = all.slice(0, span[0]);
+  const after = all.slice(span[1] + 1);
+  const saidSentences = splitSentences(englishSaid, "en").length;
+  let text = shown;
+  if (after.length > 0) {
+    const words = wordsOf(text);
+    // The last place the closing words stand, and only where they close the translation
+    // too: the same words anywhere else are the prayer's own ("te saludo con el Ave
+    // Maria del Ángel, Ave Maria." keeps the first).
+    const at = findWords(words, after, true);
+    const lead = line.slice(0, after[0]!.start).replace(/[([{«“‘"'¡¿]+$/u, "");
+    const left = line.slice(lead.length).trim();
+    if (at >= 0 && at + after.length === words.length) {
+      text = text.slice(0, words[at]!.start).replace(/[\s([{«“‘"'¡¿]+$/u, "");
+    } else if (/^[([][^()[\]]*[)\]][.:;!?]*$/.test(left) && CLOSING_BRACKET.test(text)) {
+      text = text.replace(CLOSING_BRACKET, "");
+    } else if (/[.!?…]["'”’»)\]]*$/.test(lead.trimEnd())) {
+      // A translator who left the closing instruction out, or ran it into the last
+      // sentence, has no sentence of it to spare: one of the prayer's would go instead.
+      const cut = splitSentences(line.slice(after[0]!.start), "en").length;
+      const sentences = splitSentences(text, "en");
+      if (sentences.length - cut >= saidSentences) text = sentences.slice(0, -cut).join(" ");
+    }
   }
-  return shown;
+  if (before.length > 0) {
+    const words = wordsOf(text);
+    if (findWords(words.slice(0, before.length), before) === 0) {
+      text = text.slice(words[before.length - 1]!.end).replace(/^[\s.):;,—–-]+/, "");
+    } else {
+      text = withoutLabel(line.slice(0, all[span[0]]!.start), text, saidSentences);
+    }
+  }
+  return text.trim();
+}
+
+/**
+ * A translated line's words handed out to the parts its English line was read as, when
+ * the translation has a sentence for every sentence of those parts: each stretch of
+ * words gets its own sentences, and an instruction's are left out, as its English is
+ * ("… mientras vivo. Pater, Ave. Miserere." prays the Pater, the Ave and the Miserere
+ * after the station's prayer, and reads none of them). Null otherwise: the first
+ * stretch then says the whole translation.
+ */
+function sharesOf(
+  parts: readonly LinePart[],
+  shownSaid: string,
+  ruleLang: AudioLang,
+  lang: AudioLang,
+  raw = "",
+): string[] | null {
+  if (parts.filter((p) => p.t === "say").length < 2) return null;
+  const sentences = splitSentences(shownSaid, lang);
+  const counts = parts.map((p) =>
+    p.t === "say"
+      ? splitSentences(p.rule, ruleLang).length
+      : p.t === "rubric"
+        ? splitSentences(p.text, ruleLang).length
+        : 0,
+  );
+  if (counts.reduce((sum, n) => sum + n, 0) !== sentences.length) return null;
+  const shares: string[] = [];
+  let bad = false;
+  let at = 0;
+  parts.forEach((p, i) => {
+    const n = counts[i]!;
+    if (p.t === "say") shares.push(sentences.slice(at, at + n).join(" "));
+    else if (p.t === "rubric" && /^[([]/.test(p.text.trim()) && n > 0) {
+      const inners = [...raw.matchAll(/\(([^()]*)\)|\[([^[\]]*)\]/g)].map((m) =>
+        foldForCompare(m[1] ?? m[2] ?? ""),
+      );
+      if (!inners.includes(foldForCompare(sentences.slice(at, at + n).join(" ")))) bad = true;
+    }
+    at += n;
+  });
+  return bad ? null : shares;
+}
+
+/** The words a translated line shows for all its stretches of words, in order. */
+function shownWords(line: DocLine): string {
+  return line.parts
+    .flatMap((p) => (p.t === "say" && p.shown ? [p.shown] : []))
+    .join(" ")
+    .trim();
 }
 
 /** The words of a parsed line, and its instructions and refrain mark, in order. */
@@ -1563,11 +1848,18 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
         stripBrackets(sayTranslated(l.rule, l.said, l.shown), true),
         l.lang,
       );
-      let given = false;
+      const shares = sharesOf(
+        l.parts,
+        shownSaid,
+        ruleLang,
+        l.lang,
+        sayTranslated(l.rule, l.said, l.shown),
+      );
+      let given = 0;
       for (const p of l.parts) {
         if (p.t !== "say") continue;
-        p.shown = given ? "" : shownSaid;
-        given = true;
+        p.shown = shares ? (shares[given] ?? "") : given === 0 ? shownSaid : "";
+        given++;
       }
     } else {
       for (const p of l.parts) if (p.t === "say") p.shown = p.rule;
@@ -1680,14 +1972,17 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
     const at = lines.findIndex((l) => l.kind === "response" && !!l.marker && !!l.said);
     if (at >= 0) {
       const head = lines[at]!;
+      // A translated line's words may be shared out among its stretches (sharesOf).
+      const shownOf = (l: DocLine) =>
+        l.translated ? shownWords(l) : (l.parts.find((p) => p.t === "say")?.shown ?? l.said);
       const rules = [head.said];
-      const shows = [head.parts.find((p) => p.t === "say")?.shown ?? head.said];
+      const shows = [shownOf(head)];
       for (let j = at + 1; j < lines.length; j++) {
         const l = lines[j]!;
         if (l.blank || l.block !== head.block || l.marker || l.kind !== "spoken" || l.heading)
           break;
         rules.push(l.said);
-        shows.push(l.parts.find((p) => p.t === "say")?.shown ?? l.said);
+        shows.push(shownOf(l));
       }
       refrain = { rule: joinLines(rules), shown: joinLines(shows) };
     }
@@ -1764,8 +2059,7 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
       const s = splitSentences(said.slice(start), ruleLang)[0] ?? "";
       return s ? { rule: s, shown: s } : null;
     }
-    const shownOf = (l: DocLine) =>
-      l.translated ? (l.parts.find((p) => p.t === "say")?.shown ?? "") : "";
+    const shownOf = (l: DocLine) => (l.translated ? shownWords(l) : "");
     if (start === 0) {
       const taken = [line];
       if (line.first || line.marker) {
@@ -1938,8 +2232,18 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
     shown: string;
   }
 
-  /** A cue ending "etc.": a collect's conclusion, the passage it opens, or a prayer. */
-  function readCue(words: string, asBefore: boolean, c: ClauseCtx): Out[] {
+  /**
+   * A cue ending "etc.": a collect's conclusion, the passage it opens, or a prayer. A
+   * translation's own words that are said come back as `kept` (the clause the cue ends),
+   * for readSay to say as it says the line's other words: a line whose sentences do not
+   * match its English's is then said once, whole, and never a sentence of it twice.
+   */
+  function readCue(
+    words: string,
+    asBefore: boolean,
+    c: ClauseCtx,
+    kept: string,
+  ): Array<Out | { keep: string }> {
     const w = words
       .replace(/^[*\s]+/, "")
       .replace(/[,\s]+$/, "")
@@ -1963,9 +2267,13 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
         return out;
       }
     } else if (/^(?:Through|Who liv|Per |Qui )/i.test(w)) {
-      // A translation's own conclusion stays as its translator wrote it.
-      sayOut(out, c.shown, opts.lang);
-      return out;
+      // A translation's own conclusion stays as its translator wrote it, when it is a
+      // conclusion: the opening of one that the translator cut off ("A través de, etc.")
+      // says nothing, and no English is said in its place.
+      const own = finishWords(c.shown);
+      const closes =
+        /crist|christ|基督/iu.test(own) || /^\s*(?:R\.\s*)?(?:Amen|Amén)\b/i.test(c.after);
+      return wholeConclusion(own) && closes ? [{ keep: kept }] : [];
     }
     if (/^(?:As it was|Sicut erat)\b/i.test(w)) {
       return lastPrayer === "glory-be" ? [] : prayerOuts([{ slug: "glory-be", count: 1 }]);
@@ -1997,9 +2305,10 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
         return prayerOuts([{ slug: hits[0]!.slug, count: 1 }]);
       }
     }
-    // Prose that happens to end "etc." is kept; a cue's opening words are not.
+    // Prose that happens to end "etc." is kept, a translation's in the translator's
+    // words; a cue's opening words are not.
     if (w.split(/\s+/).length > 8)
-      return [{ t: "say", text: w, lang: c.translated ? opts.lang : ruleLang }];
+      return [c.translated ? { keep: kept } : { t: "say", text: w, lang: ruleLang }];
     return [];
   }
 
@@ -2017,7 +2326,10 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
     }
     if (!english && !latin) return [{ keep: clause.trim() }];
     const cue = CUE_END.exec(t);
-    if (cue) return readCue(t.slice(0, cue.index), /\bas\s+(?:above|before)\b/i.test(cue[0]), c);
+    if (cue) {
+      const asBefore = /\bas\s+(?:above|before)\b/i.test(cue[0]);
+      return readCue(t.slice(0, cue.index), asBefore, c, clause.trim());
+    }
     const repeat = (cueWords: string) => {
       const passage = findPassage(cueWords, c.lineIndex, c.prefix);
       if (!passage) return null;
@@ -2235,11 +2547,13 @@ export function spokenSteps(text: string, opts: SpokenOptions): SpokenStep[] {
         shown: "",
       };
       const cue = CUE_END.exec(sentence);
-      if (cue)
-        out.push(
-          ...readCue(sentence.slice(0, cue.index), /\bas\s+(?:above|before)\b/i.test(cue[0]), c),
-        );
-      else {
+      if (cue) {
+        // An instruction's translated words are never said, so nothing it keeps is.
+        const asBefore = /\bas\s+(?:above|before)\b/i.test(cue[0]);
+        for (const o of readCue(sentence.slice(0, cue.index), asBefore, c, sentence)) {
+          if (!("keep" in o)) out.push(o);
+        }
+      } else {
         const bare = sentence.trim();
         const incipit = INCIPIT_RUBRICS.find(([re]) => re.test(bare));
         if (incipit) out.push(...prayerOuts([{ slug: incipit[1], count: 1 }]));

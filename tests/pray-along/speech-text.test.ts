@@ -233,6 +233,19 @@ describe("rule 1: etc. is never said", () => {
     expect(said(en("O come, etc."))).toEqual([]);
   });
 
+  it("leaves a sentence its full stop when 'etc.' ended it", () => {
+    expect(normalizeForSpeech("Por medio de nuestro Señor Jesucristo, etc. Amén.", "es")).toBe(
+      "Por medio de nuestro Señor Jesucristo. Amén.",
+    );
+    // At the end of the words, or where the sentence goes on, there is none to keep.
+    expect(normalizeForSpeech("Por medio de nuestro Señor Jesucristo, etc.", "es")).toBe(
+      "Por medio de nuestro Señor Jesucristo",
+    );
+    expect(normalizeForSpeech("O Jesu, etc., as above. Then pray.", "en")).toBe(
+      "O Jesu. Then pray.",
+    );
+  });
+
   it("does not pray the Glory Be twice for its second half", () => {
     expect(prayed(en("V. Glory be, etc.\nR. As it was, etc."))).toEqual(["glory-bex1"]);
   });
@@ -341,6 +354,9 @@ describe("rule 4: citations", () => {
     expect(
       normalizeForSpeech("crown him when he is victorious.”—Saint Aug. in Ps. 32.", "en"),
     ).toBe("crown him when he is victorious.”");
+    expect(
+      normalizeForSpeech("y lo coronas cuando es victorioso.”-St. Aug. en Sal. 32.", "es"),
+    ).toBe("y lo coronas cuando es victorioso.”");
   });
 });
 
@@ -472,6 +488,497 @@ describe("translations are judged by their English", () => {
     });
     expect(said(steps)).toEqual(["San José, ruega por nosotros."]);
     expect(prayed(steps)).toEqual(["glory-bex1"]);
+  });
+});
+
+describe("versicle and response marks are never said", () => {
+  const es = (text: string, english?: string) =>
+    spokenSteps(text, { lang: "es", english, prayers: MORE });
+
+  it("says a translated versicle without its mark, though its English was written out", () => {
+    // The English says "Saint Dominic", so its words no longer show where its mark was.
+    const steps = es(
+      "V. Ruega por nosotros, St Dominic.\nR. Para que seamos dignos de las promesas de Cristo.",
+      "V. Pray for us, St Dominic.\nR. That we may be made worthy of the promises of Christ.",
+    );
+    expect(said(steps)).toEqual([
+      "Ruega por nosotros, St Dominic. Para que seamos dignos de las promesas de Cristo.",
+    ]);
+  });
+
+  it("says a response stored on its versicle's line without its mark", () => {
+    const steps = es(
+      "Alabado sea Dios Padre, que la predestinó para ser la Madre de su Hijo. R. Amén. Ave Maria.",
+      "Praise be to God the Father, who predestined her to be the Mother of his Son. R. Amen. Ave Maria.",
+    );
+    expect(said(steps)).toEqual([
+      "Alabado sea Dios Padre, que la predestinó para ser la Madre de su Hijo. Amén.",
+    ]);
+    expect(prayed(steps)).toEqual(["hail-maryx1"]);
+  });
+
+  it("says a versicle and its response a translation keeps on one line, both of them", () => {
+    // The slash stands for the line break between them, and goes with the mark.
+    const steps = es(
+      "V. El Señor sea con vosotros. / R. Y también con vosotros.",
+      "V. The Lord be with you. / R. And also with you.",
+    );
+    expect(said(steps)).toEqual(["El Señor sea con vosotros. Y también con vosotros."]);
+  });
+
+  it("drops a litany's response mark after the invocation's comma", () => {
+    expect(
+      all(
+        la(
+          "Sancta Maria, ora pro nobis.\nCausa nostrae laetitiae, R. ora pro nobis.\nRegina sine peccato originali concepta, R. ora pro nobis.",
+        ),
+      ),
+    ).toBe(
+      "Sancta Maria, ora pro nobis. Causa nostrae laetitiae, ora pro nobis. Regina sine peccato originali concepta, ora pro nobis.",
+    );
+    expect(normalizeForSpeech("Pater de caelis, Deus, R. miserere nobis.", "la")).toBe(
+      "Pater de caelis, Deus, miserere nobis.",
+    );
+    expect(
+      normalizeForSpeech("Agnus Dei, qui tollis peccata mundi, R. exaudi nos, Domine.", "la"),
+    ).toBe("Agnus Dei, qui tollis peccata mundi, exaudi nos, Domine.");
+  });
+
+  it("drops a mark after a Chinese stop, with or without a space", () => {
+    expect(normalizeForSpeech("请为我们祈求！R. 阿们。", "zh")).toBe("请为我们祈求！阿们。");
+    expect(normalizeForSpeech("天主圣母，请为我们祈求。V. 使我们堪受基督的恩许。", "zh")).toBe(
+      "天主圣母，请为我们祈求。使我们堪受基督的恩许。",
+    );
+  });
+
+  it("knows a mark at a line's start or after a quoted sentence, whatever came before", () => {
+    expect(normalizeForSpeech("V. Ora pro nobis\nR. Amen.", "la")).toBe("Ora pro nobis Amen.");
+    expect(normalizeForSpeech("«Ruega por nosotros.» R. Amén.", "es")).toBe(
+      "«Ruega por nosotros.» Amén.",
+    );
+    // "N." is a name's place, not an initial: the next line's mark is still a mark,
+    // and so is one on the same line.
+    expect(normalizeForSpeech("Oremos por el Papa N.\nV. El Señor lo guarde.", "es")).toBe(
+      "Oremos por el Papa. El Señor lo guarde.",
+    );
+    expect(
+      normalizeForSpeech("Oremos por nuestro Sumo Pontífice N. R. El Señor le guarde.", "es"),
+    ).toBe("Oremos por nuestro Sumo Pontífice. El Señor le guarde.");
+  });
+
+  it("drops the marks a translation read by its own rules keeps inside a line", () => {
+    expect(
+      said(es("Ven, Espíritu Santo, llena los corazones de tus fieles. R. ¡Aleluya!")),
+    ).toEqual(["Ven, Espíritu Santo, llena los corazones de tus fieles. ¡Aleluya!"]);
+    expect(
+      said(es("Envía tu Espíritu y serán creadas. R: Y renovarás la faz de la tierra.")),
+    ).toEqual(["Envía tu Espíritu y serán creadas. Y renovarás la faz de la tierra."]);
+  });
+
+  it("drops the marks of a quoted versicle and response, in every language", () => {
+    expect(
+      normalizeForSpeech(
+        "to serve God more and more faithfully every day. V. Pray for us, O glorious Saint Michael. R. That we may be made worthy of his promises.",
+        "en",
+      ),
+    ).toBe(
+      "to serve God more and more faithfully every day. Pray for us, O glorious Saint Michael. That we may be made worthy of his promises.",
+    );
+    expect(
+      normalizeForSpeech(
+        "puis : « V. Priez pour nous, ô sainte Mère de Dieu. R. Afin que nous soyons dignes des promesses du Christ. »",
+        "fr",
+      ),
+    ).toBe(
+      "puis: « Priez pour nous, ô sainte Mère de Dieu. Afin que nous soyons dignes des promesses du Christ. »",
+    );
+    expect(normalizeForSpeech("V/. Ruega por nosotros. R/. Para que seamos dignos.", "es")).toBe(
+      "Ruega por nosotros. Para que seamos dignos.",
+    );
+    expect(normalizeForSpeech("El Señor esté con vosotros. / R. Y con tu espíritu.", "es")).toBe(
+      "El Señor esté con vosotros. Y con tu espíritu.",
+    );
+    expect(normalizeForSpeech("V. Rogai por nós.\nR. Para que sejamos dignos.", "pt")).toBe(
+      "Rogai por nós. Para que sejamos dignos.",
+    );
+    expect(normalizeForSpeech("V. Prega per noi. R. “Affinché siamo fatti degni”.", "it")).toBe(
+      "Prega per noi. “Affinché siamo fatti degni”.",
+    );
+    expect(normalizeForSpeech("R. 使我们堪受基督的恩许。", "zh")).toBe("使我们堪受基督的恩许。");
+  });
+
+  it("leaves a Roman numeral, an initial and a mention of the marks as they are", () => {
+    for (const [text, lang] of [
+      ["Saint Pius V. Pray for us.", "en"],
+      ["Chapter V. The Annunciation.", "en"],
+      ["IV. x", "en"],
+      ["en el siglo V. Ruega por nosotros.", "es"],
+      ["Estación V. Simón de Cirene ayuda a Jesús.", "es"],
+      ["por la B. V. M. y por Fr. R. Knox y R. H. Benson", "es"],
+      ["Amen. R. H. Benson wrote it.", "en"],
+      ["by Msgr. R. Knox and Card. V. Merry del Val", "en"],
+      ["O Jesu, as above. V. and R. as above.", "en"],
+      ["Then the antiphon, V. and R. as above.", "en"],
+      ["Luego la antífona, V. y R. como antes.", "es"],
+      ["en los capítulos IV, V. y VI.", "es"],
+      ["con santa Luisa, V. de Paul fundó las Hijas de la Caridad.", "es"],
+    ] as const) {
+      expect(normalizeForSpeech(text, lang)).toBe(text);
+    }
+    // "V." after "IV." is the next station's number, and its heading stays a heading.
+    expect(
+      said(en("IV. The Fourth Station.\n\nV. The Fifth Station.\n\nO Jesus, have mercy on us.")),
+    ).toEqual(["O Jesus, have mercy on us."]);
+    expect(
+      said(
+        es(
+          "IV. La Cuarta Estación.\n\nV. La Quinta Estación.\n\nOh Jesús, ten piedad de nosotros.",
+          "IV. The Fourth Station.\n\nV. The Fifth Station.\n\nO Jesus, have mercy on us.",
+        ),
+      ),
+    ).toEqual(["Oh Jesús, ten piedad de nosotros."]);
+  });
+});
+
+describe("a translated line is said in full", () => {
+  const es = (text: string, english: string) =>
+    spokenSteps(text, { lang: "es", english, prayers: MORE });
+
+  it("says the closing Amén of a line whose English writes St out as Saint", () => {
+    expect(
+      said(
+        es(
+          "Oh Blessed St. Joseph, ruega por mí, para que pueda compartir la paz y la alegría de tu santa muerte. Amén.",
+          "O Blessed St. Joseph, pray for me, that I may share in the peace and joy of your holy death. Amen.",
+        ),
+      ),
+    ).toEqual([
+      "Oh Blessed St. Joseph, ruega por mí, para que pueda compartir la paz y la alegría de tu santa muerte. Amén.",
+    ]);
+  });
+
+  it("says every sentence of a line whose English holds a placeholder", () => {
+    expect(
+      said(
+        es(
+          "Oh Dios mío, yo (N.) creo con mi corazón todo lo que la Iglesia propone. En el principio era el Verbo, y el Verbo era con Dios.",
+          "O my God, I (N.) believe with my heart all that the Church proposes. In the beginning was the Word, and the Word was with God.",
+        ),
+      ),
+    ).toEqual([
+      "Oh Dios mío, yo creo con mi corazón todo lo que la Iglesia propone. En el principio era el Verbo, y el Verbo era con Dios.",
+    ]);
+  });
+
+  it("still leaves out a closing instruction, written in English or in the translator's words", () => {
+    const steps = es(
+      "Oh St. Joseph, haz que ninguno de nosotros sucumba al pecado. Ave Maria tres veces.",
+      "O St. Joseph, make it thy care that none of us succumb to sin. Ave Maria thrice.",
+    );
+    expect(said(steps)).toEqual(["Oh St. Joseph, haz que ninguno de nosotros sucumba al pecado."]);
+    expect(prayed(steps)).toEqual(["hail-maryx3"]);
+    const kept = es(
+      "Alabemos y demos gracias a Dios Hijo, que la eligió para su Madre. R. Amén. Pater noster.",
+      "Let us praise and give thanks to God the Son, who chose her for his Mother. R. Amen. Pater noster.",
+    );
+    expect(said(kept)).toEqual([
+      "Alabemos y demos gracias a Dios Hijo, que la eligió para su Madre. Amén.",
+    ]);
+    expect(prayed(kept)).toEqual(["our-fatherx1"]);
+  });
+
+  it("keeps the silence for a request, however the translator wrote its bracket", () => {
+    const own = es(
+      "Te ruego por todos los que sufren, y especialmente por aquellos por quienes oramos. (Aquí menciona a aquellos por quienes deseas orar).\nAmén.",
+      "I pray for all who suffer, and especially those for whom we pray. (Here mention those for whom you wish to pray).\nAmen.",
+    );
+    expect(said(own)).toEqual([
+      "Te ruego por todos los que sufren, y especialmente por aquellos por quienes oramos.",
+      "Amén.",
+    ]);
+    expect(own.some((s) => s.kind === "pause" && s.ms === INTENTION_PAUSE_MS)).toBe(true);
+    const favour = es(
+      "Oh St. Joseph, contempladme a tus pies. Vengo a pedirte este favor: (aquí nombra tu petición).",
+      "O St. Joseph, behold me at thy feet. I come to ask this favour: (here name your request).",
+    );
+    expect(said(favour)).toEqual([
+      "Oh St. Joseph, contempladme a tus pies. Vengo a pedirte este favor:",
+    ]);
+  });
+
+  it("says a translated petition that ends 'etc.' in the translator's words", () => {
+    const steps = es(
+      "Te suplicamos que no dejes caer sobre ella la sentencia de tu juicio, sino que merezca escapar de la condenación; quien vive, etc. R. Amén.",
+      "We beseech Thee not to let the sentence of Thy judgment fall upon her, but may she deserve to escape condemnation; Who livest, etc. R. Amen.",
+    );
+    // "etc." ended the sentence, so its full stop stays: the Amén is a sentence of its own.
+    expect(all(steps)).toBe(
+      "Te suplicamos que no dejes caer sobre ella la sentencia de tu juicio, sino que merezca escapar de la condenación; quien vive. Amén.",
+    );
+  });
+
+  it("leaves out a closing pointer though words were left out before it too", () => {
+    const steps = es(
+      "Obtén para nosotros el favor que imploramos (aquí declaramos el favor). Si lo obtienes, oh glorioso St Anthony, te ofreceremos pan para los pobres. Pater, Ave, Gloria.",
+      "Obtain for us the favour which we implore (here state the favour needed). If thou dost obtain it, O glorious St Anthony, we will offer thee bread for the poor. Pater, Ave, Gloria.",
+    );
+    expect(all(steps)).toMatch(/pan para los pobres\.$/);
+    expect(prayed(steps)).toEqual(["our-fatherx1", "hail-maryx1", "glory-bex1"]);
+  });
+
+  it("says a numbered line without its number, as its English is said", () => {
+    const steps = es(
+      "1. ¡Oh, celoso doctor de la Iglesia, St. Alphonsus, obtén para mí una fe viva en todas las verdades que la santa Iglesia Católica enseña! Gloria, etc.",
+      "1. O most zealous doctor of the Church, St. Alphonsus, obtain for me a lively faith in all the truths that the holy Catholic Church teaches. Glory be, etc.",
+    );
+    expect(said(steps)).toEqual([
+      "¡Oh, celoso doctor de la Iglesia, St. Alphonsus, obtén para mí una fe viva en todas las verdades que la santa Iglesia Católica enseña!",
+    ]);
+    expect(prayed(steps)).toEqual(["glory-bex1"]);
+    // Taken off as the same mark the English has, whatever stop the number has.
+    expect(
+      said(
+        es(
+          "2) Oh muy celoso doctor de la Iglesia, St. Alphonsus, obtén para mí un ardiente amor de Dios. Gloria, etc.",
+          "2) O most zealous doctor of the Church, St. Alphonsus, obtain for me an ardent love of God. Glory be, etc.",
+        ),
+      ),
+    ).toEqual([
+      "Oh muy celoso doctor de la Iglesia, St. Alphonsus, obtén para mí un ardiente amor de Dios.",
+    ]);
+  });
+
+  it("leaves out a closing pointer the translation keeps in English, and the citation before it", () => {
+    // The translator left out "draw me, I pray thee, …": what they wrote is said, and the
+    // reference that now ends it is not.
+    const steps = es(
+      "María santísima, estabas turbada por tu modestia; por lo tanto, haz en tu incomparable humildad, “que dio a luz a Dios para los hombres, reabrió el Paraíso” (S. Aug. Sermo de Sanct.), Ave Maria.",
+      'Most holy Mary, thou wast troubled by reason of thy modesty; wherefore do thou in thy incomparable humility, "which brought forth God for men, reopened Paradise" (S. Aug. Sermo de Sanct.), draw me, I pray thee, out of the deep pit of my sins. Ave Maria.',
+    );
+    expect(said(steps)).toEqual([
+      "María santísima, estabas turbada por tu modestia; por lo tanto, haz en tu incomparable humildad, “que dio a luz a Dios para los hombres, reabrió el Paraíso”,",
+    ]);
+    expect(prayed(steps)).toEqual(["hail-maryx1"]);
+  });
+
+  it("cuts the English closing words only where they close the translation", () => {
+    // The same words earlier in the prayer stay; only the last place they stand goes.
+    const greeting = es(
+      "Oh María, te saludo con el Ave Maria del Ángel, Ave Maria.",
+      "O Mary, I greet thee with the Angel's Ave Maria. Ave Maria.",
+    );
+    expect(said(greeting)).toEqual(["Oh María, te saludo con el Ave Maria del Ángel,"]);
+    expect(prayed(greeting)).toEqual(["hail-maryx1"]);
+    // Words that stand anywhere else are the prayer's own: the translator wrote the
+    // salutation in Latin and left the closing pointer out.
+    const salutation = es(
+      "Ave Maria, llena eres de gracia, el Señor es contigo.",
+      "Hail Mary, full of grace, the Lord is with thee. Ave Maria.",
+    );
+    expect(said(salutation)).toEqual(["Ave Maria, llena eres de gracia, el Señor es contigo."]);
+    expect(prayed(salutation)).toEqual(["hail-maryx1"]);
+  });
+
+  it("keeps every sentence of the prayer when the translator left out the closing instruction", () => {
+    const steps = es(
+      "Oh San José, ruega por nosotros. Haznos santos y puros.",
+      "O Saint Joseph, pray for us. Make us holy and pure. Ave Maria thrice.",
+    );
+    expect(said(steps)).toEqual(["Oh San José, ruega por nosotros. Haznos santos y puros."]);
+    expect(prayed(steps)).toEqual(["hail-maryx3"]);
+    // Ran into the prayer's last sentence, the instruction has no sentence of its own to
+    // leave out, and the prayer's is kept.
+    const joined = es(
+      "Oh San José, ruega por nosotros. Haznos santos y puros; Ave María tres veces.",
+      "O Saint Joseph, pray for us. Make us holy and pure. Ave Maria thrice.",
+    );
+    expect(all(joined)).toMatch(/^Oh San José, ruega por nosotros\. Haznos santos y puros/);
+    expect(prayed(joined)).toEqual(["hail-maryx3"]);
+    // Nor is the only sentence a translation has ever cut away.
+    const one = es(
+      "Oh San José, ruega por nosotros con un Padrenuestro, Avemaría y Gloria.",
+      "O Saint Joseph, pray for us. Pater, Ave, Gloria.",
+    );
+    expect(said(one)).toEqual([
+      "Oh San José, ruega por nosotros con un Padrenuestro, Avemaría y Gloria.",
+    ]);
+  });
+
+  it("says a translated petition that ends 'etc.' once, though its sentences do not match", () => {
+    // The translator made two sentences of one: the line is said whole, once.
+    const steps = es(
+      "Oh Dios, ten piedad de ella. Te suplicamos que no dejes caer sobre ella la sentencia de tu juicio. Que escape de la condenación, tú que vives, etc.",
+      "O God, have mercy on her. We beseech Thee not to let the sentence of Thy judgment fall heavy upon her, but may she escape condemnation, Who livest, etc.",
+    );
+    expect(said(steps)).toEqual([
+      "Oh Dios, ten piedad de ella. Te suplicamos que no dejes caer sobre ella la sentencia de tu juicio. Que escape de la condenación, tú que vives",
+    ]);
+  });
+});
+
+describe("a translated line its English reads in several parts", () => {
+  const es = (text: string, english: string) =>
+    spokenSteps(text, { lang: "es", english, prayers: MORE });
+
+  it("prays the prayers named after a station's prayer, and reads none of their names", () => {
+    const steps = es(
+      "Jesús mío, que por tu propia voluntad tomaste la cruz que yo te hice por mis pecados; hazme saber el peso de ellos. Pater, Ave. V. Miserere.",
+      "My Jesus, who by thine own will didst take on Thee the Cross which I made for Thee by my sins; oh, make me know the weight of them. Pater, Ave. V. Miserere.",
+    );
+    expect(said(steps)).toEqual([
+      "Jesús mío, que por tu propia voluntad tomaste la cruz que yo te hice por mis pecados; hazme saber el peso de ellos.",
+    ]);
+    expect(prayed(steps)).toEqual(["our-fatherx1", "hail-maryx1", "psalm-50x1"]);
+  });
+
+  it("keeps the silence for a request where the request stands, and does not read it", () => {
+    const steps = es(
+      "Por sus méritos, concédeme la gracia que pido. (Mencione su solicitud.) Y tú, mi poderoso intercesor, reza por mí. Amén.",
+      "Through his merits, grant me the grace for which I ask. (Mention your request.) And you, my powerful intercessor, pray for me. Amen.",
+    );
+    expect(
+      steps.map((s) => (s.kind === "say" ? s.text : s.kind === "pause" ? s.ms : s.slug)),
+    ).toEqual([
+      "Por sus méritos, concédeme la gracia que pido.",
+      INTENTION_PAUSE_MS,
+      "Y tú, mi poderoso intercesor, reza por mí. Amén.",
+    ]);
+  });
+
+  it("never gives a request's share to a prayer sentence when the sentences only add up by chance", () => {
+    // Two sentences merged and an Amén added: four sentences either way, but they do not line up.
+    const steps = es(
+      "Concédeme esta gracia y protégeme siempre. (Mencione su solicitud.) Ruega por mí. Amén.",
+      "Grant me this grace. Protect me always. (Mention your request.) Pray for me.",
+    );
+    expect(all(steps)).toMatch(/Ruega por mí/);
+  });
+});
+
+describe("a translation's own labels and conclusions", () => {
+  const es = (text: string, english: string) =>
+    spokenSteps(text, { lang: "es", english, prayers: MORE });
+
+  it("leaves out a label the translator wrote in their own words", () => {
+    expect(
+      said(
+        es(
+          "Primera Palabra: Padre, perdónalos, porque no saben lo que hacen.",
+          "First Word: Father, forgive them; for they know not what they do.",
+        ),
+      ),
+    ).toEqual(["Padre, perdónalos, porque no saben lo que hacen."]);
+    expect(
+      said(
+        es(
+          "El primer misterio. Jesús fue concebido de la Virgen María por el poder del Espíritu Santo.",
+          "First Mystery. Jesus was conceived of the Virgin Mary by the power of the Holy Ghost.",
+        ),
+      ),
+    ).toEqual(["Jesús fue concebido de la Virgen María por el poder del Espíritu Santo."]);
+    expect(
+      said(
+        es(
+          "Todos: ¡Santo Dios! ¡Santo fuerte! Santo Inmortal, ten piedad de nosotros.",
+          "All: Holy God! Holy Strong One! Holy Immortal One, have mercy upon us.",
+        ),
+      ),
+    ).toEqual(["¡Santo Dios! ¡Santo fuerte! Santo Inmortal, ten piedad de nosotros."]);
+  });
+
+  it("leaves out a mistranslated antiphon label, and the cue that repeats the antiphon", () => {
+    // "Ant." came back as "Horta.", and "We adore, etc." as "Nos encanta, etc.".
+    const text = all(
+      es(
+        "Horta. Adoramos tu cruz, oh Señor, y alabamos y glorificamos tu santa resurrección. Que Dios tenga misericordia de nosotros y nos bendiga. Nos encanta, etc.",
+        "Ant. We adore thy cross, O Lord! and we praise and glorify thy holy resurrection. Ps. May God have mercy on us and bless us. We adore, etc.",
+      ),
+    );
+    expect(text).toMatch(
+      /^Adoramos tu cruz, oh Señor, y alabamos y glorificamos tu santa resurrección\. Que Dios tenga misericordia de nosotros y nos bendiga\./,
+    );
+    expect(text).not.toMatch(/Horta|Nos encanta/);
+  });
+
+  it("says every word of a translation that has no label of its own", () => {
+    expect(said(es("En el camino de la paz.", "Ant. Into the way of peace."))).toEqual([
+      "En el camino de la paz.",
+    ]);
+    // A call closed by another stop than the label's is the prayer's.
+    expect(said(es("Señor: escucha mi oración.", "Ant. Lord, hear my prayer."))).toEqual([
+      "Señor: escucha mi oración.",
+    ]);
+    // So is a short first sentence, when the rest has more sentences than the English said.
+    expect(
+      said(
+        es(
+          "Dios te salve. Reina y Madre de misericordia. Vida, dulzura y esperanza nuestra.",
+          "Ant. Hail, holy Queen, Mother of mercy, our life, our sweetness and our hope.",
+        ),
+      ),
+    ).toEqual(["Dios te salve. Reina y Madre de misericordia. Vida, dulzura y esperanza nuestra."]);
+    // A first sentence longer than the English label is the prayer's, even when the rest has
+    // as many sentences as the English said.
+    expect(
+      said(
+        es(
+          "Dios te salve. Reina y Madre de misericordia, vida, dulzura y esperanza nuestra.",
+          "Ant. Hail, holy Queen, Mother of mercy, our life, our sweetness and our hope.",
+        ),
+      ),
+    ).toEqual(["Dios te salve. Reina y Madre de misericordia, vida, dulzura y esperanza nuestra."]);
+  });
+
+  it("says a conclusion the translator abbreviated, and not one they cut off", () => {
+    expect(
+      all(
+        es(
+          "Concede, oh Señor, a tu pueblo fiel que pueda comenzar el solemne servicio del ayuno con la debida piedad. Por medio de nuestro Señor Jesucristo, etc. Amén.",
+          "Grant, O Lord, unto Thy faithful people that they may begin the solemn service of fasting with due piety. Through our Lord Jesus Christ, etc. Amen.",
+        ),
+      ),
+    ).toBe(
+      "Concede, oh Señor, a tu pueblo fiel que pueda comenzar el solemne servicio del ayuno con la debida piedad. Por medio de nuestro Señor Jesucristo. Amén.",
+    );
+    // "A través de" is only the opening of "Through our Lord …": nothing is said for it,
+    // and no English in its place.
+    expect(
+      said(
+        es(
+          "Te rogamos, oh muy clemente Virgen María, que nos defiendas a nosotros, hermanos débiles, del peligro amenazante. A través de, &c.",
+          "We pray thee, O most clement Virgin Mary, to defend us weak brethren from menacing danger. Through, &c.",
+        ),
+      ),
+    ).toEqual([
+      "Te rogamos, oh muy clemente Virgen María, que nos defiendas a nosotros, hermanos débiles, del peligro amenazante.",
+    ]);
+    // Nor a conclusion cut off before its close: "Who livest and reignest, &c." on the Mount
+    // Carmel novena, and "Through our Lord, &c." without the Name.
+    expect(
+      said(
+        es(
+          "Concédenos, te rogamos, llegar a las alegrías eternas. Que vive y reina, &c.",
+          "Grant, we beseech Thee, that we may come to everlasting joys. Who livest and reignest, &c.",
+        ),
+      ),
+    ).toEqual(["Concédenos, te rogamos, llegar a las alegrías eternas."]);
+    expect(
+      said(
+        es(
+          "Concédele el brillo de la luz. Por medio de nuestro Señor, &c.",
+          "Grant him the brightness of light. Through our Lord, &c.",
+        ),
+      ),
+    ).toEqual(["Concédele el brillo de la luz."]);
+  });
+
+  it("never doubles a stop that ends a sentence before 'etc.'", () => {
+    expect(normalizeForSpeech("¡Gloria al Padre! etc. Amén.", "es")).toBe(
+      "¡Gloria al Padre! Amén.",
+    );
+    expect(normalizeForSpeech("¿Quién como Dios? etc. Amén.", "es")).toBe(
+      "¿Quién como Dios? Amén.",
+    );
   });
 });
 

@@ -8,6 +8,7 @@ import type { PrayerVariant } from "@/lib/content-shared/prayer-language";
 import {
   divineMercyPrayers,
   novenaDayScript,
+  planScript,
   prayerScript,
   rosaryScript,
   sequenceScript,
@@ -207,6 +208,23 @@ describe("sequenceScript", () => {
       SIGN_OF_THE_CROSS.en,
       "Our Father, who art in heaven. Amen.",
       "Glory be to the Father. Amen.",
+      SIGN_OF_THE_CROSS.en,
+    ]);
+  });
+});
+
+describe("planScript", () => {
+  it("says a versicle and response a guide quotes without their marks", () => {
+    const closing =
+      "O glorious Prince Saint Michael, deliver us from all evil. V. Pray for us, O glorious Saint Michael, Prince of the Church of Jesus Christ. R. That we may be made worthy of his promises.";
+    const s = planScript(
+      [{ quote: { step: 7, index: 0 } }],
+      { quote: () => ({ text: closing, lang: "en" }), rosarySet: "joyful", chaplet: null },
+      ctx(),
+    );
+    expect(texts(s)).toEqual([
+      SIGN_OF_THE_CROSS.en,
+      "O glorious Prince Saint Michael, deliver us from all evil. Pray for us, O glorious Saint Michael, Prince of the Church of Jesus Christ. That we may be made worthy of his promises.",
       SIGN_OF_THE_CROSS.en,
     ]);
   });
