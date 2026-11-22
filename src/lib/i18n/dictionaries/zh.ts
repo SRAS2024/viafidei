@@ -427,6 +427,7 @@ export const zh: Dict = {
   "prayAlong.status.stopped": "已停止。",
   "prayAlong.status.finished": "已结束。",
   "prayAlong.status.unavailable": "这篇祈祷的音频尚未准备好。请稍后再试。",
+  "prayAlong.status.missing": "这篇祈祷无法出声诵念，因为部分音频未能准备好。",
   "prayAlong.status.error": "无法播放音频。",
   "profile.settings.section.audio": "音频",
   "profile.settings.section.audio.body": "与你一同祈祷的声音。",

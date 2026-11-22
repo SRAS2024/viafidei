@@ -447,6 +447,8 @@ export const vi: Dict = {
   "prayAlong.status.finished": "Đã xong.",
   "prayAlong.status.unavailable":
     "Âm thanh của lời kinh này chưa sẵn sàng. Vui lòng thử lại sau ít phút.",
+  "prayAlong.status.missing":
+    "Không thể đọc lời kinh này thành tiếng, vì không chuẩn bị được một phần âm thanh của lời kinh.",
   "prayAlong.status.error": "Không thể phát âm thanh.",
   "profile.settings.section.audio": "Âm thanh",
   "profile.settings.section.audio.body": "Giọng đọc cầu nguyện cùng bạn.",

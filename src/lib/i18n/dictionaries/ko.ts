@@ -440,6 +440,7 @@ export const ko: Dict = {
   "prayAlong.status.finished": "끝났습니다.",
   "prayAlong.status.unavailable":
     "이 기도의 오디오가 아직 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.",
+  "prayAlong.status.missing": "오디오 일부를 준비하지 못해 이 기도를 소리 내어 바칠 수 없습니다.",
   "prayAlong.status.error": "오디오를 재생할 수 없습니다.",
   "profile.settings.section.audio": "오디오",
   "profile.settings.section.audio.body": "함께 기도하는 목소리입니다.",

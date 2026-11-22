@@ -129,6 +129,113 @@ test.describe("pray along", () => {
     await page.getByRole("button", { name: /^Stop praying along: / }).click();
   });
 
+  test("a prayer with a line no voice can say is told at once, plays nothing, and keeps focus", async ({
+    page,
+  }) => {
+    // The playlist marks the line missing (the voice engine failed it in both voices).
+    const LINE = "/audio/silence-700.m4a";
+    const fetched: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes(LINE)) fetched.push(request.url());
+    });
+    await page.route("**/api/pray-along?**", (route: Route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          title: "Hail Mary",
+          lang: "en",
+          voice: "female",
+          total: 2,
+          ready: 1,
+          missing: 1,
+          items: [
+            { type: "clip", url: LINE, ready: true },
+            { type: "pause", ms: 300 },
+            {
+              type: "clip",
+              url: "/api/pray-along/clip/" + "0".repeat(40),
+              ready: false,
+              missing: true,
+            },
+          ],
+        }),
+      }),
+    );
+    await open(page, "/prayers/hail-mary");
+    const button = page.getByRole("button", { name: /^Pray along: / });
+    await button.focus();
+    await page.keyboard.press("Enter");
+    // Said in the status region at once (well inside the 2-minute wait it replaces).
+    await expect(status(page)).toHaveText(
+      "This prayer cannot be prayed aloud, because part of its audio could not be made.",
+      { timeout: 5_000 },
+    );
+    // Nothing is under way: no Stop or speed; the megaphone keeps focus and its name.
+    await expect(page.getByRole("button", { name: /^Stop praying along/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Speed / })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Pray along: / })).toBeFocused();
+    // None of the prayer was played, not even the line that was ready.
+    expect(fetched).toEqual([]);
+  });
+
+  test("a pause while the next part is being made does not count against the wait", async ({
+    page,
+  }) => {
+    // The page's clock can jump five minutes, far past the player's two-minute wait.
+    await page.clock.install();
+    let made = false;
+    let asks = 0;
+    await page.route("**/api/pray-along?**", (route: Route) => {
+      asks += 1;
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          title: "Hail Mary",
+          lang: "en",
+          voice: "female",
+          total: 2,
+          ready: made ? 2 : 1,
+          items: [
+            { type: "clip", url: CLIP, ready: true },
+            { type: "pause", ms: 300 },
+            { type: "clip", url: "/audio/silence-700.m4a", ready: made },
+          ],
+        }),
+      });
+    });
+    // The wait's silence loads slowly, as on a slow phone network, so Pause is pressed
+    // while it is still starting: the browser then cuts its play() short (AbortError),
+    // which is a pause, not "The audio could not be played."
+    let slowSilences = 0;
+    await page.route("**/audio/silence-1100.m4a", async (route: Route) => {
+      slowSilences += 1;
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      await route.continue();
+    });
+    await open(page, "/prayers/hail-mary");
+    await page.getByRole("button", { name: /^Pray along: / }).click();
+    await expect(status(page)).toHaveText("The next part is being prepared…", { timeout: 15_000 });
+    await page.getByRole("button", { name: /^Pause praying along: / }).click();
+    await expect(status(page)).toHaveText("Paused.");
+    // Still paused once the silence has arrived, not ended with an error.
+    await page.waitForTimeout(2_000);
+    expect(slowSilences).toBeGreaterThan(0);
+    await expect(status(page)).toHaveText("Paused.");
+    const before = await page.evaluate(() => Date.now());
+    await page.clock.fastForward("05:00");
+    // The page's own clock moved the five minutes, so the player sees them.
+    expect((await page.evaluate(() => Date.now())) - before).toBeGreaterThanOrEqual(300_000);
+    await page.getByRole("button", { name: /^Resume praying along: / }).click();
+    // It asks again and is still waiting: the five minutes paused were not waited.
+    const asked = asks;
+    await expect.poll(() => asks, { timeout: 15_000 }).toBeGreaterThan(asked);
+    await expect(status(page)).toHaveText("The next part is being prepared…");
+    // The part is made: it plays, and the prayer is prayed to its end.
+    made = true;
+    await expect(status(page)).toHaveText("Finished.", { timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /^Pray along: / })).toBeVisible();
+  });
+
   test("the meter stands still for a reader who asked for reduced motion", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await stubPlaylist(page, 40);

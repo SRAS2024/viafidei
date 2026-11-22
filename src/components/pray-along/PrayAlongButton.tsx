@@ -34,6 +34,8 @@ export interface PrayAlongLabels {
   stopped: string;
   finished: string;
   unavailable: string;
+  /** A line of the prayer can never be said, so nothing of it is played. */
+  missing: string;
   error: string;
   /** The speed button's name, also said when it changes: "Speed {rate}". */
   speed: string;
@@ -54,6 +56,7 @@ const ENGLISH: PrayAlongLabels = {
   stopped: "Stopped.",
   finished: "Finished.",
   unavailable: "The audio for this prayer is not ready yet. Please try again in a little while.",
+  missing: "This prayer cannot be prayed aloud, because part of its audio could not be made.",
   error: "The audio could not be played.",
   speed: "Speed {rate}",
   locale: "en",
@@ -187,6 +190,7 @@ export function PrayAlongButton({
         finished: labels.finished,
         stopped: labels.stopped,
         unavailable: labels.unavailable,
+        missing: labels.missing,
         error: labels.error,
       }[status] ?? "");
 

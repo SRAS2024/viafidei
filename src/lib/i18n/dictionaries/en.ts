@@ -651,6 +651,8 @@ const common: Dict = {
   "prayAlong.status.finished": "Finished.",
   "prayAlong.status.unavailable":
     "The audio for this prayer is not ready yet. Please try again in a little while.",
+  "prayAlong.status.missing":
+    "This prayer cannot be prayed aloud, because part of its audio could not be made.",
   "prayAlong.status.error": "The audio could not be played.",
   "profile.settings.section.audio": "Audio",
   "profile.settings.section.audio.body": "The voice that prays along with you.",

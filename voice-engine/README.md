@@ -48,9 +48,18 @@ What a row gets: `audio` (AAC-LC in MP4, faststart, mono, 24 kHz, ~48 kbps), `mi
 * `failed` with `lastError` (`qa:failed:…`, `voice:unknown:…`, `attempts:exhausted:…`):
   no audio is played (a failed remake of a made row keeps its old bytes, unserved).
   A listener's request files a `qa:` failure below 5 attempts as `pending` again
-  (website `store.ts`), and whatever engine is running makes it, fixes included.
-  Reset by hand only rows out of attempts, or made rows a fix should reach (the key
-  does not change, so nothing else remakes them): set `status = 'pending'`,
+  (website `store.ts`), and whatever engine is running makes it, fixes included. Any
+  failed row, out of attempts or failed for another reason, is filed `pending` again with
+  one attempt left (`attempts` at most 4) and no claim when a listener asks for it a day
+  or more after it failed (its `updatedAt` in UTC, which `write_failed` moves): a fix
+  reaches it within a day of being running. One attempt only, since a claim's seeds come
+  from the key and attempt number alone (`seed_key_for`), so without an engine change
+  more would repeat failed takes. Meanwhile the playlist says that line in the other
+  voice, and a line failed in both voices makes the player say at once that the prayer
+  cannot be prayed aloud. A row released as `interrupted` (the engine stopped mid-clip)
+  is not counted as failed.
+  Reset by hand only rows a fix should reach sooner, or made rows a fix should reach (the
+  key does not change, so nothing else remakes them): set `status = 'pending'`,
   `attempts = 0`, `claimedAt = NULL` and `claimedBy = NULL`. A reset that leaves the
   claim waits out the 10 minutes; one that leaves `attempts` at 5 fails at once as
   `attempts:exhausted`. With `attempts = 0` the remake uses the row's first seeds, so it

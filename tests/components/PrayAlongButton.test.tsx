@@ -118,6 +118,34 @@ describe("PrayAlongButton", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Stopped.");
   });
 
+  it("says at once, and plainly, when a line of the prayer can never be said", () => {
+    render(<PrayAlongButton target={TARGET} title="Hail Mary" />);
+    screen.getByRole("button", { name: "Pray along: Hail Mary" }).focus();
+    act(() => player.set({ status: "loading", targetId: ID }));
+    expect(screen.getByRole("status")).toHaveTextContent("Preparing the audio…");
+    act(() => player.set({ status: "missing", targetId: ID }));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "This prayer cannot be prayed aloud, because part of its audio could not be made.",
+    );
+    // Nothing is under way: no Stop or speed, and the megaphone keeps focus, named as
+    // before the press.
+    expect(screen.queryByRole("button", { name: /^Stop/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Speed/ })).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Pray along: Hail Mary" }),
+    );
+  });
+
+  it("puts focus back on the megaphone when Stop goes because a line can never be said", () => {
+    render(<PrayAlongButton target={TARGET} title="Hail Mary" />);
+    act(() => player.set({ status: "loading", targetId: ID }));
+    screen.getByRole("button", { name: "Stop praying along: Hail Mary" }).focus();
+    act(() => player.set({ status: "missing", targetId: ID }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Pray along: Hail Mary" }),
+    );
+  });
+
   it("stays quiet when another prayer on the page is the one playing", () => {
     render(<PrayAlongButton target={TARGET} title="Hail Mary" />);
     act(() => player.set({ status: "playing", targetId: "prayer:our-father::" }));
@@ -177,6 +205,7 @@ describe("PrayAlongButton", () => {
       stopped: "Arrêtée.",
       finished: "Terminée.",
       unavailable: "Pas encore prête.",
+      missing: "Impossible de la réciter à voix haute.",
       error: "Lecture impossible.",
       speed: "Vitesse {rate}",
       locale: "fr",

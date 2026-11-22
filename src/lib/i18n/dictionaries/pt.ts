@@ -461,6 +461,8 @@ export const pt: Dict = {
   "prayAlong.status.finished": "Concluído.",
   "prayAlong.status.unavailable":
     "O áudio desta oração ainda não está pronto. Tente novamente daqui a pouco.",
+  "prayAlong.status.missing":
+    "Esta oração não pode ser rezada em voz alta, porque não foi possível preparar uma parte do seu áudio.",
   "prayAlong.status.error": "Não foi possível reproduzir o áudio.",
   "profile.settings.section.audio": "Áudio",
   "profile.settings.section.audio.body": "A voz que reza com você.",

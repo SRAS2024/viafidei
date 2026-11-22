@@ -463,6 +463,8 @@ export const de: Dict = {
   "prayAlong.status.finished": "Zu Ende.",
   "prayAlong.status.unavailable":
     "Das Audio für dieses Gebet ist noch nicht fertig. Bitte versuchen Sie es in Kürze erneut.",
+  "prayAlong.status.missing":
+    "Dieses Gebet kann nicht laut gebetet werden, weil ein Teil des Audios nicht vorbereitet werden konnte.",
   "prayAlong.status.error": "Das Audio konnte nicht abgespielt werden.",
   "profile.settings.section.audio": "Audio",
   "profile.settings.section.audio.body": "Die Stimme, die mit Ihnen betet.",

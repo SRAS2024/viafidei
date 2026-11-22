@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   prisma: {
-    $executeRaw: vi.fn(),
+    $queryRaw: vi.fn(),
     prayerAudioClip: { findMany: vi.fn(), findUnique: vi.fn() },
   },
 }));
@@ -29,7 +29,8 @@ const MADE = new Date("2026-11-21T09:30:00.123Z");
 const REMADE = new Date("2026-11-21T14:05:41.007Z");
 
 beforeEach(() => {
-  db.prisma.$executeRaw.mockReset().mockResolvedValue(1);
+  // fileClipDemand's RETURNING: the rows it filed, none of them failed.
+  db.prisma.$queryRaw.mockReset().mockResolvedValue([]);
   db.prisma.prayerAudioClip.findMany.mockReset().mockResolvedValue([]);
   db.prisma.prayerAudioClip.findUnique.mockReset().mockResolvedValue(null);
 });
@@ -79,9 +80,9 @@ describe("clip versions", () => {
       { type: "clip", key: hail, ready: false, version: null },
       { type: "clip", key: amen, ready: true, version: clipVersion(REMADE) },
     ]);
-    expect(manifest).toMatchObject({ total: 2, ready: 1 });
+    expect(manifest).toMatchObject({ total: 2, ready: 1, missing: 0 });
     // The clip not made yet is filed for the engine, as before.
-    expect(db.prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(db.prisma.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
   it("are read with the audio in one read, so a version is always that of its bytes", async () => {

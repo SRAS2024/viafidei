@@ -458,6 +458,8 @@ export const la: Dict = {
   "prayAlong.status.finished": "Absoluta est.",
   "prayAlong.status.unavailable":
     "Sonus huius orationis nondum paratus est. Paulo post iterum tenta.",
+  "prayAlong.status.missing":
+    "Haec oratio clara voce recitari non potest, quia pars soni eius parari non potuit.",
   "prayAlong.status.error": "Sonus reddi non potuit.",
   "profile.settings.section.audio": "Sonus",
   "profile.settings.section.audio.body": "Vox quae tecum orat.",

@@ -79,7 +79,9 @@ async function listener(): Promise<Listener> {
  *
  * The words come from the published record, never from the request. A clip that is
  * not made yet is filed for the voice engine and listed with ready=false; the player
- * asks again and plays what is ready.
+ * asks again and plays what is ready. A line the listener's voice cannot say is listed
+ * in the other voice (buildManifest), and one neither voice can say with missing=true,
+ * so the player says so at once. Why a clip failed never leaves the server.
  */
 export async function GET(req: NextRequest) {
   const ip = getClientIpOrNull(req);
@@ -132,10 +134,16 @@ export async function GET(req: NextRequest) {
       member,
       total: manifest.total,
       ready: manifest.ready,
+      missing: manifest.missing,
       items: manifest.items.map((item) =>
         item.type === "pause"
           ? item
-          : { type: "clip", url: clipUrl(item.key, item.version), ready: item.ready },
+          : {
+              type: "clip",
+              url: clipUrl(item.key, item.version),
+              ready: item.ready,
+              ...(item.missing ? { missing: true } : {}),
+            },
       ),
     },
     { headers: NO_STORE },

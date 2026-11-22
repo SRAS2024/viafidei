@@ -6,7 +6,10 @@
  * the clips in order, and each pause as a short silent clip rather than a timer, so a
  * phone keeps praying with its screen locked (a backgrounded page's timers stop; its
  * audio does not). A clip the voice engine is still making is waited for, with
- * silence playing meanwhile, and asked for again every few seconds.
+ * silence playing meanwhile, and asked for again every few seconds; time paused is not
+ * counted as time waited. A line that can never be said (the playlist marks it
+ * `missing`, see store.ts buildManifest) means the prayer cannot be prayed in full, so
+ * nothing more plays and the reader is told at once, never after a silent wait.
  *
  * Nothing plays until a person presses a button (no autoplay). The lock screen and
  * headphone controls drive it through the Media Session API. Everything plays at the
@@ -37,6 +40,8 @@ export type PlayerStatus =
   | "finished"
   | "stopped"
   | "unavailable"
+  /** A line of the prayer can never be said, so it cannot be prayed in full. */
+  | "missing"
   | "error";
 
 export interface PlayerState {
@@ -45,7 +50,9 @@ export interface PlayerState {
   targetId: string | null;
 }
 
-type ManifestItem = { type: "clip"; url: string; ready: boolean } | { type: "pause"; ms: number };
+type ManifestItem =
+  | { type: "clip"; url: string; ready: boolean; missing?: boolean }
+  | { type: "pause"; ms: number };
 
 interface Manifest {
   title: string;
@@ -62,10 +69,15 @@ interface Session {
   title: string;
   items: ManifestItem[];
   index: number;
-  /** When the current wait for an unmade clip began (ms), or null. */
+  /**
+   * When the current wait for an unmade clip began (ms), or null. A pause moves it on by
+   * the time paused, so it always measures time spent waiting.
+   */
   waitingSince: number | null;
   lastPoll: number;
   pausedWhile: "playing" | "waiting" | null;
+  /** When the reader paused (ms), or null while not paused. */
+  pausedAt: number | null;
   /** A clip has played: a later wait is for "the next part", the first is "preparing". */
   started: boolean;
 }
@@ -93,7 +105,12 @@ let session: Session | null = null;
 let tokens = 0;
 /** What the element is playing now: a clip, a pause, or the silence of a wait. */
 let playing: "clip" | "pause" | "wait" | null = null;
-/** Load errors in a row: a file that will not load is given up on, never retried in a spin. */
+/**
+ * Load errors in a row: a file that will not load is given up on, never retried in a spin.
+ * Only a clip or pause played to its end clears it, not the silence of a wait, so a clip
+ * the playlist calls ready that will not load (waited for, asked for again, and tried
+ * again) also ends the prayer with a message, instead of a silence without end.
+ */
 let errorsInARow = 0;
 const MAX_ERRORS_IN_A_ROW = 3;
 
@@ -128,6 +145,7 @@ function element(): HTMLAudioElement {
   audio.preservesPitch = true;
   audio.addEventListener("ended", onEnded);
   audio.addEventListener("error", onError);
+  audio.addEventListener("pause", onPausedByDevice);
   applyRate(audio);
   // A new speed takes hold at once, in the middle of a clip too.
   subscribeRate(() => {
@@ -195,10 +213,20 @@ function play(url: string, what: "clip" | "pause" | "wait"): void {
   playing = what;
   el.src = url;
   applyRate(el);
-  void el.play().catch(() => {
+  void el.play().catch((e: unknown) => {
+    if (interrupted(e)) return;
     // A refused play (a browser that lost the press that allowed it) stops cleanly.
     if (session) finish("error");
   });
+}
+
+/**
+ * True for a play() the player itself cut short: a pause, or the next file, while it was
+ * still starting (the browser rejects it with an AbortError). Pressing Pause just as the
+ * wait's silence starts again, or before a clip has loaded, is not a failure.
+ */
+function interrupted(e: unknown): boolean {
+  return (e as { name?: unknown } | null)?.name === "AbortError";
 }
 
 /** Warms the browser's cache with the next clips, so one follows another without a gap. */
@@ -213,6 +241,15 @@ function prefetchAhead(s: Session): void {
   }
 }
 
+/** True when a line from `from` on can never be said: the prayer cannot be prayed in full. */
+function missingFrom(items: readonly ManifestItem[], from: number): boolean {
+  for (let i = Math.max(0, from); i < items.length; i++) {
+    const item = items[i]!;
+    if (item.type === "clip" && item.missing === true) return true;
+  }
+  return false;
+}
+
 function advance(): void {
   const s = session;
   if (!s) return;
@@ -223,6 +260,10 @@ function advance(): void {
   const item = s.items[s.index]!;
   if (item.type === "pause") {
     play(silenceUrl(item.ms), "pause");
+    return;
+  }
+  if (item.missing === true) {
+    finish("missing");
     return;
   }
   if (!item.ready) {
@@ -251,20 +292,49 @@ async function poll(s: Session): Promise<void> {
   const next = await fetchManifest(s.target, s.chosen);
   if (session !== s || typeof next === "string") return;
   // Same script, fresher readiness: keep our place.
-  if (next.items.length === s.items.length) s.items = next.items;
+  if (next.items.length !== s.items.length) return;
+  s.items = next.items;
+  // A line still to come that can now never be said: say so now, not after the wait.
+  if (missingFrom(s.items, s.index)) finish("missing");
 }
 
 function onEnded(): void {
   const s = session;
   if (!s) return;
-  errorsInARow = 0;
   if (playing === "wait") {
     // Still waiting: play the silence again, or go on if the clip is now made.
     advance();
     return;
   }
+  errorsInARow = 0;
   s.index += 1;
   advance();
+}
+
+/**
+ * How long after a "pause" event the player looks again before taking it for the
+ * device's: a file that plays to its end fires "pause" just before "ended", and Chromium
+ * may not count it ended yet when that "pause" is handled.
+ */
+const DEVICE_PAUSE_SETTLE_MS = 300;
+
+/**
+ * The device paused the audio itself (a phone call, Siri, headphones taken out): the
+ * prayer is paused, and says so, so its button offers to resume and the lock screen's
+ * Play works. The player's own pauses are not this: pausePrayAlong has already said
+ * "paused", finish has ended the session, and a file that played to its end has ended,
+ * or the next file is playing, by the time the player looks again.
+ */
+function onPausedByDevice(): void {
+  const s = session;
+  const el = audio;
+  if (!s || !el || state.status === "paused") return;
+  const src = el.src;
+  setTimeout(() => {
+    if (session !== s || audio !== el || el.src !== src || !el.paused || el.ended) return;
+    if (state.status !== "playing" && state.status !== "waiting") return;
+    pausePrayAlong();
+  }, DEVICE_PAUSE_SETTLE_MS);
 }
 
 function onError(): void {
@@ -287,7 +357,7 @@ function onError(): void {
   }
 }
 
-function finish(status: "finished" | "stopped" | "unavailable" | "error"): void {
+function finish(status: "finished" | "stopped" | "unavailable" | "missing" | "error"): void {
   const el = audio;
   session = null;
   playing = null;
@@ -328,6 +398,12 @@ export async function startPrayAlong(
     { member: manifest.member === true, rate: manifest.rate ?? null },
     changesAtRequest,
   );
+  // A line that can never be said: the prayer cannot be prayed in full, so none of it
+  // is played, and the reader hears why at once.
+  if (missingFrom(manifest.items, 0)) {
+    finish("missing");
+    return;
+  }
   session = {
     token,
     target,
@@ -338,12 +414,14 @@ export async function startPrayAlong(
     waitingSince: null,
     lastPoll: Date.now(),
     pausedWhile: null,
+    pausedAt: null,
     started: false,
   };
   setMediaSession(session.title);
   setPlaybackState("playing");
   // The short silence may still be playing: its end advances to the first item.
-  if (el.ended || el.paused) advance();
+  // Or it already ended, or would not load (its error came before there was a session).
+  if (el.ended || el.paused || el.error) advance();
   else {
     playing = "pause";
     session.index = -1;
@@ -354,9 +432,11 @@ export function pausePrayAlong(): void {
   const s = session;
   if (!s || (state.status !== "playing" && state.status !== "waiting")) return;
   s.pausedWhile = state.status === "waiting" ? "waiting" : "playing";
+  s.pausedAt = Date.now();
+  // Said first, so the element's own "pause" event finds the prayer paused already.
+  setState({ status: "paused", targetId: state.targetId });
   element().pause();
   setPlaybackState("paused");
-  setState({ status: "paused", targetId: state.targetId });
 }
 
 export function resumePrayAlong(): void {
@@ -364,11 +444,20 @@ export function resumePrayAlong(): void {
   if (!s || state.status !== "paused") return;
   const back = s.pausedWhile === "waiting" ? "waiting" : "playing";
   s.pausedWhile = null;
+  // Time paused is not time waited: a wait for a clip still being made goes on from
+  // where it stood, so a long pause does not end the prayer as "not ready".
+  if (s.pausedAt != null && s.waitingSince != null) {
+    s.waitingSince += Math.max(0, Date.now() - s.pausedAt);
+  }
+  s.pausedAt = null;
   setState({ status: back, targetId: state.targetId });
   setPlaybackState("playing");
   void element()
     .play()
-    .catch(() => finish("error"));
+    .catch((e: unknown) => {
+      // Paused again before it started: not a failure.
+      if (!interrupted(e) && session === s) finish("error");
+    });
 }
 
 export function stopPrayAlong(): void {

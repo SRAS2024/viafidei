@@ -460,6 +460,8 @@ export const tl: Dict = {
   "prayAlong.status.finished": "Tapos na.",
   "prayAlong.status.unavailable":
     "Hindi pa handa ang audio ng panalanging ito. Pakisubukang muli mamaya.",
+  "prayAlong.status.missing":
+    "Hindi maaaring dasalin nang malakas ang panalanging ito, dahil hindi naihanda ang isang bahagi ng audio nito.",
   "prayAlong.status.error": "Hindi ma-play ang audio.",
   "profile.settings.section.audio": "Audio",
   "profile.settings.section.audio.body": "Ang tinig na nananalanging kasama mo.",

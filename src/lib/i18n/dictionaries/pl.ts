@@ -467,6 +467,8 @@ export const pl: Dict = {
   "prayAlong.status.finished": "Zakończono.",
   "prayAlong.status.unavailable":
     "Nagranie tej modlitwy nie jest jeszcze gotowe. Spróbuj ponownie za chwilę.",
+  "prayAlong.status.missing":
+    "Tej modlitwy nie można odmówić na głos, ponieważ nie udało się przygotować części jej nagrania.",
   "prayAlong.status.error": "Nie udało się odtworzyć nagrania.",
   "profile.settings.section.audio": "Dźwięk",
   "profile.settings.section.audio.body": "Głos, który modli się razem z Tobą.",

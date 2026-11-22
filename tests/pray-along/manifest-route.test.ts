@@ -55,6 +55,7 @@ beforeEach(() => {
     voice,
     total: 2,
     ready: 1,
+    missing: 0,
     items: [
       { type: "clip", key: "c".repeat(40), ready: true, version: "mwq7iszf" },
       { type: "pause", ms: 1100 },
@@ -127,6 +128,41 @@ describe("/api/pray-along", () => {
     expect(remade).toEqual([`${C}?v=mwqhdc0f`, `${D}?v=mwqi0k3a`]);
     // The browser tests (e2e/) find the clips by this part of the URL.
     for (const url of remade) expect(url).toContain("/api/pray-along/clip/");
+  });
+
+  it("marks a line no voice can say as missing, and nothing of why leaves the server", async () => {
+    store.buildManifest.mockResolvedValueOnce({
+      lang: "la",
+      voice: "female",
+      total: 2,
+      ready: 1,
+      missing: 1,
+      items: [
+        { type: "clip", key: "c".repeat(40), ready: true, version: "mwq7iszf" },
+        { type: "pause", ms: 1100 },
+        { type: "clip", key: "d".repeat(40), ready: false, version: null, missing: true },
+      ],
+    });
+    const body = await (await ask("kind=prayer&slug=memorare&chosen=la")).json();
+    // Only the missing line says so; the player needs no more to tell the reader at once.
+    expect(body.items).toEqual([
+      { type: "clip", url: `/api/pray-along/clip/${"c".repeat(40)}?v=mwq7iszf`, ready: true },
+      { type: "pause", ms: 1100 },
+      { type: "clip", url: `/api/pray-along/clip/${"d".repeat(40)}`, ready: false, missing: true },
+    ]);
+    expect(body).toMatchObject({ total: 2, ready: 1, missing: 1 });
+    // No error text, attempt count or claim: the playlist's fields are these and no more.
+    expect(Object.keys(body).sort()).toEqual([
+      "items",
+      "lang",
+      "member",
+      "missing",
+      "rate",
+      "ready",
+      "title",
+      "total",
+      "voice",
+    ]);
   });
 
   it("uses the female voice for a signed-out visitor and a member's own choice otherwise", async () => {

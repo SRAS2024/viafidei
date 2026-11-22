@@ -60,7 +60,24 @@ afresh, while an unchanged clip stays cached for good.
    priority. It checks every take with a speech recogniser against the words, keeps the
    best of several, and stores AAC audio.
 3. The player waits for a clip being made (with silence playing, so a locked phone keeps
-   going) and asks again every few seconds.
+   going) and asks again every few seconds, for up to two minutes of waiting (time paused
+   does not count), then says the audio is not ready yet.
+4. A line the listener's voice has failed for good is said in the other voice, so the
+   prayer is still prayed in full: that clip plays if it is made, and is filed for the
+   engine to make first, at the failed line's place, if it is not. The failed clip
+   itself gets one more attempt when a listener asks for it a day or more after it
+   failed (`store.ts` RENEW_FAILED_AFTER_MS), so a fix to the engine reaches it without
+   anyone resetting it, and a clip that can never pass costs one attempt a day at most
+   (a claim's seeds come from its key and attempt number alone, so without an engine
+   change more attempts would only repeat failed takes). While a failed line is being
+   made again (that attempt, or a retry after a failed take), the other voice's clip
+   plays if it is made; if not, the player waits for the retry, as for any clip being
+   made.
+5. A line neither voice can say is marked `missing` in the playlist (nothing of why
+   leaves the server). The player then plays none of the prayer and says at once "This
+   prayer cannot be prayed aloud, because part of its audio could not be made.", or, if
+   that is learnt while waiting, stops there with the same words: never a partial prayer,
+   never two silent minutes ending in "not ready yet".
 
 `npm run voice:plan` files every clip the site will need so the engine makes them before
 anyone presses play (the Sign of the Cross and the Rosary's prayers first, then prayers in
@@ -112,8 +129,10 @@ takes all failed borrowing a good take of another with the very same words (the 
 two halves), and that is kept if it judges better, no sentence failed its own check and,
 when a whole take was usable already, its words are better. When every sentence passed on its own, the joined clip's words count as heard,
 since the recogniser collapses a litany's repeated lines on a whole clip. An engine change never reaches
-clips already made (their keys do not change), nor failed ones out of attempts: reset those
-rows by hand, as the engine's README describes under the worker. Once made again, a clip's
+clips already made (their keys do not change): reset those rows by hand, as the engine's
+README describes under the worker. A failed one gets one more attempt by itself a day after
+it failed, when a listener asks for it (above); reset it by hand only to retry it sooner.
+Once made again, a clip's
 new audio reaches every listener from their next press, since each playlist names its version.
 
 ## Accessibility
@@ -122,7 +141,11 @@ A real button named for what it will do ("Pray along: Hail Mary", then "Pause pr
 along: …", "Resume praying along: …"), a Stop button beside it while a prayer is under
 way, and right of Stop the speed ("Speed 1x", "Speed 1.25x", "Speed 1.5x"), every change
 said in a polite status region ("Preparing the audio…", "Paused.", "Speed 1.25x",
-"Finished."), focus returned to the megaphone when Stop and the speed go, never
+"Finished.", and at once, for a prayer with a line that can never be said, why it cannot
+be prayed aloud), focus returned to the megaphone when Stop and the speed go, never
 `disabled`, keyboard operable, lock-screen and headphone controls through the Media Session API, and a small
 level meter that moves only for readers who have not asked for reduced motion. A prayer
-whose button leaves the page (the reader navigates away or folds its day) stops.
+whose button leaves the page (the reader navigates away or folds its day) stops. A pause
+the device makes itself (a phone call, Siri, headphones taken out) is a pause like the
+reader's own: "Paused." is said, the button offers to resume, and the lock screen's Play
+resumes it.
