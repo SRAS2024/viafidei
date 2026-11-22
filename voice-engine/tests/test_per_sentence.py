@@ -27,6 +27,7 @@ from engine import (
     failed_on_words,
     join_sentences,
     sentence_seed,
+    sentence_spans,
     split_sentences,
     stable_seed,
     verified_words,
@@ -180,6 +181,52 @@ def test_a_single_sentence_clip_has_no_sentences_to_say_apart():
     eng = Engine()
     spec = eng.spec(EN_FEMALE)
     assert eng.sentences(spec, "Ave, Ave, Ave, Maria!", "en") == []
+
+
+# The Spanish clip the female voice failed in 4 of 4 takes on 2026-11-21: one sentence, and the
+# voice dropped "rezo por todos los prisioneros;" every time.
+LONG_ES = (
+    "Te ruego que bendigas y prosperes todas las buenas obras y esfuerzos de todos los sacerdotes, "
+    "religiosos y piadosos católicos; rezo por todos los enfermos, todos los que sufren, todos los "
+    "pobres, todos los oprimidos; rezo por todos los prisioneros; rezo por todos los malhechores."
+)
+
+
+def test_a_long_sentence_is_cut_at_its_clauses_only_when_clauses_are_asked_for():
+    assert split_sentences(LONG_ES, "es") == [LONG_ES]
+    clauses = [LONG_ES[a:b] for a, b in sentence_spans(LONG_ES, "es", clauses=True)]
+    assert clauses == [
+        "Te ruego que bendigas y prosperes todas las buenas obras y esfuerzos de todos los sacerdotes, "
+        "religiosos y piadosos católicos;",
+        "rezo por todos los enfermos, todos los que sufren, todos los pobres, todos los oprimidos;",
+        "rezo por todos los prisioneros;",
+        "rezo por todos los malhechores.",
+    ]
+
+
+def test_each_language_s_own_clause_mark():
+    # Greek: ";" is its question mark, a sentence's end either way; the raised dot is its semicolon.
+    assert split_sentences("Τί θέλεις; Ἐγώ εἰμι.", "el") == ["Τί θέλεις;", "Ἐγώ εἰμι."]
+    greek = "Ἅγιος ὁ Θεός· ἅγιος ἰσχυρός."
+    assert split_sentences(greek, "el") == [greek]
+    assert [greek[a:b] for a, b in sentence_spans(greek, "el", clauses=True)] == ["Ἅγιος ὁ Θεός·", "ἅγιος ἰσχυρός."]
+    # Chinese: the full-width semicolon, with no space after it.
+    zh = "主啊，求你垂怜；基督，求你垂怜。"
+    assert [zh[a:b] for a, b in sentence_spans(zh, "zh", clauses=True)] == ["主啊，求你垂怜；", "基督，求你垂怜。"]
+    # A semicolon with no space after it is no clause's end; English stays whole unless asked.
+    assert [t for t in (lambda x: [x[a:b] for a, b in sentence_spans(x, "en", clauses=True)])("a;b and c; d.")] == ["a;b and c;", "d."]
+    assert split_sentences("Lord, have mercy; Christ, have mercy.", "en") == ["Lord, have mercy; Christ, have mercy."]
+
+
+def test_a_one_sentence_clip_is_given_its_clauses_to_say_apart():
+    eng = Engine()
+    es = eng.spec("qwen3-tts-1.7b-base:lock:es-female-v1")
+    parts = eng.sentences(es, LONG_ES, "es")
+    assert [s for s, _ in parts][2:] == ["rezo por todos los prisioneros;", "rezo por todos los malhechores."]
+    assert len(parts) == 4
+    # A clip of several sentences is still said by its sentences, not its clauses.
+    two = "Lord, have mercy; Christ, have mercy. Amen."
+    assert [s for s, _ in eng.sentences(eng.spec(EN_FEMALE), two, "en")] == ["Lord, have mercy; Christ, have mercy.", "Amen."]
 
 
 # --------------------------------------------------------------------------- #
@@ -480,6 +527,19 @@ def test_runs_when_the_whole_takes_had_their_words_only_marginal(monkeypatch, wh
 def test_not_for_a_clip_of_one_sentence(monkeypatch):
     clip, eng, _ = run(monkeypatch, {HALF: WORDS4}, text=HALF)
     assert len(eng.calls) == 4 and clip.joined is None
+
+
+def test_a_one_sentence_clip_whose_takes_drop_words_is_said_a_clause_at_a_time(monkeypatch):
+    text = "Lord, have mercy on us; Christ, have mercy on us; Lord, have mercy on us."
+    script = {
+        text: WORDS4 + [("pass", 2.0)],
+        "Lord, have mercy on us;": [("pass", 1.0)],
+        "Christ, have mercy on us;": [("pass", 1.0)],
+        "Lord, have mercy on us.": [("pass", 1.0)],
+    }
+    clip, _, _ = run(monkeypatch, script, text=text)
+    assert [len(ts) for ts in clip.sentence_takes] == [1, 1, 1]
+    assert clip.per_sentence and clip.status == "done"
 
 
 def test_not_for_kokoro(monkeypatch):

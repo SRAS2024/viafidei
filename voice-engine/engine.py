@@ -521,6 +521,12 @@ class Engine:
         one after it."""
         spans = sentence_spans(text, lang)
         if len(spans) < 2:
+            # One long sentence: its clauses. The female Spanish voice dropped the same clause of
+            # "…; rezo por todos los enfermos, …; rezo por todos los prisioneros; rezo por todos
+            # los malhechores." in 4 of 4 takes (2026-11-21), a repeated phrase skipped as a
+            # repeated word is; said a clause at a time, each clause is heard on its own.
+            spans = sentence_spans(text, lang, clauses=True)
+        if len(spans) < 2:
             return []
 
         def words(a: int, b: int) -> str:  # the text of sentences a..b-1
@@ -843,8 +849,12 @@ SENTENCE_ABBREVIATIONS = frozenset({
     "św", "Św", "bł", "Bł", "hl", "Hl",
 })
 
-_SENTENCE_MARK = re.compile(r"[.!?;…。！？][\"'”’»)\]]*")  # a mark, with the quotes or brackets it closes
+_SENTENCE_MARK = re.compile(r"[.!?;…。！？；·\u0387][\"'”’»)\]]*")  # a mark, with the quotes or brackets it closes
 _CJK_ENDS = frozenset("。！？")  # end a sentence wherever they stand
+# Where a clause ends inside one long sentence: the semicolon (in Greek the raised dot, its own
+# semicolon, as its ";" is a question mark), and the full-width one of Chinese.
+_CLAUSE_MARKS = {"el": frozenset("·\u0387")}
+_CLAUSE_MARKS_DEFAULT = frozenset(";；")
 _OPENERS = re.compile(r"^[\"'“‘«(\[*‖\s]+")  # what may stand before a sentence's first letter
 _LAST_WORD = re.compile(r"[^\s(\"“‘'\[]*$")  # the word just before a mark
 # A Roman numeral as normalize.py reads one (I to XXXIX): "II. We offer", "Pius XII.".
@@ -868,14 +878,16 @@ def _ends_no_sentence(before: str) -> bool:
     return word[-1:].isdigit() or bool(_ROMAN_NUMERAL.fullmatch(word))
 
 
-def sentence_spans(text: str, lang: str) -> list[tuple[int, int]]:
+def sentence_spans(text: str, lang: str, clauses: bool = False) -> list[tuple[int, int]]:
     """Where each sentence of `text` starts and ends ([start, end) in `text`, spaces outside).
     The cuts are the website's (speech-text.ts splitSentences), which packed whole sentences
     into the clip: after . ! ? … (and ; in Greek, its question mark) where a new sentence opens,
     that is before anything but a small letter ("O Mary! which you exhibited" is one sentence),
     never after an abbreviation; and after 。！？ wherever they stand. Unlike the website's, a full
     stop after a number, a Roman numeral or a single capital of any alphabet ("Ρ.") never cuts,
-    nor one after the Polish and German abbreviations (_ends_no_sentence)."""
+    nor one after the Polish and German abbreviations (_ends_no_sentence). With `clauses`, a
+    clause's end cuts too (_CLAUSE_MARKS), before a small letter as well: the semicolons of one
+    long sentence."""
     spans: list[tuple[int, int]] = []
     start = 0
 
@@ -885,8 +897,17 @@ def sentence_spans(text: str, lang: str) -> list[tuple[int, int]]:
             lead = len(piece) - len(piece.lstrip())
             spans.append((a + lead, a + len(piece.rstrip())))
 
+    clause_marks = _CLAUSE_MARKS.get(lang, _CLAUSE_MARKS_DEFAULT)
     for m in _SENTENCE_MARK.finditer(text):
         mark, at, end = m.group(0)[0], m.start(), m.end()
+        if mark in clause_marks or mark in "；·\u0387":
+            # A clause's end: a cut only when clauses are asked for, and where a space follows
+            # (none after the full-width semicolon); the clause after it may open small.
+            if not clauses or mark not in clause_marks or (mark != "；" and text[end:end + 1] not in ("", " ", "\n")):
+                continue
+            add(start, end)
+            start = end
+            continue
         if mark not in _CJK_ENDS:
             rest = text[end:]
             if mark == ";" and lang != "el":
