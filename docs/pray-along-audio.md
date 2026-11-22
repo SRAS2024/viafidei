@@ -122,7 +122,7 @@ prayer says three times running ("Ave, Ave, Ave", "Holy, holy, holy") must be he
 times, however small the error rate: one Ave dropped from a verse used to pass. A copy
 counts when the recogniser wrote a word for it (also spelled otherwise, "Jesús" for "Jesu",
 or joined to the next word), never for letters alone: two drawn-out Aves heard as "Eveveve,
-eveve" are two. A clip none of whose takes said its words right (Qwen3-TTS and VoxCPM2
+eveve" are two. A clip none of whose takes is right (its words wrong, or failed outright, e.g. far too slow; Qwen3-TTS and VoxCPM2
 voices: words dropped or garbled, as in the refrain "Ave, Ave, Ave, Maria!", or a little
 off, as a litany missing a sentence) is said again a sentence at a time, a sentence whose
 takes all failed borrowing a good take of another with the very same words (the refrain's

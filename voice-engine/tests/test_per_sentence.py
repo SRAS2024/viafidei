@@ -416,11 +416,12 @@ def test_a_take_failed_on_a_tail_or_a_silence_alone_did_not_get_its_words_wrong(
     q = make(monkeypatch)
     assert q.verdict == "fail" and q.reasons == [reason] and q.retake
     assert not q.words_failed and not q.words_marginal and not words_wrong(q)
-    # Four such takes: the clip is not said again a sentence at a time.
+    # Four such takes fail outright, so the clip is said again a sentence at a time; here every
+    # sentence fails the same way, so the join is not kept and the clip stays failed.
     monkeypatch.setattr(qa, "evaluate", lambda *a, **k: q)
     eng = FakeEngine()
     clip = eng.make_clip("qwen", TWO, "en", seed_key=KEY, encode=False)
-    assert len(eng.calls) == 4 and clip.joined is None and clip.status == "failed"
+    assert len(eng.calls) > 4 and clip.joined is not None and not clip.per_sentence and clip.status == "failed"
 
 
 EL_TEXT = ("Ἅγιος ὁ Θεός, ἅγιος ἰσχυρός, ἅγιος ἀθάνατος, ἐλέησον ἡμᾶς. Δόξα Πατρὶ καὶ Υἱῷ καὶ Ἁγίῳ Πνεύματι, "
@@ -497,15 +498,28 @@ def test_a_failure_on_syllables_counts_as_one_on_words(monkeypatch):
 @pytest.mark.parametrize(
     "whole",
     [
-        [("words", 112.0), ("pace", 105.0), ("words", 113.0), ("words", 114.0)],  # one failed on pace alone
         [("marginal-words", 15.0), ("marginal-pace", 12.0), ("marginal-words", 16.0), ("marginal-words", 17.0)],
-        [("pace", 105.0)] * 4,
         [("marginal-pace", 12.0)] * 4,  # usable takes, their words right
     ],
 )
-def test_not_unless_no_whole_take_said_its_words_right(monkeypatch, whole):
+def test_not_while_a_whole_take_is_right_and_usable(monkeypatch, whole):
     clip, eng, _ = run(monkeypatch, {TWO: whole})
     assert len(eng.calls) == 4 and clip.joined is None and not clip.per_sentence
+
+
+@pytest.mark.parametrize(
+    "whole",
+    [
+        [("pace", 105.0)] * 4,  # the male voice's litany opening: every word right, far too slow
+        [("words", 112.0), ("pace", 105.0), ("words", 113.0), ("words", 114.0)],  # one failed on pace alone
+        [("tail", 104.0)] * 4,  # each ran on into an untranscribed tail
+    ],
+)
+def test_runs_when_every_whole_take_failed_whatever_on(monkeypatch, whole):
+    script = {TWO: whole + [("pass", 2.0)], "Hail Mary, full of grace.": [("pass", 1.0)],
+              "The Lord is with thee.": [("pass", 1.0)]}
+    clip, _, _ = run(monkeypatch, script)
+    assert clip.per_sentence and clip.status == "done"
 
 
 @pytest.mark.parametrize(

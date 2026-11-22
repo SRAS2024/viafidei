@@ -113,7 +113,7 @@ What a row gets: `audio` (AAC-LC in MP4, faststart, mono, 24 kHz, ~48 kbps), `mi
 6. When no take said its words right (each failed on them, `QAResult.words_failed`: a
    character or syllable error over the marginal limit, a word of a run said fewer
    times, or nothing heard; or had them only marginal, `words_marginal`: an error
-   between the pass and marginal lines; not pace, silences or a tail alone) and the
+   between the pass and marginal lines; or failed outright on pace, a silence or a tail) and the
    voice is Qwen3-TTS or VoxCPM2, a clip of two or more sentences is said again a
    sentence at a time (`engine.py` say_by_sentence). The sentences are cut where the
    website cut them (`speech-text.ts` splitSentences), never after an abbreviation or a

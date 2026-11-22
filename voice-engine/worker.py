@@ -17,8 +17,8 @@ first, then the lowest priority = earliest in the prayer), then background rows 
 priority. One row at a time is claimed with SELECT ... FOR UPDATE SKIP LOCKED, skipping
 rows another worker claimed in the last 10 minutes; a claim sets claimedAt/claimedBy
 and counts an attempt. Each clip is spoken in up to 4 takes, each checked by qa.py;
-the best take is stored as AAC (.m4a). When no take of a Qwen3-TTS or VoxCPM2 clip said
-its words right, a clip of two or more sentences is said again a sentence at a time and
+the best take is stored as AAC (.m4a). When no take of a Qwen3-TTS or VoxCPM2 clip is
+right (its words wrong, or failed outright), a clip of two or more sentences is said again a sentence at a time and
 joined, and that is stored instead when it judges better under the rules of engine.py
 say_by_sentence (two "per sentence" warnings in the log). A pass is 'done'; a marginal
 best take is 'done' with lastError 'qa:marginal:<cer>:...'; a clearly broken one is 'failed'. A

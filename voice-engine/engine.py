@@ -448,11 +448,11 @@ class Engine:
         encode: bool = True,
     ) -> Clip:
         """The clip in up to `takes` takes of the whole text, each checked by qa.py, the best kept
-        (stopping at the first that needs no other). When no take said its words right (each
-        failed on them or had them only marginal: words_wrong) and the voice is Qwen3-TTS or
-        VoxCPM2, the clip is said again a sentence at a time, and that is kept if it judges
-        better and no sentence of it failed its own check, with better words too when the best
-        whole take was usable (say_by_sentence)."""
+        (stopping at the first that needs no other). When no take is right (each failed on its
+        words, had them only marginal: words_wrong, or failed outright, on pace, a silence or a
+        tail) and the voice is Qwen3-TTS or VoxCPM2, the clip is said again a sentence at a time,
+        and that is kept if it judges better and no sentence of it failed its own check, with
+        better words too when the best whole take was usable (say_by_sentence)."""
         spec = spec or self.spec(voice_id)
         if spec.get("lang") and spec["lang"] != lang:
             raise ValueError(f"voice {voice_id} speaks {spec['lang']}, not {lang}")
@@ -468,7 +468,14 @@ class Engine:
             takes=all_takes,
             engine_label=engine_label(spec),
         )
-        if spec["kind"] in SENTENCE_FALLBACK_KINDS and all(words_wrong(t.qa) for t in all_takes):
+        # Said a sentence at a time when no whole take is right: its words wrong, or failed outright
+        # for any reason. The male English voice read an eight-line litany opening ("Lord, have
+        # mercy on us. Lord, have mercy on us. Christ, …") word-perfect but at 0.43-0.45 of its own
+        # pace in 4 of 4 takes, its pauses swelling to 0.4-2.3 s (2026-11-22); said a sentence at a
+        # time, every sentence passed and the join, with the voice's own sentence pause, was usable.
+        if spec["kind"] in SENTENCE_FALLBACK_KINDS and all(
+            words_wrong(t.qa) or t.qa.verdict == "fail" for t in all_takes
+        ):
             sentences = self.sentences(spec, text, lang)
             if len(sentences) >= 2:
                 self.say_by_sentence(clip, spec, sentences, base_seed, takes, stop_on_pass)
